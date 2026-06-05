@@ -1,26 +1,48 @@
 @import "tailwindcss";
 
+@theme inline {
+  /* Colours */
+  --color-white: #ffffff;
+  --color-black: #000000;
+  --color-burnt-orange: #CC5500;
+  --color-grey-50: #fafafa;
+  --color-grey-100: #f4f4f4;
+  --color-grey-200: #e8e8e8;
+  --color-grey-300: #d0d0d0;
+  --color-grey-400: #a0a0a0;
+  --color-grey-500: #707070;
+  --color-grey-600: #505050;
+  --color-grey-700: #303030;
+  --color-grey-800: #1a1a1a;
+  --color-grey-900: #0d0d0d;
+
+  /* Fonts */
+  --font-editorial: var(--font-shippori), "Georgia", serif;
+  --font-mono: var(--font-dm-mono), "Courier New", monospace;
+  --font-script: var(--font-caveat), "cursive";
+
+  /* Spacing extras */
+  --spacing-18: 4.5rem;
+  --spacing-22: 5.5rem;
+  --spacing-26: 6.5rem;
+}
+
 :root {
   --background: #ffffff;
-  --foreground: #171717;
-}
-
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+  --foreground: #000000;
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-dm-mono), "Courier New", monospace;
+}
+
+h1, h2, h3, h4, h5, h6 {
+  font-family: var(--font-shippori), "Georgia", serif;
+}
+
+/* Avatar upload hover overlay */
+button:hover .avatar-overlay {
+  opacity: 1 !important;
 }
