@@ -458,199 +458,184 @@ export default function ListsClient({
         </div>
       </div>
 
-      {/* ── Two-column grid: left (flex 1) + right Discover (320px) ── */}
-      <div style={{ flex: 1, display: "grid", gridTemplateColumns: "1fr 320px", overflow: "hidden", minHeight: 0 }}>
+      {/* ── Two-column grid: left (flex 1) + right Discover (420px) ── */}
+      <div style={{ flex: 1, display: "grid", gridTemplateColumns: "1fr 420px", overflow: "hidden", minHeight: 0 }}>
 
-        {/* LEFT — flex column: list+search row + covers strip */}
+        {/* LEFT — flex column: list detail + search panel */}
         <div style={{ display: "flex", flexDirection: "column", borderRight: "1px solid rgba(0,0,0,0.08)", overflow: "hidden" }}>
           {selectedList ? (
             <>
-              {/* List + Search — 1fr 1fr grid */}
-              <div style={{ flex: 1, display: "grid", gridTemplateColumns: "1fr 1fr", overflow: "hidden", minHeight: 0 }}>
-
-                {/* Left col: list detail */}
-                <div style={{ padding: "24px 28px 20px", borderRight: "1px solid rgba(0,0,0,0.08)", overflowY: "auto" }}>
-                  <p style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.12em", textTransform: "uppercase", color: ORANGE, marginBottom: "10px" }}>
-                    リスト · {selectedList.is_public ? "Public List" : "Private List"}
+              {/* List detail — full width, scrollable */}
+              <div style={{ flex: 1, padding: "24px 28px 20px", overflowY: "auto", minHeight: 0 }}>
+                <p style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.12em", textTransform: "uppercase", color: ORANGE, marginBottom: "10px" }}>
+                  リスト · {selectedList.is_public ? "Public List" : "Private List"}
+                </p>
+                <h2 style={{ fontFamily: SERIF, fontSize: "20px", fontWeight: 400, color: "#0d0d0d", lineHeight: 1.15, marginBottom: "5px" }}>
+                  {selectedList.title}
+                </h2>
+                {LIST_SUBTITLES[selectedList.title] && (
+                  <p style={{ fontFamily: MONO, fontStyle: "italic", fontSize: "11px", color: "#aaaaaa", lineHeight: 1.5, marginBottom: "20px", letterSpacing: "0.02em" }}>
+                    {LIST_SUBTITLES[selectedList.title]}
                   </p>
-                  <h2 style={{ fontFamily: SERIF, fontSize: "20px", fontWeight: 400, color: "#0d0d0d", lineHeight: 1.15, marginBottom: "5px" }}>
-                    {selectedList.title}
-                  </h2>
-                  {LIST_SUBTITLES[selectedList.title] && (
-                    <p style={{ fontFamily: MONO, fontStyle: "italic", fontSize: "11px", color: "#aaaaaa", lineHeight: 1.5, marginBottom: "20px", letterSpacing: "0.02em" }}>
-                      {LIST_SUBTITLES[selectedList.title]}
-                    </p>
-                  )}
+                )}
 
-                  <div style={{ marginBottom: "20px" }}>
-                    {selectedList.list_type === "top5" ? (
-                      [1, 2, 3, 4, 5].map(pos => {
-                        const slot = selectedList.slots.find(s => s.position === pos);
-                        const isActive = picker?.listId === selectedList.id && "position" in picker && picker.position === pos;
-                        return (
-                          <TracklistRow
-                            key={pos}
-                            position={pos}
-                            item={slot?.item ?? null}
-                            isSaving={saving === `${selectedList.id}-${pos}`}
-                            isPickerOpen={isActive}
-                            onOpen={() => openPicker({ listId: selectedList.id, position: pos, strategy: "replace" })}
-                            onRemove={() => handleRemoveItem(selectedList.id, pos)}
-                          />
-                        );
-                      })
-                    ) : (
-                      <>
-                        {selectedList.slots.map(slot => (
-                          <PersonalRow key={slot.position} slot={slot} onRemove={() => handleRemoveItem(selectedList.id, slot.position)} />
-                        ))}
-                        {selectedList.slots.length < 20 && (
-                          <button
-                            onClick={() => openPicker({ listId: selectedList.id, strategy: "append" })}
-                            style={{ fontFamily: SERIF, fontStyle: "italic", fontSize: "12px", color: "#cccccc", background: "none", border: "none", cursor: "pointer", padding: "8px 0", display: "block" }}
-                          >
-                            + Add a record
-                          </button>
-                        )}
-                      </>
-                    )}
-                  </div>
-
-                  {/* Footer */}
-                  <div style={{ display: "flex", alignItems: "center", gap: "10px", paddingTop: "14px", borderTop: "1px solid rgba(0,0,0,0.06)", flexWrap: "wrap" }}>
-                    {selectedList.list_type === "top5" && (
-                      <button
-                        onClick={() => handleShare(selectedList)}
-                        style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.1em", textTransform: "uppercase", color: "#ffffff", background: ORANGE, border: "none", cursor: "pointer", padding: "6px 12px" }}
-                      >
-                        Share ↗
-                      </button>
-                    )}
-                    <button
-                      onClick={() => handleTogglePublic(selectedList.id)}
-                      style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.1em", textTransform: "uppercase", background: "none", border: "1px solid rgba(0,0,0,0.18)", cursor: "pointer", padding: "5px 10px", color: selectedList.is_public ? "#555555" : "#aaaaaa" }}
-                    >
-                      {selectedList.is_public ? "Public" : "Private"}
-                    </button>
-                    <button
-                      onClick={() => handleDeleteList(selectedList.id)}
-                      style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.1em", textTransform: "uppercase", background: "none", border: "none", cursor: "pointer", padding: 0, color: "#cccccc" }}
-                    >
-                      Delete
-                    </button>
-                  </div>
-                </div>
-
-                {/* Right col: search picker */}
-                <div ref={pickerRef} style={{ padding: "20px 24px", overflowY: "auto" }}>
-                  {picker?.listId === selectedList.id ? (
+                <div style={{ marginBottom: "20px" }}>
+                  {selectedList.list_type === "top5" ? (
+                    [1, 2, 3, 4, 5].map(pos => {
+                      const slot = selectedList.slots.find(s => s.position === pos);
+                      const isActive = picker?.listId === selectedList.id && "position" in picker && picker.position === pos;
+                      return (
+                        <TracklistRow
+                          key={pos}
+                          position={pos}
+                          item={slot?.item ?? null}
+                          isSaving={saving === `${selectedList.id}-${pos}`}
+                          isPickerOpen={isActive}
+                          onOpen={() => openPicker({ listId: selectedList.id, position: pos, strategy: "replace" })}
+                          onRemove={() => handleRemoveItem(selectedList.id, pos)}
+                        />
+                      );
+                    })
+                  ) : (
                     <>
-                      <p style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.1em", textTransform: "uppercase", color: "#aaaaaa", marginBottom: "14px" }}>
-                        {"position" in picker ? `Add to slot ${picker.position}` : "Add to list"}
-                      </p>
-
-                      {/* Tabs */}
-                      <div style={{ display: "flex", gap: "20px", borderBottom: "1px solid rgba(0,0,0,0.08)", marginBottom: "14px" }}>
-                        {([
-                          { key: "collection" as PickerTab, label: "My Collection" },
-                          { key: "discogs"    as PickerTab, label: "Discogs" },
-                          { key: "songs"      as PickerTab, label: "Song" },
-                        ]).map(({ key, label }) => (
-                          <button key={key}
-                            onClick={() => { setPickerTab(key); setPickerSearch(""); setCollectionResults([]); setDiscogsResults([]); }}
-                            style={{
-                              fontFamily: MONO, fontSize: "9px", letterSpacing: "0.08em",
-                              color: pickerTab === key ? "#0d0d0d" : "#aaaaaa",
-                              background: "none", border: "none",
-                              borderBottom: `2px solid ${pickerTab === key ? "#0d0d0d" : "transparent"}`,
-                              cursor: "pointer", padding: "0 0 8px", marginBottom: "-1px",
-                              transition: "color 0.15s",
-                            }}
-                          >
-                            {label}
-                          </button>
-                        ))}
-                      </div>
-
-                      <input
-                        type="text"
-                        value={pickerSearch}
-                        onChange={e => setPickerSearch(e.target.value)}
-                        placeholder={
-                          pickerTab === "collection" ? "Search your collection…" :
-                          pickerTab === "songs"      ? "Search by song title…" :
-                                                       "Search Discogs…"
-                        }
-                        autoComplete="off"
-                        style={{
-                          width: "100%", boxSizing: "border-box",
-                          fontFamily: MONO, fontSize: "12px", letterSpacing: "0.02em",
-                          color: "#0d0d0d", background: "transparent",
-                          border: "none", borderBottom: "1px solid rgba(0,0,0,0.12)",
-                          outline: "none", padding: "0 0 8px", marginBottom: "14px",
-                        }}
-                      />
-
-                      {pickerTab === "collection" && (
-                        !pickerSearch.trim() ? (
-                          <p style={{ fontFamily: MONO, fontSize: "10px", color: "#cccccc", letterSpacing: "0.04em" }}>Type to search your collection.</p>
-                        ) : collectionSearching ? (
-                          <p style={{ fontFamily: MONO, fontSize: "10px", color: "#aaaaaa", letterSpacing: "0.1em", textTransform: "uppercase" }}>Searching…</p>
-                        ) : collectionResults.length === 0 ? (
-                          <p style={{ fontFamily: MONO, fontSize: "10px", color: "#aaaaaa" }}>No results for &ldquo;{pickerSearch}&rdquo;</p>
-                        ) : (
-                          <ul style={{ margin: 0, padding: 0, listStyle: "none" }}>
-                            {collectionResults.map(r => (
-                              <PickerRow key={r.id} cover={r.cover_url} primary={r.album} secondary={r.artist} onClick={() => handlePickCollectionRecord(r)} />
-                            ))}
-                          </ul>
-                        )
-                      )}
-
-                      {(pickerTab === "discogs" || pickerTab === "songs") && (
-                        discogsSearching ? (
-                          <p style={{ fontFamily: MONO, fontSize: "10px", color: "#aaaaaa", letterSpacing: "0.1em", textTransform: "uppercase" }}>Searching…</p>
-                        ) : !pickerSearch.trim() ? (
-                          <p style={{ fontFamily: MONO, fontSize: "10px", color: "#cccccc", letterSpacing: "0.04em" }}>
-                            {pickerTab === "songs" ? "Type a song title to search." : "Type to search the Discogs database."}
-                          </p>
-                        ) : discogsResults.length === 0 ? (
-                          <p style={{ fontFamily: MONO, fontSize: "10px", color: "#aaaaaa" }}>No results for &ldquo;{pickerSearch}&rdquo;</p>
-                        ) : (
-                          <ul style={{ margin: 0, padding: 0, listStyle: "none" }}>
-                            {discogsResults.map(r => {
-                              const { artist, album: title } = parseTitle(r.title);
-                              const thumb = r.thumb && !r.thumb.includes("spacer") ? r.thumb : null;
-                              return (
-                                <PickerRow
-                                  key={r.id} cover={thumb} primary={title}
-                                  secondary={`${artist}${r.year ? ` · ${r.year}` : ""}`}
-                                  onClick={() => pickerTab === "songs" ? handlePickSong(r) : handlePickDiscogsRecord(r)}
-                                />
-                              );
-                            })}
-                          </ul>
-                        )
+                      {selectedList.slots.map(slot => (
+                        <PersonalRow key={slot.position} slot={slot} onRemove={() => handleRemoveItem(selectedList.id, slot.position)} />
+                      ))}
+                      {selectedList.slots.length < 20 && (
+                        <button
+                          onClick={() => openPicker({ listId: selectedList.id, strategy: "append" })}
+                          style={{ fontFamily: SERIF, fontStyle: "italic", fontSize: "12px", color: "#cccccc", background: "none", border: "none", cursor: "pointer", padding: "8px 0", display: "block" }}
+                        >
+                          + Add a record
+                        </button>
                       )}
                     </>
-                  ) : (
-                    <div style={{ height: "100%", minHeight: "160px", display: "flex", alignItems: "center", justifyContent: "center" }}>
-                      <p style={{ fontFamily: SERIF, fontStyle: "italic", fontSize: "13px", color: "#d8d8d8", textAlign: "center", lineHeight: 1.5 }}>
-                        Click a record slot to add
-                      </p>
-                    </div>
                   )}
+                </div>
+
+                {/* Footer */}
+                <div style={{ display: "flex", alignItems: "center", gap: "10px", paddingTop: "14px", borderTop: "1px solid rgba(0,0,0,0.06)", flexWrap: "wrap" }}>
+                  {selectedList.list_type === "top5" && (
+                    <button
+                      onClick={() => handleShare(selectedList)}
+                      style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.1em", textTransform: "uppercase", color: "#ffffff", background: ORANGE, border: "none", cursor: "pointer", padding: "6px 12px" }}
+                    >
+                      Share ↗
+                    </button>
+                  )}
+                  <button
+                    onClick={() => handleTogglePublic(selectedList.id)}
+                    style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.1em", textTransform: "uppercase", background: "none", border: "1px solid rgba(0,0,0,0.18)", cursor: "pointer", padding: "5px 10px", color: selectedList.is_public ? "#555555" : "#aaaaaa" }}
+                  >
+                    {selectedList.is_public ? "Public" : "Private"}
+                  </button>
+                  <button
+                    onClick={() => handleDeleteList(selectedList.id)}
+                    style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.1em", textTransform: "uppercase", background: "none", border: "none", cursor: "pointer", padding: 0, color: "#cccccc" }}
+                  >
+                    Delete
+                  </button>
                 </div>
               </div>
 
-              {/* Covers strip */}
-              <CoverStrip
-                slots={selectedList.slots}
-                username={username}
-                slug={selectedList.slug}
-                isPublic={selectedList.is_public}
-                onSlotClick={(pos) => openPicker({ listId: selectedList.id, position: pos, strategy: "replace" })}
-              />
+              {/* Search panel — full width, border-top */}
+              <div ref={pickerRef} style={{ flexShrink: 0, borderTop: "1px solid rgba(0,0,0,0.08)", padding: "16px 28px 20px", overflowY: "auto", maxHeight: "300px" }}>
+                {picker?.listId === selectedList.id ? (
+                  <>
+                    <p style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.1em", textTransform: "uppercase", color: "#aaaaaa", marginBottom: "14px" }}>
+                      {"position" in picker ? `Add to slot ${picker.position}` : "Add to list"}
+                    </p>
+
+                    {/* Tabs */}
+                    <div style={{ display: "flex", gap: "20px", borderBottom: "1px solid rgba(0,0,0,0.08)", marginBottom: "14px" }}>
+                      {([
+                        { key: "collection" as PickerTab, label: "My Collection" },
+                        { key: "discogs"    as PickerTab, label: "Discogs" },
+                        { key: "songs"      as PickerTab, label: "Song" },
+                      ]).map(({ key, label }) => (
+                        <button key={key}
+                          onClick={() => { setPickerTab(key); setPickerSearch(""); setCollectionResults([]); setDiscogsResults([]); }}
+                          style={{
+                            fontFamily: MONO, fontSize: "9px", letterSpacing: "0.08em",
+                            color: pickerTab === key ? "#0d0d0d" : "#aaaaaa",
+                            background: "none", border: "none",
+                            borderBottom: `2px solid ${pickerTab === key ? "#0d0d0d" : "transparent"}`,
+                            cursor: "pointer", padding: "0 0 8px", marginBottom: "-1px",
+                            transition: "color 0.15s",
+                          }}
+                        >
+                          {label}
+                        </button>
+                      ))}
+                    </div>
+
+                    <input
+                      type="text"
+                      value={pickerSearch}
+                      onChange={e => setPickerSearch(e.target.value)}
+                      placeholder={
+                        pickerTab === "collection" ? "Search your collection…" :
+                        pickerTab === "songs"      ? "Search by song title…" :
+                                                     "Search Discogs…"
+                      }
+                      autoComplete="off"
+                      style={{
+                        width: "100%", boxSizing: "border-box",
+                        fontFamily: MONO, fontSize: "12px", letterSpacing: "0.02em",
+                        color: "#0d0d0d", background: "transparent",
+                        border: "none", borderBottom: "1px solid rgba(0,0,0,0.12)",
+                        outline: "none", padding: "0 0 8px", marginBottom: "14px",
+                      }}
+                    />
+
+                    {pickerTab === "collection" && (
+                      !pickerSearch.trim() ? (
+                        <p style={{ fontFamily: MONO, fontSize: "10px", color: "#cccccc", letterSpacing: "0.04em" }}>Type to search your collection.</p>
+                      ) : collectionSearching ? (
+                        <p style={{ fontFamily: MONO, fontSize: "10px", color: "#aaaaaa", letterSpacing: "0.1em", textTransform: "uppercase" }}>Searching…</p>
+                      ) : collectionResults.length === 0 ? (
+                        <p style={{ fontFamily: MONO, fontSize: "10px", color: "#aaaaaa" }}>No results for &ldquo;{pickerSearch}&rdquo;</p>
+                      ) : (
+                        <ul style={{ margin: 0, padding: 0, listStyle: "none" }}>
+                          {collectionResults.map(r => (
+                            <PickerRow key={r.id} cover={r.cover_url} primary={r.album} secondary={r.artist} onClick={() => handlePickCollectionRecord(r)} />
+                          ))}
+                        </ul>
+                      )
+                    )}
+
+                    {(pickerTab === "discogs" || pickerTab === "songs") && (
+                      discogsSearching ? (
+                        <p style={{ fontFamily: MONO, fontSize: "10px", color: "#aaaaaa", letterSpacing: "0.1em", textTransform: "uppercase" }}>Searching…</p>
+                      ) : !pickerSearch.trim() ? (
+                        <p style={{ fontFamily: MONO, fontSize: "10px", color: "#cccccc", letterSpacing: "0.04em" }}>
+                          {pickerTab === "songs" ? "Type a song title to search." : "Type to search the Discogs database."}
+                        </p>
+                      ) : discogsResults.length === 0 ? (
+                        <p style={{ fontFamily: MONO, fontSize: "10px", color: "#aaaaaa" }}>No results for &ldquo;{pickerSearch}&rdquo;</p>
+                      ) : (
+                        <ul style={{ margin: 0, padding: 0, listStyle: "none" }}>
+                          {discogsResults.map(r => {
+                            const { artist, album: title } = parseTitle(r.title);
+                            const thumb = r.thumb && !r.thumb.includes("spacer") ? r.thumb : null;
+                            return (
+                              <PickerRow
+                                key={r.id} cover={thumb} primary={title}
+                                secondary={`${artist}${r.year ? ` · ${r.year}` : ""}`}
+                                onClick={() => pickerTab === "songs" ? handlePickSong(r) : handlePickDiscogsRecord(r)}
+                              />
+                            );
+                          })}
+                        </ul>
+                      )
+                    )}
+                  </>
+                ) : (
+                  <p style={{ fontFamily: SERIF, fontStyle: "italic", fontSize: "13px", color: "#d8d8d8", lineHeight: 1.5 }}>
+                    Click a record slot to add
+                  </p>
+                )}
+              </div>
             </>
           ) : (
             <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center" }}>
@@ -659,16 +644,16 @@ export default function ListsClient({
           )}
         </div>
 
-        {/* RIGHT — Discover column */}
+        {/* RIGHT — Discover column (420px) */}
         <div style={{ overflowY: "auto", display: "flex", flexDirection: "column" }}>
-          <div style={{ position: "sticky", top: 0, background: "#ffffff", zIndex: 1, padding: "20px 20px 12px", borderBottom: "1px solid rgba(0,0,0,0.06)" }}>
-            <h2 style={{ fontFamily: SERIF, fontSize: "16px", fontWeight: 400, color: "#0d0d0d", marginBottom: "10px" }}>
+          <div style={{ position: "sticky", top: 0, background: "#ffffff", zIndex: 1, padding: "24px 24px 14px", borderBottom: "1px solid rgba(0,0,0,0.06)" }}>
+            <h2 style={{ fontFamily: SERIF, fontSize: "16px", fontWeight: 400, color: "#0d0d0d", marginBottom: "12px" }}>
               Discover
             </h2>
-            <div style={{ display: "flex", gap: "16px" }}>
+            <div style={{ display: "flex", gap: "20px" }}>
               {(["similar", "trending", "all"] as DiscoverTab[]).map(tab => (
                 <button key={tab} onClick={() => setDiscoverTab(tab)} style={{
-                  fontFamily: MONO, fontSize: "8px", letterSpacing: "0.08em",
+                  fontFamily: MONO, fontSize: "9px", letterSpacing: "0.08em",
                   background: "none", border: "none", cursor: "pointer", padding: "0 0 4px",
                   color: discoverTab === tab ? "#0d0d0d" : "#aaaaaa",
                   borderBottom: `1px solid ${discoverTab === tab ? "#0d0d0d" : "transparent"}`,
@@ -719,80 +704,6 @@ export default function ListsClient({
   );
 }
 
-// ─── CoverStrip ───────────────────────────────────────────────────────────────
-
-function CoverStrip({ slots, username, slug, isPublic, onSlotClick }: {
-  slots: ListSlot[];
-  username: string;
-  slug: string;
-  isPublic: boolean;
-  onSlotClick: (pos: number) => void;
-}) {
-  const filledCount = slots.filter(s => s.item).length;
-  return (
-    <div style={{
-      background: "#f8f8f7",
-      borderTop: "1px solid rgba(0,0,0,0.08)",
-      padding: "14px 28px",
-      display: "flex",
-      alignItems: "center",
-      justifyContent: "space-between",
-      flexShrink: 0,
-      gap: "16px",
-    }}>
-      <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-        {[1, 2, 3, 4, 5].map(pos => {
-          const item = slots.find(s => s.position === pos)?.item ?? null;
-          const isHero = pos === 1;
-          const size = isHero ? 80 : 64;
-          return (
-            <div
-              key={pos}
-              onClick={() => onSlotClick(pos)}
-              style={{
-                width: size, height: size, borderRadius: 3,
-                overflow: "hidden", position: "relative",
-                cursor: "pointer", flexShrink: 0,
-                boxSizing: "border-box",
-                border: isHero && item
-                  ? `2px solid ${ORANGE}`
-                  : !item
-                  ? "1.5px dashed rgba(0,0,0,0.2)"
-                  : "none",
-                background: "#eeeeee",
-              }}
-            >
-              {item?.cover_url && (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img src={item.cover_url} alt="" style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
-              )}
-              <span style={{
-                position: "absolute", bottom: 3, right: 3,
-                fontFamily: MONO, fontSize: "8px", fontWeight: 500,
-                color: ORANGE, background: "#ffffff",
-                padding: "1px 4px", lineHeight: 1.4, borderRadius: 2,
-                pointerEvents: "none",
-              }}>
-                {pos}
-              </span>
-            </div>
-          );
-        })}
-      </div>
-      <div style={{ textAlign: "right", flexShrink: 0 }}>
-        <p style={{ fontFamily: MONO, fontSize: "9px", color: "#aaaaaa", letterSpacing: "0.06em", lineHeight: 1.5 }}>
-          {filledCount} {filledCount === 1 ? "record" : "records"} · 0 saves
-        </p>
-        {isPublic && (
-          <p style={{ fontFamily: MONO, fontSize: "9px", color: "#cccccc", letterSpacing: "0.04em", marginTop: "2px" }}>
-            rekodo.co/@{username}/{slug}
-          </p>
-        )}
-      </div>
-    </div>
-  );
-}
-
 // ─── TracklistRow ─────────────────────────────────────────────────────────────
 
 function TracklistRow({ position, item, isSaving, isPickerOpen, onOpen, onRemove }: {
@@ -808,8 +719,8 @@ function TracklistRow({ position, item, isSaving, isPickerOpen, onOpen, onRemove
     <div
       style={{
         display: "flex", alignItems: "center", gap: "12px",
-        padding: "8px 0", borderBottom: "1px solid rgba(0,0,0,0.05)",
-        minHeight: "38px", cursor: "pointer",
+        padding: "6px 0", borderBottom: "1px solid rgba(0,0,0,0.05)",
+        minHeight: "60px", cursor: "pointer",
         background: isPickerOpen ? "rgba(204,85,0,0.025)" : "transparent",
         transition: "background 0.1s",
       }}
@@ -820,13 +731,25 @@ function TracklistRow({ position, item, isSaving, isPickerOpen, onOpen, onRemove
       <span style={{ fontFamily: MONO, fontSize: "10px", color: ORANGE, width: "16px", flexShrink: 0, textAlign: "right" }}>
         {position}
       </span>
+      {/* 48px art square */}
+      <div style={{
+        width: 48, height: 48, flexShrink: 0, overflow: "hidden",
+        background: "#f0f0f0",
+        border: item ? "none" : "1.5px dashed rgba(0,0,0,0.18)",
+        boxSizing: "border-box",
+      }}>
+        {item?.cover_url && (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={item.cover_url} alt="" style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
+        )}
+      </div>
       {item ? (
         <>
           <div style={{ flex: 1, minWidth: 0 }}>
-            <p style={{ fontFamily: SERIF, fontSize: "11px", color: "#0d0d0d", lineHeight: 1.3, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+            <p style={{ fontFamily: SERIF, fontSize: "12px", color: "#0d0d0d", lineHeight: 1.3, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
               {item.song_title ?? item.album}
             </p>
-            <p style={{ fontFamily: MONO, fontSize: "8px", color: "#aaaaaa", letterSpacing: "0.06em", marginTop: "2px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+            <p style={{ fontFamily: MONO, fontSize: "9px", color: "#aaaaaa", letterSpacing: "0.06em", marginTop: "3px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
               {item.artist}
             </p>
           </div>
@@ -843,7 +766,7 @@ function TracklistRow({ position, item, isSaving, isPickerOpen, onOpen, onRemove
           )}
         </>
       ) : (
-        <span style={{ fontFamily: SERIF, fontStyle: "italic", fontSize: "11px", color: isPickerOpen ? "#888888" : "#cccccc" }}>
+        <span style={{ fontFamily: SERIF, fontStyle: "italic", fontSize: "12px", color: isPickerOpen ? "#888888" : "#cccccc" }}>
           + Add a record
         </span>
       )}
@@ -927,23 +850,23 @@ function PickerRow({ cover, primary, secondary, onClick }: {
 function DiscoverCard({ card }: { card: typeof STATIC_DISCOVER_CARDS[number] }) {
   return (
     <div style={{ borderBottom: "1px solid rgba(0,0,0,0.06)" }}>
-      <div style={{ height: 60, display: "grid", gridTemplateColumns: "1fr 1fr", gridTemplateRows: "1fr 1fr", overflow: "hidden" }}>
+      <div style={{ height: 80, display: "grid", gridTemplateColumns: "1fr 1fr", gridTemplateRows: "1fr 1fr", overflow: "hidden" }}>
         {card.colors.map((color, i) => (
           <div key={i} style={{ background: color }} />
         ))}
       </div>
-      <div style={{ padding: "10px 16px 13px" }}>
-        <p style={{ fontFamily: SERIF, fontSize: "12px", color: "#0d0d0d", lineHeight: 1.35, marginBottom: "4px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+      <div style={{ padding: "14px 20px 16px" }}>
+        <p style={{ fontFamily: SERIF, fontSize: "13px", color: "#0d0d0d", lineHeight: 1.35, marginBottom: "5px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
           {card.title}
         </p>
-        <p style={{ fontFamily: MONO, fontSize: "8px", color: "#aaaaaa", letterSpacing: "0.06em", marginBottom: "8px" }}>
+        <p style={{ fontFamily: MONO, fontSize: "9px", color: "#aaaaaa", letterSpacing: "0.06em", marginBottom: "10px" }}>
           @{card.username} · {card.count}
         </p>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "8px" }}>
-          <span style={{ fontFamily: MONO, fontSize: "8px", color: "#888888", letterSpacing: "0.04em", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+          <span style={{ fontFamily: MONO, fontSize: "9px", color: "#888888", letterSpacing: "0.04em", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
             {card.badge}
           </span>
-          <span style={{ fontFamily: MONO, fontSize: "8px", color: ORANGE, letterSpacing: "0.04em", flexShrink: 0 }}>
+          <span style={{ fontFamily: MONO, fontSize: "9px", color: ORANGE, letterSpacing: "0.04em", flexShrink: 0 }}>
             {card.saves.toLocaleString()} saves
           </span>
         </div>
@@ -955,7 +878,7 @@ function DiscoverCard({ card }: { card: typeof STATIC_DISCOVER_CARDS[number] }) 
 function RealDiscoverCard({ list }: { list: DiscoverList }) {
   return (
     <div style={{ borderBottom: "1px solid rgba(0,0,0,0.06)" }}>
-      <div style={{ height: 60, display: "grid", gridTemplateColumns: "1fr 1fr", gridTemplateRows: "1fr 1fr", overflow: "hidden" }}>
+      <div style={{ height: 80, display: "grid", gridTemplateColumns: "1fr 1fr", gridTemplateRows: "1fr 1fr", overflow: "hidden" }}>
         {[0, 1, 2, 3].map(i => {
           const cover = list.covers[i];
           return cover ? (
@@ -968,14 +891,14 @@ function RealDiscoverCard({ list }: { list: DiscoverList }) {
           );
         })}
       </div>
-      <div style={{ padding: "10px 16px 13px" }}>
-        <p style={{ fontFamily: SERIF, fontSize: "12px", color: "#0d0d0d", lineHeight: 1.35, marginBottom: "4px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+      <div style={{ padding: "14px 20px 16px" }}>
+        <p style={{ fontFamily: SERIF, fontSize: "13px", color: "#0d0d0d", lineHeight: 1.35, marginBottom: "5px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
           {list.title}
         </p>
-        <p style={{ fontFamily: MONO, fontSize: "8px", color: "#aaaaaa", letterSpacing: "0.06em", marginBottom: "8px" }}>
+        <p style={{ fontFamily: MONO, fontSize: "9px", color: "#aaaaaa", letterSpacing: "0.06em", marginBottom: "10px" }}>
           @{list.username} · {list.itemCount} records
         </p>
-        <span style={{ fontFamily: MONO, fontSize: "8px", color: ORANGE, letterSpacing: "0.04em" }}>
+        <span style={{ fontFamily: MONO, fontSize: "9px", color: ORANGE, letterSpacing: "0.04em" }}>
           {list.saveCount} saves
         </span>
       </div>
