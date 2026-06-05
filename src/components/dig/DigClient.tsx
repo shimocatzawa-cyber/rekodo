@@ -564,8 +564,8 @@ export default function DigClient({ username, displayLabel, avatarUrl, collectio
 
           {/* Centre: title block — moves to top row on mobile via order:-1 */}
           <div className="dig-header-title" style={{ textAlign: "center", padding: "0 40px" }}>
-            <h1 style={{ fontFamily: SERIF, fontSize: "30px", fontWeight: 400, color: ORANGE, lineHeight: 1.1, margin: "0 0 4px 0" }}>
-              発掘 · Crate Digging for Your Taste
+            <h1 style={{ fontFamily: SERIF, fontSize: "22px", fontWeight: 400, color: ORANGE, lineHeight: 1.1, margin: "0 0 4px 0" }}>
+              Crate Digging
             </h1>
             <p style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.08em", color: "#aaaaaa", margin: 0 }}>
               What your collection is asking for

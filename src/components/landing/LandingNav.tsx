@@ -12,9 +12,10 @@ const ORANGE = "#CC5500";
 
 interface LandingNavProps {
   username?: string | null;
+  displayLabel?: string | null;
 }
 
-export default function LandingNav({ username }: LandingNavProps) {
+export default function LandingNav({ username, displayLabel }: LandingNavProps) {
   const router = useRouter();
   const [modalOpen, setModalOpen] = useState(false);
 
@@ -34,7 +35,7 @@ export default function LandingNav({ username }: LandingNavProps) {
         <Link
           href="/"
           aria-label="rekōdo home"
-          style={{ fontFamily: SERIF, fontWeight: 700, fontSize: "22px", color: ORANGE, lineHeight: 1, textDecoration: "none" }}
+          style={{ fontFamily: SERIF, fontWeight: 700, fontSize: "28px", color: ORANGE, lineHeight: 1, textDecoration: "none" }}
         >
           ō
         </Link>
@@ -46,7 +47,7 @@ export default function LandingNav({ username }: LandingNavProps) {
               href="/collection"
               style={{ fontFamily: MONO, fontSize: "10px", letterSpacing: "0.06em", color: "#888888", textDecoration: "none" }}
             >
-              @{username}
+              {displayLabel ?? username}
             </Link>
             <button
               onClick={handleSignOut}

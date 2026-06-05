@@ -36,7 +36,10 @@ export default function AppNav({ username, displayLabel, avatarUrl }: { username
       <Link
         href="/"
         aria-label="rekōdo home"
-        style={{ fontFamily: SERIF, fontWeight: 700, fontSize: "22px", color: ORANGE, textDecoration: "none", lineHeight: 1 }}
+        style={{
+          fontFamily: SERIF, fontWeight: 700, fontSize: "28px", color: ORANGE,
+          textDecoration: "none", lineHeight: 1,
+        }}
       >
         ō
       </Link>
