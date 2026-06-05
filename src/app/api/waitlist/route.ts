@@ -12,20 +12,35 @@ export async function POST(request: NextRequest) {
     }
 
     const supabase = await createClient();
+
+    // Omit name when null — avoids a column-not-found error if the migration
+    // hasn't been applied to this environment yet.
+    const insertData: { email: string; name?: string } = { email };
+    if (name) insertData.name = name;
+
     const { error } = await supabase
       .from("waitlist_emails")
-      .insert({ email, name });
+      .insert(insertData);
 
     if (error) {
+      console.error("Waitlist insert error:", {
+        code: error.code,
+        message: error.message,
+        details: error.details,
+        hint: error.hint,
+      });
       if (error.code === "23505") {
         return NextResponse.json({ message: "Already registered" }, { status: 200 });
       }
-      throw error;
+      return NextResponse.json(
+        { error: "Internal server error", detail: error.message },
+        { status: 500 },
+      );
     }
 
     return NextResponse.json({ message: "Added to waitlist" }, { status: 201 });
   } catch (err) {
-    console.error("Waitlist error:", err);
+    console.error("Waitlist unexpected error:", err);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 }
