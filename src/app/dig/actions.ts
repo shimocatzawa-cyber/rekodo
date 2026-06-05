@@ -3,52 +3,61 @@
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 
+// Both slugs accepted so existing "Want to Buy" lists work without a migration.
+const WANTLIST_SLUGS = ["wantlist", "want-to-buy"] as const;
+
 export async function addToWantlist(
   artist: string,
   album: string,
   year: number | null
 ) {
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const { data: { user } } = await supabase.auth.getUser();
   if (!user) return { error: "Not authenticated" };
 
-  const emailPrefix = (user.email ?? "").split("@")[0] || "user";
-  await supabase.from("profiles").upsert(
-    { id: user.id, username: `${emailPrefix}_${user.id.slice(0, 6)}` },
-    { onConflict: "id", ignoreDuplicates: true }
-  );
+  // ── 1. Find or create the wantlist ─────────────────────────────────────────
 
-  // Ensure "Want to Buy" list exists
-  const { error: upsertErr } = await supabase.from("lists").upsert(
-    {
-      user_id: user.id,
-      title: "Want to Buy",
-      slug: "want-to-buy",
-      is_public: false,
-      list_type: "personal",
-    },
-    { onConflict: "user_id,slug", ignoreDuplicates: true }
-  );
-  // Fallback without list_type if column doesn't exist yet
-  if (upsertErr?.message?.includes("list_type")) {
-    await supabase.from("lists").upsert(
-      { user_id: user.id, title: "Want to Buy", slug: "want-to-buy", is_public: false },
-      { onConflict: "user_id,slug", ignoreDuplicates: true }
-    );
+  // Accept either slug so users with the old "Want to Buy" list work immediately.
+  const { data: rows } = await supabase
+    .from("lists")
+    .select("id, slug")
+    .eq("user_id", user.id)
+    .in("slug", WANTLIST_SLUGS);
+
+  let wantlistId = rows?.[0]?.id ?? null;
+
+  if (!wantlistId) {
+    // Create it. Try with list_type first; fall back if column doesn't exist yet.
+    const base = { user_id: user.id, title: "Wantlist", slug: "wantlist", is_public: false };
+
+    const { data: created, error: createErr } = await supabase
+      .from("lists")
+      .insert({ ...base, list_type: "personal" })
+      .select("id")
+      .single();
+
+    if (createErr) {
+      // list_type column may not exist — retry without it
+      const { data: created2, error: createErr2 } = await supabase
+        .from("lists")
+        .insert(base)
+        .select("id")
+        .single();
+
+      if (createErr2 || !created2) {
+        console.error("Wantlist create error:", createErr2 ?? createErr);
+        return { error: "Could not create wantlist" };
+      }
+      wantlistId = created2.id;
+    } else if (created) {
+      wantlistId = created.id;
+    } else {
+      return { error: "Could not create wantlist" };
+    }
   }
 
-  const { data: wantlist } = await supabase
-    .from("lists")
-    .select("id")
-    .eq("user_id", user.id)
-    .eq("slug", "want-to-buy")
-    .maybeSingle();
+  // ── 2. Insert the record ────────────────────────────────────────────────────
 
-  if (!wantlist) return { error: "Could not find wantlist" };
-
-  // Insert the record (no discogs_id — it's a recommendation)
   const { data: inserted, error: insertErr } = await supabase
     .from("records")
     .insert({ artist, album, year, genre: null, cover_url: null, label: null })
@@ -59,23 +68,23 @@ export async function addToWantlist(
     return { error: insertErr?.message ?? "Record insert failed" };
   }
 
-  // Find next position in wantlist
+  // ── 3. Find next position ───────────────────────────────────────────────────
+
   const { data: existing } = await supabase
     .from("list_items")
     .select("position")
-    .eq("list_id", wantlist.id)
+    .eq("list_id", wantlistId)
     .order("position", { ascending: false })
     .limit(1);
 
   const nextPos = (existing?.[0]?.position ?? 0) + 1;
+  if (nextPos > 20) return { error: "Wantlist is full (20 items maximum)" };
 
   const { error: linkErr } = await supabase
     .from("list_items")
-    .insert({ list_id: wantlist.id, record_id: inserted.id, position: nextPos });
+    .insert({ list_id: wantlistId, record_id: inserted.id, position: nextPos });
 
-  if (linkErr) {
-    return { error: linkErr.message };
-  }
+  if (linkErr) return { error: linkErr.message };
 
   revalidatePath("/lists");
   return { success: true };

@@ -31,6 +31,12 @@ export type SlotItem = {
 export type ListSlot = {
   position: number;
   item: SlotItem | null;
+  note?: string | null;
+  priority?: "must_have" | "would_love" | "someday" | null;
+  price_cap?: number | null;
+  pressing_tip?: string | null;
+  found?: boolean | null;
+  created_at?: string | null;
 };
 
 export type UserList = {
@@ -51,7 +57,7 @@ const DEFAULT_TOP5: Array<{ title: string; slug: string }> = [
 ];
 
 const DEFAULT_PERSONAL: Array<{ title: string; slug: string }> = [
-  { title: "Want to Buy",      slug: "want-to-buy" },
+  { title: "Wantlist",         slug: "wantlist" },
   { title: "Need to Relisten", slug: "need-to-relisten" },
 ];
 
@@ -85,6 +91,16 @@ export default async function ListsPage() {
       );
     }
   }
+  // Rename legacy "Want to Buy" → "Wantlist" in place (slug change).
+  // Only runs if "wantlist" doesn't already exist — avoids a unique-constraint clash.
+  const { data: hasWantlist } = await supabase
+    .from("lists").select("id").eq("user_id", user.id).eq("slug", "wantlist").maybeSingle();
+  if (!hasWantlist) {
+    await supabase.from("lists")
+      .update({ title: "Wantlist", slug: "wantlist" })
+      .eq("user_id", user.id).eq("slug", "want-to-buy");
+  }
+
   for (const def of DEFAULT_PERSONAL) {
     const { error: e2 } = await supabase.from("lists").upsert(
       { user_id: user.id, title: def.title, slug: def.slug, is_public: false, list_type: "personal" },
@@ -137,30 +153,45 @@ export default async function ListsPage() {
     item_type: string; record_id: string | null;
     song_title: string | null; song_artist: string | null;
     song_album: string | null; song_cover_url: string | null; song_year: number | null;
+    note: string | null; priority: string | null;
+    price_cap: number | null; pressing_tip: string | null;
+    found: boolean | null; created_at: string | null;
   };
 
   let itemsData: ItemRow[] = [];
   if (listIds.length) {
-    const { data, error } = await supabase
+    // Tier 1: full schema including extended wantlist fields
+    const { data: fullData, error: fullErr } = await supabase
       .from("list_items")
-      .select("id, list_id, position, item_type, record_id, song_title, song_artist, song_album, song_cover_url, song_year")
+      .select("id, list_id, position, item_type, record_id, song_title, song_artist, song_album, song_cover_url, song_year, note, priority, price_cap, pressing_tip, found, created_at")
       .in("list_id", listIds)
       .order("position");
-    if (error) {
-      // New columns probably don't exist yet — fall back to old schema
-      const { data: fallback } = await supabase
+    if (!fullErr) {
+      itemsData = (fullData ?? []) as unknown as ItemRow[];
+    } else {
+      // Tier 2: without extended fields (migration 2 pending)
+      const { data: tier2, error: tier2Err } = await supabase
         .from("list_items")
-        .select("id, list_id, position, record_id")
+        .select("id, list_id, position, item_type, record_id, song_title, song_artist, song_album, song_cover_url, song_year, note, priority")
         .in("list_id", listIds)
         .order("position");
-      itemsData = (fallback ?? []).map((i) => ({
-        ...i,
-        item_type: "record",
-        song_title: null, song_artist: null, song_album: null,
-        song_cover_url: null, song_year: null,
-      }));
-    } else {
-      itemsData = (data ?? []) as ItemRow[];
+      if (!tier2Err) {
+        itemsData = ((tier2 ?? []) as unknown as Record<string, unknown>[]).map(i => ({ ...i, price_cap: null, pressing_tip: null, found: null, created_at: null })) as unknown as ItemRow[];
+      } else {
+        // Tier 3: old schema fallback
+        const { data: fallback } = await supabase
+          .from("list_items")
+          .select("id, list_id, position, record_id")
+          .in("list_id", listIds)
+          .order("position");
+        itemsData = (fallback ?? []).map((i) => ({
+          ...i, item_type: "record",
+          song_title: null, song_artist: null, song_album: null,
+          song_cover_url: null, song_year: null,
+          note: null, priority: null,
+          price_cap: null, pressing_tip: null, found: null, created_at: null,
+        }));
+      }
     }
   }
 
@@ -196,6 +227,15 @@ export default async function ListsPage() {
       const item = listItems.find((i) => i.position === pos);
       if (!item) return { position: pos, item: null };
 
+      const slotMeta = {
+        note: item.note ?? null,
+        priority: (item.priority as ListSlot["priority"]) ?? null,
+        price_cap: item.price_cap ?? null,
+        pressing_tip: item.pressing_tip ?? null,
+        found: item.found ?? false,
+        created_at: item.created_at ?? null,
+      };
+
       if (item.item_type === "song") {
         return {
           position: pos,
@@ -209,6 +249,7 @@ export default async function ListsPage() {
             cover_url: item.song_cover_url ?? null,
             song_title: item.song_title,
           } satisfies SlotItem,
+          ...slotMeta,
         };
       }
 
@@ -226,6 +267,7 @@ export default async function ListsPage() {
           cover_url: r.cover_url ?? null,
           song_title: null,
         } satisfies SlotItem,
+        ...slotMeta,
       };
     });
 

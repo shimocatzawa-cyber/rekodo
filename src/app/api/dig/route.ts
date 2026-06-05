@@ -21,7 +21,10 @@ For the search URLs, encode "artist album" as the query (URL-encode spaces and s
 
 export async function POST(request: Request) {
   const body = await request.json().catch(() => ({}));
-  const mode: "discover" | "explore" = body.mode === "explore" ? "explore" : "discover";
+  const mode: "discover" | "explore" | "hallucinations" =
+    body.mode === "explore" ? "explore" :
+    body.mode === "hallucinations" ? "hallucinations" :
+    "discover";
 
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
@@ -131,6 +134,34 @@ Rules:
 - Each recommendation must have a reason written in plain English that reveals the aesthetic logic — not genre tags, but the texture, atmosphere, and emotional territory. Write it as if pointing at two records already on their shelf and saying "this is where those two shelves collide." Maximum 2 sentences.
 - The picks should feel genuinely surprising but inevitable in hindsight — the kind of record they will wonder how they missed.
 - Prioritise records obtainable on vinyl (original pressings, reissues, or easily available secondhand).
+
+Return ONLY a valid JSON array with exactly 3 objects. No markdown, no explanation outside the JSON.
+
+Schema:
+${JSON_SCHEMA}`;
+  } else if (mode === "hallucinations") {
+    const ownedArtists = [...new Set(collection.map((r) => r.artist))].sort();
+    const artistsBlock = ownedArtists.length > 0
+      ? `\nOWNED ARTISTS — do not recommend any record by any of these artists:\n${ownedArtists.join(" · ")}\n`
+      : "";
+
+    prompt = `You are a mischievous crate-digging gremlin with encyclopaedic knowledge of recorded music and a diabolical mission: find records at maximum distance from this collector's musical universe.
+
+Below is a collector's vinyl collection and their curated Top 5 lists. Study their taste carefully — so you can gleefully subvert it.
+
+COLLECTION (${collection.length} records):
+${collectionLines || "(Empty collection)"}
+
+TOP 5 LISTS:
+${listsLines}
+${artistsBlock}
+MODE: HALLUCINATIONS — surface 3 real albums that exist at the greatest possible stylistic distance from this collector's taste. Different genre, different era, different mood, different geography — the further the better. Picks must be genuinely real, obtainable records (the mode name is ironic), but they should feel completely alien to these shelves.
+
+Rules:
+- Recommend artists NOT in the OWNED ARTISTS list.
+- The genre gap must be vast. Jazz collector? Try extreme metal or polka. Hip-hop devotee? Try new age or yodelling. Ambient listener? Try gabber or stadium country. Be fearless — the further the better.
+- Each reason must fully embrace the absurdity: acknowledge the genre whiplash head-on, explain why you're recommending something so at odds with their taste, then plant a tiny seed of genuine curiosity — why this might secretly expand their world. Maximum 2 sentences. Chaos energy mandatory.
+- Real albums only. Must be obtainable on vinyl.
 
 Return ONLY a valid JSON array with exactly 3 objects. No markdown, no explanation outside the JSON.
 

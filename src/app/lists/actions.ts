@@ -371,6 +371,36 @@ export async function toggleListPublic(listId: string) {
   return { success: true, isPublic: !list.is_public };
 }
 
+// ─── Update wantlist item metadata ────────────────────────────────────────────
+
+export async function updateWantlistItemMeta(
+  listId: string,
+  position: number,
+  updates: {
+    note?: string | null;
+    priority?: "must_have" | "would_love" | "someday" | null;
+    price_cap?: number | null;
+    pressing_tip?: string | null;
+    found?: boolean | null;
+  }
+) {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { error: "Not authenticated" };
+
+  if (!(await assertListOwner(supabase, listId, user.id))) return { error: "List not found" };
+
+  const { error } = await supabase
+    .from("list_items")
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    .update(updates as any)
+    .eq("list_id", listId)
+    .eq("position", position);
+
+  if (error) return { error: error.message };
+  return { success: true };
+}
+
 // ─── Delete list ───────────────────────────────────────────────────────────────
 
 export async function deleteList(listId: string) {

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { sendWaitlistConfirmation, sendWaitlistNotification } from "@/lib/email";
 
 export async function POST(request: NextRequest) {
   try {
@@ -37,6 +38,11 @@ export async function POST(request: NextRequest) {
         { status: 500 },
       );
     }
+
+    await Promise.all([
+      sendWaitlistConfirmation(email, name),
+      sendWaitlistNotification(email, name),
+    ]).catch((err) => console.error("Email send error:", err));
 
     return NextResponse.json({ message: "Added to waitlist" }, { status: 201 });
   } catch (err) {

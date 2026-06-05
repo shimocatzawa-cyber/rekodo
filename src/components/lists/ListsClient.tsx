@@ -7,6 +7,7 @@ import {
   setListRecord, addDiscogsRecordToList, addSongToList,
   appendRecordToList, appendDiscogsRecordToList, appendSongToList,
   removeListItem, toggleListPublic, createList, deleteList,
+  updateWantlistItemMeta,
   type DiscogsPayload, type SongPayload,
 } from "@/app/lists/actions";
 import type { UserList, ListSlot, SlotItem, DiscoverList } from "@/app/lists/page";
@@ -16,6 +17,22 @@ import { generateShareCard, downloadCard, copyCardToClipboard } from "@/lib/shar
 const SERIF  = "var(--font-editorial)";
 const MONO   = "var(--font-mono)";
 const ORANGE = "#CC5500";
+
+// ─── Priority type ────────────────────────────────────────────────────────────
+
+type Priority = "must_have" | "would_love" | "someday";
+
+const PRIORITY_LABELS: Record<Priority, string> = {
+  must_have:  "Must Have",
+  would_love: "Would Love",
+  someday:    "Someday",
+};
+const PRIORITY_COLORS: Record<Priority, string> = {
+  must_have:  "#CC5500",
+  would_love: "#7A4E2D",
+  someday:    "#999999",
+};
+const PRIORITY_CYCLE: (Priority | null)[] = ["must_have", "would_love", "someday", null];
 
 // ─── Static subtitle map ──────────────────────────────────────────────────────
 
@@ -30,7 +47,7 @@ const LIST_SUBTITLES: Record<string, string> = {
   "Top 5 Gateway Records":              "What I'd play to change their life.",
   "Top 5 Most Played":                  "Worn grooves. No apologies.",
   "Top 5 Hidden Gems":                  "Records nobody talks about.",
-  "Want to Buy":                        "Building the wish list.",
+  "Wantlist":                           "Records you're hunting for.",
   "Need to Relisten":                   "Albums that deserve another chance.",
 };
 
@@ -106,14 +123,6 @@ const STATIC_DISCOVER_CARDS = [
   },
 ] as const;
 
-// ─── Discogs artwork queries per static card ──────────────────────────────────
-
-const DISCOVER_CARD_QUERIES: Record<string, string[]> = {
-  s1: ["Ryo Fukui Scenery", "Toshiko Akiyoshi trio", "Sadao Watanabe jazz", "Masabumi Kikuchi"],
-  s2: ["Neu! debut", "Cluster Zuckerzeit", "Harmonia Musik von Harmonia", "Popol Vuh Aguirre"],
-  s3: ["Will Oldham Palace Brothers", "Royal Trux Twin Infinitives", "Joanna Newsom Ys", "Smog Knock Knock"],
-  s4: ["Neil Young Harvest", "Rolling Stones Exile Main St", "Lou Reed Transformer", "Jethro Tull Thick As A Brick"],
-};
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -151,7 +160,18 @@ interface SavedCardEntry {
   id: string;
   title: string;
   username: string;
+  slots?: Array<{ artist: string; album: string; year: number | null }>;
 }
+
+const STATIC_LIST_CONTENT: Record<string, Array<{ artist: string; album: string; year: number | null }>> = {
+  s1: [
+    { artist: "Ryo Fukui",          album: "Scenery",            year: 1976 },
+    { artist: "Toshiko Akiyoshi",   album: "Long Yellow Road",   year: 1975 },
+    { artist: "Sadao Watanabe",     album: "Round Trip",         year: 1974 },
+    { artist: "Masabumi Kikuchi",   album: "Wishes",             year: 1977 },
+    { artist: "Yosuke Yamashita",   album: "Clay",               year: 1974 },
+  ],
+};
 
 function parseTitle(title: string): { artist: string; album: string } {
   const idx = title.indexOf(" - ");
@@ -191,9 +211,18 @@ export default function ListsClient({
   const [shareGenerating, setShareGenerating] = useState(false);
   const [shareCopyState,  setShareCopyState]  = useState<"idle"|"copied"|"failed">("idle");
 
-  const [savedCards,     setSavedCards]     = useState<SavedCardEntry[]>([]);
-  const [activeSavedId,  setActiveSavedId]  = useState<string | null>(null);
-  const [discoverCovers, setDiscoverCovers] = useState<Record<string, (string|null)[]>>({});
+  const [savedCards,      setSavedCards]      = useState<SavedCardEntry[]>([]);
+  const [activeSavedId,   setActiveSavedId]   = useState<string | null>(null);
+  const [top5Expanded,    setTop5Expanded]    = useState(false);
+  const [privateExpanded, setPrivateExpanded] = useState(false);
+
+  // ── Wantlist controls ──────────────────────────────────────────────────────
+  type WantlistSort = "priority" | "price_cap" | "date_added" | "artist";
+  const [wantlistSort,    setWantlistSort]    = useState<WantlistSort>("priority");
+  const [wantlistFilter,  setWantlistFilter]  = useState<Set<Priority>>(new Set());
+  const [wantlistSearch,  setWantlistSearch]  = useState("");
+  const [huntingMode,     setHuntingMode]     = useState(false);
+  const [keptSomeday,     setKeptSomeday]     = useState<Set<number>>(new Set());
 
   useEffect(() => { setLists(initialLists); }, [initialLists]);
 
@@ -235,27 +264,6 @@ export default function ListsClient({
     return () => { if (discogsDebounce.current) clearTimeout(discogsDebounce.current); };
   }, [pickerSearch, pickerTab]);
 
-  // Fetch artwork for static discover cards on mount
-  useEffect(() => {
-    async function fetchCardCovers(cardId: string, queries: string[]) {
-      const covers = await Promise.all(queries.map(async (q) => {
-        try {
-          const res = await fetch(`/api/discogs/search?q=${encodeURIComponent(q)}&mode=record`);
-          if (!res.ok) return null;
-          const data = await res.json();
-          const first = data.results?.[0];
-          if (!first) return null;
-          return (first.cover_image && !first.cover_image.includes("spacer"))
-            ? first.cover_image
-            : (first.thumb && !first.thumb.includes("spacer") ? first.thumb : null);
-        } catch { return null; }
-      }));
-      setDiscoverCovers(prev => ({ ...prev, [cardId]: covers }));
-    }
-    Object.entries(DISCOVER_CARD_QUERIES).forEach(([cardId, queries]) => {
-      fetchCardCovers(cardId, queries);
-    });
-  }, []);
 
   function openPicker(mode: PickerMode) {
     setPicker(mode);
@@ -396,6 +404,18 @@ export default function ListsClient({
     if (res?.error) { setLists(initialLists); router.refresh(); }
   }
 
+  async function handleUpdateWantlistItemMeta(
+    listId: string, position: number,
+    updates: { note?: string | null; priority?: Priority | null; price_cap?: number | null; pressing_tip?: string | null; found?: boolean | null }
+  ) {
+    setLists(prev => prev.map(l => l.id !== listId ? l : {
+      ...l,
+      slots: l.slots.map(s => s.position !== position ? s : { ...s, ...updates }),
+    }));
+    const res = await updateWantlistItemMeta(listId, position, updates);
+    if (res?.error) { console.error(res.error); setLists(initialLists); }
+  }
+
   async function handleShare(list: UserList) {
     setShareList(list);
     setShareCanvas(null);
@@ -427,6 +447,13 @@ export default function ListsClient({
     setSavedCards(prev => prev.some(c => c.id === entry.id) ? prev : [...prev, entry]);
   }
 
+  function handleViewCard(entry: SavedCardEntry) {
+    setSavedCards(prev => prev.some(c => c.id === entry.id) ? prev : [...prev, entry]);
+    setActiveSavedId(entry.id);
+    setActivePillId(null);
+    closePicker();
+  }
+
   function doCreate(title: string, listType: "top5" | "personal") {
     startCreating(async () => {
       const res = await createList(title, listType);
@@ -454,6 +481,66 @@ export default function ListsClient({
 
   const selectedList = activePillId ? lists.find(l => l.id === activePillId) ?? null : null;
 
+  const wantlistSlots = useMemo(() => {
+    if (!selectedList || (selectedList.slug !== "wantlist" && selectedList.slug !== "want-to-buy")) return [];
+    let slots = selectedList.slots.filter(s => s.item != null);
+
+    // Search filter
+    if (wantlistSearch.trim()) {
+      const q = wantlistSearch.trim().toLowerCase();
+      slots = slots.filter(s => {
+        const artist = (s.item?.artist ?? "").toLowerCase();
+        const album  = (s.item?.album ?? "").toLowerCase();
+        return artist.includes(q) || album.includes(q);
+      });
+    }
+
+    // Priority filter
+    if (wantlistFilter.size > 0) {
+      slots = slots.filter(s => {
+        const p = (s.priority ?? null) as Priority | null;
+        return p && wantlistFilter.has(p);
+      });
+    }
+
+    // Hunting mode: only Must Have (not yet found)
+    if (huntingMode) {
+      slots = slots.filter(s => s.priority === "must_have" && !s.found);
+    }
+
+    // Sort
+    const PRIORITY_ORDER: Record<string, number> = { must_have: 0, would_love: 1, someday: 2 };
+    if (wantlistSort === "priority") {
+      slots = [...slots].sort((a, b) =>
+        (PRIORITY_ORDER[a.priority ?? ""] ?? 3) - (PRIORITY_ORDER[b.priority ?? ""] ?? 3)
+      );
+    } else if (wantlistSort === "price_cap") {
+      slots = [...slots].sort((a, b) => {
+        if (a.price_cap == null && b.price_cap == null) return 0;
+        if (a.price_cap == null) return 1;
+        if (b.price_cap == null) return -1;
+        return a.price_cap - b.price_cap;
+      });
+    } else if (wantlistSort === "date_added") {
+      slots = [...slots].sort((a, b) => {
+        const da = a.created_at ?? "";
+        const db = b.created_at ?? "";
+        return db.localeCompare(da);
+      });
+    } else if (wantlistSort === "artist") {
+      slots = [...slots].sort((a, b) =>
+        (a.item?.artist ?? "").localeCompare(b.item?.artist ?? "")
+      );
+    }
+
+    return slots;
+  }, [selectedList, wantlistSearch, wantlistFilter, wantlistSort, huntingMode]);
+
+  const wantlistFoundSlots = useMemo(() => {
+    if (!selectedList || (selectedList.slug !== "wantlist" && selectedList.slug !== "want-to-buy")) return [];
+    return selectedList.slots.filter(s => s.item != null && s.found);
+  }, [selectedList]);
+
   const activeSavedCard = useMemo(
     () => activeSavedId ? savedCards.find(c => c.id === activeSavedId) ?? null : null,
     [activeSavedId, savedCards]
@@ -470,84 +557,196 @@ export default function ListsClient({
     <div style={{ height: "100vh", background: "#ffffff", display: "flex", flexDirection: "column", overflow: "hidden" }}>
       <AppNav username={username} displayLabel={displayLabel} avatarUrl={avatarUrl} />
 
-      {/* ── Pill strip — untouched ── */}
+      {/* ── Pill strip — two rows ── */}
       <div style={{ borderBottom: "1px solid rgba(0,0,0,0.08)", flexShrink: 0 }}>
-        <div style={{
-          display: "flex", alignItems: "center", padding: "10px 32px", gap: "8px",
-          overflowX: "auto", scrollbarWidth: "none", msOverflowStyle: "none",
-        } as React.CSSProperties}>
-          <span style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.12em", textTransform: "uppercase", color: "#aaaaaa", flexShrink: 0, marginRight: "6px" }}>
-            Your lists
-          </span>
-          {lists.map(list => {
-            const filled = list.slots.filter(s => s.item).length;
-            const isActive = activePillId === list.id;
-            return (
-              <button key={list.id}
-                onClick={() => { setActivePillId(list.id); setActiveSavedId(null); closePicker(); }}
-                style={{
-                  fontFamily: MONO, fontSize: "9px", letterSpacing: "0.08em",
-                  color: isActive ? ORANGE : list.is_public ? "#555555" : "#aaaaaa",
-                  background: "none",
-                  border: `1px ${list.is_public ? "solid" : "dashed"} ${isActive ? ORANGE : "rgba(0,0,0,0.18)"}`,
-                  borderRadius: "2px", cursor: "pointer", padding: "4px 10px",
-                  flexShrink: 0, whiteSpace: "nowrap", transition: "border-color 0.15s, color 0.15s",
-                }}
-              >
-                {list.list_type === "top5" ? `${list.title} · ${filled}/5` : `${list.title} · ${list.slots.length}`}
-              </button>
-            );
-          })}
-          <button
-            onClick={() => { setCreateState({ listType: "top5", step: "templates" }); setNewTitle(""); }}
-            style={{
-              fontFamily: MONO, fontSize: "9px", letterSpacing: "0.08em",
-              color: ORANGE, background: "none", border: `1px dashed ${ORANGE}`,
-              borderRadius: "2px", cursor: "pointer", padding: "4px 10px",
-              flexShrink: 0, whiteSpace: "nowrap",
-            }}
-          >
-            + New list
-          </button>
 
-          {/* Saved section divider */}
-          <div style={{ width: "1px", height: "18px", background: "rgba(0,0,0,0.14)", flexShrink: 0, margin: "0 6px" }} />
+        {/* Row 1: [scrollable: Wantlist · Private · Saved] [fixed: + New list] */}
+        <div style={{ display: "flex", alignItems: "center", overflow: "hidden", padding: "8px 0 4px" }}>
 
-          <span style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.12em", textTransform: "uppercase", color: "#aaaaaa", flexShrink: 0, marginRight: "4px" }}>
-            Saved
-          </span>
-          {savedCards.length === 0 ? (
-            <span style={{ fontFamily: MONO, fontSize: "9px", color: "#d0d0d0", letterSpacing: "0.04em", flexShrink: 0, fontStyle: "italic" }}>
-              No saved lists yet
-            </span>
-          ) : (
-            savedCards.map(card => {
-              const isActive = activeSavedId === card.id;
+          {/* Scrollable pills */}
+          <div style={{
+            flex: 1, display: "flex", alignItems: "center", gap: "8px",
+            overflowX: "auto", paddingLeft: "32px",
+            scrollbarWidth: "none", msOverflowStyle: "none",
+          } as React.CSSProperties}>
+
+            {/* Wantlist — pinned */}
+            {(() => {
+              const wl = lists.find(l => l.slug === "wantlist" || l.slug === "want-to-buy");
+              if (!wl) return null;
+              const isActive = activePillId === wl.id;
               return (
-                <button key={card.id}
-                  onClick={() => { setActiveSavedId(card.id); setActivePillId(null); closePicker(); }}
-                  style={{
-                    fontFamily: MONO, fontSize: "9px", letterSpacing: "0.08em",
-                    color: isActive ? ORANGE : "#888888",
-                    background: "none",
-                    border: `1px solid ${isActive ? ORANGE : "rgba(0,0,0,0.15)"}`,
-                    borderRadius: "2px", cursor: "pointer", padding: "4px 10px",
-                    flexShrink: 0, whiteSpace: "nowrap", transition: "border-color 0.15s, color 0.15s",
-                  }}
-                >
-                  {card.title}
-                </button>
+                <>
+                  <span style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.12em", textTransform: "uppercase", color: "#aaaaaa", flexShrink: 0, marginRight: "2px" }}>
+                    Wantlist
+                  </span>
+                  <button
+                    onClick={() => { setActivePillId(wl.id); setActiveSavedId(null); closePicker(); }}
+                    style={{
+                      fontFamily: MONO, fontSize: "9px", letterSpacing: "0.08em",
+                      color: isActive ? ORANGE : "rgba(204,85,0,0.5)",
+                      background: isActive ? "rgba(204,85,0,0.05)" : "none",
+                      border: `1px solid ${isActive ? ORANGE : "rgba(204,85,0,0.4)"}`,
+                      borderRadius: "2px", cursor: "pointer", padding: "4px 10px",
+                      flexShrink: 0, whiteSpace: "nowrap", transition: "all 0.15s",
+                    }}
+                  >
+                    {`Wantlist · ${wl.slots.length}`}
+                  </button>
+                </>
               );
-            })
-          )}
+            })()}
+
+            {/* Divider */}
+            <div style={{ width: "1px", height: "18px", background: "rgba(0,0,0,0.14)", flexShrink: 0, margin: "0 4px" }} />
+
+            {/* Private section */}
+            {(() => {
+              const priv = lists.filter(l => l.list_type !== "top5" && l.slug !== "wantlist" && l.slug !== "want-to-buy");
+              const visible = privateExpanded ? priv : priv.slice(0, 7);
+              const hidden = priv.length - visible.length;
+              return (
+                <>
+                  <span style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.12em", textTransform: "uppercase", color: "#aaaaaa", flexShrink: 0, marginRight: "2px" }}>
+                    Private
+                  </span>
+                  {visible.map(list => {
+                    const isActive = activePillId === list.id;
+                    return (
+                      <button key={list.id}
+                        onClick={() => { setActivePillId(list.id); setActiveSavedId(null); closePicker(); }}
+                        style={{
+                          fontFamily: MONO, fontSize: "9px", letterSpacing: "0.08em",
+                          color: isActive ? ORANGE : "rgba(204,85,0,0.5)",
+                          background: isActive ? "rgba(204,85,0,0.05)" : "none",
+                          border: `1px solid ${isActive ? ORANGE : "rgba(204,85,0,0.4)"}`,
+                          borderRadius: "2px", cursor: "pointer", padding: "4px 10px",
+                          flexShrink: 0, whiteSpace: "nowrap", transition: "all 0.15s",
+                        }}
+                      >
+                        {`${list.title} · ${list.slots.length}`}
+                      </button>
+                    );
+                  })}
+                  {hidden > 0 && (
+                    <button onClick={() => setPrivateExpanded(true)} style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.06em", color: "rgba(204,85,0,0.5)", background: "none", border: "1px solid rgba(204,85,0,0.3)", borderRadius: "2px", cursor: "pointer", padding: "4px 10px", flexShrink: 0, whiteSpace: "nowrap" }}>
+                      +{hidden} more
+                    </button>
+                  )}
+                  {privateExpanded && priv.length > 7 && (
+                    <button onClick={() => setPrivateExpanded(false)} style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.06em", color: "#aaaaaa", background: "none", border: "none", cursor: "pointer", padding: "4px 4px", flexShrink: 0, whiteSpace: "nowrap" }}>
+                      Show less
+                    </button>
+                  )}
+                </>
+              );
+            })()}
+
+            {/* Saved */}
+            <div style={{ width: "1px", height: "18px", background: "rgba(0,0,0,0.14)", flexShrink: 0, margin: "0 6px" }} />
+            <span style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.12em", textTransform: "uppercase", color: "#aaaaaa", flexShrink: 0, marginRight: "4px" }}>
+              Saved
+            </span>
+            {savedCards.length === 0 ? (
+              <span style={{ fontFamily: MONO, fontSize: "9px", color: "#d0d0d0", letterSpacing: "0.04em", flexShrink: 0, fontStyle: "italic" }}>
+                No saved lists yet
+              </span>
+            ) : (
+              savedCards.map(card => {
+                const isActive = activeSavedId === card.id;
+                return (
+                  <button key={card.id}
+                    onClick={() => { setActiveSavedId(card.id); setActivePillId(null); closePicker(); }}
+                    style={{
+                      fontFamily: MONO, fontSize: "9px", letterSpacing: "0.08em",
+                      color: isActive ? ORANGE : "#888888",
+                      background: "none",
+                      border: `1px solid ${isActive ? ORANGE : "rgba(0,0,0,0.15)"}`,
+                      borderRadius: "2px", cursor: "pointer", padding: "4px 10px",
+                      flexShrink: 0, whiteSpace: "nowrap", transition: "all 0.15s",
+                    }}
+                  >
+                    {card.title}
+                  </button>
+                );
+              })
+            )}
+          </div>
+
+          {/* Anchored + New list — never displaced */}
+          <div style={{ flexShrink: 0, paddingLeft: "14px", paddingRight: "32px", borderLeft: "1px solid rgba(0,0,0,0.07)" }}>
+            <button
+              onClick={() => { setCreateState({ listType: "top5", step: "templates" }); setNewTitle(""); }}
+              style={{
+                fontFamily: MONO, fontSize: "9px", letterSpacing: "0.08em",
+                color: ORANGE, background: "none",
+                border: `1px solid ${ORANGE}`,
+                borderRadius: "2px", cursor: "pointer", padding: "4px 10px",
+                whiteSpace: "nowrap",
+              }}
+            >
+              + New list
+            </button>
+          </div>
+
         </div>
+
+        {/* Row 2: Top 5 */}
+        <div style={{
+          display: "flex", alignItems: "center", padding: "4px 32px 8px", gap: "8px",
+          overflowX: "auto", scrollbarWidth: "none", msOverflowStyle: "none",
+          borderTop: "1px solid rgba(0,0,0,0.04)",
+        } as React.CSSProperties}>
+          {(() => {
+            const top5 = lists.filter(l => l.list_type === "top5");
+            const visible = top5Expanded ? top5 : top5.slice(0, 7);
+            const hidden = top5.length - visible.length;
+            return (
+              <>
+                <span style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.12em", textTransform: "uppercase", color: "#aaaaaa", flexShrink: 0, marginRight: "2px" }}>
+                  Top 5
+                </span>
+                {visible.map(list => {
+                  const filled = list.slots.filter(s => s.item).length;
+                  const isActive = activePillId === list.id;
+                  return (
+                    <button key={list.id}
+                      onClick={() => { setActivePillId(list.id); setActiveSavedId(null); closePicker(); }}
+                      style={{
+                        fontFamily: MONO, fontSize: "9px", letterSpacing: "0.08em",
+                        color: isActive ? ORANGE : "#555555",
+                        background: "none",
+                        border: `1px solid ${isActive ? ORANGE : "rgba(0,0,0,0.18)"}`,
+                        borderRadius: "2px", cursor: "pointer", padding: "4px 10px",
+                        flexShrink: 0, whiteSpace: "nowrap", transition: "border-color 0.15s, color 0.15s",
+                      }}
+                    >
+                      {`${list.title} · ${filled}/5`}
+                    </button>
+                  );
+                })}
+                {hidden > 0 && (
+                  <button onClick={() => setTop5Expanded(true)} style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.06em", color: "#aaaaaa", background: "none", border: "1px dashed rgba(0,0,0,0.15)", borderRadius: "2px", cursor: "pointer", padding: "4px 10px", flexShrink: 0, whiteSpace: "nowrap" }}>
+                    +{hidden} more
+                  </button>
+                )}
+                {top5Expanded && top5.length > 7 && (
+                  <button onClick={() => setTop5Expanded(false)} style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.06em", color: "#aaaaaa", background: "none", border: "none", cursor: "pointer", padding: "4px 4px", flexShrink: 0, whiteSpace: "nowrap" }}>
+                    Show less
+                  </button>
+                )}
+              </>
+            );
+          })()}
+        </div>
+
       </div>
 
-      {/* ── Two-column grid: left 55% + right Discover 45% ── */}
-      <div style={{ flex: 1, display: "grid", gridTemplateColumns: "55fr 45fr", overflow: "hidden", minHeight: 0 }}>
+      {/* ── Two-column grid: left Discover 45% + right list detail 55% ── */}
+      <div style={{ flex: 1, display: "grid", gridTemplateColumns: "33fr 67fr", overflow: "hidden", minHeight: 0 }}>
 
-        {/* LEFT — single scrollable column */}
-        <div style={{ display: "flex", flexDirection: "column", borderRight: "1px solid rgba(0,0,0,0.08)", overflow: "hidden" }}>
+        {/* LEFT (visual order 2 via CSS order) — list detail column */}
+        <div style={{ display: "flex", flexDirection: "column", borderRight: "1px solid rgba(0,0,0,0.08)", overflow: "hidden", order: 2 }}>
           {selectedList ? (
             <div style={{ flex: 1, padding: "24px 28px 28px", overflowY: "auto", minHeight: 0 }}>
               <p style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.12em", textTransform: "uppercase", color: ORANGE, marginBottom: "10px" }}>
@@ -579,6 +778,144 @@ export default function ListsClient({
                       />
                     );
                   })
+                ) : (selectedList.slug === "wantlist" || selectedList.slug === "want-to-buy") ? (
+                  <>
+                    {/* ── Wantlist controls ───────────────────────────────── */}
+                    <div style={{ marginBottom: "12px" }}>
+
+                      {/* Search + Hunting mode toggle row */}
+                      <div style={{ display: "flex", alignItems: "center", gap: "10px", marginBottom: "10px" }}>
+                        <input
+                          type="text"
+                          value={wantlistSearch}
+                          onChange={e => setWantlistSearch(e.target.value)}
+                          placeholder="Search artist or album…"
+                          style={{
+                            flex: 1, fontFamily: MONO, fontSize: "10px", letterSpacing: "0.04em",
+                            color: "#333", background: "transparent", border: "none",
+                            borderBottom: "1px solid rgba(0,0,0,0.12)", outline: "none",
+                            padding: "0 0 6px",
+                          }}
+                        />
+                        <button
+                          onClick={() => setHuntingMode(h => !h)}
+                          style={{
+                            fontFamily: MONO, fontSize: "8px", letterSpacing: "0.1em", textTransform: "uppercase",
+                            color: huntingMode ? "#fff" : "#888",
+                            background: huntingMode ? "#0d0d0d" : "none",
+                            border: "1px solid rgba(0,0,0,0.2)",
+                            borderRadius: "2px", cursor: "pointer", padding: "4px 10px",
+                            whiteSpace: "nowrap", flexShrink: 0, transition: "all 0.15s",
+                          }}
+                        >
+                          {huntingMode ? "◉ Hunting" : "○ Hunting"}
+                        </button>
+                      </div>
+
+                      {/* Sort + filter row */}
+                      <div style={{ display: "flex", alignItems: "center", gap: "14px", flexWrap: "wrap" }}>
+                        <span style={{ fontFamily: MONO, fontSize: "8px", letterSpacing: "0.1em", textTransform: "uppercase", color: "#cccccc", flexShrink: 0 }}>Sort</span>
+                        {(["priority", "price_cap", "date_added", "artist"] as const).map(s => (
+                          <button key={s} onClick={() => setWantlistSort(s)} style={{
+                            fontFamily: MONO, fontSize: "8px", letterSpacing: "0.06em",
+                            color: wantlistSort === s ? "#0d0d0d" : "#aaaaaa",
+                            background: "none", border: "none", cursor: "pointer", padding: "0 0 2px",
+                            borderBottom: `1px solid ${wantlistSort === s ? "#0d0d0d" : "transparent"}`,
+                          }}>
+                            {s === "priority" ? "Priority" : s === "price_cap" ? "Price cap" : s === "date_added" ? "Date added" : "Artist A–Z"}
+                          </button>
+                        ))}
+                        <div style={{ width: "1px", height: "14px", background: "rgba(0,0,0,0.1)", flexShrink: 0 }} />
+                        {(["must_have", "would_love", "someday"] as Priority[]).map(p => {
+                          const on = wantlistFilter.has(p);
+                          return (
+                            <button key={p} onClick={() => {
+                              setWantlistFilter(prev => {
+                                const next = new Set(prev);
+                                if (on) next.delete(p); else next.add(p);
+                                return next;
+                              });
+                            }} style={{
+                              fontFamily: MONO, fontSize: "8px", letterSpacing: "0.05em",
+                              color: on ? PRIORITY_COLORS[p] : "#cccccc",
+                              background: "none",
+                              border: `1px ${on ? "solid" : "dashed"} ${on ? PRIORITY_COLORS[p] : "#dddddd"}`,
+                              borderRadius: "2px", cursor: "pointer", padding: "2px 7px",
+                              transition: "all 0.15s",
+                            }}>
+                              {PRIORITY_LABELS[p]}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+
+                    {/* ── Cards / compact rows ─────────────────────────────── */}
+                    {huntingMode ? (
+                      <>
+                        {wantlistSlots.map(slot => (
+                          <HuntingRow
+                            key={slot.position}
+                            slot={slot}
+                            onMarkFound={() => handleUpdateWantlistItemMeta(selectedList.id, slot.position, { found: true })}
+                          />
+                        ))}
+                        {wantlistSlots.length === 0 && (
+                          <p style={{ fontFamily: SERIF, fontStyle: "italic", fontSize: "12px", color: "#dddddd", margin: "16px 0 8px" }}>
+                            No Must Have records yet.
+                          </p>
+                        )}
+                        {/* Found section */}
+                        {wantlistFoundSlots.length > 0 && (
+                          <FoundSection
+                            slots={wantlistFoundSlots}
+                            onUnmark={pos => handleUpdateWantlistItemMeta(selectedList.id, pos, { found: false })}
+                          />
+                        )}
+                      </>
+                    ) : (
+                      <>
+                        {wantlistSlots.map(slot => {
+                          const monthsOld = slot.created_at
+                            ? Math.floor((Date.now() - new Date(slot.created_at).getTime()) / (1000 * 60 * 60 * 24 * 30))
+                            : null;
+                          const showSomedayPrompt =
+                            slot.priority === "someday" &&
+                            monthsOld !== null && monthsOld >= 6 &&
+                            !keptSomeday.has(slot.position);
+                          return (
+                            <WantlistCard
+                              key={slot.position}
+                              slot={slot}
+                              monthsOld={monthsOld}
+                              showSomedayPrompt={showSomedayPrompt}
+                              onRemove={() => handleRemoveItem(selectedList.id, slot.position)}
+                              onKeepSomeday={() => setKeptSomeday(prev => new Set([...prev, slot.position]))}
+                              onUpdateMeta={updates => handleUpdateWantlistItemMeta(selectedList.id, slot.position, updates)}
+                            />
+                          );
+                        })}
+                        {selectedList.slots.filter(s => s.item).length === 0 && (
+                          <div style={{ margin: "32px 0 24px" }}>
+                            <p style={{ fontFamily: SERIF, fontSize: "14px", color: "#aaaaaa", lineHeight: 1.7, marginBottom: "10px" }}>
+                              Your Wantlist is empty. Every record you've almost bought, nearly found, or need to own belongs here.
+                            </p>
+                            <a href="/dig" style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.1em", textTransform: "uppercase", color: ORANGE, textDecoration: "none" }}>
+                              Dig for records →
+                            </a>
+                          </div>
+                        )}
+                        {selectedList.slots.length < 20 && (
+                          <button
+                            onClick={() => openPicker({ listId: selectedList.id, strategy: "append" })}
+                            style={{ fontFamily: SERIF, fontStyle: "italic", fontSize: "12px", color: "#cccccc", background: "none", border: "none", cursor: "pointer", padding: "8px 0", display: "block" }}
+                          >
+                            + Add a record
+                          </button>
+                        )}
+                      </>
+                    )}
+                  </>
                 ) : (
                   <>
                     {selectedList.slots.map(slot => (
@@ -606,12 +943,14 @@ export default function ListsClient({
                     Share ↗
                   </button>
                 )}
-                <button
-                  onClick={() => handleTogglePublic(selectedList.id)}
-                  style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.1em", textTransform: "uppercase", background: "none", border: "1px solid rgba(0,0,0,0.18)", cursor: "pointer", padding: "5px 10px", color: selectedList.is_public ? "#555555" : "#aaaaaa" }}
-                >
-                  {selectedList.is_public ? "Public" : "Private"}
-                </button>
+                {selectedList.slug !== "wantlist" && selectedList.slug !== "want-to-buy" && (
+                  <button
+                    onClick={() => handleTogglePublic(selectedList.id)}
+                    style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.1em", textTransform: "uppercase", background: "none", border: "1px solid rgba(0,0,0,0.18)", cursor: "pointer", padding: "5px 10px", color: selectedList.is_public ? "#555555" : "#aaaaaa" }}
+                  >
+                    {selectedList.is_public ? "Public" : "Private"}
+                  </button>
+                )}
                 <button
                   onClick={() => handleDeleteList(selectedList.id)}
                   style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.1em", textTransform: "uppercase", background: "none", border: "none", cursor: "pointer", padding: 0, color: "#cccccc" }}
@@ -720,19 +1059,33 @@ export default function ListsClient({
               </div>
             </div>
           ) : activeSavedCard ? (
-            <div style={{ flex: 1, padding: "24px 28px 20px", overflowY: "auto", minHeight: 0 }}>
+            <div style={{ flex: 1, padding: "24px 28px 28px", overflowY: "auto", minHeight: 0 }}>
               <p style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.12em", textTransform: "uppercase", color: ORANGE, marginBottom: "10px" }}>
-                Saved List
+                リスト · Discovered
               </p>
-              <h2 style={{ fontFamily: SERIF, fontSize: "20px", fontWeight: 400, color: "#0d0d0d", lineHeight: 1.15, marginBottom: "8px" }}>
+              <h2 style={{ fontFamily: SERIF, fontSize: "20px", fontWeight: 400, color: "#0d0d0d", lineHeight: 1.15, marginBottom: "5px" }}>
                 {activeSavedCard.title}
               </h2>
-              <p style={{ fontFamily: MONO, fontSize: "9px", color: "#aaaaaa", letterSpacing: "0.06em" }}>
+              <p style={{ fontFamily: MONO, fontSize: "9px", color: "#aaaaaa", letterSpacing: "0.06em", marginBottom: "20px" }}>
                 @{activeSavedCard.username}
               </p>
-              <p style={{ fontFamily: SERIF, fontStyle: "italic", fontSize: "12px", color: "#d0d0d0", marginTop: "40px", lineHeight: 1.5 }}>
-                Full list view coming soon.
-              </p>
+              {activeSavedCard.slots ? (
+                <div>
+                  {activeSavedCard.slots.map((slot, i) => (
+                    <CoverFetchingSlotRow
+                      key={i}
+                      position={i + 1}
+                      artist={slot.artist}
+                      album={slot.album}
+                      year={slot.year}
+                    />
+                  ))}
+                </div>
+              ) : (
+                <p style={{ fontFamily: SERIF, fontStyle: "italic", fontSize: "12px", color: "#d0d0d0", lineHeight: 1.5 }}>
+                  Full list view coming soon.
+                </p>
+              )}
             </div>
           ) : (
             <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center" }}>
@@ -741,8 +1094,8 @@ export default function ListsClient({
           )}
         </div>
 
-        {/* RIGHT — Discover column (45%) */}
-        <div style={{ overflowY: "auto", display: "flex", flexDirection: "column" }}>
+        {/* RIGHT (visual order 1 via CSS order) — Discover column */}
+        <div style={{ overflowY: "auto", display: "flex", flexDirection: "column", order: 1, borderRight: "1px solid rgba(0,0,0,0.08)" }}>
           <div style={{ position: "sticky", top: 0, background: "#ffffff", zIndex: 1, padding: "24px 24px 14px", borderBottom: "1px solid rgba(0,0,0,0.06)" }}>
             <h2 style={{ fontFamily: SERIF, fontSize: "16px", fontWeight: 400, color: "#0d0d0d", marginBottom: "12px" }}>
               Discover
@@ -762,20 +1115,32 @@ export default function ListsClient({
             </div>
           </div>
 
-          {STATIC_DISCOVER_CARDS.map(card => (
-            <DiscoverCard
-              key={card.id}
-              card={card}
-              covers={discoverCovers[card.id]}
-              onSave={() => handleSaveCard({ id: card.id, title: card.title, username: card.username })}
-              saved={savedCards.some(c => c.id === card.id)}
-            />
-          ))}
+          {STATIC_DISCOVER_CARDS.map(card => {
+            const slots = STATIC_LIST_CONTENT[card.id];
+            const entry = { id: card.id, title: card.title, username: card.username, slots };
+            return (
+              <DiscoverTextCard
+                key={card.id}
+                title={card.title}
+                username={card.username}
+                recordCount={card.count}
+                badge={card.badge}
+                saves={card.saves}
+                onSave={() => handleSaveCard(entry)}
+                saved={savedCards.some(c => c.id === card.id)}
+                onView={slots ? () => handleViewCard(entry) : undefined}
+              />
+            );
+          })}
 
           {filteredDiscoverLists.map(list => (
-            <RealDiscoverCard
+            <DiscoverTextCard
               key={list.id}
-              list={list}
+              title={list.title}
+              username={list.username}
+              recordCount={`${list.itemCount} records`}
+              badge={null}
+              saves={list.saveCount}
               onSave={() => handleSaveCard({ id: list.id, title: list.title, username: list.username })}
               saved={savedCards.some(c => c.id === list.id)}
             />
@@ -889,13 +1254,19 @@ function PersonalRow({ slot, onRemove }: { slot: ListSlot; onRemove: () => void 
   const [hovered, setHovered] = useState(false);
   return (
     <div
-      style={{ display: "flex", alignItems: "center", gap: "12px", padding: "8px 0", borderBottom: "1px solid rgba(0,0,0,0.05)", minHeight: "38px" }}
+      style={{ display: "flex", alignItems: "center", gap: "12px", padding: "6px 0", borderBottom: "1px solid rgba(0,0,0,0.05)", minHeight: "48px" }}
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
     >
       <span style={{ fontFamily: MONO, fontSize: "9px", color: "#cccccc", width: "16px", flexShrink: 0, textAlign: "right" }}>
         {slot.position}
       </span>
+      <div style={{ width: 36, height: 36, flexShrink: 0, overflow: "hidden", background: "#f0f0f0" }}>
+        {item.cover_url && (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={item.cover_url} alt="" style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
+        )}
+      </div>
       <div style={{ flex: 1, minWidth: 0 }}>
         <p style={{ fontFamily: SERIF, fontSize: "11px", color: "#0d0d0d", lineHeight: 1.3, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
           {item.song_title ?? item.album}
@@ -952,94 +1323,103 @@ function PickerRow({ cover, primary, secondary, onClick }: {
   );
 }
 
-// ─── DiscoverCard ─────────────────────────────────────────────────────────────
+// ─── CoverFetchingSlotRow ─────────────────────────────────────────────────────
 
-function DiscoverCard({ card, covers, onSave, saved }: {
-  card: typeof STATIC_DISCOVER_CARDS[number];
-  covers?: (string|null)[];
-  onSave: () => void;
-  saved: boolean;
+function CoverFetchingSlotRow({ position, artist, album, year }: {
+  position: number; artist: string; album: string; year: number | null;
 }) {
+  const [coverUrl, setCoverUrl] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    fetch(`/api/discogs/search?q=${encodeURIComponent(`${artist} ${album}`)}&mode=record`)
+      .then(r => r.ok ? r.json() : null)
+      .then(data => {
+        if (cancelled) return;
+        const first = data?.results?.[0];
+        if (!first) return;
+        const url = (first.cover_image && !first.cover_image.includes("spacer"))
+          ? first.cover_image
+          : (first.thumb && !first.thumb.includes("spacer") ? first.thumb : null);
+        if (url) setCoverUrl(url);
+      })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, [artist, album]);
+
   return (
-    <div style={{ borderBottom: "1px solid rgba(0,0,0,0.06)" }}>
-      <div style={{ height: 80, display: "grid", gridTemplateColumns: "1fr 1fr", gridTemplateRows: "1fr 1fr", overflow: "hidden" }}>
-        {card.colors.map((color, i) => {
-          const cover = covers?.[i];
-          return cover ? (
-            <div key={i} style={{ overflow: "hidden" }}>
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={cover} alt="" style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
-            </div>
-          ) : (
-            <div key={i} style={{ background: color }} />
-          );
-        })}
+    <div style={{ display: "flex", alignItems: "center", gap: "12px", padding: "6px 0", borderBottom: "1px solid rgba(0,0,0,0.05)", minHeight: "60px" }}>
+      <span style={{ fontFamily: MONO, fontSize: "10px", color: ORANGE, width: "16px", flexShrink: 0, textAlign: "right" }}>
+        {position}
+      </span>
+      <div style={{ width: 48, height: 48, flexShrink: 0, overflow: "hidden", background: "#f0f0f0" }}>
+        {coverUrl ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={coverUrl} alt="" style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
+        ) : (
+          <div style={{ width: "100%", height: "100%", background: "linear-gradient(135deg, #f0f0f0 25%, #e8e8e8 75%)" }} />
+        )}
       </div>
-      <div style={{ padding: "14px 20px 16px" }}>
-        <p style={{ fontFamily: SERIF, fontSize: "13px", color: "#0d0d0d", lineHeight: 1.35, marginBottom: "5px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-          {card.title}
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <p style={{ fontFamily: SERIF, fontSize: "12px", color: "#0d0d0d", lineHeight: 1.3, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+          {album}
         </p>
-        <p style={{ fontFamily: MONO, fontSize: "9px", color: "#aaaaaa", letterSpacing: "0.06em", marginBottom: "10px" }}>
-          @{card.username} · {card.count}
+        <p style={{ fontFamily: MONO, fontSize: "9px", color: "#aaaaaa", letterSpacing: "0.06em", marginTop: "3px" }}>
+          {artist}{year ? ` · ${year}` : ""}
         </p>
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "8px" }}>
-          <span style={{ fontFamily: MONO, fontSize: "9px", color: "#888888", letterSpacing: "0.04em", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-            {card.badge}
-          </span>
-          <div style={{ display: "flex", alignItems: "center", gap: "12px", flexShrink: 0 }}>
-            <button
-              onClick={onSave}
-              disabled={saved}
-              style={{
-                fontFamily: MONO, fontSize: "9px", letterSpacing: "0.06em",
-                color: saved ? "#aaaaaa" : ORANGE,
-                background: "none", border: "none",
-                cursor: saved ? "default" : "pointer",
-                padding: 0,
-              }}
-            >
-              {saved ? "Saved ✓" : "Save ↓"}
-            </button>
-            <span style={{ fontFamily: MONO, fontSize: "9px", color: ORANGE, letterSpacing: "0.04em" }}>
-              {card.saves.toLocaleString()} saves
-            </span>
-          </div>
-        </div>
       </div>
     </div>
   );
 }
 
-// ─── RealDiscoverCard ─────────────────────────────────────────────────────────
+// ─── DiscoverTextCard ─────────────────────────────────────────────────────────
 
-function RealDiscoverCard({ list, onSave, saved }: {
-  list: DiscoverList;
+function DiscoverTextCard({ title, username, recordCount, badge, saves, onSave, saved, onView }: {
+  title: string;
+  username: string;
+  recordCount: string;
+  badge: string | null;
+  saves: number;
   onSave: () => void;
   saved: boolean;
+  onView?: () => void;
 }) {
   return (
-    <div style={{ borderBottom: "1px solid rgba(0,0,0,0.06)" }}>
-      <div style={{ height: 80, display: "grid", gridTemplateColumns: "1fr 1fr", gridTemplateRows: "1fr 1fr", overflow: "hidden" }}>
-        {[0, 1, 2, 3].map(i => {
-          const cover = list.covers[i];
-          return cover ? (
-            <div key={i} style={{ overflow: "hidden" }}>
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={cover} alt="" style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
-            </div>
-          ) : (
-            <div key={i} style={{ background: "#f0f0f0" }} />
-          );
-        })}
-      </div>
-      <div style={{ padding: "14px 20px 16px" }}>
-        <p style={{ fontFamily: SERIF, fontSize: "13px", color: "#0d0d0d", lineHeight: 1.35, marginBottom: "5px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-          {list.title}
-        </p>
-        <p style={{ fontFamily: MONO, fontSize: "9px", color: "#aaaaaa", letterSpacing: "0.06em", marginBottom: "10px" }}>
-          @{list.username} · {list.itemCount} records
-        </p>
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+    <div style={{ borderBottom: "1px solid rgba(0,0,0,0.06)", padding: "16px 20px" }}>
+      <p
+        onClick={onView}
+        style={{
+          fontFamily: SERIF, fontSize: "14px", color: "#0d0d0d", lineHeight: 1.3,
+          marginBottom: "4px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
+          cursor: onView ? "pointer" : "default",
+          textDecoration: onView ? "underline" : "none",
+          textDecorationColor: "rgba(0,0,0,0.2)",
+          textUnderlineOffset: "3px",
+        }}
+      >
+        {title}
+      </p>
+      <p style={{ fontFamily: MONO, fontSize: "9px", color: "#aaaaaa", letterSpacing: "0.06em", marginBottom: "12px" }}>
+        @{username} · {recordCount}
+      </p>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "10px" }}>
+        {badge ? (
+          <span style={{
+            fontFamily: MONO, fontSize: "9px", letterSpacing: "0.06em", fontStyle: "italic",
+            color: "#888888", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
+          }}>
+            {badge}
+          </span>
+        ) : <span />}
+        <div style={{ display: "flex", alignItems: "center", gap: "12px", flexShrink: 0 }}>
+          {onView && (
+            <button
+              onClick={onView}
+              style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.06em", color: "#555555", background: "none", border: "none", cursor: "pointer", padding: 0 }}
+            >
+              View →
+            </button>
+          )}
           <button
             onClick={onSave}
             disabled={saved}
@@ -1047,17 +1427,391 @@ function RealDiscoverCard({ list, onSave, saved }: {
               fontFamily: MONO, fontSize: "9px", letterSpacing: "0.06em",
               color: saved ? "#aaaaaa" : ORANGE,
               background: "none", border: "none",
-              cursor: saved ? "default" : "pointer",
-              padding: 0,
+              cursor: saved ? "default" : "pointer", padding: 0,
             }}
           >
             {saved ? "Saved ✓" : "Save ↓"}
           </button>
-          <span style={{ fontFamily: MONO, fontSize: "9px", color: ORANGE, letterSpacing: "0.04em" }}>
-            {list.saveCount} saves
+          <span style={{ fontFamily: MONO, fontSize: "9px", color: "#cccccc", letterSpacing: "0.04em" }}>
+            {saves.toLocaleString()} saves
           </span>
         </div>
       </div>
+    </div>
+  );
+}
+
+// ─── WantlistCard ─────────────────────────────────────────────────────────────
+
+type WantlistMeta = {
+  note?: string | null;
+  priority?: Priority | null;
+  price_cap?: number | null;
+  pressing_tip?: string | null;
+  found?: boolean | null;
+};
+
+function WantlistCard({ slot, monthsOld, showSomedayPrompt, onRemove, onKeepSomeday, onUpdateMeta }: {
+  slot: import("@/app/lists/page").ListSlot;
+  monthsOld: number | null;
+  showSomedayPrompt: boolean;
+  onRemove: () => void;
+  onKeepSomeday: () => void;
+  onUpdateMeta: (updates: WantlistMeta) => void;
+}) {
+  const { item } = slot;
+  if (!item) return null;
+
+  const [hovered,        setHovered]        = useState(false);
+  const [editingNote,    setEditingNote]     = useState(false);
+  const [noteValue,      setNoteValue]       = useState(slot.note ?? "");
+  const [editingTip,     setEditingTip]      = useState(false);
+  const [tipValue,       setTipValue]        = useState(slot.pressing_tip ?? "");
+  const [editingPrice,   setEditingPrice]    = useState(false);
+  const [priceValue,     setPriceValue]      = useState(slot.price_cap != null ? String(slot.price_cap) : "");
+  const [coverUrl,       setCoverUrl]        = useState<string | null>(item.cover_url ?? null);
+
+  useEffect(() => {
+    if (coverUrl) return;
+    let cancelled = false;
+    fetch(`/api/discogs/search?q=${encodeURIComponent(`${item.artist} ${item.album}`)}&mode=record`)
+      .then(r => r.ok ? r.json() : null)
+      .then(data => {
+        if (cancelled) return;
+        const first = data?.results?.[0];
+        if (!first) return;
+        const url = (first.cover_image && !first.cover_image.includes("spacer"))
+          ? first.cover_image
+          : (first.thumb && !first.thumb.includes("spacer") ? first.thumb : null);
+        if (url) setCoverUrl(url);
+      })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, [item.artist, item.album]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const priority = (slot.priority ?? null) as Priority | null;
+
+  function cyclePriority() {
+    const idx = PRIORITY_CYCLE.indexOf(priority);
+    const next = PRIORITY_CYCLE[(idx + 1) % PRIORITY_CYCLE.length];
+    onUpdateMeta({ priority: next });
+  }
+
+  function commitNote() {
+    setEditingNote(false);
+    const trimmed = noteValue.trim() || null;
+    if (trimmed !== (slot.note ?? null)) onUpdateMeta({ note: trimmed });
+  }
+
+  function commitTip() {
+    setEditingTip(false);
+    const trimmed = tipValue.trim() || null;
+    if (trimmed !== (slot.pressing_tip ?? null)) onUpdateMeta({ pressing_tip: trimmed });
+  }
+
+  function commitPrice() {
+    setEditingPrice(false);
+    const num = priceValue.trim() ? parseFloat(priceValue.replace(/[^0-9.]/g, "")) : null;
+    const val = num !== null && !isNaN(num) ? num : null;
+    if (val !== (slot.price_cap ?? null)) onUpdateMeta({ price_cap: val });
+  }
+
+  const discogsSearchUrl = `https://www.discogs.com/search/?q=${encodeURIComponent(`${item.artist} ${item.album}`)}&type=release`;
+
+  const dateLabel = slot.created_at
+    ? (() => {
+        const d = new Date(slot.created_at);
+        return d.toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
+      })()
+    : null;
+
+  return (
+    <div
+      style={{
+        border: "1px solid rgba(0,0,0,0.07)",
+        padding: "8px 10px 7px",
+        marginBottom: "5px",
+        transition: "border-color 0.15s",
+        borderColor: hovered ? "rgba(0,0,0,0.14)" : "rgba(0,0,0,0.07)",
+      }}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+    >
+      {/* Header row: priority · spacer · ¥cap · Discogs · × */}
+      <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "5px" }}>
+        <button
+          onClick={cyclePriority}
+          title="Click to change priority"
+          style={{
+            fontFamily: MONO, fontSize: "7px", letterSpacing: "0.08em", textTransform: "uppercase",
+            color: priority ? PRIORITY_COLORS[priority] : "#cccccc",
+            background: "none",
+            border: `1px ${priority ? "solid" : "dashed"} ${priority ? PRIORITY_COLORS[priority] : "#dddddd"}`,
+            borderRadius: "2px", cursor: "pointer", padding: "2px 6px",
+            whiteSpace: "nowrap", flexShrink: 0, transition: "all 0.15s",
+          }}
+        >
+          {priority ? PRIORITY_LABELS[priority] : "Priority"}
+        </button>
+
+        <div style={{ flex: 1 }} />
+
+        {/* Price cap */}
+        <div style={{ display: "flex", alignItems: "center", gap: "3px" }}>
+          <span style={{ fontFamily: MONO, fontSize: "8px", color: "#cccccc", letterSpacing: "0.04em" }}>¥</span>
+          {editingPrice ? (
+            <input
+              autoFocus
+              value={priceValue}
+              onChange={e => setPriceValue(e.target.value)}
+              onBlur={commitPrice}
+              onKeyDown={e => {
+                if (e.key === "Enter") commitPrice();
+                if (e.key === "Escape") { setEditingPrice(false); setPriceValue(slot.price_cap != null ? String(slot.price_cap) : ""); }
+              }}
+              placeholder="cap"
+              style={{
+                width: "48px", fontFamily: MONO, fontSize: "8px", color: "#333",
+                background: "transparent", border: "none",
+                borderBottom: "1px solid rgba(0,0,0,0.18)", outline: "none", padding: "0 0 1px",
+              }}
+            />
+          ) : (
+            <button
+              onClick={() => setEditingPrice(true)}
+              style={{
+                fontFamily: MONO, fontSize: "8px",
+                color: slot.price_cap != null ? "#555" : hovered ? "#cccccc" : "transparent",
+                background: "none", border: "none", cursor: "text", padding: 0,
+              }}
+            >
+              {slot.price_cap != null ? slot.price_cap.toLocaleString() : "cap"}
+            </button>
+          )}
+        </div>
+
+        <a
+          href={discogsSearchUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          style={{ fontFamily: MONO, fontSize: "8px", letterSpacing: "0.05em", color: hovered ? "#555" : "#bbbbbb", textDecoration: "none", flexShrink: 0, transition: "color 0.15s" }}
+        >
+          Discogs ↗
+        </a>
+
+        {hovered && (
+          <button
+            onClick={onRemove}
+            style={{ fontFamily: MONO, fontSize: "13px", color: "#cccccc", background: "none", border: "none", cursor: "pointer", padding: "0 0 0 2px", lineHeight: 1, flexShrink: 0 }}
+          >
+            ×
+          </button>
+        )}
+      </div>
+
+      {/* Cover + Artist/Album/Year */}
+      <div style={{ display: "flex", alignItems: "flex-start", gap: "10px", marginBottom: "4px" }}>
+        <div style={{
+          width: 40, height: 40, flexShrink: 0, overflow: "hidden",
+          background: coverUrl ? "transparent" : "#f0f0f0",
+          border: coverUrl ? "none" : "1px solid rgba(0,0,0,0.08)",
+        }}>
+          {coverUrl && (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={coverUrl} alt="" style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
+          )}
+        </div>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <p style={{ fontFamily: SERIF, fontSize: "12px", color: "#0d0d0d", lineHeight: 1.25, marginBottom: "1px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+            {item.artist}
+          </p>
+          <p style={{ fontFamily: SERIF, fontStyle: "italic", fontSize: "11px", color: "#444444", lineHeight: 1.25, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+            {item.song_title ?? item.album}
+            {item.year && <span style={{ fontFamily: MONO, fontStyle: "normal", fontSize: "8px", color: "#aaaaaa", letterSpacing: "0.05em" }}> · {item.year}</span>}
+          </p>
+        </div>
+      </div>
+
+      {/* Pressing tip — single line, inline edit */}
+      {editingTip ? (
+        <div style={{ display: "flex", alignItems: "center", gap: "4px", marginBottom: "3px" }}>
+          <span style={{ fontFamily: MONO, fontSize: "8px", color: ORANGE, flexShrink: 0 }}>◆</span>
+          <input
+            autoFocus
+            value={tipValue}
+            onChange={e => setTipValue(e.target.value)}
+            onBlur={commitTip}
+            onKeyDown={e => {
+              if (e.key === "Enter") commitTip();
+              if (e.key === "Escape") { setEditingTip(false); setTipValue(slot.pressing_tip ?? ""); }
+            }}
+            placeholder="Pressing tip…"
+            style={{
+              flex: 1, fontFamily: MONO, fontSize: "8px", color: "#555", letterSpacing: "0.03em",
+              background: "transparent", border: "none",
+              borderBottom: "1px solid rgba(0,0,0,0.15)", outline: "none", padding: "0 0 1px",
+            }}
+          />
+        </div>
+      ) : slot.pressing_tip ? (
+        <div
+          style={{ display: "flex", alignItems: "baseline", gap: "4px", marginBottom: "3px", cursor: "text" }}
+          onClick={() => { setTipValue(slot.pressing_tip ?? ""); setEditingTip(true); }}
+        >
+          <span style={{ fontFamily: MONO, fontSize: "8px", color: ORANGE, flexShrink: 0 }}>◆</span>
+          <p style={{ fontFamily: MONO, fontStyle: "italic", fontSize: "8px", color: "#666", letterSpacing: "0.03em", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+            {slot.pressing_tip}
+          </p>
+        </div>
+      ) : hovered ? (
+        <button
+          onClick={() => { setTipValue(""); setEditingTip(true); }}
+          style={{ fontFamily: MONO, fontSize: "8px", color: "#dddddd", background: "none", border: "none", cursor: "text", padding: "0 0 3px", letterSpacing: "0.03em", display: "block" }}
+        >
+          ◆ tip…
+        </button>
+      ) : <div style={{ height: "4px" }} />}
+
+      {/* Note — single line, inline edit */}
+      {editingNote ? (
+        <input
+          autoFocus
+          value={noteValue}
+          onChange={e => setNoteValue(e.target.value)}
+          onBlur={commitNote}
+          onKeyDown={e => {
+            if (e.key === "Enter") commitNote();
+            if (e.key === "Escape") { setEditingNote(false); setNoteValue(slot.note ?? ""); }
+          }}
+          placeholder="Note…"
+          style={{
+            width: "100%", boxSizing: "border-box",
+            fontFamily: MONO, fontStyle: "italic", fontSize: "8px", color: "#555", letterSpacing: "0.03em",
+            background: "transparent", border: "none",
+            borderBottom: "1px solid rgba(0,0,0,0.15)", outline: "none", padding: "0 0 1px",
+          }}
+        />
+      ) : (slot.note || hovered) ? (
+        <button
+          onClick={() => { setNoteValue(slot.note ?? ""); setEditingNote(true); }}
+          style={{
+            fontFamily: MONO, fontStyle: "italic", fontSize: "8px", letterSpacing: "0.03em",
+            color: slot.note ? "#888888" : "#dddddd",
+            background: "none", border: "none", cursor: "text", padding: 0, textAlign: "left",
+            overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: "100%", display: "block",
+          }}
+        >
+          {slot.note ?? "note…"}
+        </button>
+      ) : null}
+
+      {/* Someday prompt + date — compact inline */}
+      {(showSomedayPrompt || dateLabel) && (
+        <div style={{ display: "flex", alignItems: "center", gap: "8px", marginTop: "5px", paddingTop: "5px", borderTop: "1px solid rgba(0,0,0,0.05)" }}>
+          {showSomedayPrompt && (
+            <>
+              <span style={{ fontFamily: MONO, fontSize: "8px", color: "#aaaaaa", letterSpacing: "0.03em", fontStyle: "italic", flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                {monthsOld}mo ago · Still want this?
+              </span>
+              <button onClick={onKeepSomeday} style={{ fontFamily: MONO, fontSize: "7px", letterSpacing: "0.07em", color: "#888", background: "none", border: "1px solid rgba(0,0,0,0.14)", borderRadius: "2px", cursor: "pointer", padding: "1px 5px", flexShrink: 0 }}>Keep</button>
+              <button onClick={onRemove} style={{ fontFamily: MONO, fontSize: "7px", letterSpacing: "0.07em", color: "#aaaaaa", background: "none", border: "none", cursor: "pointer", padding: "1px 0", flexShrink: 0 }}>Remove</button>
+            </>
+          )}
+          {!showSomedayPrompt && dateLabel && (
+            <span style={{ fontFamily: MONO, fontSize: "8px", color: "#dddddd", letterSpacing: "0.03em", marginLeft: "auto" }}>
+              {dateLabel}
+            </span>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── HuntingRow ───────────────────────────────────────────────────────────────
+
+function HuntingRow({ slot, onMarkFound }: {
+  slot: import("@/app/lists/page").ListSlot;
+  onMarkFound: () => void;
+}) {
+  const { item } = slot;
+  if (!item) return null;
+  const [checking, setChecking] = useState(false);
+
+  return (
+    <div style={{
+      display: "flex", alignItems: "flex-start", gap: "10px",
+      padding: "8px 0", borderBottom: "1px solid rgba(0,0,0,0.05)",
+    }}>
+      <button
+        onClick={async () => { setChecking(true); await onMarkFound(); }}
+        disabled={checking}
+        style={{
+          width: "16px", height: "16px", flexShrink: 0, marginTop: "1px",
+          border: "1.5px solid rgba(0,0,0,0.2)", background: "none",
+          cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center",
+          borderRadius: "2px", padding: 0,
+        }}
+      >
+        {checking && <span style={{ fontSize: "9px", color: "#aaa" }}>·</span>}
+      </button>
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <p style={{ fontFamily: SERIF, fontSize: "12px", color: "#0d0d0d", lineHeight: 1.3 }}>
+          {item.artist} — {item.song_title ?? item.album}
+        </p>
+        {slot.pressing_tip && (
+          <p style={{ fontFamily: MONO, fontStyle: "italic", fontSize: "9px", color: "#888", letterSpacing: "0.03em", marginTop: "2px" }}>
+            ◆ {slot.pressing_tip}
+          </p>
+        )}
+      </div>
+      {slot.price_cap != null && (
+        <span style={{ fontFamily: MONO, fontSize: "9px", color: "#aaaaaa", letterSpacing: "0.04em", flexShrink: 0 }}>
+          ¥{slot.price_cap.toLocaleString()}
+        </span>
+      )}
+    </div>
+  );
+}
+
+// ─── FoundSection ─────────────────────────────────────────────────────────────
+
+function FoundSection({ slots, onUnmark }: {
+  slots: import("@/app/lists/page").ListSlot[];
+  onUnmark: (position: number) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  return (
+    <div style={{ marginTop: "16px", borderTop: "1px dashed rgba(0,0,0,0.1)", paddingTop: "12px" }}>
+      <button
+        onClick={() => setOpen(o => !o)}
+        style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.1em", textTransform: "uppercase", color: "#aaaaaa", background: "none", border: "none", cursor: "pointer", padding: 0, display: "flex", alignItems: "center", gap: "6px" }}
+      >
+        {open ? "▾" : "▸"} Found ({slots.length})
+      </button>
+      {open && (
+        <div style={{ marginTop: "10px" }}>
+          {slots.map(slot => (
+            <div key={slot.position} style={{ display: "flex", alignItems: "center", gap: "10px", padding: "6px 0", borderBottom: "1px solid rgba(0,0,0,0.04)" }}>
+              <span style={{ fontFamily: MONO, fontSize: "9px", color: "#22c55e", flexShrink: 0 }}>✓</span>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <p style={{ fontFamily: SERIF, fontSize: "11px", color: "#888", lineHeight: 1.3 }}>
+                  {slot.item?.artist} — {slot.item?.song_title ?? slot.item?.album}
+                </p>
+                <p style={{ fontFamily: MONO, fontStyle: "italic", fontSize: "9px", color: "#aaaaaa", letterSpacing: "0.03em", marginTop: "2px" }}>
+                  Remember to add this to Discogs.
+                </p>
+              </div>
+              <button
+                onClick={() => onUnmark(slot.position)}
+                style={{ fontFamily: MONO, fontSize: "9px", color: "#cccccc", background: "none", border: "none", cursor: "pointer", padding: 0 }}
+              >
+                Undo
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
@@ -1092,7 +1846,7 @@ function CreateModal({ state, newTitle, isCreating, onChangeTitle, onChangeState
                   onClick={() => onChangeState({ listType: lt, step: "templates" })}
                   style={{ fontFamily: SERIF, fontSize: "18px", fontWeight: 400, color: state.listType === lt ? "#0d0d0d" : "#cccccc", background: "none", border: "none", cursor: "pointer", padding: 0, borderBottom: `1px solid ${state.listType === lt ? "#0d0d0d" : "transparent"}`, paddingBottom: "2px" }}
                 >
-                  {lt === "top5" ? "Top 5 list" : "Personal list"}
+                  {lt === "top5" ? "Top 5 list" : "Private list"}
                 </button>
               ))}
             </div>

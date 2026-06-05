@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import AppNav from "@/components/AppNav";
+import { addToWantlist } from "@/app/dig/actions";
 
 const SERIF  = "var(--font-editorial)";
 const MONO   = "var(--font-mono)";
@@ -59,7 +60,7 @@ function VinylDisc() {
 // ─── Loading — vinyl + tonearm ────────────────────────────────────────────────
 
 function LoadingState({ mode }: { mode: DigMode }) {
-  const text = mode === "explore" ? "Exploring your shelves..." : "Reading your collection...";
+  const text = mode === "explore" ? "Exploring your shelves..." : mode === "hallucinations" ? "Consulting the chaos oracle..." : "Reading your collection...";
   return (
     <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", flex: 1, gap: "32px" }}>
       <svg viewBox="0 0 240 196" width="180" height="147" style={{ display: "block", overflow: "visible" }} aria-hidden="true">
@@ -119,7 +120,10 @@ function PositionIndicator({ idx, total, onNav }: { idx: number; total: number; 
 
 // ─── Sleeve card ──────────────────────────────────────────────────────────────
 
-function SleeveCard({ rec, mode }: { rec: Recommendation; mode: DigMode }) {
+function SleeveCard({ rec, mode, onAddToWantlist, wantlistAdded }: {
+  rec: Recommendation; mode: DigMode;
+  onAddToWantlist: () => void; wantlistAdded: boolean;
+}) {
   // Component remounts on every rec change (key prop), so useState resets naturally.
   const [coverUrl, setCoverUrl] = useState<string | null>(null);
 
@@ -190,10 +194,15 @@ function SleeveCard({ rec, mode }: { rec: Recommendation; mode: DigMode }) {
       {/* ── Right: text ── */}
       <div className="dig-sleeve-text" style={{ padding: "26px 28px", display: "flex", flexDirection: "column" }}>
 
-        {/* Explore tag */}
+        {/* Mode tag */}
         {mode === "explore" && (
           <p style={{ fontFamily: MONO, fontSize: "8px", letterSpacing: "0.16em", textTransform: "uppercase", color: ORANGE, margin: "0 0 10px 0" }}>
             In your collection
+          </p>
+        )}
+        {mode === "hallucinations" && (
+          <p style={{ fontFamily: MONO, fontSize: "8px", letterSpacing: "0.16em", textTransform: "uppercase", color: "#b30042", margin: "0 0 10px 0" }}>
+            ⚡ Way outside your taste
           </p>
         )}
 
@@ -225,6 +234,25 @@ function SleeveCard({ rec, mode }: { rec: Recommendation; mode: DigMode }) {
         >
           {rec.reason}
         </p>
+
+        {/* Wantlist save */}
+        <div style={{ marginTop: "12px" }}>
+          <button
+            onClick={onAddToWantlist}
+            disabled={wantlistAdded}
+            style={{
+              fontFamily: MONO, fontSize: "9px", letterSpacing: "0.1em", textTransform: "uppercase",
+              color: wantlistAdded ? "#aaaaaa" : ORANGE,
+              background: "none",
+              border: `1px ${wantlistAdded ? "solid" : "dashed"} ${wantlistAdded ? "#aaaaaa" : ORANGE}`,
+              cursor: wantlistAdded ? "default" : "pointer",
+              padding: "5px 10px",
+              transition: "all 0.2s",
+            }}
+          >
+            {wantlistAdded ? "Added to Wantlist ✓" : "+ Wantlist"}
+          </button>
+        </div>
 
         {/* Links */}
         <div style={{ flexShrink: 0, paddingTop: "16px", borderTop: "1px solid rgba(0,0,0,0.06)", marginTop: "12px" }}>
@@ -289,7 +317,7 @@ function NavBar({ idx, total, onNav, onDigAgain }: {
 
 // ─── Mode toggle ─────────────────────────────────────────────────────────────
 
-type DigMode = "discover" | "explore";
+type DigMode = "discover" | "explore" | "hallucinations";
 
 function ModeToggle({ mode, onChange, disabled }: {
   mode:     DigMode;
@@ -325,8 +353,9 @@ function ModeToggle({ mode, onChange, disabled }: {
 
   return (
     <div className="dig-mode-toggle" style={{ display: "flex", justifyContent: "center", gap: "24px", paddingTop: "14px" }}>
-      {item("discover", "Discover · Outside Collection")}
-      {item("explore",  "Explore · Inside Collection")}
+      {item("discover",      "Discover · Outside Collection")}
+      {item("explore",       "Explore · Inside Collection")}
+      {item("hallucinations","Hallucinations")}
     </div>
   );
 }
@@ -334,11 +363,12 @@ function ModeToggle({ mode, onChange, disabled }: {
 // ─── Main client ──────────────────────────────────────────────────────────────
 
 export default function DigClient({ username, displayLabel, avatarUrl, collectionCount, listsCount }: Props) {
-  const [recs,    setRecs]    = useState<Recommendation[] | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error,   setError]   = useState<string | null>(null);
-  const [idx,     setIdx]     = useState(0);
-  const [mode,    setMode]    = useState<DigMode>("discover");
+  const [recs,          setRecs]          = useState<Recommendation[] | null>(null);
+  const [loading,       setLoading]       = useState(true);
+  const [error,         setError]         = useState<string | null>(null);
+  const [idx,           setIdx]           = useState(0);
+  const [mode,          setMode]          = useState<DigMode>("discover");
+  const [wantlistAdded, setWantlistAdded] = useState<Set<string>>(new Set());
 
   // fetchKey drives all fetches. Incrementing `n` re-triggers the effect for
   // "dig again" without changing mode; swapping `mode` handles mode changes.
@@ -387,6 +417,16 @@ export default function DigClient({ username, displayLabel, avatarUrl, collectio
 
   function navigate(dir: -1 | 1) {
     setIdx(i => Math.min(Math.max(i + dir, 0), (recs?.length ?? 1) - 1));
+  }
+
+  async function handleAddToWantlist(rec: Recommendation) {
+    const key = `${rec.artist}||${rec.album}`;
+    setWantlistAdded(prev => new Set(prev).add(key));
+    const result = await addToWantlist(rec.artist, rec.album, rec.year);
+    if (result?.error) {
+      console.error(result.error);
+      setWantlistAdded(prev => { const s = new Set(prev); s.delete(key); return s; });
+    }
   }
 
   const statNum: React.CSSProperties = {
@@ -454,7 +494,7 @@ export default function DigClient({ username, displayLabel, avatarUrl, collectio
             flex: 0 0 100% !important;
             padding: 0 !important;
           }
-          .dig-header-title h1 { font-size: 26px !important; }
+          .dig-header-title h1 { font-size: 18px !important; }
           .dig-header-title p  { font-size: 8px !important; }
           /* Rules between stats and title disappear */
           .dig-header-rule { display: none !important; }
@@ -522,35 +562,14 @@ export default function DigClient({ username, displayLabel, avatarUrl, collectio
       <header style={{ flexShrink: 0, borderBottom: "1px solid rgba(0,0,0,0.08)" }}>
         <div className="dig-header-inner" style={{ display: "flex", alignItems: "center", justifyContent: "center", padding: "16px 40px", gap: "0" }}>
 
-          {/* Left stat */}
-          <div className="dig-stat-side" style={{ paddingRight: "36px", whiteSpace: "nowrap" }}>
-            <span className="dig-stat-num" style={statNum}>{collectionCount.toLocaleString()}</span>
-            <span className="dig-stat-lbl" style={statLbl}>Records read</span>
-          </div>
-
-          {/* Rule */}
-          <div className="dig-header-rule" style={{ width: 1, height: 38, background: "rgba(0,0,0,0.10)", flexShrink: 0 }} />
-
           {/* Centre: title block — moves to top row on mobile via order:-1 */}
           <div className="dig-header-title" style={{ textAlign: "center", padding: "0 40px" }}>
-            <p style={{ fontFamily: MONO, fontSize: "8px", letterSpacing: "0.16em", textTransform: "uppercase", color: ORANGE, margin: "0 0 4px 0" }}>
-              発掘 · AI crate-digging for your taste
-            </p>
-            <h1 style={{ fontFamily: SERIF, fontSize: "30px", fontWeight: 400, color: "#0d0d0d", lineHeight: 1.1, margin: "0 0 4px 0" }}>
-              Dig
+            <h1 style={{ fontFamily: SERIF, fontSize: "30px", fontWeight: 400, color: ORANGE, lineHeight: 1.1, margin: "0 0 4px 0" }}>
+              発掘 · Crate Digging for Your Taste
             </h1>
             <p style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.08em", color: "#aaaaaa", margin: 0 }}>
               What your collection is asking for
             </p>
-          </div>
-
-          {/* Rule */}
-          <div className="dig-header-rule" style={{ width: 1, height: 38, background: "rgba(0,0,0,0.10)", flexShrink: 0 }} />
-
-          {/* Right stat */}
-          <div className="dig-stat-side" style={{ paddingLeft: "36px", whiteSpace: "nowrap" }}>
-            <span className="dig-stat-num" style={statNum}>{listsCount}</span>
-            <span className="dig-stat-lbl" style={statLbl}>Top 5 lists</span>
           </div>
 
         </div>
@@ -583,7 +602,13 @@ export default function DigClient({ username, displayLabel, avatarUrl, collectio
           {recs && !loading && (
             <>
               <PositionIndicator idx={idx} total={recs.length} onNav={setIdx} />
-              <SleeveCard key={`${idx}-${mode}`} rec={recs[idx]} mode={mode} />
+              <SleeveCard
+                key={`${idx}-${mode}`}
+                rec={recs[idx]}
+                mode={mode}
+                onAddToWantlist={() => handleAddToWantlist(recs[idx])}
+                wantlistAdded={wantlistAdded.has(`${recs[idx].artist}||${recs[idx].album}`)}
+              />
               <NavBar idx={idx} total={recs.length} onNav={navigate} onDigAgain={handleDigAgain} />
             </>
           )}
