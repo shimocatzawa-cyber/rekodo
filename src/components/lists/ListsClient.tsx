@@ -106,6 +106,15 @@ const STATIC_DISCOVER_CARDS = [
   },
 ] as const;
 
+// ─── Discogs artwork queries per static card ──────────────────────────────────
+
+const DISCOVER_CARD_QUERIES: Record<string, string[]> = {
+  s1: ["Ryo Fukui Scenery", "Toshiko Akiyoshi trio", "Sadao Watanabe jazz", "Masabumi Kikuchi"],
+  s2: ["Neu! debut", "Cluster Zuckerzeit", "Harmonia Musik von Harmonia", "Popol Vuh Aguirre"],
+  s3: ["Will Oldham Palace Brothers", "Royal Trux Twin Infinitives", "Joanna Newsom Ys", "Smog Knock Knock"],
+  s4: ["Neil Young Harvest", "Rolling Stones Exile Main St", "Lou Reed Transformer", "Jethro Tull Thick As A Brick"],
+};
+
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 interface Props {
@@ -136,6 +145,12 @@ interface DiscogsResult {
   label?: string[];
   cover_image?: string;
   thumb?: string;
+}
+
+interface SavedCardEntry {
+  id: string;
+  title: string;
+  username: string;
 }
 
 function parseTitle(title: string): { artist: string; album: string } {
@@ -171,10 +186,14 @@ export default function ListsClient({
   const [discogsSearching, setDiscogsSearching] = useState(false);
   const discogsDebounce = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const [shareList,      setShareList]      = useState<UserList | null>(null);
-  const [shareCanvas,    setShareCanvas]    = useState<HTMLCanvasElement | null>(null);
-  const [shareGenerating,setShareGenerating]= useState(false);
-  const [shareCopyState, setShareCopyState] = useState<"idle"|"copied"|"failed">("idle");
+  const [shareList,       setShareList]       = useState<UserList | null>(null);
+  const [shareCanvas,     setShareCanvas]     = useState<HTMLCanvasElement | null>(null);
+  const [shareGenerating, setShareGenerating] = useState(false);
+  const [shareCopyState,  setShareCopyState]  = useState<"idle"|"copied"|"failed">("idle");
+
+  const [savedCards,     setSavedCards]     = useState<SavedCardEntry[]>([]);
+  const [activeSavedId,  setActiveSavedId]  = useState<string | null>(null);
+  const [discoverCovers, setDiscoverCovers] = useState<Record<string, (string|null)[]>>({});
 
   useEffect(() => { setLists(initialLists); }, [initialLists]);
 
@@ -216,13 +235,38 @@ export default function ListsClient({
     return () => { if (discogsDebounce.current) clearTimeout(discogsDebounce.current); };
   }, [pickerSearch, pickerTab]);
 
+  // Fetch artwork for static discover cards on mount
+  useEffect(() => {
+    async function fetchCardCovers(cardId: string, queries: string[]) {
+      const covers = await Promise.all(queries.map(async (q) => {
+        try {
+          const res = await fetch(`/api/discogs/search?q=${encodeURIComponent(q)}&mode=record`);
+          if (!res.ok) return null;
+          const data = await res.json();
+          const first = data.results?.[0];
+          if (!first) return null;
+          return (first.cover_image && !first.cover_image.includes("spacer"))
+            ? first.cover_image
+            : (first.thumb && !first.thumb.includes("spacer") ? first.thumb : null);
+        } catch { return null; }
+      }));
+      setDiscoverCovers(prev => ({ ...prev, [cardId]: covers }));
+    }
+    Object.entries(DISCOVER_CARD_QUERIES).forEach(([cardId, queries]) => {
+      fetchCardCovers(cardId, queries);
+    });
+  }, []);
+
   function openPicker(mode: PickerMode) {
     setPicker(mode);
     setPickerTab("collection");
     setPickerSearch("");
     setCollectionResults([]);
     setDiscogsResults([]);
-    setTimeout(() => pickerRef.current?.querySelector("input")?.focus(), 50);
+    setTimeout(() => {
+      pickerRef.current?.querySelector("input")?.focus();
+      pickerRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+    }, 50);
   }
 
   function closePicker() {
@@ -379,6 +423,10 @@ export default function ListsClient({
     if (ok) setTimeout(() => setShareCopyState("idle"), 2500);
   }
 
+  function handleSaveCard(entry: SavedCardEntry) {
+    setSavedCards(prev => prev.some(c => c.id === entry.id) ? prev : [...prev, entry]);
+  }
+
   function doCreate(title: string, listType: "top5" | "personal") {
     startCreating(async () => {
       const res = await createList(title, listType);
@@ -392,6 +440,7 @@ export default function ListsClient({
         setNewTitle("");
         setCreateState(null);
         setActivePillId(newList.id);
+        setActiveSavedId(null);
         router.refresh();
       }
     });
@@ -404,6 +453,11 @@ export default function ListsClient({
   }
 
   const selectedList = activePillId ? lists.find(l => l.id === activePillId) ?? null : null;
+
+  const activeSavedCard = useMemo(
+    () => activeSavedId ? savedCards.find(c => c.id === activeSavedId) ?? null : null,
+    [activeSavedId, savedCards]
+  );
 
   const filteredDiscoverLists = useMemo(() => {
     if (discoverTab === "trending") return [...discoverLists].sort((a, b) => b.itemCount - a.itemCount);
@@ -430,7 +484,7 @@ export default function ListsClient({
             const isActive = activePillId === list.id;
             return (
               <button key={list.id}
-                onClick={() => { setActivePillId(list.id); closePicker(); }}
+                onClick={() => { setActivePillId(list.id); setActiveSavedId(null); closePicker(); }}
                 style={{
                   fontFamily: MONO, fontSize: "9px", letterSpacing: "0.08em",
                   color: isActive ? ORANGE : list.is_public ? "#555555" : "#aaaaaa",
@@ -455,91 +509,119 @@ export default function ListsClient({
           >
             + New list
           </button>
+
+          {/* Saved section divider */}
+          <div style={{ width: "1px", height: "18px", background: "rgba(0,0,0,0.14)", flexShrink: 0, margin: "0 6px" }} />
+
+          <span style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.12em", textTransform: "uppercase", color: "#aaaaaa", flexShrink: 0, marginRight: "4px" }}>
+            Saved
+          </span>
+          {savedCards.length === 0 ? (
+            <span style={{ fontFamily: MONO, fontSize: "9px", color: "#d0d0d0", letterSpacing: "0.04em", flexShrink: 0, fontStyle: "italic" }}>
+              No saved lists yet
+            </span>
+          ) : (
+            savedCards.map(card => {
+              const isActive = activeSavedId === card.id;
+              return (
+                <button key={card.id}
+                  onClick={() => { setActiveSavedId(card.id); setActivePillId(null); closePicker(); }}
+                  style={{
+                    fontFamily: MONO, fontSize: "9px", letterSpacing: "0.08em",
+                    color: isActive ? ORANGE : "#888888",
+                    background: "none",
+                    border: `1px solid ${isActive ? ORANGE : "rgba(0,0,0,0.15)"}`,
+                    borderRadius: "2px", cursor: "pointer", padding: "4px 10px",
+                    flexShrink: 0, whiteSpace: "nowrap", transition: "border-color 0.15s, color 0.15s",
+                  }}
+                >
+                  {card.title}
+                </button>
+              );
+            })
+          )}
         </div>
       </div>
 
-      {/* ── Two-column grid: left (flex 1) + right Discover (420px) ── */}
-      <div style={{ flex: 1, display: "grid", gridTemplateColumns: "1fr 420px", overflow: "hidden", minHeight: 0 }}>
+      {/* ── Two-column grid: left 55% + right Discover 45% ── */}
+      <div style={{ flex: 1, display: "grid", gridTemplateColumns: "55fr 45fr", overflow: "hidden", minHeight: 0 }}>
 
-        {/* LEFT — flex column: list detail + search panel */}
+        {/* LEFT — single scrollable column */}
         <div style={{ display: "flex", flexDirection: "column", borderRight: "1px solid rgba(0,0,0,0.08)", overflow: "hidden" }}>
           {selectedList ? (
-            <>
-              {/* List detail — full width, scrollable */}
-              <div style={{ flex: 1, padding: "24px 28px 20px", overflowY: "auto", minHeight: 0 }}>
-                <p style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.12em", textTransform: "uppercase", color: ORANGE, marginBottom: "10px" }}>
-                  リスト · {selectedList.is_public ? "Public List" : "Private List"}
+            <div style={{ flex: 1, padding: "24px 28px 28px", overflowY: "auto", minHeight: 0 }}>
+              <p style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.12em", textTransform: "uppercase", color: ORANGE, marginBottom: "10px" }}>
+                リスト · {selectedList.is_public ? "Public List" : "Private List"}
+              </p>
+              <h2 style={{ fontFamily: SERIF, fontSize: "20px", fontWeight: 400, color: "#0d0d0d", lineHeight: 1.15, marginBottom: "5px" }}>
+                {selectedList.title}
+              </h2>
+              {LIST_SUBTITLES[selectedList.title] && (
+                <p style={{ fontFamily: MONO, fontStyle: "italic", fontSize: "11px", color: "#aaaaaa", lineHeight: 1.5, marginBottom: "20px", letterSpacing: "0.02em" }}>
+                  {LIST_SUBTITLES[selectedList.title]}
                 </p>
-                <h2 style={{ fontFamily: SERIF, fontSize: "20px", fontWeight: 400, color: "#0d0d0d", lineHeight: 1.15, marginBottom: "5px" }}>
-                  {selectedList.title}
-                </h2>
-                {LIST_SUBTITLES[selectedList.title] && (
-                  <p style={{ fontFamily: MONO, fontStyle: "italic", fontSize: "11px", color: "#aaaaaa", lineHeight: 1.5, marginBottom: "20px", letterSpacing: "0.02em" }}>
-                    {LIST_SUBTITLES[selectedList.title]}
-                  </p>
+              )}
+
+              <div style={{ marginBottom: "20px" }}>
+                {selectedList.list_type === "top5" ? (
+                  [1, 2, 3, 4, 5].map(pos => {
+                    const slot = selectedList.slots.find(s => s.position === pos);
+                    const isActive = picker?.listId === selectedList.id && "position" in picker && picker.position === pos;
+                    return (
+                      <TracklistRow
+                        key={pos}
+                        position={pos}
+                        item={slot?.item ?? null}
+                        isSaving={saving === `${selectedList.id}-${pos}`}
+                        isPickerOpen={isActive}
+                        onOpen={() => openPicker({ listId: selectedList.id, position: pos, strategy: "replace" })}
+                        onRemove={() => handleRemoveItem(selectedList.id, pos)}
+                      />
+                    );
+                  })
+                ) : (
+                  <>
+                    {selectedList.slots.map(slot => (
+                      <PersonalRow key={slot.position} slot={slot} onRemove={() => handleRemoveItem(selectedList.id, slot.position)} />
+                    ))}
+                    {selectedList.slots.length < 20 && (
+                      <button
+                        onClick={() => openPicker({ listId: selectedList.id, strategy: "append" })}
+                        style={{ fontFamily: SERIF, fontStyle: "italic", fontSize: "12px", color: "#cccccc", background: "none", border: "none", cursor: "pointer", padding: "8px 0", display: "block" }}
+                      >
+                        + Add a record
+                      </button>
+                    )}
+                  </>
                 )}
-
-                <div style={{ marginBottom: "20px" }}>
-                  {selectedList.list_type === "top5" ? (
-                    [1, 2, 3, 4, 5].map(pos => {
-                      const slot = selectedList.slots.find(s => s.position === pos);
-                      const isActive = picker?.listId === selectedList.id && "position" in picker && picker.position === pos;
-                      return (
-                        <TracklistRow
-                          key={pos}
-                          position={pos}
-                          item={slot?.item ?? null}
-                          isSaving={saving === `${selectedList.id}-${pos}`}
-                          isPickerOpen={isActive}
-                          onOpen={() => openPicker({ listId: selectedList.id, position: pos, strategy: "replace" })}
-                          onRemove={() => handleRemoveItem(selectedList.id, pos)}
-                        />
-                      );
-                    })
-                  ) : (
-                    <>
-                      {selectedList.slots.map(slot => (
-                        <PersonalRow key={slot.position} slot={slot} onRemove={() => handleRemoveItem(selectedList.id, slot.position)} />
-                      ))}
-                      {selectedList.slots.length < 20 && (
-                        <button
-                          onClick={() => openPicker({ listId: selectedList.id, strategy: "append" })}
-                          style={{ fontFamily: SERIF, fontStyle: "italic", fontSize: "12px", color: "#cccccc", background: "none", border: "none", cursor: "pointer", padding: "8px 0", display: "block" }}
-                        >
-                          + Add a record
-                        </button>
-                      )}
-                    </>
-                  )}
-                </div>
-
-                {/* Footer */}
-                <div style={{ display: "flex", alignItems: "center", gap: "10px", paddingTop: "14px", borderTop: "1px solid rgba(0,0,0,0.06)", flexWrap: "wrap" }}>
-                  {selectedList.list_type === "top5" && (
-                    <button
-                      onClick={() => handleShare(selectedList)}
-                      style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.1em", textTransform: "uppercase", color: "#ffffff", background: ORANGE, border: "none", cursor: "pointer", padding: "6px 12px" }}
-                    >
-                      Share ↗
-                    </button>
-                  )}
-                  <button
-                    onClick={() => handleTogglePublic(selectedList.id)}
-                    style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.1em", textTransform: "uppercase", background: "none", border: "1px solid rgba(0,0,0,0.18)", cursor: "pointer", padding: "5px 10px", color: selectedList.is_public ? "#555555" : "#aaaaaa" }}
-                  >
-                    {selectedList.is_public ? "Public" : "Private"}
-                  </button>
-                  <button
-                    onClick={() => handleDeleteList(selectedList.id)}
-                    style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.1em", textTransform: "uppercase", background: "none", border: "none", cursor: "pointer", padding: 0, color: "#cccccc" }}
-                  >
-                    Delete
-                  </button>
-                </div>
               </div>
 
-              {/* Search panel — full width, border-top */}
-              <div ref={pickerRef} style={{ flexShrink: 0, borderTop: "1px solid rgba(0,0,0,0.08)", padding: "16px 28px 20px", overflowY: "auto", maxHeight: "300px" }}>
+              {/* List actions footer */}
+              <div style={{ display: "flex", alignItems: "center", gap: "10px", paddingTop: "14px", borderTop: "1px solid rgba(0,0,0,0.06)", flexWrap: "wrap" }}>
+                {selectedList.list_type === "top5" && (
+                  <button
+                    onClick={() => handleShare(selectedList)}
+                    style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.1em", textTransform: "uppercase", color: "#ffffff", background: ORANGE, border: "none", cursor: "pointer", padding: "6px 12px" }}
+                  >
+                    Share ↗
+                  </button>
+                )}
+                <button
+                  onClick={() => handleTogglePublic(selectedList.id)}
+                  style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.1em", textTransform: "uppercase", background: "none", border: "1px solid rgba(0,0,0,0.18)", cursor: "pointer", padding: "5px 10px", color: selectedList.is_public ? "#555555" : "#aaaaaa" }}
+                >
+                  {selectedList.is_public ? "Public" : "Private"}
+                </button>
+                <button
+                  onClick={() => handleDeleteList(selectedList.id)}
+                  style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.1em", textTransform: "uppercase", background: "none", border: "none", cursor: "pointer", padding: 0, color: "#cccccc" }}
+                >
+                  Delete
+                </button>
+              </div>
+
+              {/* Search panel — directly below footer */}
+              <div ref={pickerRef} style={{ marginTop: "20px", borderTop: "1px solid rgba(0,0,0,0.08)", paddingTop: "16px" }}>
                 {picker?.listId === selectedList.id ? (
                   <>
                     <p style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.1em", textTransform: "uppercase", color: "#aaaaaa", marginBottom: "14px" }}>
@@ -636,7 +718,22 @@ export default function ListsClient({
                   </p>
                 )}
               </div>
-            </>
+            </div>
+          ) : activeSavedCard ? (
+            <div style={{ flex: 1, padding: "24px 28px 20px", overflowY: "auto", minHeight: 0 }}>
+              <p style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.12em", textTransform: "uppercase", color: ORANGE, marginBottom: "10px" }}>
+                Saved List
+              </p>
+              <h2 style={{ fontFamily: SERIF, fontSize: "20px", fontWeight: 400, color: "#0d0d0d", lineHeight: 1.15, marginBottom: "8px" }}>
+                {activeSavedCard.title}
+              </h2>
+              <p style={{ fontFamily: MONO, fontSize: "9px", color: "#aaaaaa", letterSpacing: "0.06em" }}>
+                @{activeSavedCard.username}
+              </p>
+              <p style={{ fontFamily: SERIF, fontStyle: "italic", fontSize: "12px", color: "#d0d0d0", marginTop: "40px", lineHeight: 1.5 }}>
+                Full list view coming soon.
+              </p>
+            </div>
           ) : (
             <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center" }}>
               <p style={{ fontFamily: SERIF, fontStyle: "italic", fontSize: "14px", color: "#d8d8d8" }}>No list selected</p>
@@ -644,7 +741,7 @@ export default function ListsClient({
           )}
         </div>
 
-        {/* RIGHT — Discover column (420px) */}
+        {/* RIGHT — Discover column (45%) */}
         <div style={{ overflowY: "auto", display: "flex", flexDirection: "column" }}>
           <div style={{ position: "sticky", top: 0, background: "#ffffff", zIndex: 1, padding: "24px 24px 14px", borderBottom: "1px solid rgba(0,0,0,0.06)" }}>
             <h2 style={{ fontFamily: SERIF, fontSize: "16px", fontWeight: 400, color: "#0d0d0d", marginBottom: "12px" }}>
@@ -666,11 +763,22 @@ export default function ListsClient({
           </div>
 
           {STATIC_DISCOVER_CARDS.map(card => (
-            <DiscoverCard key={card.id} card={card} />
+            <DiscoverCard
+              key={card.id}
+              card={card}
+              covers={discoverCovers[card.id]}
+              onSave={() => handleSaveCard({ id: card.id, title: card.title, username: card.username })}
+              saved={savedCards.some(c => c.id === card.id)}
+            />
           ))}
 
           {filteredDiscoverLists.map(list => (
-            <RealDiscoverCard key={list.id} list={list} />
+            <RealDiscoverCard
+              key={list.id}
+              list={list}
+              onSave={() => handleSaveCard({ id: list.id, title: list.title, username: list.username })}
+              saved={savedCards.some(c => c.id === list.id)}
+            />
           ))}
         </div>
       </div>
@@ -731,7 +839,6 @@ function TracklistRow({ position, item, isSaving, isPickerOpen, onOpen, onRemove
       <span style={{ fontFamily: MONO, fontSize: "10px", color: ORANGE, width: "16px", flexShrink: 0, textAlign: "right" }}>
         {position}
       </span>
-      {/* 48px art square */}
       <div style={{
         width: 48, height: 48, flexShrink: 0, overflow: "hidden",
         background: "#f0f0f0",
@@ -847,13 +954,26 @@ function PickerRow({ cover, primary, secondary, onClick }: {
 
 // ─── DiscoverCard ─────────────────────────────────────────────────────────────
 
-function DiscoverCard({ card }: { card: typeof STATIC_DISCOVER_CARDS[number] }) {
+function DiscoverCard({ card, covers, onSave, saved }: {
+  card: typeof STATIC_DISCOVER_CARDS[number];
+  covers?: (string|null)[];
+  onSave: () => void;
+  saved: boolean;
+}) {
   return (
     <div style={{ borderBottom: "1px solid rgba(0,0,0,0.06)" }}>
       <div style={{ height: 80, display: "grid", gridTemplateColumns: "1fr 1fr", gridTemplateRows: "1fr 1fr", overflow: "hidden" }}>
-        {card.colors.map((color, i) => (
-          <div key={i} style={{ background: color }} />
-        ))}
+        {card.colors.map((color, i) => {
+          const cover = covers?.[i];
+          return cover ? (
+            <div key={i} style={{ overflow: "hidden" }}>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={cover} alt="" style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
+            </div>
+          ) : (
+            <div key={i} style={{ background: color }} />
+          );
+        })}
       </div>
       <div style={{ padding: "14px 20px 16px" }}>
         <p style={{ fontFamily: SERIF, fontSize: "13px", color: "#0d0d0d", lineHeight: 1.35, marginBottom: "5px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
@@ -866,16 +986,37 @@ function DiscoverCard({ card }: { card: typeof STATIC_DISCOVER_CARDS[number] }) 
           <span style={{ fontFamily: MONO, fontSize: "9px", color: "#888888", letterSpacing: "0.04em", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
             {card.badge}
           </span>
-          <span style={{ fontFamily: MONO, fontSize: "9px", color: ORANGE, letterSpacing: "0.04em", flexShrink: 0 }}>
-            {card.saves.toLocaleString()} saves
-          </span>
+          <div style={{ display: "flex", alignItems: "center", gap: "12px", flexShrink: 0 }}>
+            <button
+              onClick={onSave}
+              disabled={saved}
+              style={{
+                fontFamily: MONO, fontSize: "9px", letterSpacing: "0.06em",
+                color: saved ? "#aaaaaa" : ORANGE,
+                background: "none", border: "none",
+                cursor: saved ? "default" : "pointer",
+                padding: 0,
+              }}
+            >
+              {saved ? "Saved ✓" : "Save ↓"}
+            </button>
+            <span style={{ fontFamily: MONO, fontSize: "9px", color: ORANGE, letterSpacing: "0.04em" }}>
+              {card.saves.toLocaleString()} saves
+            </span>
+          </div>
         </div>
       </div>
     </div>
   );
 }
 
-function RealDiscoverCard({ list }: { list: DiscoverList }) {
+// ─── RealDiscoverCard ─────────────────────────────────────────────────────────
+
+function RealDiscoverCard({ list, onSave, saved }: {
+  list: DiscoverList;
+  onSave: () => void;
+  saved: boolean;
+}) {
   return (
     <div style={{ borderBottom: "1px solid rgba(0,0,0,0.06)" }}>
       <div style={{ height: 80, display: "grid", gridTemplateColumns: "1fr 1fr", gridTemplateRows: "1fr 1fr", overflow: "hidden" }}>
@@ -898,9 +1039,24 @@ function RealDiscoverCard({ list }: { list: DiscoverList }) {
         <p style={{ fontFamily: MONO, fontSize: "9px", color: "#aaaaaa", letterSpacing: "0.06em", marginBottom: "10px" }}>
           @{list.username} · {list.itemCount} records
         </p>
-        <span style={{ fontFamily: MONO, fontSize: "9px", color: ORANGE, letterSpacing: "0.04em" }}>
-          {list.saveCount} saves
-        </span>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+          <button
+            onClick={onSave}
+            disabled={saved}
+            style={{
+              fontFamily: MONO, fontSize: "9px", letterSpacing: "0.06em",
+              color: saved ? "#aaaaaa" : ORANGE,
+              background: "none", border: "none",
+              cursor: saved ? "default" : "pointer",
+              padding: 0,
+            }}
+          >
+            {saved ? "Saved ✓" : "Save ↓"}
+          </button>
+          <span style={{ fontFamily: MONO, fontSize: "9px", color: ORANGE, letterSpacing: "0.04em" }}>
+            {list.saveCount} saves
+          </span>
+        </div>
       </div>
     </div>
   );
