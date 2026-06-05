@@ -56,8 +56,12 @@ export default async function CollectionPage({
     .select("username, display_name, last_synced_at, avatar_url")
     .eq("id", user.id)
     .maybeSingle();
-  const username     = profile?.username ?? emailPrefix;
-  const displayLabel = profile?.display_name?.trim() || emailPrefix;
+  const autoGen      = `${emailPrefix}_${user.id.slice(0, 6)}`;
+  const rawUsername  = profile?.username ?? null;
+  const username     = (rawUsername && rawUsername !== autoGen)
+    ? rawUsername
+    : (profile?.display_name?.trim() || emailPrefix);
+  const displayLabel = profile?.display_name?.trim() || username;
   const lastSyncedAt = profile?.last_synced_at ?? null;
   const avatarUrl    = profile?.avatar_url ?? null;
 
