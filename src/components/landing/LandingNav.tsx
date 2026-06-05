@@ -1,11 +1,13 @@
 "use client";
 
 import Link from "next/link";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
+import WaitlistModal from "./WaitlistModal";
 
 const SERIF = "var(--font-editorial)";
-const MONO  = "var(--font-mono)";
+const MONO  = "var(--font-dm-mono), 'Courier New', monospace";
 const JP    = "var(--font-noto-jp), sans-serif";
 const ORANGE = "#CC5500";
 
@@ -21,6 +23,7 @@ interface LandingNavProps {
 
 export default function LandingNav({ username }: LandingNavProps) {
   const router = useRouter();
+  const [modalOpen, setModalOpen] = useState(false);
 
   async function handleSignOut() {
     await createClient().auth.signOut();
@@ -29,77 +32,87 @@ export default function LandingNav({ username }: LandingNavProps) {
   }
 
   return (
-    <nav
-      className="fixed top-0 left-0 right-0 z-50 flex items-center justify-between bg-white px-8 md:px-12"
-      style={{ paddingTop: "20px", paddingBottom: "20px", borderBottom: "1px solid rgba(0,0,0,0.08)" }}
-    >
-      {/* Left — ō wordmark */}
-      <Link
-        href="/"
-        aria-label="rekōdo home"
-        style={{ fontFamily: SERIF, fontWeight: 700, fontSize: "22px", color: ORANGE, lineHeight: 1, textDecoration: "none" }}
+    <>
+      <nav
+        className="fixed top-0 left-0 right-0 z-50 flex items-center justify-between bg-white px-8 md:px-12"
+        style={{ paddingTop: "20px", paddingBottom: "20px", borderBottom: "1px solid rgba(0,0,0,0.08)" }}
       >
-        ō
-      </Link>
+        {/* Left — ō wordmark */}
+        <Link
+          href="/"
+          aria-label="rekōdo home"
+          style={{ fontFamily: SERIF, fontWeight: 700, fontSize: "22px", color: ORANGE, lineHeight: 1, textDecoration: "none" }}
+        >
+          ō
+        </Link>
 
-      {/* Centre — nav links */}
-      <div className="flex items-center gap-8">
-        {NAV_ITEMS.map(({ href, en, ja }) => (
-          <Link
-            key={href}
-            href={href}
-            className="hover:text-black transition-colors"
-            style={{
-              fontFamily: MONO,
-              fontSize: "10px",
-              letterSpacing: "0.1em",
-              textTransform: "uppercase",
-              color: "#aaaaaa",
-              textDecoration: "none",
-              display: "inline-flex",
-              alignItems: "center",
-              gap: "5px",
-              borderBottom: "1.5px solid transparent",
-              paddingBottom: "3px",
-            }}
-          >
-            {en}
-            <span style={{ fontFamily: JP, fontSize: "10px", letterSpacing: 0, textTransform: "none", color: "#c0c0c0" }}>
-              {ja}
-            </span>
-          </Link>
-        ))}
-      </div>
+        {/* Centre — nav links */}
+        <div className="flex items-center gap-8">
+          {NAV_ITEMS.map(({ href, en, ja }) => (
+            <Link
+              key={href}
+              href={href}
+              className="hover:text-black transition-colors"
+              style={{
+                fontFamily: MONO,
+                fontSize: "10px",
+                letterSpacing: "0.1em",
+                textTransform: "uppercase",
+                color: "#aaaaaa",
+                textDecoration: "none",
+                display: "inline-flex",
+                alignItems: "center",
+                gap: "5px",
+                borderBottom: "1.5px solid transparent",
+                paddingBottom: "3px",
+              }}
+            >
+              {en}
+              <span style={{ fontFamily: JP, fontSize: "10px", letterSpacing: 0, textTransform: "none", color: "#c0c0c0" }}>
+                {ja}
+              </span>
+            </Link>
+          ))}
+        </div>
 
-      {/* Right — @username + Sign out, or Sign in */}
-      {username ? (
-        <div className="flex items-center gap-4">
-          <Link
-            href="/collection"
-            style={{ fontFamily: MONO, fontSize: "10px", letterSpacing: "0.06em", color: "#888888", textDecoration: "none" }}
-          >
-            @{username}
-          </Link>
+        {/* Right — @username + Sign out, or Request Access */}
+        {username ? (
+          <div className="flex items-center gap-4">
+            <Link
+              href="/collection"
+              style={{ fontFamily: MONO, fontSize: "10px", letterSpacing: "0.06em", color: "#888888", textDecoration: "none" }}
+            >
+              @{username}
+            </Link>
+            <button
+              onClick={handleSignOut}
+              style={{
+                fontFamily: MONO, fontSize: "10px", letterSpacing: "0.1em",
+                textTransform: "uppercase", color: "#cccccc",
+                background: "none", border: "none", cursor: "pointer", padding: 0,
+              }}
+              className="hover:text-black transition-colors"
+            >
+              Sign out
+            </button>
+          </div>
+        ) : (
           <button
-            onClick={handleSignOut}
+            onClick={() => setModalOpen(true)}
             style={{
               fontFamily: MONO, fontSize: "10px", letterSpacing: "0.1em",
-              textTransform: "uppercase", color: "#cccccc",
-              background: "none", border: "none", cursor: "pointer", padding: 0,
+              textTransform: "uppercase", color: "#ffffff",
+              background: ORANGE, border: "none", cursor: "pointer",
+              padding: "8px 16px",
             }}
-            className="hover:text-black transition-colors"
+            className="hover:opacity-90 transition-opacity"
           >
-            Sign out
+            Request Access
           </button>
-        </div>
-      ) : (
-        <Link
-          href="/login"
-          style={{ fontFamily: MONO, fontSize: "10px", letterSpacing: "0.06em", color: ORANGE, textDecoration: "none" }}
-        >
-          Sign in
-        </Link>
-      )}
-    </nav>
+        )}
+      </nav>
+
+      <WaitlistModal isOpen={modalOpen} onClose={() => setModalOpen(false)} />
+    </>
   );
 }

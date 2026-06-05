@@ -163,9 +163,9 @@ export type Database = {
         Relationships: [];
       };
       waitlist_emails: {
-        Row: { id: string; email: string; created_at: string };
-        Insert: { id?: string; email: string; created_at?: string };
-        Update: { email?: string };
+        Row: { id: string; email: string; name: string | null; created_at: string };
+        Insert: { id?: string; email: string; name?: string | null; created_at?: string };
+        Update: { email?: string; name?: string | null };
         Relationships: [];
       };
       compatibility_scores: {
