@@ -168,14 +168,13 @@ function SleeveCard({ rec, mode }: { rec: Recommendation; mode: DigMode }) {
       style={{
         display: "grid",
         gridTemplateColumns: "1fr 1fr",
-        height: "420px",
+        minHeight: "400px",
         border: "1px solid rgba(0,0,0,0.10)",
         boxShadow: "0 2px 16px rgba(0,0,0,0.07)",
-        overflow: "hidden",
       }}
     >
       {/* ── Left: album artwork, falls back to vinyl disc ── */}
-      <div style={{ background: "#0e0e0e", overflow: "hidden" }}>
+      <div style={{ background: "#0e0e0e", overflow: "hidden", minHeight: "400px" }}>
         {coverUrl ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img
@@ -189,7 +188,7 @@ function SleeveCard({ rec, mode }: { rec: Recommendation; mode: DigMode }) {
       </div>
 
       {/* ── Right: text ── */}
-      <div style={{ padding: "26px 28px", display: "flex", flexDirection: "column", overflow: "hidden" }}>
+      <div style={{ padding: "26px 28px", display: "flex", flexDirection: "column" }}>
 
         {/* Explore tag */}
         {mode === "explore" && (
@@ -212,7 +211,7 @@ function SleeveCard({ rec, mode }: { rec: Recommendation; mode: DigMode }) {
         {/* Rule */}
         <div style={{ height: 1, background: "rgba(0,0,0,0.08)", margin: "16px 0" }} />
 
-        {/* AI reasoning — full text, scrollable */}
+        {/* AI reasoning — full text, no truncation */}
         <p
           style={{
             fontFamily: SERIF,
@@ -221,8 +220,6 @@ function SleeveCard({ rec, mode }: { rec: Recommendation; mode: DigMode }) {
             color: "#505050",
             lineHeight: 1.65,
             margin: 0,
-            flex: 1,
-            overflowY: "auto",
           }}
         >
           {rec.reason}
