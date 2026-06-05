@@ -13,9 +13,10 @@ const ORANGE = "#CC5500";
 interface LandingNavProps {
   username?: string | null;
   displayLabel?: string | null;
+  avatarUrl?: string | null;
 }
 
-export default function LandingNav({ username, displayLabel }: LandingNavProps) {
+export default function LandingNav({ username, displayLabel, avatarUrl }: LandingNavProps) {
   const router = useRouter();
   const [modalOpen, setModalOpen] = useState(false);
 
@@ -40,14 +41,38 @@ export default function LandingNav({ username, displayLabel }: LandingNavProps) 
           ō
         </Link>
 
-        {/* Right — @username + Sign out, or Request Access */}
+        {/* Right — avatar + display name + Sign out, or Request Access */}
         {username ? (
           <div className="flex items-center gap-4">
             <Link
-              href="/collection"
-              style={{ fontFamily: MONO, fontSize: "10px", letterSpacing: "0.06em", color: "#888888", textDecoration: "none" }}
+              href="/settings/profile"
+              style={{ display: "flex", alignItems: "center", gap: "9px", textDecoration: "none" }}
             >
-              {displayLabel ?? username}
+              {avatarUrl ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={avatarUrl}
+                  alt=""
+                  aria-hidden="true"
+                  style={{ width: 28, height: 28, borderRadius: "50%", objectFit: "cover", flexShrink: 0 }}
+                />
+              ) : (
+                <span
+                  aria-hidden="true"
+                  style={{
+                    display: "inline-flex", alignItems: "center", justifyContent: "center",
+                    width: 28, height: 28, borderRadius: "50%",
+                    background: ORANGE, fontFamily: MONO, fontSize: "11px",
+                    fontWeight: 600, color: "#ffffff", lineHeight: 1,
+                    flexShrink: 0, textTransform: "uppercase",
+                  }}
+                >
+                  {(displayLabel ?? username ?? "?").charAt(0)}
+                </span>
+              )}
+              <span style={{ fontFamily: MONO, fontSize: "10px", letterSpacing: "0.06em", color: "#888888" }}>
+                @{displayLabel ?? username}
+              </span>
             </Link>
             <button
               onClick={handleSignOut}
