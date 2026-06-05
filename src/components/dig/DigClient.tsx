@@ -120,18 +120,37 @@ function PositionIndicator({ idx, total, onNav }: { idx: number; total: number; 
 // ─── Sleeve card ──────────────────────────────────────────────────────────────
 
 function SleeveCard({ rec, mode }: { rec: Recommendation; mode: DigMode }) {
-  const q     = encodeURIComponent(`${rec.artist} ${rec.album}`);
-  const qEbay = encodeURIComponent(`${rec.artist} ${rec.album} vinyl`);
+  // Component remounts on every rec change (key prop), so useState resets naturally.
+  const [coverUrl, setCoverUrl] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    const q = encodeURIComponent(`${rec.artist} ${rec.album}`);
+    fetch(`/api/discogs/search?q=${q}&mode=record`)
+      .then(r => r.ok ? r.json() : null)
+      .then(data => {
+        if (cancelled) return;
+        const first = data?.results?.[0];
+        if (!first) return;
+        const url =
+          (first.cover_image && !first.cover_image.includes("spacer"))
+            ? first.cover_image
+            : (first.thumb && !first.thumb.includes("spacer") ? first.thumb : null);
+        if (url) setCoverUrl(url);
+      })
+      .catch(() => { /* fall back to vinyl disc */ });
+    return () => { cancelled = true; };
+  }, [rec.artist, rec.album]);
+
+  const q = encodeURIComponent(`${rec.artist} ${rec.album}`);
 
   const STREAM = [
-    { label: "Spotify ↗",     href: `https://open.spotify.com/search/${q}` },
-    { label: "Apple Music ↗", href: `https://music.apple.com/search?term=${q}` },
+    { label: "Open in Apple Music ↗", href: `https://music.apple.com/search?term=${q}` },
+    { label: "Open in Tidal ↗",       href: `https://tidal.com/search?q=${q}` },
+    { label: "Open in Spotify ↗",     href: `https://open.spotify.com/search/${q}` },
   ];
   const BUY = [
-    { label: "Discogs ↗",  href: `https://www.discogs.com/search/?q=${q}&type=release` },
-    { label: "Bandcamp ↗", href: `https://bandcamp.com/search?q=${q}` },
-    { label: "Juno ↗",     href: `https://www.juno.co.uk/search/?q=${q}` },
-    { label: "eBay ↗",     href: `https://www.ebay.com/sch/i.html?_nkw=${qEbay}` },
+    { label: "Buy on Discogs ↗", href: `https://www.discogs.com/search/?q=${q}&type=release` },
   ];
 
   const sectionLabel: React.CSSProperties = {
@@ -155,9 +174,18 @@ function SleeveCard({ rec, mode }: { rec: Recommendation; mode: DigMode }) {
         overflow: "hidden",
       }}
     >
-      {/* ── Left: vinyl disc ── */}
+      {/* ── Left: album artwork, falls back to vinyl disc ── */}
       <div style={{ background: "#0e0e0e", overflow: "hidden" }}>
-        <VinylDisc />
+        {coverUrl ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={coverUrl}
+            alt={`${rec.album} by ${rec.artist}`}
+            style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
+          />
+        ) : (
+          <VinylDisc />
+        )}
       </div>
 
       {/* ── Right: text ── */}
@@ -184,7 +212,7 @@ function SleeveCard({ rec, mode }: { rec: Recommendation; mode: DigMode }) {
         {/* Rule */}
         <div style={{ height: 1, background: "rgba(0,0,0,0.08)", margin: "16px 0" }} />
 
-        {/* AI reasoning — clamped to 6 lines */}
+        {/* AI reasoning — full text, scrollable */}
         <p
           style={{
             fontFamily: SERIF,
@@ -193,19 +221,16 @@ function SleeveCard({ rec, mode }: { rec: Recommendation; mode: DigMode }) {
             color: "#505050",
             lineHeight: 1.65,
             margin: 0,
-            display: "-webkit-box",
-            WebkitLineClamp: 6,
-            WebkitBoxOrient: "vertical",
-            overflow: "hidden",
+            flex: 1,
+            overflowY: "auto",
           }}
         >
           {rec.reason}
         </p>
 
-        {/* Links — pushed to bottom */}
-        <div style={{ marginTop: "auto", paddingTop: "16px" }}>
+        {/* Links */}
+        <div style={{ flexShrink: 0, paddingTop: "16px", borderTop: "1px solid rgba(0,0,0,0.06)", marginTop: "12px" }}>
           {mode === "explore" ? (
-            /* Explore: stream only — user already owns the record */
             <div>
               <span style={sectionLabel}>Stream</span>
               {STREAM.map(l => (
@@ -213,7 +238,6 @@ function SleeveCard({ rec, mode }: { rec: Recommendation; mode: DigMode }) {
               ))}
             </div>
           ) : (
-            /* Discover: stream + buy */
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px" }}>
               <div>
                 <span style={sectionLabel}>Stream</span>
@@ -301,9 +325,9 @@ function ModeToggle({ mode, onChange, disabled }: {
   };
 
   return (
-    <div style={{ display: "flex", gap: "24px", paddingTop: "14px" }}>
-      {item("discover", "Discover · New artists only")}
-      {item("explore",  "Explore · Within my collection")}
+    <div style={{ display: "flex", justifyContent: "center", gap: "24px", paddingTop: "14px" }}>
+      {item("discover", "Discover · Outside Collection")}
+      {item("explore",  "Explore · Inside Collection")}
     </div>
   );
 }
@@ -317,37 +341,54 @@ export default function DigClient({ username, displayLabel, avatarUrl, collectio
   const [idx,     setIdx]     = useState(0);
   const [mode,    setMode]    = useState<DigMode>("discover");
 
-  async function fetchRecs(fetchMode: DigMode = "discover") {
-    setLoading(true);
-    setError(null);
-    setRecs(null);
-    setIdx(0);
-    try {
-      const res  = await fetch("/api/dig", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ mode: fetchMode }),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error ?? "Failed to get recommendations");
-      setRecs(data.recommendations);
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Something went wrong");
-    } finally {
-      setLoading(false);
-    }
-  }
+  // fetchKey drives all fetches. Incrementing `n` re-triggers the effect for
+  // "dig again" without changing mode; swapping `mode` handles mode changes.
+  const [fetchKey, setFetchKey] = useState<{ mode: DigMode; n: number }>({ mode: "discover", n: 0 });
+
+  // All setState calls inside the effect are in async callbacks, never synchronously
+  // in the effect body — satisfies react-hooks/set-state-in-effect.
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch("/api/dig", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ mode: fetchKey.mode }),
+        });
+        const data = await res.json();
+        if (cancelled) return;
+        if (!res.ok) throw new Error(data.error ?? "Failed to get recommendations");
+        setRecs(data.recommendations);
+        setIdx(0);
+        setError(null);
+      } catch (e) {
+        if (!cancelled) setError(e instanceof Error ? e.message : "Something went wrong");
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [fetchKey]);
 
   function handleModeChange(newMode: DigMode) {
     setMode(newMode);
-    fetchRecs(newMode);
+    setLoading(true);
+    setError(null);
+    setRecs(null);
+    setFetchKey({ mode: newMode, n: 0 });
+  }
+
+  function handleDigAgain() {
+    setLoading(true);
+    setError(null);
+    setRecs(null);
+    setFetchKey(prev => ({ ...prev, n: prev.n + 1 }));
   }
 
   function navigate(dir: -1 | 1) {
     setIdx(i => Math.min(Math.max(i + dir, 0), (recs?.length ?? 1) - 1));
   }
-
-  useEffect(() => { fetchRecs("discover"); }, []);
 
   const statNum: React.CSSProperties = {
     fontFamily: SERIF, fontSize: "24px", fontWeight: 400, color: "#0d0d0d",
@@ -440,7 +481,7 @@ export default function DigClient({ username, displayLabel, avatarUrl, collectio
             <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", flex: 1, gap: "16px" }}>
               <p style={{ fontFamily: MONO, fontSize: "11px", color: "#cc3300", margin: 0 }}>{error}</p>
               <button
-                onClick={() => fetchRecs(mode)}
+                onClick={handleDigAgain}
                 style={{ fontFamily: MONO, fontSize: "10px", letterSpacing: "0.1em", textTransform: "uppercase", color: ORANGE, background: "none", border: `1px solid ${ORANGE}`, cursor: "pointer", padding: "8px 16px" }}
               >
                 Try again
@@ -453,7 +494,7 @@ export default function DigClient({ username, displayLabel, avatarUrl, collectio
             <>
               <PositionIndicator idx={idx} total={recs.length} onNav={setIdx} />
               <SleeveCard key={`${idx}-${mode}`} rec={recs[idx]} mode={mode} />
-              <NavBar idx={idx} total={recs.length} onNav={navigate} onDigAgain={() => fetchRecs(mode)} />
+              <NavBar idx={idx} total={recs.length} onNav={navigate} onDigAgain={handleDigAgain} />
             </>
           )}
 
