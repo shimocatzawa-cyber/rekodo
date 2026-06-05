@@ -164,7 +164,7 @@ function SleeveCard({ rec, mode }: { rec: Recommendation; mode: DigMode }) {
 
   return (
     <div
-      className="dig-rec-enter"
+      className="dig-rec-enter dig-sleeve-card"
       style={{
         display: "grid",
         gridTemplateColumns: "1fr 1fr",
@@ -174,7 +174,7 @@ function SleeveCard({ rec, mode }: { rec: Recommendation; mode: DigMode }) {
       }}
     >
       {/* ── Left: album artwork, falls back to vinyl disc ── */}
-      <div style={{ background: "#0e0e0e", overflow: "hidden", minHeight: "400px" }}>
+      <div className="dig-sleeve-art" style={{ background: "#0e0e0e", overflow: "hidden", minHeight: "400px" }}>
         {coverUrl ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img
@@ -188,7 +188,7 @@ function SleeveCard({ rec, mode }: { rec: Recommendation; mode: DigMode }) {
       </div>
 
       {/* ── Right: text ── */}
-      <div style={{ padding: "26px 28px", display: "flex", flexDirection: "column" }}>
+      <div className="dig-sleeve-text" style={{ padding: "26px 28px", display: "flex", flexDirection: "column" }}>
 
         {/* Explore tag */}
         {mode === "explore" && (
@@ -203,7 +203,7 @@ function SleeveCard({ rec, mode }: { rec: Recommendation; mode: DigMode }) {
         </h2>
 
         {/* Artist · year */}
-        <p style={{ fontFamily: MONO, fontSize: "10px", letterSpacing: "0.06em", color: "#888888", margin: 0 }}>
+        <p className="dig-artist-lbl" style={{ fontFamily: MONO, fontSize: "10px", letterSpacing: "0.06em", color: "#888888", margin: 0 }}>
           {rec.artist}
           {rec.year && <span style={{ color: "#cccccc" }}> · {rec.year}</span>}
         </p>
@@ -213,6 +213,7 @@ function SleeveCard({ rec, mode }: { rec: Recommendation; mode: DigMode }) {
 
         {/* AI reasoning — full text, no truncation */}
         <p
+          className="dig-reason-txt"
           style={{
             fontFamily: SERIF,
             fontSize: "13px",
@@ -231,21 +232,21 @@ function SleeveCard({ rec, mode }: { rec: Recommendation; mode: DigMode }) {
             <div>
               <span style={sectionLabel}>Stream</span>
               {STREAM.map(l => (
-                <a key={l.label} href={l.href} target="_blank" rel="noopener noreferrer" style={link}>{l.label}</a>
+                <a key={l.label} href={l.href} target="_blank" rel="noopener noreferrer" className="dig-link-item" style={link}>{l.label}</a>
               ))}
             </div>
           ) : (
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px" }}>
+            <div className="dig-links-grid" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px" }}>
               <div>
                 <span style={sectionLabel}>Stream</span>
                 {STREAM.map(l => (
-                  <a key={l.label} href={l.href} target="_blank" rel="noopener noreferrer" style={link}>{l.label}</a>
+                  <a key={l.label} href={l.href} target="_blank" rel="noopener noreferrer" className="dig-link-item" style={link}>{l.label}</a>
                 ))}
               </div>
               <div>
                 <span style={sectionLabel}>Buy</span>
                 {BUY.map(l => (
-                  <a key={l.label} href={l.href} target="_blank" rel="noopener noreferrer" style={link}>{l.label}</a>
+                  <a key={l.label} href={l.href} target="_blank" rel="noopener noreferrer" className="dig-link-item" style={link}>{l.label}</a>
                 ))}
               </div>
             </div>
@@ -272,14 +273,14 @@ function NavBar({ idx, total, onNav, onDigAgain }: {
   const btnOff: React.CSSProperties = { ...btn, color: "#d0d0d0", cursor: "default" };
 
   return (
-    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", paddingTop: "12px" }}>
-      <button onClick={() => onNav(-1)} disabled={idx === 0} style={idx === 0 ? btnOff : btn}>
+    <div className="dig-navbar" style={{ display: "flex", alignItems: "center", justifyContent: "space-between", paddingTop: "12px" }}>
+      <button onClick={() => onNav(-1)} disabled={idx === 0} className="dig-nav-btn" style={idx === 0 ? btnOff : btn}>
         ← Previous
       </button>
-      <button onClick={onDigAgain} style={{ ...btn, color: ORANGE }}>
+      <button onClick={onDigAgain} className="dig-nav-btn" style={{ ...btn, color: ORANGE }}>
         Dig again ↺
       </button>
-      <button onClick={() => onNav(1)} disabled={idx === total - 1} style={idx === total - 1 ? btnOff : btn}>
+      <button onClick={() => onNav(1)} disabled={idx === total - 1} className="dig-nav-btn" style={idx === total - 1 ? btnOff : btn}>
         Next →
       </button>
     </div>
@@ -302,6 +303,7 @@ function ModeToggle({ mode, onChange, disabled }: {
         key={m}
         onClick={() => { if (!disabled && mode !== m) onChange(m); }}
         disabled={disabled}
+        className="dig-mode-btn"
         style={{
           fontFamily: MONO,
           fontSize: "9px",
@@ -322,7 +324,7 @@ function ModeToggle({ mode, onChange, disabled }: {
   };
 
   return (
-    <div style={{ display: "flex", justifyContent: "center", gap: "24px", paddingTop: "14px" }}>
+    <div className="dig-mode-toggle" style={{ display: "flex", justifyContent: "center", gap: "24px", paddingTop: "14px" }}>
       {item("discover", "Discover · Outside Collection")}
       {item("explore",  "Explore · Inside Collection")}
     </div>
@@ -395,7 +397,7 @@ export default function DigClient({ username, displayLabel, avatarUrl, collectio
   };
 
   return (
-    <div style={{ height: "100vh", display: "flex", flexDirection: "column", background: "#ffffff", overflow: "hidden" }}>
+    <div className="dig-outer" style={{ height: "100vh", display: "flex", flexDirection: "column", background: "#ffffff", overflow: "hidden" }}>
 
       <style>{`
         @keyframes dig-vinyl-spin {
@@ -421,25 +423,116 @@ export default function DigClient({ username, displayLabel, avatarUrl, collectio
         .dig-rec-enter {
           animation: dig-rec-enter 0.25s ease-out both;
         }
+
+        /* ── Mobile responsive ── */
+        @media (max-width: 767px) {
+          /* Page scrolls on mobile instead of fixed-height viewport */
+          .dig-outer {
+            height: auto !important;
+            min-height: 100dvh;
+            overflow-x: hidden !important;
+            overflow-y: auto !important;
+          }
+          .dig-main { overflow: visible !important; flex: none !important; }
+          .dig-main-inner {
+            padding-left: 16px !important;
+            padding-right: 16px !important;
+            overflow: visible !important;
+            flex: none !important;
+            max-width: 100% !important;
+          }
+
+          /* Header: title stacks on top, stats row below */
+          .dig-header-inner {
+            flex-wrap: wrap !important;
+            padding: 14px 16px !important;
+            gap: 6px 20px !important;
+          }
+          /* Title spans full width and moves to the top via order */
+          .dig-header-title {
+            order: -1 !important;
+            flex: 0 0 100% !important;
+            padding: 0 !important;
+          }
+          .dig-header-title h1 { font-size: 26px !important; }
+          .dig-header-title p  { font-size: 8px !important; }
+          /* Rules between stats and title disappear */
+          .dig-header-rule { display: none !important; }
+          /* Stat blocks shed padding and sit side-by-side */
+          .dig-stat-side { padding: 0 !important; }
+          .dig-stat-num  { font-size: 18px !important; }
+          .dig-stat-lbl  { font-size: 9px !important; }
+
+          /* Mode toggle: buttons share full width equally */
+          .dig-mode-toggle {
+            gap: 0 !important;
+            padding-top: 10px !important;
+          }
+          .dig-mode-btn {
+            flex: 1 !important;
+            text-align: center !important;
+            padding: 10px 6px !important;
+            font-size: 8px !important;
+            letter-spacing: 0.08em !important;
+          }
+
+          /* Sleeve card: single column, art on top */
+          .dig-sleeve-card {
+            grid-template-columns: 1fr !important;
+            min-height: 0 !important;
+          }
+          .dig-sleeve-art {
+            width: 100% !important;
+            min-height: 0 !important;
+            aspect-ratio: 1 / 1;
+            max-height: 400px;
+            overflow: hidden;
+          }
+          .dig-sleeve-text {
+            padding: 20px 18px !important;
+          }
+          .dig-sleeve-text h2   { font-size: 18px !important; }
+          .dig-artist-lbl        { font-size: 12px !important; }
+          .dig-reason-txt        { font-size: 14px !important; }
+
+          /* Links: single column, comfortable tap targets */
+          .dig-links-grid { grid-template-columns: 1fr !important; gap: 16px !important; }
+          .dig-link-item  { font-size: 12px !important; line-height: 2.4 !important; min-height: 36px; display: flex !important; align-items: center !important; }
+
+          /* Nav bar: equal thirds, 44px minimum tap height */
+          .dig-navbar {
+            padding-top: 14px !important;
+            padding-bottom: 16px !important;
+          }
+          .dig-nav-btn {
+            flex: 1 !important;
+            min-height: 44px !important;
+            display: flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+            padding: 0 8px !important;
+            font-size: 11px !important;
+          }
+        }
       `}</style>
 
       <AppNav username={username} displayLabel={displayLabel} avatarUrl={avatarUrl} />
 
-      {/* ── Header — centred flex ── */}
+      {/* ── Header — centred flex, wraps to stacked layout on mobile ── */}
       <header style={{ flexShrink: 0, borderBottom: "1px solid rgba(0,0,0,0.08)" }}>
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "center", padding: "16px 40px", gap: "0" }}>
+        <div className="dig-header-inner" style={{ display: "flex", alignItems: "center", justifyContent: "center", padding: "16px 40px", gap: "0" }}>
 
           {/* Left stat */}
-          <div style={{ paddingRight: "36px", whiteSpace: "nowrap" }}>
-            <span style={statNum}>{collectionCount.toLocaleString()}</span>
-            <span style={statLbl}>Records read</span>
+          <div className="dig-stat-side" style={{ paddingRight: "36px", whiteSpace: "nowrap" }}>
+            <span className="dig-stat-num" style={statNum}>{collectionCount.toLocaleString()}</span>
+            <span className="dig-stat-lbl" style={statLbl}>Records read</span>
           </div>
 
           {/* Rule */}
-          <div style={{ width: 1, height: 38, background: "rgba(0,0,0,0.10)", flexShrink: 0 }} />
+          <div className="dig-header-rule" style={{ width: 1, height: 38, background: "rgba(0,0,0,0.10)", flexShrink: 0 }} />
 
-          {/* Centre: title block */}
-          <div style={{ textAlign: "center", padding: "0 40px" }}>
+          {/* Centre: title block — moves to top row on mobile via order:-1 */}
+          <div className="dig-header-title" style={{ textAlign: "center", padding: "0 40px" }}>
             <p style={{ fontFamily: MONO, fontSize: "8px", letterSpacing: "0.16em", textTransform: "uppercase", color: ORANGE, margin: "0 0 4px 0" }}>
               発掘 · AI crate-digging for your taste
             </p>
@@ -452,20 +545,20 @@ export default function DigClient({ username, displayLabel, avatarUrl, collectio
           </div>
 
           {/* Rule */}
-          <div style={{ width: 1, height: 38, background: "rgba(0,0,0,0.10)", flexShrink: 0 }} />
+          <div className="dig-header-rule" style={{ width: 1, height: 38, background: "rgba(0,0,0,0.10)", flexShrink: 0 }} />
 
           {/* Right stat */}
-          <div style={{ paddingLeft: "36px", whiteSpace: "nowrap" }}>
-            <span style={statNum}>{listsCount}</span>
-            <span style={statLbl}>Top 5 lists</span>
+          <div className="dig-stat-side" style={{ paddingLeft: "36px", whiteSpace: "nowrap" }}>
+            <span className="dig-stat-num" style={statNum}>{listsCount}</span>
+            <span className="dig-stat-lbl" style={statLbl}>Top 5 lists</span>
           </div>
 
         </div>
       </header>
 
       {/* ── Main ── */}
-      <main style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden" }}>
-        <div style={{ maxWidth: 860, width: "100%", margin: "0 auto", flex: 1, display: "flex", flexDirection: "column", padding: "0 40px", overflow: "hidden" }}>
+      <main className="dig-main" style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden" }}>
+        <div className="dig-main-inner" style={{ maxWidth: 860, width: "100%", margin: "0 auto", flex: 1, display: "flex", flexDirection: "column", padding: "0 40px", overflow: "hidden" }}>
 
           {/* Mode toggle */}
           <ModeToggle mode={mode} onChange={handleModeChange} disabled={loading} />
