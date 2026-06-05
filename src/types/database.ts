@@ -10,9 +10,9 @@ export type Database = {
   public: {
     Tables: {
       profiles: {
-        Row: { id: string; username: string; display_name: string | null; location: string | null; bio: string | null; created_at: string; taste_summary: string | null; taste_summary_count: number | null; last_synced_at: string | null; avatar_url: string | null };
-        Insert: { id: string; username: string; display_name?: string | null; location?: string | null; bio?: string | null; created_at?: string; taste_summary?: string | null; taste_summary_count?: number | null; last_synced_at?: string | null; avatar_url?: string | null };
-        Update: { username?: string; display_name?: string | null; location?: string | null; bio?: string | null; taste_summary?: string | null; taste_summary_count?: number | null; last_synced_at?: string | null; avatar_url?: string | null };
+        Row: { id: string; username: string; display_name: string | null; location: string | null; bio: string | null; created_at: string; taste_summary: string | null; taste_summary_count: number | null; last_synced_at: string | null; avatar_url: string | null; is_donor: boolean | null };
+        Insert: { id: string; username: string; display_name?: string | null; location?: string | null; bio?: string | null; created_at?: string; taste_summary?: string | null; taste_summary_count?: number | null; last_synced_at?: string | null; avatar_url?: string | null; is_donor?: boolean | null };
+        Update: { username?: string; display_name?: string | null; location?: string | null; bio?: string | null; taste_summary?: string | null; taste_summary_count?: number | null; last_synced_at?: string | null; avatar_url?: string | null; is_donor?: boolean | null };
         Relationships: [];
       };
       records: {
@@ -178,6 +178,12 @@ export type Database = {
         Row: { id: string; follower_id: string; following_id: string; created_at: string };
         Insert: { id?: string; follower_id: string; following_id: string; created_at?: string };
         Update: never;
+        Relationships: [];
+      };
+      gig_cache: {
+        Row: { id: string; cache_key: string; results: Json; cached_at: string };
+        Insert: { id?: string; cache_key: string; results?: Json; cached_at?: string };
+        Update: { results?: Json; cached_at?: string };
         Relationships: [];
       };
     };

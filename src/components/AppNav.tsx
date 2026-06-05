@@ -10,9 +10,12 @@ const JP = "var(--font-noto-jp), sans-serif";
 const ORANGE = "#CC5500";
 
 const NAV_ITEMS = [
+  { href: "/about",      label: "About",      jp: "について" },
   { href: "/collection", label: "Collection", jp: "コレクション" },
-  { href: "/lists",      label: "Lists",      jp: "リスト" },
   { href: "/dig",        label: "Dig",        jp: "発掘" },
+  { href: "/lists",      label: "Lists",      jp: "リスト" },
+  { href: "/gigs",       label: "Gigs",       jp: "公演" },
+  { href: "/library",    label: "Library",    jp: "ライブラリ" },
 ] as const;
 
 export default function AppNav({ username, displayLabel, avatarUrl }: { username: string; displayLabel?: string; avatarUrl?: string | null }) {

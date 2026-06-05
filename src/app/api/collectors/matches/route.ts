@@ -150,7 +150,7 @@ export async function GET(request: NextRequest) {
     if (ids.length === 0) return [];
 
     const [profilesRes, followerRes, recCountRes, followingRes] = await Promise.all([
-      supabase.from("profiles").select("id, username, display_name, location").in("id", ids),
+      supabase.from("profiles").select("id, username, display_name, location, is_donor").in("id", ids),
       supabase.from("follows").select("following_id").in("following_id", ids),
       supabase.from("user_records").select("user_id").in("user_id", ids),
       viewer
@@ -182,6 +182,7 @@ export async function GET(request: NextRequest) {
         description,
         sharedTags:    row.shared_tags ?? [],
         isFollowing:   viewerFollowing.has(p.id),
+        isDonor:       p.is_donor ?? false,
       };
     }).filter(Boolean);
   }

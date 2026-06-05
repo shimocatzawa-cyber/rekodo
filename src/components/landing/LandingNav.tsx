@@ -6,16 +6,9 @@ import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import WaitlistModal from "./WaitlistModal";
 
-const SERIF = "var(--font-editorial)";
-const MONO  = "var(--font-dm-mono), 'Courier New', monospace";
-const JP    = "var(--font-noto-jp), sans-serif";
+const SERIF  = "var(--font-editorial)";
+const MONO   = "var(--font-dm-mono), 'Courier New', monospace";
 const ORANGE = "#CC5500";
-
-const NAV_ITEMS = [
-  { href: "/collection", en: "Collection", ja: "コレクション" },
-  { href: "/lists",      en: "Lists",      ja: "リスト" },
-  { href: "/dig",        en: "Dig",        ja: "発掘" },
-] as const;
 
 interface LandingNavProps {
   username?: string | null;
@@ -45,35 +38,6 @@ export default function LandingNav({ username }: LandingNavProps) {
         >
           ō
         </Link>
-
-        {/* Centre — nav links */}
-        <div className="flex items-center gap-8">
-          {NAV_ITEMS.map(({ href, en, ja }) => (
-            <Link
-              key={href}
-              href={href}
-              className="hover:text-black transition-colors"
-              style={{
-                fontFamily: MONO,
-                fontSize: "10px",
-                letterSpacing: "0.1em",
-                textTransform: "uppercase",
-                color: "#aaaaaa",
-                textDecoration: "none",
-                display: "inline-flex",
-                alignItems: "center",
-                gap: "5px",
-                borderBottom: "1.5px solid transparent",
-                paddingBottom: "3px",
-              }}
-            >
-              {en}
-              <span style={{ fontFamily: JP, fontSize: "10px", letterSpacing: 0, textTransform: "none", color: "#c0c0c0" }}>
-                {ja}
-              </span>
-            </Link>
-          ))}
-        </div>
 
         {/* Right — @username + Sign out, or Request Access */}
         {username ? (

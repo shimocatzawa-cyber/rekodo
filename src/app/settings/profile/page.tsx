@@ -1,10 +1,11 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import AppNav from "@/components/AppNav";
 import SettingsForm from "./SettingsForm";
 import CollectorsLikeYou from "@/components/collectors/CollectorsLikeYou";
 
-const SERIF  = "var(--font-editorial)";
-const MONO   = "var(--font-mono)";
+const MONO = "var(--font-mono)";
+const SERIF = "var(--font-editorial)";
 
 export default async function ProfileSettingsPage() {
   const supabase = await createClient();
@@ -19,19 +20,17 @@ export default async function ProfileSettingsPage() {
 
   if (!profile) redirect("/onboarding");
 
+  const emailPrefix = (user.email ?? "").split("@")[0] || "user";
+  const autoGen     = `${emailPrefix}_${user.id.slice(0, 6)}`;
+  const raw         = profile.username ?? null;
+  const username    = (raw && raw !== autoGen) ? raw : (profile.display_name?.trim() || emailPrefix);
+  const displayLabel = profile.display_name?.trim() || username;
+  const avatarUrl   = profile.avatar_url ?? null;
+
   return (
     <div style={{ minHeight: "100vh", background: "#ffffff" }}>
 
-      {/* ── Minimal settings nav ── */}
-      <nav style={{ borderBottom: "1px solid rgba(0,0,0,0.08)", padding: "20px 40px", display: "flex", alignItems: "center" }}>
-        <a
-          href="/"
-          aria-label="rekōdo home"
-          style={{ fontFamily: SERIF, fontWeight: 700, fontSize: "22px", color: "#CC5500", textDecoration: "none" }}
-        >
-          ō
-        </a>
-      </nav>
+      <AppNav username={username} displayLabel={displayLabel} avatarUrl={avatarUrl} />
 
       <main style={{ maxWidth: 520, margin: "0 auto", padding: "64px 40px 80px" }}>
 

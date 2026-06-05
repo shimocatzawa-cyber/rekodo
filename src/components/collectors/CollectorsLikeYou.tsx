@@ -6,6 +6,7 @@ import Link from "next/link";
 const SERIF  = "var(--font-editorial)";
 const MONO   = "var(--font-mono)";
 const ORANGE = "#CC5500";
+const GOLD   = "#C9A84C";
 
 type Match = {
   userId:        string;
@@ -19,6 +20,7 @@ type Match = {
   description:   string;
   sharedTags:    string[];
   isFollowing:   boolean;
+  isDonor:       boolean;
 };
 
 interface Props {
@@ -128,8 +130,13 @@ function CollectorCard({ match, isFollowing, canFollow, onFollow }: {
           }}>
             {initial}
           </span>
-          <span style={{ fontFamily: MONO, fontSize: "10px", letterSpacing: "0.05em", color: "#0d0d0d" }}>
-            @{match.username}
+          <span style={{ display: "inline-flex", alignItems: "center", gap: "5px" }}>
+            <span style={{ fontFamily: MONO, fontSize: "10px", letterSpacing: "0.05em", color: "#0d0d0d" }}>
+              @{match.username}
+            </span>
+            {match.isDonor && (
+              <span style={{ fontFamily: SERIF, fontSize: "0.8em", color: GOLD }} title="rekōdo supporter">ō</span>
+            )}
           </span>
         </Link>
         <span style={{ fontFamily: MONO, fontSize: "11px", letterSpacing: "0.03em", color: ORANGE, flexShrink: 0 }}>

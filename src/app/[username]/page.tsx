@@ -21,7 +21,7 @@ export default async function PublicProfilePage({ params }: { params: Params }) 
   // ── Profile ───────────────────────────────────────────────────────────────
   const { data: profile } = await supabase
     .from("profiles")
-    .select("id, username, display_name, location, bio, avatar_url")
+    .select("id, username, display_name, location, bio, avatar_url, is_donor")
     .eq("username", username)
     .maybeSingle();
 
@@ -129,10 +129,13 @@ export default async function PublicProfilePage({ params }: { params: Params }) 
         }}>
           {profile.display_name || profile.username}
         </h1>
-        <p style={{ fontFamily: MONO, fontSize: "11px", letterSpacing: "0.06em", color: "#aaaaaa", margin: "0 0 8px 0" }}>
-          @{profile.username}
+        <p style={{ fontFamily: MONO, fontSize: "11px", letterSpacing: "0.06em", color: "#aaaaaa", margin: "0 0 8px 0", display: "flex", alignItems: "center", gap: "6px" }}>
+          <span>@{profile.username}</span>
+          {profile.is_donor && (
+            <span style={{ fontFamily: SERIF, fontSize: "0.8em", color: "#C9A84C" }} title="rekōdo supporter">ō</span>
+          )}
           {profile.location && (
-            <span style={{ marginLeft: "10px", color: "#cccccc" }}>· {profile.location}</span>
+            <span style={{ color: "#cccccc" }}>· {profile.location}</span>
           )}
         </p>
         {(followerCount > 0 || followingCount > 0) && (
