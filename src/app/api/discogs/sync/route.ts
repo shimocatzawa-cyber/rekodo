@@ -337,10 +337,18 @@ export async function GET(request: NextRequest) {
                 `?release_id=${encodeURIComponent(record.discogs_id!)}` +
                 `&status=For+Sale&sort=price&sort_order=asc&per_page=100` +
                 `&key=${key}&secret=${secret}`;
-              const priceRes = await fetch(priceUrl, {
-                headers: { "User-Agent": UA, Authorization: `Discogs key=${key}, secret=${secret}` },
-                cache: "no-store",
-              });
+              const priceAbort = new AbortController();
+              const priceTimeout = setTimeout(() => priceAbort.abort(), 12_000);
+              let priceRes: Response;
+              try {
+                priceRes = await fetch(priceUrl, {
+                  headers: { "User-Agent": UA, Authorization: `Discogs key=${key}, secret=${secret}` },
+                  cache: "no-store",
+                  signal: priceAbort.signal,
+                });
+              } finally {
+                clearTimeout(priceTimeout);
+              }
 
               if (priceRes.status === 429) return true;
 
