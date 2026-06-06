@@ -321,6 +321,12 @@ export async function GET(request: NextRequest) {
 
       send({ type: "complete", total, newAdded, updated: backfillDone, priceUpdated: 0, timestamp });
 
+      // ── Recompute collection intelligence (runs after complete signal) ────────
+      try {
+        const { computeCollectionIntelligence } = await import("@/lib/library/intelligence");
+        await computeCollectionIntelligence(supabase, user.id, collectionItems);
+      } catch { /* non-fatal — Library will compute on first tab load */ }
+
     } catch (err: unknown) {
       send({ type: "error", message: err instanceof Error ? err.message : "Sync failed" });
     } finally {
