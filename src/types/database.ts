@@ -10,9 +10,9 @@ export type Database = {
   public: {
     Tables: {
       profiles: {
-        Row: { id: string; username: string; display_name: string | null; location: string | null; bio: string | null; created_at: string; taste_summary: string | null; taste_summary_count: number | null; last_synced_at: string | null; avatar_url: string | null; is_donor: boolean | null };
-        Insert: { id: string; username: string; display_name?: string | null; location?: string | null; bio?: string | null; created_at?: string; taste_summary?: string | null; taste_summary_count?: number | null; last_synced_at?: string | null; avatar_url?: string | null; is_donor?: boolean | null };
-        Update: { username?: string; display_name?: string | null; location?: string | null; bio?: string | null; taste_summary?: string | null; taste_summary_count?: number | null; last_synced_at?: string | null; avatar_url?: string | null; is_donor?: boolean | null };
+        Row: { id: string; username: string; display_name: string | null; location: string | null; bio: string | null; created_at: string; taste_summary: string | null; taste_summary_count: number | null; last_synced_at: string | null; avatar_url: string | null; is_donor: boolean | null; is_public: boolean };
+        Insert: { id: string; username: string; display_name?: string | null; location?: string | null; bio?: string | null; created_at?: string; taste_summary?: string | null; taste_summary_count?: number | null; last_synced_at?: string | null; avatar_url?: string | null; is_donor?: boolean | null; is_public?: boolean };
+        Update: { username?: string; display_name?: string | null; location?: string | null; bio?: string | null; taste_summary?: string | null; taste_summary_count?: number | null; last_synced_at?: string | null; avatar_url?: string | null; is_donor?: boolean | null; is_public?: boolean };
         Relationships: [];
       };
       records: {
