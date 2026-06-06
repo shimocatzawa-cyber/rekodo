@@ -1325,7 +1325,7 @@ function AlbumDetail({ record, detail, price, loading, valueCurrency }: {
         {/* Marketplace pricing */}
         {price && (
           <>
-            <PriceRow label="Est Value" value={formatPrice(price.lowest, price.currency || valueCurrency || "USD")} />
+            <PriceRow label="Low Est Value" value={formatPrice(price.lowest, price.currency || valueCurrency || "USD")} />
             <PriceRow label="Median"    value={formatPrice(price.median, price.currency)} />
             <PriceRow label="High"     value={formatPrice(price.highest,   price.currency)} />
             <PriceRow
