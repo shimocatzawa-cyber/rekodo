@@ -311,8 +311,8 @@ export async function GET(request: NextRequest) {
       if (priceTotal > 0) {
         send({ type: "status", message: `Fetching prices for ${priceTotal} records…` });
 
-        // 5 concurrent requests per batch, 1.5 s between batches ≈ 200 req/min
-        const PRICE_BATCH = 5;
+        // 3 concurrent requests per batch, 2 s between batches ≈ 90 req/min
+        const PRICE_BATCH = 3;
 
         for (let bi = 0; bi < priceable.length; bi += PRICE_BATCH) {
           if (request.signal.aborted) break;
@@ -375,11 +375,11 @@ export async function GET(request: NextRequest) {
           send({ type: "pricing", done: Math.min(bi + PRICE_BATCH, priceTotal), total: priceTotal });
 
           if (results.some(Boolean)) {
-            // At least one 429 — back off before continuing
-            send({ type: "status", message: "Rate limited — pausing 30s…" });
-            await sleep(30_000);
+            // At least one 429 — brief back off before continuing
+            send({ type: "status", message: "Rate limited — pausing 8s…" });
+            await sleep(8_000);
           } else if (bi + PRICE_BATCH < priceable.length) {
-            await sleep(1_500);
+            await sleep(2_000);
           }
         }
       }
