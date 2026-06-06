@@ -141,6 +141,7 @@ interface SyncResult {
   total: number;
   newAdded: number;
   updated: number;
+  priceUpdated: number;
   timestamp: string;
 }
 
@@ -164,6 +165,7 @@ interface Props {
   displayLabel?: string;
   avatarUrl?: string | null;
   estimatedValue?: number;
+  pricedCount?: number;
   insights?: CollectionInsights;
   lastSyncedAt?: string | null;
   startSync?: boolean;
@@ -179,6 +181,7 @@ export default function CollectionClient({
   displayLabel,
   avatarUrl      = null,
   estimatedValue = 0,
+  pricedCount    = 0,
   insights,
   lastSyncedAt   = null,
   startSync      = false,
@@ -220,7 +223,7 @@ export default function CollectionClient({
       type LinkRow = {
         record_id:      string;
         value:          number | null;
-        price_low:      number | null;
+        price_median:   number | null;
         price_currency: string | null;
       };
       const allLinks: LinkRow[] = [];
@@ -228,7 +231,7 @@ export default function CollectionClient({
       for (let from = 0; ; from += PAGE) {
         const { data, error } = await supabase
           .from("user_records")
-          .select("record_id, value, price_low, price_currency")
+          .select("record_id, value, price_median, price_currency")
           .eq("user_id", user.id)
           .range(from, from + PAGE - 1);
         console.log(`[collection] user_records page from=${from}: count=${data?.length ?? 0} error=${JSON.stringify(error)}`);
@@ -237,24 +240,31 @@ export default function CollectionClient({
         if (data.length < PAGE) break;
       }
 
-      const recordIds    = allLinks.map((l) => l.record_id);
-      const valueMap     = new Map<string, number | null>(allLinks.map((l) => [l.record_id, l.value ?? null]));
+      const recordIds        = allLinks.map((l) => l.record_id);
+      const valueMap         = new Map<string, number | null>(allLinks.map((l) => [l.record_id, l.value ?? null]));
+      const priceMedianMap   = new Map<string, number | null>(allLinks.map((l) => [l.record_id, l.price_median ?? null]));
+      const priceCurrencyMap = new Map<string, string | null>(allLinks.map((l) => [l.record_id, l.price_currency ?? null]));
       const BATCH        = 400;
-      const recordsMap   = new Map<string, Omit<CollectionRecord, "value">>();
+      const recordsMap   = new Map<string, Omit<CollectionRecord, "value" | "price_median" | "price_currency">>();
       for (let i = 0; i < recordIds.length; i += BATCH) {
         const { data, error } = await supabase
           .from("records")
           .select("id, discogs_id, artist, album, year, genre, cover_url, label, format, country")
           .in("id", recordIds.slice(i, i + BATCH));
         console.log(`[collection] records batch i=${i}: count=${data?.length ?? 0} error=${JSON.stringify(error)}`);
-        for (const r of data ?? []) recordsMap.set(r.id, r as Omit<CollectionRecord, "value">);
+        for (const r of data ?? []) recordsMap.set(r.id, r as Omit<CollectionRecord, "value" | "price_median" | "price_currency">);
       }
 
       const fetched: CollectionRecord[] = recordIds
         .map((id) => {
           const r = recordsMap.get(id);
           if (!r) return undefined;
-          return { ...r, value: valueMap.get(id) ?? null };
+          return {
+            ...r,
+            value:          valueMap.get(id)         ?? null,
+            price_median:   priceMedianMap.get(id)   ?? null,
+            price_currency: priceCurrencyMap.get(id) ?? null,
+          };
         })
         .filter((r): r is CollectionRecord => r !== undefined);
 
@@ -328,6 +338,7 @@ export default function CollectionClient({
               phase?: string;
               newAdded?: number;
               updated?: number;
+              priceUpdated?: number;
               timestamp?: string;
             };
 
@@ -348,12 +359,20 @@ export default function CollectionClient({
                 total: ev.total ?? 0,
               });
 
+            } else if (ev.type === "pricing") {
+              setSyncProgress({
+                message: `Fetching prices… ${ev.done} of ${ev.total}`,
+                done: ev.done ?? 0,
+                total: ev.total ?? 0,
+              });
+
             } else if (ev.type === "complete") {
               setSyncResult({
-                total:    ev.total    ?? 0,
-                newAdded: ev.newAdded ?? 0,
-                updated:  ev.updated  ?? 0,
-                timestamp: ev.timestamp ?? new Date().toISOString(),
+                total:        ev.total        ?? 0,
+                newAdded:     ev.newAdded     ?? 0,
+                updated:      ev.updated      ?? 0,
+                priceUpdated: ev.priceUpdated ?? 0,
+                timestamp:    ev.timestamp    ?? new Date().toISOString(),
               });
               setSyncState("complete");
               router.refresh();
@@ -483,6 +502,7 @@ export default function CollectionClient({
           <strong>Sync complete</strong>
           {` · ${syncResult.total} records`}
           {syncResult.newAdded > 0 && ` · ${syncResult.newAdded} new`}
+          {syncResult.priceUpdated > 0 && ` · ${syncResult.priceUpdated} prices updated`}
           {` · last synced ${formatSyncTime(syncResult.timestamp)}`}
         </StatusBanner>
       )}
@@ -490,18 +510,6 @@ export default function CollectionClient({
         <StatusBanner color="#cc2200" bg="#fff5f5">Sync failed — please try again</StatusBanner>
       )}
 
-      {/* ── Top bar ── */}
-      {estimatedValue > 0 && (
-        <div style={{ padding: "9px 20px 9px 24px", borderBottom: "1px solid rgba(0,0,0,0.08)", flexShrink: 0 }}>
-          <span style={{ fontFamily: MONO, fontSize: "10px", letterSpacing: "0.08em", color: "#aaaaaa" }}>
-            {"Est. value from "}
-            <span style={{ color: ORANGE }}>${Math.round(estimatedValue).toLocaleString("en-US")}</span>
-          </span>
-          <p style={{ fontFamily: MONO, fontSize: "9px", color: "#cccccc", letterSpacing: "0.04em", margin: "2px 0 0" }}>
-            Based on lowest listed market prices
-          </p>
-        </div>
-      )}
 
       {/* ── Insights panel ── */}
       {insights && (
@@ -509,6 +517,7 @@ export default function CollectionClient({
           insights={insights}
           total={collection.length}
           estimatedValue={estimatedValue}
+          pricedCount={pricedCount}
         />
       )}
 
@@ -800,10 +809,12 @@ function InsightsPanel({
   insights,
   total,
   estimatedValue,
+  pricedCount,
 }: {
   insights: CollectionInsights;
   total: number;
   estimatedValue: number;
+  pricedCount: number;
 }) {
   const [oneLiner, setOneLiner] = useState<string | null>(null);
 
@@ -879,12 +890,24 @@ function InsightsPanel({
     });
   }
 
-  // 8. Value tracking — always last, always placeholder
-  stats.push({
-    hero:  "—",
-    label: "Value tracking",
-    sub:   "coming soon",
-  });
+  // 8. Collection value (real when prices have been synced)
+  const fmtV = (n: number) =>
+    n >= 1000 ? `$${(n / 1000).toFixed(1)}k` : `$${Math.round(n).toLocaleString("en-US")}`;
+  stats.push(
+    estimatedValue > 0
+      ? {
+          hero:  fmtV(estimatedValue),
+          label: "Est. Collection Value",
+          sub:   pricedCount < total
+            ? `${pricedCount} of ${total} records priced`
+            : `${pricedCount} records priced`,
+        }
+      : {
+          hero:  "—",
+          label: "Est. Collection Value",
+          sub:   "Sync to calculate",
+        }
+  );
 
   if (stats.length === 0) return null;
 
@@ -1035,9 +1058,22 @@ function FilterTag({ label, onRemove }: { label: string; onRemove: () => void })
 
 // ─── RecordRow ────────────────────────────────────────────────────────────────
 
+function priceColor(median: number): string {
+  if (median > 100) return ORANGE;
+  if (median > 25)  return "#888888";
+  return "#d0d0d0";
+}
+
+function fmtMedianPrice(median: number, currency: string): string {
+  const s = sym(currency);
+  if (median >= 1000) return `${s}${(median / 1000).toFixed(1)}k`;
+  return `${s}${Math.round(median)}`;
+}
+
 function RecordRow({ record, selected, onClick }: {
   record: CollectionRecord; selected: boolean; onClick: () => void;
 }) {
+  const hasPrice = record.price_median != null && record.price_median > 0;
   return (
     <button
       onClick={onClick}
@@ -1070,6 +1106,18 @@ function RecordRow({ record, selected, onClick }: {
           {record.year ? <span style={{ color: "#d0d0d0" }}> · {record.year}</span> : null}
         </p>
       </div>
+      {hasPrice && (
+        <span style={{
+          fontFamily: MONO,
+          fontSize: "9px",
+          letterSpacing: "0.03em",
+          color: priceColor(record.price_median!),
+          flexShrink: 0,
+          paddingLeft: "4px",
+        }}>
+          {fmtMedianPrice(record.price_median!, record.price_currency ?? "USD")}
+        </span>
+      )}
     </button>
   );
 }

@@ -14,6 +14,8 @@ export type CollectionRecord = {
   format: string | null;
   country: string | null;
   value: number | null;
+  price_median:   number | null;
+  price_currency: string | null;
 };
 
 export type CollectionInsights = {
@@ -71,6 +73,7 @@ export default async function CollectionPage({
     created_at:     string;
     value:          number | null;
     price_low:      number | null;
+    price_median:   number | null;
     price_currency: string | null;
   };
   console.log('[collection/page] fetching for user:', user.id);
@@ -79,7 +82,7 @@ export default async function CollectionPage({
   for (let from = 0; ; from += PAGE) {
     const { data, error } = await supabase
       .from("user_records")
-      .select("record_id, created_at, value, price_low, price_currency")
+      .select("record_id, created_at, value, price_low, price_median, price_currency")
       .eq("user_id", user.id)
       .order("created_at", { ascending: false })
       .range(from, from + PAGE - 1);
@@ -94,15 +97,19 @@ export default async function CollectionPage({
   }
   console.log('[collection/page] total allLinks:', allLinks.length);
 
-  const recordIds = allLinks.map((l) => l.record_id);
-  const valueMap  = new Map<string, number | null>(allLinks.map((l) => [l.record_id, l.value ?? null]));
+  const recordIds        = allLinks.map((l) => l.record_id);
+  const valueMap         = new Map<string, number | null>(allLinks.map((l) => [l.record_id, l.value ?? null]));
+  const priceMedianMap   = new Map<string, number | null>(allLinks.map((l) => [l.record_id, l.price_median ?? null]));
+  const priceCurrencyMap = new Map<string, string | null>(allLinks.map((l) => [l.record_id, l.price_currency ?? null]));
 
-  const estimatedValue = allLinks
-    .filter(l => (l.price_low ?? 0) > 0)
-    .reduce((sum, l) => sum + (l.price_low ?? 0), 0);
+  const estimatedValue = allLinks.reduce((sum, l) => {
+    const v = l.price_median ?? l.price_low ?? 0;
+    return v > 0 ? sum + v : sum;
+  }, 0);
+  const pricedCount = allLinks.filter(l => (l.price_median ?? l.price_low ?? 0) > 0).length;
 
   const BATCH = 400;
-  const recordsMap = new Map<string, Omit<CollectionRecord, "value">>();
+  const recordsMap = new Map<string, Omit<CollectionRecord, "value" | "price_median" | "price_currency">>();
   for (let i = 0; i < recordIds.length; i += BATCH) {
     const { data, error } = await supabase
       .from("records")
@@ -110,14 +117,19 @@ export default async function CollectionPage({
       .in("id", recordIds.slice(i, i + BATCH));
     if (error) console.error('[collection/page] records batch error:', JSON.stringify(error));
     else console.log(`[collection/page] records batch i=${i}: ${data?.length ?? 0} rows`);
-    for (const r of data ?? []) recordsMap.set(r.id, r as Omit<CollectionRecord, "value">);
+    for (const r of data ?? []) recordsMap.set(r.id, r as Omit<CollectionRecord, "value" | "price_median" | "price_currency">);
   }
 
   const collection: CollectionRecord[] = recordIds
     .map((id) => {
       const r = recordsMap.get(id);
       if (!r) return undefined;
-      return { ...r, value: valueMap.get(id) ?? null };
+      return {
+        ...r,
+        value:          valueMap.get(id)         ?? null,
+        price_median:   priceMedianMap.get(id)   ?? null,
+        price_currency: priceCurrencyMap.get(id) ?? null,
+      };
     })
     .filter((r): r is CollectionRecord => r !== undefined);
 
@@ -217,6 +229,7 @@ export default async function CollectionPage({
       username={username}
       displayLabel={displayLabel}
       estimatedValue={estimatedValue}
+      pricedCount={pricedCount}
       insights={insights}
       lastSyncedAt={lastSyncedAt}
       avatarUrl={avatarUrl}

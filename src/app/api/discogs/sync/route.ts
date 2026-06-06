@@ -269,6 +269,105 @@ export async function GET(request: NextRequest) {
         }
       }
 
+      // ── Phase 4: Fetch marketplace prices ──────────────────────────────────
+      // Only process records with no price or prices older than 30 days.
+      const staleDate = new Date(Date.now() - 30 * 86_400_000).toISOString();
+
+      type PriceUr = { record_id: string; price_fetched_at: string | null };
+      const allUrForPrice: PriceUr[] = [];
+      for (let from = 0; ; from += BATCH) {
+        const { data: urPage } = await supabase
+          .from("user_records")
+          .select("record_id, price_fetched_at")
+          .eq("user_id", user.id)
+          .range(from, from + BATCH - 1);
+        if (!urPage || urPage.length === 0) break;
+        allUrForPrice.push(...(urPage as PriceUr[]));
+        if (urPage.length < BATCH) break;
+      }
+
+      const needPriceIds = allUrForPrice
+        .filter(ur => !ur.price_fetched_at || ur.price_fetched_at < staleDate)
+        .map(ur => ur.record_id);
+
+      type PriceRecord = { id: string; discogs_id: string | null };
+      const priceRecords: PriceRecord[] = [];
+      for (let i = 0; i < needPriceIds.length; i += BATCH) {
+        const { data: rPage } = await supabase
+          .from("records")
+          .select("id, discogs_id")
+          .in("id", needPriceIds.slice(i, i + BATCH));
+        for (const r of rPage ?? []) priceRecords.push(r as PriceRecord);
+      }
+
+      const priceable = priceRecords.filter(r => !!r.discogs_id);
+      const priceTotal = priceable.length;
+
+      const pVal = (obj: unknown): number | null => {
+        if (!obj || typeof obj !== "object") return null;
+        const v = (obj as Record<string, unknown>).value;
+        return typeof v === "number" && v > 0 ? v : null;
+      };
+      const pCur = (obj: unknown): string | null => {
+        if (!obj || typeof obj !== "object") return null;
+        const c = (obj as Record<string, unknown>).currency;
+        return typeof c === "string" ? c : null;
+      };
+
+      let priceUpdated = 0;
+
+      if (priceTotal > 0) {
+        send({ type: "status", message: `Fetching prices for ${priceTotal} records…` });
+
+        for (const record of priceable) {
+          if (request.signal.aborted) break;
+          await sleep(1100); // stay under 60 req/min
+
+          try {
+            const priceUrl =
+              `https://api.discogs.com/marketplace/stats/${encodeURIComponent(record.discogs_id!)}` +
+              `?key=${key}&secret=${secret}`;
+            const priceRes = await fetch(priceUrl, {
+              headers: { "User-Agent": UA, Authorization: `Discogs key=${key}, secret=${secret}` },
+              cache: "no-store",
+            });
+
+            if (priceRes.ok) {
+              const pd = await priceRes.json();
+              const lastSale      = pd.last_sale ?? null;
+              const lastSalePrice = lastSale?.price ?? null;
+              const currency =
+                pCur(pd.lowest_price)  ??
+                pCur(pd.median_price)  ??
+                pCur(pd.highest_price) ??
+                pCur(lastSalePrice)    ??
+                "USD";
+
+              await supabase.from("user_records").update({
+                price_last_sold:  pVal(lastSalePrice),
+                price_low:        pVal(pd.lowest_price),
+                price_median:     pVal(pd.median_price),
+                price_high:       pVal(pd.highest_price),
+                price_currency:   currency,
+                price_fetched_at: new Date().toISOString(),
+              })
+                .eq("user_id", user.id)
+                .eq("record_id", record.id);
+
+              priceUpdated++;
+            } else {
+              // Mark attempted so we skip it next sync
+              await supabase.from("user_records")
+                .update({ price_fetched_at: new Date().toISOString() })
+                .eq("user_id", user.id)
+                .eq("record_id", record.id);
+            }
+          } catch { /* skip this record, continue */ }
+
+          send({ type: "pricing", done: priceUpdated, total: priceTotal });
+        }
+      }
+
       // ── Complete ────────────────────────────────────────────────────────────
       const timestamp = new Date().toISOString();
 
@@ -277,7 +376,7 @@ export async function GET(request: NextRequest) {
         .update({ last_synced_at: timestamp })
         .eq("id", user.id);
 
-      send({ type: "complete", total, newAdded, updated: backfillDone, timestamp });
+      send({ type: "complete", total, newAdded, updated: backfillDone, priceUpdated, timestamp });
 
     } catch (err: unknown) {
       send({ type: "error", message: err instanceof Error ? err.message : "Sync failed" });
