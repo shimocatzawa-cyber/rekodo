@@ -317,6 +317,25 @@ export async function GET(request: NextRequest) {
       let priceUpdated = 0;
 
       if (priceTotal > 0) {
+        // ── Diagnostic: test write before starting the loop ─────────────────
+        const testRecord = priceable[0];
+        const testUrl = `${supabaseUrl}/rest/v1/user_records`
+          + `?user_id=eq.${encodeURIComponent(user.id)}`
+          + `&record_id=eq.${encodeURIComponent(testRecord.id)}`;
+        const testRes = await fetch(testUrl, {
+          method: "PATCH",
+          headers: {
+            "Content-Type": "application/json",
+            "apikey": supabaseAnonKey,
+            "Authorization": `Bearer ${supabaseJwt}`,
+            "Prefer": "return=representation",
+          },
+          body: JSON.stringify({ price_fetched_at: new Date().toISOString() }),
+        });
+        const testBody = await testRes.text().catch(() => "error");
+        send({ type: "status", message: `[diag] test write: status=${testRes.status} rows=${testBody.slice(0, 150)}` });
+        // ────────────────────────────────────────────────────────────────────
+
         send({ type: "status", message: `Fetching prices for ${priceTotal} records… jwt=${supabaseJwt ? "ok" : "MISSING"}` });
 
         // 3 concurrent requests per batch, 2 s between batches ≈ 90 req/min
