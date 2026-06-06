@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Shippori_Mincho, DM_Mono, Noto_Sans_JP, Caveat } from "next/font/google";
+import { Shippori_Mincho, DM_Mono, Caveat } from "next/font/google";
 import "./globals.css";
 
 const shipporiMincho = Shippori_Mincho({
@@ -12,12 +12,6 @@ const dmMono = DM_Mono({
   variable: "--font-dm-mono",
   subsets: ["latin"],
   weight: ["300", "400", "500"],
-});
-
-const notoSansJP = Noto_Sans_JP({
-  variable: "--font-noto-jp",
-  subsets: ["latin"],
-  weight: ["400"],
 });
 
 const caveat = Caveat({
@@ -55,8 +49,13 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={`${shipporiMincho.variable} ${dmMono.variable} ${notoSansJP.variable} ${caveat.variable} h-full`}
+      className={`${shipporiMincho.variable} ${dmMono.variable} ${caveat.variable} h-full`}
     >
+      <head>
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
+        <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400&display=swap" rel="stylesheet" />
+      </head>
       <body className="min-h-full flex flex-col bg-white text-black antialiased">
         {children}
       </body>
