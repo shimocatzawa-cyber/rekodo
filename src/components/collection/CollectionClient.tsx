@@ -297,7 +297,7 @@ export default function CollectionClient({
   const [syncProgress, setSyncProgress] = useState<SyncProgress | null>(null);
   const [syncResult,   setSyncResult]   = useState<SyncResult | null>(null);
 
-  const [priceProgress, setPriceProgress] = useState<{ done: number; total: number; phase: "low" | "median" } | null>(null);
+  const [priceProgress, setPriceProgress] = useState<{ done: number; total: number; phase: "low" } | null>(null);
 
   useEffect(() => {
     if (!startSync || syncTriggered.current) return;
@@ -411,7 +411,7 @@ export default function CollectionClient({
   async function runPriceLoop(collectionTotal: number) {
     type BatchData = { priced: number; processed: number; remaining: number; total: number };
 
-    async function runLoop(endpoint: string, phase: "low" | "median") {
+    async function runLoop(endpoint: string, phase: "low") {
       let done = 0;
       let total = collectionTotal;
       let totalLocked = false;
@@ -432,8 +432,7 @@ export default function CollectionClient({
       } catch { /* best-effort */ }
     }
 
-    await runLoop("/api/discogs/price-batch",  "low");
-    await runLoop("/api/discogs/median-batch", "median");
+    await runLoop("/api/discogs/price-batch", "low");
 
     setPriceProgress(null);
     router.refresh();
@@ -548,9 +547,7 @@ export default function CollectionClient({
       )}
       {priceProgress && (
         <StatusBanner color="#0d0d0d" bg="#f4f4f4">
-          {priceProgress.phase === "median"
-            ? `Fetching median prices… ${priceProgress.done} of ${priceProgress.total}`
-            : `Pricing records… ${priceProgress.done} of ${priceProgress.total}`}
+          Pricing records… {priceProgress.done} of {priceProgress.total}
         </StatusBanner>
       )}
       {syncState === "complete" && syncResult && !priceProgress && (
