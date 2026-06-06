@@ -1,6 +1,7 @@
 import { type NextRequest } from "next/server";
 import { cookies } from "next/headers";
 import { createClient } from "@/lib/supabase/server";
+import { createClient as createServiceClient } from "@supabase/supabase-js";
 import { buildAuthHeader } from "@/lib/discogs/oauth";
 
 const UA = "rekodo/1.0";
@@ -296,6 +297,27 @@ export async function GET(request: NextRequest) {
           collection_value_at:       colVal.minimum?.value ? timestamp : null,
         })
         .eq("id", user.id);
+
+      // ── Snapshot for trend analysis ─────────────────────────────────────────
+      if (colVal.minimum?.value != null) {
+        try {
+          const svcKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+          const sbUrl  = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+          const adminDb = svcKey
+            ? createServiceClient(sbUrl, svcKey, { auth: { persistSession: false } })
+            : supabase;
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          await (adminDb as any).from("collection_value_snapshots").insert({
+            user_id:      user.id,
+            snapshot_at:  timestamp,
+            value_low:    colVal.minimum?.value  ?? null,
+            value_med:    colVal.median?.value   ?? null,
+            value_high:   colVal.maximum?.value  ?? null,
+            currency:     colVal.minimum?.currency ?? "USD",
+            record_count: total,
+          });
+        } catch { /* non-fatal */ }
+      }
 
       send({ type: "complete", total, newAdded, updated: backfillDone, priceUpdated: 0, timestamp });
 
