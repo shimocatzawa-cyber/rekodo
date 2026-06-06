@@ -317,10 +317,10 @@ export async function GET(request: NextRequest) {
       let priceUpdated = 0;
 
       if (priceTotal > 0) {
-        send({ type: "status", message: `Fetching prices for ${priceTotal} records…` });
+        send({ type: "status", message: `Fetching prices for ${priceTotal} records… jwt=${supabaseJwt ? "ok" : "MISSING"}` });
 
-        // 5 concurrent requests per batch, 2 s between batches ≈ 150 req/min
-        const PRICE_BATCH = 5;
+        // 3 concurrent requests per batch, 2 s between batches ≈ 90 req/min
+        const PRICE_BATCH = 3;
 
         for (let bi = 0; bi < priceable.length; bi += PRICE_BATCH) {
           if (request.signal.aborted) break;
