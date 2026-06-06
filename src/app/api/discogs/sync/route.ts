@@ -389,14 +389,16 @@ export async function GET(request: NextRequest) {
                   }),
                 });
 
+                const writeBody = await writeRes.text().catch(() => "");
+                if (priceUpdated === 0 && bi === 0) {
+                  // Always surface the first write result so we can diagnose
+                  send({ type: "status", message: `[diag] write status=${writeRes.status} jwt=${supabaseJwt ? "present" : "MISSING"} body=${writeBody.slice(0, 120)}` });
+                }
+
                 if (writeRes.ok) {
                   priceUpdated++;
                 } else {
-                  const errText = await writeRes.text().catch(() => writeRes.status.toString());
-                  console.error("[sync] price write error:", errText, "record_id:", record.id);
-                  if (priceUpdated === 0 && bi === 0) {
-                    send({ type: "status", message: `⚠️ Price save failed: ${errText}` });
-                  }
+                  console.error("[sync] price write error:", writeRes.status, writeBody, "record_id:", record.id);
                 }
               } else {
                 // No listings — just mark as fetched so we don't retry for 30 days
