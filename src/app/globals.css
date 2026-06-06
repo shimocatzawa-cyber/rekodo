@@ -47,3 +47,41 @@ h1, h2, h3, h4, h5, h6 {
 button:hover .avatar-overlay {
   opacity: 1 !important;
 }
+
+/* Profile page two-column layout */
+.profile-layout {
+  display: flex;
+  gap: 48px;
+  align-items: flex-start;
+}
+.profile-main {
+  flex: 0 0 60%;
+  min-width: 0;
+}
+.profile-setup-col {
+  flex: 1;
+  min-width: 0;
+}
+.setup-photos {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+@media (max-width: 768px) {
+  .profile-layout {
+    flex-direction: column;
+  }
+  .profile-main {
+    flex: none;
+    width: 100%;
+  }
+  .profile-setup-col {
+    flex: none;
+    width: 100%;
+  }
+  .setup-photos {
+    flex-direction: row !important;
+    gap: 12px;
+  }
+}

@@ -26,7 +26,7 @@ export default async function PublicProfilePage({ params }: { params: Params }) 
   // Profile lookup — RLS allows public reads where is_public = true, plus owner reads
   const { data: profile } = await supabase
     .from("profiles")
-    .select("id, username, display_name, location, avatar_url, is_donor, taste_summary")
+    .select("id, username, display_name, city, country, avatar_url, is_donor, taste_summary")
     .eq("username", username)
     .maybeSingle();
 
@@ -175,8 +175,10 @@ export default async function PublicProfilePage({ params }: { params: Params }) 
               {profile.is_donor && (
                 <span style={{ fontFamily: SERIF, fontSize: "0.85em", color: "#C9A84C" }} title="rekōdo supporter">ō</span>
               )}
-              {profile.location && <span style={{ color: "#dddddd" }}>·</span>}
-              {profile.location && <span>{profile.location}</span>}
+              {(profile.city || profile.country) && <span style={{ color: "#dddddd" }}>·</span>}
+              {(profile.city || profile.country) && (
+                <span>{[profile.city, profile.country].filter(Boolean).join(", ")}</span>
+              )}
               {isOwner && (
                 <>
                   <span style={{ color: "#dddddd" }}>·</span>

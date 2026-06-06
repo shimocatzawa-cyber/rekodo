@@ -2,6 +2,7 @@
 
 import { useRef, useState, useTransition } from "react";
 import { createClient } from "@/lib/supabase/client";
+import { COUNTRIES } from "@/lib/countries";
 import { saveAvatarUrl, saveDisplayName, saveProfileSettings } from "./actions";
 
 const SERIF  = "var(--font-editorial)";
@@ -9,26 +10,29 @@ const MONO   = "var(--font-mono)";
 const ORANGE = "#CC5500";
 
 interface Props {
-  username:    string;
-  displayName: string;
-  location:    string;
-  bio:         string;
-  userId:      string;
-  avatarUrl:   string | null;
+  username:     string;
+  displayName:  string;
+  city:         string;
+  country:      string;
+  countryCode:  string;
+  bio:          string;
+  userId:       string;
+  avatarUrl:    string | null;
 }
 
-export default function SettingsForm({ username, displayName, location, bio: initialBio, userId, avatarUrl: initialAvatarUrl }: Props) {
+export default function SettingsForm({
+  username, displayName, city: initialCity, country: initialCountry,
+  countryCode: initialCode, bio: initialBio, userId, avatarUrl: initialAvatarUrl,
+}: Props) {
   // ── Avatar upload ─────────────────────────────────────────────────────────
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const [avatarSrc,     setAvatarSrc]     = useState<string | null>(initialAvatarUrl);
-  const [avatarState,   setAvatarState]   = useState<"idle" | "uploading" | "error">("idle");
-  const [avatarErrMsg,  setAvatarErrMsg]  = useState<string | null>(null);
-  const displayInitial  = (displayName || username).charAt(0).toUpperCase();
+  const [avatarSrc,    setAvatarSrc]    = useState<string | null>(initialAvatarUrl);
+  const [avatarState,  setAvatarState]  = useState<"idle" | "uploading" | "error">("idle");
+  const [avatarErrMsg, setAvatarErrMsg] = useState<string | null>(null);
+  const displayInitial = (displayName || username).charAt(0).toUpperCase();
 
   async function handleAvatarFile(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
-    if (!e.target) return;
-    // Reset so the same file can be re-selected after an error
     (e.target as HTMLInputElement).value = "";
     if (!file) return;
 
@@ -68,13 +72,23 @@ export default function SettingsForm({ username, displayName, location, bio: ini
     }
   }
 
-  // ── Display name + location + bio — all saved via "Save changes" button ────
-  const [nameValue, setNameValue] = useState(displayName);
-  const [loc,     setLoc]     = useState(location);
-  const [bio,     setBio]     = useState(initialBio);
-  const [status,  setStatus]  = useState<"idle" | "saved" | "error">("idle");
-  const [errMsg,  setErrMsg]  = useState<string | null>(null);
-  const [pending, startTransition] = useTransition();
+  // ── Profile fields ────────────────────────────────────────────────────────
+  const [nameValue,   setNameValue]   = useState(displayName);
+  const [city,        setCity]        = useState(initialCity);
+  const [countryCode, setCountryCode] = useState(initialCode);
+  const [country,     setCountry]     = useState(initialCountry);
+  const [bio,         setBio]         = useState(initialBio);
+  const [status,      setStatus]      = useState<"idle" | "saved" | "error">("idle");
+  const [errMsg,      setErrMsg]      = useState<string | null>(null);
+  const [pending,     startTransition] = useTransition();
+
+  function handleCountryChange(e: React.ChangeEvent<HTMLSelectElement>) {
+    const code = e.target.value;
+    const found = COUNTRIES.find(c => c.code === code);
+    setCountryCode(code);
+    setCountry(found?.name ?? "");
+    setStatus("idle");
+  }
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -83,7 +97,7 @@ export default function SettingsForm({ username, displayName, location, bio: ini
     startTransition(async () => {
       const [nameResult, profileResult] = await Promise.all([
         saveDisplayName(nameValue),
-        saveProfileSettings(loc, bio),
+        saveProfileSettings(city, country, countryCode, bio),
       ]);
       const err = ("error" in nameResult ? nameResult.error : null)
                ?? ("error" in profileResult ? profileResult.error : null);
@@ -97,7 +111,7 @@ export default function SettingsForm({ username, displayName, location, bio: ini
     });
   }
 
-  // ── Shared styles ─────────────────────────────────────────────────────────
+  // ── Styles ────────────────────────────────────────────────────────────────
   const labelStyle: React.CSSProperties = {
     display: "block", fontFamily: MONO, fontSize: "9px",
     letterSpacing: "0.14em", textTransform: "uppercase",
@@ -121,7 +135,6 @@ export default function SettingsForm({ username, displayName, location, bio: ini
       <div>
         <label style={labelStyle}>Photo</label>
         <div style={{ display: "flex", alignItems: "center", gap: "16px" }}>
-          {/* Clickable avatar circle */}
           <button
             type="button"
             onClick={() => fileInputRef.current?.click()}
@@ -136,11 +149,7 @@ export default function SettingsForm({ username, displayName, location, bio: ini
           >
             {avatarSrc ? (
               // eslint-disable-next-line @next/next/no-img-element
-              <img
-                src={avatarSrc}
-                alt=""
-                style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
-              />
+              <img src={avatarSrc} alt="" style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
             ) : (
               <span style={{
                 display: "flex", alignItems: "center", justifyContent: "center",
@@ -151,7 +160,6 @@ export default function SettingsForm({ username, displayName, location, bio: ini
                 {displayInitial}
               </span>
             )}
-            {/* Hover overlay */}
             <span style={{
               position: "absolute", inset: 0,
               display: "flex", alignItems: "center", justifyContent: "center",
@@ -176,33 +184,16 @@ export default function SettingsForm({ username, displayName, location, bio: ini
             )}
           </div>
         </div>
-        <input
-          ref={fileInputRef}
-          type="file"
-          accept="image/jpeg,image/png,image/webp"
-          onChange={handleAvatarFile}
-          style={{ display: "none" }}
-        />
+        <input ref={fileInputRef} type="file" accept="image/jpeg,image/png,image/webp" onChange={handleAvatarFile} style={{ display: "none" }} />
       </div>
 
       {/* Username — read-only */}
       <div>
         <label style={labelStyle}>Username</label>
-        <input
-          type="text"
-          value={username}
-          readOnly
-          tabIndex={-1}
-          style={readonlyStyle}
-        />
+        <input type="text" value={username} readOnly tabIndex={-1} style={readonlyStyle} />
         <p style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.04em", color: "#cccccc", margin: "6px 0 0" }}>
           Your username cannot be changed as it affects your public URL ·{" "}
-          <a
-            href={`/@${username}`}
-            target="_blank"
-            rel="noopener noreferrer"
-            style={{ color: ORANGE, textDecoration: "none" }}
-          >
+          <a href={`/@${username}`} target="_blank" rel="noopener noreferrer" style={{ color: ORANGE, textDecoration: "none" }}>
             rekodo.co/@{username} ↗
           </a>
         </p>
@@ -222,21 +213,50 @@ export default function SettingsForm({ username, displayName, location, bio: ini
         />
       </div>
 
-      {/* Location */}
+      {/* City */}
       <div>
         <label style={labelStyle}>
-          Location
-          <span style={{ opacity: 0.45, textTransform: "none", letterSpacing: 0, marginLeft: "6px" }}>optional</span>
+          City
+          <span style={{ opacity: 0.45, textTransform: "none", letterSpacing: 0, marginLeft: "6px" }}>required for Gigs</span>
         </label>
         <input
           type="text"
-          value={loc}
-          onChange={e => { setLoc(e.target.value); setStatus("idle"); }}
-          placeholder="Sydney, AU"
-          maxLength={60}
+          value={city}
+          onChange={e => { setCity(e.target.value); setStatus("idle"); }}
+          placeholder="Sydney"
+          maxLength={80}
+          required
           autoComplete="off"
           style={inputBase}
         />
+      </div>
+
+      {/* Country */}
+      <div>
+        <label style={labelStyle}>Country</label>
+        <div style={{ position: "relative" }}>
+          <select
+            value={countryCode}
+            onChange={handleCountryChange}
+            required
+            style={{
+              ...inputBase,
+              appearance: "none",
+              paddingRight: "20px",
+              cursor: "pointer",
+              color: countryCode ? "#0d0d0d" : "#aaaaaa",
+            }}
+          >
+            <option value="" disabled>Select country</option>
+            {COUNTRIES.map(c => (
+              <option key={c.code} value={c.code}>{c.name}</option>
+            ))}
+          </select>
+          <span style={{
+            position: "absolute", right: "2px", bottom: "13px",
+            fontFamily: MONO, fontSize: "9px", color: "#aaaaaa", pointerEvents: "none",
+          }}>▾</span>
+        </div>
       </div>
 
       {/* Bio */}

@@ -41,20 +41,30 @@ export async function saveDisplayName(
 }
 
 export async function saveProfileSettings(
-  location: string,
+  city: string,
+  country: string,
+  countryCode: string,
   bio: string
 ): Promise<{ error: string } | { ok: true }> {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return { error: "Not authenticated." };
 
+  const cleanCity    = city.trim();
+  const cleanCountry = country.trim();
+  const cleanCode    = countryCode.trim().toUpperCase();
+
+  if (!cleanCity)    return { error: "City is required." };
+  if (!cleanCountry) return { error: "Country is required." };
   if (bio.length > 160) return { error: "Bio must be 160 characters or fewer." };
 
   const { error } = await supabase
     .from("profiles")
     .update({
-      location: location.trim() || null,
-      bio:      bio.trim()      || null,
+      city:         cleanCity,
+      country:      cleanCountry,
+      country_code: cleanCode,
+      bio:          bio.trim() || null,
     })
     .eq("id", user.id);
 

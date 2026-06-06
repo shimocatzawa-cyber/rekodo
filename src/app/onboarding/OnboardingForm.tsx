@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import { COUNTRIES } from "@/lib/countries";
 import { saveOnboardingProfile } from "./actions";
 
 const SERIF = "var(--font-editorial)";
@@ -11,26 +12,39 @@ interface Props {
   emailPrefix:        string;
   currentUsername:    string;
   currentDisplayName: string;
-  currentLocation:    string;
+  currentCity:        string;
+  currentCountry:     string;
+  currentCountryCode: string;
 }
 
 export default function OnboardingForm({
   emailPrefix,
   currentUsername,
   currentDisplayName,
-  currentLocation,
+  currentCity,
+  currentCountry,
+  currentCountryCode,
 }: Props) {
   const [username,    setUsername]    = useState(currentUsername);
   const [displayName, setDisplayName] = useState(currentDisplayName);
-  const [location,    setLocation]    = useState(currentLocation);
+  const [city,        setCity]        = useState(currentCity);
+  const [countryCode, setCountryCode] = useState(currentCountryCode);
+  const [country,     setCountry]     = useState(currentCountry);
   const [error,       setError]       = useState<string | null>(null);
   const [isPending,   startTransition] = useTransition();
+
+  function handleCountryChange(e: React.ChangeEvent<HTMLSelectElement>) {
+    const code = e.target.value;
+    const found = COUNTRIES.find(c => c.code === code);
+    setCountryCode(code);
+    setCountry(found?.name ?? "");
+  }
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
     startTransition(async () => {
-      const result = await saveOnboardingProfile(username, displayName, location);
+      const result = await saveOnboardingProfile(username, displayName, city, country, countryCode);
       if (result?.error) setError(result.error);
     });
   }
@@ -101,21 +115,47 @@ export default function OnboardingForm({
             />
           </div>
 
-          {/* Location */}
+          {/* City */}
           <div>
-            <label style={{ ...label }}>
-              Location
-              <span style={{ opacity: 0.45, textTransform: "none", letterSpacing: 0, marginLeft: "6px" }}>optional</span>
-            </label>
+            <label style={label}>City</label>
             <input
               type="text"
-              value={location}
-              onChange={e => setLocation(e.target.value)}
-              placeholder="Sydney, AU"
-              maxLength={60}
+              value={city}
+              onChange={e => setCity(e.target.value)}
+              placeholder="Sydney"
+              maxLength={80}
+              required
               autoComplete="off"
               style={input}
             />
+          </div>
+
+          {/* Country */}
+          <div>
+            <label style={label}>Country</label>
+            <div style={{ position: "relative" }}>
+              <select
+                value={countryCode}
+                onChange={handleCountryChange}
+                required
+                style={{
+                  ...input,
+                  appearance: "none",
+                  paddingRight: "20px",
+                  cursor: "pointer",
+                  color: countryCode ? "#0d0d0d" : "#aaaaaa",
+                }}
+              >
+                <option value="" disabled>Select country</option>
+                {COUNTRIES.map(c => (
+                  <option key={c.code} value={c.code}>{c.name}</option>
+                ))}
+              </select>
+              <span style={{
+                position: "absolute", right: "2px", bottom: "13px",
+                fontFamily: MONO, fontSize: "9px", color: "#aaaaaa", pointerEvents: "none",
+              }}>▾</span>
+            </div>
           </div>
 
           {error && (

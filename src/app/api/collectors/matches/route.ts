@@ -150,7 +150,7 @@ export async function GET(request: NextRequest) {
     if (ids.length === 0) return [];
 
     const [profilesRes, followerRes, recCountRes, followingRes] = await Promise.all([
-      supabase.from("profiles").select("id, username, display_name, location, is_donor").in("id", ids),
+      supabase.from("profiles").select("id, username, display_name, city, country, is_donor").in("id", ids),
       supabase.from("follows").select("following_id").in("following_id", ids),
       supabase.from("user_records").select("user_id").in("user_id", ids),
       viewer
@@ -174,7 +174,7 @@ export async function GET(request: NextRequest) {
         userId:        p.id,
         username:      p.username,
         displayName:   p.display_name,
-        location:      p.location,
+        location:      p.city && p.country ? `${p.city}, ${p.country}` : (p.city ?? null),
         recordCount:   recCounts.get(p.id) ?? 0,
         followerCount: followerCounts.get(p.id) ?? 0,
         score:         row.score,

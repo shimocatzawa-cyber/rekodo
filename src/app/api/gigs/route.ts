@@ -18,10 +18,6 @@ export type TmEvent = {
   _embedded?: { venues?: TmVenue[] };
 };
 
-// "Sydney, NSW, Australia" → "Sydney"
-function parseCity(raw: string): string {
-  return raw.split(",")[0].trim();
-}
 
 function isoNow(): string {
   return new Date().toISOString().replace(/\.\d{3}Z$/, "Z");
@@ -45,12 +41,11 @@ export async function GET() {
   // ── 1. City ───────────────────────────────────────────────────────────────
   const { data: profile } = await supabase
     .from("profiles")
-    .select("location")
+    .select("city")
     .eq("id", user.id)
     .maybeSingle();
 
-  const rawLocation = profile?.location?.trim() ?? null;
-  const city = rawLocation ? parseCity(rawLocation) : null;
+  const city = profile?.city?.trim() ?? null;
   if (!city) return Response.json({ events: [], city: null, artistCount: 0, totalArtists: 0 });
 
   // ── 2. Unique artists from collection ────────────────────────────────────

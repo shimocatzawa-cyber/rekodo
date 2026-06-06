@@ -11,7 +11,7 @@ export default async function OnboardingPage() {
 
   const { data: profile } = await supabase
     .from("profiles")
-    .select("username, display_name, location")
+    .select("username, display_name, city, country, country_code")
     .eq("id", user.id)
     .maybeSingle();
 
@@ -20,7 +20,9 @@ export default async function OnboardingPage() {
       emailPrefix={emailPrefix}
       currentUsername={profile?.username ?? emailPrefix}
       currentDisplayName={profile?.display_name ?? ""}
-      currentLocation={profile?.location ?? ""}
+      currentCity={profile?.city ?? ""}
+      currentCountry={profile?.country ?? ""}
+      currentCountryCode={profile?.country_code ?? ""}
     />
   );
 }

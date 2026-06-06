@@ -10,9 +10,15 @@ export type Database = {
   public: {
     Tables: {
       profiles: {
-        Row: { id: string; username: string; display_name: string | null; location: string | null; bio: string | null; created_at: string; taste_summary: string | null; taste_summary_count: number | null; last_synced_at: string | null; avatar_url: string | null; is_donor: boolean | null; is_public: boolean };
-        Insert: { id: string; username: string; display_name?: string | null; location?: string | null; bio?: string | null; created_at?: string; taste_summary?: string | null; taste_summary_count?: number | null; last_synced_at?: string | null; avatar_url?: string | null; is_donor?: boolean | null; is_public?: boolean };
-        Update: { username?: string; display_name?: string | null; location?: string | null; bio?: string | null; taste_summary?: string | null; taste_summary_count?: number | null; last_synced_at?: string | null; avatar_url?: string | null; is_donor?: boolean | null; is_public?: boolean };
+        Row: { id: string; username: string; display_name: string | null; /** @deprecated use city + country */ location: string | null; bio: string | null; created_at: string; taste_summary: string | null; taste_summary_count: number | null; last_synced_at: string | null; avatar_url: string | null; is_donor: boolean | null; is_public: boolean; city: string | null; country: string | null; country_code: string | null };
+        Insert: { id: string; username: string; display_name?: string | null; location?: string | null; bio?: string | null; created_at?: string; taste_summary?: string | null; taste_summary_count?: number | null; last_synced_at?: string | null; avatar_url?: string | null; is_donor?: boolean | null; is_public?: boolean; city?: string | null; country?: string | null; country_code?: string | null };
+        Update: { username?: string; display_name?: string | null; location?: string | null; bio?: string | null; taste_summary?: string | null; taste_summary_count?: number | null; last_synced_at?: string | null; avatar_url?: string | null; is_donor?: boolean | null; is_public?: boolean; city?: string | null; country?: string | null; country_code?: string | null };
+        Relationships: [];
+      };
+      collection_photos: {
+        Row: { id: string; user_id: string; storage_path: string; display_order: number; created_at: string };
+        Insert: { id?: string; user_id: string; storage_path: string; display_order: number; created_at?: string };
+        Update: { storage_path?: string; display_order?: number };
         Relationships: [];
       };
       records: {

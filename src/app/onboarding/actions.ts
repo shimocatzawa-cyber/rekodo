@@ -6,7 +6,9 @@ import { createClient } from "@/lib/supabase/server";
 export async function saveOnboardingProfile(
   username: string,
   displayName: string,
-  location: string
+  city: string,
+  country: string,
+  countryCode: string
 ): Promise<{ error: string } | undefined> {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
@@ -17,7 +19,13 @@ export async function saveOnboardingProfile(
   if (!/^[a-zA-Z0-9_]+$/.test(clean)) return { error: "Only letters, numbers, and underscores." };
   if (clean.length < 2) return { error: "Username must be at least 2 characters." };
 
-  // Uniqueness check (exclude own row)
+  const cleanCity    = city.trim();
+  const cleanCountry = country.trim();
+  const cleanCode    = countryCode.trim().toUpperCase();
+
+  if (!cleanCity)    return { error: "City is required." };
+  if (!cleanCountry) return { error: "Country is required." };
+
   const { data: taken } = await supabase
     .from("profiles")
     .select("id")
@@ -33,8 +41,10 @@ export async function saveOnboardingProfile(
       {
         id: user.id,
         username: clean,
-        display_name: displayName.trim() || null,
-        location: location.trim() || null,
+        display_name:  displayName.trim() || null,
+        city:          cleanCity,
+        country:       cleanCountry,
+        country_code:  cleanCode,
       },
       { onConflict: "id" }
     );
