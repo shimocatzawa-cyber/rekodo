@@ -260,24 +260,25 @@ function DiscoverView({ onSave }: { onSave: (rec: Recommendation) => Promise<voi
   const [recommendations, setRecommendations] = useState<Recommendation[]>([]);
   const [loading, setLoading] = useState(true);
   const [generating, setGenerating] = useState(false);
+  const [genError, setGenError] = useState<string | null>(null);
   const [savedIds, setSavedIds] = useState<Set<string>>(new Set());
-  const [error, setError] = useState<string | null>(null);
 
   const fetchRecs = useCallback(async () => {
-    const res = await fetch("/api/library/recommendations");
-    if (!res.ok) {
-      setError("Could not load recommendations.");
+    try {
+      const res = await fetch("/api/library/recommendations");
+      if (!res.ok) return null;
+      const data = await res.json() as {
+        recommendations: Recommendation[];
+        is_stale: boolean;
+        generated_at: string | null;
+      };
+      setRecommendations(data.recommendations ?? []);
       setLoading(false);
-      return;
+      return data.is_stale || data.recommendations.length === 0;
+    } catch {
+      setLoading(false);
+      return null;
     }
-    const data = await res.json() as {
-      recommendations: Recommendation[];
-      is_stale: boolean;
-      generated_at: string | null;
-    };
-    setRecommendations(data.recommendations ?? []);
-    setLoading(false);
-    return data.is_stale || data.recommendations.length === 0;
   }, []);
 
   // Load existing first, then generate if stale
@@ -289,14 +290,22 @@ function DiscoverView({ onSave }: { onSave: (rec: Recommendation) => Promise<voi
       if (cancelled) return;
       if (needsGeneration) {
         setGenerating(true);
-        const genRes = await fetch("/api/library/recommendations", { method: "POST" });
-        if (!cancelled && genRes.ok) {
-          const genData = await genRes.json() as { recommendations: Recommendation[] };
-          setRecommendations(genData.recommendations ?? []);
-        } else if (!cancelled) {
-          // Non-fatal — existing results (if any) stay visible
+        setGenError(null);
+        try {
+          const genRes = await fetch("/api/library/recommendations", { method: "POST" });
+          if (cancelled) return;
+          if (genRes.ok) {
+            const genData = await genRes.json() as { recommendations: Recommendation[] };
+            setRecommendations(genData.recommendations ?? []);
+          } else {
+            const errData = await genRes.json().catch(() => ({})) as { error?: string };
+            setGenError(errData.error ?? `Generation failed (${genRes.status})`);
+          }
+        } catch (e) {
+          if (!cancelled) setGenError(e instanceof Error ? e.message : "Network error");
+        } finally {
+          if (!cancelled) setGenerating(false);
         }
-        if (!cancelled) setGenerating(false);
       }
     })();
 
@@ -341,32 +350,25 @@ function DiscoverView({ onSave }: { onSave: (rec: Recommendation) => Promise<voi
     );
   }
 
-  if (error) {
-    return (
-      <div style={{ padding: "0 32px 80px", maxWidth: 760, margin: "0 auto" }}>
-        <p style={{ fontFamily: MONO, fontSize: "11px", color: "#cc3300" }}>{error}</p>
-      </div>
-    );
-  }
-
   return (
     <div style={{ maxWidth: 760, margin: "0 auto", padding: "0 32px 80px" }}>
       {generating && (
         <p style={{
           fontFamily: MONO, fontSize: "10px", letterSpacing: "0.1em",
           textTransform: "uppercase", color: ORANGE,
-          margin: "0 0 32px", animation: "pulse 1.5s ease-in-out infinite",
+          margin: "0 0 32px",
         }}>
           {recommendations.length > 0 ? "Refreshing recommendations…" : "Generating your library — this takes a moment…"}
         </p>
       )}
 
-      {recommendations.length === 0 && !generating && (
-        <div>
-          <p style={{ fontFamily: SERIF, fontSize: "17px", fontStyle: "italic", color: "#aaaaaa", lineHeight: 1.7 }}>
-            Add records to your collection to unlock Library recommendations.
-          </p>
-        </div>
+      {genError && (
+        <p style={{
+          fontFamily: MONO, fontSize: "11px", color: "#cc3300",
+          margin: "0 0 24px", lineHeight: 1.5,
+        }}>
+          {genError}
+        </p>
       )}
 
       {(["podcast", "book", "audible"] as Format[]).map((fmt) => (

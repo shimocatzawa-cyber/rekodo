@@ -67,7 +67,7 @@ Rules:
 
   await supabase.from("collection_intelligence").delete().eq("user_id", userId);
 
-  await supabase.from("collection_intelligence").insert({
+  const { error: insertErr } = await supabase.from("collection_intelligence").insert({
     user_id: userId,
     top_artists: parsed.top_artists ?? [],
     top_labels: parsed.top_labels ?? [],
@@ -77,4 +77,6 @@ Rules:
     taste_summary: JSON.stringify(parsed.taste_keywords ?? []),
     last_computed_at: new Date().toISOString(),
   });
+
+  if (insertErr) throw new Error(insertErr.message);
 }
