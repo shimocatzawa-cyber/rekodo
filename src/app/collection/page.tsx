@@ -110,6 +110,15 @@ export default async function CollectionPage({
   }, 0);
   const pricedCount = allLinks.filter(l => (l.price_median ?? l.price_low ?? 0) > 0).length;
 
+  // Dominant currency across priced records
+  const currencyFreq = new Map<string, number>();
+  for (const l of allLinks) {
+    if ((l.price_median ?? l.price_low ?? 0) > 0 && l.price_currency) {
+      currencyFreq.set(l.price_currency, (currencyFreq.get(l.price_currency) ?? 0) + 1);
+    }
+  }
+  const dominantCurrency = [...currencyFreq.entries()].sort((a, b) => b[1] - a[1])[0]?.[0] ?? "USD";
+
   const BATCH = 400;
   const recordsMap = new Map<string, Omit<CollectionRecord, "value" | "price_median" | "price_currency">>();
   for (let i = 0; i < recordIds.length; i += BATCH) {
@@ -231,6 +240,7 @@ export default async function CollectionPage({
       username={username}
       displayLabel={displayLabel}
       estimatedValue={estimatedValue}
+      valueCurrency={dominantCurrency}
       pricedCount={pricedCount}
       insights={insights}
       lastSyncedAt={lastSyncedAt}

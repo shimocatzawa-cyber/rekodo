@@ -23,22 +23,25 @@ export async function GET(_req: NextRequest) {
     ? createServiceClient(sbUrl, svcKey, { auth: { persistSession: false } })
     : supabase;
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const db = supabase as any;
+
   // Count how many still need median
-  const { count: totalRemaining } = await supabase
+  const { count: totalRemaining } = await db
     .from("user_records")
     .select("*", { count: "exact", head: true })
     .eq("user_id", user.id)
     .is("median_fetched_at", null);
 
   // Get next batch
-  const { data: urBatch } = await supabase
+  const { data: urBatch } = await db
     .from("user_records")
     .select("record_id")
     .eq("user_id", user.id)
     .is("median_fetched_at", null)
     .limit(BATCH_LIMIT);
 
-  const recordIds = (urBatch ?? []).map(r => r.record_id as string);
+  const recordIds = ((urBatch ?? []) as Array<{ record_id: string }>).map(r => r.record_id);
 
   if (recordIds.length === 0) {
     return Response.json({ priced: 0, processed: 0, remaining: 0, total: 0 });
@@ -83,11 +86,13 @@ export async function GET(_req: NextRequest) {
 
         if (res.status === 429) return; // skip — don't mark as fetched, retry next call
 
-        const update: Record<string, unknown> = { median_fetched_at: now };
+        let priceMedian:   number | null = null;
+        let priceCurrency: string       = "USD";
+        let priceLastSold: number | null = null;
 
         if (res.ok) {
           const pd = await res.json();
-          type L = { price?: { value?: unknown; currency?: string }; last_sale?: { value?: unknown } };
+          type L = { price?: { value?: unknown; currency?: string } };
           // Discogs may use 'listings' or 'results' depending on the endpoint
           const items: L[] = pd.listings ?? pd.results ?? [];
           const prices = items
@@ -95,21 +100,24 @@ export async function GET(_req: NextRequest) {
             .filter((v): v is number => v !== null);
 
           if (prices.length > 0) {
-            const currency = (items.find(l => l.price?.currency)?.price?.currency) ?? "USD";
-            update.price_median   = prices[Math.floor(prices.length / 2)];
-            update.price_currency = currency;
+            priceCurrency = items.find(l => l.price?.currency)?.price?.currency ?? "USD";
+            priceMedian   = prices[Math.floor(prices.length / 2)];
             priced++;
           }
 
           // Check if Discogs includes last sold data in the response
-          const lastSold = pd.last_sale?.price?.value ?? pd.last_sold?.value ?? null;
-          if (typeof lastSold === "number" && lastSold > 0) {
-            update.price_last_sold = lastSold;
-          }
+          const rawLastSold = pd.last_sale?.price?.value ?? pd.last_sold?.value ?? null;
+          if (typeof rawLastSold === "number" && rawLastSold > 0) priceLastSold = rawLastSold;
         }
 
-        await adminDb.from("user_records")
-          .update(update)
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        await (adminDb.from("user_records") as any)
+          .update({
+            median_fetched_at: now,
+            price_median:      priceMedian,
+            price_currency:    priceMedian != null ? priceCurrency : undefined,
+            price_last_sold:   priceLastSold,
+          })
           .eq("user_id", user.id)
           .eq("record_id", record.id);
 

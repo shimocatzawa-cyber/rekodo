@@ -165,6 +165,7 @@ interface Props {
   displayLabel?: string;
   avatarUrl?: string | null;
   estimatedValue?: number;
+  valueCurrency?: string;
   pricedCount?: number;
   insights?: CollectionInsights;
   lastSyncedAt?: string | null;
@@ -181,6 +182,7 @@ export default function CollectionClient({
   displayLabel,
   avatarUrl      = null,
   estimatedValue = 0,
+  valueCurrency  = "USD",
   pricedCount    = 0,
   insights,
   lastSyncedAt   = null,
@@ -562,6 +564,7 @@ export default function CollectionClient({
           insights={insights}
           total={collection.length}
           estimatedValue={estimatedValue}
+          valueCurrency={valueCurrency}
           pricedCount={pricedCount}
         />
       )}
@@ -854,11 +857,13 @@ function InsightsPanel({
   insights,
   total,
   estimatedValue,
+  valueCurrency,
   pricedCount,
 }: {
   insights: CollectionInsights;
   total: number;
   estimatedValue: number;
+  valueCurrency: string;
   pricedCount: number;
 }) {
   const [oneLiner, setOneLiner] = useState<string | null>(null);
@@ -936,8 +941,9 @@ function InsightsPanel({
   }
 
   // 8. Collection value (real when prices have been synced)
+  const currSym = sym(valueCurrency);
   const fmtV = (n: number) =>
-    n >= 1000 ? `$${(n / 1000).toFixed(1)}k` : `$${Math.round(n).toLocaleString("en-US")}`;
+    n >= 1000 ? `${currSym}${(n / 1000).toFixed(1)}k` : `${currSym}${Math.round(n).toLocaleString("en-US")}`;
   stats.push(
     estimatedValue > 0
       ? {
