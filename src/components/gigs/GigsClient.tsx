@@ -16,7 +16,6 @@ type GigEvent = {
   dates: { start: { localDate?: string; localTime?: string } };
   _embedded?: { venues?: TmVenue[] };
   _artistName: string;
-  _coverUrl: string | null;
 };
 
 type ApiResponse = {
@@ -55,7 +54,6 @@ function groupByMonth(events: GigEvent[]): [string, GigEvent[]][] {
 function SkeletonRow() {
   return (
     <div style={{ display: "flex", alignItems: "center", gap: 16, padding: "18px 0", borderBottom: "1px solid #f4f4f4" }}>
-      <div style={{ width: 48, height: 48, background: "#f0f0f0", borderRadius: 2, flexShrink: 0 }} />
       <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: 8 }}>
         <div style={{ height: 18, background: "#f0f0f0", borderRadius: 2, width: "55%" }} />
         <div style={{ height: 11, background: "#f4f4f4", borderRadius: 2, width: "38%" }} />
@@ -152,8 +150,7 @@ export default function GigsClient({
               fontWeight: 600,
             }}>
               <span style={{ color: ORANGE }}>{data.artistCount}</span>
-              {" artist"}{data.artistCount !== 1 ? "s" : ""} from your
-              <br />collection {data.artistCount !== 1 ? "are" : "is"} playing
+              {" upcoming gig"}{data.artistCount !== 1 ? "s" : ""}
               <br />near <span style={{ color: ORANGE }}>{data.city}</span>
             </div>
           ) : (
@@ -189,7 +186,7 @@ export default function GigsClient({
             lineHeight: 1.9,
             letterSpacing: "0.03em",
           }}>
-            No artists from your collection are touring near {data.city} right now.
+            No upcoming music events found near {data.city} right now.
           </p>
         )}
 
@@ -232,26 +229,6 @@ export default function GigsClient({
                           borderBottom: idx < events.length - 1 ? "1px solid #f4f4f4" : "none",
                         }}
                       >
-                        {/* Album art */}
-                        <div style={{
-                          width: 48,
-                          height: 48,
-                          flexShrink: 0,
-                          borderRadius: 2,
-                          overflow: "hidden",
-                          background: "#f4f4f4",
-                        }}>
-                          {ev._coverUrl && (
-                            // eslint-disable-next-line @next/next/no-img-element
-                            <img
-                              src={ev._coverUrl}
-                              alt=""
-                              aria-hidden="true"
-                              style={{ width: "100%", height: "100%", objectFit: "cover" }}
-                            />
-                          )}
-                        </div>
-
                         {/* Info */}
                         <div style={{ flex: 1, minWidth: 0 }}>
                           <div style={{

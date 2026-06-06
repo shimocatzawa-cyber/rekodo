@@ -1,9 +1,10 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
+import AppNav from "@/components/AppNav";
 import CollectorsLikeYou from "@/components/collectors/CollectorsLikeYou";
 import CollectionPhotos from "./CollectionPhotos";
-import { ShareButton, GenerateSummaryBtn, UsernameSetupForm } from "./ProfilePageClient";
+import { FollowButton, GenerateSummaryBtn, UsernameSetupForm } from "./ProfilePageClient";
 
 const SERIF  = "var(--font-editorial)";
 const MONO   = "var(--font-mono)";
@@ -25,7 +26,7 @@ export default async function PublicProfilePage({ params }: { params: Params }) 
   // Profile lookup — cascades through fallbacks as columns are migrated in
   const { data: fullProfile, error: fullError } = await supabase
     .from("profiles")
-    .select("id, username, display_name, city, country, avatar_url, taste_summary, is_donor")
+    .select("id, username, display_name, city, country, avatar_url, taste_summary, is_donor, star_sign")
     .eq("username", username)
     .maybeSingle();
 
@@ -67,16 +68,36 @@ export default async function PublicProfilePage({ params }: { params: Params }) 
   const isDonor      = (profile as { is_donor?: boolean | null }).is_donor ?? false;
   const city         = (profile as { city?: string | null }).city ?? null;
   const country      = (profile as { country?: string | null }).country ?? null;
+  const starSign     = (profile as { star_sign?: string | null }).star_sign ?? null;
 
   const locationLine = city && country ? `${city}, ${country}` : (city ?? null);
 
-  // Parallel fetches
-  const [userRecordsResult, listsResult, followerRes, followingRes, photosResult] = await Promise.all([
-    supabase.from("user_records").select("record_id").eq("user_id", profile.id),
+  // Paginate user_records (Supabase caps at 1000 rows per request)
+  type UserRecord = { record_id: string; value: number | null; price_median: number | null; price_currency: string | null };
+  const paginateUserRecords = async (): Promise<UserRecord[]> => {
+    const all: UserRecord[] = [];
+    const PAGE = 1000;
+    for (let from = 0; ; from += PAGE) {
+      const { data } = await supabase
+        .from("user_records")
+        .select("record_id, value, price_median, price_currency")
+        .eq("user_id", profile.id)
+        .range(from, from + PAGE - 1);
+      if (!data || data.length === 0) break;
+      all.push(...(data as UserRecord[]));
+      if (data.length < PAGE) break;
+    }
+    return all;
+  };
+
+  // Parallel fetches — user_records paginates internally but runs alongside the rest
+  const [userRecords, listsResult, followerRes, followingRes, photosResult, viewerProfileResult, followStateResult] = await Promise.all([
+    paginateUserRecords(),
     supabase.from("lists")
       .select("id, title, slug, list_type")
       .eq("user_id", profile.id)
       .eq("is_public", true)
+      .in("title", ["Top 5 All Time", "Top 5 Records That Changed My Life", "Top 5 Most Played"])
       .order("created_at"),
     supabase.from("follows").select("id", { count: "exact", head: true }).eq("following_id", profile.id),
     supabase.from("follows").select("id", { count: "exact", head: true }).eq("follower_id",  profile.id),
@@ -85,31 +106,45 @@ export default async function PublicProfilePage({ params }: { params: Params }) 
       .select("storage_path, display_order")
       .eq("user_id", profile.id)
       .order("display_order"),
+    viewer
+      ? supabase.from("profiles").select("username, display_name, avatar_url").eq("id", viewer.id).maybeSingle()
+      : Promise.resolve({ data: null }),
+    viewer && !isOwner
+      ? supabase.from("follows").select("id").eq("follower_id", viewer.id).eq("following_id", profile.id).maybeSingle()
+      : Promise.resolve({ data: null }),
   ]);
 
-  const followerCount  = followerRes.count  ?? 0;
-  const followingCount = followingRes.count ?? 0;
-  const userRecords    = userRecordsResult.data ?? [];
-  const lists          = listsResult.data ?? [];
+  const followerCount       = followerRes.count  ?? 0;
+  const followingCount      = followingRes.count ?? 0;
+  const LIST_ORDER = ["Top 5 All Time", "Top 5 Records That Changed My Life", "Top 5 Most Played"];
+  const lists = (listsResult.data ?? []).sort(
+    (a, b) => LIST_ORDER.indexOf(a.title) - LIST_ORDER.indexOf(b.title)
+  );
+  const viewerProfile       = (viewerProfileResult.data as { username: string; display_name: string | null; avatar_url: string | null } | null)?.username
+    ? (viewerProfileResult.data as { username: string; display_name: string | null; avatar_url: string | null })
+    : null;
+  const initialIsFollowing  = !!(followStateResult as { data: { id: string } | null }).data;
 
-  // Build initial photo slots [url|null, url|null, url|null]
-  const supabaseUrl    = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-  const initialSlots: (string | null)[] = [null, null, null];
-  for (const p of (photosResult.data ?? [])) {
-    const idx = p.display_order - 1;
-    if (idx >= 0 && idx < 3) {
-      initialSlots[idx] = `${supabaseUrl}/storage/v1/object/public/collection-photos/${p.storage_path}`;
-    }
+  // Build initial photo (only slot 1 / display_order = 1)
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+  const firstPhoto  = (photosResult.data ?? []).find(p => p.display_order === 1);
+  const initialPhoto: string | null = firstPhoto
+    ? `${supabaseUrl}/storage/v1/object/public/collection-photos/${firstPhoto.storage_path}`
+    : null;
+
+  // Batch-fetch record details (400 IDs per query to stay within Supabase limits)
+  const recordIds = userRecords.map(r => r.record_id).filter(Boolean);
+  const details: { id: string; genre: string | null; artist: string }[] = [];
+  const BATCH = 400;
+  for (let i = 0; i < recordIds.length; i += BATCH) {
+    const { data } = await supabase
+      .from("records")
+      .select("id, genre, artist")
+      .in("id", recordIds.slice(i, i + BATCH));
+    if (data) details.push(...data);
   }
 
-  // Record details for stats
-  const recordIds = userRecords.map(r => r.record_id).filter(Boolean);
-  const { data: recordDetails } = recordIds.length
-    ? await supabase.from("records").select("id, year, country, genre, label").in("id", recordIds)
-    : { data: [] };
-
   const totalRecords = userRecords.length;
-  const details      = recordDetails ?? [];
 
   function topOf(arr: (string | null)[]): string | null {
     const m = new Map<string, number>();
@@ -117,9 +152,28 @@ export default async function PublicProfilePage({ params }: { params: Params }) 
     return [...m.entries()].sort((a, b) => b[1] - a[1])[0]?.[0] ?? null;
   }
 
-  const topGenre   = topOf(details.map(r => r.genre));
-  const topCountry = topOf(details.map(r => r.country));
-  const topLabel   = topOf(details.map(r => r.label));
+  const topGenre = topOf(details.map(r => r.genre));
+
+  // Collection value stats
+  let collectionValue = 0;
+  let hasValue = false;
+  let highestValue: { artist: string; amount: number } | null = null;
+
+  for (const ur of userRecords) {
+    const v = ur.value ?? ur.price_median ?? null;
+    if (v == null) continue;
+    const rec = details.find(d => d.id === ur.record_id);
+    hasValue = true;
+    collectionValue += v;
+    if (!highestValue || v > highestValue.amount) {
+      highestValue = { artist: rec?.artist ?? "Unknown", amount: v };
+    }
+  }
+
+  function fmtValue(n: number): string {
+    if (n >= 1000) return `$${(n / 1000).toFixed(1)}k`;
+    return `$${Math.round(n).toLocaleString("en-US")}`;
+  }
 
   // List items + cover art
   const listIds = lists.map(l => l.id);
@@ -155,11 +209,19 @@ export default async function PublicProfilePage({ params }: { params: Params }) 
     <div style={{ minHeight: "100vh", background: "#ffffff" }}>
 
       {/* ── Nav ── */}
-      <nav style={{ borderBottom: "1px solid rgba(0,0,0,0.08)", padding: "20px 40px" }}>
-        <Link href="/" aria-label="rekōdo home" style={{ fontFamily: SERIF, fontWeight: 700, fontSize: "22px", color: ORANGE, textDecoration: "none" }}>
-          ō
-        </Link>
-      </nav>
+      {viewerProfile ? (
+        <AppNav
+          username={viewerProfile.username}
+          displayLabel={viewerProfile.display_name ?? undefined}
+          avatarUrl={viewerProfile.avatar_url}
+        />
+      ) : (
+        <nav style={{ borderBottom: "1px solid rgba(0,0,0,0.08)", padding: "20px 40px" }}>
+          <Link href="/" aria-label="rekōdo home" style={{ fontFamily: SERIF, fontWeight: 700, fontSize: "22px", color: ORANGE, textDecoration: "none" }}>
+            ō
+          </Link>
+        </nav>
+      )}
 
       <main style={{ maxWidth: 860, margin: "0 auto", padding: "64px 40px 80px" }}>
         <div>
@@ -202,37 +264,48 @@ export default async function PublicProfilePage({ params }: { params: Params }) 
                   {isDonor && (
                     <span style={{ fontFamily: SERIF, fontSize: "0.85em", color: "#C9A84C" }} title="rekōdo supporter">ō</span>
                   )}
-                  {isOwner && (
-                    <>
-                      <span style={{ color: "#dddddd" }}>·</span>
-                      <Link href="/settings/profile" style={{ color: "#cccccc", textDecoration: "none", fontSize: "9px", letterSpacing: "0.1em" }}>
-                        Edit profile
-                      </Link>
-                    </>
-                  )}
                 </p>
+
+                {starSign && (
+                  <p style={{
+                    fontFamily: MONO, fontSize: "11px", letterSpacing: "0.04em",
+                    color: "#aaaaaa", margin: "0 0 4px 0",
+                  }}>
+                    {starSign}
+                  </p>
+                )}
 
                 {locationLine && (
                   <p style={{
                     fontFamily: MONO, fontSize: "11px", letterSpacing: "0.04em",
-                    color: "#aaaaaa", margin: "0 0 6px 0",
+                    color: "#aaaaaa", margin: "0 0 4px 0",
                   }}>
                     {locationLine}
                   </p>
                 )}
 
-                {(followerCount > 0 || followingCount > 0) && (
-                  <p style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.05em", color: "#cccccc", margin: 0 }}>
-                    {followerCount > 0 && <span>{followerCount} {followerCount === 1 ? "follower" : "followers"}</span>}
-                    {followerCount > 0 && followingCount > 0 && <span style={{ margin: "0 8px" }}>·</span>}
-                    {followingCount > 0 && <span>following {followingCount}</span>}
-                  </p>
-                )}
+                <p style={{ fontFamily: MONO, fontSize: "11px", letterSpacing: "0.04em", color: "#aaaaaa", margin: 0 }}>
+                  {followerCount} {followerCount === 1 ? "follower" : "followers"}
+                </p>
               </div>
 
-              <div style={{ paddingTop: "4px" }}>
-                <ShareButton />
-              </div>
+              {viewerProfile && !isOwner && (
+                <div style={{ paddingTop: "4px", display: "flex", gap: "8px", alignItems: "center" }}>
+                  <Link
+                    href={`/@${viewerProfile.username}`}
+                    style={{
+                      fontFamily: MONO, fontSize: "9px", letterSpacing: "0.12em",
+                      textTransform: "uppercase", color: "#0d0d0d",
+                      border: "1px solid rgba(0,0,0,0.12)",
+                      padding: "7px 14px", textDecoration: "none",
+                      whiteSpace: "nowrap", flexShrink: 0,
+                    }}
+                  >
+                    My profile
+                  </Link>
+                  <FollowButton profileId={profile.id} initialIsFollowing={initialIsFollowing} />
+                </div>
+              )}
             </div>
 
             <div style={divider} />
@@ -244,7 +317,7 @@ export default async function PublicProfilePage({ params }: { params: Params }) 
                   <>
                     <p style={{
                       fontFamily: SERIF, fontSize: "1.1rem", fontStyle: "italic",
-                      color: "#505050", lineHeight: 1.8, margin: "0 0 20px 0", maxWidth: 560,
+                      color: "#505050", lineHeight: 1.8, margin: "0 0 20px 0",
                     }}>
                       {tasteSummary}
                     </p>
@@ -262,21 +335,24 @@ export default async function PublicProfilePage({ params }: { params: Params }) 
             {totalRecords > 0 && (
               <div style={{ padding: "40px 0" }}>
                 <div style={{ display: "flex", alignItems: "flex-start" }}>
-                  <StatCell label="Total Records"        value={totalRecords.toLocaleString()} border={false} />
-                  <StatCell label="Top Genre"            value={topGenre   ?? "—"} />
-                  <StatCell label="Top Country"          value={topCountry ?? "—"} />
-                  <StatCell label="Most Collected Label" value={topLabel   ?? "—"} />
+                  <StatCell label="Items in Collection" value={totalRecords.toLocaleString()} border={false} />
+                  <StatCell label="Top Genre"           value={topGenre ?? "—"} />
+                  <StatCell label="Collection Value"    value={hasValue ? fmtValue(collectionValue) : "—"} />
+                  <StatCell label="Highest Value"       value={highestValue?.artist ?? "—"} subValue={highestValue ? fmtValue(highestValue.amount) : undefined} />
                 </div>
               </div>
             )}
 
-            {/* My Setup — photos */}
-            {(isOwner || initialSlots.some(Boolean)) && (
+            {/* Collectors Like You */}
+            <CollectorsLikeYou userId={profile.id} currentUserId={viewer?.id ?? null} />
+
+            {/* My Setup — photo */}
+            {(isOwner || !!initialPhoto) && (
               <>
-                {totalRecords > 0 && <div style={divider} />}
+                <div style={divider} />
                 <div style={{ padding: "40px 0" }}>
                   <CollectionPhotos
-                    initialSlots={initialSlots}
+                    initialPhoto={initialPhoto}
                     userId={profile.id}
                     isOwner={isOwner}
                   />
@@ -382,9 +458,6 @@ export default async function PublicProfilePage({ params }: { params: Params }) 
               </section>
             )}
 
-            {/* Collectors Like You */}
-            <CollectorsLikeYou userId={profile.id} currentUserId={viewer?.id ?? null} />
-
         </div>{/* end main content */}
       </main>
     </div>
@@ -394,10 +467,12 @@ export default async function PublicProfilePage({ params }: { params: Params }) 
 function StatCell({
   label,
   value,
+  subValue,
   border = true,
 }: {
   label: string;
   value: string;
+  subValue?: string;
   border?: boolean;
 }) {
   return (
@@ -431,6 +506,17 @@ function StatCell({
       }}>
         {value}
       </p>
+      {subValue && (
+        <p style={{
+          fontFamily: MONO,
+          fontSize: "9px",
+          letterSpacing: "0.06em",
+          color: "#aaaaaa",
+          margin: "5px 0 0 0",
+        }}>
+          {subValue}
+        </p>
+      )}
     </div>
   );
 }

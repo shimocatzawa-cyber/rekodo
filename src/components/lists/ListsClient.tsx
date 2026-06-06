@@ -144,7 +144,7 @@ type CreateState =
   | null
   | { listType: "top5" | "personal"; step: "templates" | "custom" };
 
-type DiscoverTab = "similar" | "trending" | "all";
+type DiscoverTab = "similar" | "trending" | "all" | "following";
 
 interface DiscogsResult {
   id: number;
@@ -187,7 +187,9 @@ export default function ListsClient({
   const router = useRouter();
   const [lists,        setLists]       = useState<UserList[]>(initialLists);
   const [saving,       setSaving]      = useState<string | null>(null);
-  const [activePillId, setActivePillId] = useState<string | null>(initialLists[0]?.id ?? null);
+  const [activePillId, setActivePillId] = useState<string | null>(
+    (initialLists.find(l => l.slug === "wantlist" || l.slug === "want-to-buy") ?? initialLists[0])?.id ?? null
+  );
   const [createState,  setCreateState]  = useState<CreateState>(null);
   const [discoverTab,  setDiscoverTab]  = useState<DiscoverTab>("similar");
   const [newTitle,     setNewTitle]    = useState("");
@@ -545,6 +547,23 @@ export default function ListsClient({
     () => activeSavedId ? savedCards.find(c => c.id === activeSavedId) ?? null : null,
     [activeSavedId, savedCards]
   );
+
+  const [followingLists,  setFollowingLists]  = useState<DiscoverList[]>([]);
+  const [followingState,  setFollowingState]  = useState<"idle" | "loading" | "done" | "empty">("idle");
+
+  useEffect(() => {
+    if (discoverTab !== "following") return;
+    if (followingState !== "idle") return;
+    setFollowingState("loading");
+    fetch("/api/lists/following")
+      .then(r => r.ok ? r.json() : { lists: [] })
+      .then(data => {
+        const lists: DiscoverList[] = data.lists ?? [];
+        setFollowingLists(lists);
+        setFollowingState(lists.length === 0 ? "empty" : "done");
+      })
+      .catch(() => setFollowingState("empty"));
+  }, [discoverTab, followingState]);
 
   const filteredDiscoverLists = useMemo(() => {
     if (discoverTab === "trending") return [...discoverLists].sort((a, b) => b.itemCount - a.itemCount);
@@ -951,12 +970,14 @@ export default function ListsClient({
                     {selectedList.is_public ? "Public" : "Private"}
                   </button>
                 )}
-                <button
-                  onClick={() => handleDeleteList(selectedList.id)}
-                  style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.1em", textTransform: "uppercase", background: "none", border: "none", cursor: "pointer", padding: 0, color: "#cccccc" }}
-                >
-                  Delete
-                </button>
+                {selectedList.slug !== "wantlist" && selectedList.slug !== "want-to-buy" && (
+                  <button
+                    onClick={() => handleDeleteList(selectedList.id)}
+                    style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.1em", textTransform: "uppercase", background: "none", border: "none", cursor: "pointer", padding: 0, color: "#cccccc" }}
+                  >
+                    Delete
+                  </button>
+                )}
               </div>
 
               {/* Search panel — directly below footer */}
@@ -1101,7 +1122,7 @@ export default function ListsClient({
               Discover
             </h2>
             <div style={{ display: "flex", gap: "20px" }}>
-              {(["similar", "trending", "all"] as DiscoverTab[]).map(tab => (
+              {(["similar", "following", "trending", "all"] as DiscoverTab[]).map(tab => (
                 <button key={tab} onClick={() => setDiscoverTab(tab)} style={{
                   fontFamily: MONO, fontSize: "9px", letterSpacing: "0.08em",
                   background: "none", border: "none", cursor: "pointer", padding: "0 0 4px",
@@ -1109,42 +1130,73 @@ export default function ListsClient({
                   borderBottom: `1px solid ${discoverTab === tab ? "#0d0d0d" : "transparent"}`,
                   transition: "color 0.15s",
                 }}>
-                  {tab === "similar" ? "Similar taste" : tab === "trending" ? "Trending" : "All lists"}
+                  {tab === "similar" ? "Similar taste" : tab === "following" ? "Following" : tab === "trending" ? "Trending" : "All lists"}
                 </button>
               ))}
             </div>
           </div>
 
-          {STATIC_DISCOVER_CARDS.map(card => {
-            const slots = STATIC_LIST_CONTENT[card.id];
-            const entry = { id: card.id, title: card.title, username: card.username, slots };
-            return (
-              <DiscoverTextCard
-                key={card.id}
-                title={card.title}
-                username={card.username}
-                recordCount={card.count}
-                badge={card.badge}
-                saves={card.saves}
-                onSave={() => handleSaveCard(entry)}
-                saved={savedCards.some(c => c.id === card.id)}
-                onView={slots ? () => handleViewCard(entry) : undefined}
-              />
-            );
-          })}
+          {discoverTab === "following" ? (
+            followingState === "loading" ? (
+              <div style={{ padding: "32px 20px" }}>
+                <p style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.12em", textTransform: "uppercase", color: "#cccccc" }}>
+                  Loading…
+                </p>
+              </div>
+            ) : followingState === "empty" ? (
+              <div style={{ padding: "32px 20px" }}>
+                <p style={{ fontFamily: SERIF, fontStyle: "italic", fontSize: "13px", color: "#cccccc", lineHeight: 1.6 }}>
+                  No lists yet from people you follow.
+                </p>
+              </div>
+            ) : (
+              followingLists.map(list => (
+                <DiscoverTextCard
+                  key={list.id}
+                  title={list.title}
+                  username={list.username}
+                  recordCount={`${list.itemCount} records`}
+                  badge={null}
+                  saves={list.saveCount}
+                  onSave={() => handleSaveCard({ id: list.id, title: list.title, username: list.username })}
+                  saved={savedCards.some(c => c.id === list.id)}
+                />
+              ))
+            )
+          ) : (
+            <>
+              {STATIC_DISCOVER_CARDS.map(card => {
+                const slots = STATIC_LIST_CONTENT[card.id];
+                const entry = { id: card.id, title: card.title, username: card.username, slots };
+                return (
+                  <DiscoverTextCard
+                    key={card.id}
+                    title={card.title}
+                    username={card.username}
+                    recordCount={card.count}
+                    badge={card.badge}
+                    saves={card.saves}
+                    onSave={() => handleSaveCard(entry)}
+                    saved={savedCards.some(c => c.id === card.id)}
+                    onView={slots ? () => handleViewCard(entry) : undefined}
+                  />
+                );
+              })}
 
-          {filteredDiscoverLists.map(list => (
-            <DiscoverTextCard
-              key={list.id}
-              title={list.title}
-              username={list.username}
-              recordCount={`${list.itemCount} records`}
-              badge={null}
-              saves={list.saveCount}
-              onSave={() => handleSaveCard({ id: list.id, title: list.title, username: list.username })}
-              saved={savedCards.some(c => c.id === list.id)}
-            />
-          ))}
+              {filteredDiscoverLists.map(list => (
+                <DiscoverTextCard
+                  key={list.id}
+                  title={list.title}
+                  username={list.username}
+                  recordCount={`${list.itemCount} records`}
+                  badge={null}
+                  saves={list.saveCount}
+                  onSave={() => handleSaveCard({ id: list.id, title: list.title, username: list.username })}
+                  saved={savedCards.some(c => c.id === list.id)}
+                />
+              ))}
+            </>
+          )}
         </div>
       </div>
 
@@ -1218,12 +1270,32 @@ function TracklistRow({ position, item, isSaving, isPickerOpen, onOpen, onRemove
       {item ? (
         <>
           <div style={{ flex: 1, minWidth: 0 }}>
-            <p style={{ fontFamily: SERIF, fontSize: "12px", color: "#0d0d0d", lineHeight: 1.3, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+            <p style={{ fontFamily: SERIF, fontSize: "14px", color: "#0d0d0d", lineHeight: 1.3, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
               {item.song_title ?? item.album}
             </p>
-            <p style={{ fontFamily: MONO, fontSize: "9px", color: "#aaaaaa", letterSpacing: "0.06em", marginTop: "3px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+            <p style={{ fontFamily: MONO, fontSize: "11px", color: "#aaaaaa", letterSpacing: "0.06em", marginTop: "3px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
               {item.artist}
             </p>
+            {/* Streaming links — horizontal row, below album text */}
+            <div
+              style={{ display: "flex", gap: "12px", marginTop: "6px", flexWrap: "wrap" }}
+              onClick={e => e.stopPropagation()}
+            >
+              {[
+                { label: "Discogs",     href: `https://www.discogs.com/search/?q=${encodeURIComponent(`${item.artist} ${item.song_title ?? item.album}`)}&type=release` },
+                { label: "Apple Music", href: `https://music.apple.com/search?term=${encodeURIComponent(`${item.artist} ${item.song_title ?? item.album}`)}` },
+                { label: "Tidal",       href: `https://tidal.com/search?q=${encodeURIComponent(`${item.artist} ${item.song_title ?? item.album}`)}` },
+                { label: "Spotify",     href: `https://open.spotify.com/search/${encodeURIComponent(`${item.artist} ${item.song_title ?? item.album}`)}` },
+              ].map(({ label, href }) => (
+                <a key={label} href={href} target="_blank" rel="noopener noreferrer" style={{
+                  fontFamily: MONO, fontSize: "10px", letterSpacing: "0.05em",
+                  color: hovered ? "#a34400" : ORANGE, textDecoration: "none",
+                  transition: "color 0.15s", whiteSpace: "nowrap",
+                }}>
+                  {label} ↗
+                </a>
+              ))}
+            </div>
           </div>
           {isSaving && (
             <span style={{ fontFamily: MONO, fontSize: "9px", color: "#cccccc", letterSpacing: "0.08em", flexShrink: 0 }}>Saving…</span>

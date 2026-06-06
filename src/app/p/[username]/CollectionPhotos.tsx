@@ -8,22 +8,18 @@ const MONO = "var(--font-mono)";
 const RULE = "#e0e0da";
 
 interface Props {
-  initialSlots: (string | null)[];
+  initialPhoto: string | null;
   userId: string;
   isOwner: boolean;
 }
 
-export default function CollectionPhotos({ initialSlots, userId, isOwner }: Props) {
+export default function CollectionPhotos({ initialPhoto, userId, isOwner }: Props) {
   const router = useRouter();
-  const [slots,      setSlots]      = useState<(string | null)[]>(initialSlots);
-  const [loading,    setLoading]    = useState<boolean[]>([false, false, false]);
-  const [hovering,   setHovering]   = useState<boolean[]>([false, false, false]);
+  const [photo,      setPhoto]      = useState<string | null>(initialPhoto);
+  const [loading,    setLoading]    = useState(false);
+  const [hovering,   setHovering]   = useState(false);
   const [lightboxUrl, setLightboxUrl] = useState<string | null>(null);
-
-  const ref0 = useRef<HTMLInputElement>(null);
-  const ref1 = useRef<HTMLInputElement>(null);
-  const ref2 = useRef<HTMLInputElement>(null);
-  const fileRefs = [ref0, ref1, ref2];
+  const fileRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     function onKey(e: KeyboardEvent) { if (e.key === "Escape") setLightboxUrl(null); }
@@ -31,18 +27,12 @@ export default function CollectionPhotos({ initialSlots, userId, isOwner }: Prop
     return () => document.removeEventListener("keydown", onKey);
   }, []);
 
-  function setSlotHovering(idx: number, val: boolean) {
-    setHovering(prev => { const n = [...prev]; n[idx] = val; return n; });
-  }
-
-  async function handleUpload(idx: number, file: File) {
+  async function handleUpload(file: File) {
     if (!["image/jpeg", "image/png", "image/webp"].includes(file.type)) return;
     if (file.size > 2 * 1024 * 1024) return;
-
-    setLoading(prev => { const n = [...prev]; n[idx] = true; return n; });
+    setLoading(true);
     const supabase = createClient();
-    const storagePath = `${userId}/${idx + 1}.jpg`;
-
+    const storagePath = `${userId}/1.jpg`;
     try {
       const { error: upErr } = await supabase.storage
         .from("collection-photos")
@@ -56,50 +46,45 @@ export default function CollectionPhotos({ initialSlots, userId, isOwner }: Prop
       const { error: dbErr } = await supabase
         .from("collection_photos")
         .upsert(
-          { user_id: userId, storage_path: storagePath, display_order: idx + 1 },
+          { user_id: userId, storage_path: storagePath, display_order: 1 },
           { onConflict: "user_id,display_order" }
         );
       if (dbErr) throw dbErr;
 
-      const urlWithBust = `${publicUrl}?v=${Date.now()}`;
-      setSlots(prev => { const n = [...prev]; n[idx] = urlWithBust; return n; });
+      setPhoto(`${publicUrl}?v=${Date.now()}`);
       router.refresh();
     } catch (err) {
       console.error("Photo upload failed:", err);
     } finally {
-      setLoading(prev => { const n = [...prev]; n[idx] = false; return n; });
+      setLoading(false);
     }
   }
 
-  async function handleDelete(idx: number) {
-    setLoading(prev => { const n = [...prev]; n[idx] = true; return n; });
+  async function handleDelete() {
+    setLoading(true);
     const supabase = createClient();
-    const storagePath = `${userId}/${idx + 1}.jpg`;
-
+    const storagePath = `${userId}/1.jpg`;
     try {
       await supabase.storage.from("collection-photos").remove([storagePath]);
       await supabase
         .from("collection_photos")
         .delete()
         .eq("user_id", userId)
-        .eq("display_order", idx + 1);
-
-      setSlots(prev => { const n = [...prev]; n[idx] = null; return n; });
-      setSlotHovering(idx, false);
+        .eq("display_order", 1);
+      setPhoto(null);
+      setHovering(false);
       router.refresh();
     } catch (err) {
       console.error("Photo delete failed:", err);
     } finally {
-      setLoading(prev => { const n = [...prev]; n[idx] = false; return n; });
+      setLoading(false);
     }
   }
 
-  const hasAnyPhoto = slots.some(Boolean);
-  if (!isOwner && !hasAnyPhoto) return null;
+  if (!isOwner && !photo) return null;
 
   return (
     <>
-      {/* Section */}
       <div>
         <p style={{
           fontFamily: MONO, fontSize: "8px", letterSpacing: "0.18em",
@@ -109,102 +94,86 @@ export default function CollectionPhotos({ initialSlots, userId, isOwner }: Prop
         </p>
         <div style={{ height: 1, background: RULE, marginBottom: "20px" }} />
 
-        <div style={{ display: "flex", gap: "12px" }}>
-          {[0, 1, 2].map(idx => {
-            const url       = slots[idx];
-            const isLoading = loading[idx];
-            const isHover   = hovering[idx];
+        {/* Photo frame — full column width, 16:9 */}
+        <div
+          style={{
+            position: "relative",
+            width: "100%",
+            maxWidth: "100%",
+            aspectRatio: "16 / 9",
+            border: photo ? "1px solid #e0e0da" : "1px dashed #e0e0da",
+            padding: photo ? "4px" : 0,
+            background: "#ffffff",
+            boxShadow: photo ? "3px 3px 0 0 #d0d0c8" : "none",
+            cursor: photo ? "pointer" : (isOwner ? "pointer" : "default"),
+            display: "flex", alignItems: "center", justifyContent: "center",
+            overflow: "hidden",
+            boxSizing: "border-box",
+          }}
+          onClick={() => {
+            if (loading) return;
+            if (isOwner) fileRef.current?.click();
+            else if (photo) setLightboxUrl(photo);
+          }}
+          onMouseEnter={() => { if (isOwner) setHovering(true); }}
+          onMouseLeave={() => setHovering(false)}
+        >
+          {photo ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={photo}
+              alt=""
+              style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
+            />
+          ) : (
+            <div style={{
+              width: "100%", height: "100%",
+              display: "flex", alignItems: "center", justifyContent: "center",
+              background: "#fafafa",
+            }}>
+              <span style={{ fontFamily: MONO, fontSize: "18px", color: "#d8d8d8", lineHeight: 1 }}>+</span>
+            </div>
+          )}
 
-            if (!url && !isOwner) return null;
+          {loading && (
+            <div style={{
+              position: "absolute", inset: 0,
+              background: "rgba(255,255,255,0.75)",
+              display: "flex", alignItems: "center", justifyContent: "center",
+            }}>
+              <span style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.1em", color: "#aaaaaa" }}>…</span>
+            </div>
+          )}
 
-            return (
-              <div
-                key={idx}
-                style={{ flex: 1, position: "relative", aspectRatio: "3 / 4" }}
-              >
-                <div
-                  style={{
-                    position: "absolute", inset: 0,
-                    border: url ? "1px solid #e0e0da" : "1px dashed #e0e0da",
-                    padding: url ? "4px" : 0,
-                    background: "#ffffff",
-                    boxShadow: url ? "3px 3px 0 0 #d0d0c8" : "none",
-                    cursor: url ? "pointer" : (isOwner ? "pointer" : "default"),
-                    display: "flex", alignItems: "center", justifyContent: "center",
-                    overflow: "hidden",
-                  }}
-                  onClick={() => {
-                    if (isLoading) return;
-                    if (isOwner) {
-                      fileRefs[idx].current?.click();
-                    } else if (url) {
-                      setLightboxUrl(url);
-                    }
-                  }}
-                  onMouseEnter={() => { if (isOwner) setSlotHovering(idx, true); }}
-                  onMouseLeave={() => setSlotHovering(idx, false)}
-                >
-                  {url ? (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img
-                      src={url}
-                      alt=""
-                      style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
-                    />
-                  ) : (
-                    <div style={{
-                      width: "100%", height: "100%",
-                      display: "flex", alignItems: "center", justifyContent: "center",
-                      background: "#fafafa",
-                    }}>
-                      <span style={{ fontFamily: MONO, fontSize: "18px", color: "#d8d8d8", lineHeight: 1 }}>+</span>
-                    </div>
-                  )}
-
-                  {isLoading && (
-                    <div style={{
-                      position: "absolute", inset: 0,
-                      background: "rgba(255,255,255,0.75)",
-                      display: "flex", alignItems: "center", justifyContent: "center",
-                    }}>
-                      <span style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.1em", color: "#aaaaaa" }}>…</span>
-                    </div>
-                  )}
-
-                  {isOwner && url && isHover && !isLoading && (
-                    <button
-                      onClick={e => { e.stopPropagation(); handleDelete(idx); }}
-                      style={{
-                        position: "absolute", top: "8px", right: "8px",
-                        fontFamily: MONO, fontSize: "9px", letterSpacing: "0.04em",
-                        color: "#ffffff", background: "rgba(0,0,0,0.50)",
-                        border: "none", cursor: "pointer",
-                        padding: "4px 7px", lineHeight: 1,
-                      }}
-                    >
-                      ✕
-                    </button>
-                  )}
-                </div>
-
-                <input
-                  ref={fileRefs[idx]}
-                  type="file"
-                  accept="image/jpeg,image/png,image/webp"
-                  onChange={e => {
-                    const file = e.target.files?.[0];
-                    e.target.value = "";
-                    if (file) handleUpload(idx, file);
-                  }}
-                  style={{ display: "none" }}
-                />
-              </div>
-            );
-          })}
+          {isOwner && photo && hovering && !loading && (
+            <button
+              onClick={e => { e.stopPropagation(); handleDelete(); }}
+              style={{
+                position: "absolute", top: "8px", right: "8px",
+                fontFamily: MONO, fontSize: "9px", letterSpacing: "0.04em",
+                color: "#ffffff", background: "rgba(0,0,0,0.50)",
+                border: "none", cursor: "pointer",
+                padding: "4px 7px", lineHeight: 1,
+              }}
+            >
+              ✕
+            </button>
+          )}
         </div>
+
+        <input
+          ref={fileRef}
+          type="file"
+          accept="image/jpeg,image/png,image/webp"
+          onChange={e => {
+            const file = e.target.files?.[0];
+            e.target.value = "";
+            if (file) handleUpload(file);
+          }}
+          style={{ display: "none" }}
+        />
       </div>
 
-      {/* Lightbox */}
       {lightboxUrl && (
         <div
           onClick={() => setLightboxUrl(null)}

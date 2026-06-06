@@ -8,36 +8,49 @@ const MONO   = "var(--font-mono)";
 const SERIF  = "var(--font-editorial)";
 const ORANGE = "#CC5500";
 
-export function ShareButton() {
-  const [copied, setCopied] = useState(false);
+export function FollowButton({ profileId, initialIsFollowing }: { profileId: string; initialIsFollowing: boolean }) {
+  const [isFollowing, setIsFollowing] = useState(initialIsFollowing);
+  const [pending, setPending] = useState(false);
 
-  async function handleClick() {
+  async function toggle() {
+    if (pending) return;
+    setPending(true);
+    const prev = isFollowing;
+    setIsFollowing(!prev);
     try {
-      await navigator.clipboard.writeText(window.location.href);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
-    } catch {}
+      const res = await fetch("/api/collectors/follow", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ followingId: profileId }),
+      });
+      if (!res.ok) setIsFollowing(prev);
+    } catch {
+      setIsFollowing(prev);
+    } finally {
+      setPending(false);
+    }
   }
 
   return (
     <button
-      onClick={handleClick}
+      onClick={toggle}
+      disabled={pending}
       style={{
         fontFamily: MONO,
         fontSize: "9px",
         letterSpacing: "0.12em",
         textTransform: "uppercase",
-        color: copied ? "#aaaaaa" : "#0d0d0d",
+        color: isFollowing ? "#aaaaaa" : ORANGE,
         background: "none",
-        border: "1px solid rgba(0,0,0,0.12)",
-        cursor: "pointer",
+        border: `1px solid ${isFollowing ? "rgba(0,0,0,0.12)" : ORANGE}`,
+        cursor: pending ? "default" : "pointer",
         padding: "7px 14px",
-        transition: "color 0.15s",
+        transition: "all 0.15s",
         flexShrink: 0,
         whiteSpace: "nowrap",
       }}
     >
-      {copied ? "Copied ✓" : "Share profile"}
+      {isFollowing ? "Following" : "Follow"}
     </button>
   );
 }

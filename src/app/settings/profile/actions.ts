@@ -44,7 +44,8 @@ export async function saveProfileSettings(
   city: string,
   country: string,
   countryCode: string,
-  bio: string
+  bio: string,
+  starSign: string,
 ): Promise<{ error: string } | { ok: true }> {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
@@ -65,6 +66,7 @@ export async function saveProfileSettings(
       country:      cleanCountry,
       country_code: cleanCode,
       bio:          bio.trim() || null,
+      star_sign:    starSign || null,
     })
     .eq("id", user.id);
 

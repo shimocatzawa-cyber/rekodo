@@ -3,6 +3,7 @@
 import { useRef, useState, useTransition } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { COUNTRIES } from "@/lib/countries";
+import { STAR_SIGNS } from "@/lib/starSigns";
 import { saveAvatarUrl, saveDisplayName, saveProfileSettings } from "./actions";
 
 const SERIF  = "var(--font-editorial)";
@@ -16,13 +17,15 @@ interface Props {
   country:      string;
   countryCode:  string;
   bio:          string;
+  starSign:     string;
   userId:       string;
   avatarUrl:    string | null;
 }
 
 export default function SettingsForm({
   username, displayName, city: initialCity, country: initialCountry,
-  countryCode: initialCode, bio: initialBio, userId, avatarUrl: initialAvatarUrl,
+  countryCode: initialCode, bio: initialBio, starSign: initialStarSign,
+  userId, avatarUrl: initialAvatarUrl,
 }: Props) {
   // ── Avatar upload ─────────────────────────────────────────────────────────
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -78,6 +81,7 @@ export default function SettingsForm({
   const [countryCode, setCountryCode] = useState(initialCode);
   const [country,     setCountry]     = useState(initialCountry);
   const [bio,         setBio]         = useState(initialBio);
+  const [starSign,    setStarSign]    = useState(initialStarSign);
   const [status,      setStatus]      = useState<"idle" | "saved" | "error">("idle");
   const [errMsg,      setErrMsg]      = useState<string | null>(null);
   const [pending,     startTransition] = useTransition();
@@ -97,7 +101,7 @@ export default function SettingsForm({
     startTransition(async () => {
       const [nameResult, profileResult] = await Promise.all([
         saveDisplayName(nameValue),
-        saveProfileSettings(city, country, countryCode, bio),
+        saveProfileSettings(city, country, countryCode, bio, starSign),
       ]);
       const err = ("error" in nameResult ? nameResult.error : null)
                ?? ("error" in profileResult ? profileResult.error : null);
@@ -250,6 +254,33 @@ export default function SettingsForm({
             <option value="" disabled>Select country</option>
             {COUNTRIES.map(c => (
               <option key={c.code} value={c.code}>{c.name}</option>
+            ))}
+          </select>
+          <span style={{
+            position: "absolute", right: "2px", bottom: "13px",
+            fontFamily: MONO, fontSize: "9px", color: "#aaaaaa", pointerEvents: "none",
+          }}>▾</span>
+        </div>
+      </div>
+
+      {/* Star sign */}
+      <div>
+        <label style={labelStyle}>Star sign</label>
+        <div style={{ position: "relative" }}>
+          <select
+            value={starSign}
+            onChange={e => { setStarSign(e.target.value); setStatus("idle"); }}
+            style={{
+              ...inputBase,
+              appearance: "none",
+              paddingRight: "20px",
+              cursor: "pointer",
+              color: starSign ? "#0d0d0d" : "#aaaaaa",
+            }}
+          >
+            <option value="">Select star sign</option>
+            {STAR_SIGNS.map(s => (
+              <option key={s} value={s}>{s}</option>
             ))}
           </select>
           <span style={{
