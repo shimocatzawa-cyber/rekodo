@@ -1168,23 +1168,25 @@ function AlbumDetail({ record, detail, price, loading }: {
         <MetaRow label="Genre"   value={genre} />
         {catno    && <MetaRow label="Cat #"   value={catno} />}
 
-        {/* Marketplace pricing — four individual rows */}
+        {/* Marketplace pricing */}
         {price && (
           <>
+            <PriceRow label="Low"      value={formatPrice(price.lowest,    price.currency)} />
+            <PriceRow label="Median"   value={formatPrice(price.median,    price.currency)} />
+            <PriceRow label="High"     value={formatPrice(price.highest,   price.currency)} />
             <PriceRow
               label="Last sold"
               value={formatPrice(price.last_sold, price.currency)}
               note={formatDate(price.last_sold_date)}
             />
-            <PriceRow label="Low"    value={formatPrice(price.lowest,  price.currency)} />
-            <div style={{ margin: "10px 0", paddingLeft: "10px", borderLeft: `2px solid ${ORANGE}` }}>
-              <p style={{ fontFamily: SERIF, fontStyle: "italic", fontSize: "12px", color: "#aaaaaa", lineHeight: 1.5, margin: 0 }}>
-                Pressing analysis coming soon. rekōdo will tell you what your pressing is worth and whether an upgrade exists.
-              </p>
-            </div>
-            <PriceRow label="Median" value={formatPrice(price.median,  price.currency)} />
-            <PriceRow label="High"   value={formatPrice(price.highest, price.currency)} />
-            {!price.last_sold && !price.lowest && !price.median && !price.highest && (
+            {price.num_for_sale > 0 && (
+              <div style={{ padding: "4px 0" }}>
+                <span style={{ fontFamily: MONO, fontSize: "9px", color: "#cccccc", letterSpacing: "0.06em" }}>
+                  {price.num_for_sale} for sale on Discogs
+                </span>
+              </div>
+            )}
+            {!price.lowest && !price.median && !price.highest && !price.last_sold && (
               <div style={{ padding: "6px 0", borderBottom: "1px solid rgba(0,0,0,0.05)" }}>
                 <span style={{ fontFamily: MONO, fontSize: "9px", color: "#cccccc", letterSpacing: "0.06em" }}>
                   No market data
