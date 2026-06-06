@@ -350,7 +350,7 @@ export async function GET(request: NextRequest) {
                 const pdMedian = pdPrices.length > 0 ? pdPrices[Math.floor(pdPrices.length / 2)]   : null;
                 const pdHigh   = pdPrices.length > 0 ? pdPrices[pdPrices.length - 1]               : null;
 
-                await supabase.from("user_records").update({
+                const { error: priceWriteErr } = await supabase.from("user_records").update({
                   price_last_sold:  null,
                   price_low:        pdLow,
                   price_median:     pdMedian,
@@ -361,7 +361,15 @@ export async function GET(request: NextRequest) {
                   .eq("user_id", user.id)
                   .eq("record_id", record.id);
 
-                priceUpdated++;
+                if (!priceWriteErr) {
+                  priceUpdated++;
+                } else {
+                  console.error("[sync] price write error:", priceWriteErr.message, "record_id:", record.id);
+                  if (priceUpdated === 0 && bi === 0) {
+                    // Surface DB schema errors immediately — price columns may not exist
+                    send({ type: "status", message: `⚠️ Price save failed: ${priceWriteErr.message}` });
+                  }
+                }
               } else {
                 await supabase.from("user_records")
                   .update({ price_fetched_at: new Date().toISOString() })
