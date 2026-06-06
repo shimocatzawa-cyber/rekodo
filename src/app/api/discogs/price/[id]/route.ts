@@ -39,7 +39,7 @@ export async function GET(
       last_sold:      null,
       last_sold_date: null,
       lowest,
-      median:       lowest,
+      median:       null,
       highest:      null,
       currency,
       num_for_sale: numForSale,
