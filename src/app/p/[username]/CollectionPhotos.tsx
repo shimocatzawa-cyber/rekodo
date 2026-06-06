@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useRef, useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 
@@ -15,14 +15,21 @@ interface Props {
 
 export default function CollectionPhotos({ initialSlots, userId, isOwner }: Props) {
   const router = useRouter();
-  const [slots,    setSlots]    = useState<(string | null)[]>(initialSlots);
-  const [loading,  setLoading]  = useState<boolean[]>([false, false, false]);
-  const [hovering, setHovering] = useState<boolean[]>([false, false, false]);
+  const [slots,      setSlots]      = useState<(string | null)[]>(initialSlots);
+  const [loading,    setLoading]    = useState<boolean[]>([false, false, false]);
+  const [hovering,   setHovering]   = useState<boolean[]>([false, false, false]);
+  const [lightboxUrl, setLightboxUrl] = useState<string | null>(null);
 
   const ref0 = useRef<HTMLInputElement>(null);
   const ref1 = useRef<HTMLInputElement>(null);
   const ref2 = useRef<HTMLInputElement>(null);
   const fileRefs = [ref0, ref1, ref2];
+
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) { if (e.key === "Escape") setLightboxUrl(null); }
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, []);
 
   function setSlotHovering(idx: number, val: boolean) {
     setHovering(prev => { const n = [...prev]; n[idx] = val; return n; });
@@ -30,12 +37,11 @@ export default function CollectionPhotos({ initialSlots, userId, isOwner }: Prop
 
   async function handleUpload(idx: number, file: File) {
     if (!["image/jpeg", "image/png", "image/webp"].includes(file.type)) return;
-    if (file.size > 5 * 1024 * 1024) return;
+    if (file.size > 2 * 1024 * 1024) return;
 
     setLoading(prev => { const n = [...prev]; n[idx] = true; return n; });
     const supabase = createClient();
     const storagePath = `${userId}/${idx + 1}.jpg`;
-
 
     try {
       const { error: upErr } = await supabase.storage
@@ -70,7 +76,6 @@ export default function CollectionPhotos({ initialSlots, userId, isOwner }: Prop
     const supabase = createClient();
     const storagePath = `${userId}/${idx + 1}.jpg`;
 
-
     try {
       await supabase.storage.from("collection-photos").remove([storagePath]);
       await supabase
@@ -93,106 +98,136 @@ export default function CollectionPhotos({ initialSlots, userId, isOwner }: Prop
   if (!isOwner && !hasAnyPhoto) return null;
 
   return (
-    <div>
-      <p style={{
-        fontFamily: MONO, fontSize: "8px", letterSpacing: "0.18em",
-        textTransform: "uppercase", color: "#aaaaaa", margin: "0 0 10px 0",
-      }}>
-        Your Setup
-      </p>
-      <div style={{ height: 1, background: RULE, marginBottom: "20px" }} />
+    <>
+      {/* Section */}
+      <div>
+        <p style={{
+          fontFamily: MONO, fontSize: "8px", letterSpacing: "0.18em",
+          textTransform: "uppercase", color: "#aaaaaa", margin: "0 0 10px 0",
+        }}>
+          My Setup
+        </p>
+        <div style={{ height: 1, background: RULE, marginBottom: "20px" }} />
 
-      <div className="setup-photos">
-        {[0, 1, 2].map(idx => {
-          const url       = slots[idx];
-          const isLoading = loading[idx];
-          const isHover   = hovering[idx];
+        <div style={{ display: "flex", gap: "12px" }}>
+          {[0, 1, 2].map(idx => {
+            const url       = slots[idx];
+            const isLoading = loading[idx];
+            const isHover   = hovering[idx];
 
-          if (!url && !isOwner) return null;
+            if (!url && !isOwner) return null;
 
-          return (
-            <div
-              key={idx}
-              style={{ position: "relative", aspectRatio: "3 / 4" }}
-            >
-              {/* Frame */}
+            return (
               <div
-                style={{
-                  position: "absolute", inset: 0,
-                  border: url ? "1px solid #e0e0da" : "1px dashed #e0e0da",
-                  padding: url ? "4px" : 0,
-                  background: "#ffffff",
-                  boxShadow: url ? "3px 3px 0 0 #d0d0c8" : "none",
-                  cursor: isOwner ? "pointer" : "default",
-                  display: "flex", alignItems: "center", justifyContent: "center",
-                  overflow: "hidden",
-                }}
-                onClick={() => { if (isOwner && !isLoading) fileRefs[idx].current?.click(); }}
-                onMouseEnter={() => { if (isOwner) setSlotHovering(idx, true); }}
-                onMouseLeave={() => setSlotHovering(idx, false)}
+                key={idx}
+                style={{ flex: 1, position: "relative", aspectRatio: "3 / 4" }}
               >
-                {url ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img
-                    src={url}
-                    alt=""
-                    style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
-                  />
-                ) : (
-                  /* Placeholder — owner only */
-                  <div style={{
-                    width: "100%", height: "100%",
-                    display: "flex", alignItems: "center", justifyContent: "center",
-                    background: "#fafafa",
-                  }}>
-                    <span style={{ fontFamily: MONO, fontSize: "20px", color: "#d8d8d8", lineHeight: 1 }}>+</span>
-                  </div>
-                )}
-
-                {/* Loading overlay */}
-                {isLoading && (
-                  <div style={{
+                <div
+                  style={{
                     position: "absolute", inset: 0,
-                    background: "rgba(255,255,255,0.75)",
+                    border: url ? "1px solid #e0e0da" : "1px dashed #e0e0da",
+                    padding: url ? "4px" : 0,
+                    background: "#ffffff",
+                    boxShadow: url ? "3px 3px 0 0 #d0d0c8" : "none",
+                    cursor: url ? "pointer" : (isOwner ? "pointer" : "default"),
                     display: "flex", alignItems: "center", justifyContent: "center",
-                  }}>
-                    <span style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.1em", color: "#aaaaaa" }}>…</span>
-                  </div>
-                )}
+                    overflow: "hidden",
+                  }}
+                  onClick={() => {
+                    if (isLoading) return;
+                    if (isOwner) {
+                      fileRefs[idx].current?.click();
+                    } else if (url) {
+                      setLightboxUrl(url);
+                    }
+                  }}
+                  onMouseEnter={() => { if (isOwner) setSlotHovering(idx, true); }}
+                  onMouseLeave={() => setSlotHovering(idx, false)}
+                >
+                  {url ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={url}
+                      alt=""
+                      style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
+                    />
+                  ) : (
+                    <div style={{
+                      width: "100%", height: "100%",
+                      display: "flex", alignItems: "center", justifyContent: "center",
+                      background: "#fafafa",
+                    }}>
+                      <span style={{ fontFamily: MONO, fontSize: "18px", color: "#d8d8d8", lineHeight: 1 }}>+</span>
+                    </div>
+                  )}
 
-                {/* Delete button — shown on hover for existing photos */}
-                {isOwner && url && isHover && !isLoading && (
-                  <button
-                    onClick={e => { e.stopPropagation(); handleDelete(idx); }}
-                    style={{
-                      position: "absolute", top: "8px", right: "8px",
-                      fontFamily: MONO, fontSize: "9px", letterSpacing: "0.04em",
-                      color: "#ffffff", background: "rgba(0,0,0,0.50)",
-                      border: "none", cursor: "pointer",
-                      padding: "4px 7px", lineHeight: 1,
-                    }}
-                  >
-                    ✕
-                  </button>
-                )}
+                  {isLoading && (
+                    <div style={{
+                      position: "absolute", inset: 0,
+                      background: "rgba(255,255,255,0.75)",
+                      display: "flex", alignItems: "center", justifyContent: "center",
+                    }}>
+                      <span style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.1em", color: "#aaaaaa" }}>…</span>
+                    </div>
+                  )}
+
+                  {isOwner && url && isHover && !isLoading && (
+                    <button
+                      onClick={e => { e.stopPropagation(); handleDelete(idx); }}
+                      style={{
+                        position: "absolute", top: "8px", right: "8px",
+                        fontFamily: MONO, fontSize: "9px", letterSpacing: "0.04em",
+                        color: "#ffffff", background: "rgba(0,0,0,0.50)",
+                        border: "none", cursor: "pointer",
+                        padding: "4px 7px", lineHeight: 1,
+                      }}
+                    >
+                      ✕
+                    </button>
+                  )}
+                </div>
+
+                <input
+                  ref={fileRefs[idx]}
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp"
+                  onChange={e => {
+                    const file = e.target.files?.[0];
+                    e.target.value = "";
+                    if (file) handleUpload(idx, file);
+                  }}
+                  style={{ display: "none" }}
+                />
               </div>
-
-              {/* Hidden file input */}
-              <input
-                ref={fileRefs[idx]}
-                type="file"
-                accept="image/jpeg,image/png,image/webp"
-                onChange={e => {
-                  const file = e.target.files?.[0];
-                  e.target.value = "";
-                  if (file) handleUpload(idx, file);
-                }}
-                style={{ display: "none" }}
-              />
-            </div>
-          );
-        })}
+            );
+          })}
+        </div>
       </div>
-    </div>
+
+      {/* Lightbox */}
+      {lightboxUrl && (
+        <div
+          onClick={() => setLightboxUrl(null)}
+          style={{
+            position: "fixed", inset: 0, zIndex: 999,
+            background: "rgba(0,0,0,0.92)",
+            display: "flex", alignItems: "center", justifyContent: "center",
+            cursor: "zoom-out",
+          }}
+        >
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={lightboxUrl}
+            alt=""
+            onClick={e => e.stopPropagation()}
+            style={{
+              maxWidth: "90vw", maxHeight: "90vh",
+              objectFit: "contain", display: "block",
+              cursor: "default",
+            }}
+          />
+        </div>
+      )}
+    </>
   );
 }

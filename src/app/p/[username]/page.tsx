@@ -22,20 +22,20 @@ export default async function PublicProfilePage({ params }: { params: Params }) 
 
   const { data: { user: viewer } } = await supabase.auth.getUser();
 
-  // Profile lookup with fallback if columns not yet migrated
-  const { data: profileBase, error: profileError } = await supabase
+  // Profile lookup — cascades through fallbacks as columns are migrated in
+  const { data: fullProfile, error: fullError } = await supabase
     .from("profiles")
     .select("id, username, display_name, city, country, avatar_url, taste_summary, is_donor")
     .eq("username", username)
     .maybeSingle();
 
-  const { data: profile } = profileError
+  const { data: profile } = fullError
     ? await supabase
         .from("profiles")
-        .select("id, username, display_name, city, country, avatar_url")
+        .select("id, username, display_name, avatar_url")
         .eq("username", username)
         .maybeSingle()
-    : { data: profileBase };
+    : { data: fullProfile };
 
   if (!profile) {
     if (viewer) {
@@ -65,11 +65,10 @@ export default async function PublicProfilePage({ params }: { params: Params }) 
   const isOwner      = viewer?.id === profile.id;
   const tasteSummary = (profile as { taste_summary?: string | null }).taste_summary ?? null;
   const isDonor      = (profile as { is_donor?: boolean | null }).is_donor ?? false;
+  const city         = (profile as { city?: string | null }).city ?? null;
+  const country      = (profile as { country?: string | null }).country ?? null;
 
-  // City + country display
-  const locationLine = profile.city && profile.country
-    ? `${profile.city}, ${profile.country}`
-    : (profile.city ?? null);
+  const locationLine = city && country ? `${city}, ${country}` : (city ?? null);
 
   // Parallel fetches
   const [userRecordsResult, listsResult, followerRes, followingRes, photosResult] = await Promise.all([
@@ -162,11 +161,8 @@ export default async function PublicProfilePage({ params }: { params: Params }) 
         </Link>
       </nav>
 
-      <main style={{ maxWidth: 920, margin: "0 auto", padding: "64px 40px 80px" }}>
-        <div className="profile-layout">
-
-          {/* ── Left column ── */}
-          <div className="profile-main">
+      <main style={{ maxWidth: 860, margin: "0 auto", padding: "64px 40px 80px" }}>
+        <div>
 
             {/* Identity bar */}
             <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: "24px", marginBottom: "40px" }}>
@@ -274,7 +270,21 @@ export default async function PublicProfilePage({ params }: { params: Params }) 
               </div>
             )}
 
-            {totalRecords > 0 && lists.length > 0 && <div style={divider} />}
+            {/* My Setup — photos */}
+            {(isOwner || initialSlots.some(Boolean)) && (
+              <>
+                {totalRecords > 0 && <div style={divider} />}
+                <div style={{ padding: "40px 0" }}>
+                  <CollectionPhotos
+                    initialSlots={initialSlots}
+                    userId={profile.id}
+                    isOwner={isOwner}
+                  />
+                </div>
+              </>
+            )}
+
+            {lists.length > 0 && <div style={divider} />}
 
             {/* Public Top 5 Lists */}
             {lists.length > 0 && (
@@ -375,18 +385,7 @@ export default async function PublicProfilePage({ params }: { params: Params }) 
             {/* Collectors Like You */}
             <CollectorsLikeYou userId={profile.id} currentUserId={viewer?.id ?? null} />
 
-          </div>{/* end .profile-main */}
-
-          {/* ── Right column — Your Setup ── */}
-          <div className="profile-setup-col">
-            <CollectionPhotos
-              initialSlots={initialSlots}
-              userId={profile.id}
-              isOwner={isOwner}
-            />
-          </div>
-
-        </div>{/* end .profile-layout */}
+        </div>{/* end main content */}
       </main>
     </div>
   );
