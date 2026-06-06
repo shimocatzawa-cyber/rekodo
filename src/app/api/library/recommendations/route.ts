@@ -227,7 +227,7 @@ Return JSON only, no preamble, no markdown:
     }),
     anthropic.messages.create({
       model: "claude-sonnet-4-6",
-      max_tokens: 2048,
+      max_tokens: 4096,
       messages: [{ role: "user", content: audiblePrompt }],
     }),
   ]);
