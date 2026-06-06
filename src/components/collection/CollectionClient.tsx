@@ -286,7 +286,7 @@ export default function CollectionClient({
   const [syncProgress, setSyncProgress] = useState<SyncProgress | null>(null);
   const [syncResult,   setSyncResult]   = useState<SyncResult | null>(null);
 
-  const [priceProgress, setPriceProgress] = useState<{ done: number; total: number } | null>(null);
+  const [priceProgress, setPriceProgress] = useState<{ done: number; total: number; phase: "low" | "median" } | null>(null);
 
   useEffect(() => {
     if (!startSync || syncTriggered.current) return;
@@ -400,17 +400,32 @@ export default function CollectionClient({
   async function runPriceLoop(collectionTotal: number) {
     let done = 0;
     const total = collectionTotal;
-    setPriceProgress({ done, total });
+    setPriceProgress({ done, total, phase: "low" });
     try {
       while (true) {
         const res = await fetch("/api/discogs/price-batch", { cache: "no-store" });
         if (!res.ok) break;
         const data: { priced: number; processed: number; remaining: number; total: number } = await res.json();
         done += data.processed ?? data.priced;
-        setPriceProgress({ done, total: data.total || total });
+        setPriceProgress({ done, total: data.total || total, phase: "low" });
         if (data.remaining <= 0) break;
       }
     } catch { /* best-effort */ }
+
+    // Phase 2: fill in median + last sold
+    done = 0;
+    setPriceProgress({ done, total, phase: "median" });
+    try {
+      while (true) {
+        const res = await fetch("/api/discogs/median-batch", { cache: "no-store" });
+        if (!res.ok) break;
+        const data: { priced: number; processed: number; remaining: number; total: number } = await res.json();
+        done += data.processed ?? data.priced;
+        setPriceProgress({ done, total: data.total || total, phase: "median" });
+        if (data.remaining <= 0) break;
+      }
+    } catch { /* best-effort */ }
+
     setPriceProgress(null);
     router.refresh();
   }
@@ -524,7 +539,9 @@ export default function CollectionClient({
       )}
       {priceProgress && (
         <StatusBanner color="#0d0d0d" bg="#f4f4f4">
-          Pricing records… {priceProgress.done} of {priceProgress.total}
+          {priceProgress.phase === "median"
+            ? `Fetching median prices… ${priceProgress.done} of ${priceProgress.total}`
+            : `Pricing records… ${priceProgress.done} of ${priceProgress.total}`}
         </StatusBanner>
       )}
       {syncState === "complete" && syncResult && !priceProgress && (

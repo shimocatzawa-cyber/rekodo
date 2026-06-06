@@ -28,16 +28,19 @@ export async function GET(
     lowest_price?: { value?: number; currency?: string } | null;
     num_for_sale?: number;
     blocked_from_sale?: boolean;
+    last_sale?: { price?: { value?: number; currency?: string }; date?: string } | null;
   };
 
-  const lowest   = data.lowest_price?.value ?? null;
-  const currency = data.lowest_price?.currency ?? "USD";
+  const lowest     = data.lowest_price?.value ?? null;
+  const currency   = data.lowest_price?.currency ?? "USD";
   const numForSale = data.num_for_sale ?? 0;
+  const lastSold   = data.last_sale?.price?.value ?? null;
+  const lastSoldDate = data.last_sale?.date ?? null;
 
   return Response.json(
     {
-      last_sold:      null,
-      last_sold_date: null,
+      last_sold:      lastSold,
+      last_sold_date: lastSoldDate,
       lowest,
       median:       null,
       highest:      null,
