@@ -2,6 +2,8 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import CollectionClient from "@/components/collection/CollectionClient";
 
+export const dynamic = "force-dynamic";
+
 export type CollectionRecord = {
   id: string;
   discogs_id: string | null;
@@ -99,7 +101,7 @@ export default async function CollectionPage({
 
   const recordIds        = allLinks.map((l) => l.record_id);
   const valueMap         = new Map<string, number | null>(allLinks.map((l) => [l.record_id, l.value ?? null]));
-  const priceMedianMap   = new Map<string, number | null>(allLinks.map((l) => [l.record_id, l.price_median ?? null]));
+  const priceMedianMap   = new Map<string, number | null>(allLinks.map((l) => [l.record_id, l.price_median ?? l.price_low ?? null]));
   const priceCurrencyMap = new Map<string, string | null>(allLinks.map((l) => [l.record_id, l.price_currency ?? null]));
 
   const estimatedValue = allLinks.reduce((sum, l) => {

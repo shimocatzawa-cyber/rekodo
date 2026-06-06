@@ -204,6 +204,11 @@ export default function CollectionClient({
 
   const [collection, setCollection] = useState<CollectionRecord[]>(initialCollection);
 
+  // Re-sync collection state when the server re-renders with fresh data (e.g. after price sync)
+  useEffect(() => {
+    if (initialCollection.length > 0) setCollection(initialCollection);
+  }, [initialCollection]); // eslint-disable-line react-hooks/exhaustive-deps
+
   // Client-side fallback: fetch user_records joined to records when the server
   // prop is empty (e.g. due to a silent query error on the server).
   useEffect(() => {
