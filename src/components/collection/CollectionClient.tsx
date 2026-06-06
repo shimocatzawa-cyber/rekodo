@@ -143,7 +143,6 @@ interface SyncResult {
   updated: number;
   priceUpdated: number;
   timestamp: string;
-  diag?: string;
 }
 
 function formatSyncTime(isoString: string): string {
@@ -287,6 +286,8 @@ export default function CollectionClient({
   const [syncProgress, setSyncProgress] = useState<SyncProgress | null>(null);
   const [syncResult,   setSyncResult]   = useState<SyncResult | null>(null);
 
+  const [priceProgress, setPriceProgress] = useState<{ done: number; total: number } | null>(null);
+
   useEffect(() => {
     if (!startSync || syncTriggered.current) return;
     syncTriggered.current = true;
@@ -346,7 +347,6 @@ export default function CollectionClient({
               updated?: number;
               priceUpdated?: number;
               timestamp?: string;
-              diag?: string;
             };
 
             if (ev.type === "status") {
@@ -379,11 +379,11 @@ export default function CollectionClient({
                 newAdded:     ev.newAdded     ?? 0,
                 updated:      ev.updated      ?? 0,
                 priceUpdated: ev.priceUpdated ?? 0,
-                diag:         ev.diag,
                 timestamp:    ev.timestamp    ?? new Date().toISOString(),
               });
               setSyncState("complete");
               router.refresh();
+              runPriceLoop(ev.total ?? 0);
 
             } else if (ev.type === "error") {
               setSyncState("error");
@@ -395,6 +395,24 @@ export default function CollectionClient({
       if (err instanceof Error && err.name === "AbortError") return;
       setSyncState("error");
     }
+  }
+
+  async function runPriceLoop(collectionTotal: number) {
+    let done = 0;
+    const total = collectionTotal;
+    setPriceProgress({ done, total });
+    try {
+      while (true) {
+        const res = await fetch("/api/discogs/price-batch", { cache: "no-store" });
+        if (!res.ok) break;
+        const data: { priced: number; remaining: number; total: number } = await res.json();
+        done += data.priced;
+        setPriceProgress({ done, total: data.total || total });
+        if (data.remaining <= 0) break;
+      }
+    } catch { /* best-effort */ }
+    setPriceProgress(null);
+    router.refresh();
   }
 
   async function selectRecord(record: CollectionRecord) {
@@ -504,15 +522,18 @@ export default function CollectionClient({
       {syncState === "syncing" && syncProgress && (
         <StatusBanner color="#0d0d0d" bg="#f4f4f4">{syncProgress.message}</StatusBanner>
       )}
-      {syncState === "complete" && syncResult && (
+      {priceProgress && (
+        <StatusBanner color="#0d0d0d" bg="#f4f4f4">
+          Pricing records… {priceProgress.done} of {priceProgress.total}
+        </StatusBanner>
+      )}
+      {syncState === "complete" && syncResult && !priceProgress && (
         <StatusBanner color="#0d0d0d" bg="#f4f4f4">
           <span style={{ color: "#22800a", marginRight: "6px" }}>✓</span>
           <strong>Sync complete</strong>
           {` · ${syncResult.total} records`}
           {syncResult.newAdded > 0 && ` · ${syncResult.newAdded} new`}
-          {syncResult.priceUpdated > 0 && ` · ${syncResult.priceUpdated} prices updated`}
           {` · last synced ${formatSyncTime(syncResult.timestamp)}`}
-          {syncResult.diag && <span style={{ display: "block", fontSize: "10px", opacity: 0.6, marginTop: "2px" }}>{syncResult.diag}</span>}
         </StatusBanner>
       )}
       {syncState === "error" && (

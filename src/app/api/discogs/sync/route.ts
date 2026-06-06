@@ -1,7 +1,6 @@
 import { type NextRequest } from "next/server";
 import { cookies } from "next/headers";
 import { createClient } from "@/lib/supabase/server";
-import { createClient as createServiceClient } from "@supabase/supabase-js";
 import { buildAuthHeader } from "@/lib/discogs/oauth";
 
 const UA = "rekodo/1.0";
@@ -58,14 +57,6 @@ export async function GET(request: NextRequest) {
   if (!user) {
     return Response.json({ error: "Not authenticated" }, { status: 401 });
   }
-
-  // Use a service role client for price writes — bypasses RLS so writes work
-  // reliably in the background streaming IIFE. User ID is scoped explicitly.
-  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-  const adminDb = serviceKey
-    ? createServiceClient(supabaseUrl, serviceKey, { auth: { persistSession: false } })
-    : null;
 
   const cookieStore = await cookies();
   const accessToken    = cookieStore.get("dg_at")?.value;
@@ -281,151 +272,6 @@ export async function GET(request: NextRequest) {
         }
       }
 
-      // ── Phase 4: Fetch marketplace prices ──────────────────────────────────
-      // Only process records with no price or prices older than 30 days.
-      const staleDate = new Date(Date.now() - 30 * 86_400_000).toISOString();
-
-      type PriceUr = { record_id: string; price_fetched_at: string | null };
-      const allUrForPrice: PriceUr[] = [];
-      for (let from = 0; ; from += BATCH) {
-        const { data: urPage } = await supabase
-          .from("user_records")
-          .select("record_id, price_fetched_at")
-          .eq("user_id", user.id)
-          .range(from, from + BATCH - 1);
-        if (!urPage || urPage.length === 0) break;
-        allUrForPrice.push(...(urPage as PriceUr[]));
-        if (urPage.length < BATCH) break;
-      }
-
-      const needPriceIds = allUrForPrice
-        .filter(ur => !ur.price_fetched_at || ur.price_fetched_at < staleDate)
-        .map(ur => ur.record_id);
-
-      type PriceRecord = { id: string; discogs_id: string | null };
-      const priceRecords: PriceRecord[] = [];
-      for (let i = 0; i < needPriceIds.length; i += BATCH) {
-        const { data: rPage } = await supabase
-          .from("records")
-          .select("id, discogs_id")
-          .in("id", needPriceIds.slice(i, i + BATCH));
-        for (const r of rPage ?? []) priceRecords.push(r as PriceRecord);
-      }
-
-      const priceable = priceRecords.filter(r => !!r.discogs_id);
-      const priceTotal = priceable.length;
-
-      let priceUpdated = 0;
-      let testDiag = "";
-
-      if (priceTotal > 0) {
-        // ── Diagnostic: test write with service client ───────────────────────
-        if (adminDb) {
-          const { error: testErr, data: testData } = await adminDb
-            .from("user_records")
-            .update({ price_fetched_at: new Date().toISOString() })
-            .eq("user_id", user.id)
-            .eq("record_id", priceable[0].id)
-            .select("record_id");
-          testDiag = `err=${testErr?.message ?? "none"} rows=${JSON.stringify(testData).slice(0, 80)}`;
-        } else {
-          testDiag = "no service key";
-        }
-        // Send immediately and pause so it's readable before next message
-        console.log("[sync phase4 diag]", testDiag);
-        send({ type: "status", message: `[diag] ${testDiag}` });
-        await sleep(3_000);
-
-        send({ type: "status", message: `Fetching prices for ${priceTotal} records… svc=${adminDb ? "ok" : "MISSING"}` });
-
-        // 3 concurrent requests per batch, 2 s between batches ≈ 90 req/min
-        const PRICE_BATCH = 3;
-
-        for (let bi = 0; bi < priceable.length; bi += PRICE_BATCH) {
-          if (request.signal.aborted) break;
-
-          const batch = priceable.slice(bi, bi + PRICE_BATCH);
-
-          const results = await Promise.all(batch.map(async (record): Promise<boolean> => {
-            // returns true if rate-limited
-            try {
-              const priceUrl =
-                `https://api.discogs.com/marketplace/listings` +
-                `?release_id=${encodeURIComponent(record.discogs_id!)}` +
-                `&status=For+Sale&sort=price&sort_order=asc&per_page=10` +
-                `&key=${key}&secret=${secret}`;
-              const priceAbort = new AbortController();
-              const priceTimeout = setTimeout(() => priceAbort.abort(), 12_000);
-              let priceRes: Response;
-              try {
-                priceRes = await fetch(priceUrl, {
-                  headers: { "User-Agent": UA, Authorization: `Discogs key=${key}, secret=${secret}` },
-                  cache: "no-store",
-                  signal: priceAbort.signal,
-                });
-              } finally {
-                clearTimeout(priceTimeout);
-              }
-
-              if (priceRes.status === 429) return true;
-
-              if (priceRes.ok) {
-                const pd = await priceRes.json();
-                type PdListing = { price?: { value?: unknown; currency?: string } };
-                const pdListings: PdListing[] = pd.listings ?? [];
-
-                const pdPrices = pdListings
-                  .map(l => (typeof l.price?.value === "number" && l.price.value > 0 ? l.price.value : null))
-                  .filter((v): v is number => v !== null);
-
-                const currency  = pdListings.find(l => l.price?.currency)?.price?.currency ?? "USD";
-                const pdLow    = pdPrices.length > 0 ? pdPrices[0]                                 : null;
-                const pdMedian = pdPrices.length > 0 ? pdPrices[Math.floor(pdPrices.length / 2)]   : null;
-                const pdHigh   = pdPrices.length > 0 ? pdPrices[pdPrices.length - 1]               : null;
-
-                const db = adminDb ?? supabase;
-                const { error: writeErr } = await db
-                  .from("user_records")
-                  .update({
-                    price_last_sold:  null,
-                    price_low:        pdLow,
-                    price_median:     pdMedian,
-                    price_high:       pdHigh,
-                    price_currency:   currency,
-                    price_fetched_at: new Date().toISOString(),
-                  })
-                  .eq("user_id", user.id)
-                  .eq("record_id", record.id);
-
-                if (!writeErr) {
-                  priceUpdated++;
-                } else {
-                  console.error("[sync] price write error:", writeErr.message, "record_id:", record.id);
-                }
-              } else {
-                // No listings — just mark as fetched so we don't retry for 30 days
-                const db = adminDb ?? supabase;
-                await db.from("user_records")
-                  .update({ price_fetched_at: new Date().toISOString() })
-                  .eq("user_id", user.id)
-                  .eq("record_id", record.id);
-              }
-            } catch { /* skip this record */ }
-            return false;
-          }));
-
-          send({ type: "pricing", done: Math.min(bi + PRICE_BATCH, priceTotal), total: priceTotal });
-
-          if (results.some(Boolean)) {
-            // At least one 429 — brief back off before continuing
-            send({ type: "status", message: "Rate limited — pausing 8s…" });
-            await sleep(8_000);
-          } else if (bi + PRICE_BATCH < priceable.length) {
-            await sleep(2_000);
-          }
-        }
-      }
-
       // ── Complete ────────────────────────────────────────────────────────────
       const timestamp = new Date().toISOString();
 
@@ -434,7 +280,7 @@ export async function GET(request: NextRequest) {
         .update({ last_synced_at: timestamp })
         .eq("id", user.id);
 
-      send({ type: "complete", total, newAdded, updated: backfillDone, priceUpdated, timestamp, diag: testDiag || "no price phase" });
+      send({ type: "complete", total, newAdded, updated: backfillDone, priceUpdated: 0, timestamp });
 
     } catch (err: unknown) {
       send({ type: "error", message: err instanceof Error ? err.message : "Sync failed" });
