@@ -331,8 +331,10 @@ export async function GET(request: NextRequest) {
         } else {
           testDiag = "no service key";
         }
-        // Send immediately so it's visible even if function times out
+        // Send immediately and pause so it's readable before next message
+        console.log("[sync phase4 diag]", testDiag);
         send({ type: "status", message: `[diag] ${testDiag}` });
+        await sleep(3_000);
 
         send({ type: "status", message: `Fetching prices for ${priceTotal} records… svc=${adminDb ? "ok" : "MISSING"}` });
 
