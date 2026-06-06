@@ -404,7 +404,7 @@ function ModeToggle({ mode, onChange, disabled }: {
         className="dig-mode-btn"
         style={{
           fontFamily: MONO,
-          fontSize: "11px",
+          fontSize: "10px",
           letterSpacing: "0.1em",
           textTransform: "uppercase",
           background: "none",
