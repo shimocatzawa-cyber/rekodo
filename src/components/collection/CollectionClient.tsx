@@ -398,33 +398,31 @@ export default function CollectionClient({
   }
 
   async function runPriceLoop(collectionTotal: number) {
-    let done = 0;
-    const total = collectionTotal;
-    setPriceProgress({ done, total, phase: "low" });
-    try {
-      while (true) {
-        const res = await fetch("/api/discogs/price-batch", { cache: "no-store" });
-        if (!res.ok) break;
-        const data: { priced: number; processed: number; remaining: number; total: number } = await res.json();
-        done += data.processed ?? data.priced;
-        setPriceProgress({ done, total: data.total || total, phase: "low" });
-        if (data.remaining <= 0) break;
-      }
-    } catch { /* best-effort */ }
+    type BatchData = { priced: number; processed: number; remaining: number; total: number };
 
-    // Phase 2: fill in median + last sold
-    done = 0;
-    setPriceProgress({ done, total, phase: "median" });
-    try {
-      while (true) {
-        const res = await fetch("/api/discogs/median-batch", { cache: "no-store" });
-        if (!res.ok) break;
-        const data: { priced: number; processed: number; remaining: number; total: number } = await res.json();
-        done += data.processed ?? data.priced;
-        setPriceProgress({ done, total: data.total || total, phase: "median" });
-        if (data.remaining <= 0) break;
-      }
-    } catch { /* best-effort */ }
+    async function runLoop(endpoint: string, phase: "low" | "median") {
+      let done = 0;
+      let total = collectionTotal;
+      let totalLocked = false;
+      setPriceProgress({ done, total, phase });
+      try {
+        while (true) {
+          const res = await fetch(endpoint, { cache: "no-store" });
+          if (!res.ok) break;
+          const data: BatchData = await res.json();
+          if (!totalLocked && data.total > 0) {
+            total = data.total;   // lock to actual count on first call
+            totalLocked = true;
+          }
+          done += data.processed ?? data.priced;
+          setPriceProgress({ done, total, phase });
+          if (data.remaining <= 0) break;
+        }
+      } catch { /* best-effort */ }
+    }
+
+    await runLoop("/api/discogs/price-batch",  "low");
+    await runLoop("/api/discogs/median-batch", "median");
 
     setPriceProgress(null);
     router.refresh();
