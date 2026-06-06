@@ -918,7 +918,7 @@ function InsightsPanel({
 
   return (
     <div style={{ borderBottom: "1px solid rgba(0,0,0,0.08)", flexShrink: 0, overflow: "hidden" }}>
-      <div style={{ display: "flex", overflow: "hidden" }}>
+      <div style={{ display: "flex", overflow: "hidden", background: "#FDF6F0" }}>
         {stats.map((s, i) => (
           <DashStat
             key={i}
