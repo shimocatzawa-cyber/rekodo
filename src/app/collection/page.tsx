@@ -55,16 +55,16 @@ export default async function CollectionPage({
   }
 
   const emailPrefix = (user.email ?? "").split("@")[0] || "user";
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: profileRaw } = await (supabase.from("profiles") as any)
-    .select("username, display_name, last_synced_at, avatar_url, collection_value_low, collection_value_med, collection_value_high, collection_value_currency")
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("username, display_name, last_synced_at, avatar_url, country_code, collection_value_low, collection_value_med, collection_value_high, collection_value_currency")
     .eq("id", user.id)
-    .maybeSingle();
-  const profile = profileRaw as {
-    username?: string | null; display_name?: string | null; last_synced_at?: string | null;
-    avatar_url?: string | null; collection_value_low?: number | null; collection_value_med?: number | null;
-    collection_value_high?: number | null; collection_value_currency?: string | null;
-  } | null;
+    .maybeSingle() as { data: {
+      username?: string | null; display_name?: string | null; last_synced_at?: string | null;
+      avatar_url?: string | null; country_code?: string | null;
+      collection_value_low?: number | null; collection_value_med?: number | null;
+      collection_value_high?: number | null; collection_value_currency?: string | null;
+    } | null; error: unknown };
   const autoGen      = `${emailPrefix}_${user.id.slice(0, 6)}`;
   const rawUsername  = profile?.username ?? null;
   const username     = (rawUsername && rawUsername !== autoGen)
@@ -79,6 +79,29 @@ export default async function CollectionPage({
     high:     profile?.collection_value_high     ?? null,
     currency: profile?.collection_value_currency ?? "USD",
   };
+
+  // Country code → ISO 4217 currency
+  const COUNTRY_CURRENCY: Record<string, string> = {
+    AU: "AUD", US: "USD", GB: "GBP", NZ: "NZD", CA: "CAD", JP: "JPY",
+    DE: "EUR", FR: "EUR", IT: "EUR", ES: "EUR", NL: "EUR", BE: "EUR",
+    AT: "EUR", PT: "EUR", IE: "EUR", FI: "EUR", GR: "EUR", SE: "SEK",
+    NO: "NOK", DK: "DKK", CH: "CHF", BR: "BRL", MX: "MXN", IN: "INR",
+    CN: "CNY", KR: "KRW", SG: "SGD", HK: "HKD", ZA: "ZAR",
+  };
+  const countryCode    = profile?.country_code?.toUpperCase() ?? null;
+  const userCurrency   = countryCode ? (COUNTRY_CURRENCY[countryCode] ?? discogsValue.currency) : discogsValue.currency;
+
+  // Fetch exchange rate USD → userCurrency (cached 1h)
+  let usdToUser = 1.0;
+  if (userCurrency !== "USD") {
+    try {
+      const rateRes = await fetch(`https://open.er-api.com/v6/latest/USD`, { next: { revalidate: 3600 } });
+      if (rateRes.ok) {
+        const rateData = await rateRes.json() as { rates?: Record<string, number> };
+        usdToUser = rateData.rates?.[userCurrency] ?? 1.0;
+      }
+    } catch { /* fall back to 1.0 */ }
+  }
 
   // Fetch all user_records — paginated past Supabase's 1000-row cap.
   type LinkRow = {
@@ -110,25 +133,30 @@ export default async function CollectionPage({
   }
   console.log('[collection/page] total allLinks:', allLinks.length);
 
-  const recordIds        = allLinks.map((l) => l.record_id);
-  const valueMap         = new Map<string, number | null>(allLinks.map((l) => [l.record_id, l.value ?? null]));
-  const priceMedianMap   = new Map<string, number | null>(allLinks.map((l) => [l.record_id, l.price_median ?? l.price_low ?? null]));
-  const priceCurrencyMap = new Map<string, string | null>(allLinks.map((l) => [l.record_id, l.price_currency ?? null]));
+  const recordIds  = allLinks.map((l) => l.record_id);
+  const valueMap   = new Map<string, number | null>(allLinks.map((l) => [l.record_id, l.value ?? null]));
+
+  // Convert stored prices to user's currency
+  const convertPrice = (price: number | null, fromCurrency: string | null): number | null => {
+    if (price == null || price <= 0) return null;
+    const from = (fromCurrency ?? "USD").toUpperCase();
+    if (from === userCurrency) return price;
+    if (from === "USD") return price * usdToUser;
+    return price; // non-USD foreign currencies: leave as-is for now
+  };
+
+  const priceMedianMap   = new Map<string, number | null>(allLinks.map((l) => [
+    l.record_id, convertPrice(l.price_median ?? l.price_low, l.price_currency),
+  ]));
+  const priceCurrencyMap = new Map<string, string | null>(allLinks.map((l) => [l.record_id, userCurrency]));
 
   const estimatedValue = allLinks.reduce((sum, l) => {
-    const v = l.price_median ?? l.price_low ?? 0;
+    const v = convertPrice(l.price_median ?? l.price_low, l.price_currency) ?? 0;
     return v > 0 ? sum + v : sum;
   }, 0);
   const pricedCount = allLinks.filter(l => (l.price_median ?? l.price_low ?? 0) > 0).length;
 
-  // Dominant currency across priced records
-  const currencyFreq = new Map<string, number>();
-  for (const l of allLinks) {
-    if ((l.price_median ?? l.price_low ?? 0) > 0 && l.price_currency) {
-      currencyFreq.set(l.price_currency, (currencyFreq.get(l.price_currency) ?? 0) + 1);
-    }
-  }
-  const dominantCurrency = [...currencyFreq.entries()].sort((a, b) => b[1] - a[1])[0]?.[0] ?? "USD";
+  const dominantCurrency = userCurrency;
 
   const BATCH = 400;
   const recordsMap = new Map<string, Omit<CollectionRecord, "value" | "price_median" | "price_currency">>();
@@ -237,7 +265,7 @@ export default async function CollectionPage({
         const rec = recordsMap.get(link.record_id);
         if (rec) {
           maxPrice = price;
-          rarestRecord = { artist: rec.artist, album: rec.album, price, currency: link.price_currency ?? "USD" };
+          rarestRecord = { artist: rec.artist, album: rec.album, price, currency: userCurrency };
         }
       }
     }

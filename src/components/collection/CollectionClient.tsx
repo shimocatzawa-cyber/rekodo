@@ -959,7 +959,7 @@ function InsightsPanel({
     const c = discogsValue.currency;
     stats.push({
       hero:  fmtV(discogsValue.med, c),
-      label: "Est. Collection Value",
+      label: "Median Collection Value",
       sub:   [
         discogsValue.low  != null ? `Low ${fmtV(discogsValue.low, c)}`   : null,
         discogsValue.high != null ? `High ${fmtV(discogsValue.high, c)}` : null,
