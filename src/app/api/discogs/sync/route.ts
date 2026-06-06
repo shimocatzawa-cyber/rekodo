@@ -1,6 +1,7 @@
 import { type NextRequest } from "next/server";
 import { cookies } from "next/headers";
 import { createClient } from "@/lib/supabase/server";
+import { createClient as createServiceClient } from "@supabase/supabase-js";
 import { buildAuthHeader } from "@/lib/discogs/oauth";
 
 const UA = "rekodo/1.0";
@@ -58,13 +59,13 @@ export async function GET(request: NextRequest) {
     return Response.json({ error: "Not authenticated" }, { status: 401 });
   }
 
-  // Capture the JWT before streaming starts — the SSR cookie context does not
-  // survive inside the background IIFE, so auth.uid() returns null for RLS checks.
-  // We use this token directly for price writes instead of the supabase client.
-  const { data: { session } } = await supabase.auth.getSession();
-  const supabaseJwt      = session?.access_token ?? "";
-  const supabaseUrl      = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-  const supabaseAnonKey  = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
+  // Use a service role client for price writes — bypasses RLS so writes work
+  // reliably in the background streaming IIFE. User ID is scoped explicitly.
+  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+  const adminDb = serviceKey
+    ? createServiceClient(supabaseUrl, serviceKey, { auth: { persistSession: false } })
+    : null;
 
   const cookieStore = await cookies();
   const accessToken    = cookieStore.get("dg_at")?.value;
@@ -318,26 +319,21 @@ export async function GET(request: NextRequest) {
       let testDiag = "";
 
       if (priceTotal > 0) {
-        // ── Diagnostic: test write before starting the loop ─────────────────
-        const testRecord = priceable[0];
-        const testUrl = `${supabaseUrl}/rest/v1/user_records`
-          + `?user_id=eq.${encodeURIComponent(user.id)}`
-          + `&record_id=eq.${encodeURIComponent(testRecord.id)}`;
-        const testRes = await fetch(testUrl, {
-          method: "PATCH",
-          headers: {
-            "Content-Type": "application/json",
-            "apikey": supabaseAnonKey,
-            "Authorization": `Bearer ${supabaseJwt}`,
-            "Prefer": "return=representation",
-          },
-          body: JSON.stringify({ price_fetched_at: new Date().toISOString() }),
-        });
-        const testBody = await testRes.text().catch(() => "error");
-        const testDiag = `status=${testRes.status} rows=${testBody.slice(0, 120)}`;
+        // ── Diagnostic: test write with service client ───────────────────────
+        if (adminDb) {
+          const { error: testErr, data: testData } = await adminDb
+            .from("user_records")
+            .update({ price_fetched_at: new Date().toISOString() })
+            .eq("user_id", user.id)
+            .eq("record_id", priceable[0].id)
+            .select("record_id");
+          testDiag = `err=${testErr?.message ?? "none"} rows=${JSON.stringify(testData).slice(0, 80)}`;
+        } else {
+          testDiag = "no service key";
+        }
         // ────────────────────────────────────────────────────────────────────
 
-        send({ type: "status", message: `Fetching prices for ${priceTotal} records… jwt=${supabaseJwt ? "ok" : "MISSING"}` });
+        send({ type: "status", message: `Fetching prices for ${priceTotal} records… svc=${adminDb ? "ok" : "MISSING"}` });
 
         // 3 concurrent requests per batch, 2 s between batches ≈ 90 req/min
         const PRICE_BATCH = 3;
@@ -350,8 +346,6 @@ export async function GET(request: NextRequest) {
           const results = await Promise.all(batch.map(async (record): Promise<boolean> => {
             // returns true if rate-limited
             try {
-              // Use listings endpoint — gives low/median/high from real data.
-              // The /marketplace/stats endpoint only returns lowest_price.
               const priceUrl =
                 `https://api.discogs.com/marketplace/listings` +
                 `?release_id=${encodeURIComponent(record.discogs_id!)}` +
@@ -386,57 +380,32 @@ export async function GET(request: NextRequest) {
                 const pdMedian = pdPrices.length > 0 ? pdPrices[Math.floor(pdPrices.length / 2)]   : null;
                 const pdHigh   = pdPrices.length > 0 ? pdPrices[pdPrices.length - 1]               : null;
 
-                const restHeaders = {
-                  "Content-Type": "application/json",
-                  "apikey": supabaseAnonKey,
-                  "Authorization": `Bearer ${supabaseJwt}`,
-                  "Prefer": "return=minimal",
-                };
-                const restUrl = `${supabaseUrl}/rest/v1/user_records`
-                  + `?user_id=eq.${encodeURIComponent(user.id)}`
-                  + `&record_id=eq.${encodeURIComponent(record.id)}`;
-
-                const writeRes = await fetch(restUrl, {
-                  method: "PATCH",
-                  headers: restHeaders,
-                  body: JSON.stringify({
+                const db = adminDb ?? supabase;
+                const { error: writeErr } = await db
+                  .from("user_records")
+                  .update({
                     price_last_sold:  null,
                     price_low:        pdLow,
                     price_median:     pdMedian,
                     price_high:       pdHigh,
                     price_currency:   currency,
                     price_fetched_at: new Date().toISOString(),
-                  }),
-                });
+                  })
+                  .eq("user_id", user.id)
+                  .eq("record_id", record.id);
 
-                const writeBody = await writeRes.text().catch(() => "");
-                if (priceUpdated === 0 && bi === 0) {
-                  // Always surface the first write result so we can diagnose
-                  send({ type: "status", message: `[diag] write status=${writeRes.status} jwt=${supabaseJwt ? "present" : "MISSING"} body=${writeBody.slice(0, 120)}` });
-                }
-
-                if (writeRes.ok) {
+                if (!writeErr) {
                   priceUpdated++;
                 } else {
-                  console.error("[sync] price write error:", writeRes.status, writeBody, "record_id:", record.id);
+                  console.error("[sync] price write error:", writeErr.message, "record_id:", record.id);
                 }
               } else {
                 // No listings — just mark as fetched so we don't retry for 30 days
-                await fetch(
-                  `${supabaseUrl}/rest/v1/user_records`
-                    + `?user_id=eq.${encodeURIComponent(user.id)}`
-                    + `&record_id=eq.${encodeURIComponent(record.id)}`,
-                  {
-                    method: "PATCH",
-                    headers: {
-                      "Content-Type": "application/json",
-                      "apikey": supabaseAnonKey,
-                      "Authorization": `Bearer ${supabaseJwt}`,
-                      "Prefer": "return=minimal",
-                    },
-                    body: JSON.stringify({ price_fetched_at: new Date().toISOString() }),
-                  }
-                );
+                const db = adminDb ?? supabase;
+                await db.from("user_records")
+                  .update({ price_fetched_at: new Date().toISOString() })
+                  .eq("user_id", user.id)
+                  .eq("record_id", record.id);
               }
             } catch { /* skip this record */ }
             return false;
