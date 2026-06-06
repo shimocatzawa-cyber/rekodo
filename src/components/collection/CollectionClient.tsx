@@ -143,6 +143,7 @@ interface SyncResult {
   updated: number;
   priceUpdated: number;
   timestamp: string;
+  diag?: string;
 }
 
 function formatSyncTime(isoString: string): string {
@@ -345,6 +346,7 @@ export default function CollectionClient({
               updated?: number;
               priceUpdated?: number;
               timestamp?: string;
+              diag?: string;
             };
 
             if (ev.type === "status") {
@@ -377,6 +379,7 @@ export default function CollectionClient({
                 newAdded:     ev.newAdded     ?? 0,
                 updated:      ev.updated      ?? 0,
                 priceUpdated: ev.priceUpdated ?? 0,
+                diag:         ev.diag,
                 timestamp:    ev.timestamp    ?? new Date().toISOString(),
               });
               setSyncState("complete");
@@ -509,6 +512,7 @@ export default function CollectionClient({
           {syncResult.newAdded > 0 && ` · ${syncResult.newAdded} new`}
           {syncResult.priceUpdated > 0 && ` · ${syncResult.priceUpdated} prices updated`}
           {` · last synced ${formatSyncTime(syncResult.timestamp)}`}
+          {syncResult.diag && <span style={{ display: "block", fontSize: "10px", opacity: 0.6, marginTop: "2px" }}>{syncResult.diag}</span>}
         </StatusBanner>
       )}
       {syncState === "error" && (

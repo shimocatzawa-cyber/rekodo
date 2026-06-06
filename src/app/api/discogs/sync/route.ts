@@ -315,6 +315,7 @@ export async function GET(request: NextRequest) {
       const priceTotal = priceable.length;
 
       let priceUpdated = 0;
+      let testDiag = "";
 
       if (priceTotal > 0) {
         // ── Diagnostic: test write before starting the loop ─────────────────
@@ -333,7 +334,7 @@ export async function GET(request: NextRequest) {
           body: JSON.stringify({ price_fetched_at: new Date().toISOString() }),
         });
         const testBody = await testRes.text().catch(() => "error");
-        send({ type: "status", message: `[diag] test write: status=${testRes.status} rows=${testBody.slice(0, 150)}` });
+        const testDiag = `status=${testRes.status} rows=${testBody.slice(0, 120)}`;
         // ────────────────────────────────────────────────────────────────────
 
         send({ type: "status", message: `Fetching prices for ${priceTotal} records… jwt=${supabaseJwt ? "ok" : "MISSING"}` });
@@ -461,7 +462,7 @@ export async function GET(request: NextRequest) {
         .update({ last_synced_at: timestamp })
         .eq("id", user.id);
 
-      send({ type: "complete", total, newAdded, updated: backfillDone, priceUpdated, timestamp });
+      send({ type: "complete", total, newAdded, updated: backfillDone, priceUpdated, timestamp, diag: testDiag || "no price phase" });
 
     } catch (err: unknown) {
       send({ type: "error", message: err instanceof Error ? err.message : "Sync failed" });
