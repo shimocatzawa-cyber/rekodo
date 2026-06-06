@@ -1,7 +1,7 @@
 import type { NextRequest } from "next/server";
 
 export async function GET(
-  _req: NextRequest,
+  req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   const { id } = await params;
@@ -11,6 +11,8 @@ export async function GET(
   if (!key || !secret) {
     return Response.json({ error: "Discogs not configured" }, { status: 500 });
   }
+
+  const requestedCurrency = req.nextUrl.searchParams.get("currency") || null;
 
   const url = `https://api.discogs.com/marketplace/stats/${encodeURIComponent(id)}` +
     `?key=${key}&secret=${secret}`;
@@ -31,11 +33,30 @@ export async function GET(
     last_sale?: { price?: { value?: number; currency?: string }; date?: string } | null;
   };
 
-  const lowest     = data.lowest_price?.value ?? null;
-  const currency   = data.lowest_price?.currency ?? "USD";
-  const numForSale = data.num_for_sale ?? 0;
-  const lastSold   = data.last_sale?.price?.value ?? null;
+  let lowest      = data.lowest_price?.value ?? null;
+  let currency    = data.lowest_price?.currency ?? "USD";
+  const numForSale  = data.num_for_sale ?? 0;
+  let lastSold    = data.last_sale?.price?.value ?? null;
   const lastSoldDate = data.last_sale?.date ?? null;
+
+  // Convert to user's profile currency if different
+  if (requestedCurrency && requestedCurrency !== currency && (lowest != null || lastSold != null)) {
+    try {
+      const rateRes = await fetch(
+        `https://api.frankfurter.app/latest?from=${currency}&to=${requestedCurrency}`,
+        { next: { revalidate: 3600 } } as RequestInit
+      );
+      if (rateRes.ok) {
+        const rateData = await rateRes.json() as { rates?: Record<string, number> };
+        const rate = rateData.rates?.[requestedCurrency];
+        if (rate) {
+          lowest   = lowest   != null ? Math.round(lowest   * rate * 100) / 100 : null;
+          lastSold = lastSold != null ? Math.round(lastSold * rate * 100) / 100 : null;
+          currency = requestedCurrency;
+        }
+      }
+    } catch { /* keep original values on rate fetch failure */ }
+  }
 
   return Response.json(
     {

@@ -457,7 +457,7 @@ export default function CollectionClient({
         console.log("FETCHING PRICE FOR:", record.discogs_id);
         const [relRes, priceRes, bcRes] = await Promise.all([
           fetch(`/api/discogs/release/${record.discogs_id}`),
-          fetch(`/api/discogs/price/${record.discogs_id}`, { cache: "no-store" }),
+          fetch(`/api/discogs/price/${record.discogs_id}?currency=${encodeURIComponent(valueCurrency)}`, { cache: "no-store" }),
           bcFetch,
         ]);
         if (relRes.ok)   setReleaseDetail(await relRes.json());
