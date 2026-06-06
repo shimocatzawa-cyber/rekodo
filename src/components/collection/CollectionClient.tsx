@@ -212,6 +212,7 @@ export default function CollectionClient({
   const [filterYear,    setFilterYear]    = useState("");
   const [filterFormat,  setFilterFormat]  = useState("");
   const [filterCountry, setFilterCountry] = useState("");
+  const [sortBy,        setSortBy]        = useState("artist-az");
 
   const [collection, setCollection] = useState<CollectionRecord[]>(initialCollection);
 
@@ -492,7 +493,41 @@ export default function CollectionClient({
     return result;
   }, [collection, searchQuery, filterGenre, filterYear, filterFormat, filterCountry]);
 
-  const filteredGroups = useMemo(() => groupByLetter(filteredCollection), [filteredCollection]);
+  const sortedCollection = useMemo(() => {
+    const arr = [...filteredCollection];
+    switch (sortBy) {
+      case "artist-az":
+        return arr.sort((a, b) =>
+          stripArticle(a.artist || "").toLowerCase()
+            .localeCompare(stripArticle(b.artist || "").toLowerCase(), "en")
+        );
+      case "artist-za":
+        return arr.sort((a, b) =>
+          stripArticle(b.artist || "").toLowerCase()
+            .localeCompare(stripArticle(a.artist || "").toLowerCase(), "en")
+        );
+      case "value-high-low":
+        return arr.sort((a, b) => (b.price_median ?? -1) - (a.price_median ?? -1));
+      case "value-low-high":
+        return arr.sort((a, b) => {
+          const av = a.price_median ?? Infinity;
+          const bv = b.price_median ?? Infinity;
+          return av - bv;
+        });
+      case "year-new-old":
+        return arr.sort((a, b) => (b.year ?? 0) - (a.year ?? 0));
+      case "year-old-new":
+        return arr.sort((a, b) => (a.year ?? 9999) - (b.year ?? 9999));
+      default:
+        return arr;
+    }
+  }, [filteredCollection, sortBy]);
+
+  const useGrouped = sortBy === "artist-az" || sortBy === "artist-za";
+  const filteredGroups = useMemo(() => {
+    if (!useGrouped) return [];
+    return groupByLetter(sortedCollection);
+  }, [sortedCollection, useGrouped]);
 
   const genres = useMemo(() => {
     const gs = new Set<string>();
@@ -530,6 +565,15 @@ export default function CollectionClient({
     setFilterFormat("");
     setFilterCountry("");
   }
+
+  const SORT_OPTIONS = [
+    { value: "artist-az",      label: "Artist A–Z" },
+    { value: "artist-za",      label: "Artist Z–A" },
+    { value: "value-high-low", label: "Value: High to Low" },
+    { value: "value-low-high", label: "Value: Low to High" },
+    { value: "year-new-old",   label: "Year: Newest First" },
+    { value: "year-old-new",   label: "Year: Oldest First" },
+  ];
 
   return (
     <div style={{ height: "100vh", display: "flex", flexDirection: "column", background: "#ffffff", overflow: "hidden" }}>
@@ -744,6 +788,26 @@ export default function CollectionClient({
               </select>
             </div>
 
+            {/* Sort dropdown */}
+            <div style={{ padding: "0 10px 6px" }}>
+              <select
+                value={sortBy}
+                onChange={e => setSortBy(e.target.value)}
+                style={{
+                  width: "100%", fontFamily: MONO, fontSize: "10px", letterSpacing: "0.04em",
+                  color: sortBy !== "artist-az" ? ORANGE : "#888888",
+                  background: "#ffffff",
+                  border: `1px solid ${sortBy !== "artist-az" ? ORANGE : "rgba(0,0,0,0.13)"}`,
+                  cursor: "pointer", padding: "4px 6px", outline: "none",
+                  transition: "border-color 0.15s, color 0.15s",
+                }}
+              >
+                {SORT_OPTIONS.map(o => (
+                  <option key={o.value} value={o.value}>{o.label}</option>
+                ))}
+              </select>
+            </div>
+
             {/* Active filter tags */}
             {(filterGenre || filterYear || filterFormat || filterCountry) && (
               <div style={{ padding: "0 10px 6px", display: "flex", flexWrap: "wrap", gap: "4px" }}>
@@ -777,11 +841,11 @@ export default function CollectionClient({
                 <p style={{ fontFamily: SERIF, fontSize: "16px", color: "#0d0d0d", marginBottom: "6px" }}>Empty collection</p>
                 <p style={{ fontFamily: MONO, fontSize: "10px", color: "#aaaaaa", letterSpacing: "0.06em" }}>Import from Discogs to get started.</p>
               </div>
-            ) : filteredGroups.length === 0 ? (
+            ) : sortedCollection.length === 0 ? (
               <div style={{ padding: "32px 16px", textAlign: "center" }}>
                 <p style={{ fontFamily: MONO, fontSize: "10px", color: "#cccccc", letterSpacing: "0.06em" }}>No records found</p>
               </div>
-            ) : filteredGroups.map((group) => (
+            ) : useGrouped ? filteredGroups.map((group) => (
               <div key={group.letter}>
                 <div style={{ position: "sticky", top: 0, zIndex: 1, background: "#ffffff", padding: "5px 14px 3px", borderBottom: "1px solid rgba(0,0,0,0.06)", fontFamily: MONO, fontSize: "9px", letterSpacing: "0.14em", textTransform: "uppercase", color: ORANGE }}>
                   {group.letter}
@@ -795,6 +859,13 @@ export default function CollectionClient({
                   />
                 ))}
               </div>
+            )) : sortedCollection.map((record) => (
+              <RecordRow
+                key={record.id}
+                record={record}
+                selected={selectedRecord?.id === record.id}
+                onClick={() => selectRecord(record)}
+              />
             ))}
           </div>
         </div>
@@ -808,6 +879,7 @@ export default function CollectionClient({
                 detail={releaseDetail}
                 price={priceData}
                 loading={detailLoading}
+                valueCurrency={valueCurrency}
               />
             </div>
 
@@ -1201,11 +1273,12 @@ function RecordRow({ record, selected, onClick }: {
 
 // ─── AlbumDetail ─────────────────────────────────────────────────────────────
 
-function AlbumDetail({ record, detail, price, loading }: {
+function AlbumDetail({ record, detail, price, loading, valueCurrency }: {
   record: CollectionRecord;
   detail: ReleaseDetail | null;
   price: PriceData | null;
   loading: boolean;
+  valueCurrency?: string;
 }) {
   const displayLabel = detail?.labels?.[0]?.name ?? record.label ?? null;
   const catno        = detail?.labels?.[0]?.catno ?? null;
@@ -1248,8 +1321,8 @@ function AlbumDetail({ record, detail, price, loading }: {
         {/* Marketplace pricing */}
         {price && (
           <>
-            <PriceRow label="Low"      value={formatPrice(price.lowest,    price.currency)} />
-            <PriceRow label="Median"   value={formatPrice(price.median,    price.currency)} />
+            <PriceRow label="Est Value" value={formatPrice(price.lowest, price.currency || valueCurrency || "USD")} />
+            <PriceRow label="Median"    value={formatPrice(price.median, price.currency)} />
             <PriceRow label="High"     value={formatPrice(price.highest,   price.currency)} />
             <PriceRow
               label="Last sold"
