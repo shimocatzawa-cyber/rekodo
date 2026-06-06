@@ -5,8 +5,8 @@ import { createClient as createServiceClient } from "@supabase/supabase-js";
 
 const UA = "rekodo/1.0";
 const BATCH_LIMIT = 50;       // records per call — keeps each invocation under 60s
-const CONCURRENT  = 3;        // concurrent Discogs requests
-const SLEEP_MS    = 2_000;    // between batches ≈ 90 req/min
+const CONCURRENT  = 2;        // concurrent Discogs requests
+const SLEEP_MS    = 2_500;    // between batches ≈ 48 req/min (under 60 app-auth limit)
 
 const sleep = (ms: number) => new Promise<void>(r => setTimeout(r, ms));
 
@@ -61,6 +61,7 @@ export async function GET(_req: NextRequest) {
   );
 
   let priced = 0;
+  let processed = 0;
 
   for (let bi = 0; bi < priceable.length; bi += CONCURRENT) {
     const batch = priceable.slice(bi, bi + CONCURRENT);
@@ -74,12 +75,23 @@ export async function GET(_req: NextRequest) {
           res = await fetch(
             `https://api.discogs.com/marketplace/listings` +
             `?release_id=${encodeURIComponent(record.discogs_id)}` +
-            `&status=For+Sale&sort=price&sort_order=asc&per_page=10` +
-            `&key=${key}&secret=${secret}`,
-            { headers: { "User-Agent": UA }, cache: "no-store", signal: abort.signal }
+            `&status=For+Sale&sort=price&sort_order=asc&per_page=10`,
+            {
+              headers: {
+                "User-Agent": UA,
+                "Authorization": `Discogs key=${key}, secret=${secret}`,
+              },
+              cache: "no-store",
+              signal: abort.signal,
+            }
           );
         } finally {
           clearTimeout(timeout);
+        }
+
+        if (res.status === 429) {
+          // Rate limited — skip without marking as fetched so it retries next call
+          return;
         }
 
         if (res.ok) {
@@ -101,20 +113,23 @@ export async function GET(_req: NextRequest) {
 
           priced++;
         } else {
+          // Non-200, non-429: mark as fetched so we don't keep retrying
           await adminDb.from("user_records")
             .update({ price_fetched_at: new Date().toISOString() })
             .eq("user_id", user.id).eq("record_id", record.id);
         }
+        processed++;
       } catch { /* skip */ }
     }));
 
     if (bi + CONCURRENT < priceable.length) await sleep(SLEEP_MS);
   }
 
-  const remaining = Math.max(0, (totalRemaining ?? 0) - recordIds.length);
+  const remaining = Math.max(0, (totalRemaining ?? 0) - processed);
 
   return Response.json({
     priced,
+    processed,
     remaining,
     total: totalRemaining ?? 0,
   });

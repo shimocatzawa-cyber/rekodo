@@ -405,8 +405,8 @@ export default function CollectionClient({
       while (true) {
         const res = await fetch("/api/discogs/price-batch", { cache: "no-store" });
         if (!res.ok) break;
-        const data: { priced: number; remaining: number; total: number } = await res.json();
-        done += data.priced;
+        const data: { priced: number; processed: number; remaining: number; total: number } = await res.json();
+        done += data.processed ?? data.priced;
         setPriceProgress({ done, total: data.total || total });
         if (data.remaining <= 0) break;
       }
