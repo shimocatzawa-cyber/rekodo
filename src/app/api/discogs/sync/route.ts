@@ -241,24 +241,25 @@ export async function GET(request: NextRequest) {
           message: `Syncing... ${newAdded} of ${total} records`,
         });
 
-        for (const record of needingBackfill) {
+        const BACKFILL_BATCH = 3;
+        for (let bi = 0; bi < needingBackfill.length; bi += BACKFILL_BATCH) {
           if (request.signal.aborted) break;
 
-          await sleep(1000); // 1 req/sec
+          const bfBatch = needingBackfill.slice(bi, bi + BACKFILL_BATCH);
+          await Promise.all(bfBatch.map(async (record) => {
+            try {
+              const releaseUrl = `https://api.discogs.com/releases/${encodeURIComponent(record.discogs_id)}?key=${key}&secret=${secret}`;
+              const res = await fetch(releaseUrl, { headers: { "User-Agent": UA } });
+              if (res.ok) {
+                const data = await res.json() as { formats?: FormatShape[]; country?: string };
+                await supabase.from("records")
+                  .update({ format: extractFormat(data.formats), country: data.country ?? null })
+                  .eq("id", record.id);
+              }
+            } catch { /* skip */ }
+          }));
 
-          try {
-            const releaseUrl = `https://api.discogs.com/releases/${encodeURIComponent(record.discogs_id)}?key=${key}&secret=${secret}`;
-            const res = await fetch(releaseUrl, { headers: { "User-Agent": UA } });
-
-            if (res.ok) {
-              const data = await res.json() as { formats?: FormatShape[]; country?: string };
-              const format  = extractFormat(data.formats);
-              const country = data.country ?? null;
-              await supabase.from("records").update({ format, country }).eq("id", record.id);
-            }
-          } catch { /* skip this record, continue */ }
-
-          backfillDone++;
+          backfillDone += bfBatch.length;
           send({
             type: "processing",
             done: newAdded + backfillDone,
@@ -266,6 +267,8 @@ export async function GET(request: NextRequest) {
             phase: "backfill",
             message: `Syncing... ${newAdded + backfillDone} of ${total} records`,
           });
+
+          if (bi + BACKFILL_BATCH < needingBackfill.length) await sleep(1_000);
         }
       }
 
@@ -308,8 +311,8 @@ export async function GET(request: NextRequest) {
       if (priceTotal > 0) {
         send({ type: "status", message: `Fetching prices for ${priceTotal} records…` });
 
-        // 3 concurrent requests per batch, 2 s between batches ≈ 78 req/min
-        const PRICE_BATCH = 3;
+        // 5 concurrent requests per batch, 1.5 s between batches ≈ 200 req/min
+        const PRICE_BATCH = 5;
 
         for (let bi = 0; bi < priceable.length; bi += PRICE_BATCH) {
           if (request.signal.aborted) break;
@@ -376,7 +379,7 @@ export async function GET(request: NextRequest) {
             send({ type: "status", message: "Rate limited — pausing 30s…" });
             await sleep(30_000);
           } else if (bi + PRICE_BATCH < priceable.length) {
-            await sleep(2_000);
+            await sleep(1_500);
           }
         }
       }
