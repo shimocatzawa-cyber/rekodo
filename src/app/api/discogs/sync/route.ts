@@ -303,17 +303,6 @@ export async function GET(request: NextRequest) {
       const priceable = priceRecords.filter(r => !!r.discogs_id);
       const priceTotal = priceable.length;
 
-      const pVal = (obj: unknown): number | null => {
-        if (!obj || typeof obj !== "object") return null;
-        const v = (obj as Record<string, unknown>).value;
-        return typeof v === "number" && v > 0 ? v : null;
-      };
-      const pCur = (obj: unknown): string | null => {
-        if (!obj || typeof obj !== "object") return null;
-        const c = (obj as Record<string, unknown>).currency;
-        return typeof c === "string" ? c : null;
-      };
-
       let priceUpdated = 0;
 
       if (priceTotal > 0) {
@@ -330,9 +319,13 @@ export async function GET(request: NextRequest) {
           const results = await Promise.all(batch.map(async (record): Promise<boolean> => {
             // returns true if rate-limited
             try {
+              // Use listings endpoint — gives low/median/high from real data.
+              // The /marketplace/stats endpoint only returns lowest_price.
               const priceUrl =
-                `https://api.discogs.com/marketplace/stats/${encodeURIComponent(record.discogs_id!)}` +
-                `?key=${key}&secret=${secret}`;
+                `https://api.discogs.com/marketplace/listings` +
+                `?release_id=${encodeURIComponent(record.discogs_id!)}` +
+                `&status=For+Sale&sort=price&sort_order=asc&per_page=100` +
+                `&key=${key}&secret=${secret}`;
               const priceRes = await fetch(priceUrl, {
                 headers: { "User-Agent": UA, Authorization: `Discogs key=${key}, secret=${secret}` },
                 cache: "no-store",
@@ -342,20 +335,23 @@ export async function GET(request: NextRequest) {
 
               if (priceRes.ok) {
                 const pd = await priceRes.json();
-                const lastSale      = pd.last_sale ?? null;
-                const lastSalePrice = lastSale?.price ?? null;
-                const currency =
-                  pCur(pd.lowest_price)  ??
-                  pCur(pd.median_price)  ??
-                  pCur(pd.highest_price) ??
-                  pCur(lastSalePrice)    ??
-                  "USD";
+                type PdListing = { price?: { value?: unknown; currency?: string } };
+                const pdListings: PdListing[] = pd.listings ?? [];
+
+                const pdPrices = pdListings
+                  .map(l => (typeof l.price?.value === "number" && l.price.value > 0 ? l.price.value : null))
+                  .filter((v): v is number => v !== null);
+
+                const currency  = pdListings.find(l => l.price?.currency)?.price?.currency ?? "USD";
+                const pdLow    = pdPrices.length > 0 ? pdPrices[0]                                 : null;
+                const pdMedian = pdPrices.length > 0 ? pdPrices[Math.floor(pdPrices.length / 2)]   : null;
+                const pdHigh   = pdPrices.length > 0 ? pdPrices[pdPrices.length - 1]               : null;
 
                 await supabase.from("user_records").update({
-                  price_last_sold:  pVal(lastSalePrice),
-                  price_low:        pVal(pd.lowest_price),
-                  price_median:     pVal(pd.median_price),
-                  price_high:       pVal(pd.highest_price),
+                  price_last_sold:  null,
+                  price_low:        pdLow,
+                  price_median:     pdMedian,
+                  price_high:       pdHigh,
                   price_currency:   currency,
                   price_fetched_at: new Date().toISOString(),
                 })

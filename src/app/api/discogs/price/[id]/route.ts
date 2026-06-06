@@ -14,7 +14,16 @@ export async function GET(
     return Response.json({ error: "Discogs not configured" }, { status: 500 });
   }
 
-  const url = `https://api.discogs.com/marketplace/stats/${encodeURIComponent(id)}?key=${key}&secret=${secret}`;
+  // Fetch current listings sorted price asc — gives us low/median/high from real data.
+  // The /marketplace/stats endpoint only returns lowest_price; this gives us all three.
+  const url =
+    `https://api.discogs.com/marketplace/listings` +
+    `?release_id=${encodeURIComponent(id)}` +
+    `&status=For+Sale` +
+    `&sort=price&sort_order=asc` +
+    `&per_page=100` +
+    `&key=${key}&secret=${secret}`;
+
   const res = await fetch(url, {
     headers: {
       "User-Agent": "rekodo/1.0",
@@ -29,45 +38,29 @@ export async function GET(
 
   const data = await res.json();
 
-  // Discogs marketplace/stats shape:
-  //   lowest_price:  { value: number, currency: string }
-  //   median_price:  { value: number, currency: string }
-  //   highest_price: { value: number, currency: string }
-  //   last_sale:     { date: string, price: { value: number, currency: string } }
-  //   num_for_sale:  number
+  type Listing = { price?: { value?: unknown; currency?: string } };
+  const listings: Listing[] = data.listings ?? [];
+  const numForSale: number  = data.pagination?.items ?? listings.length;
 
-  function val(obj: unknown): number | null {
-    if (obj == null || typeof obj !== "object") return null;
-    const v = (obj as Record<string, unknown>).value;
-    return typeof v === "number" && v > 0 ? v : null;
-  }
+  // Extract valid numeric prices (already sorted asc by Discogs)
+  const prices = listings
+    .map(l => (typeof l.price?.value === "number" && l.price.value > 0 ? l.price.value : null))
+    .filter((v): v is number => v !== null);
 
-  function cur(obj: unknown): string | null {
-    if (obj == null || typeof obj !== "object") return null;
-    const c = (obj as Record<string, unknown>).currency;
-    return typeof c === "string" ? c : null;
-  }
-
-  // last_sale nests the price one level deeper: last_sale.price.{value,currency}
-  const lastSale      = data.last_sale ?? null;
-  const lastSalePrice = lastSale?.price ?? null;
-
-  const currency =
-    cur(data.lowest_price)  ??
-    cur(data.median_price)  ??
-    cur(data.highest_price) ??
-    cur(lastSalePrice)      ??
-    "USD";
+  const currency = listings.find(l => l.price?.currency)?.price?.currency ?? "USD";
+  const lowest   = prices.length > 0 ? prices[0]                                    : null;
+  const median   = prices.length > 0 ? prices[Math.floor(prices.length / 2)]        : null;
+  const highest  = prices.length > 0 ? prices[prices.length - 1]                    : null;
 
   return Response.json(
     {
-      last_sold:      val(lastSalePrice),
-      last_sold_date: lastSale?.date    ?? null,
-      lowest:         val(data.lowest_price),
-      median:         val(data.median_price),
-      highest:        val(data.highest_price),
+      last_sold:      null,  // not available from listings endpoint
+      last_sold_date: null,
+      lowest,
+      median,
+      highest,
       currency,
-      num_for_sale:   data.num_for_sale ?? 0,
+      num_for_sale:   numForSale,
     },
     { headers: { "Cache-Control": "no-store" } }
   );
