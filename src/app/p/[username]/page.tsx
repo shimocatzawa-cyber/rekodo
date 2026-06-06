@@ -24,11 +24,21 @@ export default async function PublicProfilePage({ params }: { params: Params }) 
   const { data: { user: viewer } } = await supabase.auth.getUser();
 
   // Profile lookup — RLS allows public reads where is_public = true, plus owner reads
-  const { data: profile } = await supabase
+  // Select only columns confirmed to exist; taste_summary/is_donor added via migration.
+  const { data: profileBase, error: profileError } = await supabase
     .from("profiles")
-    .select("id, username, display_name, location, avatar_url, is_donor, taste_summary")
+    .select("id, username, display_name, location, avatar_url, taste_summary, is_donor")
     .eq("username", username)
     .maybeSingle();
+
+  // If the query errored (e.g. a column not yet migrated), fall back to safe columns
+  const { data: profile } = profileError
+    ? await supabase
+        .from("profiles")
+        .select("id, username, display_name, location, avatar_url")
+        .eq("username", username)
+        .maybeSingle()
+    : { data: profileBase };
 
   // No profile: show username-setup form if the viewer has no username, else 404
   if (!profile) {
@@ -56,7 +66,9 @@ export default async function PublicProfilePage({ params }: { params: Params }) 
     notFound();
   }
 
-  const isOwner = viewer?.id === profile.id;
+  const isOwner    = viewer?.id === profile.id;
+  const tasteSummary = (profile as { taste_summary?: string | null }).taste_summary ?? null;
+  const isDonor      = (profile as { is_donor?: boolean | null }).is_donor ?? false;
 
   // Parallel fetch: collection, lists, social counts
   const [userRecordsResult, listsResult, followerRes, followingRes] = await Promise.all([
@@ -119,7 +131,7 @@ export default async function PublicProfilePage({ params }: { params: Params }) 
     itemsByList.get(item.list_id)?.push(item);
   }
 
-  const hasSummary          = !!profile.taste_summary;
+  const hasSummary          = !!tasteSummary;
   const showSummaryBlock    = hasSummary || isOwner;
 
   const divider: React.CSSProperties = { height: 1, background: RULE };
@@ -172,7 +184,7 @@ export default async function PublicProfilePage({ params }: { params: Params }) 
               display: "flex", alignItems: "center", flexWrap: "wrap", gap: "6px",
             }}>
               <span>@{profile.username}</span>
-              {profile.is_donor && (
+              {isDonor && (
                 <span style={{ fontFamily: SERIF, fontSize: "0.85em", color: "#C9A84C" }} title="rekōdo supporter">ō</span>
               )}
               {profile.location && <span style={{ color: "#dddddd" }}>·</span>}
@@ -219,7 +231,7 @@ export default async function PublicProfilePage({ params }: { params: Params }) 
                   margin: "0 0 20px 0",
                   maxWidth: 620,
                 }}>
-                  {profile.taste_summary}
+                  {tasteSummary}
                 </p>
                 {isOwner && <GenerateSummaryBtn userId={profile.id} hasExisting />}
               </>
