@@ -14,7 +14,7 @@ const NAV_ITEMS = [
   { href: "/collection", label: "Collection", jp: "コレクション" },
   { href: "/dig",        label: "Dig",        jp: "発掘" },
   { href: "/lists",      label: "Lists",      jp: "リスト" },
-  { href: "/gigs",       label: "Gigs",       jp: "公演" },
+  { href: "/gigs",       label: "Live",       jp: "ライブ" },
   { href: "/library",    label: "Library",    jp: "ライブラリ" },
 ] as const;
 
