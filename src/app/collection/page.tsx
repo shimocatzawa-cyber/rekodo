@@ -16,6 +16,7 @@ export type CollectionRecord = {
   format: string | null;
   country: string | null;
   value: number | null;
+  price_low:      number | null;
   price_median:   number | null;
   price_currency: string | null;
 };
@@ -159,7 +160,11 @@ export default async function CollectionPage({
   const dominantCurrency = userCurrency;
 
   const BATCH = 400;
-  const recordsMap = new Map<string, Omit<CollectionRecord, "value" | "price_median" | "price_currency">>();
+  const priceLowMap = new Map<string, number | null>(allLinks.map((l) => [
+    l.record_id, convertPrice(l.price_low, l.price_currency),
+  ]));
+
+  const recordsMap = new Map<string, Omit<CollectionRecord, "value" | "price_low" | "price_median" | "price_currency">>();
   for (let i = 0; i < recordIds.length; i += BATCH) {
     const { data, error } = await supabase
       .from("records")
@@ -167,7 +172,7 @@ export default async function CollectionPage({
       .in("id", recordIds.slice(i, i + BATCH));
     if (error) console.error('[collection/page] records batch error:', JSON.stringify(error));
     else console.log(`[collection/page] records batch i=${i}: ${data?.length ?? 0} rows`);
-    for (const r of data ?? []) recordsMap.set(r.id, r as Omit<CollectionRecord, "value" | "price_median" | "price_currency">);
+    for (const r of data ?? []) recordsMap.set(r.id, r as Omit<CollectionRecord, "value" | "price_low" | "price_median" | "price_currency">);
   }
 
   const collection: CollectionRecord[] = recordIds
@@ -177,6 +182,7 @@ export default async function CollectionPage({
       return {
         ...r,
         value:          valueMap.get(id)         ?? null,
+        price_low:      priceLowMap.get(id)      ?? null,
         price_median:   priceMedianMap.get(id)   ?? null,
         price_currency: priceCurrencyMap.get(id) ?? null,
       };

@@ -240,6 +240,7 @@ export default function CollectionClient({
       type LinkRow = {
         record_id:      string;
         value:          number | null;
+        price_low:      number | null;
         price_median:   number | null;
         price_currency: string | null;
       };
@@ -248,7 +249,7 @@ export default function CollectionClient({
       for (let from = 0; ; from += PAGE) {
         const { data, error } = await supabase
           .from("user_records")
-          .select("record_id, value, price_median, price_currency")
+          .select("record_id, value, price_low, price_median, price_currency")
           .eq("user_id", user.id)
           .range(from, from + PAGE - 1);
         console.log(`[collection] user_records page from=${from}: count=${data?.length ?? 0} error=${JSON.stringify(error)}`);
@@ -259,17 +260,18 @@ export default function CollectionClient({
 
       const recordIds        = allLinks.map((l) => l.record_id);
       const valueMap         = new Map<string, number | null>(allLinks.map((l) => [l.record_id, l.value ?? null]));
+      const priceLowMap      = new Map<string, number | null>(allLinks.map((l) => [l.record_id, l.price_low ?? null]));
       const priceMedianMap   = new Map<string, number | null>(allLinks.map((l) => [l.record_id, l.price_median ?? null]));
       const priceCurrencyMap = new Map<string, string | null>(allLinks.map((l) => [l.record_id, l.price_currency ?? null]));
       const BATCH        = 400;
-      const recordsMap   = new Map<string, Omit<CollectionRecord, "value" | "price_median" | "price_currency">>();
+      const recordsMap   = new Map<string, Omit<CollectionRecord, "value" | "price_low" | "price_median" | "price_currency">>();
       for (let i = 0; i < recordIds.length; i += BATCH) {
         const { data, error } = await supabase
           .from("records")
           .select("id, discogs_id, artist, album, year, genre, cover_url, label, format, country")
           .in("id", recordIds.slice(i, i + BATCH));
         console.log(`[collection] records batch i=${i}: count=${data?.length ?? 0} error=${JSON.stringify(error)}`);
-        for (const r of data ?? []) recordsMap.set(r.id, r as Omit<CollectionRecord, "value" | "price_median" | "price_currency">);
+        for (const r of data ?? []) recordsMap.set(r.id, r as Omit<CollectionRecord, "value" | "price_low" | "price_median" | "price_currency">);
       }
 
       const fetched: CollectionRecord[] = recordIds
@@ -279,6 +281,7 @@ export default function CollectionClient({
           return {
             ...r,
             value:          valueMap.get(id)         ?? null,
+            price_low:      priceLowMap.get(id)      ?? null,
             price_median:   priceMedianMap.get(id)   ?? null,
             price_currency: priceCurrencyMap.get(id) ?? null,
           };
@@ -507,11 +510,11 @@ export default function CollectionClient({
             .localeCompare(stripArticle(a.artist || "").toLowerCase(), "en")
         );
       case "value-high-low":
-        return arr.sort((a, b) => (b.price_median ?? -1) - (a.price_median ?? -1));
+        return arr.sort((a, b) => ((b.price_low ?? b.price_median) ?? -1) - ((a.price_low ?? a.price_median) ?? -1));
       case "value-low-high":
         return arr.sort((a, b) => {
-          const av = a.price_median ?? Infinity;
-          const bv = b.price_median ?? Infinity;
+          const av = (a.price_low ?? a.price_median) ?? Infinity;
+          const bv = (b.price_low ?? b.price_median) ?? Infinity;
           return av - bv;
         });
       case "year-new-old":
@@ -1222,7 +1225,8 @@ function fmtMedianPrice(median: number, currency: string): string {
 function RecordRow({ record, selected, onClick }: {
   record: CollectionRecord; selected: boolean; onClick: () => void;
 }) {
-  const hasPrice = record.price_median != null && record.price_median > 0;
+  const displayPrice = record.price_low ?? record.price_median;
+  const hasPrice = displayPrice != null && displayPrice > 0;
   return (
     <button
       onClick={onClick}
@@ -1260,11 +1264,11 @@ function RecordRow({ record, selected, onClick }: {
           fontFamily: MONO,
           fontSize: "9px",
           letterSpacing: "0.03em",
-          color: priceColor(record.price_median!),
+          color: priceColor(displayPrice!),
           flexShrink: 0,
           paddingLeft: "4px",
         }}>
-          {fmtMedianPrice(record.price_median!, record.price_currency ?? "USD")}
+          {fmtMedianPrice(displayPrice!, record.price_currency ?? "USD")}
         </span>
       )}
     </button>
