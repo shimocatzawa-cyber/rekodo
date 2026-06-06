@@ -319,52 +319,69 @@ export async function GET(request: NextRequest) {
       if (priceTotal > 0) {
         send({ type: "status", message: `Fetching prices for ${priceTotal} records…` });
 
-        for (const record of priceable) {
+        // 3 concurrent requests per batch, 2 s between batches ≈ 78 req/min
+        const PRICE_BATCH = 3;
+
+        for (let bi = 0; bi < priceable.length; bi += PRICE_BATCH) {
           if (request.signal.aborted) break;
-          await sleep(1100); // stay under 60 req/min
 
-          try {
-            const priceUrl =
-              `https://api.discogs.com/marketplace/stats/${encodeURIComponent(record.discogs_id!)}` +
-              `?key=${key}&secret=${secret}`;
-            const priceRes = await fetch(priceUrl, {
-              headers: { "User-Agent": UA, Authorization: `Discogs key=${key}, secret=${secret}` },
-              cache: "no-store",
-            });
+          const batch = priceable.slice(bi, bi + PRICE_BATCH);
 
-            if (priceRes.ok) {
-              const pd = await priceRes.json();
-              const lastSale      = pd.last_sale ?? null;
-              const lastSalePrice = lastSale?.price ?? null;
-              const currency =
-                pCur(pd.lowest_price)  ??
-                pCur(pd.median_price)  ??
-                pCur(pd.highest_price) ??
-                pCur(lastSalePrice)    ??
-                "USD";
+          const results = await Promise.all(batch.map(async (record): Promise<boolean> => {
+            // returns true if rate-limited
+            try {
+              const priceUrl =
+                `https://api.discogs.com/marketplace/stats/${encodeURIComponent(record.discogs_id!)}` +
+                `?key=${key}&secret=${secret}`;
+              const priceRes = await fetch(priceUrl, {
+                headers: { "User-Agent": UA, Authorization: `Discogs key=${key}, secret=${secret}` },
+                cache: "no-store",
+              });
 
-              await supabase.from("user_records").update({
-                price_last_sold:  pVal(lastSalePrice),
-                price_low:        pVal(pd.lowest_price),
-                price_median:     pVal(pd.median_price),
-                price_high:       pVal(pd.highest_price),
-                price_currency:   currency,
-                price_fetched_at: new Date().toISOString(),
-              })
-                .eq("user_id", user.id)
-                .eq("record_id", record.id);
+              if (priceRes.status === 429) return true;
 
-              priceUpdated++;
-            } else {
-              // Mark attempted so we skip it next sync
-              await supabase.from("user_records")
-                .update({ price_fetched_at: new Date().toISOString() })
-                .eq("user_id", user.id)
-                .eq("record_id", record.id);
-            }
-          } catch { /* skip this record, continue */ }
+              if (priceRes.ok) {
+                const pd = await priceRes.json();
+                const lastSale      = pd.last_sale ?? null;
+                const lastSalePrice = lastSale?.price ?? null;
+                const currency =
+                  pCur(pd.lowest_price)  ??
+                  pCur(pd.median_price)  ??
+                  pCur(pd.highest_price) ??
+                  pCur(lastSalePrice)    ??
+                  "USD";
 
-          send({ type: "pricing", done: priceUpdated, total: priceTotal });
+                await supabase.from("user_records").update({
+                  price_last_sold:  pVal(lastSalePrice),
+                  price_low:        pVal(pd.lowest_price),
+                  price_median:     pVal(pd.median_price),
+                  price_high:       pVal(pd.highest_price),
+                  price_currency:   currency,
+                  price_fetched_at: new Date().toISOString(),
+                })
+                  .eq("user_id", user.id)
+                  .eq("record_id", record.id);
+
+                priceUpdated++;
+              } else {
+                await supabase.from("user_records")
+                  .update({ price_fetched_at: new Date().toISOString() })
+                  .eq("user_id", user.id)
+                  .eq("record_id", record.id);
+              }
+            } catch { /* skip this record */ }
+            return false;
+          }));
+
+          send({ type: "pricing", done: Math.min(bi + PRICE_BATCH, priceTotal), total: priceTotal });
+
+          if (results.some(Boolean)) {
+            // At least one 429 — back off before continuing
+            send({ type: "status", message: "Rate limited — pausing 30s…" });
+            await sleep(30_000);
+          } else if (bi + PRICE_BATCH < priceable.length) {
+            await sleep(2_000);
+          }
         }
       }
 
