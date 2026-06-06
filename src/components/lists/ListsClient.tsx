@@ -577,7 +577,7 @@ export default function ListsClient({
       <AppNav username={username} displayLabel={displayLabel} avatarUrl={avatarUrl} />
 
       {/* ── Pill strip — two rows ── */}
-      <div style={{ borderBottom: "1px solid rgba(0,0,0,0.08)", flexShrink: 0 }}>
+      <div style={{ borderBottom: "1px solid rgba(0,0,0,0.08)", flexShrink: 0, background: "#FEFBF8" }}>
 
         {/* Row 1: [scrollable: Wantlist · Private · Saved] [fixed: + New list] */}
         <div style={{ display: "flex", alignItems: "center", overflow: "hidden", padding: "8px 0 4px" }}>
