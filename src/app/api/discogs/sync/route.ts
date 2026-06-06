@@ -272,12 +272,29 @@ export async function GET(request: NextRequest) {
         }
       }
 
+      // ── Collection value from Discogs ───────────────────────────────────────
+      type ColVal = { minimum?: { value?: number; currency?: string }; median?: { value?: number }; maximum?: { value?: number } };
+      let colVal: ColVal = {};
+      try {
+        const cvUrl  = `https://api.discogs.com/users/${encodeURIComponent(discogsUser)}/collection/value`;
+        const cvAuth = buildAuthHeader("GET", cvUrl, key, secret, accessToken, tokenSecret);
+        const cvRes  = await fetch(cvUrl, { headers: { Authorization: cvAuth, "User-Agent": UA } });
+        if (cvRes.ok) colVal = await cvRes.json() as ColVal;
+      } catch { /* non-fatal */ }
+
       // ── Complete ────────────────────────────────────────────────────────────
       const timestamp = new Date().toISOString();
 
-      await supabase
-        .from("profiles")
-        .update({ last_synced_at: timestamp })
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      await (supabase.from("profiles") as any)
+        .update({
+          last_synced_at:            timestamp,
+          collection_value_low:      colVal.minimum?.value     ?? null,
+          collection_value_med:      colVal.median?.value      ?? null,
+          collection_value_high:     colVal.maximum?.value     ?? null,
+          collection_value_currency: colVal.minimum?.currency  ?? null,
+          collection_value_at:       colVal.minimum?.value ? timestamp : null,
+        })
         .eq("id", user.id);
 
       send({ type: "complete", total, newAdded, updated: backfillDone, priceUpdated: 0, timestamp });

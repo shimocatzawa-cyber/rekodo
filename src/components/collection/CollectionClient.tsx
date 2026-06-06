@@ -159,6 +159,13 @@ function formatSyncTime(isoString: string): string {
 
 // ─── Props ────────────────────────────────────────────────────────────────────
 
+interface DiscogsValue {
+  low:      number | null;
+  med:      number | null;
+  high:     number | null;
+  currency: string;
+}
+
 interface Props {
   initialCollection: CollectionRecord[];
   username: string;
@@ -167,6 +174,7 @@ interface Props {
   estimatedValue?: number;
   valueCurrency?: string;
   pricedCount?: number;
+  discogsValue?: DiscogsValue;
   insights?: CollectionInsights;
   lastSyncedAt?: string | null;
   startSync?: boolean;
@@ -184,6 +192,7 @@ export default function CollectionClient({
   estimatedValue = 0,
   valueCurrency  = "USD",
   pricedCount    = 0,
+  discogsValue,
   insights,
   lastSyncedAt   = null,
   startSync      = false,
@@ -566,6 +575,7 @@ export default function CollectionClient({
           estimatedValue={estimatedValue}
           valueCurrency={valueCurrency}
           pricedCount={pricedCount}
+          discogsValue={discogsValue}
         />
       )}
 
@@ -859,12 +869,14 @@ function InsightsPanel({
   estimatedValue,
   valueCurrency,
   pricedCount,
+  discogsValue,
 }: {
   insights: CollectionInsights;
   total: number;
   estimatedValue: number;
   valueCurrency: string;
   pricedCount: number;
+  discogsValue?: DiscogsValue;
 }) {
   const [oneLiner, setOneLiner] = useState<string | null>(null);
 
@@ -940,25 +952,42 @@ function InsightsPanel({
     });
   }
 
-  // 8. Collection value (real when prices have been synced)
-  const currSym = sym(valueCurrency);
-  const fmtV = (n: number) =>
-    n >= 1000 ? `${currSym}${(n / 1000).toFixed(1)}k` : `${currSym}${Math.round(n).toLocaleString("en-US")}`;
-  stats.push(
-    estimatedValue > 0
-      ? {
-          hero:  fmtV(estimatedValue),
-          label: "Est. Collection Value",
-          sub:   pricedCount < total
-            ? `${pricedCount} of ${total} records priced`
-            : `${pricedCount} records priced`,
-        }
-      : {
-          hero:  "—",
-          label: "Est. Collection Value",
-          sub:   "Sync to calculate",
-        }
-  );
+  // 8. Collection value — Discogs' own calculation when available, local fallback otherwise
+  const fmtV = (n: number, c: string) => {
+    const s = sym(c);
+    return n >= 1000 ? `${s}${(n / 1000).toFixed(1)}k` : `${s}${Math.round(n).toLocaleString("en-US")}`;
+  };
+
+  if (discogsValue?.med != null) {
+    const c = discogsValue.currency;
+    stats.push({
+      hero:  fmtV(discogsValue.med, c),
+      label: "Est. Collection Value",
+      sub:   [
+        discogsValue.low  != null ? `Low ${fmtV(discogsValue.low, c)}`   : null,
+        discogsValue.high != null ? `High ${fmtV(discogsValue.high, c)}` : null,
+      ].filter(Boolean).join("  ·  ") || undefined,
+    });
+  } else {
+    const currSym = sym(valueCurrency);
+    const fmtFallback = (n: number) =>
+      n >= 1000 ? `${currSym}${(n / 1000).toFixed(1)}k` : `${currSym}${Math.round(n).toLocaleString("en-US")}`;
+    stats.push(
+      estimatedValue > 0
+        ? {
+            hero:  fmtFallback(estimatedValue),
+            label: "Est. Collection Value",
+            sub:   pricedCount < total
+              ? `${pricedCount} of ${total} records priced`
+              : `${pricedCount} records priced`,
+          }
+        : {
+            hero:  "—",
+            label: "Est. Collection Value",
+            sub:   "Sync to calculate",
+          }
+    );
+  }
 
   if (stats.length === 0) return null;
 

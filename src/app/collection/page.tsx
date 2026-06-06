@@ -55,11 +55,16 @@ export default async function CollectionPage({
   }
 
   const emailPrefix = (user.email ?? "").split("@")[0] || "user";
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("username, display_name, last_synced_at, avatar_url")
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: profileRaw } = await (supabase.from("profiles") as any)
+    .select("username, display_name, last_synced_at, avatar_url, collection_value_low, collection_value_med, collection_value_high, collection_value_currency")
     .eq("id", user.id)
     .maybeSingle();
+  const profile = profileRaw as {
+    username?: string | null; display_name?: string | null; last_synced_at?: string | null;
+    avatar_url?: string | null; collection_value_low?: number | null; collection_value_med?: number | null;
+    collection_value_high?: number | null; collection_value_currency?: string | null;
+  } | null;
   const autoGen      = `${emailPrefix}_${user.id.slice(0, 6)}`;
   const rawUsername  = profile?.username ?? null;
   const username     = (rawUsername && rawUsername !== autoGen)
@@ -68,6 +73,12 @@ export default async function CollectionPage({
   const displayLabel = profile?.display_name?.trim() || username;
   const lastSyncedAt = profile?.last_synced_at ?? null;
   const avatarUrl    = profile?.avatar_url ?? null;
+  const discogsValue = {
+    low:      profile?.collection_value_low      ?? null,
+    med:      profile?.collection_value_med      ?? null,
+    high:     profile?.collection_value_high     ?? null,
+    currency: profile?.collection_value_currency ?? "USD",
+  };
 
   // Fetch all user_records — paginated past Supabase's 1000-row cap.
   type LinkRow = {
@@ -242,6 +253,7 @@ export default async function CollectionPage({
       estimatedValue={estimatedValue}
       valueCurrency={dominantCurrency}
       pricedCount={pricedCount}
+      discogsValue={discogsValue}
       insights={insights}
       lastSyncedAt={lastSyncedAt}
       avatarUrl={avatarUrl}
