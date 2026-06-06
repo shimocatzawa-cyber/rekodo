@@ -58,6 +58,14 @@ export async function GET(request: NextRequest) {
     return Response.json({ error: "Not authenticated" }, { status: 401 });
   }
 
+  // Capture the JWT before streaming starts — the SSR cookie context does not
+  // survive inside the background IIFE, so auth.uid() returns null for RLS checks.
+  // We use this token directly for price writes instead of the supabase client.
+  const { data: { session } } = await supabase.auth.getSession();
+  const supabaseJwt      = session?.access_token ?? "";
+  const supabaseUrl      = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+  const supabaseAnonKey  = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
+
   const cookieStore = await cookies();
   const accessToken    = cookieStore.get("dg_at")?.value;
   const tokenSecret    = cookieStore.get("dg_ts")?.value;
@@ -350,31 +358,55 @@ export async function GET(request: NextRequest) {
                 const pdMedian = pdPrices.length > 0 ? pdPrices[Math.floor(pdPrices.length / 2)]   : null;
                 const pdHigh   = pdPrices.length > 0 ? pdPrices[pdPrices.length - 1]               : null;
 
-                const { error: priceWriteErr } = await supabase.from("user_records").update({
-                  price_last_sold:  null,
-                  price_low:        pdLow,
-                  price_median:     pdMedian,
-                  price_high:       pdHigh,
-                  price_currency:   currency,
-                  price_fetched_at: new Date().toISOString(),
-                })
-                  .eq("user_id", user.id)
-                  .eq("record_id", record.id);
+                const restHeaders = {
+                  "Content-Type": "application/json",
+                  "apikey": supabaseAnonKey,
+                  "Authorization": `Bearer ${supabaseJwt}`,
+                  "Prefer": "return=minimal",
+                };
+                const restUrl = `${supabaseUrl}/rest/v1/user_records`
+                  + `?user_id=eq.${encodeURIComponent(user.id)}`
+                  + `&record_id=eq.${encodeURIComponent(record.id)}`;
 
-                if (!priceWriteErr) {
+                const writeRes = await fetch(restUrl, {
+                  method: "PATCH",
+                  headers: restHeaders,
+                  body: JSON.stringify({
+                    price_last_sold:  null,
+                    price_low:        pdLow,
+                    price_median:     pdMedian,
+                    price_high:       pdHigh,
+                    price_currency:   currency,
+                    price_fetched_at: new Date().toISOString(),
+                  }),
+                });
+
+                if (writeRes.ok) {
                   priceUpdated++;
                 } else {
-                  console.error("[sync] price write error:", priceWriteErr.message, "record_id:", record.id);
+                  const errText = await writeRes.text().catch(() => writeRes.status.toString());
+                  console.error("[sync] price write error:", errText, "record_id:", record.id);
                   if (priceUpdated === 0 && bi === 0) {
-                    // Surface DB schema errors immediately — price columns may not exist
-                    send({ type: "status", message: `⚠️ Price save failed: ${priceWriteErr.message}` });
+                    send({ type: "status", message: `⚠️ Price save failed: ${errText}` });
                   }
                 }
               } else {
-                await supabase.from("user_records")
-                  .update({ price_fetched_at: new Date().toISOString() })
-                  .eq("user_id", user.id)
-                  .eq("record_id", record.id);
+                // No listings — just mark as fetched so we don't retry for 30 days
+                await fetch(
+                  `${supabaseUrl}/rest/v1/user_records`
+                    + `?user_id=eq.${encodeURIComponent(user.id)}`
+                    + `&record_id=eq.${encodeURIComponent(record.id)}`,
+                  {
+                    method: "PATCH",
+                    headers: {
+                      "Content-Type": "application/json",
+                      "apikey": supabaseAnonKey,
+                      "Authorization": `Bearer ${supabaseJwt}`,
+                      "Prefer": "return=minimal",
+                    },
+                    body: JSON.stringify({ price_fetched_at: new Date().toISOString() }),
+                  }
+                );
               }
             } catch { /* skip this record */ }
             return false;
