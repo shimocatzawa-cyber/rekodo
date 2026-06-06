@@ -331,7 +331,8 @@ export async function GET(request: NextRequest) {
         } else {
           testDiag = "no service key";
         }
-        // ────────────────────────────────────────────────────────────────────
+        // Send immediately so it's visible even if function times out
+        send({ type: "status", message: `[diag] ${testDiag}` });
 
         send({ type: "status", message: `Fetching prices for ${priceTotal} records… svc=${adminDb ? "ok" : "MISSING"}` });
 
