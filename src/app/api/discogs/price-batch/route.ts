@@ -73,14 +73,10 @@ export async function GET(_req: NextRequest) {
         let res: Response;
         try {
           res = await fetch(
-            `https://api.discogs.com/marketplace/listings` +
-            `?release_id=${encodeURIComponent(record.discogs_id)}` +
-            `&status=For+Sale&sort=price&sort_order=asc&per_page=10`,
+            `https://api.discogs.com/marketplace/stats/${encodeURIComponent(record.discogs_id)}` +
+            `?key=${key}&secret=${secret}`,
             {
-              headers: {
-                "User-Agent": UA,
-                "Authorization": `Discogs key=${key}, secret=${secret}`,
-              },
+              headers: { "User-Agent": UA },
               cache: "no-store",
               signal: abort.signal,
             }
@@ -95,18 +91,17 @@ export async function GET(_req: NextRequest) {
         }
 
         if (res.ok) {
-          const pd = await res.json();
-          type L = { price?: { value?: unknown; currency?: string } };
-          const listings: L[] = pd.listings ?? [];
-          const prices = listings
-            .map(l => (typeof l.price?.value === "number" && l.price.value > 0 ? l.price.value : null))
-            .filter((v): v is number => v !== null);
-          const currency = listings.find(l => l.price?.currency)?.price?.currency ?? "USD";
+          const pd = await res.json() as {
+            lowest_price?: { value?: number; currency?: string } | null;
+            num_for_sale?: number;
+          };
+          const lowest   = pd.lowest_price?.value ?? null;
+          const currency = pd.lowest_price?.currency ?? "USD";
 
           await adminDb.from("user_records").update({
-            price_low:        prices[0] ?? null,
-            price_median:     prices[Math.floor(prices.length / 2)] ?? null,
-            price_high:       prices[prices.length - 1] ?? null,
+            price_low:        lowest,
+            price_median:     lowest,
+            price_high:       null,
             price_currency:   currency,
             price_fetched_at: new Date().toISOString(),
           }).eq("user_id", user.id).eq("record_id", record.id);

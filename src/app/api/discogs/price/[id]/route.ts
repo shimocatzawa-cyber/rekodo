@@ -12,21 +12,11 @@ export async function GET(
     return Response.json({ error: "Discogs not configured" }, { status: 500 });
   }
 
-  // Fetch current listings sorted price asc — gives us low/median/high from real data.
-  // The /marketplace/stats endpoint only returns lowest_price; this gives us all three.
-  const url =
-    `https://api.discogs.com/marketplace/listings` +
-    `?release_id=${encodeURIComponent(id)}` +
-    `&status=For+Sale` +
-    `&sort=price&sort_order=asc` +
-    `&per_page=100` +
-    `&key=${key}&secret=${secret}`;
+  const url = `https://api.discogs.com/marketplace/stats/${encodeURIComponent(id)}` +
+    `?key=${key}&secret=${secret}`;
 
   const res = await fetch(url, {
-    headers: {
-      "User-Agent": "rekodo/1.0",
-      "Authorization": `Discogs key=${key}, secret=${secret}`,
-    },
+    headers: { "User-Agent": "rekodo/1.0" },
     cache: "no-store",
   });
 
@@ -34,31 +24,25 @@ export async function GET(
     return Response.json({ error: "Price not available" }, { status: res.status });
   }
 
-  const data = await res.json();
+  const data = await res.json() as {
+    lowest_price?: { value?: number; currency?: string } | null;
+    num_for_sale?: number;
+    blocked_from_sale?: boolean;
+  };
 
-  type Listing = { price?: { value?: unknown; currency?: string } };
-  const listings: Listing[] = data.listings ?? [];
-  const numForSale: number  = data.pagination?.items ?? listings.length;
-
-  // Extract valid numeric prices (already sorted asc by Discogs)
-  const prices = listings
-    .map(l => (typeof l.price?.value === "number" && l.price.value > 0 ? l.price.value : null))
-    .filter((v): v is number => v !== null);
-
-  const currency = listings.find(l => l.price?.currency)?.price?.currency ?? "USD";
-  const lowest   = prices.length > 0 ? prices[0]                                    : null;
-  const median   = prices.length > 0 ? prices[Math.floor(prices.length / 2)]        : null;
-  const highest  = prices.length > 0 ? prices[prices.length - 1]                    : null;
+  const lowest   = data.lowest_price?.value ?? null;
+  const currency = data.lowest_price?.currency ?? "USD";
+  const numForSale = data.num_for_sale ?? 0;
 
   return Response.json(
     {
-      last_sold:      null,  // not available from listings endpoint
+      last_sold:      null,
       last_sold_date: null,
       lowest,
-      median,
-      highest,
+      median:       lowest,
+      highest:      null,
       currency,
-      num_for_sale:   numForSale,
+      num_for_sale: numForSale,
     },
     { headers: { "Cache-Control": "no-store" } }
   );
