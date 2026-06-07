@@ -69,14 +69,21 @@ async function loadFonts(): Promise<void> {
 // ─── Image loader ──────────────────────────────────────────────────────────
 
 async function loadImage(url: string): Promise<HTMLImageElement | null> {
-  return new Promise((resolve) => {
-    const img = new Image();
-    img.crossOrigin = "anonymous";
-    img.onload  = () => resolve(img);
-    img.onerror = () => resolve(null);
-    img.src = url;
-    setTimeout(() => resolve(null), 5000);
-  });
+  try {
+    const proxied = `/api/image-proxy?url=${encodeURIComponent(url)}`;
+    const resp = await fetch(proxied, { signal: AbortSignal.timeout(8000) });
+    if (!resp.ok) return null;
+    const blob = await resp.blob();
+    const objectUrl = URL.createObjectURL(blob);
+    return new Promise((resolve) => {
+      const img = new Image();
+      img.onload  = () => { URL.revokeObjectURL(objectUrl); resolve(img); };
+      img.onerror = () => { URL.revokeObjectURL(objectUrl); resolve(null); };
+      img.src = objectUrl;
+    });
+  } catch {
+    return null;
+  }
 }
 
 // ─── Layout helpers ────────────────────────────────────────────────────────

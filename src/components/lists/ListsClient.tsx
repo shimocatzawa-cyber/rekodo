@@ -216,7 +216,7 @@ export default function ListsClient({
   const [activeSavedId,   setActiveSavedId]   = useState<string | null>(null);
   const [top5Expanded,    setTop5Expanded]    = useState(false);
   const [privateExpanded, setPrivateExpanded] = useState(false);
-  const [rightPanelTab,   setRightPanelTab]   = useState<"top5" | "private">("top5");
+  const [rightPanelTab,   setRightPanelTab]   = useState<"top5" | "private" | "saved">("top5");
 
   // ── Wantlist controls ──────────────────────────────────────────────────────
   type WantlistSort = "priority" | "date_added" | "artist";
@@ -447,12 +447,14 @@ export default function ListsClient({
 
   function handleSaveCard(entry: SavedCardEntry) {
     setSavedCards(prev => prev.some(c => c.id === entry.id) ? prev : [...prev, entry]);
+    setRightPanelTab("saved");
   }
 
   function handleViewCard(entry: SavedCardEntry) {
     setSavedCards(prev => prev.some(c => c.id === entry.id) ? prev : [...prev, entry]);
     setActiveSavedId(entry.id);
     setActivePillId(null);
+    setRightPanelTab("saved");
     closePicker();
   }
 
@@ -614,80 +616,6 @@ export default function ListsClient({
               );
             })()}
 
-            {/* Divider */}
-            <div style={{ width: "1px", height: "18px", background: "rgba(0,0,0,0.14)", flexShrink: 0, margin: "0 4px" }} />
-
-            {/* Private section */}
-            {(() => {
-              const priv = lists.filter(l => l.list_type !== "top5" && l.slug !== "wantlist" && l.slug !== "want-to-buy");
-              const visible = privateExpanded ? priv : priv.slice(0, 7);
-              const hidden = priv.length - visible.length;
-              return (
-                <>
-                  <span style={{ fontFamily: MONO, fontSize: "11px", letterSpacing: "0.08em", textTransform: "uppercase", color: "#aaaaaa", flexShrink: 0, marginRight: "2px" }}>
-                    Private
-                  </span>
-                  {visible.map(list => {
-                    const isActive = activePillId === list.id;
-                    return (
-                      <button key={list.id}
-                        onClick={() => { setActivePillId(list.id); setActiveSavedId(null); closePicker(); }}
-                        style={{
-                          fontFamily: MONO, fontSize: "11px", letterSpacing: "0.08em",
-                          color: isActive ? ORANGE : "rgba(204,85,0,0.5)",
-                          background: isActive ? "rgba(204,85,0,0.05)" : "none",
-                          border: `1px solid ${isActive ? ORANGE : "rgba(204,85,0,0.4)"}`,
-                          borderRadius: "3px", cursor: "pointer", padding: "4px 10px",
-                          flexShrink: 0, whiteSpace: "nowrap", transition: "all 0.15s",
-                        }}
-                      >
-                        {`${list.title} · ${list.slots.length}`}
-                      </button>
-                    );
-                  })}
-                  {hidden > 0 && (
-                    <button onClick={() => setPrivateExpanded(true)} style={{ fontFamily: MONO, fontSize: "11px", letterSpacing: "0.06em", color: "rgba(204,85,0,0.5)", background: "none", border: "1px solid rgba(204,85,0,0.3)", borderRadius: "3px", cursor: "pointer", padding: "4px 10px", flexShrink: 0, whiteSpace: "nowrap" }}>
-                      +{hidden} more
-                    </button>
-                  )}
-                  {privateExpanded && priv.length > 7 && (
-                    <button onClick={() => setPrivateExpanded(false)} style={{ fontFamily: MONO, fontSize: "11px", letterSpacing: "0.06em", color: "#aaaaaa", background: "none", border: "none", cursor: "pointer", padding: "0 4px", flexShrink: 0, whiteSpace: "nowrap" }}>
-                      Show less
-                    </button>
-                  )}
-                </>
-              );
-            })()}
-
-            {/* Saved */}
-            <div style={{ width: "1px", height: "18px", background: "rgba(0,0,0,0.14)", flexShrink: 0, margin: "0 6px" }} />
-            <span style={{ fontFamily: MONO, fontSize: "11px", letterSpacing: "0.08em", textTransform: "uppercase", color: "#aaaaaa", flexShrink: 0, marginRight: "4px" }}>
-              Saved
-            </span>
-            {savedCards.length === 0 ? (
-              <span style={{ fontFamily: MONO, fontSize: "0.75rem", color: "#d0d0d0", letterSpacing: "0.04em", flexShrink: 0, fontStyle: "italic" }}>
-                No saved lists yet
-              </span>
-            ) : (
-              savedCards.map(card => {
-                const isActive = activeSavedId === card.id;
-                return (
-                  <button key={card.id}
-                    onClick={() => { setActiveSavedId(card.id); setActivePillId(null); closePicker(); }}
-                    style={{
-                      fontFamily: MONO, fontSize: "11px", letterSpacing: "0.08em",
-                      color: isActive ? ORANGE : "#888888",
-                      background: "none",
-                      border: `1px solid ${isActive ? ORANGE : "rgba(0,0,0,0.15)"}`,
-                      borderRadius: "3px", cursor: "pointer", padding: "4px 10px",
-                      flexShrink: 0, whiteSpace: "nowrap", transition: "all 0.15s",
-                    }}
-                  >
-                    {card.title}
-                  </button>
-                );
-              })
-            )}
           </div>
 
           {/* Anchored + New list — never displaced */}
@@ -766,7 +694,7 @@ export default function ListsClient({
       {/* ── Three-column grid: Discover · List detail · My Lists ── */}
       <div
         className="flex flex-col overflow-y-auto md:grid md:overflow-hidden"
-        style={{ flex: 1, minHeight: 0, gridTemplateColumns: "300px 1fr 320px" }}
+        style={{ flex: 1, minHeight: 0, gridTemplateColumns: "380px 1fr 380px" }}
       >
 
         {/* Centre: List detail */}
@@ -777,7 +705,7 @@ export default function ListsClient({
           {selectedList ? (
             <div className="px-4 md:px-7" style={{ flex: 1, paddingTop: "24px", paddingBottom: "28px", overflowY: "auto", minHeight: 0 }}>
               <p style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.12em", textTransform: "uppercase", color: ORANGE, marginBottom: "10px" }}>
-                リスト · {selectedList.is_public ? "Public List" : "Private List"}
+                {selectedList.is_public ? "Public List" : "Private List"}
               </p>
               <h2 style={{ fontFamily: SERIF, fontSize: "20px", fontWeight: 400, color: "#0d0d0d", lineHeight: 1.15, marginBottom: "5px" }}>
                 {selectedList.title}
@@ -1076,7 +1004,7 @@ export default function ListsClient({
           ) : activeSavedCard ? (
             <div className="px-4 md:px-7" style={{ flex: 1, paddingTop: "24px", paddingBottom: "28px", overflowY: "auto", minHeight: 0 }}>
               <p style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.12em", textTransform: "uppercase", color: ORANGE, marginBottom: "10px" }}>
-                リスト · Discovered
+                Discovered
               </p>
               <h2 style={{ fontFamily: SERIF, fontSize: "20px", fontWeight: 400, color: "#0d0d0d", lineHeight: 1.15, marginBottom: "5px" }}>
                 {activeSavedCard.title}
@@ -1122,13 +1050,13 @@ export default function ListsClient({
               <div style={{ display: "flex", gap: "20px" }}>
                 {(["similar", "following", "trending", "all"] as DiscoverTab[]).map(tab => (
                   <button key={tab} onClick={() => setDiscoverTab(tab)} style={{
-                    fontFamily: MONO, fontSize: "0.75rem", letterSpacing: "0.08em",
+                    fontFamily: MONO, fontSize: "11px", letterSpacing: "0.08em", textTransform: "uppercase",
                     background: "none", border: "none", cursor: "pointer", padding: "0 0 4px",
                     color: discoverTab === tab ? "#0d0d0d" : "#aaaaaa",
                     borderBottom: `1px solid ${discoverTab === tab ? "#0d0d0d" : "transparent"}`,
                     transition: "color 0.15s",
                   }}>
-                    {tab === "similar" ? "Similar taste" : tab === "following" ? "Following" : tab === "trending" ? "Trending" : "All lists"}
+                    {tab === "similar" ? "Similar" : tab === "following" ? "Following" : tab === "trending" ? "Trending" : "All"}
                   </button>
                 ))}
               </div>
@@ -1203,23 +1131,28 @@ export default function ListsClient({
           className="hidden md:flex md:flex-col md:overflow-hidden"
           style={{ borderLeft: "0.5px solid #e8e8e8", gridColumn: "3", gridRow: "1" }}
         >
-          {/* Toggle header */}
-          <div style={{ flexShrink: 0, padding: "14px 16px", borderBottom: "1px solid rgba(0,0,0,0.08)", display: "flex", gap: "20px" }}>
-            {(["top5", "private"] as const).map(tab => (
-              <button
-                key={tab}
-                onClick={() => setRightPanelTab(tab)}
-                style={{
-                  fontFamily: MONO, fontSize: "11px", letterSpacing: "0.08em", textTransform: "uppercase",
-                  color: rightPanelTab === tab ? "#0d0d0d" : "#aaaaaa",
-                  background: "none", border: "none", cursor: "pointer", padding: "0 0 4px",
-                  borderBottom: `1px solid ${rightPanelTab === tab ? "#0d0d0d" : "transparent"}`,
-                  transition: "color 0.15s",
-                }}
-              >
-                {tab === "top5" ? "My Top 5s" : "My Private Lists"}
-              </button>
-            ))}
+          {/* Header — matches Discover style */}
+          <div style={{ position: "sticky", top: 0, background: "#ffffff", zIndex: 1, padding: "24px 24px 14px", borderBottom: "1px solid rgba(0,0,0,0.06)", flexShrink: 0 }}>
+            <h2 style={{ fontFamily: SERIF, fontSize: "1.1rem", fontWeight: 600, color: "#0d0d0d", marginBottom: "12px" }}>
+              My Lists
+            </h2>
+            <div style={{ display: "flex", gap: "20px" }}>
+              {(["top5", "private", "saved"] as const).map(tab => (
+                <button
+                  key={tab}
+                  onClick={() => setRightPanelTab(tab)}
+                  style={{
+                    fontFamily: MONO, fontSize: "11px", letterSpacing: "0.08em", textTransform: "uppercase",
+                    background: "none", border: "none", cursor: "pointer", padding: "0 0 4px",
+                    color: rightPanelTab === tab ? "#0d0d0d" : "#aaaaaa",
+                    borderBottom: `1px solid ${rightPanelTab === tab ? "#0d0d0d" : "transparent"}`,
+                    transition: "color 0.15s",
+                  }}
+                >
+                  {tab === "top5" ? "Top 5" : tab === "private" ? "Private" : "Saved"}
+                </button>
+              ))}
+            </div>
           </div>
           {/* List rows */}
           <div style={{ flex: 1, overflowY: "auto", minHeight: 0 }}>
@@ -1248,7 +1181,7 @@ export default function ListsClient({
                   </div>
                 );
               })
-            ) : (
+            ) : rightPanelTab === "private" ? (
               lists.filter(l => l.list_type !== "top5" && l.slug !== "wantlist" && l.slug !== "want-to-buy").map(list => {
                 const isActive = activePillId === list.id;
                 return (
@@ -1268,6 +1201,36 @@ export default function ListsClient({
                     </span>
                     <span style={{ fontFamily: MONO, fontSize: "11px", letterSpacing: "0.04em", color: "#aaaaaa", flexShrink: 0, marginLeft: "8px" }}>
                       {list.slots.length}
+                    </span>
+                  </div>
+                );
+              })
+            ) : savedCards.length === 0 ? (
+              <div style={{ padding: "32px 20px" }}>
+                <p style={{ fontFamily: SERIF, fontStyle: "italic", fontSize: "13px", color: "#cccccc", lineHeight: 1.6 }}>
+                  No saved lists yet.
+                </p>
+              </div>
+            ) : (
+              savedCards.map(card => {
+                const isActive = activeSavedId === card.id;
+                return (
+                  <div
+                    key={card.id}
+                    onClick={() => { setActiveSavedId(card.id); setActivePillId(null); closePicker(); }}
+                    style={{
+                      display: "flex", alignItems: "center", padding: "9px 16px 9px 13px",
+                      borderLeft: `3px solid ${isActive ? ORANGE : "transparent"}`,
+                      background: isActive ? "rgba(204,85,0,0.025)" : "none",
+                      borderBottom: "1px solid rgba(0,0,0,0.04)",
+                      cursor: "pointer", transition: "background 0.1s",
+                    }}
+                  >
+                    <span style={{ flex: 1, fontFamily: MONO, fontSize: "11px", letterSpacing: "0.04em", color: "#0d0d0d", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                      {card.title}
+                    </span>
+                    <span style={{ fontFamily: MONO, fontSize: "11px", letterSpacing: "0.04em", color: "#aaaaaa", flexShrink: 0, marginLeft: "8px" }}>
+                      @{card.username}
                     </span>
                   </div>
                 );
@@ -1362,7 +1325,6 @@ function TracklistRow({ position, item, isSaving, isPickerOpen, onOpen, onRemove
                 { label: "Discogs",     href: `https://www.discogs.com/search/?q=${encodeURIComponent(`${item.artist} ${item.song_title ?? item.album}`)}&type=release` },
                 { label: "Apple Music", href: `https://music.apple.com/search?term=${encodeURIComponent(`${item.artist} ${item.song_title ?? item.album}`)}` },
                 { label: "Tidal",       href: `https://tidal.com/search?q=${encodeURIComponent(`${item.artist} ${item.song_title ?? item.album}`)}` },
-                { label: "Spotify",     href: `https://open.spotify.com/search/${encodeURIComponent(`${item.artist} ${item.song_title ?? item.album}`)}` },
               ].map(({ label, href }) => (
                 <a key={label} href={href} target="_blank" rel="noopener noreferrer" style={{
                   fontFamily: MONO, fontSize: "10px", letterSpacing: "0.05em",
