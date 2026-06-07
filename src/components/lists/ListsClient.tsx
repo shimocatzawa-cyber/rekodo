@@ -622,7 +622,7 @@ export default function ListsClient({
                               return next;
                             });
                           }} style={{
-                            fontFamily: MONO, fontSize: "11px", letterSpacing: "0.06em", textTransform: "uppercase",
+                            fontFamily: MONO, fontSize: "11px", letterSpacing: "0.06em",
                             color: on ? PRIORITY_COLORS[p] : "#aaaaaa",
                             background: on ? `${PRIORITY_COLORS[p]}14` : "none",
                             border: `1px solid ${on ? PRIORITY_COLORS[p] : "#e0e0da"}`,
@@ -731,7 +731,7 @@ export default function ListsClient({
                             background: "none", border: "none", cursor: "pointer", padding: "0 0 2px",
                             borderBottom: `1px solid ${wantlistSort === s ? "#0d0d0d" : "transparent"}`,
                           }}>
-                            {s === "priority" ? "Priority" : s === "date_added" ? "Date added" : "Artist A–Z"}
+                            {s === "priority" ? "Priority" : s === "date_added" ? "Date Added" : "Artist A–Z"}
                           </button>
                         ))}
                       </div>
@@ -1617,7 +1617,7 @@ function WantlistCard({ slot, monthsOld, showSomedayPrompt, onRemove, onKeepSome
           href={discogsSearchUrl}
           target="_blank"
           rel="noopener noreferrer"
-          style={{ fontFamily: MONO, fontSize: "0.75rem", letterSpacing: "0.05em", color: "#333333", textDecoration: hovered ? "underline" : "none", flexShrink: 0, transition: "text-decoration 0.1s" }}
+          style={{ fontFamily: MONO, fontSize: "10px", letterSpacing: "0.05em", color: hovered ? "#a34400" : ORANGE, textDecoration: "none", flexShrink: 0, transition: "color 0.15s", whiteSpace: "nowrap" }}
         >
           Discogs ↗
         </a>
@@ -1704,7 +1704,7 @@ function WantlistCard({ slot, monthsOld, showSomedayPrompt, onRemove, onKeepSome
             <button onClick={onRemove} style={{ fontFamily: MONO, fontSize: "7px", letterSpacing: "0.07em", color: "#aaaaaa", background: "none", border: "none", cursor: "pointer", padding: "1px 0", flexShrink: 0 }}>Remove</button>
           </>
         ) : dateLabel ? (
-          <span style={{ fontFamily: MONO, fontSize: "0.7rem", color: "#bbbbbb", letterSpacing: "0.03em", flexShrink: 0 }}>
+          <span style={{ fontFamily: MONO, fontSize: "10px", color: "#bbbbbb", letterSpacing: "0.03em", flexShrink: 0 }}>
             {dateLabel}
           </span>
         ) : null}
