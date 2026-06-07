@@ -301,24 +301,25 @@ Return JSON only, no preamble, no markdown:
   }
 
   async function enrichPodcast(podcast: PodcastAi): Promise<{ thumbnail_url: string | null; external_url: string | null; source_id: string | null }> {
+    const q = encodeURIComponent(podcast.search_query || `${podcast.title} ${podcast.show}`);
+    const applePodcastsUrl = `https://podcasts.apple.com/search?term=${q}`;
+
     const taddyKey    = process.env.TADDY_API_KEY;
     const taddyUserId = process.env.TADDY_USER_ID;
     if (!taddyKey || !taddyUserId) {
-      const q = encodeURIComponent(podcast.search_query || `${podcast.title} ${podcast.show}`);
-      return { thumbnail_url: null, external_url: `https://podcastindex.org/search?q=${q}`, source_id: null };
+      return { thumbnail_url: null, external_url: applePodcastsUrl, source_id: null };
     }
     try {
-      const q = encodeURIComponent(podcast.search_query || `${podcast.title} ${podcast.show}`);
       const res = await fetch(`https://api.taddy.org/api/search?term=${q}&searchType=EPISODES&limitForType=1`, {
         headers: { "X-USER-ID": taddyUserId, "X-API-KEY": taddyKey, "Content-Type": "application/json" },
       });
-      if (!res.ok) return { thumbnail_url: null, external_url: null, source_id: null };
-      const data = await res.json() as { searchForTerm?: { podcastEpisodes?: Array<{ uuid: string; audioUrl: string; podcastSeries?: { imageUrl: string } }> } };
+      if (!res.ok) return { thumbnail_url: null, external_url: applePodcastsUrl, source_id: null };
+      const data = await res.json() as { searchForTerm?: { podcastEpisodes?: Array<{ uuid: string; podcastSeries?: { imageUrl: string } }> } };
       const ep = data.searchForTerm?.podcastEpisodes?.[0];
-      if (!ep) return { thumbnail_url: null, external_url: null, source_id: null };
-      return { thumbnail_url: ep.podcastSeries?.imageUrl ?? null, external_url: ep.audioUrl ?? null, source_id: ep.uuid ?? null };
+      if (!ep) return { thumbnail_url: null, external_url: applePodcastsUrl, source_id: null };
+      return { thumbnail_url: ep.podcastSeries?.imageUrl ?? null, external_url: applePodcastsUrl, source_id: ep.uuid ?? null };
     } catch {
-      return { thumbnail_url: null, external_url: null, source_id: null };
+      return { thumbnail_url: null, external_url: applePodcastsUrl, source_id: null };
     }
   }
 
