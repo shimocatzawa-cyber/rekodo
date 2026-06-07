@@ -165,6 +165,12 @@ ${intelJson}
 ${prevBooks ? `\nAlready shown — do NOT repeat any of these: ${prevBooks}\n` : ""}
 Your task: identify 5 books — biographies, label histories, genre studies, or music criticism — that a collector with this specific taste would find essential.
 
+Existence rules — these are absolute:
+- Only recommend books you are certain exist. If you are not sure a book exists, do not include it.
+- Every book must have a real author, real publisher, and real publication year you can state confidently.
+- Do NOT invent titles. Do NOT combine a real author with a fictional title. Do NOT guess.
+- If you cannot think of a verified book for a given artist, skip that artist entirely.
+
 Depth rules — these are strict:
 - Only recommend where the matched artist is the explicit subject of the entire work
 - A chapter mention does not qualify
@@ -172,7 +178,7 @@ Depth rules — these are strict:
 - A label history that centres on a specific artist qualifies
 - A general history that references them in passing does not qualify
 - Prioritise artists the user owns 3 or more records by
-- Include at least one label history if a major label appears in their collection (ECM, Blue Note, 4AD, Matador, Drag City, etc.)
+- Include at least one label history if a major label appears in their collection (ECM, Blue Note, 4AD, Matador, Drag City, etc.) — but only if a real label history book exists
 - Include at least one broader music criticism book matching their dominant genre or era
 
 match_reason rules:
@@ -231,7 +237,7 @@ Return JSON only, no preamble, no markdown:
       messages: [{ role: "user", content: podcastPrompt }],
     }),
     anthropic.messages.create({
-      model: "claude-haiku-4-5-20251001",
+      model: "claude-sonnet-4-6",
       max_tokens: 4096,
       messages: [{ role: "user", content: bookPrompt }],
     }),
@@ -282,18 +288,19 @@ Return JSON only, no preamble, no markdown:
 
   // ── Enrich with external APIs ─────────────────────────────────────────────
 
-  async function enrichBook(book: BookAi): Promise<{ thumbnail_url: string | null; external_url: string | null; source_id: string | null }> {
+  async function enrichBook(book: BookAi): Promise<{ thumbnail_url: string | null; external_url: string | null; source_id: string | null; verified: boolean }> {
     try {
       const searchUrl = book.isbn
         ? `https://openlibrary.org/search.json?isbn=${encodeURIComponent(book.isbn)}&limit=1`
         : `https://openlibrary.org/search.json?title=${encodeURIComponent(book.title)}&author=${encodeURIComponent(book.author)}&limit=1`;
 
       const res = await fetch(searchUrl, { headers: { "User-Agent": "rekodo/1.0" } });
-      if (!res.ok) return { thumbnail_url: null, external_url: null, source_id: null };
+      if (!res.ok) return { thumbnail_url: null, external_url: null, source_id: null, verified: false };
 
       const data = await res.json() as { docs?: Array<{ key?: string; isbn?: string[]; cover_i?: number }> };
       const doc = data.docs?.[0];
-      if (!doc) return { thumbnail_url: null, external_url: null, source_id: null };
+      // No match in Open Library — treat as unverified and discard
+      if (!doc) return { thumbnail_url: null, external_url: null, source_id: null, verified: false };
 
       const olid = doc.key?.replace("/works/", "") ?? null;
       const coverId = doc.cover_i;
@@ -304,9 +311,9 @@ Return JSON only, no preamble, no markdown:
       const external_url = olid
         ? `https://openlibrary.org/works/${olid}`
         : isbn ? `https://openlibrary.org/isbn/${isbn}` : null;
-      return { thumbnail_url, external_url, source_id: olid ?? isbn };
+      return { thumbnail_url, external_url, source_id: olid ?? isbn, verified: true };
     } catch {
-      return { thumbnail_url: null, external_url: null, source_id: null };
+      return { thumbnail_url: null, external_url: null, source_id: null, verified: false };
     }
   }
 
@@ -344,11 +351,16 @@ Return JSON only, no preamble, no markdown:
     return { external_url: `https://www.audible.com/search?keywords=${q}` };
   }
 
-  const [enrichedPodcastData, enrichedBooksData] = await Promise.all([
+  const [enrichedPodcastData, allEnrichedBooksData] = await Promise.all([
     Promise.all(podcasts.map(enrichPodcast)),
     Promise.all(books.map(enrichBook)),
   ]);
   const enrichedAudibleData = audible.map(enrichAudible);
+
+  // Discard books Open Library couldn't verify — they're likely hallucinated
+  const verifiedBookIndices = books.map((_, i) => i).filter((i) => allEnrichedBooksData[i].verified);
+  const verifiedBooks        = verifiedBookIndices.map((i) => books[i]);
+  const enrichedBooksData    = verifiedBookIndices.map((i) => allEnrichedBooksData[i]);
 
   // ── Build rows for DB ─────────────────────────────────────────────────────
 
@@ -388,7 +400,7 @@ Return JSON only, no preamble, no markdown:
     relevance_score: p.relevance_score ?? null,
   }));
 
-  const bookRows: DbRow[] = books.map((b, i) => ({
+  const bookRows: DbRow[] = verifiedBooks.map((b, i) => ({
     user_id: user.id,
     format: "book" as const,
     title: b.title,
