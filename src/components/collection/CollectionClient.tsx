@@ -155,12 +155,12 @@ function matchesDecade(year: number | null, decade: string): boolean {
 
 // ─── Collection desirability (price-based, for filter) ───────────────────────
 
-type FilterDesirabilityTier = "rare" | "valuable" | "in-demand" | "common" | "unpriced";
+type FilterDesirabilityTier = "rare" | "holy-grail" | "in-demand" | "common" | "unpriced";
 
 const DESIRABILITY_FILTER_OPTIONS: { value: FilterDesirabilityTier; label: string }[] = [
-  { value: "rare",      label: "Rare"      },
-  { value: "valuable",  label: "Valuable"  },
-  { value: "in-demand", label: "In Demand" },
+  { value: "rare",       label: "Rare"       },
+  { value: "holy-grail", label: "Holy Grail" },
+  { value: "in-demand",  label: "In Demand"  },
 ];
 
 function getCollectionDesirabilityTier(
@@ -169,7 +169,7 @@ function getCollectionDesirabilityTier(
   const price = priceLow ?? priceMedian;
   if (!price || price <= 0) return "unpriced";
   if (price >= 150) return "rare";
-  if (price >= 40)  return "valuable";
+  if (price >= 40)  return "holy-grail";
   if (price >= 10)  return "in-demand";
   return "common";
 }

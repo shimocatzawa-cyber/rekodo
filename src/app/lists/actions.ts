@@ -401,6 +401,41 @@ export async function updateWantlistItemMeta(
   return { success: true };
 }
 
+// ─── Reorder list items ────────────────────────────────────────────────────────
+
+export async function reorderListItems(listId: string, fromPosition: number, toPosition: number) {
+  if (fromPosition === toPosition) return { success: true };
+
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { error: "Not authenticated" };
+
+  if (!(await assertListOwner(supabase, listId, user.id))) return { error: "List not found" };
+
+  const TEMP = 9999; // avoids unique-constraint conflicts during shifts
+
+  // Move dragged item out of the way
+  await supabase.from("list_items").update({ position: TEMP }).eq("list_id", listId).eq("position", fromPosition);
+
+  if (fromPosition > toPosition) {
+    // Moving up — shift items between toPosition and fromPosition-1 down by 1
+    for (let p = fromPosition - 1; p >= toPosition; p--) {
+      await supabase.from("list_items").update({ position: p + 1 }).eq("list_id", listId).eq("position", p);
+    }
+  } else {
+    // Moving down — shift items between fromPosition+1 and toPosition up by 1
+    for (let p = fromPosition + 1; p <= toPosition; p++) {
+      await supabase.from("list_items").update({ position: p - 1 }).eq("list_id", listId).eq("position", p);
+    }
+  }
+
+  // Land dragged item at its destination
+  await supabase.from("list_items").update({ position: toPosition }).eq("list_id", listId).eq("position", TEMP);
+
+  revalidatePath("/lists");
+  return { success: true };
+}
+
 // ─── Delete list ───────────────────────────────────────────────────────────────
 
 export async function deleteList(listId: string) {

@@ -7,7 +7,7 @@ import {
   setListRecord, addDiscogsRecordToList, addSongToList,
   appendRecordToList, appendDiscogsRecordToList, appendSongToList,
   removeListItem, toggleListPublic, createList, deleteList,
-  updateWantlistItemMeta,
+  updateWantlistItemMeta, reorderListItems,
   type DiscogsPayload, type SongPayload,
 } from "@/app/lists/actions";
 import type { UserList, ListSlot, SlotItem, DiscoverList } from "@/app/lists/page";
@@ -176,6 +176,18 @@ function parseTitle(title: string): { artist: string; album: string } {
   const idx = title.indexOf(" - ");
   if (idx === -1) return { artist: "", album: title };
   return { artist: title.slice(0, idx), album: title.slice(idx + 3) };
+}
+
+// ─── Slot reorder helper ──────────────────────────────────────────────────────
+
+function reorderSlots(slots: ListSlot[], fromPos: number, toPos: number): ListSlot[] {
+  if (fromPos === toPos) return slots;
+  return slots.map(s => {
+    if (s.position === fromPos) return { ...s, position: toPos };
+    if (fromPos < toPos && s.position > fromPos && s.position <= toPos) return { ...s, position: s.position - 1 };
+    if (fromPos > toPos && s.position >= toPos && s.position < fromPos) return { ...s, position: s.position + 1 };
+    return s;
+  }).sort((a, b) => a.position - b.position);
 }
 
 // ─── Main component ───────────────────────────────────────────────────────────
@@ -416,6 +428,19 @@ export default function ListsClient({
     }));
     const res = await updateWantlistItemMeta(listId, position, updates);
     if (res?.error) { console.error(res.error); setLists(initialLists); }
+  }
+
+  const [dragFromPos, setDragFromPos] = useState<number | null>(null);
+  const [dragOverPos, setDragOverPos] = useState<number | null>(null);
+
+  async function handleReorder(listId: string, fromPos: number, toPos: number) {
+    if (fromPos === toPos) return;
+    setLists(prev => prev.map(l =>
+      l.id !== listId ? l : { ...l, slots: reorderSlots(l.slots, fromPos, toPos) }
+    ));
+    const res = await reorderListItems(listId, fromPos, toPos);
+    if (res?.error) { console.error(res.error); setLists(initialLists); }
+    router.refresh();
   }
 
   async function handleShare(list: UserList) {
@@ -684,6 +709,17 @@ export default function ListsClient({
                         isPickerOpen={isActive}
                         onOpen={() => openPicker({ listId: selectedList.id, position: pos, strategy: "replace" })}
                         onRemove={() => handleRemoveItem(selectedList.id, pos)}
+                        isDragging={dragFromPos === pos}
+                        isDragOver={dragOverPos === pos && dragFromPos !== pos}
+                        onDragStart={slot?.item ? () => setDragFromPos(pos) : undefined}
+                        onDragOver={slot?.item ? (e: React.DragEvent) => { e.preventDefault(); setDragOverPos(pos); } : undefined}
+                        onDrop={dragFromPos !== null && dragFromPos !== pos ? () => {
+                          const from = dragFromPos;
+                          setDragFromPos(null);
+                          setDragOverPos(null);
+                          handleReorder(selectedList.id, from, pos);
+                        } : undefined}
+                        onDragEnd={() => { setDragFromPos(null); setDragOverPos(null); }}
                       />
                     );
                   })
@@ -801,7 +837,22 @@ export default function ListsClient({
                 ) : (
                   <>
                     {selectedList.slots.map(slot => (
-                      <PersonalRow key={slot.position} slot={slot} onRemove={() => handleRemoveItem(selectedList.id, slot.position)} />
+                      <PersonalRow
+                        key={slot.position}
+                        slot={slot}
+                        onRemove={() => handleRemoveItem(selectedList.id, slot.position)}
+                        isDragging={dragFromPos === slot.position}
+                        isDragOver={dragOverPos === slot.position && dragFromPos !== slot.position}
+                        onDragStart={() => setDragFromPos(slot.position)}
+                        onDragOver={(e: React.DragEvent) => { e.preventDefault(); setDragOverPos(slot.position); }}
+                        onDrop={dragFromPos !== null && dragFromPos !== slot.position ? () => {
+                          const from = dragFromPos;
+                          setDragFromPos(null);
+                          setDragOverPos(null);
+                          handleReorder(selectedList.id, from, slot.position);
+                        } : undefined}
+                        onDragEnd={() => { setDragFromPos(null); setDragOverPos(null); }}
+                      />
                     ))}
                     {selectedList.slots.length < 20 && (
                       <AddRecordButton onClick={() => openPicker({ listId: selectedList.id, strategy: "append" })} />
@@ -1217,27 +1268,44 @@ export default function ListsClient({
 
 // ─── TracklistRow ─────────────────────────────────────────────────────────────
 
-function TracklistRow({ position, item, isSaving, isPickerOpen, onOpen, onRemove }: {
+function TracklistRow({ position, item, isSaving, isPickerOpen, onOpen, onRemove,
+  isDragging, isDragOver, onDragStart, onDragOver, onDrop, onDragEnd,
+}: {
   position: number;
   item: SlotItem | null;
   isSaving: boolean;
   isPickerOpen: boolean;
   onOpen: () => void;
   onRemove: () => void;
+  isDragging?: boolean;
+  isDragOver?: boolean;
+  onDragStart?: () => void;
+  onDragOver?: (e: React.DragEvent) => void;
+  onDrop?: () => void;
+  onDragEnd?: () => void;
 }) {
   const [hovered, setHovered] = useState(false);
   return (
     <div
+      draggable={!!item && !!onDragStart}
       style={{
         display: "flex", alignItems: "center", gap: "12px",
-        padding: "6px 0", borderBottom: "1px solid rgba(0,0,0,0.05)",
-        minHeight: "60px", cursor: "pointer",
+        padding: "6px 0",
+        borderBottom: "1px solid rgba(0,0,0,0.05)",
+        borderTop: isDragOver ? `2px solid ${ORANGE}` : undefined,
+        minHeight: "60px",
+        cursor: item ? (isDragging ? "grabbing" : "grab") : "pointer",
         background: isPickerOpen ? "rgba(204,85,0,0.025)" : "transparent",
-        transition: "background 0.1s",
+        opacity: isDragging ? 0.4 : 1,
+        transition: "background 0.1s, opacity 0.1s",
       }}
       onClick={onOpen}
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
+      onDragStart={onDragStart}
+      onDragOver={onDragOver}
+      onDrop={onDrop}
+      onDragEnd={onDragEnd}
     >
       <span style={{ fontFamily: MONO, fontSize: "10px", color: ORANGE, width: "16px", flexShrink: 0, textAlign: "right" }}>
         {position}
@@ -1305,15 +1373,38 @@ function TracklistRow({ position, item, isSaving, isPickerOpen, onOpen, onRemove
 
 // ─── PersonalRow ──────────────────────────────────────────────────────────────
 
-function PersonalRow({ slot, onRemove }: { slot: ListSlot; onRemove: () => void }) {
+function PersonalRow({ slot, onRemove, isDragging, isDragOver, onDragStart, onDragOver, onDrop, onDragEnd }: {
+  slot: ListSlot;
+  onRemove: () => void;
+  isDragging?: boolean;
+  isDragOver?: boolean;
+  onDragStart?: () => void;
+  onDragOver?: (e: React.DragEvent) => void;
+  onDrop?: () => void;
+  onDragEnd?: () => void;
+}) {
   const { item } = slot;
   if (!item) return null;
   const [hovered, setHovered] = useState(false);
   return (
     <div
-      style={{ display: "flex", alignItems: "center", gap: "12px", padding: "6px 0", borderBottom: "1px solid rgba(0,0,0,0.05)", minHeight: "48px" }}
+      draggable
+      style={{
+        display: "flex", alignItems: "center", gap: "12px",
+        padding: "6px 0",
+        borderBottom: "1px solid rgba(0,0,0,0.05)",
+        borderTop: isDragOver ? `2px solid ${ORANGE}` : undefined,
+        minHeight: "48px",
+        cursor: isDragging ? "grabbing" : "grab",
+        opacity: isDragging ? 0.4 : 1,
+        transition: "opacity 0.1s",
+      }}
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
+      onDragStart={onDragStart}
+      onDragOver={onDragOver}
+      onDrop={onDrop}
+      onDragEnd={onDragEnd}
     >
       <span style={{ fontFamily: MONO, fontSize: "9px", color: "#cccccc", width: "16px", flexShrink: 0, textAlign: "right" }}>
         {slot.position}
