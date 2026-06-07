@@ -832,11 +832,11 @@ export default function ListsClient({
                       </div>
 
                       {/* Sort + filter row */}
-                      <div style={{ display: "flex", alignItems: "center", gap: "14px", flexWrap: "wrap" }}>
-                        <span style={{ fontFamily: MONO, fontSize: "8px", letterSpacing: "0.1em", textTransform: "uppercase", color: "#cccccc", flexShrink: 0 }}>Sort</span>
+                      <div style={{ display: "flex", alignItems: "center", gap: "10px", flexWrap: "wrap" }}>
+                        <span style={{ fontFamily: MONO, fontSize: "0.7rem", letterSpacing: "0.1em", textTransform: "uppercase", color: "#cccccc", flexShrink: 0, marginRight: "4px" }}>Sort</span>
                         {(["priority", "price_cap", "date_added", "artist"] as const).map(s => (
                           <button key={s} onClick={() => setWantlistSort(s)} style={{
-                            fontFamily: MONO, fontSize: "8px", letterSpacing: "0.06em",
+                            fontFamily: MONO, fontSize: "0.75rem", letterSpacing: "0.05em",
                             color: wantlistSort === s ? "#0d0d0d" : "#aaaaaa",
                             background: "none", border: "none", cursor: "pointer", padding: "0 0 2px",
                             borderBottom: `1px solid ${wantlistSort === s ? "#0d0d0d" : "transparent"}`,
@@ -844,7 +844,7 @@ export default function ListsClient({
                             {s === "priority" ? "Priority" : s === "price_cap" ? "Price cap" : s === "date_added" ? "Date added" : "Artist A–Z"}
                           </button>
                         ))}
-                        <div style={{ width: "1px", height: "14px", background: "rgba(0,0,0,0.1)", flexShrink: 0 }} />
+                        <div style={{ width: "1px", height: "14px", background: "rgba(0,0,0,0.1)", flexShrink: 0, margin: "0 4px" }} />
                         {(["must_have", "would_love", "someday"] as Priority[]).map(p => {
                           const on = wantlistFilter.has(p);
                           return (
@@ -855,11 +855,11 @@ export default function ListsClient({
                                 return next;
                               });
                             }} style={{
-                              fontFamily: MONO, fontSize: "8px", letterSpacing: "0.05em",
-                              color: on ? PRIORITY_COLORS[p] : "#cccccc",
-                              background: "none",
-                              border: `1px ${on ? "solid" : "dashed"} ${on ? PRIORITY_COLORS[p] : "#dddddd"}`,
-                              borderRadius: "2px", cursor: "pointer", padding: "2px 7px",
+                              fontFamily: MONO, fontSize: "0.7rem", letterSpacing: "0.06em", textTransform: "uppercase",
+                              color: on ? PRIORITY_COLORS[p] : "#aaaaaa",
+                              background: on ? `${PRIORITY_COLORS[p]}14` : "none",
+                              border: `1px solid ${on ? PRIORITY_COLORS[p] : "#cccccc"}`,
+                              borderRadius: "2px", cursor: "pointer", padding: "0.3rem 0.85rem",
                               transition: "all 0.15s",
                             }}>
                               {PRIORITY_LABELS[p]}
@@ -925,12 +925,7 @@ export default function ListsClient({
                           </div>
                         )}
                         {selectedList.slots.length < 20 && (
-                          <button
-                            onClick={() => openPicker({ listId: selectedList.id, strategy: "append" })}
-                            style={{ fontFamily: SERIF, fontStyle: "italic", fontSize: "12px", color: "#cccccc", background: "none", border: "none", cursor: "pointer", padding: "8px 0", display: "block" }}
-                          >
-                            + Add a record
-                          </button>
+                          <AddRecordButton onClick={() => openPicker({ listId: selectedList.id, strategy: "append" })} />
                         )}
                       </>
                     )}
@@ -941,12 +936,7 @@ export default function ListsClient({
                       <PersonalRow key={slot.position} slot={slot} onRemove={() => handleRemoveItem(selectedList.id, slot.position)} />
                     ))}
                     {selectedList.slots.length < 20 && (
-                      <button
-                        onClick={() => openPicker({ listId: selectedList.id, strategy: "append" })}
-                        style={{ fontFamily: SERIF, fontStyle: "italic", fontSize: "12px", color: "#cccccc", background: "none", border: "none", cursor: "pointer", padding: "8px 0", display: "block" }}
-                      >
-                        + Add a record
-                      </button>
+                      <AddRecordButton onClick={() => openPicker({ listId: selectedList.id, strategy: "append" })} />
                     )}
                   </>
                 )}
@@ -1073,7 +1063,7 @@ export default function ListsClient({
                     )}
                   </>
                 ) : (
-                  <p style={{ fontFamily: SERIF, fontStyle: "italic", fontSize: "13px", color: "#d8d8d8", lineHeight: 1.5 }}>
+                  <p style={{ fontFamily: SERIF, fontStyle: "italic", fontSize: "13px", color: "#aaaaaa", lineHeight: 1.5, opacity: 0.4 }}>
                     Click a record slot to add
                   </p>
                 )}
@@ -1513,6 +1503,29 @@ function DiscoverTextCard({ title, username, recordCount, badge, saves, onSave, 
   );
 }
 
+// ─── AddRecordButton ──────────────────────────────────────────────────────────
+
+function AddRecordButton({ onClick }: { onClick: () => void }) {
+  const [hovered, setHovered] = useState(false);
+  return (
+    <button
+      onClick={onClick}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+      style={{
+        fontFamily: SERIF,
+        fontSize: "0.85rem",
+        color: hovered ? ORANGE : "#888888",
+        background: "none", border: "none", cursor: "pointer",
+        padding: "10px 0", display: "block",
+        transition: "color 0.15s",
+      }}
+    >
+      + Add a record
+    </button>
+  );
+}
+
 // ─── WantlistCard ─────────────────────────────────────────────────────────────
 
 type WantlistMeta = {
@@ -1601,8 +1614,8 @@ function WantlistCard({ slot, monthsOld, showSomedayPrompt, onRemove, onKeepSome
     <div
       style={{
         border: "1px solid rgba(0,0,0,0.07)",
-        padding: "8px 10px 7px",
-        marginBottom: "5px",
+        padding: "10px 12px 10px",
+        marginBottom: "6px",
         transition: "border-color 0.15s",
         borderColor: hovered ? "rgba(0,0,0,0.14)" : "rgba(0,0,0,0.07)",
       }}
@@ -1615,11 +1628,11 @@ function WantlistCard({ slot, monthsOld, showSomedayPrompt, onRemove, onKeepSome
           onClick={cyclePriority}
           title="Click to change priority"
           style={{
-            fontFamily: MONO, fontSize: "7px", letterSpacing: "0.08em", textTransform: "uppercase",
-            color: priority ? PRIORITY_COLORS[priority] : "#cccccc",
+            fontFamily: MONO, fontSize: "0.6rem", letterSpacing: "0.08em", textTransform: "uppercase",
+            color: priority ? PRIORITY_COLORS[priority] : "#bbbbbb",
             background: "none",
-            border: `1px ${priority ? "solid" : "dashed"} ${priority ? PRIORITY_COLORS[priority] : "#dddddd"}`,
-            borderRadius: "2px", cursor: "pointer", padding: "2px 6px",
+            border: `1px solid ${priority ? PRIORITY_COLORS[priority] : "#cccccc"}`,
+            borderRadius: "2px", cursor: "pointer", padding: "3px 8px",
             whiteSpace: "nowrap", flexShrink: 0, transition: "all 0.15s",
           }}
         >
@@ -1630,7 +1643,7 @@ function WantlistCard({ slot, monthsOld, showSomedayPrompt, onRemove, onKeepSome
 
         {/* Price cap */}
         <div style={{ display: "flex", alignItems: "center", gap: "3px" }}>
-          <span style={{ fontFamily: MONO, fontSize: "8px", color: "#cccccc", letterSpacing: "0.04em" }}>¥</span>
+          <span style={{ fontFamily: MONO, fontSize: "0.75rem", color: "#888888", letterSpacing: "0.04em" }}>¥</span>
           {editingPrice ? (
             <input
               autoFocus
@@ -1643,7 +1656,7 @@ function WantlistCard({ slot, monthsOld, showSomedayPrompt, onRemove, onKeepSome
               }}
               placeholder="cap"
               style={{
-                width: "48px", fontFamily: MONO, fontSize: "8px", color: "#333",
+                width: "52px", fontFamily: MONO, fontSize: "0.75rem", color: "#333",
                 background: "transparent", border: "none",
                 borderBottom: "1px solid rgba(0,0,0,0.18)", outline: "none", padding: "0 0 1px",
               }}
@@ -1652,8 +1665,8 @@ function WantlistCard({ slot, monthsOld, showSomedayPrompt, onRemove, onKeepSome
             <button
               onClick={() => setEditingPrice(true)}
               style={{
-                fontFamily: MONO, fontSize: "8px",
-                color: slot.price_cap != null ? "#555" : hovered ? "#cccccc" : "transparent",
+                fontFamily: MONO, fontSize: "0.75rem",
+                color: slot.price_cap != null ? "#555" : hovered ? "#999" : "transparent",
                 background: "none", border: "none", cursor: "text", padding: 0,
               }}
             >
@@ -1666,7 +1679,7 @@ function WantlistCard({ slot, monthsOld, showSomedayPrompt, onRemove, onKeepSome
           href={discogsSearchUrl}
           target="_blank"
           rel="noopener noreferrer"
-          style={{ fontFamily: MONO, fontSize: "8px", letterSpacing: "0.05em", color: hovered ? "#555" : "#bbbbbb", textDecoration: "none", flexShrink: 0, transition: "color 0.15s" }}
+          style={{ fontFamily: MONO, fontSize: "0.75rem", letterSpacing: "0.05em", color: "#333333", textDecoration: hovered ? "underline" : "none", flexShrink: 0, transition: "text-decoration 0.1s" }}
         >
           Discogs ↗
         </a>
@@ -1682,9 +1695,9 @@ function WantlistCard({ slot, monthsOld, showSomedayPrompt, onRemove, onKeepSome
       </div>
 
       {/* Cover + Artist/Album/Year */}
-      <div style={{ display: "flex", alignItems: "flex-start", gap: "10px", marginBottom: "4px" }}>
+      <div style={{ display: "flex", alignItems: "center", gap: "12px", marginBottom: "6px" }}>
         <div style={{
-          width: 40, height: 40, flexShrink: 0, overflow: "hidden",
+          width: 80, height: 80, flexShrink: 0, overflow: "hidden",
           background: coverUrl ? "transparent" : "#f0f0f0",
           border: coverUrl ? "none" : "1px solid rgba(0,0,0,0.08)",
         }}>
@@ -1694,12 +1707,12 @@ function WantlistCard({ slot, monthsOld, showSomedayPrompt, onRemove, onKeepSome
           )}
         </div>
         <div style={{ flex: 1, minWidth: 0 }}>
-          <p style={{ fontFamily: SERIF, fontSize: "12px", color: "#0d0d0d", lineHeight: 1.25, marginBottom: "1px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+          <p style={{ fontFamily: SERIF, fontSize: "1.1rem", fontWeight: 600, color: "#0d0d0d", lineHeight: 1.25, marginBottom: "3px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
             {item.artist}
           </p>
-          <p style={{ fontFamily: SERIF, fontStyle: "italic", fontSize: "11px", color: "#444444", lineHeight: 1.25, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+          <p style={{ fontFamily: SERIF, fontStyle: "italic", fontSize: "0.9rem", color: "#444444", lineHeight: 1.25, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
             {item.song_title ?? item.album}
-            {item.year && <span style={{ fontFamily: MONO, fontStyle: "normal", fontSize: "8px", color: "#aaaaaa", letterSpacing: "0.05em" }}> · {item.year}</span>}
+            {item.year && <span style={{ fontFamily: MONO, fontStyle: "normal", fontSize: "0.72rem", color: "#aaaaaa", letterSpacing: "0.05em" }}> · {item.year}</span>}
           </p>
         </div>
       </div>
@@ -1790,7 +1803,7 @@ function WantlistCard({ slot, monthsOld, showSomedayPrompt, onRemove, onKeepSome
             </>
           )}
           {!showSomedayPrompt && dateLabel && (
-            <span style={{ fontFamily: MONO, fontSize: "8px", color: "#dddddd", letterSpacing: "0.03em", marginLeft: "auto" }}>
+            <span style={{ fontFamily: MONO, fontSize: "0.65rem", color: "#999999", letterSpacing: "0.03em", marginLeft: "auto" }}>
               {dateLabel}
             </span>
           )}
