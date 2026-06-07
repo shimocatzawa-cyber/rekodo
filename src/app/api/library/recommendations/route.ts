@@ -302,30 +302,64 @@ Return JSON only, no preamble, no markdown:
 
   async function enrichPodcast(podcast: PodcastAi): Promise<{ thumbnail_url: string | null; external_url: string | null; source_id: string | null }> {
     const q = encodeURIComponent(podcast.search_query || `${podcast.title} ${podcast.show}`);
-    const applePodcastsUrl = `https://podcasts.apple.com/search?term=${q}`;
+    const fallbackUrl = `https://podcasts.apple.com/search?term=${q}`;
 
+    let thumbnailUrl: string | null = null;
+    let sourceId: string | null = null;
+
+    // Taddy for thumbnail only (if configured)
     const taddyKey    = process.env.TADDY_API_KEY;
     const taddyUserId = process.env.TADDY_USER_ID;
-    if (!taddyKey || !taddyUserId) {
-      return { thumbnail_url: null, external_url: applePodcastsUrl, source_id: null };
+    if (taddyKey && taddyUserId) {
+      try {
+        const tr = await fetch(`https://api.taddy.org/api/search?term=${q}&searchType=EPISODES&limitForType=1`, {
+          headers: { "X-USER-ID": taddyUserId, "X-API-KEY": taddyKey, "Content-Type": "application/json" },
+        });
+        if (tr.ok) {
+          const td = await tr.json() as { searchForTerm?: { podcastEpisodes?: Array<{ uuid: string; podcastSeries?: { imageUrl: string } }> } };
+          const ep = td.searchForTerm?.podcastEpisodes?.[0];
+          if (ep) { thumbnailUrl = ep.podcastSeries?.imageUrl ?? null; sourceId = ep.uuid ?? null; }
+        }
+      } catch { /* continue */ }
     }
+
+    // iTunes Search API for direct episode link
     try {
-      const res = await fetch(`https://api.taddy.org/api/search?term=${q}&searchType=EPISODES&limitForType=1`, {
-        headers: { "X-USER-ID": taddyUserId, "X-API-KEY": taddyKey, "Content-Type": "application/json" },
+      const ir = await fetch(`https://itunes.apple.com/search?term=${q}&entity=podcastEpisode&limit=3`, {
+        headers: { "User-Agent": "rekodo/1.0" },
       });
-      if (!res.ok) return { thumbnail_url: null, external_url: applePodcastsUrl, source_id: null };
-      const data = await res.json() as { searchForTerm?: { podcastEpisodes?: Array<{ uuid: string; podcastSeries?: { imageUrl: string } }> } };
-      const ep = data.searchForTerm?.podcastEpisodes?.[0];
-      if (!ep) return { thumbnail_url: null, external_url: applePodcastsUrl, source_id: null };
-      return { thumbnail_url: ep.podcastSeries?.imageUrl ?? null, external_url: applePodcastsUrl, source_id: ep.uuid ?? null };
-    } catch {
-      return { thumbnail_url: null, external_url: applePodcastsUrl, source_id: null };
-    }
+      if (ir.ok) {
+        const id = await ir.json() as { results?: Array<{ trackViewUrl?: string; artworkUrl600?: string }> };
+        const ep = id.results?.[0];
+        if (ep?.trackViewUrl) {
+          if (!thumbnailUrl) thumbnailUrl = ep.artworkUrl600 ?? null;
+          return { thumbnail_url: thumbnailUrl, external_url: ep.trackViewUrl, source_id: sourceId };
+        }
+      }
+    } catch { /* fall through */ }
+
+    return { thumbnail_url: thumbnailUrl, external_url: fallbackUrl, source_id: sourceId };
   }
 
-  const [enrichedPodcastData, enrichedBooksData] = await Promise.all([
+  async function enrichAudible(a: AudibleAi): Promise<{ external_url: string }> {
+    const q = encodeURIComponent(a.audible_search_query || `${a.title} ${a.author}`);
+    try {
+      const res = await fetch(`https://itunes.apple.com/search?term=${q}&entity=audiobook&limit=3`, {
+        headers: { "User-Agent": "rekodo/1.0" },
+      });
+      if (res.ok) {
+        const data = await res.json() as { results?: Array<{ trackViewUrl?: string }> };
+        const book = data.results?.[0];
+        if (book?.trackViewUrl) return { external_url: book.trackViewUrl };
+      }
+    } catch { /* fall through */ }
+    return { external_url: `https://www.audible.com/search?keywords=${q}` };
+  }
+
+  const [enrichedPodcastData, enrichedBooksData, enrichedAudibleData] = await Promise.all([
     Promise.all(podcasts.map(enrichPodcast)),
     Promise.all(books.map(enrichBook)),
+    Promise.all(audible.map(enrichAudible)),
   ]);
 
   // ── Build rows for DB ─────────────────────────────────────────────────────
@@ -384,7 +418,7 @@ Return JSON only, no preamble, no markdown:
     relevance_score: b.relevance_score ?? null,
   }));
 
-  const audibleRows: DbRow[] = audible.map((a) => ({
+  const audibleRows: DbRow[] = audible.map((a, i) => ({
     user_id: user.id,
     format: "audible" as const,
     title: a.title,
@@ -393,10 +427,10 @@ Return JSON only, no preamble, no markdown:
     match_reason: a.match_reason || null,
     match_artists: a.match_artists?.length ? a.match_artists : null,
     match_labels: null,
-    external_url: `https://www.audible.com/search?keywords=${encodeURIComponent(a.audible_search_query || `${a.title} ${a.author}`)}`,
+    external_url: enrichedAudibleData[i].external_url,
     affiliate_url: null,
     thumbnail_url: null,
-    source_api: "audible",
+    source_api: "itunes",
     source_id: null,
     artist_coverage_depth: a.artist_coverage_depth || null,
     relevance_score: a.relevance_score ?? null,
