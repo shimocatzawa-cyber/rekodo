@@ -157,20 +157,28 @@ function matchesDecade(year: number | null, decade: string): boolean {
 
 type FilterDesirabilityTier = "rare" | "holy-grail" | "in-demand" | "common" | "unpriced";
 
+// Tier order: Holy Grail (most exclusive) → Rare → In Demand
 const DESIRABILITY_FILTER_OPTIONS: { value: FilterDesirabilityTier; label: string }[] = [
-  { value: "rare",       label: "Rare"       },
   { value: "holy-grail", label: "Holy Grail" },
+  { value: "rare",       label: "Rare"       },
   { value: "in-demand",  label: "In Demand"  },
 ];
 
+// Uses median price first (truer market value); falls back to lowest listed price.
+// Thresholds are based on Discogs median/lowest marketplace prices (USD):
+//   Holy Grail  ≥ $100 — the most sought-after pressings; even cheap copies are $100+
+//   Rare        ≥ $30  — scarce, commands a premium but still findable
+//   In Demand   ≥ $8   — popular, priced above common commodity level
+//   Common      <  $8  — plenty of cheap copies available
+//   Unpriced        —  — not yet in the Discogs marketplace
 function getCollectionDesirabilityTier(
   priceLow: number | null, priceMedian: number | null
 ): FilterDesirabilityTier {
-  const price = priceLow ?? priceMedian;
+  const price = priceMedian ?? priceLow;
   if (!price || price <= 0) return "unpriced";
-  if (price >= 150) return "rare";
-  if (price >= 40)  return "holy-grail";
-  if (price >= 10)  return "in-demand";
+  if (price >= 100) return "holy-grail";
+  if (price >= 30)  return "rare";
+  if (price >= 8)   return "in-demand";
   return "common";
 }
 
