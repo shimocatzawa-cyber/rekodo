@@ -618,75 +618,6 @@ export default function ListsClient({
 
           </div>
 
-          {/* Anchored + New list — never displaced */}
-          <div style={{ flexShrink: 0, paddingLeft: "14px", paddingRight: "16px", borderLeft: "1px solid rgba(0,0,0,0.07)" }}>
-            <button
-              onClick={() => { setCreateState({ listType: "top5", step: "templates" }); setNewTitle(""); }}
-              style={{
-                fontFamily: MONO, fontSize: "11px", letterSpacing: "0.08em",
-                color: ORANGE, background: "none",
-                border: `1px solid ${ORANGE}`,
-                borderRadius: "3px", cursor: "pointer", padding: "4px 10px",
-                whiteSpace: "nowrap",
-              }}
-            >
-              + New list
-            </button>
-          </div>
-
-        </div>
-
-        {/* Row 2: Top 5 — mobile only; desktop shows in right column */}
-        <div className="pill-strip md:hidden" style={{
-          display: "flex", alignItems: "center", gap: "8px",
-          overflowX: "auto",
-          WebkitOverflowScrolling: "touch",
-          scrollbarWidth: "none", msOverflowStyle: "none",
-          paddingTop: "4px", paddingBottom: "2px",
-          paddingLeft: "16px", paddingRight: "16px",
-          borderTop: "1px solid rgba(0,0,0,0.04)",
-        } as React.CSSProperties}>
-          {(() => {
-            const top5 = lists.filter(l => l.list_type === "top5");
-            const visible = top5Expanded ? top5 : top5.slice(0, 7);
-            const hidden = top5.length - visible.length;
-            return (
-              <>
-                <span style={{ fontFamily: MONO, fontSize: "11px", letterSpacing: "0.08em", textTransform: "uppercase", color: "#aaaaaa", flexShrink: 0, marginRight: "2px" }}>
-                  Top 5
-                </span>
-                {visible.map(list => {
-                  const filled = list.slots.filter(s => s.item).length;
-                  const isActive = activePillId === list.id;
-                  return (
-                    <button key={list.id}
-                      onClick={() => { setActivePillId(list.id); setActiveSavedId(null); closePicker(); }}
-                      style={{
-                        fontFamily: MONO, fontSize: "11px", letterSpacing: "0.08em",
-                        color: isActive ? ORANGE : "#555555",
-                        background: "none",
-                        border: `1px solid ${isActive ? ORANGE : "rgba(0,0,0,0.18)"}`,
-                        borderRadius: "3px", cursor: "pointer", padding: "4px 10px",
-                        flexShrink: 0, whiteSpace: "nowrap", transition: "border-color 0.15s, color 0.15s",
-                      }}
-                    >
-                      {`${list.title} · ${filled}/5`}
-                    </button>
-                  );
-                })}
-                {hidden > 0 && (
-                  <button onClick={() => setTop5Expanded(true)} style={{ fontFamily: MONO, fontSize: "11px", letterSpacing: "0.06em", color: "#aaaaaa", background: "none", border: "1px dashed rgba(0,0,0,0.15)", borderRadius: "3px", cursor: "pointer", padding: "4px 10px", flexShrink: 0, whiteSpace: "nowrap" }}>
-                    +{hidden} more
-                  </button>
-                )}
-                {top5Expanded && top5.length > 7 && (
-                  <button onClick={() => setTop5Expanded(false)} style={{ fontFamily: MONO, fontSize: "11px", letterSpacing: "0.06em", color: "#aaaaaa", background: "none", border: "none", cursor: "pointer", padding: "0 4px", flexShrink: 0, whiteSpace: "nowrap" }}>
-                    Show less
-                  </button>
-                )}
-              </>
-            );
-          })()}
         </div>
 
       </div>
@@ -1133,9 +1064,23 @@ export default function ListsClient({
         >
           {/* Header — matches Discover style */}
           <div style={{ position: "sticky", top: 0, background: "#ffffff", zIndex: 1, padding: "24px 24px 14px", borderBottom: "1px solid rgba(0,0,0,0.06)", flexShrink: 0 }}>
-            <h2 style={{ fontFamily: SERIF, fontSize: "1.1rem", fontWeight: 600, color: "#0d0d0d", marginBottom: "12px" }}>
-              My Lists
-            </h2>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "12px" }}>
+              <h2 style={{ fontFamily: SERIF, fontSize: "1.1rem", fontWeight: 600, color: "#0d0d0d" }}>
+                My Lists
+              </h2>
+              <button
+                onClick={() => { setCreateState({ listType: "top5", step: "templates" }); setNewTitle(""); }}
+                style={{
+                  fontFamily: MONO, fontSize: "11px", letterSpacing: "0.08em",
+                  color: ORANGE, background: "none",
+                  border: `1px solid ${ORANGE}`,
+                  borderRadius: "3px", cursor: "pointer", padding: "4px 10px",
+                  whiteSpace: "nowrap",
+                }}
+              >
+                + New list
+              </button>
+            </div>
             <div style={{ display: "flex", gap: "20px" }}>
               {(["top5", "private", "saved"] as const).map(tab => (
                 <button
