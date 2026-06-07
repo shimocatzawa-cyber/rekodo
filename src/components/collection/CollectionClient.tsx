@@ -736,7 +736,7 @@ export default function CollectionClient({
           {/* ── Fixed: search + filters ── */}
           <div style={{ flexShrink: 0, borderBottom: "1px solid rgba(0,0,0,0.08)" }}>
 
-            {/* Sync + Last Sync row */}
+            {/* Sync row — sync left, randomiser right */}
             <div style={{ padding: "8px 10px 4px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
               <button
                 type="button"
@@ -755,14 +755,7 @@ export default function CollectionClient({
               >
                 {syncState === "syncing" ? "Syncing…" : "Sync with Discogs →"}
               </button>
-              {(syncResult?.timestamp || lastSyncedAt) && (
-                <span style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.04em", color: "#bbbbbb" }}>
-                  Last sync: {formatSyncDisplayTime(syncResult?.timestamp ?? lastSyncedAt)}
-                </span>
-              )}
-            </div>
-            {collection.length > 0 && (
-              <div style={{ padding: "0 10px 6px" }}>
+              {collection.length > 0 && (
                 <button
                   type="button"
                   onClick={() => {
@@ -778,6 +771,14 @@ export default function CollectionClient({
                 >
                   ↺ Randomiser
                 </button>
+              )}
+            </div>
+            {/* Last sync — flush under the sync button, no gap */}
+            {(syncResult?.timestamp || lastSyncedAt) && (
+              <div style={{ padding: "0 10px 6px" }}>
+                <span style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.04em", color: "#bbbbbb" }}>
+                  Last sync: {formatSyncDisplayTime(syncResult?.timestamp ?? lastSyncedAt)}
+                </span>
               </div>
             )}
 
