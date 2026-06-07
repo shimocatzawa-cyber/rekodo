@@ -218,7 +218,7 @@ export default function ListsClient({
   const [privateExpanded, setPrivateExpanded] = useState(false);
 
   // ── Wantlist controls ──────────────────────────────────────────────────────
-  type WantlistSort = "priority" | "price_cap" | "date_added" | "artist";
+  type WantlistSort = "priority" | "date_added" | "artist";
   const [wantlistSort,    setWantlistSort]    = useState<WantlistSort>("priority");
   const [wantlistFilter,  setWantlistFilter]  = useState<Set<Priority>>(new Set());
   const [wantlistSearch,  setWantlistSearch]  = useState("");
@@ -515,13 +515,6 @@ export default function ListsClient({
       slots = [...slots].sort((a, b) =>
         (PRIORITY_ORDER[a.priority ?? ""] ?? 3) - (PRIORITY_ORDER[b.priority ?? ""] ?? 3)
       );
-    } else if (wantlistSort === "price_cap") {
-      slots = [...slots].sort((a, b) => {
-        if (a.price_cap == null && b.price_cap == null) return 0;
-        if (a.price_cap == null) return 1;
-        if (b.price_cap == null) return -1;
-        return a.price_cap - b.price_cap;
-      });
     } else if (wantlistSort === "date_added") {
       slots = [...slots].sort((a, b) => {
         const da = a.created_at ?? "";
@@ -833,14 +826,14 @@ export default function ListsClient({
                       {/* Sort + filter row */}
                       <div style={{ display: "flex", alignItems: "center", gap: "10px", flexWrap: "wrap" }}>
                         <span style={{ fontFamily: MONO, fontSize: "0.75rem", letterSpacing: "0.1em", textTransform: "uppercase", color: "#cccccc", flexShrink: 0, marginRight: "4px" }}>Sort</span>
-                        {(["priority", "price_cap", "date_added", "artist"] as const).map(s => (
+                        {(["priority", "date_added", "artist"] as const).map(s => (
                           <button key={s} onClick={() => setWantlistSort(s)} style={{
                             fontFamily: MONO, fontSize: "0.75rem", letterSpacing: "0.05em",
                             color: wantlistSort === s ? "#0d0d0d" : "#aaaaaa",
                             background: "none", border: "none", cursor: "pointer", padding: "0 0 2px",
                             borderBottom: `1px solid ${wantlistSort === s ? "#0d0d0d" : "transparent"}`,
                           }}>
-                            {s === "priority" ? "Priority" : s === "price_cap" ? "Price cap" : s === "date_added" ? "Date added" : "Artist A–Z"}
+                            {s === "priority" ? "Priority" : s === "date_added" ? "Date added" : "Artist A–Z"}
                           </button>
                         ))}
                         <div style={{ width: "1px", height: "14px", background: "rgba(0,0,0,0.1)", flexShrink: 0, margin: "0 4px" }} />
