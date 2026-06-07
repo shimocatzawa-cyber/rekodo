@@ -11,6 +11,39 @@ const SERIF  = "var(--font-editorial)";
 const MONO   = "var(--font-mono)";
 const ORANGE = "#CC5500";
 
+// ─── Desirability ─────────────────────────────────────────────────────────────
+
+type DesirabilityTier = "rare" | "holy-grail" | "cult" | "widely-loved" | "in-demand" | "steady";
+
+const TIERS: Record<DesirabilityTier, { label: string; bg: string; color: string }> = {
+  "rare":         { label: "Rare",          bg: "#F0997B", color: "#712B13" },
+  "holy-grail":   { label: "Holy grail",    bg: "#FAC775", color: "#633806" },
+  "cult":         { label: "Cult pressing", bg: "#CECBF6", color: "#3C3489" },
+  "widely-loved": { label: "Widely loved",  bg: "#C0DD97", color: "#27500A" },
+  "in-demand":    { label: "In demand",     bg: "#9FE1CB", color: "#085041" },
+  "steady":       { label: "Steady seller", bg: "#E1F5EE", color: "#0F6E56" },
+};
+
+function getDesirabilityTier(
+  have: number, want: number, price: number, numForSale: number
+): DesirabilityTier | null {
+  const total      = have + want;
+  if (total < 30) return null;
+  const notForSale = numForSale === 0;
+  const confidence = Math.log10(total + 1) / Math.log10(50001);
+  const ratio      = want / Math.max(have, 1);
+  const baseScore  = ratio * (0.4 + 0.6 * confidence);
+  const priceBoost = (price >= 50 || notForSale) ? Math.min(price / 400, 0.5) : 0;
+  const finalScore = baseScore + priceBoost;
+  if (want > have && (price >= 200 || notForSale) && total >= 30) return "rare";
+  if (finalScore >= 1.5 && total >= 500 && (price >= 50 || notForSale)) return "holy-grail";
+  if (baseScore >= 2.5 && total >= 30 && total < 500) return "cult";
+  if (total >= 5000 && ratio >= 0.15 && ratio <= 0.65) return "widely-loved";
+  if (baseScore >= 0.45) return "in-demand";
+  if (baseScore >= 0.15) return "steady";
+  return null;
+}
+
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 type TrackItem = {
@@ -30,6 +63,7 @@ type ReleaseDetail = {
   country?:    string;
   year?:       number;
   genres?:     string[];
+  community?:  { have: number; want: number };
 };
 
 type PriceData = {
@@ -1271,6 +1305,15 @@ function AlbumDetail({ record, detail, price, loading, valueCurrency }: {
   const country      = detail?.country ?? null;
   const year         = record.year ?? detail?.year ?? null;
   const genre        = record.genre ?? detail?.genres?.[0] ?? null;
+
+  const tier = getDesirabilityTier(
+    detail?.community?.have  ?? 0,
+    detail?.community?.want  ?? 0,
+    price?.lowest            ?? 0,
+    price?.num_for_sale      ?? 0,
+  );
+  const tierMeta = tier ? TIERS[tier] : null;
+
   return (
     <div style={{ overflowY: "auto", height: "100%" }}>
     <div style={{ padding: "16px 20px 20px", maxWidth: "480px" }}>
@@ -1285,6 +1328,19 @@ function AlbumDetail({ record, detail, price, loading, valueCurrency }: {
           </div>
         )}
       </div>
+
+      {/* Desirability pill — only when a tier is resolved */}
+      {tierMeta && (
+        <span style={{
+          display: "inline-block", width: "fit-content",
+          fontFamily: MONO, fontSize: "10px", letterSpacing: "0.06em",
+          padding: "3px 10px", borderRadius: "10px",
+          background: tierMeta.bg, color: tierMeta.color,
+          marginBottom: "8px",
+        }}>
+          {tierMeta.label}
+        </span>
+      )}
 
       {/* Title + artist */}
       <h2 style={{ fontFamily: SERIF, fontSize: "20px", fontWeight: 700, color: "#0d0d0d", lineHeight: 1.2, marginBottom: "3px" }}>
