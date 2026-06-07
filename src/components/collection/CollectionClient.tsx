@@ -737,7 +737,7 @@ export default function CollectionClient({
           <div style={{ flexShrink: 0, borderBottom: "1px solid rgba(0,0,0,0.08)" }}>
 
             {/* Sync row — sync left, randomiser right */}
-            <div style={{ padding: "8px 10px 4px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+            <div style={{ padding: "8px 10px 0", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
               <button
                 type="button"
                 onClick={() => {
@@ -775,7 +775,7 @@ export default function CollectionClient({
             </div>
             {/* Last sync — flush under the sync button, no gap */}
             {(syncResult?.timestamp || lastSyncedAt) && (
-              <div style={{ padding: "0 10px 6px" }}>
+              <div style={{ padding: "0 10px 5px" }}>
                 <span style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.04em", color: "#bbbbbb" }}>
                   Last sync: {formatSyncDisplayTime(syncResult?.timestamp ?? lastSyncedAt)}
                 </span>
