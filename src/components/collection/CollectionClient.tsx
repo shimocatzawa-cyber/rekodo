@@ -761,6 +761,25 @@ export default function CollectionClient({
                 </span>
               )}
             </div>
+            {collection.length > 0 && (
+              <div style={{ padding: "0 10px 6px" }}>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const idx = Math.floor(Math.random() * collection.length);
+                    selectRecord(collection[idx]);
+                    setMobileDetailOpen(true);
+                  }}
+                  style={{
+                    fontFamily: MONO, fontSize: "10px", letterSpacing: "0.06em",
+                    color: ORANGE, background: "none", border: "none",
+                    cursor: "pointer", padding: 0,
+                  }}
+                >
+                  ↺ Randomiser
+                </button>
+              </div>
+            )}
 
             {/* Mobile — inline search + filter selects */}
             <div className="md:hidden" style={{ padding: "8px 12px 10px" }}>
@@ -1018,19 +1037,6 @@ export default function CollectionClient({
               >
                 ← Collection
               </button>
-              {/* Randomiser — desktop only */}
-              <div className="hidden md:flex" style={{ flexShrink: 0, padding: "8px 10px 4px", alignItems: "center", justifyContent: "flex-end" }}>
-                <button
-                  type="button"
-                  onClick={() => {
-                    const idx = Math.floor(Math.random() * collection.length);
-                    selectRecord(collection[idx]);
-                  }}
-                  style={{ fontFamily: MONO, fontSize: "10px", letterSpacing: "0.06em", color: ORANGE, background: "none", border: "none", cursor: "pointer", padding: 0 }}
-                >
-                  ↺ Randomiser
-                </button>
-              </div>
               <AlbumDetail
                 record={selectedRecord}
                 detail={releaseDetail}
@@ -1051,25 +1057,11 @@ export default function CollectionClient({
             </div>
           </>
         ) : (
-          <div className="hidden md:flex" style={{ gridColumn: "2 / 4", flexDirection: "column" }}>
-            <div style={{ flexShrink: 0, padding: "8px 10px 4px", display: "flex", alignItems: "center", justifyContent: "flex-end" }}>
-              <button
-                type="button"
-                onClick={() => {
-                  const idx = Math.floor(Math.random() * collection.length);
-                  selectRecord(collection[idx]);
-                }}
-                style={{ fontFamily: MONO, fontSize: "10px", letterSpacing: "0.06em", color: ORANGE, background: "none", border: "none", cursor: "pointer", padding: 0 }}
-              >
-                ↺ Randomiser
-              </button>
-            </div>
-            <div style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: "6px" }}>
-              <p style={{ fontFamily: SERIF, fontSize: "18px", color: "#d8d8d8" }}>Select a record</p>
-              <p style={{ fontFamily: MONO, fontSize: "10px", color: "#e4e4e4", letterSpacing: "0.08em" }}>
-                {collection.length} {collection.length === 1 ? "record" : "records"} in your collection
-              </p>
-            </div>
+          <div className="hidden md:flex" style={{ gridColumn: "2 / 4", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: "6px" }}>
+            <p style={{ fontFamily: SERIF, fontSize: "18px", color: "#d8d8d8" }}>Select a record</p>
+            <p style={{ fontFamily: MONO, fontSize: "10px", color: "#e4e4e4", letterSpacing: "0.08em" }}>
+              {collection.length} {collection.length === 1 ? "record" : "records"} in your collection
+            </p>
           </div>
         )}
       </div>
