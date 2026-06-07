@@ -34,6 +34,10 @@ export type Database = {
           format: string | null;
           country: string | null;
           created_at: string;
+          community_have:         number | null;
+          community_want:         number | null;
+          community_num_for_sale: number | null;
+          community_fetched_at:   string | null;
         };
         Insert: {
           id?: string;
@@ -47,6 +51,10 @@ export type Database = {
           format?: string | null;
           country?: string | null;
           created_at?: string;
+          community_have?:         number | null;
+          community_want?:         number | null;
+          community_num_for_sale?: number | null;
+          community_fetched_at?:   string | null;
         };
         Update: {
           discogs_id?: string | null;
@@ -58,6 +66,10 @@ export type Database = {
           label?: string | null;
           format?: string | null;
           country?: string | null;
+          community_have?:         number | null;
+          community_want?:         number | null;
+          community_num_for_sale?: number | null;
+          community_fetched_at?:   string | null;
         };
         Relationships: [];
       };

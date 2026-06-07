@@ -164,23 +164,59 @@ const DESIRABILITY_FILTER_OPTIONS: { value: FilterDesirabilityTier; label: strin
   { value: "in-demand",  label: "In Demand"  },
 ];
 
-// Based on the Discogs lowest listed price (lowest_price from /marketplace/stats).
-// No true median is available from the API — price_median stores the same value.
-// Thresholds calibrated for lowest listed price (USD):
-//   Holy Grail  ≥ $100 — even the cheapest copy is $100+; genuinely rare pressings
-//   Rare        ≥ $30  — floor price $30–$99; scarce but findable
-//   In Demand   ≥ $8   — floor price $8–$29; above commodity level
-//   Common      <  $8  — abundant supply keeps floor price low
-//   Unpriced        —  — no Discogs marketplace data yet
+// Full scoring formula when community data is available (fetched by price-batch from /releases/{id}).
+// Falls back to price-only thresholds for records not yet enriched.
+//
+// Scoring (community path):
+//   ratio      = want / max(have, 1)   — demand pressure
+//   confidence = log10(total+1) / log10(50001)  — weight by community size
+//   baseScore  = ratio × (0.4 + 0.6×confidence)
+//   priceBoost = min(price/400, 0.5) when price ≥ $50
+//   finalScore = baseScore + priceBoost
+//
+//   Holy Grail: (want > have AND price ≥ $100) OR (finalScore ≥ 1.5 AND 500+ collectors)
+//   Rare:       baseScore ≥ 0.8 AND 30+ collectors
+//   In Demand:  baseScore ≥ 0.25 AND 10+ collectors
+//   else → price fallback
+//
+// Price-only fallback (lowest marketplace listing, USD):
+//   Holy Grail  ≥ $100 · Rare  ≥ $30 · In Demand  ≥ $8 · Common  < $8
 function getCollectionDesirabilityTier(
-  priceLow: number | null, priceMedian: number | null
+  priceLow:           number | null,
+  communityHave:      number | null,
+  communityWant:      number | null,
+  communityNumForSale: number | null,
 ): FilterDesirabilityTier {
-  const price = priceLow ?? priceMedian;
-  if (!price || price <= 0) return "unpriced";
+  const price        = priceLow ?? 0;
+  const hasCommunity = communityHave !== null && communityWant !== null;
+
+  if (!hasCommunity && !price) return "unpriced";
+
+  if (hasCommunity) {
+    const have  = communityHave!;
+    const want  = communityWant!;
+    const total = have + want;
+
+    if (total >= 20) {
+      const confidence = Math.log10(total + 1) / Math.log10(50001);
+      const ratio      = want / Math.max(have, 1);
+      const baseScore  = ratio * (0.4 + 0.6 * confidence);
+      const priceBoost = price >= 50 ? Math.min(price / 400, 0.5) : 0;
+      const finalScore = baseScore + priceBoost;
+
+      if ((want > have && price >= 100) || (finalScore >= 1.5 && total >= 500)) return "holy-grail";
+      if (baseScore >= 0.8 && total >= 30) return "rare";
+      if (baseScore >= 0.25) return "in-demand";
+      return "common";
+    }
+  }
+
+  // Price-only fallback
   if (price >= 100) return "holy-grail";
   if (price >= 30)  return "rare";
   if (price >= 8)   return "in-demand";
-  return "common";
+  if (price > 0)    return "common";
+  return hasCommunity ? "common" : "unpriced";
 }
 
 // ─── Props ────────────────────────────────────────────────────────────────────
@@ -571,7 +607,7 @@ export default function CollectionClient({
     if (filterYear)         result = result.filter(r => matchesDecade(r.year, filterYear));
     if (filterFormat)       result = result.filter(r => r.format === filterFormat);
     if (filterDesirability) result = result.filter(r =>
-      getCollectionDesirabilityTier(r.price_low, r.price_median) === filterDesirability
+      getCollectionDesirabilityTier(r.price_low, r.community_have, r.community_want, r.community_num_for_sale) === filterDesirability
     );
     return result;
   }, [collection, searchQuery, filterGenre, filterYear, filterFormat, filterDesirability]);
@@ -635,7 +671,7 @@ export default function CollectionClient({
 
   const desirabilityOptions = useMemo(() => {
     const tiers = new Set<FilterDesirabilityTier>();
-    for (const r of collection) tiers.add(getCollectionDesirabilityTier(r.price_low, r.price_median));
+    for (const r of collection) tiers.add(getCollectionDesirabilityTier(r.price_low, r.community_have, r.community_want, r.community_num_for_sale));
     return DESIRABILITY_FILTER_OPTIONS.filter(o => tiers.has(o.value));
   }, [collection]);
 

@@ -16,11 +16,14 @@ export type CollectionRecord = {
   format: string | null;
   country: string | null;
   value: number | null;
-  price_low:        number | null;
-  price_median:     number | null;
-  price_currency:   string | null;
-  media_condition:  string | null;
-  sleeve_condition: string | null;
+  price_low:              number | null;
+  price_median:           number | null;
+  price_currency:         string | null;
+  media_condition:        string | null;
+  sleeve_condition:       string | null;
+  community_have:         number | null;
+  community_want:         number | null;
+  community_num_for_sale: number | null;
 };
 
 export type CollectionInsights = {
@@ -170,15 +173,15 @@ export default async function CollectionPage({
     l.record_id, convertPrice(l.price_low, l.price_currency),
   ]));
 
-  const recordsMap = new Map<string, Omit<CollectionRecord, "value" | "price_low" | "price_median" | "price_currency">>();
+  const recordsMap = new Map<string, Omit<CollectionRecord, "value" | "price_low" | "price_median" | "price_currency" | "media_condition" | "sleeve_condition">>();
   for (let i = 0; i < recordIds.length; i += BATCH) {
     const { data, error } = await supabase
       .from("records")
-      .select("id, discogs_id, artist, album, year, genre, cover_url, label, format, country")
+      .select("id, discogs_id, artist, album, year, genre, cover_url, label, format, country, community_have, community_want, community_num_for_sale")
       .in("id", recordIds.slice(i, i + BATCH));
     if (error) console.error('[collection/page] records batch error:', JSON.stringify(error));
     else console.log(`[collection/page] records batch i=${i}: ${data?.length ?? 0} rows`);
-    for (const r of data ?? []) recordsMap.set(r.id, r as Omit<CollectionRecord, "value" | "price_low" | "price_median" | "price_currency">);
+    for (const r of data ?? []) recordsMap.set(r.id, r as Omit<CollectionRecord, "value" | "price_low" | "price_median" | "price_currency" | "media_condition" | "sleeve_condition">);
   }
 
   const collection: CollectionRecord[] = recordIds
@@ -187,12 +190,15 @@ export default async function CollectionPage({
       if (!r) return undefined;
       return {
         ...r,
-        value:            valueMap.get(id)           ?? null,
-        price_low:        priceLowMap.get(id)        ?? null,
-        price_median:     priceMedianMap.get(id)     ?? null,
-        price_currency:   priceCurrencyMap.get(id)   ?? null,
-        media_condition:  mediaConditionMap.get(id)  ?? null,
-        sleeve_condition: sleeveConditionMap.get(id) ?? null,
+        value:                  valueMap.get(id)           ?? null,
+        price_low:              priceLowMap.get(id)        ?? null,
+        price_median:           priceMedianMap.get(id)     ?? null,
+        price_currency:         priceCurrencyMap.get(id)   ?? null,
+        media_condition:        mediaConditionMap.get(id)  ?? null,
+        sleeve_condition:       sleeveConditionMap.get(id) ?? null,
+        community_have:         r.community_have         ?? null,
+        community_want:         r.community_want         ?? null,
+        community_num_for_sale: r.community_num_for_sale ?? null,
       };
     })
     .filter((r): r is CollectionRecord => r !== undefined);
