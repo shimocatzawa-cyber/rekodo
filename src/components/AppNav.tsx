@@ -48,7 +48,7 @@ export default function AppNav({ username, displayLabel, avatarUrl }: { username
         </Link>
 
         {/* Centre — desktop nav links */}
-        <div className="hidden md:flex items-center gap-8 border-4 border-blue-500">
+        <div className="hidden md:flex items-center gap-8">
           {NAV_ITEMS.map(({ href, label, jp }) => {
             const active = pathname === href || (pathname?.startsWith(href + "/") ?? false);
             return (
@@ -91,7 +91,7 @@ export default function AppNav({ username, displayLabel, avatarUrl }: { username
 
         {/* Centre — mobile hamburger */}
         <button
-          className="md:hidden border-4 border-red-500"
+          className="md:hidden"
           onClick={() => setMenuOpen(!menuOpen)}
           aria-label={menuOpen ? "Close menu" : "Open menu"}
           style={{
@@ -99,7 +99,6 @@ export default function AppNav({ username, displayLabel, avatarUrl }: { username
             border: "none",
             cursor: "pointer",
             padding: "10px",
-            display: "flex",
             flexDirection: "column",
             gap: "5px",
           }}
