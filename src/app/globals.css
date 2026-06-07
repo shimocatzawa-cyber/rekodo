@@ -36,15 +36,21 @@
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: var(--font-dm-mono), "Courier New", monospace;
+  font-family: var(--font-editorial);
+  line-height: 1.6;
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
 h1, h2, h3, h4, h5, h6 {
-  font-family: var(--font-shippori), "Georgia", serif;
+  font-family: var(--font-editorial);
+  line-height: 1.15;
 }
 
-/* Avatar upload hover overlay */
-button:hover .avatar-overlay {
-  opacity: 1 !important;
+@media (max-width: 768px) {
+  * {
+    min-height: 0;
+  }
 }
-
