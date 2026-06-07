@@ -932,10 +932,6 @@ type StatDef = {
   sub?:        string;
   heroItalic?: boolean;
   heroColor?:  string;
-  isName?:     boolean;
-  compact?:    boolean;
-  flexGrow?:   number;
-  genres?:     Array<{ pct: number; genre: string }>;
 };
 
 function InsightsPanel({
@@ -968,46 +964,38 @@ function InsightsPanel({
   const stats: StatDef[] = [];
 
   // 1. Total collection count — always first
-  stats.push({ hero: total.toLocaleString(), label: "Items", compact: true });
+  stats.push({ hero: total.toLocaleString(), label: "Items" });
 
   // 2. Format count
   if (insights.topFormat) {
     stats.push({
-      hero:    insights.topFormat.count.toLocaleString(),
-      label:   fmtLabel(insights.topFormat.name),
-      compact: true,
+      hero:  insights.topFormat.count.toLocaleString(),
+      label: fmtLabel(insights.topFormat.name),
     });
   }
 
-  // 3. Genre — wide tile, top 3 genres shown as a row
+  // 3. Genre — top genre as a single tile
   if (insights.topGenres.length > 0) {
     const shortName = (g: string) => g.split(",")[0].trim();
     stats.push({
-      hero:     `${insights.topGenres[0].pct}%`,
-      label:    insights.topGenres[0].genre,
-      flexGrow: 2,
-      genres:   insights.topGenres.slice(0, 3).map(g => ({
-        pct:   g.pct,
-        genre: shortName(g.genre),
-      })),
+      hero:  `${insights.topGenres[0].pct}%`,
+      label: shortName(insights.topGenres[0].genre),
     });
   }
 
   // 4. Most collected artist (vinyl count)
   if (insights.topArtist) {
     stats.push({
-      hero:   insights.topArtist.name,
-      label:  `${insights.topArtist.count} vinyl items`,
-      isName: true,
+      hero:  insights.topArtist.name,
+      label: `${insights.topArtist.count} vinyl items`,
     });
   }
 
   // 5. Most represented label
   if (insights.topLabel && insights.topLabel.count > 1) {
     stats.push({
-      hero:   insights.topLabel.name,
-      label:  `${insights.topLabel.count} label items`,
-      isName: true,
+      hero:  insights.topLabel.name,
+      label: `${insights.topLabel.count} label items`,
     });
   }
 
@@ -1039,10 +1027,6 @@ function InsightsPanel({
     stats.push({
       hero:  fmtV(discogsValue.med, c),
       label: "Median Collection Value",
-      sub:   [
-        discogsValue.low  != null ? `Low ${fmtV(discogsValue.low, c)}`   : null,
-        discogsValue.high != null ? `High ${fmtV(discogsValue.high, c)}` : null,
-      ].filter(Boolean).join("  ·  ") || undefined,
     });
   } else {
     const currSym = sym(valueCurrency);
@@ -1050,18 +1034,8 @@ function InsightsPanel({
       n >= 1000 ? `${currSym}${(n / 1000).toFixed(1)}k` : `${currSym}${Math.round(n).toLocaleString("en-US")}`;
     stats.push(
       estimatedValue > 0
-        ? {
-            hero:  fmtFallback(estimatedValue),
-            label: "Est. Collection Value",
-            sub:   pricedCount < total
-              ? `${pricedCount} of ${total} records priced`
-              : `${pricedCount} records priced`,
-          }
-        : {
-            hero:  "—",
-            label: "Est. Collection Value",
-            sub:   "Sync to calculate",
-          }
+        ? { hero: fmtFallback(estimatedValue), label: "Est. Collection Value" }
+        : { hero: "—", label: "Est. Collection Value" }
     );
   }
 
@@ -1069,7 +1043,7 @@ function InsightsPanel({
 
   return (
     <div style={{ borderBottom: "1px solid rgba(0,0,0,0.08)", flexShrink: 0, overflow: "hidden" }}>
-      <div style={{ display: "flex", overflow: "hidden", background: "#FEFBF8" }}>
+      <div style={{ display: "flex", overflow: "hidden", background: "#FEFBF8", alignItems: "stretch" }}>
         {stats.map((s, i) => (
           <DashStat
             key={i}
@@ -1107,112 +1081,68 @@ function InsightsPanel({
 }
 
 function DashStat({ stat, first, last }: { stat: StatDef; first: boolean; last: boolean }) {
-  const flexGrow   = stat.flexGrow ?? 1;
-  const padV       = stat.compact ? "9px"  : "13px";
-  const padLeft    = first ? "28px" : stat.compact ? "14px" : "18px";
-  const padRight   = last  ? "28px" : stat.compact ? "14px" : "18px";
-
-  // Name-type heroes: cap at 16 chars, show full name on hover
-  const displayHero = stat.isName && stat.hero.length > 16
-    ? stat.hero.slice(0, 15) + "…"
-    : stat.hero;
-  const len = displayHero.length;
-  const heroFontSize = stat.isName ? "18px" : (len > 15 ? "16px" : len > 12 ? "18px" : "22px");
+  const len = stat.hero.length;
+  const heroFontSize =
+    len > 12 ? "clamp(0.82rem, 1.3vw, 1.05rem)" :
+    len > 8  ? "clamp(0.9rem, 1.5vw, 1.25rem)"  :
+               "1.5rem";
 
   return (
     <div style={{
-      flex:       `${flexGrow} 1 0`,
-      width:       0,
-      minWidth:    0,
-      padding:     `${padV} ${padRight} ${padV} ${padLeft}`,
-      borderRight: last ? "none" : "0.5px solid #e8e8e8",
-      overflow:    "hidden",
-      boxSizing:   "border-box",
+      flex:          "1 1 0",
+      minWidth:      0,
+      padding:       `10px ${last ? "20px" : "12px"} 10px ${first ? "20px" : "12px"}`,
+      borderRight:   last ? "none" : "1px solid #e0e0da",
+      boxSizing:     "border-box",
+      display:       "flex",
+      flexDirection: "column",
+      alignItems:    "flex-start",
     }}>
-      {/* Genre tile — 3-column row layout */}
-      {stat.genres ? (
-        <div style={{ display: "flex", gap: 0, height: "100%", alignItems: "center" }}>
-          {stat.genres.map((g, i) => (
-            <div key={g.genre} style={{
-              flex: "1 1 0", minWidth: 0,
-              paddingLeft:  i === 0 ? 0 : "12px",
-              paddingRight: i === stat.genres!.length - 1 ? 0 : "12px",
-              borderLeft:   i === 0 ? "none" : "0.5px solid #e8e8e8",
-            }}>
-              <p style={{
-                fontFamily: SERIF, fontSize: "20px", fontWeight: 400,
-                color: "#0d0d0d", lineHeight: 1.2,
-                margin: "0 0 4px", letterSpacing: "-0.01em",
-                whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis",
-              }}>
-                {g.pct}%
-              </p>
-              <p style={{
-                fontFamily: MONO, fontSize: "9px", letterSpacing: "0.08em",
-                textTransform: "uppercase", color: "#aaaaaa",
-                lineHeight: 1.2, margin: 0,
-                whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis",
-              }}>
-                {g.genre}
-              </p>
-            </div>
-          ))}
-        </div>
-      ) : (
-        <>
-          {/* Hero */}
-          <p
-            title={stat.hero}
-            style={{
-              fontFamily:    SERIF,
-              fontSize:      heroFontSize,
-              fontWeight:    400,
-              fontStyle:     stat.heroItalic ? "italic" : "normal",
-              color:         stat.heroColor ?? "#0d0d0d",
-              lineHeight:    1.25,
-              paddingBottom: "2px",
-              margin:        "0 0 6px 0",
-              letterSpacing: "-0.01em",
-              whiteSpace:    "nowrap",
-              overflow:      "hidden",
-              textOverflow:  "ellipsis",
-              maxWidth:      "100%",
-            }}
-          >
-            {displayHero}
-          </p>
-          {/* Label */}
-          <p style={{
-            fontFamily:    MONO,
-            fontSize:      "9px",
-            letterSpacing: "0.08em",
-            textTransform: "uppercase",
-            color:         "#aaaaaa",
-            lineHeight:    1.2,
-            margin:        "0 0 3px 0",
-            whiteSpace:    "nowrap",
-            overflow:      "hidden",
-            textOverflow:  "ellipsis",
-          }}>
-            {stat.label}
-          </p>
-          {/* Sub-label */}
-          {stat.sub && (
-            <p style={{
-              fontFamily:    MONO,
-              fontSize:      "8px",
-              letterSpacing: "0.04em",
-              color:         "#cccccc",
-              lineHeight:    1.3,
-              margin:        0,
-              whiteSpace:    "nowrap",
-              overflow:      "hidden",
-              textOverflow:  "ellipsis",
-            }}>
-              {stat.sub}
-            </p>
-          )}
-        </>
+      <p
+        title={stat.hero}
+        style={{
+          fontFamily:    SERIF,
+          fontSize:      heroFontSize,
+          fontWeight:    400,
+          fontStyle:     stat.heroItalic ? "italic" : "normal",
+          color:         stat.heroColor ?? "#0d0d0d",
+          lineHeight:    1.2,
+          margin:        "0 0 5px 0",
+          letterSpacing: "-0.01em",
+          wordBreak:     "break-word",
+          maxWidth:      "100%",
+        }}
+      >
+        {stat.hero}
+      </p>
+      <p style={{
+        fontFamily:    MONO,
+        fontSize:      "0.6rem",
+        letterSpacing: "0.08em",
+        textTransform: "uppercase",
+        color:         "#aaaaaa",
+        lineHeight:    1.2,
+        margin:        0,
+        whiteSpace:    "nowrap",
+        overflow:      "hidden",
+        textOverflow:  "ellipsis",
+        maxWidth:      "100%",
+      }}>
+        {stat.label}
+      </p>
+      {stat.sub && (
+        <p style={{
+          fontFamily:    MONO,
+          fontSize:      "0.55rem",
+          letterSpacing: "0.04em",
+          color:         "#cccccc",
+          lineHeight:    1.3,
+          margin:        "3px 0 0",
+          wordBreak:     "break-word",
+          maxWidth:      "100%",
+        }}>
+          {stat.sub}
+        </p>
       )}
     </div>
   );
