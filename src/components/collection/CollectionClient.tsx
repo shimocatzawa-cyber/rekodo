@@ -653,17 +653,19 @@ export default function CollectionClient({
       )}
 
 
-      {/* ── Insights panel ── */}
-      {insights && (
-        <InsightsPanel
-          insights={insights}
-          total={collection.length}
-          estimatedValue={estimatedValue}
-          valueCurrency={valueCurrency}
-          pricedCount={pricedCount}
-          discogsValue={discogsValue}
-        />
-      )}
+      {/* ── Insights panel — desktop only ── */}
+      <div className="hidden md:block">
+        {insights && (
+          <InsightsPanel
+            insights={insights}
+            total={collection.length}
+            estimatedValue={estimatedValue}
+            valueCurrency={valueCurrency}
+            pricedCount={pricedCount}
+            discogsValue={discogsValue}
+          />
+        )}
+      </div>
 
       {/* ── Empty state (0 records) ── */}
       {collection.length === 0 && (
@@ -699,7 +701,7 @@ export default function CollectionClient({
       <div className="flex flex-col md:grid" style={{ flex: 1, overflow: "hidden", gridTemplateColumns: "380px 1fr 380px" }}>
 
         {/* Col 1 — search + filters + A-Z record list */}
-        <div className={`${mobileDetailOpen ? "hidden md:flex" : "flex"} flex-col`} style={{ flex: 1, borderRight: "1px solid rgba(0,0,0,0.08)", minWidth: 0, overflow: "hidden" }}>
+        <div className={`${mobileDetailOpen ? "hidden" : "flex"} flex-col md:flex`} style={{ flex: 1, borderRight: "1px solid rgba(0,0,0,0.08)", minWidth: 0, overflow: "hidden" }}>
 
           {/* ── Fixed: search + filters ── */}
           <div style={{ flexShrink: 0, borderBottom: "1px solid rgba(0,0,0,0.08)" }}>
@@ -742,8 +744,64 @@ export default function CollectionClient({
               )}
             </div>
 
-            {/* Search input */}
-            <div style={{ padding: "2px 10px 6px" }}>
+            {/* Mobile — inline search + filter selects */}
+            <div className="md:hidden" style={{ padding: "8px 12px 10px" }}>
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={e => setSearchQuery(e.target.value)}
+                placeholder="Search your collection..."
+                style={{
+                  width: "100%",
+                  fontFamily: MONO,
+                  fontSize: "13px",
+                  border: "0.5px solid #e8e8e8",
+                  borderRadius: "4px",
+                  padding: "10px 12px",
+                  marginBottom: "8px",
+                  background: "#fafafa",
+                  outline: "none",
+                  boxSizing: "border-box",
+                }}
+              />
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "8px" }}>
+                <select
+                  value={filterGenre}
+                  onChange={e => setFilterGenre(e.target.value)}
+                  style={{ fontFamily: MONO, fontSize: "12px", padding: "8px", border: "0.5px solid #e8e8e8", borderRadius: "4px", background: "#fafafa", outline: "none", color: filterGenre ? ORANGE : "#888888" }}
+                >
+                  <option value="">Genre</option>
+                  {genres.map(g => <option key={g} value={g}>{g}</option>)}
+                </select>
+                <select
+                  value={filterYear}
+                  onChange={e => setFilterYear(e.target.value)}
+                  style={{ fontFamily: MONO, fontSize: "12px", padding: "8px", border: "0.5px solid #e8e8e8", borderRadius: "4px", background: "#fafafa", outline: "none", color: filterYear ? ORANGE : "#888888" }}
+                >
+                  <option value="">Year</option>
+                  {decades.map(d => <option key={d} value={d}>{d}</option>)}
+                </select>
+                <select
+                  value={filterFormat}
+                  onChange={e => setFilterFormat(e.target.value)}
+                  style={{ fontFamily: MONO, fontSize: "12px", padding: "8px", border: "0.5px solid #e8e8e8", borderRadius: "4px", background: "#fafafa", outline: "none", color: filterFormat ? ORANGE : "#888888" }}
+                >
+                  <option value="">Format</option>
+                  {formats.map(f => <option key={f} value={f}>{f}</option>)}
+                </select>
+                <select
+                  value={filterCountry}
+                  onChange={e => setFilterCountry(e.target.value)}
+                  style={{ fontFamily: MONO, fontSize: "12px", padding: "8px", border: "0.5px solid #e8e8e8", borderRadius: "4px", background: "#fafafa", outline: "none", color: filterCountry ? ORANGE : "#888888" }}
+                >
+                  <option value="">Country</option>
+                  {countries.map(c => <option key={c} value={c}>{c}</option>)}
+                </select>
+              </div>
+            </div>
+
+            {/* Desktop — search input */}
+            <div className="hidden md:block" style={{ padding: "2px 10px 6px" }}>
               <input
                 type="text"
                 value={searchQuery}
@@ -764,32 +822,6 @@ export default function CollectionClient({
                   transition: "border-color 0.15s",
                 }}
               />
-            </div>
-
-            {/* Mobile — filter button */}
-            <div className="md:hidden" style={{ padding: "0 10px 6px" }}>
-              <button
-                onClick={() => setFilterSheetOpen(true)}
-                style={{
-                  width: "100%", display: "flex", alignItems: "center", justifyContent: "space-between",
-                  fontFamily: MONO, fontSize: "11px", letterSpacing: "0.06em",
-                  color: activeFilterCount > 0 ? ORANGE : "#888888",
-                  background: "#f8f8f8",
-                  border: `1px solid ${activeFilterCount > 0 ? ORANGE : "rgba(0,0,0,0.1)"}`,
-                  cursor: "pointer", padding: "8px 12px",
-                }}
-              >
-                <span>Filter{sortBy !== "artist-az" ? " & sort" : ""}</span>
-                {activeFilterCount > 0 && (
-                  <span style={{
-                    background: ORANGE, color: "#fff",
-                    fontFamily: MONO, fontSize: "9px",
-                    padding: "1px 5px", borderRadius: "8px",
-                  }}>
-                    {activeFilterCount}
-                  </span>
-                )}
-              </button>
             </div>
 
             {/* Desktop — filter dropdowns + sort */}
@@ -949,23 +981,24 @@ export default function CollectionClient({
         {selectedRecord ? (
           <>
             {/* Col 2 — Album details */}
-            <div className={`${!mobileDetailOpen ? "hidden md:flex" : "flex"} flex-col`} style={{ flex: 1, borderRight: "1px solid rgba(0,0,0,0.08)", overflow: "hidden", minWidth: 0 }}>
+            <div className={`${mobileDetailOpen ? "flex" : "hidden"} flex-col md:flex`} style={{ flex: 1, borderRight: "1px solid rgba(0,0,0,0.08)", overflow: "hidden", minWidth: 0 }}>
               <button
                 className="md:hidden"
                 onClick={() => setMobileDetailOpen(false)}
                 style={{
                   display: "flex", alignItems: "center", gap: "6px",
-                  padding: "12px 16px",
+                  padding: "14px 16px",
                   background: "none",
                   border: "none",
-                  borderBottom: "1px solid rgba(0,0,0,0.06)",
+                  borderBottom: "0.5px solid #e8e8e8",
                   cursor: "pointer",
-                  fontFamily: MONO, fontSize: "11px", letterSpacing: "0.06em", color: ORANGE,
+                  fontFamily: MONO, fontSize: "12px", letterSpacing: "0.08em",
+                  textTransform: "uppercase", color: ORANGE,
                   width: "100%",
                   textAlign: "left",
                 }}
               >
-                ← Back
+                ← Collection
               </button>
               <AlbumDetail
                 record={selectedRecord}
@@ -977,7 +1010,7 @@ export default function CollectionClient({
             </div>
 
             {/* Col 3 — Tracklist + Bandcamp */}
-            <div className={!mobileDetailOpen ? "hidden md:block" : undefined} style={{ overflowY: "auto", minWidth: 0 }}>
+            <div className="hidden md:block" style={{ overflowY: "auto", minWidth: 0 }}>
               <TracklistPanel
                 tracks={releaseDetail?.tracklist ?? null}
                 loading={detailLoading}
@@ -997,8 +1030,8 @@ export default function CollectionClient({
       </div>
       )}
 
-      {/* ── Mobile filter bottom sheet ── */}
-      {filterSheetOpen && (
+      {/* filter bottom sheet removed — inline filters on mobile */}
+      {false && (
         <>
           <div
             className="md:hidden"
@@ -1314,30 +1347,32 @@ function InsightsPanel({
           </div>
         </div>
       </div>
-      {oneLiner && (
-        <div style={{
-          margin: "0 28px 14px",
-          paddingLeft: "10px",
-          borderLeft: `2px solid ${ORANGE}`,
-        }}>
-          <p style={{
-            fontFamily: SERIF,
-            fontStyle: "italic",
-            fontSize: "13px",
-            color: "#888888",
-            letterSpacing: "0.01em",
-            lineHeight: 1.5,
-            margin: 0,
-            maxWidth: "72ch",
-            display: "-webkit-box",
-            WebkitLineClamp: 2,
-            WebkitBoxOrient: "vertical",
-            overflow: "hidden",
+      <div className="hidden md:block">
+        {oneLiner && (
+          <div style={{
+            margin: "0 28px 14px",
+            paddingLeft: "10px",
+            borderLeft: `2px solid ${ORANGE}`,
           }}>
-            {oneLiner}
-          </p>
-        </div>
-      )}
+            <p style={{
+              fontFamily: SERIF,
+              fontStyle: "italic",
+              fontSize: "13px",
+              color: "#888888",
+              letterSpacing: "0.01em",
+              lineHeight: 1.5,
+              margin: 0,
+              maxWidth: "72ch",
+              display: "-webkit-box",
+              WebkitLineClamp: 2,
+              WebkitBoxOrient: "vertical",
+              overflow: "hidden",
+            }}>
+              {oneLiner}
+            </p>
+          </div>
+        )}
+      </div>
     </div>
   );
 }
