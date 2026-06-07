@@ -570,17 +570,20 @@ export default function ListsClient({
       <AppNav username={username} displayLabel={displayLabel} avatarUrl={avatarUrl} />
 
       {/* ── Pill strip — two rows ── */}
-      <div className="px-4 md:px-0" style={{ borderBottom: "1px solid rgba(0,0,0,0.08)", flexShrink: 0, background: "#FEFBF8" }}>
+      <div style={{ borderBottom: "1px solid rgba(0,0,0,0.08)", flexShrink: 0, background: "#FEFBF8" }}>
 
         {/* Row 1: [scrollable: Wantlist · Private · Saved] [fixed: + New list] */}
-        <div style={{ display: "flex", alignItems: "center", overflow: "hidden", padding: "8px 0 4px" }}>
+        <div style={{ display: "flex", alignItems: "center", padding: "8px 0 4px" }}>
 
           {/* Scrollable pills */}
-          <div className="pl-0 md:pl-8 pill-strip" style={{
+          <div className="pill-strip" style={{
             flex: 1, display: "flex", alignItems: "center", gap: "8px",
             overflowX: "auto",
-            scrollbarWidth: "none", msOverflowStyle: "none",
             WebkitOverflowScrolling: "touch",
+            scrollbarWidth: "none", msOverflowStyle: "none",
+            paddingBottom: "2px",
+            paddingLeft: "16px",
+            paddingRight: "16px",
           } as React.CSSProperties}>
 
             {/* Wantlist — pinned */}
@@ -687,7 +690,7 @@ export default function ListsClient({
           </div>
 
           {/* Anchored + New list — never displaced */}
-          <div className="pr-0 md:pr-8" style={{ flexShrink: 0, paddingLeft: "14px", borderLeft: "1px solid rgba(0,0,0,0.07)" }}>
+          <div style={{ flexShrink: 0, paddingLeft: "14px", paddingRight: "16px", borderLeft: "1px solid rgba(0,0,0,0.07)" }}>
             <button
               onClick={() => { setCreateState({ listType: "top5", step: "templates" }); setNewTitle(""); }}
               style={{
@@ -705,10 +708,13 @@ export default function ListsClient({
         </div>
 
         {/* Row 2: Top 5 */}
-        <div className="px-0 md:px-8 pill-strip" style={{
-          display: "flex", alignItems: "center", paddingTop: "4px", paddingBottom: "8px", gap: "8px",
-          overflowX: "auto", scrollbarWidth: "none", msOverflowStyle: "none",
+        <div className="pill-strip" style={{
+          display: "flex", alignItems: "center", gap: "8px",
+          overflowX: "auto",
           WebkitOverflowScrolling: "touch",
+          scrollbarWidth: "none", msOverflowStyle: "none",
+          paddingTop: "4px", paddingBottom: "2px",
+          paddingLeft: "16px", paddingRight: "16px",
           borderTop: "1px solid rgba(0,0,0,0.04)",
         } as React.CSSProperties}>
           {(() => {
