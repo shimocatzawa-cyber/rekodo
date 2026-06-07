@@ -68,7 +68,6 @@ const TOP5_TEMPLATES = [
 ];
 
 const PERSONAL_TEMPLATES = [
-  { title: "Want to Buy",      subtitle: "Building the wish list." },
   { title: "Need to Relisten", subtitle: "Albums that deserve another chance." },
   { title: "Custom",           subtitle: "Your list, your rules.", isCustom: true as const },
 ];
