@@ -216,6 +216,7 @@ export default function ListsClient({
   const [activeSavedId,   setActiveSavedId]   = useState<string | null>(null);
   const [top5Expanded,    setTop5Expanded]    = useState(false);
   const [privateExpanded, setPrivateExpanded] = useState(false);
+  const [rightPanelTab,   setRightPanelTab]   = useState<"top5" | "private">("top5");
 
   // ── Wantlist controls ──────────────────────────────────────────────────────
   type WantlistSort = "priority" | "date_added" | "artist";
@@ -593,17 +594,17 @@ export default function ListsClient({
               const isActive = activePillId === wl.id;
               return (
                 <>
-                  <span style={{ fontFamily: MONO, fontSize: "0.75rem", letterSpacing: "0.08em", textTransform: "uppercase", color: "#aaaaaa", flexShrink: 0, marginRight: "2px" }}>
+                  <span style={{ fontFamily: MONO, fontSize: "11px", letterSpacing: "0.08em", textTransform: "uppercase", color: "#aaaaaa", flexShrink: 0, marginRight: "2px" }}>
                     Wantlist
                   </span>
                   <button
                     onClick={() => { setActivePillId(wl.id); setActiveSavedId(null); closePicker(); }}
                     style={{
-                      fontFamily: MONO, fontSize: "0.75rem", letterSpacing: "0.08em",
+                      fontFamily: MONO, fontSize: "11px", letterSpacing: "0.08em",
                       color: isActive ? ORANGE : "rgba(204,85,0,0.5)",
                       background: isActive ? "rgba(204,85,0,0.05)" : "none",
                       border: `1px solid ${isActive ? ORANGE : "rgba(204,85,0,0.4)"}`,
-                      borderRadius: "2px", cursor: "pointer", padding: "0.35rem 0.85rem",
+                      borderRadius: "3px", cursor: "pointer", padding: "4px 10px",
                       flexShrink: 0, whiteSpace: "nowrap", transition: "all 0.15s",
                     }}
                   >
@@ -623,7 +624,7 @@ export default function ListsClient({
               const hidden = priv.length - visible.length;
               return (
                 <>
-                  <span style={{ fontFamily: MONO, fontSize: "0.75rem", letterSpacing: "0.08em", textTransform: "uppercase", color: "#aaaaaa", flexShrink: 0, marginRight: "2px" }}>
+                  <span style={{ fontFamily: MONO, fontSize: "11px", letterSpacing: "0.08em", textTransform: "uppercase", color: "#aaaaaa", flexShrink: 0, marginRight: "2px" }}>
                     Private
                   </span>
                   {visible.map(list => {
@@ -632,11 +633,11 @@ export default function ListsClient({
                       <button key={list.id}
                         onClick={() => { setActivePillId(list.id); setActiveSavedId(null); closePicker(); }}
                         style={{
-                          fontFamily: MONO, fontSize: "0.75rem", letterSpacing: "0.08em",
+                          fontFamily: MONO, fontSize: "11px", letterSpacing: "0.08em",
                           color: isActive ? ORANGE : "rgba(204,85,0,0.5)",
                           background: isActive ? "rgba(204,85,0,0.05)" : "none",
                           border: `1px solid ${isActive ? ORANGE : "rgba(204,85,0,0.4)"}`,
-                          borderRadius: "2px", cursor: "pointer", padding: "0.35rem 0.85rem",
+                          borderRadius: "3px", cursor: "pointer", padding: "4px 10px",
                           flexShrink: 0, whiteSpace: "nowrap", transition: "all 0.15s",
                         }}
                       >
@@ -645,12 +646,12 @@ export default function ListsClient({
                     );
                   })}
                   {hidden > 0 && (
-                    <button onClick={() => setPrivateExpanded(true)} style={{ fontFamily: MONO, fontSize: "0.75rem", letterSpacing: "0.06em", color: "rgba(204,85,0,0.5)", background: "none", border: "1px solid rgba(204,85,0,0.3)", borderRadius: "2px", cursor: "pointer", padding: "0.35rem 0.85rem", flexShrink: 0, whiteSpace: "nowrap" }}>
+                    <button onClick={() => setPrivateExpanded(true)} style={{ fontFamily: MONO, fontSize: "11px", letterSpacing: "0.06em", color: "rgba(204,85,0,0.5)", background: "none", border: "1px solid rgba(204,85,0,0.3)", borderRadius: "3px", cursor: "pointer", padding: "4px 10px", flexShrink: 0, whiteSpace: "nowrap" }}>
                       +{hidden} more
                     </button>
                   )}
                   {privateExpanded && priv.length > 7 && (
-                    <button onClick={() => setPrivateExpanded(false)} style={{ fontFamily: MONO, fontSize: "0.75rem", letterSpacing: "0.06em", color: "#aaaaaa", background: "none", border: "none", cursor: "pointer", padding: "0 4px", flexShrink: 0, whiteSpace: "nowrap" }}>
+                    <button onClick={() => setPrivateExpanded(false)} style={{ fontFamily: MONO, fontSize: "11px", letterSpacing: "0.06em", color: "#aaaaaa", background: "none", border: "none", cursor: "pointer", padding: "0 4px", flexShrink: 0, whiteSpace: "nowrap" }}>
                       Show less
                     </button>
                   )}
@@ -660,7 +661,7 @@ export default function ListsClient({
 
             {/* Saved */}
             <div style={{ width: "1px", height: "18px", background: "rgba(0,0,0,0.14)", flexShrink: 0, margin: "0 6px" }} />
-            <span style={{ fontFamily: MONO, fontSize: "0.75rem", letterSpacing: "0.08em", textTransform: "uppercase", color: "#aaaaaa", flexShrink: 0, marginRight: "4px" }}>
+            <span style={{ fontFamily: MONO, fontSize: "11px", letterSpacing: "0.08em", textTransform: "uppercase", color: "#aaaaaa", flexShrink: 0, marginRight: "4px" }}>
               Saved
             </span>
             {savedCards.length === 0 ? (
@@ -674,11 +675,11 @@ export default function ListsClient({
                   <button key={card.id}
                     onClick={() => { setActiveSavedId(card.id); setActivePillId(null); closePicker(); }}
                     style={{
-                      fontFamily: MONO, fontSize: "0.75rem", letterSpacing: "0.08em",
+                      fontFamily: MONO, fontSize: "11px", letterSpacing: "0.08em",
                       color: isActive ? ORANGE : "#888888",
                       background: "none",
                       border: `1px solid ${isActive ? ORANGE : "rgba(0,0,0,0.15)"}`,
-                      borderRadius: "2px", cursor: "pointer", padding: "0.35rem 0.85rem",
+                      borderRadius: "3px", cursor: "pointer", padding: "4px 10px",
                       flexShrink: 0, whiteSpace: "nowrap", transition: "all 0.15s",
                     }}
                   >
@@ -694,10 +695,10 @@ export default function ListsClient({
             <button
               onClick={() => { setCreateState({ listType: "top5", step: "templates" }); setNewTitle(""); }}
               style={{
-                fontFamily: MONO, fontSize: "0.75rem", letterSpacing: "0.08em",
+                fontFamily: MONO, fontSize: "11px", letterSpacing: "0.08em",
                 color: ORANGE, background: "none",
                 border: `1px solid ${ORANGE}`,
-                borderRadius: "2px", cursor: "pointer", padding: "0.35rem 0.85rem",
+                borderRadius: "3px", cursor: "pointer", padding: "4px 10px",
                 whiteSpace: "nowrap",
               }}
             >
@@ -707,8 +708,8 @@ export default function ListsClient({
 
         </div>
 
-        {/* Row 2: Top 5 */}
-        <div className="pill-strip" style={{
+        {/* Row 2: Top 5 — mobile only; desktop shows in right column */}
+        <div className="pill-strip md:hidden" style={{
           display: "flex", alignItems: "center", gap: "8px",
           overflowX: "auto",
           WebkitOverflowScrolling: "touch",
@@ -723,7 +724,7 @@ export default function ListsClient({
             const hidden = top5.length - visible.length;
             return (
               <>
-                <span style={{ fontFamily: MONO, fontSize: "0.75rem", letterSpacing: "0.08em", textTransform: "uppercase", color: "#aaaaaa", flexShrink: 0, marginRight: "2px" }}>
+                <span style={{ fontFamily: MONO, fontSize: "11px", letterSpacing: "0.08em", textTransform: "uppercase", color: "#aaaaaa", flexShrink: 0, marginRight: "2px" }}>
                   Top 5
                 </span>
                 {visible.map(list => {
@@ -733,11 +734,11 @@ export default function ListsClient({
                     <button key={list.id}
                       onClick={() => { setActivePillId(list.id); setActiveSavedId(null); closePicker(); }}
                       style={{
-                        fontFamily: MONO, fontSize: "0.75rem", letterSpacing: "0.08em",
+                        fontFamily: MONO, fontSize: "11px", letterSpacing: "0.08em",
                         color: isActive ? ORANGE : "#555555",
                         background: "none",
                         border: `1px solid ${isActive ? ORANGE : "rgba(0,0,0,0.18)"}`,
-                        borderRadius: "2px", cursor: "pointer", padding: "0.35rem 0.85rem",
+                        borderRadius: "3px", cursor: "pointer", padding: "4px 10px",
                         flexShrink: 0, whiteSpace: "nowrap", transition: "border-color 0.15s, color 0.15s",
                       }}
                     >
@@ -746,12 +747,12 @@ export default function ListsClient({
                   );
                 })}
                 {hidden > 0 && (
-                  <button onClick={() => setTop5Expanded(true)} style={{ fontFamily: MONO, fontSize: "0.75rem", letterSpacing: "0.06em", color: "#aaaaaa", background: "none", border: "1px dashed rgba(0,0,0,0.15)", borderRadius: "2px", cursor: "pointer", padding: "0.35rem 0.85rem", flexShrink: 0, whiteSpace: "nowrap" }}>
+                  <button onClick={() => setTop5Expanded(true)} style={{ fontFamily: MONO, fontSize: "11px", letterSpacing: "0.06em", color: "#aaaaaa", background: "none", border: "1px dashed rgba(0,0,0,0.15)", borderRadius: "3px", cursor: "pointer", padding: "4px 10px", flexShrink: 0, whiteSpace: "nowrap" }}>
                     +{hidden} more
                   </button>
                 )}
                 {top5Expanded && top5.length > 7 && (
-                  <button onClick={() => setTop5Expanded(false)} style={{ fontFamily: MONO, fontSize: "0.75rem", letterSpacing: "0.06em", color: "#aaaaaa", background: "none", border: "none", cursor: "pointer", padding: "0 4px", flexShrink: 0, whiteSpace: "nowrap" }}>
+                  <button onClick={() => setTop5Expanded(false)} style={{ fontFamily: MONO, fontSize: "11px", letterSpacing: "0.06em", color: "#aaaaaa", background: "none", border: "none", cursor: "pointer", padding: "0 4px", flexShrink: 0, whiteSpace: "nowrap" }}>
                     Show less
                   </button>
                 )}
@@ -762,16 +763,16 @@ export default function ListsClient({
 
       </div>
 
-      {/* ── Two-column grid: left Discover 45% + right list detail 55% ── */}
+      {/* ── Three-column grid: Discover · List detail · My Lists ── */}
       <div
-        className="flex flex-col overflow-y-auto md:flex-row md:overflow-hidden"
-        style={{ flex: 1, minHeight: 0 }}
+        className="flex flex-col overflow-y-auto md:grid md:overflow-hidden"
+        style={{ flex: 1, minHeight: 0, gridTemplateColumns: "300px 1fr 320px" }}
       >
 
-        {/* List detail column (right on desktop, top on mobile) */}
+        {/* Centre: List detail */}
         <div
-          className="w-full md:w-2/3 md:order-2 md:overflow-hidden"
-          style={{ display: "flex", flexDirection: "column", borderRight: "1px solid rgba(0,0,0,0.08)" }}
+          className="w-full md:overflow-hidden"
+          style={{ display: "flex", flexDirection: "column", borderRight: "1px solid rgba(0,0,0,0.08)", gridColumn: "2", gridRow: "1" }}
         >
           {selectedList ? (
             <div className="px-4 md:px-7" style={{ flex: 1, paddingTop: "24px", paddingBottom: "28px", overflowY: "auto", minHeight: 0 }}>
@@ -1108,10 +1109,10 @@ export default function ListsClient({
           )}
         </div>
 
-        {/* Discover column — hidden on mobile, left column on desktop */}
+        {/* Left: Discover — hidden on mobile */}
         <div
-          className="hidden md:flex md:flex-col md:w-1/3 md:order-1 md:overflow-hidden"
-          style={{ borderRight: "1px solid rgba(0,0,0,0.08)" }}
+          className="hidden md:flex md:flex-col md:overflow-hidden"
+          style={{ borderRight: "1px solid rgba(0,0,0,0.08)", gridColumn: "1", gridRow: "1" }}
         >
           <div className="md:flex md:flex-col md:flex-1 md:overflow-y-auto">
             <div style={{ position: "sticky", top: 0, background: "#ffffff", zIndex: 1, padding: "24px 24px 14px", borderBottom: "1px solid rgba(0,0,0,0.06)" }}>
@@ -1193,6 +1194,84 @@ export default function ListsClient({
                   />
                 ))}
               </>
+            )}
+          </div>
+        </div>
+
+        {/* Right: My Lists — hidden on mobile */}
+        <div
+          className="hidden md:flex md:flex-col md:overflow-hidden"
+          style={{ borderLeft: "0.5px solid #e8e8e8", gridColumn: "3", gridRow: "1" }}
+        >
+          {/* Toggle header */}
+          <div style={{ flexShrink: 0, padding: "14px 16px", borderBottom: "1px solid rgba(0,0,0,0.08)", display: "flex", gap: "20px" }}>
+            {(["top5", "private"] as const).map(tab => (
+              <button
+                key={tab}
+                onClick={() => setRightPanelTab(tab)}
+                style={{
+                  fontFamily: MONO, fontSize: "11px", letterSpacing: "0.08em", textTransform: "uppercase",
+                  color: rightPanelTab === tab ? "#0d0d0d" : "#aaaaaa",
+                  background: "none", border: "none", cursor: "pointer", padding: "0 0 4px",
+                  borderBottom: `1px solid ${rightPanelTab === tab ? "#0d0d0d" : "transparent"}`,
+                  transition: "color 0.15s",
+                }}
+              >
+                {tab === "top5" ? "My Top 5s" : "My Private Lists"}
+              </button>
+            ))}
+          </div>
+          {/* List rows */}
+          <div style={{ flex: 1, overflowY: "auto", minHeight: 0 }}>
+            {rightPanelTab === "top5" ? (
+              lists.filter(l => l.list_type === "top5").map(list => {
+                const filled = list.slots.filter(s => s.item).length;
+                const isActive = activePillId === list.id;
+                return (
+                  <div
+                    key={list.id}
+                    onClick={() => { setActivePillId(list.id); setActiveSavedId(null); closePicker(); }}
+                    style={{
+                      display: "flex", alignItems: "center", padding: "9px 16px 9px 13px",
+                      borderLeft: `3px solid ${isActive ? ORANGE : "transparent"}`,
+                      background: isActive ? "rgba(204,85,0,0.025)" : "none",
+                      borderBottom: "1px solid rgba(0,0,0,0.04)",
+                      cursor: "pointer", transition: "background 0.1s",
+                    }}
+                  >
+                    <span style={{ flex: 1, fontFamily: MONO, fontSize: "11px", letterSpacing: "0.04em", color: "#0d0d0d", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                      {list.title}
+                    </span>
+                    <span style={{ fontFamily: MONO, fontSize: "11px", letterSpacing: "0.04em", color: "#aaaaaa", flexShrink: 0, marginLeft: "8px" }}>
+                      {filled}/5
+                    </span>
+                  </div>
+                );
+              })
+            ) : (
+              lists.filter(l => l.list_type !== "top5" && l.slug !== "wantlist" && l.slug !== "want-to-buy").map(list => {
+                const isActive = activePillId === list.id;
+                return (
+                  <div
+                    key={list.id}
+                    onClick={() => { setActivePillId(list.id); setActiveSavedId(null); closePicker(); }}
+                    style={{
+                      display: "flex", alignItems: "center", padding: "9px 16px 9px 13px",
+                      borderLeft: `3px solid ${isActive ? ORANGE : "transparent"}`,
+                      background: isActive ? "rgba(204,85,0,0.025)" : "none",
+                      borderBottom: "1px solid rgba(0,0,0,0.04)",
+                      cursor: "pointer", transition: "background 0.1s",
+                    }}
+                  >
+                    <span style={{ flex: 1, fontFamily: MONO, fontSize: "11px", letterSpacing: "0.04em", color: "#0d0d0d", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                      {list.title}
+                    </span>
+                    <span style={{ fontFamily: MONO, fontSize: "11px", letterSpacing: "0.04em", color: "#aaaaaa", flexShrink: 0, marginLeft: "8px" }}>
+                      {list.slots.length}
+                    </span>
+                  </div>
+                );
+              })
             )}
           </div>
         </div>
