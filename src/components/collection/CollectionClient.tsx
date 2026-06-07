@@ -164,17 +164,18 @@ const DESIRABILITY_FILTER_OPTIONS: { value: FilterDesirabilityTier; label: strin
   { value: "in-demand",  label: "In Demand"  },
 ];
 
-// Uses median price first (truer market value); falls back to lowest listed price.
-// Thresholds are based on Discogs median/lowest marketplace prices (USD):
-//   Holy Grail  ≥ $100 — the most sought-after pressings; even cheap copies are $100+
-//   Rare        ≥ $30  — scarce, commands a premium but still findable
-//   In Demand   ≥ $8   — popular, priced above common commodity level
-//   Common      <  $8  — plenty of cheap copies available
-//   Unpriced        —  — not yet in the Discogs marketplace
+// Based on the Discogs lowest listed price (lowest_price from /marketplace/stats).
+// No true median is available from the API — price_median stores the same value.
+// Thresholds calibrated for lowest listed price (USD):
+//   Holy Grail  ≥ $100 — even the cheapest copy is $100+; genuinely rare pressings
+//   Rare        ≥ $30  — floor price $30–$99; scarce but findable
+//   In Demand   ≥ $8   — floor price $8–$29; above commodity level
+//   Common      <  $8  — abundant supply keeps floor price low
+//   Unpriced        —  — no Discogs marketplace data yet
 function getCollectionDesirabilityTier(
   priceLow: number | null, priceMedian: number | null
 ): FilterDesirabilityTier {
-  const price = priceMedian ?? priceLow;
+  const price = priceLow ?? priceMedian;
   if (!price || price <= 0) return "unpriced";
   if (price >= 100) return "holy-grail";
   if (price >= 30)  return "rare";
