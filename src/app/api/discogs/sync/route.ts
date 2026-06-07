@@ -347,6 +347,7 @@ export async function GET(request: NextRequest) {
           collection_value_high:     colVal.maximum?.value     ?? null,
           collection_value_currency: colVal.minimum?.currency  ?? null,
           collection_value_at:       colVal.minimum?.value ? timestamp : null,
+          taste_summary_count:       null, // invalidate cached AI banner so it regenerates after sync
         })
         .eq("id", user.id);
 

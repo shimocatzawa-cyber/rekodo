@@ -153,6 +153,27 @@ function matchesDecade(year: number | null, decade: string): boolean {
   return year >= start && year < start + 10;
 }
 
+// ─── Collection desirability (price-based, for filter) ───────────────────────
+
+type FilterDesirabilityTier = "rare" | "valuable" | "in-demand" | "common" | "unpriced";
+
+const DESIRABILITY_FILTER_OPTIONS: { value: FilterDesirabilityTier; label: string }[] = [
+  { value: "rare",      label: "Rare"      },
+  { value: "valuable",  label: "Valuable"  },
+  { value: "in-demand", label: "In Demand" },
+];
+
+function getCollectionDesirabilityTier(
+  priceLow: number | null, priceMedian: number | null
+): FilterDesirabilityTier {
+  const price = priceLow ?? priceMedian;
+  if (!price || price <= 0) return "unpriced";
+  if (price >= 150) return "rare";
+  if (price >= 40)  return "valuable";
+  if (price >= 10)  return "in-demand";
+  return "common";
+}
+
 // ─── Props ────────────────────────────────────────────────────────────────────
 
 // ─── Sync helpers ────────────────────────────────────────────────────────────
@@ -171,6 +192,17 @@ interface SyncResult {
   updated: number;
   priceUpdated: number;
   timestamp: string;
+}
+
+function formatSyncDisplayTime(isoString: string | null | undefined): string {
+  if (!isoString) return "—";
+  try {
+    const d = new Date(isoString);
+    if (isNaN(d.getTime())) return "—";
+    const date = d.toLocaleDateString("en-US", { day: "numeric", month: "short" });
+    const time = d.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", hour12: true });
+    return `${date}, ${time}`;
+  } catch { return "—"; }
 }
 
 function formatSyncTime(isoString: string): string {
@@ -235,12 +267,12 @@ export default function CollectionClient({
   const [bandcampData,   setBandcampData]   = useState<BandcampData | null>(null);
   const [detailLoading,  setDetailLoading]  = useState(false);
 
-  const [searchQuery,   setSearchQuery]   = useState("");
-  const [filterGenre,   setFilterGenre]   = useState("");
-  const [filterYear,    setFilterYear]    = useState("");
-  const [filterFormat,  setFilterFormat]  = useState("");
-  const [filterCountry, setFilterCountry] = useState("");
-  const [sortBy,        setSortBy]        = useState("artist-az");
+  const [searchQuery,        setSearchQuery]        = useState("");
+  const [filterGenre,        setFilterGenre]        = useState("");
+  const [filterYear,         setFilterYear]         = useState("");
+  const [filterFormat,       setFilterFormat]       = useState("");
+  const [filterDesirability, setFilterDesirability] = useState("");
+  const [sortBy,             setSortBy]             = useState("artist-az");
 
   const [filterSheetOpen,  setFilterSheetOpen]  = useState(false);
   const [mobileDetailOpen, setMobileDetailOpen] = useState(false);
@@ -526,12 +558,14 @@ export default function CollectionClient({
         (r.label ?? "").toLowerCase().includes(q)
       );
     }
-    if (filterGenre)   result = result.filter(r => r.genre   === filterGenre);
-    if (filterYear)    result = result.filter(r => matchesDecade(r.year, filterYear));
-    if (filterFormat)  result = result.filter(r => r.format  === filterFormat);
-    if (filterCountry) result = result.filter(r => r.country === filterCountry);
+    if (filterGenre)        result = result.filter(r => r.genre === filterGenre);
+    if (filterYear)         result = result.filter(r => matchesDecade(r.year, filterYear));
+    if (filterFormat)       result = result.filter(r => r.format === filterFormat);
+    if (filterDesirability) result = result.filter(r =>
+      getCollectionDesirabilityTier(r.price_low, r.price_median) === filterDesirability
+    );
     return result;
-  }, [collection, searchQuery, filterGenre, filterYear, filterFormat, filterCountry]);
+  }, [collection, searchQuery, filterGenre, filterYear, filterFormat, filterDesirability]);
 
   const sortedCollection = useMemo(() => {
     const arr = [...filteredCollection];
@@ -590,21 +624,21 @@ export default function CollectionClient({
     return [...fs].sort();
   }, [collection]);
 
-  const countries = useMemo(() => {
-    const cs = new Set<string>();
-    for (const r of collection) if (r.country) cs.add(r.country);
-    return [...cs].sort();
+  const desirabilityOptions = useMemo(() => {
+    const tiers = new Set<FilterDesirabilityTier>();
+    for (const r of collection) tiers.add(getCollectionDesirabilityTier(r.price_low, r.price_median));
+    return DESIRABILITY_FILTER_OPTIONS.filter(o => tiers.has(o.value));
   }, [collection]);
 
-  const hasFilters = !!searchQuery.trim() || !!filterGenre || !!filterYear || !!filterFormat || !!filterCountry;
-  const activeFilterCount = [filterGenre, filterYear, filterFormat, filterCountry].filter(Boolean).length;
+  const hasFilters = !!searchQuery.trim() || !!filterGenre || !!filterYear || !!filterFormat || !!filterDesirability;
+  const activeFilterCount = [filterGenre, filterYear, filterFormat, filterDesirability].filter(Boolean).length;
 
   function clearAllFilters() {
     setSearchQuery("");
     setFilterGenre("");
     setFilterYear("");
     setFilterFormat("");
-    setFilterCountry("");
+    setFilterDesirability("");
   }
 
   const SORT_OPTIONS = [
@@ -702,7 +736,7 @@ export default function CollectionClient({
           {/* ── Fixed: search + filters ── */}
           <div style={{ flexShrink: 0, borderBottom: "1px solid rgba(0,0,0,0.08)" }}>
 
-            {/* Sync + Random row */}
+            {/* Sync + Last Sync row */}
             <div style={{ padding: "8px 10px 4px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
               <button
                 type="button"
@@ -721,22 +755,10 @@ export default function CollectionClient({
               >
                 {syncState === "syncing" ? "Syncing…" : "Sync with Discogs →"}
               </button>
-              {collection.length > 0 && (
-                <button
-                  type="button"
-                  onClick={() => {
-                    const idx = Math.floor(Math.random() * collection.length);
-                    selectRecord(collection[idx]);
-                    setMobileDetailOpen(true);
-                  }}
-                  style={{
-                    fontFamily: MONO, fontSize: "10px", letterSpacing: "0.06em",
-                    color: ORANGE, background: "none", border: "none",
-                    cursor: "pointer", padding: 0,
-                  }}
-                >
-                  ↺ Randomiser
-                </button>
+              {(syncResult?.timestamp || lastSyncedAt) && (
+                <span style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.04em", color: "#bbbbbb" }}>
+                  Last sync: {formatSyncDisplayTime(syncResult?.timestamp ?? lastSyncedAt)}
+                </span>
               )}
             </div>
 
@@ -786,12 +808,12 @@ export default function CollectionClient({
                   {formats.map(f => <option key={f} value={f}>{f}</option>)}
                 </select>
                 <select
-                  value={filterCountry}
-                  onChange={e => setFilterCountry(e.target.value)}
-                  style={{ fontFamily: MONO, fontSize: "12px", padding: "8px", border: "0.5px solid #e8e8e8", borderRadius: "4px", background: "#fafafa", outline: "none", color: filterCountry ? ORANGE : "#888888" }}
+                  value={filterDesirability}
+                  onChange={e => setFilterDesirability(e.target.value)}
+                  style={{ fontFamily: MONO, fontSize: "12px", padding: "8px", border: "0.5px solid #e8e8e8", borderRadius: "4px", background: "#fafafa", outline: "none", color: filterDesirability ? ORANGE : "#888888" }}
                 >
-                  <option value="">Country</option>
-                  {countries.map(c => <option key={c} value={c}>{c}</option>)}
+                  <option value="">Desirability</option>
+                  {desirabilityOptions.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
                 </select>
               </div>
             </div>
@@ -875,19 +897,19 @@ export default function CollectionClient({
                 {formats.map(f => <option key={f} value={f}>{f}</option>)}
               </select>
               <select
-                value={filterCountry}
-                onChange={e => setFilterCountry(e.target.value)}
+                value={filterDesirability}
+                onChange={e => setFilterDesirability(e.target.value)}
                 style={{
                   flex: 1, fontFamily: MONO, fontSize: "10px", letterSpacing: "0.04em",
-                  color: filterCountry ? ORANGE : "#888888",
+                  color: filterDesirability ? ORANGE : "#888888",
                   background: "#ffffff",
-                  border: `1px solid ${filterCountry ? ORANGE : "rgba(0,0,0,0.13)"}`,
+                  border: `1px solid ${filterDesirability ? ORANGE : "rgba(0,0,0,0.13)"}`,
                   cursor: "pointer", padding: "4px 6px", outline: "none",
                   transition: "border-color 0.15s, color 0.15s",
                 }}
               >
-                <option value="">Country</option>
-                {countries.map(c => <option key={c} value={c}>{c}</option>)}
+                <option value="">Desirability</option>
+                {desirabilityOptions.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
               </select>
             </div>
 
@@ -912,12 +934,12 @@ export default function CollectionClient({
             </div>
 
             {/* Active filter tags */}
-            {(filterGenre || filterYear || filterFormat || filterCountry) && (
+            {(filterGenre || filterYear || filterFormat || filterDesirability) && (
               <div style={{ padding: "0 10px 6px", display: "flex", flexWrap: "wrap", gap: "4px" }}>
-                {filterGenre   && <FilterTag label={`Genre: ${filterGenre}`}     onRemove={() => setFilterGenre("")} />}
-                {filterYear    && <FilterTag label={`Year: ${filterYear}`}       onRemove={() => setFilterYear("")} />}
-                {filterFormat  && <FilterTag label={`Format: ${filterFormat}`}   onRemove={() => setFilterFormat("")} />}
-                {filterCountry && <FilterTag label={`Country: ${filterCountry}`} onRemove={() => setFilterCountry("")} />}
+                {filterGenre        && <FilterTag label={`Genre: ${filterGenre}`}       onRemove={() => setFilterGenre("")} />}
+                {filterYear         && <FilterTag label={`Year: ${filterYear}`}         onRemove={() => setFilterYear("")} />}
+                {filterFormat       && <FilterTag label={`Format: ${filterFormat}`}     onRemove={() => setFilterFormat("")} />}
+                {filterDesirability && <FilterTag label={`Desirability: ${DESIRABILITY_FILTER_OPTIONS.find(o => o.value === filterDesirability)?.label ?? filterDesirability}`} onRemove={() => setFilterDesirability("")} />}
               </div>
             )}
 
@@ -996,6 +1018,19 @@ export default function CollectionClient({
               >
                 ← Collection
               </button>
+              {/* Randomiser — desktop only */}
+              <div className="hidden md:flex" style={{ flexShrink: 0, padding: "8px 10px 4px", borderBottom: "1px solid rgba(0,0,0,0.08)", alignItems: "center", justifyContent: "flex-end" }}>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const idx = Math.floor(Math.random() * collection.length);
+                    selectRecord(collection[idx]);
+                  }}
+                  style={{ fontFamily: MONO, fontSize: "10px", letterSpacing: "0.06em", color: ORANGE, background: "none", border: "none", cursor: "pointer", padding: 0 }}
+                >
+                  ↺ Randomiser
+                </button>
+              </div>
               <AlbumDetail
                 record={selectedRecord}
                 detail={releaseDetail}
@@ -1016,11 +1051,25 @@ export default function CollectionClient({
             </div>
           </>
         ) : (
-          <div className="hidden md:flex" style={{ gridColumn: "2 / 4", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: "6px" }}>
-            <p style={{ fontFamily: SERIF, fontSize: "18px", color: "#d8d8d8" }}>Select a record</p>
-            <p style={{ fontFamily: MONO, fontSize: "10px", color: "#e4e4e4", letterSpacing: "0.08em" }}>
-              {collection.length} {collection.length === 1 ? "record" : "records"} in your collection
-            </p>
+          <div className="hidden md:flex" style={{ gridColumn: "2 / 4", flexDirection: "column" }}>
+            <div style={{ flexShrink: 0, padding: "8px 10px 4px", borderBottom: "1px solid rgba(0,0,0,0.08)", display: "flex", alignItems: "center", justifyContent: "flex-end" }}>
+              <button
+                type="button"
+                onClick={() => {
+                  const idx = Math.floor(Math.random() * collection.length);
+                  selectRecord(collection[idx]);
+                }}
+                style={{ fontFamily: MONO, fontSize: "10px", letterSpacing: "0.06em", color: ORANGE, background: "none", border: "none", cursor: "pointer", padding: 0 }}
+              >
+                ↺ Randomiser
+              </button>
+            </div>
+            <div style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: "6px" }}>
+              <p style={{ fontFamily: SERIF, fontSize: "18px", color: "#d8d8d8" }}>Select a record</p>
+              <p style={{ fontFamily: MONO, fontSize: "10px", color: "#e4e4e4", letterSpacing: "0.08em" }}>
+                {collection.length} {collection.length === 1 ? "record" : "records"} in your collection
+              </p>
+            </div>
           </div>
         )}
       </div>
@@ -1114,19 +1163,19 @@ export default function CollectionClient({
               {formats.map(f => <option key={f} value={f}>{f}</option>)}
             </select>
 
-            <label style={{ display: "block", fontFamily: MONO, fontSize: "9px", letterSpacing: "0.12em", textTransform: "uppercase", color: "#aaaaaa", marginBottom: "4px" }}>Country</label>
+            <label style={{ display: "block", fontFamily: MONO, fontSize: "9px", letterSpacing: "0.12em", textTransform: "uppercase", color: "#aaaaaa", marginBottom: "4px" }}>Desirability</label>
             <select
-              value={filterCountry}
-              onChange={e => setFilterCountry(e.target.value)}
+              value={filterDesirability}
+              onChange={e => setFilterDesirability(e.target.value)}
               style={{
                 width: "100%", fontFamily: MONO, fontSize: "13px",
-                color: filterCountry ? ORANGE : "#0d0d0d",
-                background: "#ffffff", border: `1px solid ${filterCountry ? ORANGE : "rgba(0,0,0,0.13)"}`,
+                color: filterDesirability ? ORANGE : "#0d0d0d",
+                background: "#ffffff", border: `1px solid ${filterDesirability ? ORANGE : "rgba(0,0,0,0.13)"}`,
                 cursor: "pointer", padding: "10px 8px", outline: "none", marginBottom: "24px",
               }}
             >
-              <option value="">All countries</option>
-              {countries.map(c => <option key={c} value={c}>{c}</option>)}
+              <option value="">All</option>
+              {desirabilityOptions.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
             </select>
 
             <div style={{ display: "flex", gap: "12px" }}>

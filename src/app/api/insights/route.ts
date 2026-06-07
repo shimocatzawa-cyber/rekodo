@@ -93,7 +93,7 @@ export async function POST() {
       system: [
         {
           type: "text",
-          text: "You analyse vinyl record collections and write a short paragraph (under 60 words) revealing the collector's musical personality. Be specific — reference artists, labels, decades, or genres. Start with 'Your'. Return only the paragraph, no quotes.",
+          text: "You analyse vinyl record collections and write exactly 1–2 sentences (under 35 words total) revealing the collector's musical personality. Be specific — reference artists, labels, decades, or genres. Start with 'Your'. Return only the sentences, no quotes.",
           cache_control: { type: "ephemeral" },
         },
       ],
