@@ -770,7 +770,7 @@ export default function ListsClient({
 
         {/* List detail column (right on desktop, top on mobile) */}
         <div
-          className="w-full md:w-1/3 md:order-2 md:overflow-hidden"
+          className="w-full md:w-2/3 md:order-2 md:overflow-hidden"
           style={{ display: "flex", flexDirection: "column", borderRight: "1px solid rgba(0,0,0,0.08)" }}
         >
           {selectedList ? (
@@ -1110,7 +1110,7 @@ export default function ListsClient({
 
         {/* Discover column — hidden on mobile, left column on desktop */}
         <div
-          className="hidden md:flex md:flex-col md:w-2/3 md:order-1 md:overflow-hidden"
+          className="hidden md:flex md:flex-col md:w-1/3 md:order-1 md:overflow-hidden"
           style={{ borderRight: "1px solid rgba(0,0,0,0.08)" }}
         >
           <div className="md:flex md:flex-col md:flex-1 md:overflow-y-auto">
