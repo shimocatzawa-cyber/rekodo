@@ -1542,8 +1542,10 @@ function WantlistCard({ slot, monthsOld, showSomedayPrompt, onRemove, onKeepSome
   const { item } = slot;
   if (!item) return null;
 
-  const [hovered,  setHovered]  = useState(false);
-  const [coverUrl, setCoverUrl] = useState<string | null>(item.cover_url ?? null);
+  const [hovered,    setHovered]    = useState(false);
+  const [coverUrl,   setCoverUrl]   = useState<string | null>(item.cover_url ?? null);
+  const [noteOpen,   setNoteOpen]   = useState(false);
+  const [noteDraft,  setNoteDraft]  = useState(slot.note ?? "");
 
   useEffect(() => {
     if (coverUrl) return;
@@ -1653,25 +1655,61 @@ function WantlistCard({ slot, monthsOld, showSomedayPrompt, onRemove, onKeepSome
         </div>
       </div>
 
-      {/* Someday prompt + date — compact inline */}
-      {(showSomedayPrompt || dateLabel) && (
-        <div style={{ display: "flex", alignItems: "center", gap: "8px", marginTop: "5px", paddingTop: "5px", borderTop: "1px solid rgba(0,0,0,0.05)" }}>
-          {showSomedayPrompt && (
-            <>
-              <span style={{ fontFamily: MONO, fontSize: "8px", color: "#aaaaaa", letterSpacing: "0.03em", fontStyle: "italic", flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                {monthsOld}mo ago · Still want this?
-              </span>
-              <button onClick={onKeepSomeday} style={{ fontFamily: MONO, fontSize: "7px", letterSpacing: "0.07em", color: "#888", background: "none", border: "1px solid rgba(0,0,0,0.14)", borderRadius: "2px", cursor: "pointer", padding: "1px 5px", flexShrink: 0 }}>Keep</button>
-              <button onClick={onRemove} style={{ fontFamily: MONO, fontSize: "7px", letterSpacing: "0.07em", color: "#aaaaaa", background: "none", border: "none", cursor: "pointer", padding: "1px 0", flexShrink: 0 }}>Remove</button>
-            </>
-          )}
-          {!showSomedayPrompt && dateLabel && (
-            <span style={{ fontFamily: MONO, fontSize: "0.7rem", color: "#bbbbbb", letterSpacing: "0.03em", marginLeft: "auto" }}>
-              {dateLabel}
+      {/* Bottom bar: note (left) + date or someday prompt (right) */}
+      <div style={{ display: "flex", alignItems: "flex-start", gap: "8px", marginTop: "5px", paddingTop: "5px", borderTop: "1px solid rgba(0,0,0,0.05)" }}>
+
+        {/* Note — left side */}
+        <div style={{ flex: 1, minWidth: 0 }}>
+          {noteOpen ? (
+            <input
+              autoFocus
+              value={noteDraft}
+              onChange={e => setNoteDraft(e.target.value)}
+              onBlur={() => { setNoteOpen(false); onUpdateMeta({ note: noteDraft.trim() || null }); }}
+              onKeyDown={e => {
+                if (e.key === "Enter") { e.currentTarget.blur(); }
+                if (e.key === "Escape") { setNoteDraft(slot.note ?? ""); setNoteOpen(false); }
+              }}
+              placeholder="Add a note…"
+              style={{
+                width: "100%", boxSizing: "border-box",
+                fontFamily: MONO, fontSize: "10px", letterSpacing: "0.03em",
+                color: "#333", background: "transparent",
+                border: "none", borderBottom: "1px solid rgba(0,0,0,0.15)",
+                outline: "none", padding: "0 0 3px",
+              }}
+            />
+          ) : (
+            <span
+              onClick={() => { setNoteDraft(slot.note ?? ""); setNoteOpen(true); }}
+              style={{
+                fontFamily: MONO, fontSize: "10px", letterSpacing: "0.03em",
+                color: slot.note ? "#666666" : "#cccccc",
+                cursor: "text", display: "block",
+                overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
+              }}
+            >
+              {slot.note || "+ Note"}
             </span>
           )}
         </div>
-      )}
+
+        {/* Right side: someday prompt OR date */}
+        {showSomedayPrompt ? (
+          <>
+            <span style={{ fontFamily: MONO, fontSize: "8px", color: "#aaaaaa", letterSpacing: "0.03em", fontStyle: "italic", flexShrink: 0 }}>
+              {monthsOld}mo · Still want?
+            </span>
+            <button onClick={onKeepSomeday} style={{ fontFamily: MONO, fontSize: "7px", letterSpacing: "0.07em", color: "#888", background: "none", border: "1px solid rgba(0,0,0,0.14)", borderRadius: "2px", cursor: "pointer", padding: "1px 5px", flexShrink: 0 }}>Keep</button>
+            <button onClick={onRemove} style={{ fontFamily: MONO, fontSize: "7px", letterSpacing: "0.07em", color: "#aaaaaa", background: "none", border: "none", cursor: "pointer", padding: "1px 0", flexShrink: 0 }}>Remove</button>
+          </>
+        ) : dateLabel ? (
+          <span style={{ fontFamily: MONO, fontSize: "0.7rem", color: "#bbbbbb", letterSpacing: "0.03em", flexShrink: 0 }}>
+            {dateLabel}
+          </span>
+        ) : null}
+
+      </div>
     </div>
   );
 }
