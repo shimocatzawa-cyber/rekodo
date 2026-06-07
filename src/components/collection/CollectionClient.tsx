@@ -92,12 +92,8 @@ function sortLetter(artist: string): string {
 }
 
 function groupByLetter(records: CollectionRecord[]) {
-  const sorted = [...records].sort((a, b) =>
-    stripArticle(a.artist || "Unknown").toLowerCase()
-      .localeCompare(stripArticle(b.artist || "Unknown").toLowerCase(), "en")
-  );
   const groups: Array<{ letter: string; records: CollectionRecord[] }> = [];
-  for (const r of sorted) {
+  for (const r of records) {
     const letter = sortLetter(r.artist || "");
     const last   = groups[groups.length - 1];
     if (!last || last.letter !== letter) groups.push({ letter, records: [r] });
