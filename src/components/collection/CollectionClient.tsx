@@ -17,7 +17,7 @@ type DesirabilityTier = "rare" | "holy-grail" | "cult" | "widely-loved" | "in-de
 
 const TIERS: Record<DesirabilityTier, { label: string; bg: string; color: string }> = {
   "rare":         { label: "Rare",          bg: "#F0997B", color: "#712B13" },
-  "holy-grail":   { label: "Holy grail",    bg: "#FAC775", color: "#633806" },
+  "holy-grail":   { label: "Holy Grail",    bg: "#FAC775", color: "#633806" },
   "cult":         { label: "Cult Pressing", bg: "#CECBF6", color: "#3C3489" },
   "widely-loved": { label: "Widely Loved",  bg: "#C0DD97", color: "#27500A" },
   "in-demand":    { label: "In Demand",     bg: "#9FE1CB", color: "#085041" },
@@ -155,68 +155,48 @@ function matchesDecade(year: number | null, decade: string): boolean {
 
 // ─── Collection desirability (price-based, for filter) ───────────────────────
 
-type FilterDesirabilityTier = "rare" | "holy-grail" | "in-demand" | "common" | "unpriced";
+type FilterDesirabilityTier = "rare" | "holy-grail" | "cult" | "widely-loved" | "in-demand";
 
-// Tier order: Holy Grail (most exclusive) → Rare → In Demand
 const DESIRABILITY_FILTER_OPTIONS: { value: FilterDesirabilityTier; label: string }[] = [
-  { value: "holy-grail", label: "Holy Grail" },
-  { value: "rare",       label: "Rare"       },
-  { value: "in-demand",  label: "In Demand"  },
+  { value: "rare",         label: "Rare"          },
+  { value: "holy-grail",   label: "Holy Grail"    },
+  { value: "cult",         label: "Cult Pressing" },
+  { value: "widely-loved", label: "Widely Loved"  },
+  { value: "in-demand",    label: "In Demand"     },
 ];
 
-// Full scoring formula when community data is available (fetched by price-batch from /releases/{id}).
-// Falls back to price-only thresholds for records not yet enriched.
-//
-// Scoring (community path):
-//   ratio      = want / max(have, 1)   — demand pressure
-//   confidence = log10(total+1) / log10(50001)  — weight by community size
-//   baseScore  = ratio × (0.4 + 0.6×confidence)
-//   priceBoost = min(price/400, 0.5) when price ≥ $50
-//   finalScore = baseScore + priceBoost
-//
-//   Holy Grail: (want > have AND price ≥ $100) OR (finalScore ≥ 1.5 AND 500+ collectors)
-//   Rare:       baseScore ≥ 0.8 AND 30+ collectors
-//   In Demand:  baseScore ≥ 0.25 AND 10+ collectors
-//   else → price fallback
-//
-// Price-only fallback (lowest marketplace listing, USD):
-//   Holy Grail  ≥ $100 · Rare  ≥ $30 · In Demand  ≥ $8 · Common  < $8
+// Exact mirror of the per-record getDesirabilityTier formula.
+// Returns null when community data is missing or the community is too small — no tag rendered.
+// num_for_sale === 0 (not listed anywhere) is treated as a scarcity signal throughout.
 function getCollectionDesirabilityTier(
-  priceLow:           number | null,
-  communityHave:      number | null,
-  communityWant:      number | null,
+  priceLow:            number | null,
+  communityHave:       number | null,
+  communityWant:       number | null,
   communityNumForSale: number | null,
-): FilterDesirabilityTier {
-  const price        = priceLow ?? 0;
-  const hasCommunity = communityHave !== null && communityWant !== null;
+): FilterDesirabilityTier | null {
+  if (communityHave === null || communityWant === null) return null;
 
-  if (!hasCommunity && !price) return "unpriced";
+  const have       = communityHave;
+  const want       = communityWant;
+  const price      = priceLow ?? 0;
+  const numForSale = communityNumForSale; // null !== 0, so "unknown" ≠ "not for sale"
 
-  if (hasCommunity) {
-    const have  = communityHave!;
-    const want  = communityWant!;
-    const total = have + want;
+  const total = have + want;
+  if (total < 30) return null;
 
-    if (total >= 20) {
-      const confidence = Math.log10(total + 1) / Math.log10(50001);
-      const ratio      = want / Math.max(have, 1);
-      const baseScore  = ratio * (0.4 + 0.6 * confidence);
-      const priceBoost = price >= 50 ? Math.min(price / 400, 0.5) : 0;
-      const finalScore = baseScore + priceBoost;
+  const notForSale = numForSale === 0;
+  const confidence = Math.log10(total + 1) / Math.log10(50001);
+  const ratio      = want / Math.max(have, 1);
+  const baseScore  = ratio * (0.4 + 0.6 * confidence);
+  const priceBoost = (price >= 50 || notForSale) ? Math.min(price / 400, 0.5) : 0;
+  const finalScore = baseScore + priceBoost;
 
-      if ((want > have && price >= 100) || (finalScore >= 1.5 && total >= 500)) return "holy-grail";
-      if (baseScore >= 0.8 && total >= 30) return "rare";
-      if (baseScore >= 0.25) return "in-demand";
-      return "common";
-    }
-  }
-
-  // Price-only fallback
-  if (price >= 100) return "holy-grail";
-  if (price >= 30)  return "rare";
-  if (price >= 8)   return "in-demand";
-  if (price > 0)    return "common";
-  return hasCommunity ? "common" : "unpriced";
+  if (want > have && (price >= 200 || notForSale) && total >= 30) return "rare";
+  if (finalScore >= 1.5 && total >= 500 && (price >= 50 || notForSale)) return "holy-grail";
+  if (baseScore >= 2.5 && total >= 30 && total < 500) return "cult";
+  if (total >= 5000 && ratio >= 0.15 && ratio <= 0.65) return "widely-loved";
+  if (baseScore >= 0.45) return "in-demand";
+  return null;
 }
 
 // ─── Props ────────────────────────────────────────────────────────────────────
@@ -671,7 +651,10 @@ export default function CollectionClient({
 
   const desirabilityOptions = useMemo(() => {
     const tiers = new Set<FilterDesirabilityTier>();
-    for (const r of collection) tiers.add(getCollectionDesirabilityTier(r.price_low, r.community_have, r.community_want, r.community_num_for_sale));
+    for (const r of collection) {
+      const t = getCollectionDesirabilityTier(r.price_low, r.community_have, r.community_want, r.community_num_for_sale);
+      if (t) tiers.add(t);
+    }
     return DESIRABILITY_FILTER_OPTIONS.filter(o => tiers.has(o.value));
   }, [collection]);
 
