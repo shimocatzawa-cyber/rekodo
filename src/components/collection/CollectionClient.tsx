@@ -18,9 +18,9 @@ type DesirabilityTier = "rare" | "holy-grail" | "cult" | "widely-loved" | "in-de
 const TIERS: Record<DesirabilityTier, { label: string; bg: string; color: string }> = {
   "rare":         { label: "Rare",          bg: "#F0997B", color: "#712B13" },
   "holy-grail":   { label: "Holy grail",    bg: "#FAC775", color: "#633806" },
-  "cult":         { label: "Cult pressing", bg: "#CECBF6", color: "#3C3489" },
-  "widely-loved": { label: "Widely loved",  bg: "#C0DD97", color: "#27500A" },
-  "in-demand":    { label: "In demand",     bg: "#9FE1CB", color: "#085041" },
+  "cult":         { label: "Cult Pressing", bg: "#CECBF6", color: "#3C3489" },
+  "widely-loved": { label: "Widely Loved",  bg: "#C0DD97", color: "#27500A" },
+  "in-demand":    { label: "In Demand",     bg: "#9FE1CB", color: "#085041" },
 };
 
 function getDesirabilityTier(
@@ -1681,7 +1681,7 @@ function PriceRow({ label, value, note }: {
 function MetaRow({ label, value }: { label: string; value: string | null | undefined }) {
   if (!value) return null;
   return (
-    <div style={{ display: "flex", padding: "6px 0", minHeight: "44px", borderBottom: "1px solid rgba(0,0,0,0.05)", alignItems: "center" }}>
+    <div style={{ display: "flex", padding: "6px 0", borderBottom: "1px solid rgba(0,0,0,0.05)", alignItems: "baseline" }}>
       <span style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.1em", textTransform: "uppercase", color: "#aaaaaa", width: "84px", flexShrink: 0 }}>
         {label}
       </span>
