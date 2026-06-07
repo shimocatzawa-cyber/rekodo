@@ -16,9 +16,11 @@ export type CollectionRecord = {
   format: string | null;
   country: string | null;
   value: number | null;
-  price_low:      number | null;
-  price_median:   number | null;
-  price_currency: string | null;
+  price_low:        number | null;
+  price_median:     number | null;
+  price_currency:   string | null;
+  media_condition:  string | null;
+  sleeve_condition: string | null;
 };
 
 export type CollectionInsights = {
@@ -106,12 +108,14 @@ export default async function CollectionPage({
 
   // Fetch all user_records — paginated past Supabase's 1000-row cap.
   type LinkRow = {
-    record_id:      string;
-    created_at:     string;
-    value:          number | null;
-    price_low:      number | null;
-    price_median:   number | null;
-    price_currency: string | null;
+    record_id:        string;
+    created_at:       string;
+    value:            number | null;
+    price_low:        number | null;
+    price_median:     number | null;
+    price_currency:   string | null;
+    media_condition:  string | null;
+    sleeve_condition: string | null;
   };
   console.log('[collection/page] fetching for user:', user.id);
   const allLinks: LinkRow[] = [];
@@ -119,7 +123,7 @@ export default async function CollectionPage({
   for (let from = 0; ; from += PAGE) {
     const { data, error } = await supabase
       .from("user_records")
-      .select("record_id, created_at, value, price_low, price_median, price_currency")
+      .select("record_id, created_at, value, price_low, price_median, price_currency, media_condition, sleeve_condition")
       .eq("user_id", user.id)
       .order("created_at", { ascending: false })
       .range(from, from + PAGE - 1);
@@ -134,8 +138,10 @@ export default async function CollectionPage({
   }
   console.log('[collection/page] total allLinks:', allLinks.length);
 
-  const recordIds  = allLinks.map((l) => l.record_id);
-  const valueMap   = new Map<string, number | null>(allLinks.map((l) => [l.record_id, l.value ?? null]));
+  const recordIds          = allLinks.map((l) => l.record_id);
+  const valueMap           = new Map<string, number | null>(allLinks.map((l) => [l.record_id, l.value ?? null]));
+  const mediaConditionMap  = new Map<string, string | null>(allLinks.map((l) => [l.record_id, l.media_condition  ?? null]));
+  const sleeveConditionMap = new Map<string, string | null>(allLinks.map((l) => [l.record_id, l.sleeve_condition ?? null]));
 
   // Convert stored prices to user's currency
   const convertPrice = (price: number | null, fromCurrency: string | null): number | null => {
@@ -181,10 +187,12 @@ export default async function CollectionPage({
       if (!r) return undefined;
       return {
         ...r,
-        value:          valueMap.get(id)         ?? null,
-        price_low:      priceLowMap.get(id)      ?? null,
-        price_median:   priceMedianMap.get(id)   ?? null,
-        price_currency: priceCurrencyMap.get(id) ?? null,
+        value:            valueMap.get(id)           ?? null,
+        price_low:        priceLowMap.get(id)        ?? null,
+        price_median:     priceMedianMap.get(id)     ?? null,
+        price_currency:   priceCurrencyMap.get(id)   ?? null,
+        media_condition:  mediaConditionMap.get(id)  ?? null,
+        sleeve_condition: sleeveConditionMap.get(id) ?? null,
       };
     })
     .filter((r): r is CollectionRecord => r !== undefined);

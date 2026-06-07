@@ -75,6 +75,8 @@ export type Database = {
           price_high:       number | null;
           price_currency:   string | null;
           price_fetched_at: string | null;
+          media_condition:  string | null;
+          sleeve_condition: string | null;
         };
         Insert: {
           id?: string;
@@ -89,6 +91,8 @@ export type Database = {
           price_high?:       number | null;
           price_currency?:   string | null;
           price_fetched_at?: string | null;
+          media_condition?:  string | null;
+          sleeve_condition?: string | null;
         };
         Update: {
           value?: number | null;
@@ -99,6 +103,8 @@ export type Database = {
           price_high?:       number | null;
           price_currency?:   string | null;
           price_fetched_at?: string | null;
+          media_condition?:  string | null;
+          sleeve_condition?: string | null;
         };
         Relationships: [];
       };

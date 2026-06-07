@@ -25,15 +25,38 @@ function extractFormat(formats: FormatShape[] | undefined): string | null {
 }
 
 interface CollectionItem {
-  discogs_id: string;
-  artist: string;
-  album: string;
-  year: number | null;
-  genre: string | null;
-  cover_url: string | null;
-  label: string | null;
-  format: string | null;
-  country: string | null;
+  discogs_id:       string;
+  artist:           string;
+  album:            string;
+  year:             number | null;
+  genre:            string | null;
+  cover_url:        string | null;
+  label:            string | null;
+  format:           string | null;
+  country:          string | null;
+  media_condition:  string | null;
+  sleeve_condition: string | null;
+}
+
+interface ConditionFieldIds { mediaFieldId: number; sleeveFieldId: number }
+
+async function lookupConditionFields(
+  username: string, key: string, secret: string,
+  accessToken: string, tokenSecret: string
+): Promise<ConditionFieldIds> {
+  const url  = `https://api.discogs.com/users/${encodeURIComponent(username)}/collection/fields`;
+  const auth = buildAuthHeader("GET", url, key, secret, accessToken, tokenSecret);
+  try {
+    const res = await fetch(url, { headers: { Authorization: auth, "User-Agent": UA } });
+    if (res.ok) {
+      const data = await res.json() as { fields?: Array<{ id: number; name: string }> };
+      const fields = data.fields ?? [];
+      const mediaField  = fields.find(f => f.name.toLowerCase().includes("media"));
+      const sleeveField = fields.find(f => f.name.toLowerCase().includes("sleeve"));
+      return { mediaFieldId: mediaField?.id ?? 1, sleeveFieldId: sleeveField?.id ?? 2 };
+    }
+  } catch { /* fall through to defaults */ }
+  return { mediaFieldId: 1, sleeveFieldId: 2 };
 }
 
 interface DiscogsBasicInfo {
@@ -88,6 +111,9 @@ export async function GET(request: NextRequest) {
       // ── Phase 1: Fetch full Discogs collection ──────────────────────────────
       send({ type: "status", message: "Fetching your Discogs collection..." });
 
+      // Resolve which collection fields hold Media/Sleeve condition
+      const conditionFields = await lookupConditionFields(discogsUser, key, secret, accessToken, tokenSecret);
+
       const collectionItems: CollectionItem[] = [];
 
       for (let page = 1; ; page++) {
@@ -110,27 +136,35 @@ export async function GET(request: NextRequest) {
         }
 
         const data = await res.json() as {
-          releases: Array<{ basic_information: DiscogsBasicInfo }>;
+          releases: Array<{
+            basic_information: DiscogsBasicInfo;
+            notes?: Array<{ field_id: number; value: string }>;
+          }>;
           pagination: { pages: number; items: number };
         };
 
         for (const item of data.releases ?? []) {
-          const info = item.basic_information;
+          const info   = item.basic_information;
+          const notes  = item.notes ?? [];
           const artistNames = (info.artists ?? [])
             .map(a => a.name.replace(/ \(\d+\)$/, "").trim())
             .join(", ");
           const fmt   = info.formats?.[0];
           const genre = info.genres?.[0] ?? info.styles?.[0] ?? (fmt?.descriptions?.[0] ?? null);
+          const mediaCondition  = notes.find(n => n.field_id === conditionFields.mediaFieldId)?.value?.trim()  || null;
+          const sleeveCondition = notes.find(n => n.field_id === conditionFields.sleeveFieldId)?.value?.trim() || null;
           collectionItems.push({
-            discogs_id: String(info.id),
-            artist:     artistNames || "Unknown",
-            album:      info.title ?? "Unknown",
-            year:       info.year  || null,
+            discogs_id:       String(info.id),
+            artist:           artistNames || "Unknown",
+            album:            info.title ?? "Unknown",
+            year:             info.year  || null,
             genre,
-            cover_url:  info.cover_image ?? info.thumb ?? null,
-            label:      info.labels?.[0]?.name ?? null,
-            format:     extractFormat(info.formats),
-            country:    info.country ?? null,
+            cover_url:        info.cover_image ?? info.thumb ?? null,
+            label:            info.labels?.[0]?.name ?? null,
+            format:           extractFormat(info.formats),
+            country:          info.country ?? null,
+            media_condition:  mediaCondition,
+            sleeve_condition: sleeveCondition,
           });
         }
 
@@ -216,7 +250,25 @@ export async function GET(request: NextRequest) {
 
       const newAdded = newLinks.length;
 
-      // ── Phase 3: Backfill missing format/country ────────────────────────────
+      // ── Phase 3: Persist condition data ──────────────────────────────────────
+      // Condition is per-copy (user-specific), so it lives in user_records.
+      // Upsert only rows that have at least one condition value.
+      const conditionUpserts = collectionItems
+        .filter(item => item.media_condition || item.sleeve_condition)
+        .map(item => ({
+          user_id:          user.id,
+          record_id:        existingMap.get(item.discogs_id)!,
+          media_condition:  item.media_condition,
+          sleeve_condition: item.sleeve_condition,
+        }))
+        .filter(u => u.record_id);
+
+      for (let i = 0; i < conditionUpserts.length; i += BATCH) {
+        await supabase.from("user_records")
+          .upsert(conditionUpserts.slice(i, i + BATCH), { onConflict: "user_id,record_id" });
+      }
+
+      // ── Phase 4: Backfill missing format/country ────────────────────────────
       // Find records in user's collection that have NULL format or country.
       // These are records that existed in the DB before those columns were added.
 
@@ -273,7 +325,7 @@ export async function GET(request: NextRequest) {
         }
       }
 
-      // ── Collection value from Discogs ───────────────────────────────────────
+      // ── Phase 5: Collection value from Discogs ───────────────────────────────
       type ColVal = { minimum?: { value?: number; currency?: string }; median?: { value?: number }; maximum?: { value?: number } };
       let colVal: ColVal = {};
       try {

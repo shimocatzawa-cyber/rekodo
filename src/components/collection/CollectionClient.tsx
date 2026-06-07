@@ -238,18 +238,20 @@ export default function CollectionClient({
       }
 
       type LinkRow = {
-        record_id:      string;
-        value:          number | null;
-        price_low:      number | null;
-        price_median:   number | null;
-        price_currency: string | null;
+        record_id:        string;
+        value:            number | null;
+        price_low:        number | null;
+        price_median:     number | null;
+        price_currency:   string | null;
+        media_condition:  string | null;
+        sleeve_condition: string | null;
       };
       const allLinks: LinkRow[] = [];
       const PAGE = 1000;
       for (let from = 0; ; from += PAGE) {
         const { data, error } = await supabase
           .from("user_records")
-          .select("record_id, value, price_low, price_median, price_currency")
+          .select("record_id, value, price_low, price_median, price_currency, media_condition, sleeve_condition")
           .eq("user_id", user.id)
           .range(from, from + PAGE - 1);
         console.log(`[collection] user_records page from=${from}: count=${data?.length ?? 0} error=${JSON.stringify(error)}`);
@@ -259,10 +261,12 @@ export default function CollectionClient({
       }
 
       const recordIds        = allLinks.map((l) => l.record_id);
-      const valueMap         = new Map<string, number | null>(allLinks.map((l) => [l.record_id, l.value ?? null]));
-      const priceLowMap      = new Map<string, number | null>(allLinks.map((l) => [l.record_id, l.price_low ?? null]));
-      const priceMedianMap   = new Map<string, number | null>(allLinks.map((l) => [l.record_id, l.price_median ?? null]));
-      const priceCurrencyMap = new Map<string, string | null>(allLinks.map((l) => [l.record_id, l.price_currency ?? null]));
+      const valueMap           = new Map<string, number | null>(allLinks.map((l) => [l.record_id, l.value ?? null]));
+      const priceLowMap        = new Map<string, number | null>(allLinks.map((l) => [l.record_id, l.price_low ?? null]));
+      const priceMedianMap     = new Map<string, number | null>(allLinks.map((l) => [l.record_id, l.price_median ?? null]));
+      const priceCurrencyMap   = new Map<string, string | null>(allLinks.map((l) => [l.record_id, l.price_currency ?? null]));
+      const mediaConditionMap  = new Map<string, string | null>(allLinks.map((l) => [l.record_id, l.media_condition  ?? null]));
+      const sleeveConditionMap = new Map<string, string | null>(allLinks.map((l) => [l.record_id, l.sleeve_condition ?? null]));
       const BATCH        = 400;
       const recordsMap   = new Map<string, Omit<CollectionRecord, "value" | "price_low" | "price_median" | "price_currency">>();
       for (let i = 0; i < recordIds.length; i += BATCH) {
@@ -280,10 +284,12 @@ export default function CollectionClient({
           if (!r) return undefined;
           return {
             ...r,
-            value:          valueMap.get(id)         ?? null,
-            price_low:      priceLowMap.get(id)      ?? null,
-            price_median:   priceMedianMap.get(id)   ?? null,
-            price_currency: priceCurrencyMap.get(id) ?? null,
+            value:            valueMap.get(id)           ?? null,
+            price_low:        priceLowMap.get(id)        ?? null,
+            price_median:     priceMedianMap.get(id)     ?? null,
+            price_currency:   priceCurrencyMap.get(id)   ?? null,
+            media_condition:  mediaConditionMap.get(id)  ?? null,
+            sleeve_condition: sleeveConditionMap.get(id) ?? null,
           };
         })
         .filter((r): r is CollectionRecord => r !== undefined);
@@ -1292,6 +1298,8 @@ function AlbumDetail({ record, detail, price, loading, valueCurrency }: {
       <div style={{ borderTop: "1px solid rgba(0,0,0,0.07)" }}>
         <MetaRow label="Label"   value={displayLabel} />
         {format   && <MetaRow label="Format"  value={format} />}
+        {record.media_condition  && <MetaRow label="Media"  value={record.media_condition} />}
+        {record.sleeve_condition && <MetaRow label="Sleeve" value={record.sleeve_condition} />}
         <MetaRow label="Country" value={country} />
         <MetaRow label="Year"    value={year ? String(year) : null} />
         <MetaRow label="Genre"   value={genre} />
