@@ -216,7 +216,6 @@ export default function ListsClient({
   const [activeSavedId,   setActiveSavedId]   = useState<string | null>(null);
   const [top5Expanded,    setTop5Expanded]    = useState(false);
   const [privateExpanded, setPrivateExpanded] = useState(false);
-  const [discoverOpen,    setDiscoverOpen]    = useState(false);
 
   // ── Wantlist controls ──────────────────────────────────────────────────────
   type WantlistSort = "priority" | "date_added" | "artist";
@@ -1103,29 +1102,12 @@ export default function ListsClient({
           )}
         </div>
 
-        {/* Discover column (left on desktop, below with toggle on mobile) */}
+        {/* Discover column — hidden on mobile, left column on desktop */}
         <div
-          className="w-full md:w-2/3 md:order-1 md:flex md:flex-col md:overflow-hidden"
+          className="hidden md:flex md:flex-col md:w-2/3 md:order-1 md:overflow-hidden"
           style={{ borderRight: "1px solid rgba(0,0,0,0.08)" }}
         >
-          {/* Mobile toggle — hidden on desktop */}
-          <button
-            className="md:hidden"
-            onClick={() => setDiscoverOpen(!discoverOpen)}
-            style={{
-              fontFamily: MONO, fontSize: "11px", letterSpacing: "0.1em",
-              textTransform: "uppercase", color: ORANGE, background: "none",
-              border: "none", borderTop: "0.5px solid #e8e8e8",
-              padding: "16px", cursor: "pointer", width: "100%",
-              display: "flex", justifyContent: "space-between", alignItems: "center",
-            }}
-          >
-            Discover
-            <span>{discoverOpen ? "↑" : "↓"}</span>
-          </button>
-
-          {/* Discover content — always shown on desktop, toggled on mobile */}
-          <div className={`${discoverOpen ? "" : "hidden"} md:flex md:flex-col md:flex-1 md:overflow-y-auto`}>
+          <div className="md:flex md:flex-col md:flex-1 md:overflow-y-auto">
             <div style={{ position: "sticky", top: 0, background: "#ffffff", zIndex: 1, padding: "24px 24px 14px", borderBottom: "1px solid rgba(0,0,0,0.06)" }}>
               <h2 style={{ fontFamily: SERIF, fontSize: "1.1rem", fontWeight: 600, color: "#0d0d0d", marginBottom: "12px" }}>
                 Discover
