@@ -1681,11 +1681,11 @@ function PriceRow({ label, value, note }: {
 function MetaRow({ label, value }: { label: string; value: string | null | undefined }) {
   if (!value) return null;
   return (
-    <div style={{ display: "flex", padding: "6px 0", borderBottom: "1px solid rgba(0,0,0,0.05)", alignItems: "baseline" }}>
-      <span style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.1em", textTransform: "uppercase", color: "#aaaaaa", width: "84px", flexShrink: 0 }}>
+    <div style={{ display: "flex", padding: "4px 0", borderBottom: "1px solid rgba(0,0,0,0.05)", alignItems: "baseline" }}>
+      <span style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.1em", textTransform: "uppercase", color: "#aaaaaa", width: "84px", flexShrink: 0, lineHeight: 1.4 }}>
         {label}
       </span>
-      <span style={{ fontFamily: MONO, fontSize: "11px", color: "#0d0d0d", letterSpacing: "0.03em" }}>
+      <span style={{ fontFamily: MONO, fontSize: "11px", color: "#0d0d0d", letterSpacing: "0.03em", lineHeight: 1.4 }}>
         {value}
       </span>
     </div>
