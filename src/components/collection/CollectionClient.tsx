@@ -1373,15 +1373,13 @@ function AlbumDetail({ record, detail, price, loading, valueCurrency }: {
               note={formatDate(price.last_sold_date)}
             />
             {price.num_for_sale > 0 && (
-              <div style={{ padding: "4px 0" }}>
-                <span style={{ fontFamily: MONO, fontSize: "9px", color: "#cccccc", letterSpacing: "0.06em" }}>
+              <div style={{ padding: "8px 0 4px", borderTop: "1px solid rgba(0,0,0,0.05)" }}>
+                <span style={{ fontFamily: MONO, fontSize: "10px", color: "#aaaaaa", letterSpacing: "0.04em" }}>
                   {price.num_for_sale} for sale on Discogs
                 </span>
-                <div style={{ marginTop: "2px" }}>
-                  <span style={{ fontFamily: MONO, fontSize: "8px", color: "#cccccc", letterSpacing: "0.04em" }}>
-                    Market Value is determined by the lowest active listed price at the time of last Sync
-                  </span>
-                </div>
+                <p style={{ fontFamily: MONO, fontSize: "10px", color: "#bbbbbb", letterSpacing: "0.03em", lineHeight: 1.5, margin: "4px 0 0" }}>
+                  Market value reflects the lowest active listing at the time of your last sync.
+                </p>
               </div>
             )}
             {!price.lowest && !price.median && !price.highest && !price.last_sold && (
