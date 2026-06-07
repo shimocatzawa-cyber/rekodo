@@ -578,7 +578,7 @@ export default function ListsClient({
         {/* Row 1: [scrollable: Wantlist · Private · Saved] [fixed: + New list] */}
         <div style={{ display: "flex", alignItems: "center", padding: "8px 0 4px" }}>
 
-          {/* Scrollable pills */}
+          {/* Wantlist pill + contextual priority filters */}
           <div className="pill-strip" style={{
             flex: 1, display: "flex", alignItems: "center", gap: "8px",
             overflowX: "auto",
@@ -589,16 +589,12 @@ export default function ListsClient({
             paddingRight: "16px",
           } as React.CSSProperties}>
 
-            {/* Wantlist — pinned */}
             {(() => {
               const wl = lists.find(l => l.slug === "wantlist" || l.slug === "want-to-buy");
               if (!wl) return null;
               const isActive = activePillId === wl.id;
               return (
                 <>
-                  <span style={{ fontFamily: MONO, fontSize: "11px", letterSpacing: "0.08em", textTransform: "uppercase", color: "#aaaaaa", flexShrink: 0, marginRight: "2px" }}>
-                    Wantlist
-                  </span>
                   <button
                     onClick={() => { setActivePillId(wl.id); setActiveSavedId(null); closePicker(); }}
                     style={{
@@ -612,6 +608,33 @@ export default function ListsClient({
                   >
                     {`Wantlist · ${wl.slots.length}`}
                   </button>
+
+                  {isActive && (
+                    <>
+                      <div style={{ width: "1px", height: "16px", background: "rgba(0,0,0,0.12)", flexShrink: 0, margin: "0 4px" }} />
+                      {(["must_have", "would_love", "someday"] as Priority[]).map(p => {
+                        const on = wantlistFilter.has(p);
+                        return (
+                          <button key={p} onClick={() => {
+                            setWantlistFilter(prev => {
+                              const next = new Set(prev);
+                              if (on) next.delete(p); else next.add(p);
+                              return next;
+                            });
+                          }} style={{
+                            fontFamily: MONO, fontSize: "11px", letterSpacing: "0.06em", textTransform: "uppercase",
+                            color: on ? PRIORITY_COLORS[p] : "#aaaaaa",
+                            background: on ? `${PRIORITY_COLORS[p]}14` : "none",
+                            border: `1px solid ${on ? PRIORITY_COLORS[p] : "#e0e0da"}`,
+                            borderRadius: "3px", cursor: "pointer", padding: "4px 10px",
+                            flexShrink: 0, whiteSpace: "nowrap", transition: "all 0.15s",
+                          }}>
+                            {PRIORITY_LABELS[p]}
+                          </button>
+                        );
+                      })}
+                    </>
+                  )}
                 </>
               );
             })()}
@@ -711,28 +734,6 @@ export default function ListsClient({
                             {s === "priority" ? "Priority" : s === "date_added" ? "Date added" : "Artist A–Z"}
                           </button>
                         ))}
-                        <div style={{ width: "1px", height: "14px", background: "rgba(0,0,0,0.1)", flexShrink: 0, margin: "0 4px" }} />
-                        {(["must_have", "would_love", "someday"] as Priority[]).map(p => {
-                          const on = wantlistFilter.has(p);
-                          return (
-                            <button key={p} onClick={() => {
-                              setWantlistFilter(prev => {
-                                const next = new Set(prev);
-                                if (on) next.delete(p); else next.add(p);
-                                return next;
-                              });
-                            }} style={{
-                              fontFamily: MONO, fontSize: "0.7rem", letterSpacing: "0.06em", textTransform: "uppercase",
-                              color: on ? PRIORITY_COLORS[p] : "#aaaaaa",
-                              background: on ? `${PRIORITY_COLORS[p]}14` : "none",
-                              border: `1px solid ${on ? PRIORITY_COLORS[p] : "#e0e0da"}`,
-                              borderRadius: "2px", cursor: "pointer", padding: "0.25rem 0.7rem",
-                              transition: "all 0.15s",
-                            }}>
-                              {PRIORITY_LABELS[p]}
-                            </button>
-                          );
-                        })}
                       </div>
                     </div>
 
