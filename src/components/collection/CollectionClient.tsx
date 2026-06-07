@@ -933,6 +933,9 @@ type StatDef = {
   heroItalic?: boolean;
   heroColor?:  string;
   isName?:     boolean;
+  compact?:    boolean;
+  flexGrow?:   number;
+  genres?:     Array<{ pct: number; genre: string }>;
 };
 
 function InsightsPanel({
@@ -965,27 +968,28 @@ function InsightsPanel({
   const stats: StatDef[] = [];
 
   // 1. Total collection count — always first
-  stats.push({ hero: total.toLocaleString(), label: "Items" });
+  stats.push({ hero: total.toLocaleString(), label: "Items", compact: true });
 
   // 2. Format count
   if (insights.topFormat) {
     stats.push({
-      hero:  insights.topFormat.count.toLocaleString(),
-      label: fmtLabel(insights.topFormat.name),
+      hero:    insights.topFormat.count.toLocaleString(),
+      label:   fmtLabel(insights.topFormat.name),
+      compact: true,
     });
   }
 
-  // 3. Genre — percentage hero, top 2 secondary genres (short names, no ellipsis)
+  // 3. Genre — wide tile, top 3 genres shown as a row
   if (insights.topGenres.length > 0) {
     const shortName = (g: string) => g.split(",")[0].trim();
-    const secondary = insights.topGenres
-      .slice(1, 3)
-      .map(g => `${shortName(g.genre)} ${g.pct}%`)
-      .join("  ·  ");
     stats.push({
-      hero:  `${insights.topGenres[0].pct}%`,
-      label: insights.topGenres[0].genre,
-      sub:   secondary || undefined,
+      hero:     `${insights.topGenres[0].pct}%`,
+      label:    insights.topGenres[0].genre,
+      flexGrow: 2,
+      genres:   insights.topGenres.slice(0, 3).map(g => ({
+        pct:   g.pct,
+        genre: shortName(g.genre),
+      })),
     });
   }
 
@@ -1103,75 +1107,112 @@ function InsightsPanel({
 }
 
 function DashStat({ stat, first, last }: { stat: StatDef; first: boolean; last: boolean }) {
+  const flexGrow   = stat.flexGrow ?? 1;
+  const padV       = stat.compact ? "9px"  : "13px";
+  const padLeft    = first ? "28px" : stat.compact ? "14px" : "18px";
+  const padRight   = last  ? "28px" : stat.compact ? "14px" : "18px";
+
   // Name-type heroes: cap at 16 chars, show full name on hover
   const displayHero = stat.isName && stat.hero.length > 16
     ? stat.hero.slice(0, 15) + "…"
     : stat.hero;
   const len = displayHero.length;
-  // Name stats: fixed 18px. Numeric stats: scale down for longer strings.
   const heroFontSize = stat.isName ? "18px" : (len > 15 ? "16px" : len > 12 ? "18px" : "22px");
 
   return (
     <div style={{
-      flex:        "1 1 0",
-      width:       0,           // forces equal width across all cells
+      flex:       `${flexGrow} 1 0`,
+      width:       0,
       minWidth:    0,
-      padding:     `13px ${last ? "28px" : "18px"} 13px ${first ? "28px" : "18px"}`,
-      borderRight:  last ? "none" : "0.5px solid #e8e8e8",
+      padding:     `${padV} ${padRight} ${padV} ${padLeft}`,
+      borderRight: last ? "none" : "0.5px solid #e8e8e8",
       overflow:    "hidden",
       boxSizing:   "border-box",
     }}>
-      {/* Hero — always Shippori Mincho, size scales with length */}
-      <p
-        title={stat.hero}
-        style={{
-          fontFamily:    SERIF,
-          fontSize:      heroFontSize,
-          fontWeight:    400,
-          fontStyle:     stat.heroItalic ? "italic" : "normal",
-          color:         stat.heroColor ?? "#0d0d0d",
-          lineHeight:    1.25,
-          paddingBottom: "2px",
-          margin:        "0 0 6px 0",
-          letterSpacing: "-0.01em",
-          whiteSpace:    "nowrap",
-          overflow:      "hidden",
-          textOverflow:  "ellipsis",
-          maxWidth:      "100%",
-        }}
-      >
-        {displayHero}
-      </p>
-      {/* Label */}
-      <p style={{
-        fontFamily:    MONO,
-        fontSize:      "9px",
-        letterSpacing: "0.08em",
-        textTransform: "uppercase",
-        color:         "#aaaaaa",
-        lineHeight:    1.2,
-        margin:        "0 0 3px 0",
-        whiteSpace:    "nowrap",
-        overflow:      "hidden",
-        textOverflow:  "ellipsis",
-      }}>
-        {stat.label}
-      </p>
-      {/* Sub-label */}
-      {stat.sub && (
-        <p style={{
-          fontFamily:    MONO,
-          fontSize:      "8px",
-          letterSpacing: "0.04em",
-          color:         "#cccccc",
-          lineHeight:    1.3,
-          margin:        0,
-          whiteSpace:    "nowrap",
-          overflow:      "hidden",
-          textOverflow:  "ellipsis",
-        }}>
-          {stat.sub}
-        </p>
+      {/* Genre tile — 3-column row layout */}
+      {stat.genres ? (
+        <div style={{ display: "flex", gap: 0, height: "100%", alignItems: "center" }}>
+          {stat.genres.map((g, i) => (
+            <div key={g.genre} style={{
+              flex: "1 1 0", minWidth: 0,
+              paddingLeft:  i === 0 ? 0 : "12px",
+              paddingRight: i === stat.genres!.length - 1 ? 0 : "12px",
+              borderLeft:   i === 0 ? "none" : "0.5px solid #e8e8e8",
+            }}>
+              <p style={{
+                fontFamily: SERIF, fontSize: "20px", fontWeight: 400,
+                color: "#0d0d0d", lineHeight: 1.2,
+                margin: "0 0 4px", letterSpacing: "-0.01em",
+                whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis",
+              }}>
+                {g.pct}%
+              </p>
+              <p style={{
+                fontFamily: MONO, fontSize: "9px", letterSpacing: "0.08em",
+                textTransform: "uppercase", color: "#aaaaaa",
+                lineHeight: 1.2, margin: 0,
+                whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis",
+              }}>
+                {g.genre}
+              </p>
+            </div>
+          ))}
+        </div>
+      ) : (
+        <>
+          {/* Hero */}
+          <p
+            title={stat.hero}
+            style={{
+              fontFamily:    SERIF,
+              fontSize:      heroFontSize,
+              fontWeight:    400,
+              fontStyle:     stat.heroItalic ? "italic" : "normal",
+              color:         stat.heroColor ?? "#0d0d0d",
+              lineHeight:    1.25,
+              paddingBottom: "2px",
+              margin:        "0 0 6px 0",
+              letterSpacing: "-0.01em",
+              whiteSpace:    "nowrap",
+              overflow:      "hidden",
+              textOverflow:  "ellipsis",
+              maxWidth:      "100%",
+            }}
+          >
+            {displayHero}
+          </p>
+          {/* Label */}
+          <p style={{
+            fontFamily:    MONO,
+            fontSize:      "9px",
+            letterSpacing: "0.08em",
+            textTransform: "uppercase",
+            color:         "#aaaaaa",
+            lineHeight:    1.2,
+            margin:        "0 0 3px 0",
+            whiteSpace:    "nowrap",
+            overflow:      "hidden",
+            textOverflow:  "ellipsis",
+          }}>
+            {stat.label}
+          </p>
+          {/* Sub-label */}
+          {stat.sub && (
+            <p style={{
+              fontFamily:    MONO,
+              fontSize:      "8px",
+              letterSpacing: "0.04em",
+              color:         "#cccccc",
+              lineHeight:    1.3,
+              margin:        0,
+              whiteSpace:    "nowrap",
+              overflow:      "hidden",
+              textOverflow:  "ellipsis",
+            }}>
+              {stat.sub}
+            </p>
+          )}
+        </>
       )}
     </div>
   );
