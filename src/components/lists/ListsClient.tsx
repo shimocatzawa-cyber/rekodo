@@ -596,17 +596,17 @@ export default function ListsClient({
               const isActive = activePillId === wl.id;
               return (
                 <>
-                  <span style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.12em", textTransform: "uppercase", color: "#aaaaaa", flexShrink: 0, marginRight: "2px" }}>
+                  <span style={{ fontFamily: MONO, fontSize: "0.75rem", letterSpacing: "0.08em", textTransform: "uppercase", color: "#aaaaaa", flexShrink: 0, marginRight: "2px" }}>
                     Wantlist
                   </span>
                   <button
                     onClick={() => { setActivePillId(wl.id); setActiveSavedId(null); closePicker(); }}
                     style={{
-                      fontFamily: MONO, fontSize: "9px", letterSpacing: "0.08em",
+                      fontFamily: MONO, fontSize: "0.75rem", letterSpacing: "0.08em",
                       color: isActive ? ORANGE : "rgba(204,85,0,0.5)",
                       background: isActive ? "rgba(204,85,0,0.05)" : "none",
                       border: `1px solid ${isActive ? ORANGE : "rgba(204,85,0,0.4)"}`,
-                      borderRadius: "2px", cursor: "pointer", padding: "4px 10px",
+                      borderRadius: "2px", cursor: "pointer", padding: "0.35rem 0.85rem",
                       flexShrink: 0, whiteSpace: "nowrap", transition: "all 0.15s",
                     }}
                   >
@@ -626,7 +626,7 @@ export default function ListsClient({
               const hidden = priv.length - visible.length;
               return (
                 <>
-                  <span style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.12em", textTransform: "uppercase", color: "#aaaaaa", flexShrink: 0, marginRight: "2px" }}>
+                  <span style={{ fontFamily: MONO, fontSize: "0.75rem", letterSpacing: "0.08em", textTransform: "uppercase", color: "#aaaaaa", flexShrink: 0, marginRight: "2px" }}>
                     Private
                   </span>
                   {visible.map(list => {
@@ -635,11 +635,11 @@ export default function ListsClient({
                       <button key={list.id}
                         onClick={() => { setActivePillId(list.id); setActiveSavedId(null); closePicker(); }}
                         style={{
-                          fontFamily: MONO, fontSize: "9px", letterSpacing: "0.08em",
+                          fontFamily: MONO, fontSize: "0.75rem", letterSpacing: "0.08em",
                           color: isActive ? ORANGE : "rgba(204,85,0,0.5)",
                           background: isActive ? "rgba(204,85,0,0.05)" : "none",
                           border: `1px solid ${isActive ? ORANGE : "rgba(204,85,0,0.4)"}`,
-                          borderRadius: "2px", cursor: "pointer", padding: "4px 10px",
+                          borderRadius: "2px", cursor: "pointer", padding: "0.35rem 0.85rem",
                           flexShrink: 0, whiteSpace: "nowrap", transition: "all 0.15s",
                         }}
                       >
@@ -648,12 +648,12 @@ export default function ListsClient({
                     );
                   })}
                   {hidden > 0 && (
-                    <button onClick={() => setPrivateExpanded(true)} style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.06em", color: "rgba(204,85,0,0.5)", background: "none", border: "1px solid rgba(204,85,0,0.3)", borderRadius: "2px", cursor: "pointer", padding: "4px 10px", flexShrink: 0, whiteSpace: "nowrap" }}>
+                    <button onClick={() => setPrivateExpanded(true)} style={{ fontFamily: MONO, fontSize: "0.75rem", letterSpacing: "0.06em", color: "rgba(204,85,0,0.5)", background: "none", border: "1px solid rgba(204,85,0,0.3)", borderRadius: "2px", cursor: "pointer", padding: "0.35rem 0.85rem", flexShrink: 0, whiteSpace: "nowrap" }}>
                       +{hidden} more
                     </button>
                   )}
                   {privateExpanded && priv.length > 7 && (
-                    <button onClick={() => setPrivateExpanded(false)} style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.06em", color: "#aaaaaa", background: "none", border: "none", cursor: "pointer", padding: "4px 4px", flexShrink: 0, whiteSpace: "nowrap" }}>
+                    <button onClick={() => setPrivateExpanded(false)} style={{ fontFamily: MONO, fontSize: "0.75rem", letterSpacing: "0.06em", color: "#aaaaaa", background: "none", border: "none", cursor: "pointer", padding: "0 4px", flexShrink: 0, whiteSpace: "nowrap" }}>
                       Show less
                     </button>
                   )}
@@ -663,11 +663,11 @@ export default function ListsClient({
 
             {/* Saved */}
             <div style={{ width: "1px", height: "18px", background: "rgba(0,0,0,0.14)", flexShrink: 0, margin: "0 6px" }} />
-            <span style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.12em", textTransform: "uppercase", color: "#aaaaaa", flexShrink: 0, marginRight: "4px" }}>
+            <span style={{ fontFamily: MONO, fontSize: "0.75rem", letterSpacing: "0.08em", textTransform: "uppercase", color: "#aaaaaa", flexShrink: 0, marginRight: "4px" }}>
               Saved
             </span>
             {savedCards.length === 0 ? (
-              <span style={{ fontFamily: MONO, fontSize: "9px", color: "#d0d0d0", letterSpacing: "0.04em", flexShrink: 0, fontStyle: "italic" }}>
+              <span style={{ fontFamily: MONO, fontSize: "0.75rem", color: "#d0d0d0", letterSpacing: "0.04em", flexShrink: 0, fontStyle: "italic" }}>
                 No saved lists yet
               </span>
             ) : (
@@ -677,11 +677,11 @@ export default function ListsClient({
                   <button key={card.id}
                     onClick={() => { setActiveSavedId(card.id); setActivePillId(null); closePicker(); }}
                     style={{
-                      fontFamily: MONO, fontSize: "9px", letterSpacing: "0.08em",
+                      fontFamily: MONO, fontSize: "0.75rem", letterSpacing: "0.08em",
                       color: isActive ? ORANGE : "#888888",
                       background: "none",
                       border: `1px solid ${isActive ? ORANGE : "rgba(0,0,0,0.15)"}`,
-                      borderRadius: "2px", cursor: "pointer", padding: "4px 10px",
+                      borderRadius: "2px", cursor: "pointer", padding: "0.35rem 0.85rem",
                       flexShrink: 0, whiteSpace: "nowrap", transition: "all 0.15s",
                     }}
                   >
@@ -697,10 +697,10 @@ export default function ListsClient({
             <button
               onClick={() => { setCreateState({ listType: "top5", step: "templates" }); setNewTitle(""); }}
               style={{
-                fontFamily: MONO, fontSize: "9px", letterSpacing: "0.08em",
+                fontFamily: MONO, fontSize: "0.75rem", letterSpacing: "0.08em",
                 color: ORANGE, background: "none",
                 border: `1px solid ${ORANGE}`,
-                borderRadius: "2px", cursor: "pointer", padding: "4px 10px",
+                borderRadius: "2px", cursor: "pointer", padding: "0.35rem 0.85rem",
                 whiteSpace: "nowrap",
               }}
             >
@@ -722,7 +722,7 @@ export default function ListsClient({
             const hidden = top5.length - visible.length;
             return (
               <>
-                <span style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.12em", textTransform: "uppercase", color: "#aaaaaa", flexShrink: 0, marginRight: "2px" }}>
+                <span style={{ fontFamily: MONO, fontSize: "0.75rem", letterSpacing: "0.08em", textTransform: "uppercase", color: "#aaaaaa", flexShrink: 0, marginRight: "2px" }}>
                   Top 5
                 </span>
                 {visible.map(list => {
@@ -732,11 +732,11 @@ export default function ListsClient({
                     <button key={list.id}
                       onClick={() => { setActivePillId(list.id); setActiveSavedId(null); closePicker(); }}
                       style={{
-                        fontFamily: MONO, fontSize: "9px", letterSpacing: "0.08em",
+                        fontFamily: MONO, fontSize: "0.75rem", letterSpacing: "0.08em",
                         color: isActive ? ORANGE : "#555555",
                         background: "none",
                         border: `1px solid ${isActive ? ORANGE : "rgba(0,0,0,0.18)"}`,
-                        borderRadius: "2px", cursor: "pointer", padding: "4px 10px",
+                        borderRadius: "2px", cursor: "pointer", padding: "0.35rem 0.85rem",
                         flexShrink: 0, whiteSpace: "nowrap", transition: "border-color 0.15s, color 0.15s",
                       }}
                     >
@@ -745,12 +745,12 @@ export default function ListsClient({
                   );
                 })}
                 {hidden > 0 && (
-                  <button onClick={() => setTop5Expanded(true)} style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.06em", color: "#aaaaaa", background: "none", border: "1px dashed rgba(0,0,0,0.15)", borderRadius: "2px", cursor: "pointer", padding: "4px 10px", flexShrink: 0, whiteSpace: "nowrap" }}>
+                  <button onClick={() => setTop5Expanded(true)} style={{ fontFamily: MONO, fontSize: "0.75rem", letterSpacing: "0.06em", color: "#aaaaaa", background: "none", border: "1px dashed rgba(0,0,0,0.15)", borderRadius: "2px", cursor: "pointer", padding: "0.35rem 0.85rem", flexShrink: 0, whiteSpace: "nowrap" }}>
                     +{hidden} more
                   </button>
                 )}
                 {top5Expanded && top5.length > 7 && (
-                  <button onClick={() => setTop5Expanded(false)} style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.06em", color: "#aaaaaa", background: "none", border: "none", cursor: "pointer", padding: "4px 4px", flexShrink: 0, whiteSpace: "nowrap" }}>
+                  <button onClick={() => setTop5Expanded(false)} style={{ fontFamily: MONO, fontSize: "0.75rem", letterSpacing: "0.06em", color: "#aaaaaa", background: "none", border: "none", cursor: "pointer", padding: "0 4px", flexShrink: 0, whiteSpace: "nowrap" }}>
                     Show less
                   </button>
                 )}
@@ -833,7 +833,7 @@ export default function ListsClient({
 
                       {/* Sort + filter row */}
                       <div style={{ display: "flex", alignItems: "center", gap: "10px", flexWrap: "wrap" }}>
-                        <span style={{ fontFamily: MONO, fontSize: "0.7rem", letterSpacing: "0.1em", textTransform: "uppercase", color: "#cccccc", flexShrink: 0, marginRight: "4px" }}>Sort</span>
+                        <span style={{ fontFamily: MONO, fontSize: "0.75rem", letterSpacing: "0.1em", textTransform: "uppercase", color: "#cccccc", flexShrink: 0, marginRight: "4px" }}>Sort</span>
                         {(["priority", "price_cap", "date_added", "artist"] as const).map(s => (
                           <button key={s} onClick={() => setWantlistSort(s)} style={{
                             fontFamily: MONO, fontSize: "0.75rem", letterSpacing: "0.05em",
@@ -858,8 +858,8 @@ export default function ListsClient({
                               fontFamily: MONO, fontSize: "0.7rem", letterSpacing: "0.06em", textTransform: "uppercase",
                               color: on ? PRIORITY_COLORS[p] : "#aaaaaa",
                               background: on ? `${PRIORITY_COLORS[p]}14` : "none",
-                              border: `1px solid ${on ? PRIORITY_COLORS[p] : "#cccccc"}`,
-                              borderRadius: "2px", cursor: "pointer", padding: "0.3rem 0.85rem",
+                              border: `1px solid ${on ? PRIORITY_COLORS[p] : "#e0e0da"}`,
+                              borderRadius: "2px", cursor: "pointer", padding: "0.25rem 0.7rem",
                               transition: "all 0.15s",
                             }}>
                               {PRIORITY_LABELS[p]}
@@ -1062,11 +1062,7 @@ export default function ListsClient({
                       )
                     )}
                   </>
-                ) : (
-                  <p style={{ fontFamily: SERIF, fontStyle: "italic", fontSize: "13px", color: "#aaaaaa", lineHeight: 1.5, opacity: 0.4 }}>
-                    Click a record slot to add
-                  </p>
-                )}
+                ) : null}
               </div>
             </div>
           ) : activeSavedCard ? (
@@ -1108,13 +1104,13 @@ export default function ListsClient({
         {/* RIGHT (visual order 1 via CSS order) — Discover column */}
         <div style={{ overflowY: "auto", display: "flex", flexDirection: "column", order: 1, borderRight: "1px solid rgba(0,0,0,0.08)" }}>
           <div style={{ position: "sticky", top: 0, background: "#ffffff", zIndex: 1, padding: "24px 24px 14px", borderBottom: "1px solid rgba(0,0,0,0.06)" }}>
-            <h2 style={{ fontFamily: SERIF, fontSize: "16px", fontWeight: 400, color: "#0d0d0d", marginBottom: "12px" }}>
+            <h2 style={{ fontFamily: SERIF, fontSize: "1.1rem", fontWeight: 600, color: "#0d0d0d", marginBottom: "12px" }}>
               Discover
             </h2>
             <div style={{ display: "flex", gap: "20px" }}>
               {(["similar", "following", "trending", "all"] as DiscoverTab[]).map(tab => (
                 <button key={tab} onClick={() => setDiscoverTab(tab)} style={{
-                  fontFamily: MONO, fontSize: "9px", letterSpacing: "0.08em",
+                  fontFamily: MONO, fontSize: "0.75rem", letterSpacing: "0.08em",
                   background: "none", border: "none", cursor: "pointer", padding: "0 0 4px",
                   color: discoverTab === tab ? "#0d0d0d" : "#aaaaaa",
                   borderBottom: `1px solid ${discoverTab === tab ? "#0d0d0d" : "transparent"}`,
@@ -1447,11 +1443,11 @@ function DiscoverTextCard({ title, username, recordCount, badge, saves, onSave, 
   onView?: () => void;
 }) {
   return (
-    <div style={{ borderBottom: "1px solid rgba(0,0,0,0.06)", padding: "16px 20px" }}>
+    <div style={{ borderBottom: "1px solid #e0e0da", padding: "16px 20px" }}>
       <p
         onClick={onView}
         style={{
-          fontFamily: SERIF, fontSize: "14px", color: "#0d0d0d", lineHeight: 1.3,
+          fontFamily: SERIF, fontSize: "0.95rem", fontWeight: 600, color: "#0d0d0d", lineHeight: 1.3,
           marginBottom: "4px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
           cursor: onView ? "pointer" : "default",
           textDecoration: onView ? "underline" : "none",
@@ -1461,14 +1457,14 @@ function DiscoverTextCard({ title, username, recordCount, badge, saves, onSave, 
       >
         {title}
       </p>
-      <p style={{ fontFamily: MONO, fontSize: "9px", color: "#aaaaaa", letterSpacing: "0.06em", marginBottom: "12px" }}>
+      <p style={{ fontFamily: MONO, fontSize: "0.7rem", color: "#999999", letterSpacing: "0.06em", marginBottom: "12px" }}>
         @{username} · {recordCount}
       </p>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "10px" }}>
         {badge ? (
           <span style={{
-            fontFamily: MONO, fontSize: "9px", letterSpacing: "0.06em", fontStyle: "italic",
-            color: "#888888", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
+            fontFamily: MONO, fontSize: "0.7rem", letterSpacing: "0.06em", fontStyle: "italic",
+            color: "#666666", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
           }}>
             {badge}
           </span>
@@ -1477,7 +1473,7 @@ function DiscoverTextCard({ title, username, recordCount, badge, saves, onSave, 
           {onView && (
             <button
               onClick={onView}
-              style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.06em", color: "#555555", background: "none", border: "none", cursor: "pointer", padding: 0 }}
+              style={{ fontFamily: MONO, fontSize: "0.7rem", letterSpacing: "0.06em", color: "#555555", background: "none", border: "none", cursor: "pointer", padding: 0 }}
             >
               View →
             </button>
@@ -1486,7 +1482,7 @@ function DiscoverTextCard({ title, username, recordCount, badge, saves, onSave, 
             onClick={onSave}
             disabled={saved}
             style={{
-              fontFamily: MONO, fontSize: "9px", letterSpacing: "0.06em",
+              fontFamily: MONO, fontSize: "0.7rem", letterSpacing: "0.06em",
               color: saved ? "#aaaaaa" : ORANGE,
               background: "none", border: "none",
               cursor: saved ? "default" : "pointer", padding: 0,
@@ -1494,7 +1490,7 @@ function DiscoverTextCard({ title, username, recordCount, badge, saves, onSave, 
           >
             {saved ? "Saved ✓" : "Save ↓"}
           </button>
-          <span style={{ fontFamily: MONO, fontSize: "9px", color: "#cccccc", letterSpacing: "0.04em" }}>
+          <span style={{ fontFamily: MONO, fontSize: "0.7rem", color: "#999999", letterSpacing: "0.04em" }}>
             {saves.toLocaleString()} saves
           </span>
         </div>
@@ -1514,8 +1510,8 @@ function AddRecordButton({ onClick }: { onClick: () => void }) {
       onMouseLeave={() => setHovered(false)}
       style={{
         fontFamily: SERIF,
-        fontSize: "0.85rem",
-        color: hovered ? ORANGE : "#888888",
+        fontSize: "0.8rem",
+        color: hovered ? ORANGE : "#999999",
         background: "none", border: "none", cursor: "pointer",
         padding: "10px 0", display: "block",
         transition: "color 0.15s",
@@ -1547,14 +1543,8 @@ function WantlistCard({ slot, monthsOld, showSomedayPrompt, onRemove, onKeepSome
   const { item } = slot;
   if (!item) return null;
 
-  const [hovered,        setHovered]        = useState(false);
-  const [editingNote,    setEditingNote]     = useState(false);
-  const [noteValue,      setNoteValue]       = useState(slot.note ?? "");
-  const [editingTip,     setEditingTip]      = useState(false);
-  const [tipValue,       setTipValue]        = useState(slot.pressing_tip ?? "");
-  const [editingPrice,   setEditingPrice]    = useState(false);
-  const [priceValue,     setPriceValue]      = useState(slot.price_cap != null ? String(slot.price_cap) : "");
-  const [coverUrl,       setCoverUrl]        = useState<string | null>(item.cover_url ?? null);
+  const [hovered,  setHovered]  = useState(false);
+  const [coverUrl, setCoverUrl] = useState<string | null>(item.cover_url ?? null);
 
   useEffect(() => {
     if (coverUrl) return;
@@ -1582,25 +1572,6 @@ function WantlistCard({ slot, monthsOld, showSomedayPrompt, onRemove, onKeepSome
     onUpdateMeta({ priority: next });
   }
 
-  function commitNote() {
-    setEditingNote(false);
-    const trimmed = noteValue.trim() || null;
-    if (trimmed !== (slot.note ?? null)) onUpdateMeta({ note: trimmed });
-  }
-
-  function commitTip() {
-    setEditingTip(false);
-    const trimmed = tipValue.trim() || null;
-    if (trimmed !== (slot.pressing_tip ?? null)) onUpdateMeta({ pressing_tip: trimmed });
-  }
-
-  function commitPrice() {
-    setEditingPrice(false);
-    const num = priceValue.trim() ? parseFloat(priceValue.replace(/[^0-9.]/g, "")) : null;
-    const val = num !== null && !isNaN(num) ? num : null;
-    if (val !== (slot.price_cap ?? null)) onUpdateMeta({ price_cap: val });
-  }
-
   const discogsSearchUrl = `https://www.discogs.com/search/?q=${encodeURIComponent(`${item.artist} ${item.album}`)}&type=release`;
 
   const dateLabel = slot.created_at
@@ -1622,17 +1593,17 @@ function WantlistCard({ slot, monthsOld, showSomedayPrompt, onRemove, onKeepSome
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
     >
-      {/* Header row: priority · spacer · ¥cap · Discogs · × */}
+      {/* Header row: priority · spacer · Discogs · × */}
       <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "5px" }}>
         <button
           onClick={cyclePriority}
           title="Click to change priority"
           style={{
-            fontFamily: MONO, fontSize: "0.6rem", letterSpacing: "0.08em", textTransform: "uppercase",
+            fontFamily: MONO, fontSize: "0.65rem", letterSpacing: "0.08em", textTransform: "uppercase",
             color: priority ? PRIORITY_COLORS[priority] : "#bbbbbb",
             background: "none",
-            border: `1px solid ${priority ? PRIORITY_COLORS[priority] : "#cccccc"}`,
-            borderRadius: "2px", cursor: "pointer", padding: "3px 8px",
+            border: `1px solid ${priority ? PRIORITY_COLORS[priority] : "#ccc"}`,
+            borderRadius: "2px", cursor: "pointer", padding: "0.15rem 0.5rem",
             whiteSpace: "nowrap", flexShrink: 0, transition: "all 0.15s",
           }}
         >
@@ -1640,40 +1611,6 @@ function WantlistCard({ slot, monthsOld, showSomedayPrompt, onRemove, onKeepSome
         </button>
 
         <div style={{ flex: 1 }} />
-
-        {/* Price cap */}
-        <div style={{ display: "flex", alignItems: "center", gap: "3px" }}>
-          <span style={{ fontFamily: MONO, fontSize: "0.75rem", color: "#888888", letterSpacing: "0.04em" }}>¥</span>
-          {editingPrice ? (
-            <input
-              autoFocus
-              value={priceValue}
-              onChange={e => setPriceValue(e.target.value)}
-              onBlur={commitPrice}
-              onKeyDown={e => {
-                if (e.key === "Enter") commitPrice();
-                if (e.key === "Escape") { setEditingPrice(false); setPriceValue(slot.price_cap != null ? String(slot.price_cap) : ""); }
-              }}
-              placeholder="cap"
-              style={{
-                width: "52px", fontFamily: MONO, fontSize: "0.75rem", color: "#333",
-                background: "transparent", border: "none",
-                borderBottom: "1px solid rgba(0,0,0,0.18)", outline: "none", padding: "0 0 1px",
-              }}
-            />
-          ) : (
-            <button
-              onClick={() => setEditingPrice(true)}
-              style={{
-                fontFamily: MONO, fontSize: "0.75rem",
-                color: slot.price_cap != null ? "#555" : hovered ? "#999" : "transparent",
-                background: "none", border: "none", cursor: "text", padding: 0,
-              }}
-            >
-              {slot.price_cap != null ? slot.price_cap.toLocaleString() : "cap"}
-            </button>
-          )}
-        </div>
 
         <a
           href={discogsSearchUrl}
@@ -1697,7 +1634,7 @@ function WantlistCard({ slot, monthsOld, showSomedayPrompt, onRemove, onKeepSome
       {/* Cover + Artist/Album/Year */}
       <div style={{ display: "flex", alignItems: "center", gap: "12px", marginBottom: "6px" }}>
         <div style={{
-          width: 80, height: 80, flexShrink: 0, overflow: "hidden",
+          width: 80, height: 80, flexShrink: 0, overflow: "hidden", borderRadius: "2px",
           background: coverUrl ? "transparent" : "#f0f0f0",
           border: coverUrl ? "none" : "1px solid rgba(0,0,0,0.08)",
         }}>
@@ -1707,88 +1644,15 @@ function WantlistCard({ slot, monthsOld, showSomedayPrompt, onRemove, onKeepSome
           )}
         </div>
         <div style={{ flex: 1, minWidth: 0 }}>
-          <p style={{ fontFamily: SERIF, fontSize: "1.1rem", fontWeight: 600, color: "#0d0d0d", lineHeight: 1.25, marginBottom: "3px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+          <p style={{ fontFamily: SERIF, fontSize: "1rem", fontWeight: 600, color: "#0d0d0d", lineHeight: 1.25, marginBottom: "3px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
             {item.artist}
           </p>
-          <p style={{ fontFamily: SERIF, fontStyle: "italic", fontSize: "0.9rem", color: "#444444", lineHeight: 1.25, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+          <p style={{ fontFamily: SERIF, fontStyle: "italic", fontSize: "0.85rem", color: "#444444", lineHeight: 1.25, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
             {item.song_title ?? item.album}
-            {item.year && <span style={{ fontFamily: MONO, fontStyle: "normal", fontSize: "0.72rem", color: "#aaaaaa", letterSpacing: "0.05em" }}> · {item.year}</span>}
+            {item.year && <span style={{ fontFamily: MONO, fontStyle: "normal", fontSize: "0.7rem", color: "#999999", letterSpacing: "0.05em" }}> · {item.year}</span>}
           </p>
         </div>
       </div>
-
-      {/* Pressing tip — single line, inline edit */}
-      {editingTip ? (
-        <div style={{ display: "flex", alignItems: "center", gap: "4px", marginBottom: "3px" }}>
-          <span style={{ fontFamily: MONO, fontSize: "8px", color: ORANGE, flexShrink: 0 }}>◆</span>
-          <input
-            autoFocus
-            value={tipValue}
-            onChange={e => setTipValue(e.target.value)}
-            onBlur={commitTip}
-            onKeyDown={e => {
-              if (e.key === "Enter") commitTip();
-              if (e.key === "Escape") { setEditingTip(false); setTipValue(slot.pressing_tip ?? ""); }
-            }}
-            placeholder="Pressing tip…"
-            style={{
-              flex: 1, fontFamily: MONO, fontSize: "8px", color: "#555", letterSpacing: "0.03em",
-              background: "transparent", border: "none",
-              borderBottom: "1px solid rgba(0,0,0,0.15)", outline: "none", padding: "0 0 1px",
-            }}
-          />
-        </div>
-      ) : slot.pressing_tip ? (
-        <div
-          style={{ display: "flex", alignItems: "baseline", gap: "4px", marginBottom: "3px", cursor: "text" }}
-          onClick={() => { setTipValue(slot.pressing_tip ?? ""); setEditingTip(true); }}
-        >
-          <span style={{ fontFamily: MONO, fontSize: "8px", color: ORANGE, flexShrink: 0 }}>◆</span>
-          <p style={{ fontFamily: MONO, fontStyle: "italic", fontSize: "8px", color: "#666", letterSpacing: "0.03em", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-            {slot.pressing_tip}
-          </p>
-        </div>
-      ) : hovered ? (
-        <button
-          onClick={() => { setTipValue(""); setEditingTip(true); }}
-          style={{ fontFamily: MONO, fontSize: "8px", color: "#dddddd", background: "none", border: "none", cursor: "text", padding: "0 0 3px", letterSpacing: "0.03em", display: "block" }}
-        >
-          ◆ tip…
-        </button>
-      ) : <div style={{ height: "4px" }} />}
-
-      {/* Note — single line, inline edit */}
-      {editingNote ? (
-        <input
-          autoFocus
-          value={noteValue}
-          onChange={e => setNoteValue(e.target.value)}
-          onBlur={commitNote}
-          onKeyDown={e => {
-            if (e.key === "Enter") commitNote();
-            if (e.key === "Escape") { setEditingNote(false); setNoteValue(slot.note ?? ""); }
-          }}
-          placeholder="Note…"
-          style={{
-            width: "100%", boxSizing: "border-box",
-            fontFamily: MONO, fontStyle: "italic", fontSize: "8px", color: "#555", letterSpacing: "0.03em",
-            background: "transparent", border: "none",
-            borderBottom: "1px solid rgba(0,0,0,0.15)", outline: "none", padding: "0 0 1px",
-          }}
-        />
-      ) : (slot.note || hovered) ? (
-        <button
-          onClick={() => { setNoteValue(slot.note ?? ""); setEditingNote(true); }}
-          style={{
-            fontFamily: MONO, fontStyle: "italic", fontSize: "8px", letterSpacing: "0.03em",
-            color: slot.note ? "#888888" : "#dddddd",
-            background: "none", border: "none", cursor: "text", padding: 0, textAlign: "left",
-            overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: "100%", display: "block",
-          }}
-        >
-          {slot.note ?? "note…"}
-        </button>
-      ) : null}
 
       {/* Someday prompt + date — compact inline */}
       {(showSomedayPrompt || dateLabel) && (
@@ -1803,7 +1667,7 @@ function WantlistCard({ slot, monthsOld, showSomedayPrompt, onRemove, onKeepSome
             </>
           )}
           {!showSomedayPrompt && dateLabel && (
-            <span style={{ fontFamily: MONO, fontSize: "0.65rem", color: "#999999", letterSpacing: "0.03em", marginLeft: "auto" }}>
+            <span style={{ fontFamily: MONO, fontSize: "0.7rem", color: "#bbbbbb", letterSpacing: "0.03em", marginLeft: "auto" }}>
               {dateLabel}
             </span>
           )}
