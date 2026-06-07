@@ -986,7 +986,7 @@ export default function CollectionClient({
                 className="md:hidden"
                 onClick={() => setMobileDetailOpen(false)}
                 style={{
-                  display: "flex", alignItems: "center", gap: "6px",
+                  alignItems: "center", gap: "6px",
                   padding: "14px 16px",
                   background: "none",
                   border: "none",
@@ -1350,7 +1350,7 @@ function InsightsPanel({
       <div className="hidden md:block">
         {oneLiner && (
           <div style={{
-            margin: "0 28px 14px",
+            margin: "0 0 14px",
             paddingLeft: "10px",
             borderLeft: `2px solid ${ORANGE}`,
           }}>
@@ -1362,7 +1362,6 @@ function InsightsPanel({
               letterSpacing: "0.01em",
               lineHeight: 1.5,
               margin: 0,
-              maxWidth: "72ch",
               display: "-webkit-box",
               WebkitLineClamp: 2,
               WebkitBoxOrient: "vertical",
