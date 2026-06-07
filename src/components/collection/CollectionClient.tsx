@@ -649,14 +649,9 @@ export default function CollectionClient({
     return [...fs].sort();
   }, [collection]);
 
-  const desirabilityOptions = useMemo(() => {
-    const tiers = new Set<FilterDesirabilityTier>();
-    for (const r of collection) {
-      const t = getCollectionDesirabilityTier(r.price_low, r.community_have, r.community_want, r.community_num_for_sale);
-      if (t) tiers.add(t);
-    }
-    return DESIRABILITY_FILTER_OPTIONS.filter(o => tiers.has(o.value));
-  }, [collection]);
+  // Always show all five tiers — community data populates after the next sync,
+  // and 0-result selections are explained by the "N of M items" counter.
+  const desirabilityOptions = DESIRABILITY_FILTER_OPTIONS;
 
   const hasFilters = !!searchQuery.trim() || !!filterGenre || !!filterYear || !!filterFormat || !!filterDesirability;
   const activeFilterCount = [filterGenre, filterYear, filterFormat, filterDesirability].filter(Boolean).length;
@@ -1772,7 +1767,6 @@ function TracklistPanel({ tracks, loading, bandcamp, record }: {
   const bcSearch    = bandcamp?.searchUrl ?? `https://bandcamp.com/search?q=${encodeURIComponent(`${artist} ${album}`)}`;
   const amSearch    = `https://music.apple.com/search?term=${encodeURIComponent(`${artist} ${album}`)}`;
   const tidalSearch = `https://tidal.com/search?q=${encodeURIComponent(`${artist} ${album}`)}`;
-  const spotifySearch = `https://open.spotify.com/search/${encodeURIComponent(`${artist} ${album}`)}`;
 
   const baseLinkStyle: React.CSSProperties = {
     fontFamily: MONO, fontSize: "10px", letterSpacing: "0.08em", textDecoration: "none",
@@ -1855,9 +1849,6 @@ function TracklistPanel({ tracks, loading, bandcamp, record }: {
               </a>
               <a href={tidalSearch} target="_blank" rel="noopener noreferrer" style={secondaryLinkStyle}>
                 Open in Tidal ↗
-              </a>
-              <a href={spotifySearch} target="_blank" rel="noopener noreferrer" style={secondaryLinkStyle}>
-                Open in Spotify ↗
               </a>
               {/* Bandcamp: link when no embed, omit when embed is showing (iframe is the link) */}
               {!bandcamp?.embedUrl && (
