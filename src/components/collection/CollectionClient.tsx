@@ -13,7 +13,7 @@ const ORANGE = "#CC5500";
 
 // ─── Desirability ─────────────────────────────────────────────────────────────
 
-type DesirabilityTier = "rare" | "holy-grail" | "cult" | "widely-loved" | "in-demand" | "steady";
+type DesirabilityTier = "rare" | "holy-grail" | "cult" | "widely-loved" | "in-demand";
 
 const TIERS: Record<DesirabilityTier, { label: string; bg: string; color: string }> = {
   "rare":         { label: "Rare",          bg: "#F0997B", color: "#712B13" },
@@ -21,7 +21,6 @@ const TIERS: Record<DesirabilityTier, { label: string; bg: string; color: string
   "cult":         { label: "Cult pressing", bg: "#CECBF6", color: "#3C3489" },
   "widely-loved": { label: "Widely loved",  bg: "#C0DD97", color: "#27500A" },
   "in-demand":    { label: "In demand",     bg: "#9FE1CB", color: "#085041" },
-  "steady":       { label: "Steady seller", bg: "#E1F5EE", color: "#0F6E56" },
 };
 
 function getDesirabilityTier(
@@ -40,7 +39,6 @@ function getDesirabilityTier(
   if (baseScore >= 2.5 && total >= 30 && total < 500) return "cult";
   if (total >= 5000 && ratio >= 0.15 && ratio <= 0.65) return "widely-loved";
   if (baseScore >= 0.45) return "in-demand";
-  if (baseScore >= 0.15) return "steady";
   return null;
 }
 
