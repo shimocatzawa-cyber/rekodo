@@ -124,6 +124,8 @@ export async function GET(request: NextRequest) {
         );
         url.searchParams.set("per_page", String(BATCH));
         url.searchParams.set("page", String(page));
+        url.searchParams.set("sort", "added");
+        url.searchParams.set("sort_order", "asc"); // stable oldest-first order across all pages
 
         const auth = buildAuthHeader("GET", url.toString(), key, secret, accessToken, tokenSecret);
         const res  = await fetch(url.toString(), {
@@ -194,8 +196,15 @@ export async function GET(request: NextRequest) {
         for (const r of data ?? []) if (r.discogs_id) existingMap.set(r.discogs_id, r.id);
       }
 
-      // Insert only records not yet in the DB
-      const newItems = collectionItems.filter(r => !existingMap.has(r.discogs_id));
+      // Insert only records not yet in the DB, deduplicated by discogs_id so a
+      // pagination-induced duplicate never causes an entire insert batch to fail.
+      const seenForInsert = new Set<string>();
+      const newItems = collectionItems.filter(r => {
+        if (existingMap.has(r.discogs_id)) return false;
+        if (seenForInsert.has(r.discogs_id)) return false;
+        seenForInsert.add(r.discogs_id);
+        return true;
+      });
 
       for (let i = 0; i < newItems.length; i += BATCH) {
         const { data, error } = await supabase
@@ -224,10 +233,13 @@ export async function GET(request: NextRequest) {
         }
       }
 
-      // Resolve the full list of record UUIDs
-      const savedRecordIds = collectionItems
-        .map(r => existingMap.get(r.discogs_id))
-        .filter((id): id is string => id !== undefined);
+      // Resolve the full list of record UUIDs — deduplicated so users with multiple
+      // physical copies of the same pressing don't generate duplicate link rows.
+      const savedRecordIds = [...new Set(
+        collectionItems
+          .map(r => existingMap.get(r.discogs_id))
+          .filter((id): id is string => id !== undefined)
+      )];
 
       // Link records to user's collection (skip already-linked)
       const alreadyLinked = new Set<string>();
