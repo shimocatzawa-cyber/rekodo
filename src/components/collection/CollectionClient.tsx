@@ -1019,7 +1019,7 @@ export default function CollectionClient({
                 ← Collection
               </button>
               {/* Randomiser — desktop only */}
-              <div className="hidden md:flex" style={{ flexShrink: 0, padding: "8px 10px 4px", borderBottom: "1px solid rgba(0,0,0,0.08)", alignItems: "center", justifyContent: "flex-end" }}>
+              <div className="hidden md:flex" style={{ flexShrink: 0, padding: "8px 10px 4px", alignItems: "center", justifyContent: "flex-end" }}>
                 <button
                   type="button"
                   onClick={() => {
@@ -1052,7 +1052,7 @@ export default function CollectionClient({
           </>
         ) : (
           <div className="hidden md:flex" style={{ gridColumn: "2 / 4", flexDirection: "column" }}>
-            <div style={{ flexShrink: 0, padding: "8px 10px 4px", borderBottom: "1px solid rgba(0,0,0,0.08)", display: "flex", alignItems: "center", justifyContent: "flex-end" }}>
+            <div style={{ flexShrink: 0, padding: "8px 10px 4px", display: "flex", alignItems: "center", justifyContent: "flex-end" }}>
               <button
                 type="button"
                 onClick={() => {
@@ -1392,7 +1392,7 @@ function InsightsPanel({
           </div>
         </div>
       </div>
-      <div className="hidden md:block">
+      <div className="hidden md:block" style={oneLiner ? { borderTop: "1px solid rgba(0,0,0,0.08)" } : undefined}>
         {oneLiner && (
           <div style={{
             margin: "0 0 14px",
