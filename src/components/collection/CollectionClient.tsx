@@ -246,6 +246,9 @@ export default function CollectionClient({
   const [filterCountry, setFilterCountry] = useState("");
   const [sortBy,        setSortBy]        = useState("artist-az");
 
+  const [filterSheetOpen,  setFilterSheetOpen]  = useState(false);
+  const [mobileDetailOpen, setMobileDetailOpen] = useState(false);
+
   const [collection, setCollection] = useState<CollectionRecord[]>(initialCollection);
 
   // Re-sync collection state when the server re-renders with fresh data (e.g. after price sync)
@@ -598,6 +601,7 @@ export default function CollectionClient({
   }, [collection]);
 
   const hasFilters = !!searchQuery.trim() || !!filterGenre || !!filterYear || !!filterFormat || !!filterCountry;
+  const activeFilterCount = [filterGenre, filterYear, filterFormat, filterCountry].filter(Boolean).length;
 
   function clearAllFilters() {
     setSearchQuery("");
@@ -692,10 +696,10 @@ export default function CollectionClient({
 
       {/* ── Three-column panel ── */}
       {collection.length > 0 && (
-      <div style={{ flex: 1, overflow: "hidden", display: "grid", gridTemplateColumns: "380px 1fr 380px" }}>
+      <div className="flex flex-col md:grid" style={{ flex: 1, overflow: "hidden", gridTemplateColumns: "380px 1fr 380px" }}>
 
         {/* Col 1 — search + filters + A-Z record list */}
-        <div style={{ display: "flex", flexDirection: "column", borderRight: "1px solid rgba(0,0,0,0.08)", minWidth: 0, overflow: "hidden" }}>
+        <div className={`${mobileDetailOpen ? "hidden md:flex" : "flex"} flex-col`} style={{ flex: 1, borderRight: "1px solid rgba(0,0,0,0.08)", minWidth: 0, overflow: "hidden" }}>
 
           {/* ── Fixed: search + filters ── */}
           <div style={{ flexShrink: 0, borderBottom: "1px solid rgba(0,0,0,0.08)" }}>
@@ -725,6 +729,7 @@ export default function CollectionClient({
                   onClick={() => {
                     const idx = Math.floor(Math.random() * collection.length);
                     selectRecord(collection[idx]);
+                    setMobileDetailOpen(true);
                   }}
                   style={{
                     fontFamily: MONO, fontSize: "10px", letterSpacing: "0.06em",
@@ -760,6 +765,35 @@ export default function CollectionClient({
                 }}
               />
             </div>
+
+            {/* Mobile — filter button */}
+            <div className="md:hidden" style={{ padding: "0 10px 6px" }}>
+              <button
+                onClick={() => setFilterSheetOpen(true)}
+                style={{
+                  width: "100%", display: "flex", alignItems: "center", justifyContent: "space-between",
+                  fontFamily: MONO, fontSize: "11px", letterSpacing: "0.06em",
+                  color: activeFilterCount > 0 ? ORANGE : "#888888",
+                  background: "#f8f8f8",
+                  border: `1px solid ${activeFilterCount > 0 ? ORANGE : "rgba(0,0,0,0.1)"}`,
+                  cursor: "pointer", padding: "8px 12px",
+                }}
+              >
+                <span>Filter{sortBy !== "artist-az" ? " & sort" : ""}</span>
+                {activeFilterCount > 0 && (
+                  <span style={{
+                    background: ORANGE, color: "#fff",
+                    fontFamily: MONO, fontSize: "9px",
+                    padding: "1px 5px", borderRadius: "8px",
+                  }}>
+                    {activeFilterCount}
+                  </span>
+                )}
+              </button>
+            </div>
+
+            {/* Desktop — filter dropdowns + sort */}
+            <div className="hidden md:block">
 
             {/* Filter dropdowns — row 1: Genre + Year */}
             <div style={{ padding: "0 10px 4px", display: "flex", gap: "6px" }}>
@@ -873,6 +907,7 @@ export default function CollectionClient({
                 </button>
               </div>
             )}
+            </div>{/* /desktop-filters */}
           </div>
 
           {/* ── Scrollable: A-Z record list ── */}
@@ -896,7 +931,7 @@ export default function CollectionClient({
                     key={record.id}
                     record={record}
                     selected={selectedRecord?.id === record.id}
-                    onClick={() => selectRecord(record)}
+                    onClick={() => { selectRecord(record); setMobileDetailOpen(true); }}
                   />
                 ))}
               </div>
@@ -905,7 +940,7 @@ export default function CollectionClient({
                 key={record.id}
                 record={record}
                 selected={selectedRecord?.id === record.id}
-                onClick={() => selectRecord(record)}
+                onClick={() => { selectRecord(record); setMobileDetailOpen(true); }}
               />
             ))}
           </div>
@@ -914,7 +949,24 @@ export default function CollectionClient({
         {selectedRecord ? (
           <>
             {/* Col 2 — Album details */}
-            <div style={{ borderRight: "1px solid rgba(0,0,0,0.08)", overflow: "hidden", minWidth: 0, display: "flex", flexDirection: "column" }}>
+            <div className={`${!mobileDetailOpen ? "hidden md:flex" : "flex"} flex-col`} style={{ flex: 1, borderRight: "1px solid rgba(0,0,0,0.08)", overflow: "hidden", minWidth: 0 }}>
+              <button
+                className="md:hidden"
+                onClick={() => setMobileDetailOpen(false)}
+                style={{
+                  display: "flex", alignItems: "center", gap: "6px",
+                  padding: "12px 16px",
+                  background: "none",
+                  border: "none",
+                  borderBottom: "1px solid rgba(0,0,0,0.06)",
+                  cursor: "pointer",
+                  fontFamily: MONO, fontSize: "11px", letterSpacing: "0.06em", color: ORANGE,
+                  width: "100%",
+                  textAlign: "left",
+                }}
+              >
+                ← Back
+              </button>
               <AlbumDetail
                 record={selectedRecord}
                 detail={releaseDetail}
@@ -925,7 +977,7 @@ export default function CollectionClient({
             </div>
 
             {/* Col 3 — Tracklist + Bandcamp */}
-            <div style={{ overflowY: "auto", minWidth: 0 }}>
+            <div className={!mobileDetailOpen ? "hidden md:block" : undefined} style={{ overflowY: "auto", minWidth: 0 }}>
               <TracklistPanel
                 tracks={releaseDetail?.tracklist ?? null}
                 loading={detailLoading}
@@ -935,7 +987,7 @@ export default function CollectionClient({
             </div>
           </>
         ) : (
-          <div style={{ gridColumn: "2 / 4", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: "6px" }}>
+          <div className="hidden md:flex" style={{ gridColumn: "2 / 4", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: "6px" }}>
             <p style={{ fontFamily: SERIF, fontSize: "18px", color: "#d8d8d8" }}>Select a record</p>
             <p style={{ fontFamily: MONO, fontSize: "10px", color: "#e4e4e4", letterSpacing: "0.08em" }}>
               {collection.length} {collection.length === 1 ? "record" : "records"} in your collection
@@ -943,6 +995,137 @@ export default function CollectionClient({
           </div>
         )}
       </div>
+      )}
+
+      {/* ── Mobile filter bottom sheet ── */}
+      {filterSheetOpen && (
+        <>
+          <div
+            className="md:hidden"
+            onClick={() => setFilterSheetOpen(false)}
+            style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.35)", zIndex: 40 }}
+          />
+          <div
+            className="md:hidden"
+            style={{
+              position: "fixed", bottom: 0, left: 0, right: 0,
+              background: "#ffffff", borderRadius: "12px 12px 0 0",
+              zIndex: 50, padding: "20px 20px 40px",
+              boxShadow: "0 -4px 24px rgba(0,0,0,0.12)",
+            }}
+          >
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "20px" }}>
+              <span style={{ fontFamily: SERIF, fontSize: "17px", color: "#0d0d0d" }}>Filter & Sort</span>
+              <button
+                onClick={() => setFilterSheetOpen(false)}
+                style={{ background: "none", border: "none", cursor: "pointer", fontFamily: MONO, fontSize: "20px", color: "#aaaaaa", padding: "4px 8px", lineHeight: 1 }}
+              >
+                ×
+              </button>
+            </div>
+
+            <label style={{ display: "block", fontFamily: MONO, fontSize: "9px", letterSpacing: "0.12em", textTransform: "uppercase", color: "#aaaaaa", marginBottom: "4px" }}>Sort</label>
+            <select
+              value={sortBy}
+              onChange={e => setSortBy(e.target.value)}
+              style={{
+                width: "100%", fontFamily: MONO, fontSize: "13px", letterSpacing: "0.02em",
+                color: sortBy !== "artist-az" ? ORANGE : "#0d0d0d",
+                background: "#ffffff", border: `1px solid ${sortBy !== "artist-az" ? ORANGE : "rgba(0,0,0,0.13)"}`,
+                cursor: "pointer", padding: "10px 8px", outline: "none", marginBottom: "16px",
+              }}
+            >
+              {SORT_OPTIONS.map(o => (
+                <option key={o.value} value={o.value}>{o.label}</option>
+              ))}
+            </select>
+
+            <label style={{ display: "block", fontFamily: MONO, fontSize: "9px", letterSpacing: "0.12em", textTransform: "uppercase", color: "#aaaaaa", marginBottom: "4px" }}>Genre</label>
+            <select
+              value={filterGenre}
+              onChange={e => setFilterGenre(e.target.value)}
+              style={{
+                width: "100%", fontFamily: MONO, fontSize: "13px",
+                color: filterGenre ? ORANGE : "#0d0d0d",
+                background: "#ffffff", border: `1px solid ${filterGenre ? ORANGE : "rgba(0,0,0,0.13)"}`,
+                cursor: "pointer", padding: "10px 8px", outline: "none", marginBottom: "12px",
+              }}
+            >
+              <option value="">All genres</option>
+              {genres.map(g => <option key={g} value={g}>{g}</option>)}
+            </select>
+
+            <label style={{ display: "block", fontFamily: MONO, fontSize: "9px", letterSpacing: "0.12em", textTransform: "uppercase", color: "#aaaaaa", marginBottom: "4px" }}>Year</label>
+            <select
+              value={filterYear}
+              onChange={e => setFilterYear(e.target.value)}
+              style={{
+                width: "100%", fontFamily: MONO, fontSize: "13px",
+                color: filterYear ? ORANGE : "#0d0d0d",
+                background: "#ffffff", border: `1px solid ${filterYear ? ORANGE : "rgba(0,0,0,0.13)"}`,
+                cursor: "pointer", padding: "10px 8px", outline: "none", marginBottom: "12px",
+              }}
+            >
+              <option value="">All years</option>
+              {decades.map(d => <option key={d} value={d}>{d}</option>)}
+            </select>
+
+            <label style={{ display: "block", fontFamily: MONO, fontSize: "9px", letterSpacing: "0.12em", textTransform: "uppercase", color: "#aaaaaa", marginBottom: "4px" }}>Format</label>
+            <select
+              value={filterFormat}
+              onChange={e => setFilterFormat(e.target.value)}
+              style={{
+                width: "100%", fontFamily: MONO, fontSize: "13px",
+                color: filterFormat ? ORANGE : "#0d0d0d",
+                background: "#ffffff", border: `1px solid ${filterFormat ? ORANGE : "rgba(0,0,0,0.13)"}`,
+                cursor: "pointer", padding: "10px 8px", outline: "none", marginBottom: "12px",
+              }}
+            >
+              <option value="">All formats</option>
+              {formats.map(f => <option key={f} value={f}>{f}</option>)}
+            </select>
+
+            <label style={{ display: "block", fontFamily: MONO, fontSize: "9px", letterSpacing: "0.12em", textTransform: "uppercase", color: "#aaaaaa", marginBottom: "4px" }}>Country</label>
+            <select
+              value={filterCountry}
+              onChange={e => setFilterCountry(e.target.value)}
+              style={{
+                width: "100%", fontFamily: MONO, fontSize: "13px",
+                color: filterCountry ? ORANGE : "#0d0d0d",
+                background: "#ffffff", border: `1px solid ${filterCountry ? ORANGE : "rgba(0,0,0,0.13)"}`,
+                cursor: "pointer", padding: "10px 8px", outline: "none", marginBottom: "24px",
+              }}
+            >
+              <option value="">All countries</option>
+              {countries.map(c => <option key={c} value={c}>{c}</option>)}
+            </select>
+
+            <div style={{ display: "flex", gap: "12px" }}>
+              {hasFilters && (
+                <button
+                  onClick={() => { clearAllFilters(); setFilterSheetOpen(false); }}
+                  style={{
+                    flex: 1, fontFamily: MONO, fontSize: "11px", letterSpacing: "0.08em", textTransform: "uppercase",
+                    color: ORANGE, background: "none", border: `1px solid ${ORANGE}`,
+                    cursor: "pointer", padding: "13px",
+                  }}
+                >
+                  Clear all
+                </button>
+              )}
+              <button
+                onClick={() => setFilterSheetOpen(false)}
+                style={{
+                  flex: 1, fontFamily: MONO, fontSize: "11px", letterSpacing: "0.08em", textTransform: "uppercase",
+                  color: "#ffffff", background: ORANGE, border: "none",
+                  cursor: "pointer", padding: "13px",
+                }}
+              >
+                Done
+              </button>
+            </div>
+          </div>
+        </>
       )}
 
     </div>
@@ -1081,7 +1264,8 @@ function InsightsPanel({
 
   return (
     <div style={{ borderBottom: "1px solid rgba(0,0,0,0.08)", flexShrink: 0, overflow: "hidden" }}>
-      <div style={{ display: "flex", overflow: "hidden", background: "#FEFBF8", alignItems: "stretch" }}>
+      {/* Desktop — all stats horizontal */}
+      <div className="hidden md:flex" style={{ overflow: "hidden", background: "#FEFBF8", alignItems: "stretch" }}>
         {stats.map((s, i) => (
           <DashStat
             key={i}
@@ -1090,6 +1274,45 @@ function InsightsPanel({
             last={i === stats.length - 1}
           />
         ))}
+      </div>
+      {/* Mobile — 2×2 grid, 4 hardcoded cells */}
+      <div className="grid grid-cols-2 md:hidden" style={{ background: "#FEFBF8" }}>
+        <div style={{ padding: "16px", borderRight: "0.5px solid #e8e8e8", borderBottom: "0.5px solid #e8e8e8" }}>
+          <div style={{ fontSize: "clamp(1.8rem, 10vw, 2.4rem)", fontWeight: 600, fontFamily: SERIF, lineHeight: 1 }}>
+            {total.toLocaleString()}
+          </div>
+          <div style={{ fontSize: "11px", fontFamily: MONO, letterSpacing: "0.1em", textTransform: "uppercase", color: "#888888", marginTop: "6px" }}>
+            Items
+          </div>
+        </div>
+        <div style={{ padding: "16px", borderBottom: "0.5px solid #e8e8e8" }}>
+          <div style={{ fontSize: "clamp(1.4rem, 8vw, 2rem)", fontWeight: 600, fontFamily: SERIF, lineHeight: 1 }}>
+            {insights.topGenres[0]?.genre.split(",")[0].trim() ?? "—"}
+          </div>
+          <div style={{ fontSize: "11px", fontFamily: MONO, letterSpacing: "0.1em", textTransform: "uppercase", color: "#888888", marginTop: "6px" }}>
+            Top genre
+          </div>
+        </div>
+        <div style={{ padding: "16px", borderRight: "0.5px solid #e8e8e8" }}>
+          <div style={{ fontSize: "clamp(1.2rem, 7vw, 1.8rem)", fontWeight: 600, fontFamily: SERIF, lineHeight: 1 }}>
+            {insights.topArtist?.name ?? "—"}
+          </div>
+          <div style={{ fontSize: "11px", fontFamily: MONO, letterSpacing: "0.1em", textTransform: "uppercase", color: "#888888", marginTop: "6px" }}>
+            Top artist
+          </div>
+        </div>
+        <div style={{ padding: "16px" }}>
+          <div style={{ fontSize: "clamp(1.4rem, 8vw, 2rem)", fontWeight: 600, fontFamily: SERIF, lineHeight: 1 }}>
+            {discogsValue?.med != null
+              ? `${sym(discogsValue.currency)}${discogsValue.med >= 1000 ? `${(discogsValue.med / 1000).toFixed(1)}k` : Math.round(discogsValue.med).toLocaleString("en-US")}`
+              : estimatedValue > 0
+                ? `${sym(valueCurrency)}${estimatedValue >= 1000 ? `${(estimatedValue / 1000).toFixed(1)}k` : Math.round(estimatedValue).toLocaleString("en-US")}`
+                : "—"}
+          </div>
+          <div style={{ fontSize: "11px", fontFamily: MONO, letterSpacing: "0.1em", textTransform: "uppercase", color: "#888888", marginTop: "6px" }}>
+            Est. value
+          </div>
+        </div>
       </div>
       {oneLiner && (
         <div style={{
@@ -1105,6 +1328,7 @@ function InsightsPanel({
             letterSpacing: "0.01em",
             lineHeight: 1.5,
             margin: 0,
+            maxWidth: "72ch",
             display: "-webkit-box",
             WebkitLineClamp: 2,
             WebkitBoxOrient: "vertical",
@@ -1245,7 +1469,7 @@ function RecordRow({ record, selected, onClick }: {
       onClick={onClick}
       style={{
         display: "flex", alignItems: "center", gap: "10px",
-        width: "100%", padding: "8px 14px",
+        width: "100%", padding: "8px 14px", minHeight: "44px",
         background: selected ? "rgba(204,85,0,0.04)" : "transparent",
         border: "none",
         borderLeft: `2px solid ${selected ? ORANGE : "transparent"}`,
@@ -1423,7 +1647,7 @@ function PriceRow({ label, value, note }: {
 function MetaRow({ label, value }: { label: string; value: string | null | undefined }) {
   if (!value) return null;
   return (
-    <div style={{ display: "flex", padding: "6px 0", borderBottom: "1px solid rgba(0,0,0,0.05)", alignItems: "baseline" }}>
+    <div style={{ display: "flex", padding: "6px 0", minHeight: "44px", borderBottom: "1px solid rgba(0,0,0,0.05)", alignItems: "center" }}>
       <span style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.1em", textTransform: "uppercase", color: "#aaaaaa", width: "84px", flexShrink: 0 }}>
         {label}
       </span>

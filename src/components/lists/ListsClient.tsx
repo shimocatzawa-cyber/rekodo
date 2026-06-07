@@ -216,6 +216,7 @@ export default function ListsClient({
   const [activeSavedId,   setActiveSavedId]   = useState<string | null>(null);
   const [top5Expanded,    setTop5Expanded]    = useState(false);
   const [privateExpanded, setPrivateExpanded] = useState(false);
+  const [discoverOpen,    setDiscoverOpen]    = useState(false);
 
   // ── Wantlist controls ──────────────────────────────────────────────────────
   type WantlistSort = "priority" | "date_added" | "artist";
@@ -566,19 +567,21 @@ export default function ListsClient({
 
   return (
     <div style={{ height: "100vh", background: "#ffffff", display: "flex", flexDirection: "column", overflow: "hidden" }}>
+      <style>{`.pill-strip::-webkit-scrollbar { display: none; }`}</style>
       <AppNav username={username} displayLabel={displayLabel} avatarUrl={avatarUrl} />
 
       {/* ── Pill strip — two rows ── */}
-      <div style={{ borderBottom: "1px solid rgba(0,0,0,0.08)", flexShrink: 0, background: "#FEFBF8" }}>
+      <div className="px-4 md:px-0" style={{ borderBottom: "1px solid rgba(0,0,0,0.08)", flexShrink: 0, background: "#FEFBF8" }}>
 
         {/* Row 1: [scrollable: Wantlist · Private · Saved] [fixed: + New list] */}
         <div style={{ display: "flex", alignItems: "center", overflow: "hidden", padding: "8px 0 4px" }}>
 
           {/* Scrollable pills */}
-          <div style={{
+          <div className="pl-0 md:pl-8 pill-strip" style={{
             flex: 1, display: "flex", alignItems: "center", gap: "8px",
-            overflowX: "auto", paddingLeft: "32px",
+            overflowX: "auto",
             scrollbarWidth: "none", msOverflowStyle: "none",
+            WebkitOverflowScrolling: "touch",
           } as React.CSSProperties}>
 
             {/* Wantlist — pinned */}
@@ -685,7 +688,7 @@ export default function ListsClient({
           </div>
 
           {/* Anchored + New list — never displaced */}
-          <div style={{ flexShrink: 0, paddingLeft: "14px", paddingRight: "32px", borderLeft: "1px solid rgba(0,0,0,0.07)" }}>
+          <div className="pr-0 md:pr-8" style={{ flexShrink: 0, paddingLeft: "14px", borderLeft: "1px solid rgba(0,0,0,0.07)" }}>
             <button
               onClick={() => { setCreateState({ listType: "top5", step: "templates" }); setNewTitle(""); }}
               style={{
@@ -703,9 +706,10 @@ export default function ListsClient({
         </div>
 
         {/* Row 2: Top 5 */}
-        <div style={{
-          display: "flex", alignItems: "center", padding: "4px 32px 8px", gap: "8px",
+        <div className="px-0 md:px-8 pill-strip" style={{
+          display: "flex", alignItems: "center", paddingTop: "4px", paddingBottom: "8px", gap: "8px",
           overflowX: "auto", scrollbarWidth: "none", msOverflowStyle: "none",
+          WebkitOverflowScrolling: "touch",
           borderTop: "1px solid rgba(0,0,0,0.04)",
         } as React.CSSProperties}>
           {(() => {
@@ -754,12 +758,18 @@ export default function ListsClient({
       </div>
 
       {/* ── Two-column grid: left Discover 45% + right list detail 55% ── */}
-      <div style={{ flex: 1, display: "grid", gridTemplateColumns: "33fr 67fr", overflow: "hidden", minHeight: 0 }}>
+      <div
+        className="flex flex-col overflow-y-auto md:flex-row md:overflow-hidden"
+        style={{ flex: 1, minHeight: 0 }}
+      >
 
-        {/* LEFT (visual order 2 via CSS order) — list detail column */}
-        <div style={{ display: "flex", flexDirection: "column", borderRight: "1px solid rgba(0,0,0,0.08)", overflow: "hidden", order: 2 }}>
+        {/* List detail column (right on desktop, top on mobile) */}
+        <div
+          className="w-full md:w-1/3 md:order-2 md:overflow-hidden"
+          style={{ display: "flex", flexDirection: "column", borderRight: "1px solid rgba(0,0,0,0.08)" }}
+        >
           {selectedList ? (
-            <div style={{ flex: 1, padding: "24px 28px 28px", overflowY: "auto", minHeight: 0 }}>
+            <div className="px-4 md:px-7" style={{ flex: 1, paddingTop: "24px", paddingBottom: "28px", overflowY: "auto", minHeight: 0 }}>
               <p style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.12em", textTransform: "uppercase", color: ORANGE, marginBottom: "10px" }}>
                 リスト · {selectedList.is_public ? "Public List" : "Private List"}
               </p>
@@ -1058,7 +1068,7 @@ export default function ListsClient({
               </div>
             </div>
           ) : activeSavedCard ? (
-            <div style={{ flex: 1, padding: "24px 28px 28px", overflowY: "auto", minHeight: 0 }}>
+            <div className="px-4 md:px-7" style={{ flex: 1, paddingTop: "24px", paddingBottom: "28px", overflowY: "auto", minHeight: 0 }}>
               <p style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.12em", textTransform: "uppercase", color: ORANGE, marginBottom: "10px" }}>
                 リスト · Discovered
               </p>
@@ -1093,88 +1103,110 @@ export default function ListsClient({
           )}
         </div>
 
-        {/* RIGHT (visual order 1 via CSS order) — Discover column */}
-        <div style={{ overflowY: "auto", display: "flex", flexDirection: "column", order: 1, borderRight: "1px solid rgba(0,0,0,0.08)" }}>
-          <div style={{ position: "sticky", top: 0, background: "#ffffff", zIndex: 1, padding: "24px 24px 14px", borderBottom: "1px solid rgba(0,0,0,0.06)" }}>
-            <h2 style={{ fontFamily: SERIF, fontSize: "1.1rem", fontWeight: 600, color: "#0d0d0d", marginBottom: "12px" }}>
-              Discover
-            </h2>
-            <div style={{ display: "flex", gap: "20px" }}>
-              {(["similar", "following", "trending", "all"] as DiscoverTab[]).map(tab => (
-                <button key={tab} onClick={() => setDiscoverTab(tab)} style={{
-                  fontFamily: MONO, fontSize: "0.75rem", letterSpacing: "0.08em",
-                  background: "none", border: "none", cursor: "pointer", padding: "0 0 4px",
-                  color: discoverTab === tab ? "#0d0d0d" : "#aaaaaa",
-                  borderBottom: `1px solid ${discoverTab === tab ? "#0d0d0d" : "transparent"}`,
-                  transition: "color 0.15s",
-                }}>
-                  {tab === "similar" ? "Similar taste" : tab === "following" ? "Following" : tab === "trending" ? "Trending" : "All lists"}
-                </button>
-              ))}
+        {/* Discover column (left on desktop, below with toggle on mobile) */}
+        <div
+          className="w-full md:w-2/3 md:order-1 md:flex md:flex-col md:overflow-hidden"
+          style={{ borderRight: "1px solid rgba(0,0,0,0.08)" }}
+        >
+          {/* Mobile toggle — hidden on desktop */}
+          <button
+            className="md:hidden"
+            onClick={() => setDiscoverOpen(!discoverOpen)}
+            style={{
+              fontFamily: MONO, fontSize: "11px", letterSpacing: "0.1em",
+              textTransform: "uppercase", color: ORANGE, background: "none",
+              border: "none", borderTop: "0.5px solid #e8e8e8",
+              padding: "16px", cursor: "pointer", width: "100%",
+              display: "flex", justifyContent: "space-between", alignItems: "center",
+            }}
+          >
+            Discover
+            <span>{discoverOpen ? "↑" : "↓"}</span>
+          </button>
+
+          {/* Discover content — always shown on desktop, toggled on mobile */}
+          <div className={`${discoverOpen ? "" : "hidden"} md:flex md:flex-col md:flex-1 md:overflow-y-auto`}>
+            <div style={{ position: "sticky", top: 0, background: "#ffffff", zIndex: 1, padding: "24px 24px 14px", borderBottom: "1px solid rgba(0,0,0,0.06)" }}>
+              <h2 style={{ fontFamily: SERIF, fontSize: "1.1rem", fontWeight: 600, color: "#0d0d0d", marginBottom: "12px" }}>
+                Discover
+              </h2>
+              <div style={{ display: "flex", gap: "20px" }}>
+                {(["similar", "following", "trending", "all"] as DiscoverTab[]).map(tab => (
+                  <button key={tab} onClick={() => setDiscoverTab(tab)} style={{
+                    fontFamily: MONO, fontSize: "0.75rem", letterSpacing: "0.08em",
+                    background: "none", border: "none", cursor: "pointer", padding: "0 0 4px",
+                    color: discoverTab === tab ? "#0d0d0d" : "#aaaaaa",
+                    borderBottom: `1px solid ${discoverTab === tab ? "#0d0d0d" : "transparent"}`,
+                    transition: "color 0.15s",
+                  }}>
+                    {tab === "similar" ? "Similar taste" : tab === "following" ? "Following" : tab === "trending" ? "Trending" : "All lists"}
+                  </button>
+                ))}
+              </div>
             </div>
-          </div>
 
-          {discoverTab === "following" ? (
-            followingState === "loading" ? (
-              <div style={{ padding: "32px 20px" }}>
-                <p style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.12em", textTransform: "uppercase", color: "#cccccc" }}>
-                  Loading…
-                </p>
-              </div>
-            ) : followingState === "empty" ? (
-              <div style={{ padding: "32px 20px" }}>
-                <p style={{ fontFamily: SERIF, fontStyle: "italic", fontSize: "13px", color: "#cccccc", lineHeight: 1.6 }}>
-                  No lists yet from people you follow.
-                </p>
-              </div>
-            ) : (
-              followingLists.map(list => (
-                <DiscoverTextCard
-                  key={list.id}
-                  title={list.title}
-                  username={list.username}
-                  recordCount={`${list.itemCount} records`}
-                  badge={null}
-                  saves={list.saveCount}
-                  onSave={() => handleSaveCard({ id: list.id, title: list.title, username: list.username })}
-                  saved={savedCards.some(c => c.id === list.id)}
-                />
-              ))
-            )
-          ) : (
-            <>
-              {STATIC_DISCOVER_CARDS.map(card => {
-                const slots = STATIC_LIST_CONTENT[card.id];
-                const entry = { id: card.id, title: card.title, username: card.username, slots };
-                return (
+            {discoverTab === "following" ? (
+              followingState === "loading" ? (
+                <div style={{ padding: "32px 20px" }}>
+                  <p style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.12em", textTransform: "uppercase", color: "#cccccc" }}>
+                    Loading…
+                  </p>
+                </div>
+              ) : followingState === "empty" ? (
+                <div style={{ padding: "32px 20px" }}>
+                  <p style={{ fontFamily: SERIF, fontStyle: "italic", fontSize: "13px", color: "#cccccc", lineHeight: 1.6 }}>
+                    No lists yet from people you follow.
+                  </p>
+                </div>
+              ) : (
+                followingLists.map(list => (
                   <DiscoverTextCard
-                    key={card.id}
-                    title={card.title}
-                    username={card.username}
-                    recordCount={card.count}
-                    badge={card.badge}
-                    saves={card.saves}
-                    onSave={() => handleSaveCard(entry)}
-                    saved={savedCards.some(c => c.id === card.id)}
-                    onView={slots ? () => handleViewCard(entry) : undefined}
+                    key={list.id}
+                    title={list.title}
+                    username={list.username}
+                    recordCount={`${list.itemCount} records`}
+                    badge={null}
+                    saves={list.saveCount}
+                    onSave={() => handleSaveCard({ id: list.id, title: list.title, username: list.username })}
+                    saved={savedCards.some(c => c.id === list.id)}
                   />
-                );
-              })}
+                ))
+              )
+            ) : (
+              <>
+                {STATIC_DISCOVER_CARDS.map(card => {
+                  const slots = STATIC_LIST_CONTENT[card.id];
+                  const entry = { id: card.id, title: card.title, username: card.username, slots };
+                  return (
+                    <DiscoverTextCard
+                      key={card.id}
+                      title={card.title}
+                      username={card.username}
+                      recordCount={card.count}
+                      badge={card.badge}
+                      saves={card.saves}
+                      onSave={() => handleSaveCard(entry)}
+                      saved={savedCards.some(c => c.id === card.id)}
+                      onView={slots ? () => handleViewCard(entry) : undefined}
+                    />
+                  );
+                })}
 
-              {filteredDiscoverLists.map(list => (
-                <DiscoverTextCard
-                  key={list.id}
-                  title={list.title}
-                  username={list.username}
-                  recordCount={`${list.itemCount} records`}
-                  badge={null}
-                  saves={list.saveCount}
-                  onSave={() => handleSaveCard({ id: list.id, title: list.title, username: list.username })}
-                  saved={savedCards.some(c => c.id === list.id)}
-                />
-              ))}
-            </>
-          )}
+                {filteredDiscoverLists.map(list => (
+                  <DiscoverTextCard
+                    key={list.id}
+                    title={list.title}
+                    username={list.username}
+                    recordCount={`${list.itemCount} records`}
+                    badge={null}
+                    saves={list.saveCount}
+                    onSave={() => handleSaveCard({ id: list.id, title: list.title, username: list.username })}
+                    saved={savedCards.some(c => c.id === list.id)}
+                  />
+                ))}
+              </>
+            )}
+          </div>
         </div>
       </div>
 
