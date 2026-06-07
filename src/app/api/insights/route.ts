@@ -89,11 +89,11 @@ export async function POST() {
   try {
     const msg = await anthropic.messages.create({
       model: "claude-haiku-4-5-20251001",
-      max_tokens: 80,
+      max_tokens: 120,
       system: [
         {
           type: "text",
-          text: "You analyse vinyl record collections and write a single sentence (under 20 words) revealing the collector's musical personality. Be specific — reference an artist, label, decade, or genre. Start with 'Your'. Return only the sentence, no quotes.",
+          text: "You analyse vinyl record collections and write a short paragraph (under 60 words) revealing the collector's musical personality. Be specific — reference artists, labels, decades, or genres. Start with 'Your'. Return only the paragraph, no quotes.",
           cache_control: { type: "ephemeral" },
         },
       ],

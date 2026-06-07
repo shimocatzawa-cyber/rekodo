@@ -965,7 +965,7 @@ function InsightsPanel({
   const stats: StatDef[] = [];
 
   // 1. Total collection count — always first
-  stats.push({ hero: total.toLocaleString(), label: "Items in your collection" });
+  stats.push({ hero: total.toLocaleString(), label: "Items" });
 
   // 2. Format count
   if (insights.topFormat) {
@@ -1089,6 +1089,10 @@ function InsightsPanel({
             letterSpacing: "0.01em",
             lineHeight: 1.5,
             margin: 0,
+            display: "-webkit-box",
+            WebkitLineClamp: 2,
+            WebkitBoxOrient: "vertical",
+            overflow: "hidden",
           }}>
             {oneLiner}
           </p>
