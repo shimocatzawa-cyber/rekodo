@@ -93,17 +93,6 @@ export default function GigsClient({
 
       <main style={{ maxWidth: 760, margin: "0 auto", padding: "64px 32px 120px" }}>
 
-        {/* Page label */}
-        <p style={{
-          fontFamily: MONO,
-          fontSize: 10,
-          letterSpacing: "0.14em",
-          textTransform: "uppercase",
-          color: "#bbbbbb",
-          marginBottom: 20,
-        }}>
-          Gigs · 公演
-        </p>
 
         {/* Hero */}
         <div style={{ marginBottom: 64 }}>
