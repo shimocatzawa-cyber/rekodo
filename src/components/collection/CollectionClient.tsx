@@ -572,8 +572,8 @@ export default function CollectionClient({
   const SORT_OPTIONS = [
     { value: "artist-az",      label: "Artist A–Z" },
     { value: "artist-za",      label: "Artist Z–A" },
-    { value: "value-high-low", label: "Value: High to Low" },
-    { value: "value-low-high", label: "Value: Low to High" },
+    { value: "value-high-low", label: "Market Value: High to Low" },
+    { value: "value-low-high", label: "Market Value: Low to High" },
     { value: "year-new-old",   label: "Year: Newest First" },
     { value: "year-old-new",   label: "Year: Oldest First" },
   ];
@@ -1325,7 +1325,7 @@ function AlbumDetail({ record, detail, price, loading, valueCurrency }: {
         {/* Marketplace pricing */}
         {price && (
           <>
-            <PriceRow label="Low Est Value" value={formatPrice(price.lowest, price.currency || valueCurrency || "USD")} />
+            <PriceRow label="Market Value" value={formatPrice(price.lowest, price.currency || valueCurrency || "USD")} />
             <PriceRow label="Median"    value={formatPrice(price.median, price.currency)} />
             <PriceRow label="High"     value={formatPrice(price.highest,   price.currency)} />
             <PriceRow
@@ -1338,6 +1338,11 @@ function AlbumDetail({ record, detail, price, loading, valueCurrency }: {
                 <span style={{ fontFamily: MONO, fontSize: "9px", color: "#cccccc", letterSpacing: "0.06em" }}>
                   {price.num_for_sale} for sale on Discogs
                 </span>
+                <div style={{ marginTop: "2px" }}>
+                  <span style={{ fontFamily: MONO, fontSize: "8px", color: "#cccccc", letterSpacing: "0.04em" }}>
+                    Market Value is determined by the lowest active listed price at the time of last Sync
+                  </span>
+                </div>
               </div>
             )}
             {!price.lowest && !price.median && !price.highest && !price.last_sold && (
