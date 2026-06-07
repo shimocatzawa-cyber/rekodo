@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import AppNav from "@/components/AppNav";
 import { addToWantlist } from "@/app/dig/actions";
+import RecordSpinner from "@/components/RecordSpinner";
 
 const SERIF  = "var(--font-editorial)";
 const MONO   = "var(--font-mono)";
@@ -712,9 +713,7 @@ export default function DigClient({ username, displayLabel, avatarUrl, collectio
           {moodQuery ? (
             // ── Mood mode ────────────────────────────────────────────────────
             <>
-              {moodLoading && (
-                <LoadingState text={`Finding something for "${moodQuery}"…`} />
-              )}
+              {moodLoading && <RecordSpinner />}
               {moodError && !moodLoading && (
                 <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", flex: 1, gap: "16px" }}>
                   <p style={{ fontFamily: MONO, fontSize: "11px", color: "#cc3300", margin: 0 }}>{moodError}</p>
@@ -740,13 +739,7 @@ export default function DigClient({ username, displayLabel, avatarUrl, collectio
           ) : (
             // ── Regular mode ─────────────────────────────────────────────────
             <>
-              {loading && (
-                <LoadingState text={
-                  mode === "explore"        ? "Exploring your shelves..." :
-                  mode === "hallucinations" ? "Consulting the chaos oracle..." :
-                                             "Reading your collection..."
-                } />
-              )}
+              {loading && <RecordSpinner />}
 
               {error && !loading && (
                 <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", flex: 1, gap: "16px" }}>

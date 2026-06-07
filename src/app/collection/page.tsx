@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import CollectionClient from "@/components/collection/CollectionClient";
+import { getDesirabilityTier } from "@/lib/desirability";
 
 export const dynamic = "force-dynamic";
 
@@ -36,6 +37,7 @@ export type CollectionInsights = {
   countryCount: number;
   topDecade:    string | null;
   rarestRecord: { artist: string; album: string; price: number; currency: string } | null;
+  holyGrailCount: number;
 };
 
 type SearchParams = Promise<{
@@ -290,7 +292,11 @@ export default async function CollectionPage({
       }
     }
 
-    return { topFormat, topGenres, topArtist, topLabel, yearRange, mostPopularYear, countryCount, topDecade, rarestRecord };
+    const holyGrailCount = collection.filter(r =>
+      getDesirabilityTier(r.community_have, r.community_want, r.price_low, r.community_num_for_sale) === "holy-grail"
+    ).length;
+
+    return { topFormat, topGenres, topArtist, topLabel, yearRange, mostPopularYear, countryCount, topDecade, rarestRecord, holyGrailCount };
   })();
 
   return (

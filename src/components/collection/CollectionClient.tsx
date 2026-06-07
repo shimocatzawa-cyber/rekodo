@@ -6,14 +6,13 @@ import AppNav from "@/components/AppNav";
 import type { CollectionRecord, CollectionInsights } from "@/app/collection/page";
 import { persistRecordPrice } from "@/app/collection/actions";
 import { createClient } from "@/lib/supabase/client";
+import { getDesirabilityTier, type DesirabilityTier } from "@/lib/desirability";
 
 const SERIF  = "var(--font-editorial)";
 const MONO   = "var(--font-mono)";
 const ORANGE = "#CC5500";
 
 // ─── Desirability ─────────────────────────────────────────────────────────────
-
-type DesirabilityTier = "rare" | "holy-grail" | "cult" | "widely-loved" | "in-demand";
 
 const TIERS: Record<DesirabilityTier, { label: string; bg: string; color: string }> = {
   "rare":         { label: "Rare",          bg: "#F0997B", color: "#712B13" },
@@ -22,25 +21,6 @@ const TIERS: Record<DesirabilityTier, { label: string; bg: string; color: string
   "widely-loved": { label: "Widely Loved",  bg: "#C0DD97", color: "#27500A" },
   "in-demand":    { label: "In Demand",     bg: "#9FE1CB", color: "#085041" },
 };
-
-function getDesirabilityTier(
-  have: number, want: number, price: number, numForSale: number
-): DesirabilityTier | null {
-  const total      = have + want;
-  if (total < 30) return null;
-  const notForSale = numForSale === 0;
-  const confidence = Math.log10(total + 1) / Math.log10(50001);
-  const ratio      = want / Math.max(have, 1);
-  const baseScore  = ratio * (0.4 + 0.6 * confidence);
-  const priceBoost = (price >= 50 || notForSale) ? Math.min(price / 400, 0.5) : 0;
-  const finalScore = baseScore + priceBoost;
-  if (want > have && (price >= 200 || notForSale) && total >= 30) return "rare";
-  if (finalScore >= 1.5 && total >= 500 && (price >= 50 || notForSale)) return "holy-grail";
-  if (baseScore >= 2.5 && total >= 30 && total < 500) return "cult";
-  if (total >= 5000 && ratio >= 0.15 && ratio <= 0.65) return "widely-loved";
-  if (baseScore >= 0.45) return "in-demand";
-  return null;
-}
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -153,51 +133,15 @@ function matchesDecade(year: number | null, decade: string): boolean {
   return year >= start && year < start + 10;
 }
 
-// ─── Collection desirability (price-based, for filter) ───────────────────────
+// ─── Desirability filter options ─────────────────────────────────────────────
 
-type FilterDesirabilityTier = "rare" | "holy-grail" | "cult" | "widely-loved" | "in-demand";
-
-const DESIRABILITY_FILTER_OPTIONS: { value: FilterDesirabilityTier; label: string }[] = [
+const DESIRABILITY_FILTER_OPTIONS: { value: DesirabilityTier; label: string }[] = [
   { value: "rare",         label: "Rare"          },
   { value: "holy-grail",   label: "Holy Grail"    },
   { value: "cult",         label: "Cult Pressing" },
   { value: "widely-loved", label: "Widely Loved"  },
   { value: "in-demand",    label: "In Demand"     },
 ];
-
-// Exact mirror of the per-record getDesirabilityTier formula.
-// Returns null when community data is missing or the community is too small — no tag rendered.
-// num_for_sale === 0 (not listed anywhere) is treated as a scarcity signal throughout.
-function getCollectionDesirabilityTier(
-  priceLow:            number | null,
-  communityHave:       number | null,
-  communityWant:       number | null,
-  communityNumForSale: number | null,
-): FilterDesirabilityTier | null {
-  if (communityHave === null || communityWant === null) return null;
-
-  const have       = communityHave;
-  const want       = communityWant;
-  const price      = priceLow ?? 0;
-  const numForSale = communityNumForSale; // null !== 0, so "unknown" ≠ "not for sale"
-
-  const total = have + want;
-  if (total < 30) return null;
-
-  const notForSale = numForSale === 0;
-  const confidence = Math.log10(total + 1) / Math.log10(50001);
-  const ratio      = want / Math.max(have, 1);
-  const baseScore  = ratio * (0.4 + 0.6 * confidence);
-  const priceBoost = (price >= 50 || notForSale) ? Math.min(price / 400, 0.5) : 0;
-  const finalScore = baseScore + priceBoost;
-
-  if (want > have && (price >= 200 || notForSale) && total >= 30) return "rare";
-  if (finalScore >= 1.5 && total >= 500 && (price >= 50 || notForSale)) return "holy-grail";
-  if (baseScore >= 2.5 && total >= 30 && total < 500) return "cult";
-  if (total >= 5000 && ratio >= 0.15 && ratio <= 0.65) return "widely-loved";
-  if (baseScore >= 0.45) return "in-demand";
-  return null;
-}
 
 // ─── Props ────────────────────────────────────────────────────────────────────
 
@@ -587,7 +531,7 @@ export default function CollectionClient({
     if (filterYear)         result = result.filter(r => matchesDecade(r.year, filterYear));
     if (filterFormat)       result = result.filter(r => r.format === filterFormat);
     if (filterDesirability) result = result.filter(r =>
-      getCollectionDesirabilityTier(r.price_low, r.community_have, r.community_want, r.community_num_for_sale) === filterDesirability
+      getDesirabilityTier(r.community_have, r.community_want, r.price_low, r.community_num_for_sale) === filterDesirability
     );
     return result;
   }, [collection, searchQuery, filterGenre, filterYear, filterFormat, filterDesirability]);
@@ -1289,7 +1233,16 @@ function InsightsPanel({
     });
   }
 
-  // 3. Genre — top genre as a single tile
+  // 3. Holy Grail count — only shown when at least one exists
+  if (insights.holyGrailCount > 0) {
+    stats.push({
+      hero:      insights.holyGrailCount.toLocaleString(),
+      label:     "Holy Grail",
+      heroColor: "#633806",
+    });
+  }
+
+  // 4. Genre — top genre as a single tile
   if (insights.topGenres.length > 0) {
     const shortName = (g: string) => g.split(",")[0].trim();
     stats.push({
@@ -1624,10 +1577,10 @@ function AlbumDetail({ record, detail, price, loading, valueCurrency }: {
   const genre        = record.genre ?? detail?.genres?.[0] ?? null;
 
   const tier = getDesirabilityTier(
-    detail?.community?.have  ?? 0,
-    detail?.community?.want  ?? 0,
-    price?.lowest            ?? 0,
-    price?.num_for_sale      ?? 0,
+    detail?.community?.have  ?? null,
+    detail?.community?.want  ?? null,
+    price?.lowest            ?? null,
+    price?.num_for_sale      ?? null,
   );
   const tierMeta = tier ? TIERS[tier] : null;
 
