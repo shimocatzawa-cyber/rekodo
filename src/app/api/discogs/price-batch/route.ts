@@ -1,12 +1,11 @@
 import { type NextRequest } from "next/server";
-import { cookies } from "next/headers";
 import { createClient } from "@/lib/supabase/server";
 import { createClient as createServiceClient } from "@supabase/supabase-js";
 
 const UA          = "rekodo/1.0";
-const BATCH_LIMIT = 50;   // records per call
-const CONCURRENT  = 2;    // concurrent record fetches
-const SLEEP_MS    = 5_000; // 2 records × 2 calls per 5s ≈ 24 req/min — well under Discogs 60/min
+const BATCH_LIMIT = 50;
+const CONCURRENT  = 2;
+const SLEEP_MS    = 5_000; // 2 records × 2 calls per 5 s ≈ 24 req/min
 
 const sleep = (ms: number) => new Promise<void>(r => setTimeout(r, ms));
 
@@ -15,39 +14,64 @@ export async function GET(_req: NextRequest) {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return Response.json({ error: "Unauthorized" }, { status: 401 });
 
-  // OAuth cookies present but not currently used (app-auth sufficient for public endpoints)
-  await cookies();
-
   const key    = process.env.DISCOGS_CONSUMER_KEY!;
   const secret = process.env.DISCOGS_CONSUMER_SECRET!;
   const svcKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
   const sbUrl  = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 
-  const adminDb = svcKey
+  const adminDb  = svcKey
     ? createServiceClient(sbUrl, svcKey, { auth: { persistSession: false } })
     : supabase;
 
   const staleDate = new Date(Date.now() - 30 * 86_400_000).toISOString();
+  const now       = new Date().toISOString();
 
-  const { count: totalRemaining } = await supabase
+  // ── All user record IDs (used for community-data checks) ─────────────────────
+  const { data: allLinks } = await supabase
     .from("user_records")
-    .select("*", { count: "exact", head: true })
-    .eq("user_id", user.id)
-    .or(`price_fetched_at.is.null,price_fetched_at.lt.${staleDate}`);
+    .select("record_id")
+    .eq("user_id", user.id);
 
-  const { data: urBatch } = await supabase
+  const allRecordIds = (allLinks ?? []).map(r => r.record_id as string);
+
+  // ── Step 1: records with stale / missing prices ──────────────────────────────
+  const { data: stalePriceBatch } = await supabase
     .from("user_records")
     .select("record_id")
     .eq("user_id", user.id)
     .or(`price_fetched_at.is.null,price_fetched_at.lt.${staleDate}`)
     .limit(BATCH_LIMIT);
 
-  const recordIds = (urBatch ?? []).map(r => r.record_id as string);
+  const stalePriceIds = (stalePriceBatch ?? []).map(r => r.record_id as string);
+  const staleSet      = new Set(stalePriceIds);
 
-  if (recordIds.length === 0) {
-    return Response.json({ priced: 0, remaining: 0, total: totalRemaining ?? 0 });
+  // ── Step 2: supplement with records missing community data ───────────────────
+  // Runs independently of price staleness: the previous sync may have set
+  // price_fetched_at for all records, skipping the community data fetch entirely.
+  const communityIds: string[] = [];
+
+  if (stalePriceIds.length < BATCH_LIMIT) {
+    const candidates = allRecordIds.filter(id => !staleSet.has(id));
+    const needed     = BATCH_LIMIT - stalePriceIds.length;
+
+    for (let i = 0; i < candidates.length && communityIds.length < needed; i += 400) {
+      const { data } = await supabase
+        .from("records")
+        .select("id")
+        .in("id", candidates.slice(i, i + 400))
+        .is("community_fetched_at", null)
+        .limit(needed - communityIds.length);
+      communityIds.push(...(data ?? []).map((r: { id: string }) => r.id));
+    }
   }
 
+  const recordIds = [...stalePriceIds, ...communityIds];
+
+  if (recordIds.length === 0) {
+    return Response.json({ priced: 0, processed: 0, remaining: 0, total: 0 });
+  }
+
+  // ── Resolve discogs_ids ──────────────────────────────────────────────────────
   const { data: records } = await supabase
     .from("records")
     .select("id, discogs_id")
@@ -59,7 +83,6 @@ export async function GET(_req: NextRequest) {
 
   let priced    = 0;
   let processed = 0;
-  const now     = new Date().toISOString();
 
   for (let bi = 0; bi < priceable.length; bi += CONCURRENT) {
     const batch = priceable.slice(bi, bi + CONCURRENT);
@@ -70,13 +93,11 @@ export async function GET(_req: NextRequest) {
         const timeout = setTimeout(() => abort.abort(), 15_000);
         const opts    = { headers: { "User-Agent": UA }, cache: "no-store" as const, signal: abort.signal };
 
-        // Fetch marketplace stats (price + num_for_sale) and release (community) concurrently
         const [statsRes, releaseRes] = await Promise.all([
           fetch(`https://api.discogs.com/marketplace/stats/${encodeURIComponent(record.discogs_id)}?key=${key}&secret=${secret}`, opts),
           fetch(`https://api.discogs.com/releases/${encodeURIComponent(record.discogs_id)}?key=${key}&secret=${secret}`, opts),
         ]).finally(() => clearTimeout(timeout));
 
-        // If either endpoint is rate-limited, skip without marking as fetched so it retries
         if (statsRes.status === 429 || releaseRes.status === 429) return;
 
         let numForSale: number | null = null;
@@ -86,8 +107,8 @@ export async function GET(_req: NextRequest) {
             lowest_price?: { value?: number; currency?: string } | null;
             num_for_sale?: number;
           };
-          const lowest   = pd.lowest_price?.value ?? null;
-          numForSale     = pd.num_for_sale ?? null;
+          const lowest = pd.lowest_price?.value ?? null;
+          numForSale   = pd.num_for_sale ?? null;
 
           await adminDb.from("user_records").update({
             price_low:        lowest,
@@ -99,13 +120,11 @@ export async function GET(_req: NextRequest) {
 
           priced++;
         } else {
-          // Non-200, non-429: mark as fetched so we don't keep retrying
           await adminDb.from("user_records")
             .update({ price_fetched_at: now })
             .eq("user_id", user.id).eq("record_id", record.id);
         }
 
-        // Save community stats to the shared records table regardless of stats result
         if (releaseRes.ok) {
           const rd = await releaseRes.json() as {
             community?: { have?: number; want?: number };
@@ -125,7 +144,26 @@ export async function GET(_req: NextRequest) {
     if (bi + CONCURRENT < priceable.length) await sleep(SLEEP_MS);
   }
 
-  const remaining = Math.max(0, (totalRemaining ?? 0) - processed);
+  // ── Remaining count ───────────────────────────────────────────────────────────
+  const { count: stalePriceRemaining } = await supabase
+    .from("user_records")
+    .select("*", { count: "exact", head: true })
+    .eq("user_id", user.id)
+    .or(`price_fetched_at.is.null,price_fetched_at.lt.${staleDate}`);
 
-  return Response.json({ priced, processed, remaining, total: totalRemaining ?? 0 });
+  // Count records still missing community data
+  let communityRemaining = 0;
+  for (let i = 0; i < allRecordIds.length; i += 400) {
+    const { count } = await supabase
+      .from("records")
+      .select("id", { count: "exact", head: true })
+      .in("id", allRecordIds.slice(i, i + 400))
+      .is("community_fetched_at", null);
+    communityRemaining += count ?? 0;
+  }
+
+  const remaining = (stalePriceRemaining ?? 0) + communityRemaining;
+  const total     = remaining + processed;
+
+  return Response.json({ priced, processed, remaining, total });
 }
