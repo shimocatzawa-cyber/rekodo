@@ -484,12 +484,6 @@ export default function LibraryClient({ username, displayLabel, avatarUrl }: Pro
 
       {/* Hero */}
       <div style={{ maxWidth: 760, margin: "0 auto", padding: "48px 32px 0" }}>
-        <p style={{
-          fontFamily: MONO, fontSize: 10, letterSpacing: "0.14em",
-          textTransform: "uppercase", color: "#bbbbbb", margin: "0 0 16px",
-        }}>
-          Library · ライブラリ
-        </p>
         <h1 style={{
           fontFamily: SERIF, fontSize: "clamp(32px, 5vw, 52px)", fontWeight: 400,
           color: "#0d0d0d", lineHeight: 1.1, margin: "0 0 12px",

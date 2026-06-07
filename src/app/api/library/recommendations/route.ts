@@ -109,6 +109,16 @@ export async function POST() {
     }
   }
 
+  // Fetch existing titles so Claude doesn't repeat them on regenerate
+  const { data: existingRecs } = await supabase
+    .from("library_recommendations")
+    .select("title, format")
+    .eq("user_id", user.id);
+
+  const prevPodcasts = existingRecs?.filter(r => r.format === "podcast").map(r => r.title).join(", ") || "";
+  const prevBooks    = existingRecs?.filter(r => r.format === "book").map(r => r.title).join(", ")    || "";
+  const prevAudible  = existingRecs?.filter(r => r.format === "audible").map(r => r.title).join(", ") || "";
+
   const intelJson = JSON.stringify(intelRow);
   const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
@@ -118,8 +128,8 @@ export async function POST() {
 
 This user's collection intelligence:
 ${intelJson}
-
-Your task: identify 8 podcast episodes specifically relevant to artists, labels, or themes in this collection.
+${prevPodcasts ? `\nAlready shown — do NOT repeat any of these: ${prevPodcasts}\n` : ""}
+Your task: identify 5 podcast episodes specifically relevant to artists, labels, or themes in this collection.
 
 Depth rules — these are strict:
 - An artist mentioned once in passing = score 0, discard entirely
@@ -152,8 +162,8 @@ Return JSON only, no preamble, no markdown:
 
 This user's collection intelligence:
 ${intelJson}
-
-Your task: identify 8 books — biographies, label histories, genre studies, or music criticism — that a collector with this specific taste would find essential.
+${prevBooks ? `\nAlready shown — do NOT repeat any of these: ${prevBooks}\n` : ""}
+Your task: identify 5 books — biographies, label histories, genre studies, or music criticism — that a collector with this specific taste would find essential.
 
 Depth rules — these are strict:
 - Only recommend where the matched artist is the explicit subject of the entire work
@@ -188,7 +198,7 @@ Return JSON only, no preamble, no markdown:
 
 This user's collection intelligence:
 ${intelJson}
-
+${prevAudible ? `\nAlready shown — do NOT repeat any of these: ${prevAudible}\n` : ""}
 Your task: identify 5 audiobooks available on Audible — specifically artist biographies and music memoirs — matched to artists this collector demonstrably loves.
 
 Depth rules — these are strict:
@@ -301,66 +311,44 @@ Return JSON only, no preamble, no markdown:
   }
 
   async function enrichPodcast(podcast: PodcastAi): Promise<{ thumbnail_url: string | null; external_url: string | null; source_id: string | null }> {
-    const q = encodeURIComponent(podcast.search_query || `${podcast.title} ${podcast.show}`);
-    const fallbackUrl = `https://podcasts.apple.com/search?term=${q}`;
+    const showQ    = encodeURIComponent(podcast.show || podcast.title);
+    const searchQ  = encodeURIComponent(podcast.search_query || `${podcast.title} ${podcast.show}`);
+    const fallback = `https://podcasts.apple.com/search?term=${searchQ}`;
 
     let thumbnailUrl: string | null = null;
     let sourceId: string | null = null;
 
-    // Taddy for thumbnail only (if configured)
-    const taddyKey    = process.env.TADDY_API_KEY;
-    const taddyUserId = process.env.TADDY_USER_ID;
-    if (taddyKey && taddyUserId) {
-      try {
-        const tr = await fetch(`https://api.taddy.org/api/search?term=${q}&searchType=EPISODES&limitForType=1`, {
-          headers: { "X-USER-ID": taddyUserId, "X-API-KEY": taddyKey, "Content-Type": "application/json" },
-        });
-        if (tr.ok) {
-          const td = await tr.json() as { searchForTerm?: { podcastEpisodes?: Array<{ uuid: string; podcastSeries?: { imageUrl: string } }> } };
-          const ep = td.searchForTerm?.podcastEpisodes?.[0];
-          if (ep) { thumbnailUrl = ep.podcastSeries?.imageUrl ?? null; sourceId = ep.uuid ?? null; }
-        }
-      } catch { /* continue */ }
-    }
-
-    // iTunes Search API for direct episode link
+    // iTunes: search for the podcast show (more reliable than episode-level search)
     try {
-      const ir = await fetch(`https://itunes.apple.com/search?term=${q}&entity=podcastEpisode&limit=3`, {
+      const ir = await fetch(`https://itunes.apple.com/search?term=${showQ}&entity=podcast&limit=3`, {
         headers: { "User-Agent": "rekodo/1.0" },
       });
       if (ir.ok) {
-        const id = await ir.json() as { results?: Array<{ trackViewUrl?: string; artworkUrl600?: string }> };
-        const ep = id.results?.[0];
-        if (ep?.trackViewUrl) {
-          if (!thumbnailUrl) thumbnailUrl = ep.artworkUrl600 ?? null;
-          return { thumbnail_url: thumbnailUrl, external_url: ep.trackViewUrl, source_id: sourceId };
+        const id = await ir.json() as { results?: Array<{ collectionViewUrl?: string; artworkUrl600?: string; collectionId?: number }> };
+        const show = id.results?.[0];
+        if (show?.collectionViewUrl) {
+          if (!thumbnailUrl) thumbnailUrl = show.artworkUrl600 ?? null;
+          sourceId = show.collectionId ? String(show.collectionId) : null;
+          return { thumbnail_url: thumbnailUrl, external_url: show.collectionViewUrl, source_id: sourceId };
         }
       }
     } catch { /* fall through */ }
 
-    return { thumbnail_url: thumbnailUrl, external_url: fallbackUrl, source_id: sourceId };
+    return { thumbnail_url: thumbnailUrl, external_url: fallback, source_id: sourceId };
   }
 
-  async function enrichAudible(a: AudibleAi): Promise<{ external_url: string }> {
+  function enrichAudible(a: AudibleAi): { external_url: string } {
+    // Audible has no public API — build a targeted search URL using title + author.
+    // The iTunes audiobook API returns Apple Books URLs (not Audible), so we skip it.
     const q = encodeURIComponent(a.audible_search_query || `${a.title} ${a.author}`);
-    try {
-      const res = await fetch(`https://itunes.apple.com/search?term=${q}&entity=audiobook&limit=3`, {
-        headers: { "User-Agent": "rekodo/1.0" },
-      });
-      if (res.ok) {
-        const data = await res.json() as { results?: Array<{ trackViewUrl?: string }> };
-        const book = data.results?.[0];
-        if (book?.trackViewUrl) return { external_url: book.trackViewUrl };
-      }
-    } catch { /* fall through */ }
     return { external_url: `https://www.audible.com/search?keywords=${q}` };
   }
 
-  const [enrichedPodcastData, enrichedBooksData, enrichedAudibleData] = await Promise.all([
+  const [enrichedPodcastData, enrichedBooksData] = await Promise.all([
     Promise.all(podcasts.map(enrichPodcast)),
     Promise.all(books.map(enrichBook)),
-    Promise.all(audible.map(enrichAudible)),
   ]);
+  const enrichedAudibleData = audible.map(enrichAudible);
 
   // ── Build rows for DB ─────────────────────────────────────────────────────
 
@@ -394,7 +382,7 @@ Return JSON only, no preamble, no markdown:
     external_url: enrichedPodcastData[i].external_url,
     affiliate_url: null,
     thumbnail_url: enrichedPodcastData[i].thumbnail_url,
-    source_api: taddyConfigured() ? "taddy" : "podcast_index",
+    source_api: "itunes",
     source_id: enrichedPodcastData[i].source_id,
     artist_coverage_depth: p.artist_coverage_depth || null,
     relevance_score: p.relevance_score ?? null,
@@ -454,6 +442,3 @@ Return JSON only, no preamble, no markdown:
   return Response.json({ recommendations: saved ?? [], generated_at: new Date().toISOString() });
 }
 
-function taddyConfigured(): boolean {
-  return !!(process.env.TADDY_API_KEY && process.env.TADDY_USER_ID);
-}
