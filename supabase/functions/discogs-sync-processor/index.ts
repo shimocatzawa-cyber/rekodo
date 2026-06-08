@@ -341,10 +341,6 @@ async function processSync(supabase: SB, jobId: string, userId: string) {
 Deno.serve(async (req) => {
   if (req.method !== "POST") return new Response("Method not allowed", { status: 405 });
 
-  if (req.headers.get("Authorization") !== `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`) {
-    return new Response("Unauthorized", { status: 401 });
-  }
-
   const body = await req.json().catch(() => null);
   if (!body?.jobId || !body?.userId) {
     return new Response("Missing jobId or userId", { status: 400 });
