@@ -290,7 +290,8 @@ async function processSync(supabase: SB, jobId: string, userId: string) {
       .map((id) => ({ user_id: userId, record_id: id }));
 
     for (let i = 0; i < newLinks.length; i += BATCH) {
-      await supabase.from("user_records").insert(newLinks.slice(i, i + BATCH));
+      const { error: linkErr } = await supabase.from("user_records").insert(newLinks.slice(i, i + BATCH));
+      if (linkErr) throw new Error(`user_records insert failed: ${linkErr.message}`);
     }
 
     // ── Phase 4: Persist condition ratings ────────────────────────────────────
