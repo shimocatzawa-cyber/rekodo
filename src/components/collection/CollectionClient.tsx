@@ -633,7 +633,7 @@ export default function CollectionClient({
           {syncProgress.message}
           {collection.length > 500 && (
             <span style={{ marginLeft: "10px", color: "#888888" }}>
-              · Large collection — this may take a few minutes
+              · Large collection — this may take a while
             </span>
           )}
         </StatusBanner>
