@@ -699,9 +699,6 @@ export default function CollectionClient({
           >
             Import from Discogs
           </button>
-          <p style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.06em", color: "#cccccc" }}>
-            Or search for records to add individually
-          </p>
         </div>
       )}
 
