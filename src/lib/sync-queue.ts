@@ -1,8 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
+import type { SupabaseClient } from "@supabase/supabase-js";
 
-export async function enqueueSync(userId: string): Promise<string> {
-  const supabase = await createClient();
-
+export async function enqueueSync(supabase: SupabaseClient, userId: string): Promise<string> {
   // Return existing job ID if one is already pending or processing.
   const { data: existing } = await supabase
     .from("sync_queue")
@@ -19,7 +18,7 @@ export async function enqueueSync(userId: string): Promise<string> {
     .select("id")
     .single();
 
-  if (error) throw error;
+  if (error) throw new Error(error.message);
   return data.id;
 }
 

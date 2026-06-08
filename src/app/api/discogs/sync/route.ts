@@ -58,7 +58,7 @@ export async function GET(request: NextRequest) {
       send({ type: "status", message: "Queuing sync job..." });
 
       // Enqueue — returns existing job ID if one is already running
-      const jobId = await enqueueSync(user.id);
+      const jobId = await enqueueSync(supabase, user.id);
 
       // Fire Edge Function — intentionally no await (non-blocking)
       const edgeFnUrl = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/discogs-sync-processor`;
