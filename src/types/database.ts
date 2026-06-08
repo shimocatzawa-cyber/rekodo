@@ -299,6 +299,82 @@ export type Database = {
         };
         Relationships: [];
       };
+      discogs_tokens: {
+        Row: {
+          user_id:          string;
+          access_token:     string;
+          token_secret:     string;
+          discogs_username: string;
+          created_at:       string;
+          updated_at:       string;
+        };
+        Insert: {
+          user_id:          string;
+          access_token:     string;
+          token_secret:     string;
+          discogs_username: string;
+          created_at?:      string;
+          updated_at?:      string;
+        };
+        Update: {
+          access_token?:     string;
+          token_secret?:     string;
+          discogs_username?: string;
+          updated_at?:       string;
+        };
+        Relationships: [];
+      };
+      sync_queue: {
+        Row: {
+          id:              string;
+          user_id:         string;
+          status:          "pending" | "processing" | "completed" | "failed";
+          phase:           string | null;
+          total_records:   number;
+          current_page:    number;
+          total_pages:     number;
+          progress_done:   number;
+          new_added:       number;
+          records_updated: number;
+          error_message:   string | null;
+          created_at:      string;
+          updated_at:      string;
+          started_at:      string | null;
+          completed_at:    string | null;
+        };
+        Insert: {
+          id?:              string;
+          user_id:          string;
+          status?:          "pending" | "processing" | "completed" | "failed";
+          phase?:           string | null;
+          total_records?:   number;
+          current_page?:    number;
+          total_pages?:     number;
+          progress_done?:   number;
+          new_added?:       number;
+          records_updated?: number;
+          error_message?:   string | null;
+          created_at?:      string;
+          updated_at?:      string;
+          started_at?:      string | null;
+          completed_at?:    string | null;
+        };
+        Update: {
+          status?:          "pending" | "processing" | "completed" | "failed";
+          phase?:           string | null;
+          total_records?:   number;
+          current_page?:    number;
+          total_pages?:     number;
+          progress_done?:   number;
+          new_added?:       number;
+          records_updated?: number;
+          error_message?:   string | null;
+          updated_at?:      string;
+          started_at?:      string | null;
+          completed_at?:    string | null;
+        };
+        Relationships: [];
+      };
       library_wantlist: {
         Row: {
           id: string;

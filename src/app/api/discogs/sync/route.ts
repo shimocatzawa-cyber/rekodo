@@ -3,20 +3,18 @@ import { cookies } from "next/headers";
 import { createClient } from "@/lib/supabase/server";
 import { createClient as createServiceClient } from "@supabase/supabase-js";
 import { buildAuthHeader } from "@/lib/discogs/oauth";
+import { enqueueSync } from "@/lib/sync-queue";
 
-const UA = "rekodo/1.0";
-const BATCH = 100;
+const UA          = "rekodo/1.0";
+const BATCH       = 100;
 const VINYL_SIZES = ['LP', '12"', '10"', '7"', 'EP', 'Mini-Album'] as const;
 
-interface FormatShape {
-  name?: string;
-  descriptions?: string[];
-}
+interface FormatShape { name?: string; descriptions?: string[] }
 
 function extractFormat(formats: FormatShape[] | undefined): string | null {
   const fmt = formats?.[0];
   if (!fmt) return null;
-  const name = fmt.name ?? "";
+  const name  = fmt.name ?? "";
   const descs = fmt.descriptions ?? [];
   if (name === "Vinyl") {
     return (descs.find(d => (VINYL_SIZES as readonly string[]).includes(d)) ?? "Vinyl");
@@ -24,57 +22,7 @@ function extractFormat(formats: FormatShape[] | undefined): string | null {
   return name || null;
 }
 
-interface CollectionItem {
-  discogs_id:       string;
-  artist:           string;
-  album:            string;
-  year:             number | null;
-  genre:            string | null;
-  cover_url:        string | null;
-  label:            string | null;
-  format:           string | null;
-  country:          string | null;
-  media_condition:  string | null;
-  sleeve_condition: string | null;
-}
-
-interface ConditionFieldIds { mediaFieldId: number; sleeveFieldId: number }
-
-async function lookupConditionFields(
-  username: string, key: string, secret: string,
-  accessToken: string, tokenSecret: string
-): Promise<ConditionFieldIds> {
-  const url  = `https://api.discogs.com/users/${encodeURIComponent(username)}/collection/fields`;
-  const auth = buildAuthHeader("GET", url, key, secret, accessToken, tokenSecret);
-  try {
-    const res = await fetch(url, { headers: { Authorization: auth, "User-Agent": UA } });
-    if (res.ok) {
-      const data = await res.json() as { fields?: Array<{ id: number; name: string }> };
-      const fields = data.fields ?? [];
-      const mediaField  = fields.find(f => f.name.toLowerCase().includes("media"));
-      const sleeveField = fields.find(f => f.name.toLowerCase().includes("sleeve"));
-      return { mediaFieldId: mediaField?.id ?? 1, sleeveFieldId: sleeveField?.id ?? 2 };
-    }
-  } catch { /* fall through to defaults */ }
-  return { mediaFieldId: 1, sleeveFieldId: 2 };
-}
-
-interface DiscogsBasicInfo {
-  id: number;
-  artists: Array<{ name: string }>;
-  title: string;
-  year: number;
-  genres: string[];
-  styles: string[];
-  cover_image: string;
-  thumb: string;
-  labels: Array<{ name: string }>;
-  formats: FormatShape[];
-  country?: string;
-}
-
 export async function GET(request: NextRequest) {
-  // Capture all request-scoped resources before streaming starts
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
 
@@ -83,9 +31,9 @@ export async function GET(request: NextRequest) {
   }
 
   const cookieStore = await cookies();
-  const accessToken    = cookieStore.get("dg_at")?.value;
-  const tokenSecret    = cookieStore.get("dg_ts")?.value;
-  const discogsUser    = cookieStore.get("dg_un")?.value;
+  const accessToken = cookieStore.get("dg_at")?.value;
+  const tokenSecret = cookieStore.get("dg_ts")?.value;
+  const discogsUser = cookieStore.get("dg_un")?.value;
 
   if (!accessToken || !tokenSecret || !discogsUser) {
     return Response.json({ error: "No Discogs session — please reconnect" }, { status: 400 });
@@ -104,207 +52,133 @@ export async function GET(request: NextRequest) {
 
   const sleep = (ms: number) => new Promise<void>(r => setTimeout(r, ms));
 
-  // ── Background sync ────────────────────────────────────────────────────────
+  // ── Background work ────────────────────────────────────────────────────────
   ;(async () => {
     try {
+      send({ type: "status", message: "Queuing sync job..." });
 
-      // ── Phase 1: Fetch full Discogs collection ──────────────────────────────
-      send({ type: "status", message: "Fetching your Discogs collection..." });
+      // Enqueue — returns existing job ID if one is already running
+      const jobId = await enqueueSync(user.id);
 
-      // Resolve which collection fields hold Media/Sleeve condition
-      const conditionFields = await lookupConditionFields(discogsUser, key, secret, accessToken, tokenSecret);
+      // Fire Edge Function — intentionally no await (non-blocking)
+      const edgeFnUrl = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/discogs-sync-processor`;
+      fetch(edgeFnUrl, {
+        method: "POST",
+        headers: {
+          "Content-Type":  "application/json",
+          "Authorization": `Bearer ${process.env.SYNC_PROCESSOR_SECRET}`,
+        },
+        body: JSON.stringify({ jobId, userId: user.id }),
+      }).catch(err => console.error("[sync] Edge Function fire error:", err));
 
-      const collectionItems: CollectionItem[] = [];
+      // ── Poll sync_queue and translate progress → SSE events ────────────────
+      // This keeps the existing client-side SSE stream format unchanged.
+      let lastPhase = "";
+      let lastPage  = 0;
+      let completedData: {
+        total_records: number; new_added: number; records_updated: number;
+      } | null = null;
 
-      for (let page = 1; ; page++) {
+      const POLL_MS   = 2000;
+      const MAX_POLLS = 300; // 10-minute ceiling
+
+      for (let i = 0; i < MAX_POLLS; i++) {
         if (request.signal.aborted) return;
+        await sleep(POLL_MS);
 
-        const url = new URL(
-          `https://api.discogs.com/users/${encodeURIComponent(discogsUser)}/collection/folders/0/releases`
-        );
-        url.searchParams.set("per_page", String(BATCH));
-        url.searchParams.set("page", String(page));
-        url.searchParams.set("sort", "added");
-        url.searchParams.set("sort_order", "asc"); // stable oldest-first order across all pages
+        const { data: job } = await supabase
+          .from("sync_queue")
+          .select("status, phase, total_records, current_page, total_pages, progress_done, new_added, records_updated, error_message")
+          .eq("id", jobId)
+          .single();
 
-        const auth = buildAuthHeader("GET", url.toString(), key, secret, accessToken, tokenSecret);
-        const res  = await fetch(url.toString(), {
-          headers: { Authorization: auth, "User-Agent": UA },
-        });
+        if (!job) continue;
 
-        if (!res.ok) {
-          if (page === 1) throw new Error(`Discogs collection fetch failed: ${res.status}`);
-          break;
+        if (job.status === "failed") {
+          send({ type: "error", message: job.error_message ?? "Sync failed" });
+          return;
         }
 
-        const data = await res.json() as {
-          releases: Array<{
-            basic_information: DiscogsBasicInfo;
-            notes?: Array<{ field_id: number; value: string }>;
-          }>;
-          pagination: { pages: number; items: number };
-        };
-
-        for (const item of data.releases ?? []) {
-          const info   = item.basic_information;
-          const notes  = item.notes ?? [];
-          const artistNames = (info.artists ?? [])
-            .map(a => a.name.replace(/ \(\d+\)$/, "").trim())
-            .join(", ");
-          const fmt   = info.formats?.[0];
-          const genre = info.genres?.[0] ?? info.styles?.[0] ?? (fmt?.descriptions?.[0] ?? null);
-          const mediaCondition  = notes.find(n => n.field_id === conditionFields.mediaFieldId)?.value?.trim()  || null;
-          const sleeveCondition = notes.find(n => n.field_id === conditionFields.sleeveFieldId)?.value?.trim() || null;
-          collectionItems.push({
-            discogs_id:       String(info.id),
-            artist:           artistNames || "Unknown",
-            album:            info.title ?? "Unknown",
-            year:             info.year  || null,
-            genre,
-            cover_url:        info.cover_image ?? info.thumb ?? null,
-            label:            info.labels?.[0]?.name ?? null,
-            format:           extractFormat(info.formats),
-            country:          info.country ?? null,
-            media_condition:  mediaCondition,
-            sleeve_condition: sleeveCondition,
+        // Translate phase → SSE event (deduplicated — only emit on change)
+        if (job.phase === "fetching" && (job.current_page ?? 0) > lastPage) {
+          lastPage = job.current_page ?? 0;
+          send({ type: "fetch_page", page: job.current_page, totalPages: job.total_pages, fetched: job.progress_done });
+        } else if (
+          (job.phase === "inserting" || job.phase === "linking" || job.phase === "conditions") &&
+          job.phase !== lastPhase
+        ) {
+          lastPhase = job.phase ?? "";
+          send({
+            type: "processing", done: job.progress_done ?? 0, total: job.total_records ?? 0,
+            phase: job.phase, message: `Syncing... ${job.progress_done ?? 0} of ${job.total_records ?? 0} records`,
           });
         }
 
-        const totalPages = data.pagination?.pages ?? 1;
-        send({ type: "fetch_page", page, totalPages, fetched: collectionItems.length });
-
-        if (page >= totalPages) break;
-
-        await sleep(1000); // 1 req/sec between page fetches
-      }
-
-      const total = collectionItems.length;
-
-      // ── Phase 2: Insert new records + link to collection ────────────────────
-      send({ type: "processing", done: 0, total, phase: "inserting",
-             message: "Syncing new records..." });
-
-      const allDiscogsIds = collectionItems.map(r => r.discogs_id);
-
-      // Which discogs_ids already have a DB row?
-      const existingMap = new Map<string, string>(); // discogs_id → record uuid
-      for (let i = 0; i < allDiscogsIds.length; i += BATCH) {
-        const { data } = await supabase
-          .from("records")
-          .select("id, discogs_id")
-          .in("discogs_id", allDiscogsIds.slice(i, i + BATCH));
-        for (const r of data ?? []) if (r.discogs_id) existingMap.set(r.discogs_id, r.id);
-      }
-
-      // Insert only records not yet in the DB, deduplicated by discogs_id so a
-      // pagination-induced duplicate never causes an entire insert batch to fail.
-      const seenForInsert = new Set<string>();
-      const newItems = collectionItems.filter(r => {
-        if (existingMap.has(r.discogs_id)) return false;
-        if (seenForInsert.has(r.discogs_id)) return false;
-        seenForInsert.add(r.discogs_id);
-        return true;
-      });
-
-      for (let i = 0; i < newItems.length; i += BATCH) {
-        const { data, error } = await supabase
-          .from("records")
-          .insert(newItems.slice(i, i + BATCH).map(r => ({
-            discogs_id: r.discogs_id,
-            artist:     r.artist,
-            album:      r.album,
-            year:       r.year,
-            genre:      r.genre,
-            cover_url:  r.cover_url,
-            label:      r.label,
-            format:     r.format,
-            country:    r.country,
-          })))
-          .select("id, discogs_id");
-
-        if (error) {
-          // Race condition: re-fetch this batch
-          const batchIds = newItems.slice(i, i + BATCH).map(r => r.discogs_id);
-          const { data: retried } = await supabase
-            .from("records").select("id, discogs_id").in("discogs_id", batchIds);
-          for (const r of retried ?? []) if (r.discogs_id) existingMap.set(r.discogs_id, r.id);
-        } else {
-          for (const r of data ?? []) if (r.discogs_id) existingMap.set(r.discogs_id, r.id);
+        if (job.status === "completed") {
+          completedData = {
+            total_records:   job.total_records   ?? 0,
+            new_added:       job.new_added        ?? 0,
+            records_updated: job.records_updated  ?? 0,
+          };
+          break;
         }
       }
 
-      // Resolve the full list of record UUIDs — deduplicated so users with multiple
-      // physical copies of the same pressing don't generate duplicate link rows.
-      const savedRecordIds = [...new Set(
-        collectionItems
-          .map(r => existingMap.get(r.discogs_id))
-          .filter((id): id is string => id !== undefined)
-      )];
+      // Guard: one final check if the polling loop hit its ceiling
+      if (!completedData) {
+        const { data: finalJob } = await supabase
+          .from("sync_queue")
+          .select("status, total_records, new_added, records_updated, error_message")
+          .eq("id", jobId)
+          .single();
 
-      // Link records to user's collection (skip already-linked)
-      const alreadyLinked = new Set<string>();
-      for (let i = 0; i < savedRecordIds.length; i += BATCH) {
+        if (finalJob?.status !== "completed") {
+          send({ type: "error", message: finalJob?.error_message ?? "Sync timed out — please try again" });
+          return;
+        }
+        completedData = {
+          total_records:   finalJob.total_records   ?? 0,
+          new_added:       finalJob.new_added        ?? 0,
+          records_updated: finalJob.records_updated  ?? 0,
+        };
+      }
+
+      const total    = completedData.total_records;
+      const newAdded = completedData.new_added;
+
+      // ── Phase 5: Backfill missing format/country ────────────────────────────
+      // Fetch all record IDs for this user — collectionItems is not available
+      // after the queue handoff, so we query user_records directly.
+      const allUserRecordIds: string[] = [];
+      for (let from = 0; ; from += BATCH) {
         const { data } = await supabase
           .from("user_records")
           .select("record_id")
           .eq("user_id", user.id)
-          .in("record_id", savedRecordIds.slice(i, i + BATCH));
-        for (const l of data ?? []) alreadyLinked.add(l.record_id);
+          .range(from, from + BATCH - 1);
+        if (!data || data.length === 0) break;
+        allUserRecordIds.push(...data.map(r => r.record_id));
+        if (data.length < BATCH) break;
       }
-
-      const newLinks = savedRecordIds
-        .filter(id => !alreadyLinked.has(id))
-        .map(id => ({ user_id: user.id, record_id: id }));
-
-      for (let i = 0; i < newLinks.length; i += BATCH) {
-        await supabase.from("user_records").insert(newLinks.slice(i, i + BATCH));
-      }
-
-      const newAdded = newLinks.length;
-
-      // ── Phase 3: Persist condition data ──────────────────────────────────────
-      // Condition is per-copy (user-specific), so it lives in user_records.
-      // Upsert only rows that have at least one condition value.
-      const conditionUpserts = collectionItems
-        .filter(item => item.media_condition || item.sleeve_condition)
-        .map(item => ({
-          user_id:          user.id,
-          record_id:        existingMap.get(item.discogs_id)!,
-          media_condition:  item.media_condition,
-          sleeve_condition: item.sleeve_condition,
-        }))
-        .filter(u => u.record_id);
-
-      for (let i = 0; i < conditionUpserts.length; i += BATCH) {
-        await supabase.from("user_records")
-          .upsert(conditionUpserts.slice(i, i + BATCH), { onConflict: "user_id,record_id" });
-      }
-
-      // ── Phase 4: Backfill missing format/country ────────────────────────────
-      // Find records in user's collection that have NULL format or country.
-      // These are records that existed in the DB before those columns were added.
 
       interface RecordStub { id: string; discogs_id: string }
       const needingBackfill: RecordStub[] = [];
 
-      for (let i = 0; i < savedRecordIds.length; i += BATCH) {
+      for (let i = 0; i < allUserRecordIds.length; i += BATCH) {
         const { data } = await supabase
           .from("records")
           .select("id, discogs_id")
-          .in("id", savedRecordIds.slice(i, i + BATCH))
+          .in("id", allUserRecordIds.slice(i, i + BATCH))
           .not("discogs_id", "is", null)
           .or("format.is.null,country.is.null");
         for (const r of data ?? []) needingBackfill.push(r as RecordStub);
       }
 
       let backfillDone = 0;
-      const backfillTotal = needingBackfill.length;
 
-      if (backfillTotal > 0) {
-        send({
-          type: "processing", done: newAdded, total, phase: "backfill",
-          message: `Syncing... ${newAdded} of ${total} records`,
-        });
+      if (needingBackfill.length > 0) {
+        send({ type: "processing", done: newAdded, total, phase: "backfill",
+               message: `Syncing... ${newAdded} of ${total} records` });
 
         const BACKFILL_BATCH = 3;
         for (let bi = 0; bi < needingBackfill.length; bi += BACKFILL_BATCH) {
@@ -325,19 +199,14 @@ export async function GET(request: NextRequest) {
           }));
 
           backfillDone += bfBatch.length;
-          send({
-            type: "processing",
-            done: newAdded + backfillDone,
-            total,
-            phase: "backfill",
-            message: `Syncing... ${newAdded + backfillDone} of ${total} records`,
-          });
+          send({ type: "processing", done: newAdded + backfillDone, total, phase: "backfill",
+                 message: `Syncing... ${newAdded + backfillDone} of ${total} records` });
 
           if (bi + BACKFILL_BATCH < needingBackfill.length) await sleep(1_000);
         }
       }
 
-      // ── Phase 5: Collection value from Discogs ───────────────────────────────
+      // ── Phase 6: Collection value from Discogs ──────────────────────────────
       type ColVal = { minimum?: { value?: number; currency?: string }; median?: { value?: number }; maximum?: { value?: number } };
       let colVal: ColVal = {};
       try {
@@ -359,7 +228,7 @@ export async function GET(request: NextRequest) {
           collection_value_high:     colVal.maximum?.value     ?? null,
           collection_value_currency: colVal.minimum?.currency  ?? null,
           collection_value_at:       colVal.minimum?.value ? timestamp : null,
-          taste_summary_count:       null, // invalidate cached AI banner so it regenerates after sync
+          taste_summary_count:       null,
         })
         .eq("id", user.id);
 
@@ -386,11 +255,13 @@ export async function GET(request: NextRequest) {
 
       send({ type: "complete", total, newAdded, updated: backfillDone, priceUpdated: 0, timestamp });
 
-      // ── Recompute collection intelligence (runs after complete signal) ────────
+      // ── Phase 7: Collection intelligence ────────────────────────────────────
+      // collectionItems is not available after the queue handoff — intelligence
+      // will recompute on the next Library tab load (non-fatal if this fails).
       try {
         const { computeCollectionIntelligence } = await import("@/lib/library/intelligence");
-        await computeCollectionIntelligence(supabase, user.id, collectionItems);
-      } catch { /* non-fatal — Library will compute on first tab load */ }
+        await computeCollectionIntelligence(supabase, user.id, []);
+      } catch { /* non-fatal */ }
 
     } catch (err: unknown) {
       send({ type: "error", message: err instanceof Error ? err.message : "Sync failed" });
@@ -401,9 +272,9 @@ export async function GET(request: NextRequest) {
 
   return new Response(readable, {
     headers: {
-      "Content-Type":    "text/event-stream",
-      "Cache-Control":   "no-cache, no-transform",
-      "Connection":      "keep-alive",
+      "Content-Type":      "text/event-stream",
+      "Cache-Control":     "no-cache, no-transform",
+      "Connection":        "keep-alive",
       "X-Accel-Buffering": "no",
     },
   });
