@@ -23,8 +23,10 @@ export async function GET(_req: NextRequest) {
     ? createServiceClient(sbUrl, svcKey, { auth: { persistSession: false } })
     : supabase;
 
-  const staleDate = new Date(Date.now() - 30 * 86_400_000).toISOString();
-  const now       = new Date().toISOString();
+  const staleDate          = new Date(Date.now() - 30 * 86_400_000).toISOString();
+  const communityStaleDate = new Date(Date.now() - 30 * 86_400_000).toISOString();
+  const recentReleaseYear  = new Date().getFullYear() - 1; // records from last ~12 months
+  const now                = new Date().toISOString();
 
   // ── All user record IDs (used for community-data checks) ─────────────────────
   const { data: allLinks } = await supabase
@@ -59,7 +61,10 @@ export async function GET(_req: NextRequest) {
         .from("records")
         .select("id")
         .in("id", candidates.slice(i, i + 400))
-        .is("community_fetched_at", null)
+        .or(
+          `community_fetched_at.is.null,` +
+          `and(year.gte.${recentReleaseYear},community_fetched_at.lt.${communityStaleDate})`
+        )
         .limit(needed - communityIds.length);
       communityIds.push(...(data ?? []).map((r: { id: string }) => r.id));
     }
@@ -151,14 +156,17 @@ export async function GET(_req: NextRequest) {
     .eq("user_id", user.id)
     .or(`price_fetched_at.is.null,price_fetched_at.lt.${staleDate}`);
 
-  // Count records still missing community data
+  // Count records still needing community data (null, or stale for recent releases)
   let communityRemaining = 0;
   for (let i = 0; i < allRecordIds.length; i += 400) {
     const { count } = await supabase
       .from("records")
       .select("id", { count: "exact", head: true })
       .in("id", allRecordIds.slice(i, i + 400))
-      .is("community_fetched_at", null);
+      .or(
+        `community_fetched_at.is.null,` +
+        `and(year.gte.${recentReleaseYear},community_fetched_at.lt.${communityStaleDate})`
+      );
     communityRemaining += count ?? 0;
   }
 
