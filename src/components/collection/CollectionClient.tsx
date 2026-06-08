@@ -641,6 +641,11 @@ export default function CollectionClient({
       {priceProgress && (
         <StatusBanner color="#0d0d0d" bg="#f4f4f4">
           Pricing records… {priceProgress.done} of {priceProgress.total}
+          {collection.length > 500 && (
+            <span style={{ marginLeft: "10px", color: "#888888" }}>
+              · Large collection — this may take a while
+            </span>
+          )}
         </StatusBanner>
       )}
       {syncState === "complete" && syncResult && !priceProgress && (
