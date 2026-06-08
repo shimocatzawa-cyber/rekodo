@@ -314,30 +314,34 @@ async function processSync(supabase: SB, jobId: string, userId: string) {
 
     // ── Phase 4b: Remove stale user_records ──────────────────────────────────
     // Delete links to records no longer in the user's Discogs collection.
-    await updateJob(supabase, jobId, { phase: "cleanup" });
+    // Safety guard: only run if we have a valid collection (savedRecordIds
+    // being empty would mean something went wrong and we must not delete anything).
+    if (savedRecordIds.length > 0) {
+      await updateJob(supabase, jobId, { phase: "cleanup" });
 
-    const currentIds = new Set(savedRecordIds);
-    const staleIds: string[] = [];
+      const currentIds = new Set(savedRecordIds);
+      const staleIds: string[] = [];
 
-    for (let from = 0; ; from += BATCH) {
-      const { data } = await supabase
-        .from("user_records")
-        .select("record_id")
-        .eq("user_id", userId)
-        .range(from, from + BATCH - 1);
-      if (!data || data.length === 0) break;
-      for (const row of data) {
-        if (!currentIds.has(row.record_id)) staleIds.push(row.record_id);
+      for (let from = 0; ; from += BATCH) {
+        const { data } = await supabase
+          .from("user_records")
+          .select("record_id")
+          .eq("user_id", userId)
+          .range(from, from + BATCH - 1);
+        if (!data || data.length === 0) break;
+        for (const row of data) {
+          if (!currentIds.has(row.record_id)) staleIds.push(row.record_id);
+        }
+        if (data.length < BATCH) break;
       }
-      if (data.length < BATCH) break;
-    }
 
-    for (let i = 0; i < staleIds.length; i += BATCH) {
-      await supabase
-        .from("user_records")
-        .delete()
-        .eq("user_id", userId)
-        .in("record_id", staleIds.slice(i, i + BATCH));
+      for (let i = 0; i < staleIds.length; i += BATCH) {
+        await supabase
+          .from("user_records")
+          .delete()
+          .eq("user_id", userId)
+          .in("record_id", staleIds.slice(i, i + BATCH));
+      }
     }
 
     // ── Mark completed ────────────────────────────────────────────────────────
