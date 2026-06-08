@@ -4,15 +4,14 @@ export default function RecordSpinner() {
       display: 'flex',
       alignItems: 'center',
       justifyContent: 'center',
-      width: '100%',
-      padding: '4rem 0',
+      flex: 1,
     }}>
       <img
         src="/rekodo-record-spinner.png"
         alt="Loading"
         style={{
-          width: '200px',
-          height: '200px',
+          width: '133px',
+          height: '133px',
           animation: 'rekodoSpin 2.4s linear infinite',
         }}
       />
