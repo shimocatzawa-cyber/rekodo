@@ -10,8 +10,8 @@ export default function RecordSpinner() {
         src="/rekodo-record-spinner.png"
         alt="Loading"
         style={{
-          width: '133px',
-          height: '133px',
+          width: '165px',
+          height: '165px',
           animation: 'rekodoSpin 2.4s linear infinite',
         }}
       />
