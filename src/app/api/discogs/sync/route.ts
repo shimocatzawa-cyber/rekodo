@@ -66,7 +66,7 @@ export async function GET(request: NextRequest) {
         method: "POST",
         headers: {
           "Content-Type":  "application/json",
-          "Authorization": `Bearer ${process.env.SYNC_PROCESSOR_SECRET}`,
+          "Authorization": `Bearer ${process.env.SUPABASE_SERVICE_ROLE_KEY}`,
         },
         body: JSON.stringify({ jobId, userId: user.id }),
       }).catch(err => console.error("[sync] Edge Function fire error:", err));
