@@ -149,28 +149,36 @@ export async function GET(_req: NextRequest) {
     if (bi + CONCURRENT < priceable.length) await sleep(SLEEP_MS);
   }
 
-  // ── Remaining count ───────────────────────────────────────────────────────────
-  const { count: stalePriceRemaining } = await supabase
-    .from("user_records")
-    .select("*", { count: "exact", head: true })
-    .eq("user_id", user.id)
-    .or(`price_fetched_at.is.null,price_fetched_at.lt.${staleDate}`);
+  // ── Remaining count (union — each record counted once even if it needs both) ──
+  const needingWorkSet = new Set<string>();
 
-  // Count records still needing community data (null, or stale for recent releases)
-  let communityRemaining = 0;
+  // Records still needing prices
+  for (let from = 0; ; from += 1000) {
+    const { data } = await supabase
+      .from("user_records")
+      .select("record_id")
+      .eq("user_id", user.id)
+      .or(`price_fetched_at.is.null,price_fetched_at.lt.${staleDate}`)
+      .range(from, from + 999);
+    if (!data || data.length === 0) break;
+    for (const r of data) needingWorkSet.add(r.record_id as string);
+    if (data.length < 1000) break;
+  }
+
+  // Records still needing community data
   for (let i = 0; i < allRecordIds.length; i += 400) {
-    const { count } = await supabase
+    const { data } = await supabase
       .from("records")
-      .select("id", { count: "exact", head: true })
+      .select("id")
       .in("id", allRecordIds.slice(i, i + 400))
       .or(
         `community_fetched_at.is.null,` +
         `and(year.gte.${recentReleaseYear},community_fetched_at.lt.${communityStaleDate})`
       );
-    communityRemaining += count ?? 0;
+    for (const r of data ?? []) needingWorkSet.add(r.id as string);
   }
 
-  const remaining = (stalePriceRemaining ?? 0) + communityRemaining;
+  const remaining = needingWorkSet.size;
   const total     = remaining + processed;
 
   return Response.json({ priced, processed, remaining, total });
