@@ -629,7 +629,14 @@ export default function CollectionClient({
         <StatusBanner color="#cc2200" bg="#fff5f5">Discogs connection error — please try again</StatusBanner>
       )}
       {syncState === "syncing" && syncProgress && (
-        <StatusBanner color="#0d0d0d" bg="#f4f4f4">{syncProgress.message}</StatusBanner>
+        <StatusBanner color="#0d0d0d" bg="#f4f4f4">
+          {syncProgress.message}
+          {collection.length > 500 && (
+            <span style={{ marginLeft: "10px", color: "#888888" }}>
+              · Large collection — this may take a few minutes
+            </span>
+          )}
+        </StatusBanner>
       )}
       {priceProgress && (
         <StatusBanner color="#0d0d0d" bg="#f4f4f4">
