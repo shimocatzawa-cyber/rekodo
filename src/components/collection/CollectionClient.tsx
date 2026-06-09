@@ -1691,14 +1691,16 @@ function AlbumDetail({ record, detail, price, loading, valueCurrency }: {
             />
             {price.num_for_sale > 0 && (
               <div style={{ padding: "8px 0 4px", borderTop: "1px solid rgba(0,0,0,0.05)" }}>
-                {record.discogs_id && (
-                  <a href={`https://www.discogs.com/release/${record.discogs_id}`} target="_blank" rel="noopener noreferrer" style={{ fontFamily: MONO, fontSize: "10px", letterSpacing: "0.08em", textDecoration: "none", color: ORANGE, display: "block", marginBottom: "4px" }}>
-                    View on Discogs ↗
-                  </a>
-                )}
-                <span style={{ fontFamily: MONO, fontSize: "10px", color: "#aaaaaa", letterSpacing: "0.04em" }}>
-                  {price.num_for_sale} for sale
-                </span>
+                <div style={{ display: "flex", alignItems: "baseline", gap: "12px" }}>
+                  {record.discogs_id && (
+                    <a href={`https://www.discogs.com/release/${record.discogs_id}`} target="_blank" rel="noopener noreferrer" style={{ fontFamily: MONO, fontSize: "10px", letterSpacing: "0.08em", textDecoration: "none", color: ORANGE }}>
+                      View on Discogs ↗
+                    </a>
+                  )}
+                  <span style={{ fontFamily: MONO, fontSize: "10px", color: "#aaaaaa", letterSpacing: "0.04em" }}>
+                    {price.num_for_sale} for sale
+                  </span>
+                </div>
                 <p style={{ fontFamily: MONO, fontSize: "10px", color: "#bbbbbb", letterSpacing: "0.03em", lineHeight: 1.5, margin: "4px 0 0" }}>
                   Market value reflects the lowest active listing at the time of your last sync.
                 </p>
