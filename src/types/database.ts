@@ -34,6 +34,7 @@ export type Database = {
           format: string | null;
           country: string | null;
           created_at: string;
+          styles:                 string[] | null;
           community_have:         number | null;
           community_want:         number | null;
           community_num_for_sale: number | null;
@@ -46,6 +47,7 @@ export type Database = {
           album: string;
           year?: number | null;
           genre?: string | null;
+          styles?: string[] | null;
           cover_url?: string | null;
           label?: string | null;
           format?: string | null;
@@ -62,6 +64,7 @@ export type Database = {
           album?: string;
           year?: number | null;
           genre?: string | null;
+          styles?: string[] | null;
           cover_url?: string | null;
           label?: string | null;
           format?: string | null;
@@ -416,6 +419,36 @@ export type Database = {
           match_reason?: string | null;
           status?: "saved" | "in_progress" | "done";
           actioned_at?: string | null;
+        };
+        Relationships: [];
+      };
+      collection_value_snapshots: {
+        Row: {
+          id:          string;
+          user_id:     string;
+          snapshot_at: string;
+          value_low:   number | null;
+          value_med:   number | null;
+          value_high:  number | null;
+          currency:    string | null;
+          record_count: number | null;
+        };
+        Insert: {
+          id?:          string;
+          user_id:      string;
+          snapshot_at?: string;
+          value_low?:   number | null;
+          value_med?:   number | null;
+          value_high?:  number | null;
+          currency?:    string | null;
+          record_count?: number | null;
+        };
+        Update: {
+          value_low?:   number | null;
+          value_med?:   number | null;
+          value_high?:  number | null;
+          currency?:    string | null;
+          record_count?: number | null;
         };
         Relationships: [];
       };
