@@ -621,12 +621,16 @@ export default function DeepDiveClient({ artists }: { artists: ArtistData[] }) {
     return (
       <div style={{ padding: "2.5rem" }}>
         {/* Artist header */}
-        <div style={{ display: "flex", gap: 20, alignItems: "flex-start", marginBottom: 24 }}>
+        <div style={{ display: "flex", gap: 20, alignItems: "stretch", marginBottom: 24 }}>
           {imgUrl ? (
             // eslint-disable-next-line @next/next/no-img-element
-            <img src={imgUrl} alt="" aria-hidden style={{ width: 80, height: 80, objectFit: "cover", flexShrink: 0 }} />
+            <img src={imgUrl} alt="" aria-hidden style={{ width: 80, objectFit: "cover", flexShrink: 0, display: "block" }} />
           ) : (
-            <ArtistInitial name={selectedArtist} size={80} />
+            <div style={{ width: 80, background: WARM, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+              <span style={{ fontFamily: MONO, fontSize: "1.8rem", color: ORANGE, fontWeight: 600, lineHeight: 1 }}>
+                {selectedArtist.charAt(0).toUpperCase()}
+              </span>
+            </div>
           )}
           <div style={{ minWidth: 0, flex: 1 }}>
             <h2 style={{ fontFamily: SERIF, fontSize: "2rem", fontWeight: 600, color: INK, letterSpacing: "-0.025em", lineHeight: 1.1, margin: "0 0 6px" }}>
@@ -635,7 +639,7 @@ export default function DeepDiveClient({ artists }: { artists: ArtistData[] }) {
             <p style={{ fontFamily: MONO, fontSize: "0.7rem", letterSpacing: "0.06em", color: INK, margin: "0 0 12px" }}>
               {selectedData.count} {selectedData.count === 1 ? "record" : "records"} in your collection
             </p>
-            <CollectionStrip records={selectedData.records} tileSize={48} />
+            <CollectionStrip records={selectedData.records} tileSize={36} />
           </div>
         </div>
 
