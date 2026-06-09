@@ -100,6 +100,7 @@ export default async function InsightsPage() {
     year: number | null;
     genre: string | null; styles: string[] | null;
     label: string | null; country: string | null; format: string | null;
+    cover_url: string | null;
     community_have: number | null; community_want: number | null;
     community_num_for_sale: number | null;
   };
@@ -108,7 +109,7 @@ export default async function InsightsPage() {
   for (let i = 0; i < recordIds.length; i += BATCH) {
     const { data, error } = await supabase
       .from("records")
-      .select("id, artist, album, year, genre, styles, label, country, format, community_have, community_want, community_num_for_sale")
+      .select("id, artist, album, year, genre, styles, label, country, format, cover_url, community_have, community_want, community_num_for_sale")
       .in("id", recordIds.slice(i, i + BATCH));
     if (!error) for (const r of data ?? []) recordsMap.set(r.id, r as RecordRow);
   }
@@ -167,6 +168,7 @@ export default async function InsightsPage() {
       return {
         artist:       rec.artist,
         album:        rec.album,
+        coverUrl:     rec.cover_url ?? null,
         price_median: convertPrice(l.price_median, l.price_currency) ?? 0,
         price_low:    convertPrice(l.price_low,    l.price_currency) ?? 0,
         price_high:   convertPrice(l.price_high,   l.price_currency) ?? 0,
@@ -260,7 +262,10 @@ export default async function InsightsPage() {
   const countryBreakdown: InsightsProps["countryBreakdown"] = [...countryCounts.entries()]
     .sort((a, b) => b[1].count - a[1].count)
     .slice(0, 10)
-    .map(([country, { count, valueSum }]) => ({ country, count, valueSum }));
+    .map(([country, { count, valueSum }]) => ({
+      country, count, valueSum,
+      pct: totalRecords > 0 ? Math.round((count / totalRecords) * 100) : 0,
+    }));
 
   // ── Desirability breakdown ────────────────────────────────────────────────
   const TIER_ORDER: DesirabilityTier[] = ["holy-grail", "rare", "cult", "widely-loved", "in-demand"];

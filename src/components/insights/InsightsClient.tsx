@@ -23,13 +23,13 @@ export interface InsightsProps {
   totalHigh:      number;
   totalRecords:   number;
   snapshots:      { date: string; "Total Value": number }[];
-  topRecordsByValue: { artist: string; album: string; price_median: number; price_low: number; price_high: number }[];
+  topRecordsByValue: { artist: string; album: string; coverUrl: string | null; price_median: number; price_low: number; price_high: number }[];
   mediaConditionBreakdown:  { grade: string; count: number; pct: number }[];
   sleeveConditionBreakdown: { grade: string; count: number; pct: number }[];
   genreBreakdown:  { genre: string; count: number; valueSum: number; pct: number }[];
   styleBreakdown:  { style: string; count: number; pct: number }[];
   hasStyles:       boolean;
-  countryBreakdown: { country: string; count: number; valueSum: number }[];
+  countryBreakdown: { country: string; count: number; valueSum: number; pct: number }[];
   topLabels:            { label: string; count: number; valueSum: number }[];
   topArtists:           { artist: string; count: number; valueSum: number }[];
   desirabilityBreakdown: { tier: DesirabilityTier; count: number; valueSum: number }[];
@@ -347,10 +347,10 @@ export default function InsightsClient({
             <SubLabel>Top records by value</SubLabel>
             <div style={{ borderTop: `0.5px solid ${RULE}` }}>
               <div style={{
-                display: "grid", gridTemplateColumns: "1fr 1fr 160px",
+                display: "grid", gridTemplateColumns: "44px 1fr 1fr 160px",
                 gap: "16px", padding: "10px 0", borderBottom: `0.5px solid ${RULE}`,
               }}>
-                {["Artist", "Album", "Market Value"].map((h) => (
+                {["", "Artist", "Album", "Market Value"].map((h) => (
                   <span key={h} style={{
                     fontFamily: MONO, fontSize: "9px", fontWeight: 700,
                     letterSpacing: "0.12em", textTransform: "uppercase", color: INK,
@@ -361,9 +361,28 @@ export default function InsightsClient({
               </div>
               {topRecordsByValue.map((r, i) => (
                 <div key={i} style={{
-                  display: "grid", gridTemplateColumns: "1fr 1fr 160px",
-                  gap: "16px", padding: "14px 0", borderBottom: `0.5px solid ${RULE}`,
+                  display: "grid", gridTemplateColumns: "44px 1fr 1fr 160px",
+                  gap: "16px", padding: "10px 0", borderBottom: `0.5px solid ${RULE}`,
+                  alignItems: "center",
                 }}>
+                  {r.coverUrl ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={r.coverUrl}
+                      alt=""
+                      width={44}
+                      height={44}
+                      style={{ width: "44px", height: "44px", objectFit: "cover", display: "block", flexShrink: 0 }}
+                    />
+                  ) : (
+                    <div style={{
+                      width: "44px", height: "44px", background: RULE,
+                      display: "flex", alignItems: "center", justifyContent: "center",
+                      flexShrink: 0,
+                    }}>
+                      <span style={{ fontFamily: MONO, fontSize: "8px", color: "#aaaaaa" }}>—</span>
+                    </div>
+                  )}
                   <span style={{
                     fontFamily: MONO, fontSize: "11px", color: INK,
                     overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
@@ -435,7 +454,7 @@ export default function InsightsClient({
           </p>
         ) : (
           <div style={{ display: "flex", flexDirection: "column", gap: "14px", marginBottom: "48px" }}>
-            {genreBreakdown.map(({ genre, count, valueSum, pct }) => (
+            {genreBreakdown.map(({ genre, count, pct }) => (
               <div key={genre}>
                 <div style={{
                   display: "flex", justifyContent: "space-between",
@@ -443,8 +462,7 @@ export default function InsightsClient({
                 }}>
                   <span style={{ fontFamily: MONO, fontSize: "11px", color: INK }}>{genre}</span>
                   <span style={{ fontFamily: MONO, fontSize: "11px", color: INK, whiteSpace: "nowrap" }}>
-                    {count} records
-                    {valueSum > 0 && <> · <span style={{ color: ORANGE }}>{fmtCurrency(valueSum, currency)}</span></>}
+                    {count} records · <span style={{ color: ORANGE }}>{pct}%</span>
                   </span>
                 </div>
                 <PercentBar pct={pct} maxPct={maxGenrePct} />
@@ -489,7 +507,7 @@ export default function InsightsClient({
           </p>
         ) : (
           <div style={{ display: "flex", flexDirection: "column", gap: "14px" }}>
-            {countryBreakdown.map(({ country, count, valueSum }, i) => (
+            {countryBreakdown.map(({ country, count, pct }, i) => (
               <div key={country}>
                 <div style={{
                   display: "flex", justifyContent: "space-between",
@@ -505,8 +523,7 @@ export default function InsightsClient({
                     <span style={{ fontFamily: MONO, fontSize: "11px", color: INK }}>{country}</span>
                   </div>
                   <span style={{ fontFamily: MONO, fontSize: "11px", color: INK, whiteSpace: "nowrap" }}>
-                    {count} records
-                    {valueSum > 0 && <> · <span style={{ color: ORANGE }}>{fmtCurrency(valueSum, currency)}</span></>}
+                    {count} records · <span style={{ color: ORANGE }}>{pct}%</span>
                   </span>
                 </div>
                 <PercentBar pct={count} maxPct={maxCountryCount} />
