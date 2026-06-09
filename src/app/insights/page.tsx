@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import InsightsClient, { type InsightsProps } from "@/components/insights/InsightsClient";
+import { getDesirabilityTier, type DesirabilityTier } from "@/lib/desirability";
 
 export const dynamic = "force-dynamic";
 
@@ -98,13 +99,15 @@ export default async function InsightsPage() {
     id: string; artist: string; album: string;
     genre: string | null; styles: string[] | null;
     label: string | null; country: string | null; format: string | null;
+    community_have: number | null; community_want: number | null;
+    community_num_for_sale: number | null;
   };
   const recordsMap = new Map<string, RecordRow>();
   const BATCH = 400;
   for (let i = 0; i < recordIds.length; i += BATCH) {
     const { data, error } = await supabase
       .from("records")
-      .select("id, artist, album, genre, styles, label, country, format")
+      .select("id, artist, album, genre, styles, label, country, format, community_have, community_want, community_num_for_sale")
       .in("id", recordIds.slice(i, i + BATCH));
     if (!error) for (const r of data ?? []) recordsMap.set(r.id, r as RecordRow);
   }
@@ -258,6 +261,45 @@ export default async function InsightsPage() {
     .slice(0, 10)
     .map(([country, { count, valueSum }]) => ({ country, count, valueSum }));
 
+  // ── Desirability breakdown ────────────────────────────────────────────────
+  const TIER_ORDER: DesirabilityTier[] = ["holy-grail", "rare", "cult", "widely-loved", "in-demand"];
+  const desirabilityGroups = new Map<DesirabilityTier, { count: number; valueSum: number }>();
+  for (const link of allLinks) {
+    const rec  = recordsMap.get(link.record_id);
+    if (!rec) continue;
+    const tier = getDesirabilityTier(
+      rec.community_have,
+      rec.community_want,
+      link.price_low ?? null,   // raw USD — desirability thresholds are USD-denominated
+      rec.community_num_for_sale,
+    );
+    if (!tier) continue;
+    const val  = convertPrice(link.price_median, link.price_currency) ?? 0;
+    const curr = desirabilityGroups.get(tier) ?? { count: 0, valueSum: 0 };
+    desirabilityGroups.set(tier, { count: curr.count + 1, valueSum: curr.valueSum + (val > 0 ? val : 0) });
+  }
+  const desirabilityBreakdown: InsightsProps["desirabilityBreakdown"] = TIER_ORDER
+    .filter((t) => desirabilityGroups.has(t))
+    .map((t) => {
+      const { count, valueSum } = desirabilityGroups.get(t)!;
+      return { tier: t, count, valueSum };
+    });
+
+  // ── Top Artists ───────────────────────────────────────────────────────────
+  const artistCounts = new Map<string, { count: number; valueSum: number }>();
+  for (const link of allLinks) {
+    const rec    = recordsMap.get(link.record_id);
+    const artist = rec?.artist?.trim();
+    if (!artist || artist === "Unknown" || artist === "Various") continue;
+    const val  = convertPrice(link.price_median, link.price_currency) ?? 0;
+    const curr = artistCounts.get(artist) ?? { count: 0, valueSum: 0 };
+    artistCounts.set(artist, { count: curr.count + 1, valueSum: curr.valueSum + (val > 0 ? val : 0) });
+  }
+  const topArtists: InsightsProps["topArtists"] = [...artistCounts.entries()]
+    .sort((a, b) => b[1].count - a[1].count)
+    .slice(0, 5)
+    .map(([artist, { count, valueSum }]) => ({ artist, count, valueSum }));
+
   // ── Label Obsession ────────────────────────────────────────────────────────
   const labelCounts = new Map<string, { count: number; valueSum: number }>();
   for (const link of allLinks) {
@@ -292,6 +334,8 @@ export default async function InsightsPage() {
       hasStyles={hasStyles}
       countryBreakdown={countryBreakdown}
       topLabels={topLabels}
+      desirabilityBreakdown={desirabilityBreakdown}
+      topArtists={topArtists}
     />
   );
 }

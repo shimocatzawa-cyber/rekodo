@@ -2,6 +2,7 @@
 
 import { AreaChart } from "@tremor/react";
 import AppNav from "@/components/AppNav";
+import type { DesirabilityTier } from "@/lib/desirability";
 
 const SERIF  = "var(--font-editorial)";
 const MONO   = "var(--font-mono)";
@@ -28,8 +29,20 @@ export interface InsightsProps {
   styleBreakdown:  { style: string; count: number; pct: number }[];
   hasStyles:       boolean;
   countryBreakdown: { country: string; count: number; valueSum: number }[];
-  topLabels:       { label: string; count: number; valueSum: number }[];
+  topLabels:            { label: string; count: number; valueSum: number }[];
+  topArtists:           { artist: string; count: number; valueSum: number }[];
+  desirabilityBreakdown: { tier: DesirabilityTier; count: number; valueSum: number }[];
 }
+
+// ── Tier metadata ──────────────────────────────────────────────────────────────
+
+const TIER_META: Record<DesirabilityTier, { label: string; bg: string; color: string }> = {
+  "holy-grail":   { label: "Holy Grail",    bg: "#FAC775", color: "#633806" },
+  "rare":         { label: "Rare",          bg: "#F0997B", color: "#712B13" },
+  "cult":         { label: "Cult Pressing", bg: "#CECBF6", color: "#3C3489" },
+  "widely-loved": { label: "Widely Loved",  bg: "#C0DD97", color: "#27500A" },
+  "in-demand":    { label: "In Demand",     bg: "#9FE1CB", color: "#085041" },
+};
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
 
@@ -97,7 +110,7 @@ export default function InsightsClient({
   totalLow, totalMed, totalHigh, totalRecords, snapshots, topRecordsByValue,
   mediaConditionBreakdown, sleeveConditionBreakdown,
   genreBreakdown, styleBreakdown, hasStyles,
-  countryBreakdown, topLabels,
+  countryBreakdown, topLabels, topArtists, desirabilityBreakdown,
 }: InsightsProps) {
 
   const hasSparkline    = snapshots.length >= 2;
@@ -174,6 +187,54 @@ export default function InsightsClient({
             </p>
           )}
         </div>
+
+        {/* Desirability breakdown */}
+        {desirabilityBreakdown.length > 0 && (
+          <div style={{ marginBottom: "40px" }}>
+            <SubLabel>Collection by desirability</SubLabel>
+            <div style={{ borderTop: `0.5px solid ${RULE}` }}>
+              <div style={{
+                display: "grid", gridTemplateColumns: "160px 1fr 1fr",
+                gap: "16px", padding: "10px 0", borderBottom: `0.5px solid ${RULE}`,
+              }}>
+                {["Tier", "Records", "Est. Value"].map((h) => (
+                  <span key={h} style={{
+                    fontFamily: MONO, fontSize: "9px",
+                    letterSpacing: "0.12em", textTransform: "uppercase", color: INK,
+                  }}>
+                    {h}
+                  </span>
+                ))}
+              </div>
+              {desirabilityBreakdown.map(({ tier, count, valueSum }) => {
+                const meta = TIER_META[tier];
+                return (
+                  <div key={tier} style={{
+                    display: "grid", gridTemplateColumns: "160px 1fr 1fr",
+                    gap: "16px", padding: "12px 0", borderBottom: `0.5px solid ${RULE}`,
+                    alignItems: "center",
+                  }}>
+                    <span style={{
+                      display: "inline-block",
+                      fontFamily: MONO, fontSize: "10px", letterSpacing: "0.06em",
+                      background: meta.bg, color: meta.color,
+                      padding: "3px 8px", borderRadius: "3px",
+                      whiteSpace: "nowrap",
+                    }}>
+                      {meta.label}
+                    </span>
+                    <span style={{ fontFamily: MONO, fontSize: "11px", color: INK }}>
+                      {count}
+                    </span>
+                    <span style={{ fontFamily: MONO, fontSize: "11px", color: ORANGE }}>
+                      {valueSum > 0 ? fmtCurrency(valueSum, currency) : "—"}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
 
         {/* Top 5 records */}
         {topRecordsByValue.length > 0 && (
@@ -353,39 +414,80 @@ export default function InsightsClient({
 
         <SectionDivider />
 
-        {/* ── Section 5: Label Obsession ────────────────────────────────────── */}
-        <SectionHeader eyebrow="Label Obsession" title="Most Collected Labels" />
+        {/* ── Section 5: Labels & Artists ───────────────────────────────────── */}
+        <SectionHeader eyebrow="Label & Artist Obsession" title="Most Collected Labels & Artists" />
 
-        {topLabels.length === 0 ? (
-          <p style={{ fontFamily: MONO, fontSize: "11px", color: INK, margin: 0 }}>
-            No label data available.
-          </p>
-        ) : (
-          <div style={{ display: "flex", flexDirection: "column", gap: "28px" }}>
-            {topLabels.map(({ label, count, valueSum }, i) => (
-              <div key={label} style={{ display: "flex", alignItems: "flex-start", gap: "20px" }}>
-                <span style={{
-                  fontFamily: SERIF, fontSize: "36px", fontWeight: 700,
-                  color: ORANGE, lineHeight: 1, minWidth: "44px",
-                }}>
-                  {String(i + 1).padStart(2, "0")}
-                </span>
-                <div style={{ flex: 1, paddingTop: "4px" }}>
-                  <div style={{
-                    fontFamily: MONO, fontSize: "13px", letterSpacing: "0.04em",
-                    color: INK, marginBottom: "4px",
-                  }}>
-                    {label}
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "48px" }}>
+          {/* Labels */}
+          <div>
+            <SubLabel>By label</SubLabel>
+            {topLabels.length === 0 ? (
+              <p style={{ fontFamily: MONO, fontSize: "11px", color: INK, margin: 0 }}>
+                No label data available.
+              </p>
+            ) : (
+              <div style={{ display: "flex", flexDirection: "column", gap: "24px" }}>
+                {topLabels.map(({ label, count, valueSum }, i) => (
+                  <div key={label} style={{ display: "flex", alignItems: "flex-start", gap: "16px" }}>
+                    <span style={{
+                      fontFamily: SERIF, fontSize: "30px", fontWeight: 700,
+                      color: ORANGE, lineHeight: 1, minWidth: "38px",
+                    }}>
+                      {String(i + 1).padStart(2, "0")}
+                    </span>
+                    <div style={{ flex: 1, paddingTop: "3px" }}>
+                      <div style={{
+                        fontFamily: MONO, fontSize: "12px", letterSpacing: "0.04em",
+                        color: INK, marginBottom: "3px",
+                      }}>
+                        {label}
+                      </div>
+                      <div style={{ fontFamily: MONO, fontSize: "10px", color: INK }}>
+                        {count} record{count !== 1 ? "s" : ""}
+                        {valueSum > 0 && <> · <span style={{ color: ORANGE }}>{fmtCurrency(valueSum, currency)}</span></>}
+                      </div>
+                    </div>
                   </div>
-                  <div style={{ fontFamily: MONO, fontSize: "10px", color: INK }}>
-                    {count} record{count !== 1 ? "s" : ""}
-                    {valueSum > 0 && <> · <span style={{ color: ORANGE }}>{fmtCurrency(valueSum, currency)}</span></>}
-                  </div>
-                </div>
+                ))}
               </div>
-            ))}
+            )}
           </div>
-        )}
+
+          {/* Artists */}
+          <div>
+            <SubLabel>By artist</SubLabel>
+            {topArtists.length === 0 ? (
+              <p style={{ fontFamily: MONO, fontSize: "11px", color: INK, margin: 0 }}>
+                No artist data available.
+              </p>
+            ) : (
+              <div style={{ display: "flex", flexDirection: "column", gap: "24px" }}>
+                {topArtists.map(({ artist, count, valueSum }, i) => (
+                  <div key={artist} style={{ display: "flex", alignItems: "flex-start", gap: "16px" }}>
+                    <span style={{
+                      fontFamily: SERIF, fontSize: "30px", fontWeight: 700,
+                      color: ORANGE, lineHeight: 1, minWidth: "38px",
+                    }}>
+                      {String(i + 1).padStart(2, "0")}
+                    </span>
+                    <div style={{ flex: 1, paddingTop: "3px" }}>
+                      <div style={{
+                        fontFamily: MONO, fontSize: "12px", letterSpacing: "0.04em",
+                        color: INK, marginBottom: "3px",
+                      }}>
+                        {artist}
+                      </div>
+                      <div style={{ fontFamily: MONO, fontSize: "10px", color: INK }}>
+                        {count} record{count !== 1 ? "s" : ""}
+                        {valueSum > 0 && <> · <span style={{ color: ORANGE }}>{fmtCurrency(valueSum, currency)}</span></>}
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
 
         <SectionDivider />
 
