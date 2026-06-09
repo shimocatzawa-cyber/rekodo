@@ -159,7 +159,7 @@ function StatBar({ tiles }: { tiles: StatTile[] }) {
             borderBottom: hasBottomBorder ? `1px solid ${RULE}` : "none",
           }}>
             <p style={{
-              fontFamily: SERIF, fontSize: "1rem", fontWeight: 400,
+              fontFamily: SERIF, fontSize: "1.25rem", fontWeight: 400,
               color: t.heroColor ?? INK, lineHeight: 1.2,
               margin: "0 0 5px", letterSpacing: "-0.01em",
               wordBreak: "break-word",
