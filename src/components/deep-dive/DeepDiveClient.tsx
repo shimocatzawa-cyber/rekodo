@@ -675,20 +675,6 @@ export default function DeepDiveClient({ artists }: { artists: ArtistData[] }) {
 
   return (
     <div>
-      {/* Page header */}
-      <div style={{ padding: "1.5rem 2rem", borderBottom: `1px solid ${RULE}` }}>
-        <div style={{ display: "flex", alignItems: "baseline", gap: 14, marginBottom: 6 }}>
-          <h1 style={{ fontFamily: SERIF, fontSize: "1.8rem", fontWeight: 600, color: INK, letterSpacing: "-0.025em", margin: 0, lineHeight: 1.1 }}>
-            Deep Dive
-          </h1>
-          <span style={{ fontFamily: MONO, fontSize: "0.75rem", letterSpacing: "0.1em", color: ORANGE }}>
-            ディープダイブ
-          </span>
-        </div>
-        <p style={{ fontFamily: MONO, fontSize: "0.7rem", letterSpacing: "0.06em", color: INK, margin: 0 }}>
-          Every artist in your collection. AI-powered intelligence.
-        </p>
-      </div>
 
       {/* ── Desktop layout ─────────────────────────────────────────────────── */}
       <div className="hidden md:flex">
