@@ -346,6 +346,49 @@ async function processSync(supabase: SB, jobId: string, userId: string) {
       }
     }
 
+    // ── Phase 5: Fetch collection value from Discogs and persist ─────────────
+    try {
+      const cvUrl  = `https://api.discogs.com/users/${encodeURIComponent(discogsUser)}/collection/value`;
+      const cvAuth = await buildAuthHeader("GET", cvUrl, accessToken, tokenSecret);
+      const cvRes  = await rateFetch(cvUrl, cvAuth);
+
+      if (cvRes.ok) {
+        type ColVal = {
+          minimum?: { value?: number; currency?: string };
+          median?:  { value?: number };
+          maximum?: { value?: number };
+        };
+        const colVal  = await cvRes.json() as ColVal;
+        const valLow  = colVal.minimum?.value  ?? null;
+        const valMed  = colVal.median?.value   ?? null;
+        const valHigh = colVal.maximum?.value  ?? null;
+        const valCurr = colVal.minimum?.currency ?? "USD";
+        const now     = new Date().toISOString();
+
+        await supabase
+          .from("profiles")
+          .update({
+            collection_value_low:      valLow,
+            collection_value_med:      valMed,
+            collection_value_high:     valHigh,
+            collection_value_currency: valCurr,
+          })
+          .eq("id", userId);
+
+        if (valMed != null) {
+          await supabase.from("collection_value_snapshots").insert({
+            user_id:      userId,
+            snapshot_at:  now,
+            value_low:    valLow,
+            value_med:    valMed,
+            value_high:   valHigh,
+            currency:     valCurr,
+            record_count: savedRecordIds.length,
+          });
+        }
+      }
+    } catch { /* non-fatal — sync still completes */ }
+
     // ── Mark completed ────────────────────────────────────────────────────────
     await updateJob(supabase, jobId, {
       status:          "completed",
