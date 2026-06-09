@@ -232,22 +232,6 @@ export default function InsightsClient({
 
       <main style={{ padding: "48px 32px 80px", maxWidth: "960px", margin: "0 auto" }}>
 
-        {/* ── Page Header ─────────────────────────────────────────────────── */}
-        <div style={{ marginBottom: "20px" }}>
-          <h1 style={{
-            fontFamily: SERIF, fontSize: "48px", fontWeight: 700,
-            color: INK, lineHeight: 1.1, margin: "0 0 6px",
-          }}>
-            Insights
-          </h1>
-          <p style={{
-            fontFamily: MONO, fontSize: "0.65rem", letterSpacing: "0.12em",
-            textTransform: "uppercase", color: ORANGE, margin: 0,
-          }}>
-            インサイト
-          </p>
-        </div>
-        <div style={{ borderTop: `1px solid ${RULE}`, marginBottom: "24px" }} />
 
         {/* ── Stats Bar ───────────────────────────────────────────────────── */}
         <StatBar tiles={statTiles} />
