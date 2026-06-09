@@ -183,17 +183,23 @@ export async function GET(request: NextRequest) {
         for (const r of data ?? []) needingBackfill.push(r as RecordStub);
       }
 
-      let backfillDone = 0;
+      // Cap to 30 records per sync. The Discogs collection listing API does not
+      // include the country field, so individual release lookups are required.
+      // Running all at once causes Vercel function timeouts for large collections.
+      // Records drain progressively across subsequent syncs.
+      const BACKFILL_CAP = 30;
+      const toBackfill   = needingBackfill.slice(0, BACKFILL_CAP);
+      let   backfillDone = 0;
 
-      if (needingBackfill.length > 0) {
-        send({ type: "processing", done: newAdded, total, phase: "backfill",
-               message: `Syncing... ${newAdded} of ${total} records` });
+      if (toBackfill.length > 0) {
+        send({ type: "processing", done: total, total, phase: "backfill",
+               message: `Finalising sync...` });
 
         const BACKFILL_BATCH = 3;
-        for (let bi = 0; bi < needingBackfill.length; bi += BACKFILL_BATCH) {
+        for (let bi = 0; bi < toBackfill.length; bi += BACKFILL_BATCH) {
           if (request.signal.aborted) break;
 
-          const bfBatch = needingBackfill.slice(bi, bi + BACKFILL_BATCH);
+          const bfBatch = toBackfill.slice(bi, bi + BACKFILL_BATCH);
           await Promise.all(bfBatch.map(async (record) => {
             try {
               const releaseUrl = `https://api.discogs.com/releases/${encodeURIComponent(record.discogs_id)}?key=${key}&secret=${secret}`;
@@ -208,10 +214,7 @@ export async function GET(request: NextRequest) {
           }));
 
           backfillDone += bfBatch.length;
-          send({ type: "processing", done: newAdded + backfillDone, total, phase: "backfill",
-                 message: `Syncing... ${newAdded + backfillDone} of ${total} records` });
-
-          if (bi + BACKFILL_BATCH < needingBackfill.length) await sleep(1_000);
+          if (bi + BACKFILL_BATCH < toBackfill.length) await sleep(1_000);
         }
       }
 
