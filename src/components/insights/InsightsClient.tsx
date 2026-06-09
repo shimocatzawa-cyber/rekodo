@@ -1,5 +1,6 @@
 "use client";
 
+import { useState, useEffect, type ReactNode } from "react";
 import { AreaChart } from "@tremor/react";
 import AppNav from "@/components/AppNav";
 import type { DesirabilityTier } from "@/lib/desirability";
@@ -112,7 +113,7 @@ function SectionHeader({ eyebrow, title }: { eyebrow: string; title: string }) {
   );
 }
 
-function SubLabel({ children }: { children: React.ReactNode }) {
+function SubLabel({ children }: { children: ReactNode }) {
   return (
     <p style={{
       fontFamily: MONO, fontSize: "9px", letterSpacing: "0.14em",
@@ -142,18 +143,22 @@ type StatTile = {
 function StatBar({ tiles }: { tiles: StatTile[] }) {
   return (
     <div style={{
-      display: "flex", background: "#FEFBF8",
-      borderBottom: `1px solid ${RULE}`, marginBottom: "48px",
-      overflowX: "auto",
+      display: "grid",
+      gridTemplateColumns: "repeat(5, 1fr)",
+      background: "#FEFBF8",
+      borderBottom: `1px solid ${RULE}`,
+      marginBottom: "32px",
     }}>
       {tiles.map((t, i) => {
         const len  = t.hero.length;
-        const size = len > 12 ? "clamp(0.78rem, 1.4vw, 1rem)" : len > 8 ? "clamp(0.88rem, 1.5vw, 1.2rem)" : "1.4rem";
+        const size = len > 14 ? "0.85rem" : len > 9 ? "1rem" : "1.3rem";
+        const hasRightBorder = (i + 1) % 5 !== 0 && i !== tiles.length - 1;
+        const hasBottomBorder = i < 5;
         return (
           <div key={i} style={{
-            flex: "1 1 0", minWidth: "100px",
-            padding: "12px 16px",
-            borderRight: i < tiles.length - 1 ? `1px solid ${RULE}` : "none",
+            padding: "14px 16px",
+            borderRight:  hasRightBorder  ? `1px solid ${RULE}` : "none",
+            borderBottom: hasBottomBorder ? `1px solid ${RULE}` : "none",
           }}>
             <p style={{
               fontFamily: SERIF, fontSize: size, fontWeight: 400,
@@ -164,10 +169,9 @@ function StatBar({ tiles }: { tiles: StatTile[] }) {
               {t.hero}
             </p>
             <p style={{
-              fontFamily: MONO, fontSize: "0.6rem", letterSpacing: "0.08em",
+              fontFamily: MONO, fontSize: "0.58rem", letterSpacing: "0.08em",
               textTransform: "uppercase", color: "#aaaaaa",
-              lineHeight: 1.2, margin: 0,
-              whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis",
+              lineHeight: 1.3, margin: 0,
             }}>
               {t.label}
             </p>
@@ -188,6 +192,16 @@ export default function InsightsClient({
   countryBreakdown, topLabels, topArtists, desirabilityBreakdown,
   topFormat, yearRange, mostPopularYear,
 }: InsightsProps) {
+
+  const [oneLiner, setOneLiner] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (totalRecords < 5) return;
+    fetch("/api/insights", { method: "POST" })
+      .then((r) => r.ok ? r.json() : null)
+      .then((d) => { if (d?.oneLiner) setOneLiner(d.oneLiner); })
+      .catch(() => {});
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const hasSparkline    = snapshots.length >= 2;
   const maxGenrePct     = genreBreakdown[0]?.pct      ?? 100;
@@ -237,6 +251,23 @@ export default function InsightsClient({
 
         {/* ── Stats Bar ───────────────────────────────────────────────────── */}
         <StatBar tiles={statTiles} />
+
+        {/* ── AI one-liner ────────────────────────────────────────────────── */}
+        {oneLiner && (
+          <div style={{
+            marginBottom: "48px",
+            paddingLeft: "12px",
+            borderLeft: `2px solid ${ORANGE}`,
+          }}>
+            <p style={{
+              fontFamily: SERIF, fontStyle: "italic",
+              fontSize: "14px", color: "#888888",
+              letterSpacing: "0.01em", lineHeight: 1.6, margin: 0,
+            }}>
+              {oneLiner}
+            </p>
+          </div>
+        )}
 
         {/* ── Section 1: Collection Value ──────────────────────────────────── */}
         <SectionHeader eyebrow="Collection Value" title="What it's worth." />
