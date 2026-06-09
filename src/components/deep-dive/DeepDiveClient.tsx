@@ -325,8 +325,22 @@ function RelatedArtistsContent({ data }: { data: { artists?: RelatedArtist[] } }
 
 type BlindSpotAlbum = { title: string; year: number; why: string; tip: string };
 
-function BlindSpotContent({ data }: { data: { albums?: BlindSpotAlbum[] } }) {
+function BlindSpotContent({ data, artist }: { data: { albums?: BlindSpotAlbum[] }; artist: string }) {
   const albums = data.albums ?? [];
+  const [artMap, setArtMap] = useState<Record<string, string>>({});
+
+  useEffect(() => {
+    for (const a of albums) {
+      fetch(`/api/deep-dive/album-art?artist=${encodeURIComponent(artist)}&album=${encodeURIComponent(a.title)}`)
+        .then((r) => (r.ok ? r.json() : null))
+        .then((d: { url?: string } | null) => {
+          if (d?.url) setArtMap((prev) => ({ ...prev, [a.title]: d.url! }));
+        })
+        .catch(() => {});
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [artist, albums.length]);
+
   if (albums.length === 0) {
     return (
       <p style={{ fontFamily: MONO, fontSize: "0.72rem", letterSpacing: "0.04em", color: INK, padding: "2rem 0" }}>
@@ -338,18 +352,28 @@ function BlindSpotContent({ data }: { data: { albums?: BlindSpotAlbum[] } }) {
     <div>
       {albums.map((a, i) => (
         <div key={i} style={{ padding: "1.5rem 0", borderBottom: `1px solid ${RULE}` }}>
-          <div style={{ display: "flex", gap: 12, alignItems: "baseline", flexWrap: "wrap", marginBottom: 10 }}>
-            <span style={{ fontFamily: SERIF, fontSize: "1rem", fontWeight: 600, color: INK, letterSpacing: "-0.01em" }}>
-              {a.title}
-            </span>
-            <span style={{ fontFamily: MONO, fontSize: "0.7rem", letterSpacing: "0.04em", color: INK }}>
-              · {a.year}
-            </span>
+          {/* Title row with artwork */}
+          <div style={{ display: "flex", gap: 14, alignItems: "flex-start", marginBottom: 10 }}>
+            {artMap[a.title] ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={artMap[a.title]} alt="" aria-hidden style={{ width: 64, height: 64, objectFit: "cover", flexShrink: 0, display: "block" }} />
+            ) : (
+              <VinylFallback size={64} />
+            )}
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ display: "flex", gap: 10, alignItems: "baseline", flexWrap: "wrap", marginBottom: 4 }}>
+                <span style={{ fontFamily: SERIF, fontSize: "1rem", fontWeight: 600, color: INK, letterSpacing: "-0.01em" }}>
+                  {a.title}
+                </span>
+                <span style={{ fontFamily: MONO, fontSize: "0.7rem", letterSpacing: "0.04em", color: INK }}>
+                  · {a.year}
+                </span>
+              </div>
+              <p style={{ fontFamily: MONO, fontSize: "0.72rem", letterSpacing: "0.04em", color: INK, lineHeight: 1.7, margin: 0 }}>
+                {a.why}
+              </p>
+            </div>
           </div>
-          <div style={{ borderTop: `1px solid ${RULE}`, margin: "0 0 10px" }} />
-          <p style={{ fontFamily: MONO, fontSize: "0.72rem", letterSpacing: "0.04em", color: INK, lineHeight: 1.7, margin: "0 0 10px" }}>
-            {a.why}
-          </p>
           {a.tip && (
             <>
               <div style={{ borderTop: `1px solid ${RULE}`, margin: "0 0 10px" }} />
@@ -574,7 +598,7 @@ export default function DeepDiveClient({ artists }: { artists: ArtistData[] }) {
     if (tab === "books")      return <BooksContent      data={data as { items?: BookItem[] }} />;
     if (tab === "interviews") return <InterviewsContent data={data as { interviews?: InterviewItem[] }} />;
     if (tab === "related")    return <RelatedArtistsContent data={data as { artists?: RelatedArtist[] }} />;
-    if (tab === "blindspot")  return <BlindSpotContent  data={data as { albums?: BlindSpotAlbum[] }} />;
+    if (tab === "blindspot")  return <BlindSpotContent  data={data as { albums?: BlindSpotAlbum[] }} artist={selectedArtist} />;
     return null;
   }
 
