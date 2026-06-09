@@ -1714,7 +1714,23 @@ function AlbumDetail({ record, detail, price, loading, valueCurrency }: {
                 </span>
               </div>
             )}
+            {/* Show link alone when num_for_sale is 0 (paired version shown above when > 0) */}
+            {price.num_for_sale === 0 && record.discogs_id && (
+              <div style={{ padding: "8px 0 4px", borderTop: "1px solid rgba(0,0,0,0.05)" }}>
+                <a href={`https://www.discogs.com/release/${record.discogs_id}`} target="_blank" rel="noopener noreferrer" style={{ fontFamily: MONO, fontSize: "10px", letterSpacing: "0.08em", textDecoration: "none", color: ORANGE }}>
+                  View on Discogs ↗
+                </a>
+              </div>
+            )}
           </>
+        )}
+        {/* Show link when price data hasn't loaded yet */}
+        {!price && record.discogs_id && (
+          <div style={{ padding: "8px 0 4px", borderTop: "1px solid rgba(0,0,0,0.05)" }}>
+            <a href={`https://www.discogs.com/release/${record.discogs_id}`} target="_blank" rel="noopener noreferrer" style={{ fontFamily: MONO, fontSize: "10px", letterSpacing: "0.08em", textDecoration: "none", color: ORANGE }}>
+              View on Discogs ↗
+            </a>
+          </div>
         )}
       </div>
     </div>
