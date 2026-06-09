@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import AppNav from "@/components/AppNav";
-import DeepDiveDirectory, { type ArtistEntry } from "@/components/deep-dive/DeepDiveDirectory";
+import DeepDiveClient, { type ArtistData } from "@/components/deep-dive/DeepDiveClient";
 
 export const dynamic = "force-dynamic";
 
@@ -20,13 +20,13 @@ export default async function DeepDivePage() {
       error: unknown;
     };
 
-  const autoGen     = `${emailPrefix}_${user.id.slice(0, 6)}`;
-  const raw         = profile?.username ?? null;
-  const username    = (raw && raw !== autoGen) ? raw : (profile?.display_name?.trim() || emailPrefix);
+  const autoGen      = `${emailPrefix}_${user.id.slice(0, 6)}`;
+  const raw          = profile?.username ?? null;
+  const username     = (raw && raw !== autoGen) ? raw : (profile?.display_name?.trim() || emailPrefix);
   const displayLabel = profile?.display_name?.trim() || username;
-  const avatarUrl   = profile?.avatar_url ?? null;
+  const avatarUrl    = profile?.avatar_url ?? null;
 
-  // Fetch all record IDs for this user
+  // Fetch all user_record links (paginated)
   type LinkRow = { record_id: string };
   const allLinks: LinkRow[] = [];
   const PAGE = 1000;
@@ -43,34 +43,41 @@ export default async function DeepDivePage() {
 
   const recordIds = allLinks.map((l) => l.record_id);
 
-  // Fetch artist names for all records (batched)
-  const artistCounts = new Map<string, number>();
+  // Fetch artist + album + year for all records (batched)
+  type RecordRow = { id: string; artist: string; album: string; year: number | null };
+  const recordsMap = new Map<string, RecordRow>();
   const BATCH = 400;
   for (let i = 0; i < recordIds.length; i += BATCH) {
     const { data } = await supabase
       .from("records")
-      .select("artist")
+      .select("id, artist, album, year")
       .in("id", recordIds.slice(i, i + BATCH));
-    for (const r of data ?? []) {
-      if (r.artist) {
-        artistCounts.set(r.artist, (artistCounts.get(r.artist) ?? 0) + 1);
-      }
-    }
+    for (const r of data ?? []) recordsMap.set(r.id, r as RecordRow);
   }
 
-  const artists: ArtistEntry[] = [...artistCounts.entries()]
-    .map(([artist, count]) => ({ artist, count }))
-    .sort((a, b) => b.count - a.count || a.artist.localeCompare(b.artist));
+  // Group records by artist
+  const artistMap = new Map<string, { count: number; records: { album: string; year: number | null }[] }>();
+  for (const link of allLinks) {
+    const r = recordsMap.get(link.record_id);
+    if (!r?.artist) continue;
+    const entry = artistMap.get(r.artist) ?? { count: 0, records: [] };
+    entry.count++;
+    entry.records.push({ album: r.album, year: r.year ?? null });
+    artistMap.set(r.artist, entry);
+  }
+
+  const artists: ArtistData[] = [...artistMap.entries()]
+    .map(([name, { count, records }]) => ({
+      name,
+      count,
+      records: records.sort((a, b) => (a.year ?? 9999) - (b.year ?? 9999)),
+    }))
+    .sort((a, b) => b.count - a.count || a.name.localeCompare(b.name));
 
   return (
     <>
       <AppNav username={username} displayLabel={displayLabel} avatarUrl={avatarUrl} />
-      <DeepDiveDirectory
-        artists={artists}
-        username={username}
-        displayLabel={displayLabel}
-        avatarUrl={avatarUrl}
-      />
+      <DeepDiveClient artists={artists} />
     </>
   );
 }
