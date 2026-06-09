@@ -173,13 +173,13 @@ function SleeveCard({ rec, mode, onAddToWantlist, wantlistAdded }: {
       style={{
         display: "grid",
         gridTemplateColumns: "1fr 1fr",
-        minHeight: "520px",
+        minHeight: "400px",
         border: "1px solid rgba(0,0,0,0.10)",
         boxShadow: "0 2px 16px rgba(0,0,0,0.07)",
       }}
     >
       {/* ── Left: album artwork, falls back to vinyl disc ── */}
-      <div className="dig-sleeve-art" style={{ background: "#0e0e0e", overflow: "hidden", minHeight: "520px" }}>
+      <div className="dig-sleeve-art" style={{ background: "#0e0e0e", overflow: "hidden", minHeight: "400px" }}>
         {coverUrl ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img
@@ -193,7 +193,7 @@ function SleeveCard({ rec, mode, onAddToWantlist, wantlistAdded }: {
       </div>
 
       {/* ── Right: text ── */}
-      <div className="dig-sleeve-text" style={{ padding: "26px 28px", display: "flex", flexDirection: "column" }}>
+      <div className="dig-sleeve-text" style={{ padding: "18px 22px", display: "flex", flexDirection: "column" }}>
 
         {/* Top row: mode tag (left) + Wantlist button (right) */}
         <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: "12px", minHeight: "20px" }}>
@@ -206,11 +206,6 @@ function SleeveCard({ rec, mode, onAddToWantlist, wantlistAdded }: {
             {mode === "hallucinations" && (
               <p style={{ fontFamily: MONO, fontSize: "8px", letterSpacing: "0.16em", textTransform: "uppercase", color: "#b30042", margin: 0 }}>
                 ⚡ Way outside your taste
-              </p>
-            )}
-            {mode === "mood" && (
-              <p style={{ fontFamily: MONO, fontSize: "8px", letterSpacing: "0.16em", textTransform: "uppercase", color: ORANGE, margin: 0 }}>
-                ✦ Mood match
               </p>
             )}
           </div>
@@ -324,71 +319,10 @@ function NavBar({ idx, total, onNav, onDigAgain }: {
   );
 }
 
-// ─── Mood Dig bar ─────────────────────────────────────────────────────────────
-
-function MoodDigBar({ onSubmit, activeQuery, onClear, disabled }: {
-  onSubmit:    (q: string) => void;
-  activeQuery: string | null;
-  onClear:     () => void;
-  disabled:    boolean;
-}) {
-  const [input, setInput] = useState("");
-
-  function handleSubmit() {
-    const q = input.trim();
-    if (q && !disabled) { onSubmit(q); setInput(""); }
-  }
-
-  return (
-    <div style={{ display: "inline-flex", alignItems: "center", gap: "14px" }}>
-      <span style={{ fontFamily: MONO, fontSize: "11px", letterSpacing: "0.06em", color: ORANGE, flexShrink: 0 }}>
-        Mood Dig:
-      </span>
-
-      {activeQuery && (
-        <div style={{ display: "flex", alignItems: "center", gap: "6px", flexShrink: 0, background: "rgba(204,85,0,0.05)", border: "1px solid rgba(204,85,0,0.2)", padding: "3px 8px 3px 10px" }}>
-          <span style={{ fontFamily: SERIF, fontStyle: "italic", fontSize: "12px", color: "#555555" }}>
-            {activeQuery}
-          </span>
-          <button onClick={onClear} style={{ fontFamily: MONO, fontSize: "13px", color: "#aaaaaa", background: "none", border: "none", cursor: "pointer", padding: "0 0 0 2px", lineHeight: 1 }}>
-            ×
-          </button>
-        </div>
-      )}
-
-      <input
-        value={input}
-        onChange={e => setInput(e.target.value)}
-        onKeyDown={e => { if (e.key === "Enter") handleSubmit(); }}
-        placeholder={activeQuery ? "Try another mood…" : "Find me something for a Sunday morning / late night / cooking / grief"}
-        disabled={disabled}
-        style={{
-          width: "460px", flexShrink: 0,
-          fontFamily: SERIF, fontStyle: "italic", fontSize: "13px",
-          color: "#0d0d0d", background: "transparent", border: "none",
-          borderBottom: "1px solid rgba(0,0,0,0.1)", outline: "none",
-          padding: "4px 0 5px",
-        }}
-      />
-      <button
-        onClick={handleSubmit}
-        disabled={!input.trim() || disabled}
-        style={{
-          fontFamily: MONO, fontSize: "8px", letterSpacing: "0.12em", textTransform: "uppercase",
-          color: ORANGE, opacity: !input.trim() || disabled ? 0.35 : 1,
-          background: "none", border: "none", cursor: input.trim() && !disabled ? "pointer" : "default",
-          padding: 0, flexShrink: 0, transition: "color 0.15s",
-        }}
-      >
-        Dig →
-      </button>
-    </div>
-  );
-}
 
 // ─── Mode toggle ─────────────────────────────────────────────────────────────
 
-type DigMode = "discover" | "explore" | "hallucinations" | "mood";
+type DigMode = "discover" | "explore" | "hallucinations";
 
 function ModeToggle({ mode, onChange, disabled }: {
   mode:     DigMode;
@@ -445,13 +379,6 @@ export default function DigClient({ username, displayLabel, avatarUrl, collectio
   // "dig again" without changing mode; swapping `mode` handles mode changes.
   const [fetchKey, setFetchKey] = useState<{ mode: DigMode; n: number }>({ mode: "discover", n: 0 });
 
-  // Mood Dig state
-  const [moodQuery,   setMoodQuery]   = useState<string | null>(null);
-  const [moodN,       setMoodN]       = useState(0);
-  const [moodLoading, setMoodLoading] = useState(false);
-  const [moodError,   setMoodError]   = useState<string | null>(null);
-  const [moodRecs,    setMoodRecs]    = useState<Recommendation[] | null>(null);
-
   // All setState calls inside the effect are in async callbacks, never synchronously
   // in the effect body — satisfies react-hooks/set-state-in-effect.
   useEffect(() => {
@@ -478,35 +405,6 @@ export default function DigClient({ username, displayLabel, avatarUrl, collectio
     return () => { cancelled = true; };
   }, [fetchKey]);
 
-  // Mood fetch — triggered whenever moodQuery or moodN changes
-  useEffect(() => {
-    if (!moodQuery) return;
-    let cancelled = false;
-    setMoodLoading(true);
-    setMoodError(null);
-    setMoodRecs(null);
-    (async () => {
-      try {
-        const res = await fetch("/api/dig/mood", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ mood: moodQuery }),
-        });
-        const data = await res.json();
-        if (cancelled) return;
-        if (!res.ok) throw new Error(data.error ?? "Failed to get recommendations");
-        setMoodRecs(data.recommendations);
-        setIdx(0);
-        setMoodError(null);
-      } catch (e) {
-        if (!cancelled) setMoodError(e instanceof Error ? e.message : "Something went wrong");
-      } finally {
-        if (!cancelled) setMoodLoading(false);
-      }
-    })();
-    return () => { cancelled = true; };
-  }, [moodQuery, moodN]); // eslint-disable-line react-hooks/exhaustive-deps
-
   function handleModeChange(newMode: DigMode) {
     setMode(newMode);
     setLoading(true);
@@ -522,27 +420,8 @@ export default function DigClient({ username, displayLabel, avatarUrl, collectio
     setFetchKey(prev => ({ ...prev, n: prev.n + 1 }));
   }
 
-  function handleMoodSubmit(query: string) {
-    setMoodQuery(query);
-    setMoodN(0);
-    setIdx(0);
-  }
-
-  function handleMoodDigAgain() {
-    setMoodN(n => n + 1);
-    setIdx(0);
-  }
-
-  function clearMood() {
-    setMoodQuery(null);
-    setMoodRecs(null);
-    setMoodError(null);
-    setMoodLoading(false);
-    setIdx(0);
-  }
-
   function navigate(dir: -1 | 1) {
-    const total = (moodQuery ? moodRecs?.length : recs?.length) ?? 1;
+    const total = recs?.length ?? 1;
     setIdx(i => Math.min(Math.max(i + dir, 0), total - 1));
   }
 
@@ -666,14 +545,6 @@ export default function DigClient({ username, displayLabel, avatarUrl, collectio
           .dig-links-grid { grid-template-columns: 1fr !important; gap: 16px !important; }
           .dig-link-item  { font-size: 12px !important; line-height: 2.4 !important; min-height: 36px; display: flex !important; align-items: center !important; }
 
-          /* Mood Dig bar: stack on mobile */
-          .dig-mood-bar {
-            flex-wrap: wrap !important;
-            padding: 8px 16px !important;
-            gap: 8px 10px !important;
-          }
-          .dig-mood-bar input { font-size: 15px !important; }
-
           /* Nav bar: equal thirds, 44px minimum tap height */
           .dig-navbar {
             padding-top: 14px !important;
@@ -695,74 +566,32 @@ export default function DigClient({ username, displayLabel, avatarUrl, collectio
 
       {/* ── Main ── */}
       <main className="dig-main" style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden" }}>
-        <div className="dig-main-inner" style={{ maxWidth: 1200, width: "100%", margin: "0 auto", flex: 1, display: "flex", flexDirection: "column", padding: "0 40px", overflow: "hidden" }}>
+        <div className="dig-main-inner" style={{ maxWidth: 1200, width: "100%", margin: "0 auto", flex: 1, display: "flex", flexDirection: "column", padding: "0 40px 72px", overflow: "hidden" }}>
 
-          {/* Mode toggle — hidden in mood mode */}
-          {!moodQuery && <ModeToggle mode={mode} onChange={handleModeChange} disabled={loading} />}
+          <ModeToggle mode={mode} onChange={handleModeChange} disabled={loading} />
 
-          {/* Mood Dig bar — always below the mode toggle */}
-          <div style={{ display: "flex", justifyContent: "center", padding: "10px 0 4px" }}>
-            <MoodDigBar
-              onSubmit={handleMoodSubmit}
-              activeQuery={moodQuery}
-              onClear={clearMood}
-              disabled={moodLoading}
-            />
-          </div>
+          {loading && <RecordSpinner />}
 
-          {moodQuery ? (
-            // ── Mood mode ────────────────────────────────────────────────────
+          {error && !loading && (
+            <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", flex: 1, gap: "16px" }}>
+              <p style={{ fontFamily: MONO, fontSize: "11px", color: "#cc3300", margin: 0 }}>{error}</p>
+              <button onClick={handleDigAgain} style={{ fontFamily: MONO, fontSize: "10px", letterSpacing: "0.1em", textTransform: "uppercase", color: ORANGE, background: "none", border: `1px solid ${ORANGE}`, cursor: "pointer", padding: "8px 16px" }}>
+                Try again
+              </button>
+            </div>
+          )}
+
+          {recs && !loading && (
             <>
-              {moodLoading && <RecordSpinner />}
-              {moodError && !moodLoading && (
-                <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", flex: 1, gap: "16px" }}>
-                  <p style={{ fontFamily: MONO, fontSize: "11px", color: "#cc3300", margin: 0 }}>{moodError}</p>
-                  <button onClick={handleMoodDigAgain} style={{ fontFamily: MONO, fontSize: "10px", letterSpacing: "0.1em", textTransform: "uppercase", color: ORANGE, background: "none", border: `1px solid ${ORANGE}`, cursor: "pointer", padding: "8px 16px" }}>
-                    Try again
-                  </button>
-                </div>
-              )}
-              {moodRecs && !moodLoading && (
-                <>
-                  <PositionIndicator idx={idx} total={moodRecs.length} onNav={setIdx} />
-                  <SleeveCard
-                    key={`mood-${idx}-${moodN}`}
-                    rec={moodRecs[idx]}
-                    mode="mood"
-                    onAddToWantlist={() => handleAddToWantlist(moodRecs[idx])}
-                    wantlistAdded={wantlistAdded.has(`${moodRecs[idx].artist}||${moodRecs[idx].album}`)}
-                  />
-                  <NavBar idx={idx} total={moodRecs.length} onNav={navigate} onDigAgain={handleMoodDigAgain} />
-                </>
-              )}
-            </>
-          ) : (
-            // ── Regular mode ─────────────────────────────────────────────────
-            <>
-              {loading && <RecordSpinner />}
-
-              {error && !loading && (
-                <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", flex: 1, gap: "16px" }}>
-                  <p style={{ fontFamily: MONO, fontSize: "11px", color: "#cc3300", margin: 0 }}>{error}</p>
-                  <button onClick={handleDigAgain} style={{ fontFamily: MONO, fontSize: "10px", letterSpacing: "0.1em", textTransform: "uppercase", color: ORANGE, background: "none", border: `1px solid ${ORANGE}`, cursor: "pointer", padding: "8px 16px" }}>
-                    Try again
-                  </button>
-                </div>
-              )}
-
-              {recs && !loading && (
-                <>
-                  <PositionIndicator idx={idx} total={recs.length} onNav={setIdx} />
-                  <SleeveCard
-                    key={`${idx}-${mode}`}
-                    rec={recs[idx]}
-                    mode={mode}
-                    onAddToWantlist={() => handleAddToWantlist(recs[idx])}
-                    wantlistAdded={wantlistAdded.has(`${recs[idx].artist}||${recs[idx].album}`)}
-                  />
-                  <NavBar idx={idx} total={recs.length} onNav={navigate} onDigAgain={handleDigAgain} />
-                </>
-              )}
+              <PositionIndicator idx={idx} total={recs.length} onNav={setIdx} />
+              <SleeveCard
+                key={`${idx}-${mode}`}
+                rec={recs[idx]}
+                mode={mode}
+                onAddToWantlist={() => handleAddToWantlist(recs[idx])}
+                wantlistAdded={wantlistAdded.has(`${recs[idx].artist}||${recs[idx].album}`)}
+              />
+              <NavBar idx={idx} total={recs.length} onNav={navigate} onDigAgain={handleDigAgain} />
             </>
           )}
 
