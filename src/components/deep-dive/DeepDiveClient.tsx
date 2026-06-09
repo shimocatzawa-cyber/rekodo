@@ -10,7 +10,7 @@ const RULE   = "#e0e0da";
 const WARM   = "#FDF6F0";
 const SUBTLE = "#f0efea";
 
-type Section = "collection" | "rankings" | "podcasts" | "books" | "interviews" | "related" | "blindspot";
+type Section = "rankings" | "podcasts" | "books" | "interviews" | "related" | "blindspot";
 
 export type ArtistData = {
   name: string;
@@ -19,7 +19,6 @@ export type ArtistData = {
 };
 
 const TABS: { id: Section; label: string }[] = [
-  { id: "collection", label: "Collection" },
   { id: "rankings",   label: "Album Rankings" },
   { id: "podcasts",   label: "Podcasts" },
   { id: "books",      label: "Books & Audiobooks" },
@@ -226,34 +225,6 @@ function InterviewsContent({ data }: { data: { interviews?: InterviewItem[] } })
           <p style={{ fontFamily: MONO, fontSize: "0.68rem", letterSpacing: "0.04em", color: INK, fontStyle: "italic", lineHeight: 1.5, margin: 0 }}>
             {iv.note}
           </p>
-        </div>
-      ))}
-    </div>
-  );
-}
-
-// ── Collection ─────────────────────────────────────────────────────────────────
-
-function CollectionContent({ records }: { records: { album: string; year: number | null }[] }) {
-  if (records.length === 0) {
-    return (
-      <p style={{ fontFamily: MONO, fontSize: "0.72rem", letterSpacing: "0.04em", color: INK, padding: "2rem 0" }}>
-        No records found in your collection for this artist.
-      </p>
-    );
-  }
-  return (
-    <div>
-      {records.map((r, i) => (
-        <div key={i} style={{ padding: "1rem 0", borderBottom: `1px solid ${RULE}`, display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 16 }}>
-          <span style={{ fontFamily: SERIF, fontSize: "0.95rem", fontWeight: 500, color: INK, letterSpacing: "-0.01em" }}>
-            {r.album}
-          </span>
-          {r.year && (
-            <span style={{ fontFamily: MONO, fontSize: "0.65rem", letterSpacing: "0.08em", color: INK, flexShrink: 0 }}>
-              {r.year}
-            </span>
-          )}
         </div>
       ))}
     </div>
@@ -467,7 +438,7 @@ function EmptyPanel() {
 export default function DeepDiveClient({ artists }: { artists: ArtistData[] }) {
   const [query, setQuery] = useState("");
   const [selectedArtist, setSelectedArtist] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<Section>("collection");
+  const [activeTab, setActiveTab] = useState<Section>("rankings");
   const [imageMap, setImageMap] = useState<Record<string, string>>({});
   const [cache, setCache] = useState<Record<string, Record<string, unknown>>>({});
   const [loadingTabs, setLoadingTabs] = useState<Record<string, boolean>>({});
@@ -498,8 +469,6 @@ export default function DeepDiveClient({ artists }: { artists: ArtistData[] }) {
   // Auto-trigger intelligence fetch when artist or tab changes
   useEffect(() => {
     if (!selectedArtist) return;
-    if (activeTab === "collection") return; // local data only
-
     const key = `${selectedArtist}:${activeTab}`;
     if (startedRef.current.has(key)) return;
     startedRef.current.add(key);
@@ -537,7 +506,7 @@ export default function DeepDiveClient({ artists }: { artists: ArtistData[] }) {
   function selectArtist(name: string) {
     if (selectedArtist !== name) {
       setSelectedArtist(name);
-      setActiveTab("collection");
+      setActiveTab("rankings");
     }
   }
 
@@ -578,8 +547,6 @@ export default function DeepDiveClient({ artists }: { artists: ArtistData[] }) {
     const key = `${selectedArtist}:${activeTab}`;
     const artist = selectedArtist;
     const tab = activeTab;
-
-    if (tab === "collection") return <CollectionContent records={selectedData?.records ?? []} />;
 
     if (loadingTabs[key]) return <SkeletonRows />;
 
