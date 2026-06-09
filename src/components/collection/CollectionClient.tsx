@@ -170,8 +170,8 @@ function matchesDecade(year: number | null, decade: string): boolean {
 // ─── Desirability filter options ─────────────────────────────────────────────
 
 const DESIRABILITY_FILTER_OPTIONS: { value: DesirabilityTier; label: string }[] = [
-  { value: "rare",         label: "Rare"          },
   { value: "holy-grail",   label: "Holy Grail"    },
+  { value: "rare",         label: "Rare"          },
   { value: "cult",         label: "Cult Pressing" },
   { value: "widely-loved", label: "Widely Loved"  },
   { value: "in-demand",    label: "In Demand"     },
