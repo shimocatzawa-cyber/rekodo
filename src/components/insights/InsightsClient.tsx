@@ -150,8 +150,6 @@ function StatBar({ tiles }: { tiles: StatTile[] }) {
       marginBottom: "32px",
     }}>
       {tiles.map((t, i) => {
-        const len  = t.hero.length;
-        const size = len > 14 ? "0.85rem" : len > 9 ? "1rem" : "1.3rem";
         const hasRightBorder = (i + 1) % 5 !== 0 && i !== tiles.length - 1;
         const hasBottomBorder = i < 5;
         return (
@@ -161,7 +159,7 @@ function StatBar({ tiles }: { tiles: StatTile[] }) {
             borderBottom: hasBottomBorder ? `1px solid ${RULE}` : "none",
           }}>
             <p style={{
-              fontFamily: SERIF, fontSize: size, fontWeight: 400,
+              fontFamily: SERIF, fontSize: "1rem", fontWeight: 400,
               color: t.heroColor ?? INK, lineHeight: 1.2,
               margin: "0 0 5px", letterSpacing: "-0.01em",
               wordBreak: "break-word",
@@ -209,20 +207,22 @@ export default function InsightsClient({
   const maxStylePct     = styleBreakdown[0]?.pct      ?? 100;
 
   // Derive stats bar tiles from available data
-  const holyGrailCount = desirabilityBreakdown.find((d) => d.tier === "holy-grail")?.count ?? 0;
-  const topRealGenre   = genreBreakdown.find((g) => g.genre !== "Unknown" && g.genre !== "");
-  const topArtist      = topArtists[0] ?? null;
-  const topLabel       = topLabels[0]  ?? null;
+  const holyGrailCount  = desirabilityBreakdown.find((d) => d.tier === "holy-grail")?.count ?? 0;
+  const topRealGenre    = genreBreakdown.find((g) => g.genre !== "Unknown" && g.genre !== "");
+  const topPressOrigin  = countryBreakdown[0] ?? null;
+  const topArtist       = topArtists[0] ?? null;
+  const topLabel        = topLabels[0]  ?? null;
 
   const statTiles: StatTile[] = [
     { hero: totalRecords.toLocaleString(), label: "Items" },
     ...(topFormat ? [{ hero: topFormat.count.toLocaleString(), label: fmtFormatLabel(topFormat.name) }] : []),
-    ...(holyGrailCount > 0 ? [{ hero: holyGrailCount.toLocaleString(), label: "Holy Grail", heroColor: ORANGE }] : []),
     ...(topRealGenre ? [{ hero: `${topRealGenre.pct}%`, label: topRealGenre.genre }] : []),
+    ...(topPressOrigin ? [{ hero: `${topPressOrigin.pct}%`, label: topPressOrigin.country }] : []),
     ...(topArtist ? [{ hero: topArtist.artist, label: `${topArtist.count} vinyl items` }] : []),
     ...(topLabel ? [{ hero: topLabel.label, label: `${topLabel.count} label items` }] : []),
     ...(yearRange ? [{ hero: yearRange.oldest !== yearRange.newest ? `${yearRange.oldest} → ${yearRange.newest}` : String(yearRange.oldest), label: "Collection span" }] : []),
     ...(mostPopularYear ? [{ hero: String(mostPopularYear), label: "Most collected year" }] : []),
+    ...(holyGrailCount > 0 ? [{ hero: holyGrailCount.toLocaleString(), label: "Holy Grail" }] : []),
     { hero: totalMed > 0 ? fmtValueShort(totalMed, currency) : "—", label: "Median collection value" },
   ];
 
