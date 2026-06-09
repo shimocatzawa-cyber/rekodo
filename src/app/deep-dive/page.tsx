@@ -43,26 +43,26 @@ export default async function DeepDivePage() {
 
   const recordIds = allLinks.map((l) => l.record_id);
 
-  // Fetch artist + album + year for all records (batched)
-  type RecordRow = { id: string; artist: string; album: string; year: number | null };
+  // Fetch artist + album + year + cover_url for all records (batched)
+  type RecordRow = { id: string; artist: string; album: string; year: number | null; cover_url: string | null };
   const recordsMap = new Map<string, RecordRow>();
   const BATCH = 400;
   for (let i = 0; i < recordIds.length; i += BATCH) {
     const { data } = await supabase
       .from("records")
-      .select("id, artist, album, year")
+      .select("id, artist, album, year, cover_url")
       .in("id", recordIds.slice(i, i + BATCH));
     for (const r of data ?? []) recordsMap.set(r.id, r as RecordRow);
   }
 
   // Group records by artist
-  const artistMap = new Map<string, { count: number; records: { album: string; year: number | null }[] }>();
+  const artistMap = new Map<string, { count: number; records: { album: string; year: number | null; cover_url: string | null }[] }>();
   for (const link of allLinks) {
     const r = recordsMap.get(link.record_id);
     if (!r?.artist) continue;
     const entry = artistMap.get(r.artist) ?? { count: 0, records: [] };
     entry.count++;
-    entry.records.push({ album: r.album, year: r.year ?? null });
+    entry.records.push({ album: r.album, year: r.year ?? null, cover_url: r.cover_url ?? null });
     artistMap.set(r.artist, entry);
   }
 
@@ -72,7 +72,7 @@ export default async function DeepDivePage() {
       count,
       records: records.sort((a, b) => (a.year ?? 9999) - (b.year ?? 9999)),
     }))
-    .sort((a, b) => b.count - a.count || a.name.localeCompare(b.name));
+    .sort((a, b) => a.name.localeCompare(b.name));
 
   return (
     <>

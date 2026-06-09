@@ -3,7 +3,7 @@ import Anthropic from "@anthropic-ai/sdk";
 
 const client = new Anthropic();
 
-const PROMPTS: Record<string, (artist: string) => string> = {
+const PROMPTS: Record<string, (artist: string, ownedAlbums?: string[]) => string> = {
   rankings: (artist) =>
     `You are a music critic writing for serious vinyl collectors. Rank ${artist}'s studio albums from best to worst. Be specific and opinionated — name what makes each album succeed or fail. For each include a collector note about pressings worth seeking.
 Return ONLY valid JSON, no markdown, no backticks, no preamble:
@@ -26,13 +26,29 @@ format field must be one of: "book", "audiobook", "both". Do not fabricate title
 Return ONLY valid JSON, no markdown, no backticks, no preamble:
 {"interviews":[{"publication":"Publication or platform","title":"Interview title or description","year":1982,"format":"print","note":"What makes it essential"}]}
 format must be one of: "print", "video", "audio". Do not fabricate.`,
+
+  related: (artist) =>
+    `You are a music expert guiding a vinyl collector. Based on ${artist}'s style, sound, and era, suggest 8 related artists worth exploring. Cover both the obvious (close contemporaries, same scene) and the less obvious (stylistic connections, cross-genre links).
+Return ONLY valid JSON, no markdown, no backticks, no preamble:
+{"artists":[{"name":"Artist Name","genre":"Style or genre","reason":"Why fans of ${artist} will connect with this artist","mustHear":"The one album to start with"}]}`,
+
+  blindspot: (artist, ownedAlbums = []) => {
+    const ownedList = ownedAlbums.length > 0
+      ? `The collector already owns: ${ownedAlbums.join(", ")}.`
+      : `The collector does not yet own any albums by ${artist}.`;
+    return `You are a record collector's guide. A vinyl enthusiast collects ${artist}. ${ownedList} Identify the essential studio albums NOT in their collection that belong in any serious ${artist} library. Be selective — flag only genuine gaps, not completionist picks.
+Return ONLY valid JSON, no markdown, no backticks, no preamble:
+{"albums":[{"title":"Album Title","year":1975,"why":"Why this album is essential and what the collector is missing","tip":"Edition or pressing worth seeking"}]}
+List at most 8 albums. If no significant gaps exist, return {"albums":[]}.`;
+  },
 };
 
 export async function POST(request: NextRequest) {
   try {
-    const { artist, section } = (await request.json()) as {
+    const { artist, section, ownedAlbums } = (await request.json()) as {
       artist?: string;
       section?: string;
+      ownedAlbums?: string[];
     };
 
     if (!artist || !section || !PROMPTS[section]) {
@@ -42,7 +58,7 @@ export async function POST(request: NextRequest) {
     const message = await client.messages.create({
       model: "claude-haiku-4-5",
       max_tokens: 1500,
-      messages: [{ role: "user", content: PROMPTS[section](artist) }],
+      messages: [{ role: "user", content: PROMPTS[section](artist, ownedAlbums) }],
     });
 
     const text =

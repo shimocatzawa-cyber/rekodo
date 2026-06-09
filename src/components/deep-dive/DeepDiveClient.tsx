@@ -10,19 +10,22 @@ const RULE   = "#e0e0da";
 const WARM   = "#FDF6F0";
 const SUBTLE = "#f0efea";
 
-type Section = "rankings" | "podcasts" | "books" | "interviews";
+type Section = "collection" | "rankings" | "podcasts" | "books" | "interviews" | "related" | "blindspot";
 
 export type ArtistData = {
   name: string;
   count: number;
-  records: { album: string; year: number | null }[];
+  records: { album: string; year: number | null; cover_url: string | null }[];
 };
 
 const TABS: { id: Section; label: string }[] = [
+  { id: "collection", label: "Collection" },
   { id: "rankings",   label: "Rankings" },
   { id: "podcasts",   label: "Podcasts" },
   { id: "books",      label: "Books & Audiobooks" },
   { id: "interviews", label: "Interviews" },
+  { id: "related",    label: "Related Artists" },
+  { id: "blindspot",  label: "Blind Spot" },
 ];
 
 // ── Shared primitives ──────────────────────────────────────────────────────────
@@ -229,6 +232,169 @@ function InterviewsContent({ data }: { data: { interviews?: InterviewItem[] } })
   );
 }
 
+// ── Collection ─────────────────────────────────────────────────────────────────
+
+function CollectionContent({ records }: { records: { album: string; year: number | null }[] }) {
+  if (records.length === 0) {
+    return (
+      <p style={{ fontFamily: MONO, fontSize: "0.72rem", letterSpacing: "0.04em", color: INK, padding: "2rem 0" }}>
+        No records found in your collection for this artist.
+      </p>
+    );
+  }
+  return (
+    <div>
+      {records.map((r, i) => (
+        <div key={i} style={{ padding: "1rem 0", borderBottom: `1px solid ${RULE}`, display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 16 }}>
+          <span style={{ fontFamily: SERIF, fontSize: "0.95rem", fontWeight: 500, color: INK, letterSpacing: "-0.01em" }}>
+            {r.album}
+          </span>
+          {r.year && (
+            <span style={{ fontFamily: MONO, fontSize: "0.65rem", letterSpacing: "0.08em", color: INK, flexShrink: 0 }}>
+              {r.year}
+            </span>
+          )}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+// ── Collection strip (artwork tiles above tabs) ────────────────────────────────
+
+function VinylFallback() {
+  return (
+    <div style={{ width: 80, height: 80, background: WARM, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+      <svg width="34" height="34" viewBox="0 0 34 34" fill="none" aria-hidden>
+        <circle cx="17" cy="17" r="15" stroke={ORANGE} strokeWidth="1.5" />
+        <circle cx="17" cy="17" r="5" stroke={ORANGE} strokeWidth="1.5" />
+        <circle cx="17" cy="17" r="1.5" fill={ORANGE} />
+      </svg>
+    </div>
+  );
+}
+
+function CollectionStrip({ records }: { records: ArtistData["records"] }) {
+  return (
+    <div>
+      <style>{`.dd-strip::-webkit-scrollbar { display: none; }`}</style>
+      <p style={{ fontFamily: MONO, fontSize: "0.58rem", letterSpacing: "0.12em", textTransform: "uppercase", color: ORANGE, margin: "0 0 10px" }}>
+        Your Collection
+      </p>
+      <div
+        className="dd-strip"
+        style={{ display: "flex", overflowX: "auto", gap: "0.75rem", paddingBottom: "0.75rem", scrollbarWidth: "none" as const }}
+      >
+        {records.map((r, i) => (
+          <div key={i} style={{ flexShrink: 0, width: 80 }}>
+            {r.cover_url ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={r.cover_url}
+                alt=""
+                aria-hidden
+                style={{ width: 80, height: 80, objectFit: "cover", display: "block" }}
+              />
+            ) : (
+              <VinylFallback />
+            )}
+            <p style={{
+              fontFamily: MONO, fontSize: "0.6rem", letterSpacing: "0.04em", color: INK,
+              margin: "4px 0 1px", lineHeight: 1.3,
+              overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
+            }}>
+              {r.album}
+            </p>
+            {r.year && (
+              <p style={{ fontFamily: MONO, fontSize: "0.58rem", letterSpacing: "0.06em", color: "#aaaaaa", margin: 0 }}>
+                {r.year}
+              </p>
+            )}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// ── Related Artists ────────────────────────────────────────────────────────────
+
+type RelatedArtist = { name: string; genre: string; reason: string; mustHear: string };
+
+function RelatedArtistsContent({ data }: { data: { artists?: RelatedArtist[] } }) {
+  const related = data.artists ?? [];
+  if (related.length === 0) {
+    return (
+      <p style={{ fontFamily: MONO, fontSize: "0.72rem", letterSpacing: "0.04em", color: INK, padding: "2rem 0" }}>
+        No related artists data available.
+      </p>
+    );
+  }
+  return (
+    <div>
+      {related.map((a, i) => (
+        <div key={i} style={{ padding: "1.5rem 0", borderBottom: `1px solid ${RULE}` }}>
+          <div style={{ display: "flex", gap: 10, alignItems: "baseline", flexWrap: "wrap", marginBottom: 8 }}>
+            <span style={{ fontFamily: SERIF, fontSize: "1rem", fontWeight: 600, color: INK, letterSpacing: "-0.01em" }}>
+              {a.name}
+            </span>
+            <Badge label={a.genre} />
+          </div>
+          <p style={{ fontFamily: MONO, fontSize: "0.72rem", letterSpacing: "0.04em", color: INK, lineHeight: 1.7, margin: "0 0 8px" }}>
+            {a.reason}
+          </p>
+          <p style={{ fontFamily: MONO, fontSize: "0.68rem", letterSpacing: "0.04em", color: INK, fontStyle: "italic", margin: 0 }}>
+            Start with: <span style={{ fontStyle: "normal" }}>{a.mustHear}</span>
+          </p>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+// ── Blind Spot ─────────────────────────────────────────────────────────────────
+
+type BlindSpotAlbum = { title: string; year: number; why: string; tip: string };
+
+function BlindSpotContent({ data }: { data: { albums?: BlindSpotAlbum[] } }) {
+  const albums = data.albums ?? [];
+  if (albums.length === 0) {
+    return (
+      <p style={{ fontFamily: MONO, fontSize: "0.72rem", letterSpacing: "0.04em", color: INK, padding: "2rem 0" }}>
+        No significant gaps found — your collection covers the essential releases.
+      </p>
+    );
+  }
+  return (
+    <div>
+      {albums.map((a, i) => (
+        <div key={i} style={{ padding: "1.5rem 0", borderBottom: `1px solid ${RULE}` }}>
+          <div style={{ display: "flex", gap: 12, alignItems: "baseline", flexWrap: "wrap", marginBottom: 10 }}>
+            <span style={{ fontFamily: SERIF, fontSize: "1rem", fontWeight: 600, color: INK, letterSpacing: "-0.01em" }}>
+              {a.title}
+            </span>
+            <span style={{ fontFamily: MONO, fontSize: "0.7rem", letterSpacing: "0.04em", color: INK }}>
+              · {a.year}
+            </span>
+          </div>
+          <div style={{ borderTop: `1px solid ${RULE}`, margin: "0 0 10px" }} />
+          <p style={{ fontFamily: MONO, fontSize: "0.72rem", letterSpacing: "0.04em", color: INK, lineHeight: 1.7, margin: "0 0 10px" }}>
+            {a.why}
+          </p>
+          {a.tip && (
+            <>
+              <div style={{ borderTop: `1px solid ${RULE}`, margin: "0 0 10px" }} />
+              <p style={{ fontFamily: MONO, fontSize: "0.68rem", letterSpacing: "0.04em", color: INK, fontStyle: "italic", lineHeight: 1.6, margin: 0 }}>
+                {a.tip}
+              </p>
+            </>
+          )}
+        </div>
+      ))}
+    </div>
+  );
+}
+
 // ── Artist row (sidebar) ───────────────────────────────────────────────────────
 
 function ArtistRow({
@@ -303,7 +469,7 @@ function EmptyPanel() {
 export default function DeepDiveClient({ artists }: { artists: ArtistData[] }) {
   const [query, setQuery] = useState("");
   const [selectedArtist, setSelectedArtist] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<Section>("rankings");
+  const [activeTab, setActiveTab] = useState<Section>("collection");
   const [imageMap, setImageMap] = useState<Record<string, string>>({});
   const [cache, setCache] = useState<Record<string, Record<string, unknown>>>({});
   const [loadingTabs, setLoadingTabs] = useState<Record<string, boolean>>({});
@@ -334,12 +500,16 @@ export default function DeepDiveClient({ artists }: { artists: ArtistData[] }) {
   // Auto-trigger intelligence fetch when artist or tab changes
   useEffect(() => {
     if (!selectedArtist) return;
+    if (activeTab === "collection") return; // local data only
+
     const key = `${selectedArtist}:${activeTab}`;
     if (startedRef.current.has(key)) return;
     startedRef.current.add(key);
 
     const artist = selectedArtist;
     const section = activeTab;
+    const artistData = artists.find((a) => a.name === selectedArtist);
+    const ownedAlbums = section === "blindspot" ? (artistData?.records.map((r) => r.album) ?? []) : undefined;
 
     setLoadingTabs((prev) => ({ ...prev, [key]: true }));
     setErrorTabs((prev) => { const n = { ...prev }; delete n[key]; return n; });
@@ -347,7 +517,7 @@ export default function DeepDiveClient({ artists }: { artists: ArtistData[] }) {
     fetch("/api/deep-dive/intelligence", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ artist, section }),
+      body: JSON.stringify({ artist, section, ...(ownedAlbums && { ownedAlbums }) }),
     })
       .then((r) => (r.ok ? r.json() : Promise.reject(new Error("API error"))))
       .then((json: { data: unknown }) => {
@@ -369,23 +539,25 @@ export default function DeepDiveClient({ artists }: { artists: ArtistData[] }) {
   function selectArtist(name: string) {
     if (selectedArtist !== name) {
       setSelectedArtist(name);
-      setActiveTab("rankings");
+      setActiveTab("collection");
     }
   }
 
   function retryFetch(artist: string, section: Section) {
     const key = `${artist}:${section}`;
-    // Key was already deleted from startedRef on error, so this re-runs the effect logic:
-    startedRef.current.delete(key); // ensure re-triggerable
+    startedRef.current.delete(key);
     setErrorTabs((prev) => { const n = { ...prev }; delete n[key]; return n; });
 
     setLoadingTabs((prev) => ({ ...prev, [key]: true }));
     startedRef.current.add(key);
 
+    const artistData = artists.find((a) => a.name === artist);
+    const ownedAlbums = section === "blindspot" ? (artistData?.records.map((r) => r.album) ?? []) : undefined;
+
     fetch("/api/deep-dive/intelligence", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ artist, section }),
+      body: JSON.stringify({ artist, section, ...(ownedAlbums && { ownedAlbums }) }),
     })
       .then((r) => (r.ok ? r.json() : Promise.reject(new Error("API error"))))
       .then((json: { data: unknown }) => {
@@ -408,6 +580,8 @@ export default function DeepDiveClient({ artists }: { artists: ArtistData[] }) {
     const key = `${selectedArtist}:${activeTab}`;
     const artist = selectedArtist;
     const tab = activeTab;
+
+    if (tab === "collection") return <CollectionContent records={selectedData?.records ?? []} />;
 
     if (loadingTabs[key]) return <SkeletonRows />;
 
@@ -434,6 +608,8 @@ export default function DeepDiveClient({ artists }: { artists: ArtistData[] }) {
     if (tab === "podcasts")   return <PodcastsContent   data={data as { episodes?: Episode[] }} artist={selectedArtist} />;
     if (tab === "books")      return <BooksContent      data={data as { items?: BookItem[] }} />;
     if (tab === "interviews") return <InterviewsContent data={data as { interviews?: InterviewItem[] }} />;
+    if (tab === "related")    return <RelatedArtistsContent data={data as { artists?: RelatedArtist[] }} />;
+    if (tab === "blindspot")  return <BlindSpotContent  data={data as { albums?: BlindSpotAlbum[] }} />;
     return null;
   }
 
@@ -458,13 +634,17 @@ export default function DeepDiveClient({ artists }: { artists: ArtistData[] }) {
             <h2 style={{ fontFamily: SERIF, fontSize: "2rem", fontWeight: 600, color: INK, letterSpacing: "-0.025em", lineHeight: 1.1, margin: "0 0 6px" }}>
               {selectedArtist}
             </h2>
-            <p style={{ fontFamily: MONO, fontSize: "0.7rem", letterSpacing: "0.06em", color: INK, margin: "0 0 8px" }}>
+            <p style={{ fontFamily: MONO, fontSize: "0.7rem", letterSpacing: "0.06em", color: INK, margin: 0 }}>
               {selectedData.count} {selectedData.count === 1 ? "record" : "records"} in your collection
             </p>
-            <p style={{ fontFamily: MONO, fontSize: "0.65rem", letterSpacing: "0.04em", color: INK, margin: 0, lineHeight: 1.7, wordBreak: "break-word" }}>
-              {selectedData.records.map((r) => r.album).join(" · ")}
-            </p>
           </div>
+        </div>
+
+        <div style={{ borderBottom: `1px solid ${RULE}` }} />
+
+        {/* Artwork strip */}
+        <div style={{ padding: "1.5rem 0 0.5rem" }}>
+          <CollectionStrip records={selectedData.records} />
         </div>
 
         <div style={{ borderBottom: `1px solid ${RULE}` }} />
