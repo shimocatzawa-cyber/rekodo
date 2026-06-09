@@ -1,6 +1,6 @@
 "use client";
 
-import { AreaChart, BarList, ProgressBar } from "@tremor/react";
+import { AreaChart } from "@tremor/react";
 import AppNav from "@/components/AppNav";
 
 const SERIF  = "var(--font-editorial)";
@@ -18,7 +18,6 @@ export interface InsightsProps {
   currency:       string;
   totalLow:       number;
   totalMed:       number;
-  totalHigh:      number;
   totalRecords:   number;
   snapshots:      { date: string; "Total Value": number }[];
   topRecordsByValue: { artist: string; album: string; price_median: number; price_low: number; price_high: number }[];
@@ -81,17 +80,29 @@ function SubLabel({ children }: { children: React.ReactNode }) {
   );
 }
 
+function PercentBar({ pct, maxPct = 100 }: { pct: number; maxPct?: number }) {
+  const fill = maxPct > 0 ? Math.min((pct / maxPct) * 100, 100) : Math.min(pct, 100);
+  return (
+    <div style={{ height: "3px", background: RULE, borderRadius: "2px", overflow: "hidden" }}>
+      <div style={{ width: `${fill}%`, height: "100%", background: ORANGE, borderRadius: "2px" }} />
+    </div>
+  );
+}
+
 // ── Main component ─────────────────────────────────────────────────────────────
 
 export default function InsightsClient({
   username, displayLabel, avatarUrl, currency,
-  totalLow, totalMed, totalHigh, totalRecords, snapshots, topRecordsByValue,
+  totalLow, totalMed, totalRecords, snapshots, topRecordsByValue,
   mediaConditionBreakdown, sleeveConditionBreakdown,
   genreBreakdown, styleBreakdown, hasStyles,
   countryBreakdown, topLabels,
 }: InsightsProps) {
 
-  const hasSparkline = snapshots.length >= 2;
+  const hasSparkline    = snapshots.length >= 2;
+  const maxGenrePct     = genreBreakdown[0]?.pct      ?? 100;
+  const maxCountryCount = countryBreakdown[0]?.count  ?? 1;
+  const maxStylePct     = styleBreakdown[0]?.pct      ?? 100;
 
   return (
     <div style={{ minHeight: "100vh", background: "#ffffff" }}>
@@ -119,13 +130,12 @@ export default function InsightsClient({
         {/* ── Section 1: Collection Value ──────────────────────────────────── */}
         <SectionHeader eyebrow="Collection Value" title="What Your Collection Is Worth" />
 
-        {/* Three stat boxes */}
         <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "2px", marginBottom: "40px" }}>
-          {([
-            { label: "LOW",     value: totalLow  > 0 ? fmtCurrency(totalLow,  currency) : "—" },
-            { label: "MEDIAN",  value: totalMed  > 0 ? fmtCurrency(totalMed,  currency) : "—" },
-            { label: "HIGH",    value: totalHigh > 0 ? fmtCurrency(totalHigh, currency) : "—" },
-          ] as const).map(({ label, value }) => (
+          {[
+            { label: "LOW ESTIMATE",    value: totalLow     > 0 ? fmtCurrency(totalLow, currency)        : "—" },
+            { label: "MEDIAN ESTIMATE", value: totalMed     > 0 ? fmtCurrency(totalMed, currency)        : "—" },
+            { label: "RECORDS",         value: totalRecords > 0 ? totalRecords.toLocaleString("en-AU")   : "—" },
+          ].map(({ label, value }) => (
             <div key={label} style={{ padding: "24px 0" }}>
               <div style={{
                 fontFamily: SERIF, fontSize: "34px", fontWeight: 700,
@@ -143,7 +153,7 @@ export default function InsightsClient({
           ))}
         </div>
 
-        {/* Sparkline or placeholder */}
+        {/* Sparkline */}
         <div style={{ marginBottom: "40px" }}>
           <SubLabel>Median value over time</SubLabel>
           {hasSparkline ? (
@@ -164,16 +174,14 @@ export default function InsightsClient({
           )}
         </div>
 
-        {/* Top 5 records table */}
+        {/* Top 5 records */}
         {topRecordsByValue.length > 0 && (
           <div>
             <SubLabel>Top records by value</SubLabel>
             <div style={{ borderTop: `0.5px solid ${RULE}` }}>
               <div style={{
-                display: "grid",
-                gridTemplateColumns: "1fr 1fr 130px 110px",
-                gap: "16px", padding: "10px 0",
-                borderBottom: `0.5px solid ${RULE}`,
+                display: "grid", gridTemplateColumns: "1fr 1fr 130px 110px",
+                gap: "16px", padding: "10px 0", borderBottom: `0.5px solid ${RULE}`,
               }}>
                 {["Artist", "Album", "Median", "Low"].map((h) => (
                   <span key={h} style={{
@@ -186,10 +194,8 @@ export default function InsightsClient({
               </div>
               {topRecordsByValue.map((r, i) => (
                 <div key={i} style={{
-                  display: "grid",
-                  gridTemplateColumns: "1fr 1fr 130px 110px",
-                  gap: "16px", padding: "14px 0",
-                  borderBottom: `0.5px solid ${RULE}`,
+                  display: "grid", gridTemplateColumns: "1fr 1fr 130px 110px",
+                  gap: "16px", padding: "14px 0", borderBottom: `0.5px solid ${RULE}`,
                 }}>
                   <span style={{
                     fontFamily: MONO, fontSize: "11px", color: INK,
@@ -221,10 +227,10 @@ export default function InsightsClient({
         <SectionHeader eyebrow="Collection Condition" title="Record & Sleeve Grades" />
 
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "48px" }}>
-          {([
+          {[
             { label: "Media Grade",  data: mediaConditionBreakdown  },
             { label: "Sleeve Grade", data: sleeveConditionBreakdown },
-          ] as const).map(({ label, data }) => (
+          ].map(({ label, data }) => (
             <div key={label}>
               <SubLabel>{label}</SubLabel>
               {data.length === 0 ? (
@@ -244,7 +250,7 @@ export default function InsightsClient({
                           {count}{" "}<span style={{ color: ORANGE }}>{pct}%</span>
                         </span>
                       </div>
-                      <ProgressBar value={pct} color="orange" />
+                      <PercentBar pct={pct} />
                     </div>
                   ))}
                 </div>
@@ -264,12 +270,22 @@ export default function InsightsClient({
             No genre data available.
           </p>
         ) : (
-          <div style={{ marginBottom: "48px" }}>
-            <BarList
-              data={genreBreakdown.map(({ genre, count }) => ({ name: genre, value: count }))}
-              color="orange"
-              valueFormatter={(v: number) => `${v} records`}
-            />
+          <div style={{ display: "flex", flexDirection: "column", gap: "14px", marginBottom: "48px" }}>
+            {genreBreakdown.map(({ genre, count, valueSum, pct }) => (
+              <div key={genre}>
+                <div style={{
+                  display: "flex", justifyContent: "space-between",
+                  alignItems: "baseline", marginBottom: "6px", gap: "12px",
+                }}>
+                  <span style={{ fontFamily: MONO, fontSize: "11px", color: INK }}>{genre}</span>
+                  <span style={{ fontFamily: MONO, fontSize: "11px", color: INK, whiteSpace: "nowrap" }}>
+                    {count} records
+                    {valueSum > 0 && <> · <span style={{ color: ORANGE }}>{fmtCurrency(valueSum, currency)}</span></>}
+                  </span>
+                </div>
+                <PercentBar pct={pct} maxPct={maxGenrePct} />
+              </div>
+            ))}
           </div>
         )}
 
@@ -279,11 +295,22 @@ export default function InsightsClient({
             Style data available after your next sync.
           </p>
         ) : (
-          <BarList
-            data={styleBreakdown.map(({ style, count }) => ({ name: style, value: count }))}
-            color="orange"
-            valueFormatter={(v: number) => `${v} records`}
-          />
+          <div style={{ display: "flex", flexDirection: "column", gap: "14px" }}>
+            {styleBreakdown.map(({ style, count, pct }) => (
+              <div key={style}>
+                <div style={{
+                  display: "flex", justifyContent: "space-between",
+                  alignItems: "baseline", marginBottom: "6px",
+                }}>
+                  <span style={{ fontFamily: MONO, fontSize: "11px", color: INK }}>{style}</span>
+                  <span style={{ fontFamily: MONO, fontSize: "11px", color: INK }}>
+                    {count}{" "}<span style={{ color: ORANGE }}>{pct}%</span>
+                  </span>
+                </div>
+                <PercentBar pct={pct} maxPct={maxStylePct} />
+              </div>
+            ))}
+          </div>
         )}
 
         <SectionDivider />
@@ -296,11 +323,31 @@ export default function InsightsClient({
             No country data available.
           </p>
         ) : (
-          <BarList
-            data={countryBreakdown.map(({ country, count }) => ({ name: country, value: count }))}
-            color="orange"
-            valueFormatter={(v: number) => `${v} records`}
-          />
+          <div style={{ display: "flex", flexDirection: "column", gap: "14px" }}>
+            {countryBreakdown.map(({ country, count, valueSum }, i) => (
+              <div key={country}>
+                <div style={{
+                  display: "flex", justifyContent: "space-between",
+                  alignItems: "center", marginBottom: "6px", gap: "12px",
+                }}>
+                  <div style={{ display: "flex", alignItems: "baseline", gap: "14px" }}>
+                    <span style={{
+                      fontFamily: SERIF, fontSize: "13px", fontWeight: 700,
+                      color: ORANGE, minWidth: "22px",
+                    }}>
+                      {String(i + 1).padStart(2, "0")}
+                    </span>
+                    <span style={{ fontFamily: MONO, fontSize: "11px", color: INK }}>{country}</span>
+                  </div>
+                  <span style={{ fontFamily: MONO, fontSize: "11px", color: INK, whiteSpace: "nowrap" }}>
+                    {count} records
+                    {valueSum > 0 && <> · <span style={{ color: ORANGE }}>{fmtCurrency(valueSum, currency)}</span></>}
+                  </span>
+                </div>
+                <PercentBar pct={count} maxPct={maxCountryCount} />
+              </div>
+            ))}
+          </div>
         )}
 
         <SectionDivider />
@@ -331,9 +378,7 @@ export default function InsightsClient({
                   </div>
                   <div style={{ fontFamily: MONO, fontSize: "10px", color: INK }}>
                     {count} record{count !== 1 ? "s" : ""}
-                    {valueSum > 0 && (
-                      <> · <span style={{ color: ORANGE }}>{fmtCurrency(valueSum, currency)}</span></>
-                    )}
+                    {valueSum > 0 && <> · <span style={{ color: ORANGE }}>{fmtCurrency(valueSum, currency)}</span></>}
                   </div>
                 </div>
               </div>

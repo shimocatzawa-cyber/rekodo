@@ -14,7 +14,7 @@ export default async function InsightsPage() {
   const emailPrefix = (user.email ?? "").split("@")[0] || "user";
   const { data: profile } = await supabase
     .from("profiles")
-    .select("username, display_name, avatar_url, country_code, collection_value_low, collection_value_med, collection_value_high, collection_value_currency")
+    .select("username, display_name, avatar_url, country_code")
     .eq("id", user.id)
     .maybeSingle() as {
       data: {
@@ -22,10 +22,6 @@ export default async function InsightsPage() {
         display_name?: string | null;
         avatar_url?: string | null;
         country_code?: string | null;
-        collection_value_low?: number | null;
-        collection_value_med?: number | null;
-        collection_value_high?: number | null;
-        collection_value_currency?: string | null;
       } | null;
       error: unknown;
     };
@@ -125,11 +121,14 @@ export default async function InsightsPage() {
     };
   });
 
-  // ── Collection value totals (from Discogs collection value API via profiles) ─
-  const cvCurrency = profile?.collection_value_currency ?? "USD";
-  const totalLow  = convertPrice(profile?.collection_value_low  ?? null, cvCurrency) ?? 0;
-  const totalMed  = convertPrice(profile?.collection_value_med  ?? null, cvCurrency) ?? 0;
-  const totalHigh = convertPrice(profile?.collection_value_high ?? null, cvCurrency) ?? 0;
+  // ── Collection value totals (aggregated from user_records prices) ────────────
+  let totalLow = 0, totalMed = 0;
+  for (const link of allLinks) {
+    const low = convertPrice(link.price_low,    link.price_currency);
+    const med = convertPrice(link.price_median, link.price_currency);
+    if (low != null) totalLow += low;
+    if (med != null) totalMed += med;
+  }
 
   // ── Top 5 records by price_median ─────────────────────────────────────────
   const topRecordsByValue: InsightsProps["topRecordsByValue"] = allLinks
@@ -258,7 +257,6 @@ export default async function InsightsPage() {
       currency={userCurrency}
       totalLow={totalLow}
       totalMed={totalMed}
-      totalHigh={totalHigh}
       totalRecords={allLinks.length}
       snapshots={snapshots}
       topRecordsByValue={topRecordsByValue}
