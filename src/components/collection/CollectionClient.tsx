@@ -88,7 +88,7 @@ function groupByLetter(records: CollectionRecord[]) {
 const COLOUR_KEYWORDS = new Set([
   "Black", "White", "Red", "Blue", "Green", "Yellow", "Orange", "Purple",
   "Clear", "Colored", "Coloured", "Marbled", "Splatter", "Opaque",
-  "Translucent", "Picture Disc", "Etched",
+  "Translucent", "Transparent", "Picture Disc", "Etched",
 ]);
 
 const FORMAT_SKIP = new Set([
@@ -125,7 +125,7 @@ function extractVinylColour(formats?: FormatItem[]): string | null {
   const match = (vinyl.descriptions ?? []).find((d) =>
     [...COLOUR_KEYWORDS].some((kw) => d.toLowerCase().includes(kw.toLowerCase()))
   );
-  return match ?? "Black";
+  return match ?? null;
 }
 
 function sym(code: string): string {

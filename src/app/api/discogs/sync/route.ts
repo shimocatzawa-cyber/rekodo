@@ -155,9 +155,56 @@ export async function GET(request: NextRequest) {
       const total    = completedData.total_records;
       const newAdded = completedData.new_added;
 
-      // ── Phase 5: Backfill missing format/country ────────────────────────────
-      // Fetch all record IDs for this user — collectionItems is not available
-      // after the queue handoff, so we query user_records directly.
+      // ── Collection value + snapshot — runs BEFORE backfill so a snapshot is
+      //    always saved even if the backfill later times out or is aborted. ──────
+      type ColVal = { minimum?: { value?: number; currency?: string }; median?: { value?: number }; maximum?: { value?: number } };
+      let colVal: ColVal = {};
+      try {
+        const cvUrl  = `https://api.discogs.com/users/${encodeURIComponent(discogsUser)}/collection/value`;
+        const cvAuth = buildAuthHeader("GET", cvUrl, key, secret, accessToken, tokenSecret);
+        const cvRes  = await fetch(cvUrl, { headers: { Authorization: cvAuth, "User-Agent": UA } });
+        if (cvRes.ok) colVal = await cvRes.json() as ColVal;
+      } catch { /* non-fatal */ }
+
+      const timestamp = new Date().toISOString();
+
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      await (supabase.from("profiles") as any)
+        .update({
+          last_synced_at:            timestamp,
+          collection_value_low:      colVal.minimum?.value     ?? null,
+          collection_value_med:      colVal.median?.value      ?? null,
+          collection_value_high:     colVal.maximum?.value     ?? null,
+          collection_value_currency: colVal.minimum?.currency  ?? null,
+          collection_value_at:       colVal.minimum?.value ? timestamp : null,
+          taste_summary_count:       null,
+        })
+        .eq("id", user.id);
+
+      if (colVal.minimum?.value != null) {
+        try {
+          const svcKey  = process.env.SUPABASE_SERVICE_ROLE_KEY;
+          const sbUrl   = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+          const adminDb = svcKey
+            ? createServiceClient(sbUrl, svcKey, { auth: { persistSession: false } })
+            : supabase;
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          await (adminDb as any).from("collection_value_snapshots").insert({
+            user_id:      user.id,
+            snapshot_at:  timestamp,
+            value_low:    colVal.minimum?.value  ?? null,
+            value_med:    colVal.median?.value   ?? null,
+            value_high:   colVal.maximum?.value  ?? null,
+            currency:     colVal.minimum?.currency ?? "USD",
+            record_count: total,
+          });
+        } catch { /* non-fatal */ }
+      }
+
+      // ── Backfill missing format/country ─────────────────────────────────────
+      // The Discogs collection listing API does not include country, so individual
+      // release lookups are needed. Capped to 30 per sync (~18s max) to avoid
+      // Vercel timeouts; country fills progressively across subsequent syncs.
       const allUserRecordIds: string[] = [];
       for (let from = 0; ; from += BATCH) {
         const { data } = await supabase
@@ -183,10 +230,6 @@ export async function GET(request: NextRequest) {
         for (const r of data ?? []) needingBackfill.push(r as RecordStub);
       }
 
-      // Cap to 30 records per sync. The Discogs collection listing API does not
-      // include the country field, so individual release lookups are required.
-      // Running all at once causes Vercel function timeouts for large collections.
-      // Records drain progressively across subsequent syncs.
       const BACKFILL_CAP = 30;
       const toBackfill   = needingBackfill.slice(0, BACKFILL_CAP);
       let   backfillDone = 0;
@@ -216,53 +259,6 @@ export async function GET(request: NextRequest) {
           backfillDone += bfBatch.length;
           if (bi + BACKFILL_BATCH < toBackfill.length) await sleep(1_000);
         }
-      }
-
-      // ── Phase 6: Collection value from Discogs ──────────────────────────────
-      type ColVal = { minimum?: { value?: number; currency?: string }; median?: { value?: number }; maximum?: { value?: number } };
-      let colVal: ColVal = {};
-      try {
-        const cvUrl  = `https://api.discogs.com/users/${encodeURIComponent(discogsUser)}/collection/value`;
-        const cvAuth = buildAuthHeader("GET", cvUrl, key, secret, accessToken, tokenSecret);
-        const cvRes  = await fetch(cvUrl, { headers: { Authorization: cvAuth, "User-Agent": UA } });
-        if (cvRes.ok) colVal = await cvRes.json() as ColVal;
-      } catch { /* non-fatal */ }
-
-      // ── Complete ────────────────────────────────────────────────────────────
-      const timestamp = new Date().toISOString();
-
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      await (supabase.from("profiles") as any)
-        .update({
-          last_synced_at:            timestamp,
-          collection_value_low:      colVal.minimum?.value     ?? null,
-          collection_value_med:      colVal.median?.value      ?? null,
-          collection_value_high:     colVal.maximum?.value     ?? null,
-          collection_value_currency: colVal.minimum?.currency  ?? null,
-          collection_value_at:       colVal.minimum?.value ? timestamp : null,
-          taste_summary_count:       null,
-        })
-        .eq("id", user.id);
-
-      // ── Snapshot for trend analysis ─────────────────────────────────────────
-      if (colVal.minimum?.value != null) {
-        try {
-          const svcKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-          const sbUrl  = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-          const adminDb = svcKey
-            ? createServiceClient(sbUrl, svcKey, { auth: { persistSession: false } })
-            : supabase;
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          await (adminDb as any).from("collection_value_snapshots").insert({
-            user_id:      user.id,
-            snapshot_at:  timestamp,
-            value_low:    colVal.minimum?.value  ?? null,
-            value_med:    colVal.median?.value   ?? null,
-            value_high:   colVal.maximum?.value  ?? null,
-            currency:     colVal.minimum?.currency ?? "USD",
-            record_count: total,
-          });
-        } catch { /* non-fatal */ }
       }
 
       send({ type: "complete", total, newAdded, updated: backfillDone, priceUpdated: 0, timestamp });

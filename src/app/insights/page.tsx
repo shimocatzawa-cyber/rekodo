@@ -254,17 +254,19 @@ export default async function InsightsPage() {
   const countryCounts = new Map<string, { count: number; valueSum: number }>();
   for (const link of allLinks) {
     const rec     = recordsMap.get(link.record_id);
-    const country = rec?.country?.trim() || "Unknown";
-    const val     = convertPrice(link.price_median, link.price_currency) ?? 0;
-    const curr    = countryCounts.get(country) ?? { count: 0, valueSum: 0 };
+    const country = rec?.country?.trim() || null;
+    if (!country) continue; // skip records without country data
+    const val  = convertPrice(link.price_median, link.price_currency) ?? 0;
+    const curr = countryCounts.get(country) ?? { count: 0, valueSum: 0 };
     countryCounts.set(country, { count: curr.count + 1, valueSum: curr.valueSum + (val > 0 ? val : 0) });
   }
+  const countryTotal = [...countryCounts.values()].reduce((a, b) => a + b.count, 0);
   const countryBreakdown: InsightsProps["countryBreakdown"] = [...countryCounts.entries()]
     .sort((a, b) => b[1].count - a[1].count)
     .slice(0, 10)
     .map(([country, { count, valueSum }]) => ({
       country, count, valueSum,
-      pct: totalRecords > 0 ? Math.round((count / totalRecords) * 100) : 0,
+      pct: countryTotal > 0 ? Math.round((count / countryTotal) * 100) : 0,
     }));
 
   // ── Desirability breakdown ────────────────────────────────────────────────
