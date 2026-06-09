@@ -60,15 +60,15 @@ function fmtCurrency(amount: number, currency: string): string {
 // ── Sub-components ─────────────────────────────────────────────────────────────
 
 function SectionDivider() {
-  return <div style={{ borderTop: `1px solid ${RULE}`, margin: "56px 0" }} />;
+  return <div style={{ borderTop: `1px solid ${RULE}`, margin: "40px 0" }} />;
 }
 
 function SectionHeader({ eyebrow }: { eyebrow: string }) {
   return (
-    <div style={{ marginBottom: "32px" }}>
+    <div style={{ marginBottom: "24px" }}>
       <p style={{
-        fontFamily: MONO, fontSize: "10px", letterSpacing: "0.14em",
-        textTransform: "uppercase", color: ORANGE, margin: "0 0 16px",
+        fontFamily: MONO, fontSize: "12px", letterSpacing: "0.12em",
+        textTransform: "uppercase", color: "#aaaaaa", margin: "0 0 10px",
       }}>
         {eyebrow}
       </p>
@@ -81,7 +81,8 @@ function SubLabel({ children }: { children: React.ReactNode }) {
   return (
     <p style={{
       fontFamily: MONO, fontSize: "9px", letterSpacing: "0.14em",
-      textTransform: "uppercase", color: INK, margin: "0 0 16px",
+      textTransform: "uppercase", color: INK, fontWeight: 700,
+      margin: "0 0 14px",
     }}>
       {children}
     </p>
@@ -193,7 +194,7 @@ export default function InsightsClient({
               }}>
                 {["Tier", "Records", "Est. Value"].map((h) => (
                   <span key={h} style={{
-                    fontFamily: MONO, fontSize: "9px",
+                    fontFamily: MONO, fontSize: "9px", fontWeight: 700,
                     letterSpacing: "0.12em", textTransform: "uppercase", color: INK,
                   }}>
                     {h}
@@ -236,12 +237,12 @@ export default function InsightsClient({
             <SubLabel>Top records by value</SubLabel>
             <div style={{ borderTop: `0.5px solid ${RULE}` }}>
               <div style={{
-                display: "grid", gridTemplateColumns: "1fr 1fr 130px 110px",
+                display: "grid", gridTemplateColumns: "1fr 1fr 160px",
                 gap: "16px", padding: "10px 0", borderBottom: `0.5px solid ${RULE}`,
               }}>
-                {["Artist", "Album", "Median", "Low"].map((h) => (
+                {["Artist", "Album", "Market Value"].map((h) => (
                   <span key={h} style={{
-                    fontFamily: MONO, fontSize: "9px",
+                    fontFamily: MONO, fontSize: "9px", fontWeight: 700,
                     letterSpacing: "0.12em", textTransform: "uppercase", color: INK,
                   }}>
                     {h}
@@ -250,7 +251,7 @@ export default function InsightsClient({
               </div>
               {topRecordsByValue.map((r, i) => (
                 <div key={i} style={{
-                  display: "grid", gridTemplateColumns: "1fr 1fr 130px 110px",
+                  display: "grid", gridTemplateColumns: "1fr 1fr 160px",
                   gap: "16px", padding: "14px 0", borderBottom: `0.5px solid ${RULE}`,
                 }}>
                   <span style={{
@@ -267,9 +268,6 @@ export default function InsightsClient({
                   </span>
                   <span style={{ fontFamily: MONO, fontSize: "11px", color: ORANGE }}>
                     {fmtCurrency(r.price_median, currency)}
-                  </span>
-                  <span style={{ fontFamily: MONO, fontSize: "11px", color: INK }}>
-                    {r.price_low > 0 ? fmtCurrency(r.price_low, currency) : "—"}
                   </span>
                 </div>
               ))}
