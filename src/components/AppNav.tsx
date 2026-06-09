@@ -17,6 +17,7 @@ const NAV_ITEMS = [
   { href: "/lists",      label: "Lists",      jp: "リスト" },
   { href: "/gigs",       label: "Live",       jp: "ライブ" },
   { href: "/library",    label: "Library",    jp: "ライブラリ" },
+  { href: "/insights",   label: "Insights",   jp: "インサイト" },
 ] as const;
 
 export default function AppNav({ username, displayLabel, avatarUrl }: { username: string; displayLabel?: string; avatarUrl?: string | null }) {
