@@ -334,14 +334,14 @@ export default function CollectionClient({
       const mediaConditionMap  = new Map<string, string | null>(allLinks.map((l) => [l.record_id, l.media_condition  ?? null]));
       const sleeveConditionMap = new Map<string, string | null>(allLinks.map((l) => [l.record_id, l.sleeve_condition ?? null]));
       const BATCH        = 400;
-      const recordsMap   = new Map<string, Omit<CollectionRecord, "value" | "price_low" | "price_median" | "price_currency">>();
+      const recordsMap   = new Map<string, Omit<CollectionRecord, "value" | "price_low" | "price_low_usd" | "price_median" | "price_currency" | "media_condition" | "sleeve_condition">>();
       for (let i = 0; i < recordIds.length; i += BATCH) {
         const { data, error } = await supabase
           .from("records")
-          .select("id, discogs_id, artist, album, year, genre, cover_url, label, format, country")
+          .select("id, discogs_id, artist, album, year, genre, cover_url, label, format, country, community_have, community_want, community_num_for_sale")
           .in("id", recordIds.slice(i, i + BATCH));
         console.log(`[collection] records batch i=${i}: count=${data?.length ?? 0} error=${JSON.stringify(error)}`);
-        for (const r of data ?? []) recordsMap.set(r.id, r as Omit<CollectionRecord, "value" | "price_low" | "price_median" | "price_currency">);
+        for (const r of data ?? []) recordsMap.set(r.id, r as Omit<CollectionRecord, "value" | "price_low" | "price_low_usd" | "price_median" | "price_currency" | "media_condition" | "sleeve_condition">);
       }
 
       const fetched: CollectionRecord[] = recordIds
@@ -352,6 +352,7 @@ export default function CollectionClient({
             ...r,
             value:            valueMap.get(id)           ?? null,
             price_low:        priceLowMap.get(id)        ?? null,
+            price_low_usd:    priceLowMap.get(id)        ?? null, // client fetch is raw USD
             price_median:     priceMedianMap.get(id)     ?? null,
             price_currency:   priceCurrencyMap.get(id)   ?? null,
             media_condition:  mediaConditionMap.get(id)  ?? null,
@@ -565,7 +566,7 @@ export default function CollectionClient({
     if (filterYear)         result = result.filter(r => matchesDecade(r.year, filterYear));
     if (filterFormat)       result = result.filter(r => r.format === filterFormat);
     if (filterDesirability) result = result.filter(r =>
-      getDesirabilityTier(r.community_have, r.community_want, r.price_low, r.community_num_for_sale) === filterDesirability
+      getDesirabilityTier(r.community_have, r.community_want, r.price_low_usd, r.community_num_for_sale) === filterDesirability
     );
     return result;
   }, [collection, searchQuery, filterGenre, filterYear, filterFormat, filterDesirability]);

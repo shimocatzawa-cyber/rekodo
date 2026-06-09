@@ -18,6 +18,7 @@ export type CollectionRecord = {
   country: string | null;
   value: number | null;
   price_low:              number | null;
+  price_low_usd:          number | null;
   price_median:           number | null;
   price_currency:         string | null;
   media_condition:        string | null;
@@ -174,6 +175,10 @@ export default async function CollectionPage({
   const priceLowMap = new Map<string, number | null>(allLinks.map((l) => [
     l.record_id, convertPrice(l.price_low, l.price_currency),
   ]));
+  // Raw USD price — used for desirability thresholds which are denominated in USD
+  const priceLowUsdMap = new Map<string, number | null>(allLinks.map((l) => [
+    l.record_id, l.price_low ?? null,
+  ]));
 
   const recordsMap = new Map<string, Omit<CollectionRecord, "value" | "price_low" | "price_median" | "price_currency" | "media_condition" | "sleeve_condition">>();
   for (let i = 0; i < recordIds.length; i += BATCH) {
@@ -194,6 +199,7 @@ export default async function CollectionPage({
         ...r,
         value:                  valueMap.get(id)           ?? null,
         price_low:              priceLowMap.get(id)        ?? null,
+        price_low_usd:          priceLowUsdMap.get(id)     ?? null,
         price_median:           priceMedianMap.get(id)     ?? null,
         price_currency:         priceCurrencyMap.get(id)   ?? null,
         media_condition:        mediaConditionMap.get(id)  ?? null,
@@ -293,7 +299,7 @@ export default async function CollectionPage({
     }
 
     const holyGrailCount = collection.filter(r =>
-      getDesirabilityTier(r.community_have, r.community_want, r.price_low, r.community_num_for_sale) === "holy-grail"
+      getDesirabilityTier(r.community_have, r.community_want, r.price_low_usd, r.community_num_for_sale) === "holy-grail"
     ).length;
 
     return { topFormat, topGenres, topArtist, topLabel, yearRange, mostPopularYear, countryCount, topDecade, rarestRecord, holyGrailCount };
