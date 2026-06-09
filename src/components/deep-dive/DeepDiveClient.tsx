@@ -20,7 +20,7 @@ export type ArtistData = {
 
 const TABS: { id: Section; label: string }[] = [
   { id: "collection", label: "Collection" },
-  { id: "rankings",   label: "Rankings" },
+  { id: "rankings",   label: "Album Rankings" },
   { id: "podcasts",   label: "Podcasts" },
   { id: "books",      label: "Books & Audiobooks" },
   { id: "interviews", label: "Interviews" },
@@ -262,10 +262,11 @@ function CollectionContent({ records }: { records: { album: string; year: number
 
 // ── Collection strip (artwork tiles above tabs) ────────────────────────────────
 
-function VinylFallback() {
+function VinylFallback({ size = 80 }: { size?: number }) {
+  const svgSize = Math.round(size * 0.44);
   return (
-    <div style={{ width: 80, height: 80, background: WARM, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-      <svg width="34" height="34" viewBox="0 0 34 34" fill="none" aria-hidden>
+    <div style={{ width: size, height: size, background: WARM, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+      <svg width={svgSize} height={svgSize} viewBox="0 0 34 34" fill="none" aria-hidden>
         <circle cx="17" cy="17" r="15" stroke={ORANGE} strokeWidth="1.5" />
         <circle cx="17" cy="17" r="5" stroke={ORANGE} strokeWidth="1.5" />
         <circle cx="17" cy="17" r="1.5" fill={ORANGE} />
@@ -274,39 +275,36 @@ function VinylFallback() {
   );
 }
 
-function CollectionStrip({ records }: { records: ArtistData["records"] }) {
+function CollectionStrip({ records, tileSize = 80 }: { records: ArtistData["records"]; tileSize?: number }) {
   return (
     <div>
       <style>{`.dd-strip::-webkit-scrollbar { display: none; }`}</style>
-      <p style={{ fontFamily: MONO, fontSize: "0.58rem", letterSpacing: "0.12em", textTransform: "uppercase", color: ORANGE, margin: "0 0 10px" }}>
-        Your Collection
-      </p>
       <div
         className="dd-strip"
-        style={{ display: "flex", overflowX: "auto", gap: "0.75rem", paddingBottom: "0.75rem", scrollbarWidth: "none" as const }}
+        style={{ display: "flex", overflowX: "auto", gap: "0.5rem", paddingBottom: "0.25rem", scrollbarWidth: "none" as const }}
       >
         {records.map((r, i) => (
-          <div key={i} style={{ flexShrink: 0, width: 80 }}>
+          <div key={i} style={{ flexShrink: 0, width: tileSize }}>
             {r.cover_url ? (
               // eslint-disable-next-line @next/next/no-img-element
               <img
                 src={r.cover_url}
                 alt=""
                 aria-hidden
-                style={{ width: 80, height: 80, objectFit: "cover", display: "block" }}
+                style={{ width: tileSize, height: tileSize, objectFit: "cover", display: "block" }}
               />
             ) : (
-              <VinylFallback />
+              <VinylFallback size={tileSize} />
             )}
             <p style={{
-              fontFamily: MONO, fontSize: "0.6rem", letterSpacing: "0.04em", color: INK,
-              margin: "4px 0 1px", lineHeight: 1.3,
+              fontFamily: MONO, fontSize: "0.58rem", letterSpacing: "0.04em", color: INK,
+              margin: "3px 0 1px", lineHeight: 1.3,
               overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
             }}>
               {r.album}
             </p>
             {r.year && (
-              <p style={{ fontFamily: MONO, fontSize: "0.58rem", letterSpacing: "0.06em", color: "#aaaaaa", margin: 0 }}>
+              <p style={{ fontFamily: MONO, fontSize: "0.55rem", letterSpacing: "0.04em", color: "#aaaaaa", margin: 0 }}>
                 {r.year}
               </p>
             )}
@@ -630,21 +628,15 @@ export default function DeepDiveClient({ artists }: { artists: ArtistData[] }) {
           ) : (
             <ArtistInitial name={selectedArtist} size={80} />
           )}
-          <div style={{ minWidth: 0 }}>
+          <div style={{ minWidth: 0, flex: 1 }}>
             <h2 style={{ fontFamily: SERIF, fontSize: "2rem", fontWeight: 600, color: INK, letterSpacing: "-0.025em", lineHeight: 1.1, margin: "0 0 6px" }}>
               {selectedArtist}
             </h2>
-            <p style={{ fontFamily: MONO, fontSize: "0.7rem", letterSpacing: "0.06em", color: INK, margin: 0 }}>
+            <p style={{ fontFamily: MONO, fontSize: "0.7rem", letterSpacing: "0.06em", color: INK, margin: "0 0 12px" }}>
               {selectedData.count} {selectedData.count === 1 ? "record" : "records"} in your collection
             </p>
+            <CollectionStrip records={selectedData.records} tileSize={48} />
           </div>
-        </div>
-
-        <div style={{ borderBottom: `1px solid ${RULE}` }} />
-
-        {/* Artwork strip */}
-        <div style={{ padding: "1.5rem 0 0.5rem" }}>
-          <CollectionStrip records={selectedData.records} />
         </div>
 
         <div style={{ borderBottom: `1px solid ${RULE}` }} />
