@@ -267,6 +267,34 @@ async function processSync(supabase: SB, jobId: string, userId: string) {
       await updateJob(supabase, jobId, { progress_done: Math.min(i + BATCH, newItems.length), new_added: newAdded });
     }
 
+    // ── Phase 2b: Refresh metadata for all records in collection ─────────────
+    // Upserts styles, genre, country, label, format etc. for records that existed
+    // before the styles column was added (they have styles = null). Also keeps
+    // metadata current if Discogs updates a release.
+    await updateJob(supabase, jobId, { phase: "updating" });
+
+    const allSyncedItems = collectionItems.filter((r) => existingMap.has(r.discogs_id));
+    for (let i = 0; i < allSyncedItems.length; i += BATCH) {
+      await supabase
+        .from("records")
+        .upsert(
+          allSyncedItems.slice(i, i + BATCH).map((r) => ({
+            id:         existingMap.get(r.discogs_id)!,
+            discogs_id: r.discogs_id,
+            artist:     r.artist,
+            album:      r.album,
+            year:       r.year,
+            genre:      r.genre,
+            styles:     r.styles,
+            cover_url:  r.cover_url,
+            label:      r.label,
+            format:     r.format,
+            country:    r.country,
+          })),
+          { onConflict: "id" }
+        );
+    }
+
     // ── Phase 3: Link records to user_records ─────────────────────────────────
     await updateJob(supabase, jobId, { phase: "linking", progress_done: 0 });
 

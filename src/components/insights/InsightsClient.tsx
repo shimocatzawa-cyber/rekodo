@@ -63,21 +63,15 @@ function SectionDivider() {
   return <div style={{ borderTop: `1px solid ${RULE}`, margin: "56px 0" }} />;
 }
 
-function SectionHeader({ eyebrow, title }: { eyebrow: string; title: string }) {
+function SectionHeader({ eyebrow }: { eyebrow: string }) {
   return (
     <div style={{ marginBottom: "32px" }}>
       <p style={{
         fontFamily: MONO, fontSize: "10px", letterSpacing: "0.14em",
-        textTransform: "uppercase", color: ORANGE, margin: "0 0 10px",
+        textTransform: "uppercase", color: ORANGE, margin: "0 0 16px",
       }}>
         {eyebrow}
       </p>
-      <h2 style={{
-        fontFamily: SERIF, fontSize: "30px", fontWeight: 700,
-        color: INK, lineHeight: 1.1, margin: "0 0 20px",
-      }}>
-        {title}
-      </h2>
       <div style={{ borderTop: `1px solid ${RULE}` }} />
     </div>
   );
@@ -142,7 +136,7 @@ export default function InsightsClient({
         <div style={{ borderTop: `1px solid ${RULE}`, marginBottom: "56px" }} />
 
         {/* ── Section 1: Collection Value ──────────────────────────────────── */}
-        <SectionHeader eyebrow="Collection Value" title="What Your Collection Is Worth" />
+        <SectionHeader eyebrow="Collection Value" />
 
         <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "2px", marginBottom: "40px" }}>
           {[
@@ -286,7 +280,7 @@ export default function InsightsClient({
         <SectionDivider />
 
         {/* ── Section 2: Collection Condition ──────────────────────────────── */}
-        <SectionHeader eyebrow="Collection Condition" title="Record & Sleeve Grades" />
+        <SectionHeader eyebrow="Collection Condition" />
 
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "48px" }}>
           {[
@@ -324,7 +318,7 @@ export default function InsightsClient({
         <SectionDivider />
 
         {/* ── Section 3: Genre Analysis ─────────────────────────────────────── */}
-        <SectionHeader eyebrow="Genre Analysis" title="Genre & Style" />
+        <SectionHeader eyebrow="Genre Analysis" />
 
         <SubLabel>By genre</SubLabel>
         {genreBreakdown.length === 0 ? (
@@ -354,7 +348,7 @@ export default function InsightsClient({
         <SubLabel>By style</SubLabel>
         {!hasStyles ? (
           <p style={{ fontFamily: MONO, fontSize: "11px", letterSpacing: "0.04em", color: INK, margin: 0 }}>
-            Style data available after your next sync.
+            Style data available after a full resync of your collection.
           </p>
         ) : (
           <div style={{ display: "flex", flexDirection: "column", gap: "14px" }}>
@@ -378,8 +372,9 @@ export default function InsightsClient({
         <SectionDivider />
 
         {/* ── Section 4: Geographic DNA ──────────────────────────────────────── */}
-        <SectionHeader eyebrow="Geographic DNA" title="Pressing Origins" />
+        <SectionHeader eyebrow="Geographic DNA" />
 
+        <SubLabel>Pressing Origins</SubLabel>
         {countryBreakdown.length === 0 ? (
           <p style={{ fontFamily: MONO, fontSize: "11px", color: INK, margin: 0 }}>
             No country data available.
@@ -415,12 +410,12 @@ export default function InsightsClient({
         <SectionDivider />
 
         {/* ── Section 5: Labels & Artists ───────────────────────────────────── */}
-        <SectionHeader eyebrow="Label & Artist Obsession" title="Most Collected Labels & Artists" />
+        <SectionHeader eyebrow="Label & Artist Obsession" />
 
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "48px" }}>
           {/* Labels */}
           <div>
-            <SubLabel>By label</SubLabel>
+            <SubLabel>Top 5 Labels</SubLabel>
             {topLabels.length === 0 ? (
               <p style={{ fontFamily: MONO, fontSize: "11px", color: INK, margin: 0 }}>
                 No label data available.
@@ -455,7 +450,7 @@ export default function InsightsClient({
 
           {/* Artists */}
           <div>
-            <SubLabel>By artist</SubLabel>
+            <SubLabel>Top 5 Artists</SubLabel>
             {topArtists.length === 0 ? (
               <p style={{ fontFamily: MONO, fontSize: "11px", color: INK, margin: 0 }}>
                 No artist data available.
@@ -492,7 +487,7 @@ export default function InsightsClient({
         <SectionDivider />
 
         {/* ── Section 6: Vinyl Colour ───────────────────────────────────────── */}
-        <SectionHeader eyebrow="Vinyl Colour" title="Colour Breakdown" />
+        <SectionHeader eyebrow="Vinyl Colour" />
         {/* TODO: requires vinyl_colour column on records table + sync update */}
         <p style={{ fontFamily: MONO, fontSize: "11px", letterSpacing: "0.04em", color: INK, margin: 0 }}>
           Vinyl colour analysis requires a schema update and resync. Coming soon.
