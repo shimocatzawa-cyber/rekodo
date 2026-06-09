@@ -41,6 +41,7 @@ type ReleaseDetail = {
   country?:    string;
   year?:       number;
   genres?:     string[];
+  styles?:     string[];
   community?:  { have: number; want: number };
 };
 
@@ -84,14 +85,47 @@ function groupByLetter(records: CollectionRecord[]) {
   return groups;
 }
 
+const COLOUR_KEYWORDS = new Set([
+  "Black", "White", "Red", "Blue", "Green", "Yellow", "Orange", "Purple",
+  "Clear", "Colored", "Coloured", "Marbled", "Splatter", "Opaque",
+  "Translucent", "Picture Disc", "Etched",
+]);
+
+const FORMAT_SKIP = new Set([
+  "Vinyl", "Album", "Compilation", "Stereo", "Mono", "Reissue", "Repress",
+]);
+
 function formatLabel(formats?: FormatItem[]): string {
   if (!formats?.length) return "";
-  const skip = ["Album", "Compilation", "Stereo", "Mono", "Reissue", "Repress"];
-  return formats.map((f) => {
-    const qty   = f.qty && f.qty !== "1" ? `${f.qty}×` : "";
-    const descs = (f.descriptions ?? []).filter((d) => !skip.includes(d));
-    return `${qty}${descs.length ? descs.join(", ") : f.name}`;
-  }).join(", ");
+  const seen = new Set<string>();
+  const tokens: string[] = [];
+
+  for (const f of formats) {
+    const qty  = f.qty && f.qty !== "1" ? `${f.qty}×` : "";
+    const descs = (f.descriptions ?? []).filter(
+      (d) => !FORMAT_SKIP.has(d) && !COLOUR_KEYWORDS.has(d)
+    );
+    const keep = descs.length
+      ? descs
+      : (!FORMAT_SKIP.has(f.name) && !COLOUR_KEYWORDS.has(f.name) ? [f.name] : []);
+
+    for (let i = 0; i < keep.length; i++) {
+      const token = i === 0 && qty ? `${qty}${keep[i]}` : keep[i];
+      if (!seen.has(token)) { seen.add(token); tokens.push(token); }
+    }
+  }
+
+  return tokens.join(", ");
+}
+
+function extractVinylColour(formats?: FormatItem[]): string | null {
+  if (!formats?.length) return null;
+  const vinyl = formats.find((f) => f.name === "Vinyl");
+  if (!vinyl) return null;
+  const match = (vinyl.descriptions ?? []).find((d) =>
+    [...COLOUR_KEYWORDS].some((kw) => d.toLowerCase().includes(kw.toLowerCase()))
+  );
+  return match ?? "Black";
 }
 
 function sym(code: string): string {
@@ -1581,9 +1615,11 @@ function AlbumDetail({ record, detail, price, loading, valueCurrency }: {
   const displayLabel = detail?.labels?.[0]?.name ?? record.label ?? null;
   const catno        = detail?.labels?.[0]?.catno ?? null;
   const format       = detail ? formatLabel(detail.formats) : null;
+  const vinylColour  = detail ? extractVinylColour(detail.formats) : null;
   const country      = detail?.country ?? null;
   const year         = record.year ?? detail?.year ?? null;
   const genre        = record.genre ?? detail?.genres?.[0] ?? null;
+  const styles       = detail?.styles?.length ? detail.styles.join(", ") : null;
 
   const tier = getDesirabilityTier(
     detail?.community?.have  ?? null,
@@ -1632,12 +1668,14 @@ function AlbumDetail({ record, detail, price, loading, valueCurrency }: {
       {/* Metadata */}
       <div style={{ borderTop: "1px solid rgba(0,0,0,0.07)" }}>
         <MetaRow label="Label"   value={displayLabel} />
-        {format   && <MetaRow label="Format"  value={format} />}
+        {format       && <MetaRow label="Format"  value={format} />}
+        {vinylColour  && <MetaRow label="Vinyl"   value={vinylColour} />}
         {record.media_condition  && <MetaRow label="Media"  value={record.media_condition} />}
         {record.sleeve_condition && <MetaRow label="Sleeve" value={record.sleeve_condition} />}
         <MetaRow label="Country" value={country} />
         <MetaRow label="Year"    value={year ? String(year) : null} />
         <MetaRow label="Genre"   value={genre} />
+        {styles   && <MetaRow label="Style"   value={styles} />}
         {catno    && <MetaRow label="Cat #"   value={catno} />}
 
         {/* Marketplace pricing */}

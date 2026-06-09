@@ -155,7 +155,7 @@ async function processSync(supabase: SB, jobId: string, userId: string) {
 
     interface CollectionItem {
       discogs_id: string; artist: string; album: string; year: number | null;
-      genre: string | null; cover_url: string | null; label: string | null;
+      genre: string | null; styles: string[]; cover_url: string | null; label: string | null;
       format: string | null; country: string | null;
       media_condition: string | null; sleeve_condition: string | null;
     }
@@ -207,6 +207,7 @@ async function processSync(supabase: SB, jobId: string, userId: string) {
         album:            info.title ?? "Unknown",
         year:             info.year  || null,
         genre,
+        styles:           info.styles ?? [],
         cover_url:        info.cover_image ?? info.thumb ?? null,
         label:            info.labels?.[0]?.name ?? null,
         format:           extractFormat(info.formats),
@@ -247,7 +248,7 @@ async function processSync(supabase: SB, jobId: string, userId: string) {
         .from("records")
         .insert(batch.map((r) => ({
           discogs_id: r.discogs_id, artist: r.artist, album: r.album,
-          year: r.year, genre: r.genre, cover_url: r.cover_url,
+          year: r.year, genre: r.genre, styles: r.styles, cover_url: r.cover_url,
           label: r.label, format: r.format, country: r.country,
         })))
         .select("id, discogs_id");
