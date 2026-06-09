@@ -18,6 +18,7 @@ export interface InsightsProps {
   currency:       string;
   totalLow:       number;
   totalMed:       number;
+  totalHigh:      number;
   totalRecords:   number;
   snapshots:      { date: string; "Total Value": number }[];
   topRecordsByValue: { artist: string; album: string; price_median: number; price_low: number; price_high: number }[];
@@ -93,7 +94,7 @@ function PercentBar({ pct, maxPct = 100 }: { pct: number; maxPct?: number }) {
 
 export default function InsightsClient({
   username, displayLabel, avatarUrl, currency,
-  totalLow, totalMed, totalRecords, snapshots, topRecordsByValue,
+  totalLow, totalMed, totalHigh, totalRecords, snapshots, topRecordsByValue,
   mediaConditionBreakdown, sleeveConditionBreakdown,
   genreBreakdown, styleBreakdown, hasStyles,
   countryBreakdown, topLabels,
@@ -132,9 +133,9 @@ export default function InsightsClient({
 
         <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "2px", marginBottom: "40px" }}>
           {[
-            { label: "LOW ESTIMATE",    value: totalLow     > 0 ? fmtCurrency(totalLow, currency)        : "—" },
-            { label: "MEDIAN ESTIMATE", value: totalMed     > 0 ? fmtCurrency(totalMed, currency)        : "—" },
-            { label: "RECORDS",         value: totalRecords > 0 ? totalRecords.toLocaleString("en-AU")   : "—" },
+            { label: "LOW",     value: totalLow  > 0 ? fmtCurrency(totalLow,  currency) : "—" },
+            { label: "MEDIAN",  value: totalMed  > 0 ? fmtCurrency(totalMed,  currency) : "—" },
+            { label: "HIGH",    value: totalHigh > 0 ? fmtCurrency(totalHigh, currency) : "—" },
           ].map(({ label, value }) => (
             <div key={label} style={{ padding: "24px 0" }}>
               <div style={{

@@ -346,31 +346,6 @@ async function processSync(supabase: SB, jobId: string, userId: string) {
       }
     }
 
-    // ── Phase 5: Write collection value snapshot ──────────────────────────────
-    if (savedRecordIds.length > 0) {
-      const { data: priceRows } = await supabase
-        .from("user_records")
-        .select("price_low, price_median, price_high")
-        .eq("user_id", userId);
-
-      let snapLow = 0, snapMed = 0, snapHigh = 0;
-      for (const row of priceRows ?? []) {
-        if (row.price_low    != null) snapLow  += row.price_low;
-        if (row.price_median != null) snapMed  += row.price_median;
-        if (row.price_high   != null) snapHigh += row.price_high;
-      }
-
-      await supabase.from("collection_value_snapshots").insert({
-        user_id:      userId,
-        snapshot_at:  new Date().toISOString(),
-        value_low:    snapLow,
-        value_med:    snapMed,
-        value_high:   snapHigh,
-        currency:     "USD",
-        record_count: savedRecordIds.length,
-      });
-    }
-
     // ── Mark completed ────────────────────────────────────────────────────────
     await updateJob(supabase, jobId, {
       status:          "completed",

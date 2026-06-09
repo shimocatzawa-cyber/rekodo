@@ -14,7 +14,7 @@ export default async function InsightsPage() {
   const emailPrefix = (user.email ?? "").split("@")[0] || "user";
   const { data: profile } = await supabase
     .from("profiles")
-    .select("username, display_name, avatar_url, country_code")
+    .select("username, display_name, avatar_url, country_code, collection_value_low, collection_value_med, collection_value_high, collection_value_currency")
     .eq("id", user.id)
     .maybeSingle() as {
       data: {
@@ -22,6 +22,10 @@ export default async function InsightsPage() {
         display_name?: string | null;
         avatar_url?: string | null;
         country_code?: string | null;
+        collection_value_low?: number | null;
+        collection_value_med?: number | null;
+        collection_value_high?: number | null;
+        collection_value_currency?: string | null;
       } | null;
       error: unknown;
     };
@@ -121,13 +125,33 @@ export default async function InsightsPage() {
     };
   });
 
-  // ── Collection value totals (aggregated from user_records prices) ────────────
-  let totalLow = 0, totalMed = 0;
-  for (const link of allLinks) {
-    const low = convertPrice(link.price_low,    link.price_currency);
-    const med = convertPrice(link.price_median, link.price_currency);
-    if (low != null) totalLow += low;
-    if (med != null) totalMed += med;
+  // ── Collection value totals ────────────────────────────────────────────────
+  // Prefer official Discogs values (stored in profiles after each sync).
+  // Fall back to aggregating from user_records if profile values are not yet set.
+  const cvCurrency = profile?.collection_value_currency ?? "USD";
+  const profileLow  = profile?.collection_value_low  ?? null;
+  const profileMed  = profile?.collection_value_med  ?? null;
+  const profileHigh = profile?.collection_value_high ?? null;
+  const hasProfileValues = profileLow != null && profileLow > 0;
+
+  let totalLow: number, totalMed: number, totalHigh: number;
+
+  if (hasProfileValues) {
+    totalLow  = convertPrice(profileLow,  cvCurrency) ?? 0;
+    totalMed  = convertPrice(profileMed,  cvCurrency) ?? 0;
+    totalHigh = convertPrice(profileHigh, cvCurrency) ?? 0;
+  } else {
+    // Fallback: aggregate from user_records stored prices
+    let aggLow = 0, aggMed = 0;
+    for (const link of allLinks) {
+      const low = convertPrice(link.price_low,    link.price_currency);
+      const med = convertPrice(link.price_median, link.price_currency);
+      if (low != null) aggLow += low;
+      if (med != null) aggMed += med;
+    }
+    totalLow  = aggLow;
+    totalMed  = aggMed;
+    totalHigh = 0;
   }
 
   // ── Top 5 records by price_median ─────────────────────────────────────────
@@ -257,6 +281,7 @@ export default async function InsightsPage() {
       currency={userCurrency}
       totalLow={totalLow}
       totalMed={totalMed}
+      totalHigh={totalHigh}
       totalRecords={allLinks.length}
       snapshots={snapshots}
       topRecordsByValue={topRecordsByValue}
