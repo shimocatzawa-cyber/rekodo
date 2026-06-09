@@ -267,33 +267,44 @@ async function processSync(supabase: SB, jobId: string, userId: string) {
       await updateJob(supabase, jobId, { progress_done: Math.min(i + BATCH, newItems.length), new_added: newAdded });
     }
 
-    // ── Phase 2b: Refresh metadata for all records in collection ─────────────
-    // Upserts styles, genre, country, label, format etc. for records that existed
-    // before the styles column was added (they have styles = null). Also keeps
-    // metadata current if Discogs updates a release.
-    await updateJob(supabase, jobId, { phase: "updating" });
+    // ── Phase 2b: Backfill styles for records that have styles = null ───────────
+    // Only touches records where styles IS NULL — pre-migration records.
+    // After the first backfill this query returns 0 rows and becomes a no-op,
+    // so it adds negligible time to every subsequent sync.
+    try {
+      await updateJob(supabase, jobId, { phase: "updating" });
 
-    const allSyncedItems = collectionItems.filter((r) => existingMap.has(r.discogs_id));
-    for (let i = 0; i < allSyncedItems.length; i += BATCH) {
-      await supabase
-        .from("records")
-        .upsert(
-          allSyncedItems.slice(i, i + BATCH).map((r) => ({
-            id:         existingMap.get(r.discogs_id)!,
-            discogs_id: r.discogs_id,
-            artist:     r.artist,
-            album:      r.album,
-            year:       r.year,
-            genre:      r.genre,
-            styles:     r.styles,
-            cover_url:  r.cover_url,
-            label:      r.label,
-            format:     r.format,
-            country:    r.country,
-          })),
-          { onConflict: "id" }
-        );
-    }
+      // Build discogs_id → styles lookup from the already-fetched collection data
+      const stylesLookup = new Map<string, string[]>(
+        collectionItems.map((item) => [item.discogs_id, item.styles])
+      );
+
+      // Query only records that still have null styles
+      const allRecordIds = [...new Set(existingMap.values())];
+      const toUpdate: { id: string; styles: string[] }[] = [];
+
+      for (let i = 0; i < allRecordIds.length; i += BATCH) {
+        const { data } = await supabase
+          .from("records")
+          .select("id, discogs_id")
+          .in("id", allRecordIds.slice(i, i + BATCH))
+          .is("styles", null);
+
+        for (const r of data ?? []) {
+          if (!r.discogs_id) continue;
+          const styles = stylesLookup.get(r.discogs_id);
+          if (styles !== undefined) toUpdate.push({ id: r.id, styles });
+        }
+      }
+
+      for (let i = 0; i < toUpdate.length; i += BATCH) {
+        await supabase
+          .from("records")
+          .upsert(toUpdate.slice(i, i + BATCH), { onConflict: "id" });
+        // Heartbeat so the sync_queue updated_at stays fresh
+        await updateJob(supabase, jobId, { phase: "updating" });
+      }
+    } catch { /* non-fatal — styles will retry on next sync */ }
 
     // ── Phase 3: Link records to user_records ─────────────────────────────────
     await updateJob(supabase, jobId, { phase: "linking", progress_done: 0 });

@@ -104,13 +104,22 @@ export async function GET(request: NextRequest) {
           lastPage = job.current_page ?? 0;
           send({ type: "fetch_page", page: job.current_page, totalPages: job.total_pages, fetched: job.progress_done });
         } else if (
-          (job.phase === "inserting" || job.phase === "linking" || job.phase === "conditions") &&
+          (job.phase === "inserting" || job.phase === "linking" || job.phase === "conditions" ||
+           job.phase === "updating" || job.phase === "cleanup") &&
           job.phase !== lastPhase
         ) {
           lastPhase = job.phase ?? "";
+          const phaseLabel: Record<string, string> = {
+            inserting:  "Adding new records",
+            linking:    "Linking collection",
+            conditions: "Saving grades",
+            updating:   "Updating metadata",
+            cleanup:    "Cleaning up",
+          };
           send({
             type: "processing", done: job.progress_done ?? 0, total: job.total_records ?? 0,
-            phase: job.phase, message: `Syncing... ${job.progress_done ?? 0} of ${job.total_records ?? 0} records`,
+            phase: job.phase,
+            message: `${phaseLabel[job.phase ?? ""] ?? "Syncing"}... ${job.total_records ?? 0} records`,
           });
         }
 
