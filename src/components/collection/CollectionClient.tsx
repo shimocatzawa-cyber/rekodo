@@ -697,20 +697,6 @@ export default function CollectionClient({
       )}
 
 
-      {/* ── Insights panel — desktop only ── */}
-      <div className="hidden md:block">
-        {insights && (
-          <InsightsPanel
-            insights={insights}
-            total={collection.length}
-            estimatedValue={estimatedValue}
-            valueCurrency={valueCurrency}
-            pricedCount={pricedCount}
-            discogsValue={discogsValue}
-          />
-        )}
-      </div>
-
       {/* ── Empty state (0 records) ── */}
       {collection.length === 0 && (
         <div style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: "0" }}>

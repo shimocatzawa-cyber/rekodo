@@ -97,6 +97,7 @@ export default async function InsightsPage() {
   // ── Fetch records (batched) ────────────────────────────────────────────────
   type RecordRow = {
     id: string; artist: string; album: string;
+    year: number | null;
     genre: string | null; styles: string[] | null;
     label: string | null; country: string | null; format: string | null;
     community_have: number | null; community_want: number | null;
@@ -107,7 +108,7 @@ export default async function InsightsPage() {
   for (let i = 0; i < recordIds.length; i += BATCH) {
     const { data, error } = await supabase
       .from("records")
-      .select("id, artist, album, genre, styles, label, country, format, community_have, community_want, community_num_for_sale")
+      .select("id, artist, album, year, genre, styles, label, country, format, community_have, community_want, community_num_for_sale")
       .in("id", recordIds.slice(i, i + BATCH));
     if (!error) for (const r of data ?? []) recordsMap.set(r.id, r as RecordRow);
   }
@@ -315,6 +316,30 @@ export default async function InsightsPage() {
     .slice(0, 5)
     .map(([label, { count, valueSum }]) => ({ label, count, valueSum }));
 
+  // ── Stats bar supplemental data ───────────────────────────────────────────
+  const formatCounts = new Map<string, number>();
+  for (const link of allLinks) {
+    const fmt = recordsMap.get(link.record_id)?.format;
+    if (fmt) formatCounts.set(fmt, (formatCounts.get(fmt) ?? 0) + 1);
+  }
+  const topFormatEntry = formatCounts.size > 0
+    ? [...formatCounts.entries()].sort((a, b) => b[1] - a[1])[0]
+    : null;
+  const topFormat = topFormatEntry ? { name: topFormatEntry[0], count: topFormatEntry[1] } : null;
+
+  const allYears = [...recordsMap.values()]
+    .map((r) => r.year)
+    .filter((y): y is number => y != null && y > 0);
+  const yearRange = allYears.length > 0
+    ? { oldest: allYears.reduce((m, y) => (y < m ? y : m), allYears[0]), newest: allYears.reduce((m, y) => (y > m ? y : m), allYears[0]) }
+    : null;
+  const mostPopularYear = (() => {
+    if (allYears.length === 0) return null;
+    const yCounts = new Map<number, number>();
+    for (const y of allYears) yCounts.set(y, (yCounts.get(y) ?? 0) + 1);
+    return [...yCounts.entries()].sort((a, b) => b[1] - a[1])[0][0];
+  })();
+
   return (
     <InsightsClient
       username={username}
@@ -336,6 +361,9 @@ export default async function InsightsPage() {
       topLabels={topLabels}
       desirabilityBreakdown={desirabilityBreakdown}
       topArtists={topArtists}
+      topFormat={topFormat}
+      yearRange={yearRange}
+      mostPopularYear={mostPopularYear}
     />
   );
 }

@@ -32,6 +32,9 @@ export interface InsightsProps {
   topLabels:            { label: string; count: number; valueSum: number }[];
   topArtists:           { artist: string; count: number; valueSum: number }[];
   desirabilityBreakdown: { tier: DesirabilityTier; count: number; valueSum: number }[];
+  topFormat:       { name: string; count: number } | null;
+  yearRange:       { oldest: number; newest: number } | null;
+  mostPopularYear: number | null;
 }
 
 // ── Tier metadata ──────────────────────────────────────────────────────────────
@@ -57,21 +60,53 @@ function fmtCurrency(amount: number, currency: string): string {
   return `${prefix}${Math.round(amount).toLocaleString("en-AU")}`;
 }
 
+function fmtValueShort(amount: number, currency: string): string {
+  const prefixes: Record<string, string> = {
+    AUD: "A$", USD: "$", GBP: "£", EUR: "€", JPY: "¥",
+    CAD: "C$", NZD: "NZ$", SGD: "S$", HKD: "HK$",
+    CHF: "CHF ", SEK: "SEK ", NOK: "NOK ", DKK: "DKK ",
+    KRW: "₩", INR: "₹", BRL: "R$", MXN: "MX$", ZAR: "R ", CNY: "¥",
+  };
+  const prefix = prefixes[currency.toUpperCase()] ?? `${currency} `;
+  if (amount >= 1000) return `${prefix}${(amount / 1000).toFixed(1)}k`;
+  return `${prefix}${Math.round(amount).toLocaleString("en-AU")}`;
+}
+
+function fmtFormatLabel(name: string): string {
+  const u = name.toUpperCase();
+  if (u === "LP")       return "Vinyl LPs";
+  if (u === "VINYL")    return "Vinyl";
+  if (u === "CD")       return "CDs";
+  if (u === "CASSETTE") return "Cassettes";
+  if (u === '7"')       return '7" Singles';
+  if (u === '10"')      return '10" Singles';
+  if (u === '12"')      return '12" Singles';
+  if (u === "EP")       return "EPs";
+  return name;
+}
+
 // ── Sub-components ─────────────────────────────────────────────────────────────
 
 function SectionDivider() {
   return <div style={{ borderTop: `1px solid ${RULE}`, margin: "40px 0" }} />;
 }
 
-function SectionHeader({ eyebrow }: { eyebrow: string }) {
+function SectionHeader({ eyebrow, title }: { eyebrow: string; title: string }) {
   return (
-    <div style={{ marginBottom: "24px" }}>
+    <div style={{ marginBottom: "28px" }}>
       <p style={{
-        fontFamily: MONO, fontSize: "12px", letterSpacing: "0.12em",
-        textTransform: "uppercase", color: "#aaaaaa", margin: "0 0 10px",
+        fontFamily: MONO, fontSize: "0.65rem", letterSpacing: "0.14em",
+        textTransform: "uppercase", color: ORANGE, margin: "0 0 8px",
       }}>
         {eyebrow}
       </p>
+      <h2 style={{
+        fontFamily: SERIF, fontSize: "1.8rem", fontWeight: 600,
+        color: INK, letterSpacing: "-0.025em", lineHeight: 1.15,
+        margin: "0 0 16px",
+      }}>
+        {title}
+      </h2>
       <div style={{ borderTop: `1px solid ${RULE}` }} />
     </div>
   );
@@ -98,20 +133,84 @@ function PercentBar({ pct, maxPct = 100 }: { pct: number; maxPct?: number }) {
   );
 }
 
+type StatTile = {
+  hero:       string;
+  label:      string;
+  heroColor?: string;
+};
+
+function StatBar({ tiles }: { tiles: StatTile[] }) {
+  return (
+    <div style={{
+      display: "flex", background: "#FEFBF8",
+      borderBottom: `1px solid ${RULE}`, marginBottom: "48px",
+      overflowX: "auto",
+    }}>
+      {tiles.map((t, i) => {
+        const len  = t.hero.length;
+        const size = len > 12 ? "clamp(0.78rem, 1.4vw, 1rem)" : len > 8 ? "clamp(0.88rem, 1.5vw, 1.2rem)" : "1.4rem";
+        return (
+          <div key={i} style={{
+            flex: "1 1 0", minWidth: "100px",
+            padding: "12px 16px",
+            borderRight: i < tiles.length - 1 ? `1px solid ${RULE}` : "none",
+          }}>
+            <p style={{
+              fontFamily: SERIF, fontSize: size, fontWeight: 400,
+              color: t.heroColor ?? INK, lineHeight: 1.2,
+              margin: "0 0 5px", letterSpacing: "-0.01em",
+              wordBreak: "break-word",
+            }}>
+              {t.hero}
+            </p>
+            <p style={{
+              fontFamily: MONO, fontSize: "0.6rem", letterSpacing: "0.08em",
+              textTransform: "uppercase", color: "#aaaaaa",
+              lineHeight: 1.2, margin: 0,
+              whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis",
+            }}>
+              {t.label}
+            </p>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
 // ── Main component ─────────────────────────────────────────────────────────────
 
 export default function InsightsClient({
   username, displayLabel, avatarUrl, currency,
-  totalLow, totalMed, totalHigh, totalRecords, snapshots, topRecordsByValue,
+  totalMed, totalRecords, snapshots, topRecordsByValue,
   mediaConditionBreakdown, sleeveConditionBreakdown,
   genreBreakdown, styleBreakdown, hasStyles,
   countryBreakdown, topLabels, topArtists, desirabilityBreakdown,
+  topFormat, yearRange, mostPopularYear,
 }: InsightsProps) {
 
   const hasSparkline    = snapshots.length >= 2;
   const maxGenrePct     = genreBreakdown[0]?.pct      ?? 100;
   const maxCountryCount = countryBreakdown[0]?.count  ?? 1;
   const maxStylePct     = styleBreakdown[0]?.pct      ?? 100;
+
+  // Derive stats bar tiles from available data
+  const holyGrailCount = desirabilityBreakdown.find((d) => d.tier === "holy-grail")?.count ?? 0;
+  const topRealGenre   = genreBreakdown.find((g) => g.genre !== "Unknown" && g.genre !== "");
+  const topArtist      = topArtists[0] ?? null;
+  const topLabel       = topLabels[0]  ?? null;
+
+  const statTiles: StatTile[] = [
+    { hero: totalRecords.toLocaleString(), label: "Items" },
+    ...(topFormat ? [{ hero: topFormat.count.toLocaleString(), label: fmtFormatLabel(topFormat.name) }] : []),
+    ...(holyGrailCount > 0 ? [{ hero: holyGrailCount.toLocaleString(), label: "Holy Grail", heroColor: ORANGE }] : []),
+    ...(topRealGenre ? [{ hero: `${topRealGenre.pct}%`, label: topRealGenre.genre }] : []),
+    ...(topArtist ? [{ hero: topArtist.artist, label: `${topArtist.count} vinyl items` }] : []),
+    ...(topLabel ? [{ hero: topLabel.label, label: `${topLabel.count} label items` }] : []),
+    ...(yearRange ? [{ hero: yearRange.oldest !== yearRange.newest ? `${yearRange.oldest} → ${yearRange.newest}` : String(yearRange.oldest), label: "Collection span" }] : []),
+    ...(mostPopularYear ? [{ hero: String(mostPopularYear), label: "Most collected year" }] : []),
+    { hero: totalMed > 0 ? fmtValueShort(totalMed, currency) : "—", label: "Median collection value" },
+  ];
 
   return (
     <div style={{ minHeight: "100vh", background: "#ffffff" }}>
@@ -134,33 +233,13 @@ export default function InsightsClient({
             インサイト
           </p>
         </div>
-        <div style={{ borderTop: `1px solid ${RULE}`, marginBottom: "56px" }} />
+        <div style={{ borderTop: `1px solid ${RULE}`, marginBottom: "24px" }} />
+
+        {/* ── Stats Bar ───────────────────────────────────────────────────── */}
+        <StatBar tiles={statTiles} />
 
         {/* ── Section 1: Collection Value ──────────────────────────────────── */}
-        <SectionHeader eyebrow="Collection Value" />
-
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "2px", marginBottom: "40px" }}>
-          {[
-            { label: "LOW",     value: totalLow  > 0 ? fmtCurrency(totalLow,  currency) : "—" },
-            { label: "MEDIAN",  value: totalMed  > 0 ? fmtCurrency(totalMed,  currency) : "—" },
-            { label: "HIGH",    value: totalHigh > 0 ? fmtCurrency(totalHigh, currency) : "—" },
-          ].map(({ label, value }) => (
-            <div key={label} style={{ padding: "24px 0" }}>
-              <div style={{
-                fontFamily: SERIF, fontSize: "34px", fontWeight: 700,
-                color: ORANGE, lineHeight: 1, marginBottom: "8px",
-              }}>
-                {value}
-              </div>
-              <div style={{
-                fontFamily: MONO, fontSize: "9px", letterSpacing: "0.14em",
-                textTransform: "uppercase", color: INK,
-              }}>
-                {label}
-              </div>
-            </div>
-          ))}
-        </div>
+        <SectionHeader eyebrow="Collection Value" title="What it's worth." />
 
         {/* Sparkline */}
         <div style={{ marginBottom: "40px" }}>
@@ -278,7 +357,7 @@ export default function InsightsClient({
         <SectionDivider />
 
         {/* ── Section 2: Collection Condition ──────────────────────────────── */}
-        <SectionHeader eyebrow="Collection Condition" />
+        <SectionHeader eyebrow="Collection Condition" title="How well you look after them." />
 
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "48px" }}>
           {[
@@ -315,8 +394,8 @@ export default function InsightsClient({
 
         <SectionDivider />
 
-        {/* ── Section 3: Genre Analysis ─────────────────────────────────────── */}
-        <SectionHeader eyebrow="Genre Analysis" />
+        {/* ── Section 3: Genre & Style ──────────────────────────────────────── */}
+        <SectionHeader eyebrow="Genre & Style" title="What you reach for." />
 
         <SubLabel>By genre</SubLabel>
         {genreBreakdown.length === 0 ? (
@@ -370,7 +449,7 @@ export default function InsightsClient({
         <SectionDivider />
 
         {/* ── Section 4: Geographic DNA ──────────────────────────────────────── */}
-        <SectionHeader eyebrow="Geographic DNA" />
+        <SectionHeader eyebrow="Geographic DNA" title="Where your records come from." />
 
         <SubLabel>Pressing Origins</SubLabel>
         {countryBreakdown.length === 0 ? (
@@ -407,8 +486,8 @@ export default function InsightsClient({
 
         <SectionDivider />
 
-        {/* ── Section 5: Labels & Artists ───────────────────────────────────── */}
-        <SectionHeader eyebrow="Label & Artist Obsession" />
+        {/* ── Section 5: Label Obsession ────────────────────────────────────── */}
+        <SectionHeader eyebrow="Label Obsession" title="Who you keep going back to." />
 
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "48px" }}>
           {/* Labels */}
@@ -485,8 +564,7 @@ export default function InsightsClient({
         <SectionDivider />
 
         {/* ── Section 6: Vinyl Colour ───────────────────────────────────────── */}
-        <SectionHeader eyebrow="Vinyl Colour" />
-        {/* TODO: requires vinyl_colour column on records table + sync update */}
+        <SectionHeader eyebrow="Vinyl Colour" title="Coming soon." />
         <p style={{ fontFamily: MONO, fontSize: "11px", letterSpacing: "0.04em", color: INK, margin: 0 }}>
           Vinyl colour analysis requires a schema update and resync. Coming soon.
         </p>
