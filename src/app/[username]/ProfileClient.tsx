@@ -239,7 +239,7 @@ export default function ProfileClient({
       )}
 
       {/* ── Profile tab bar — same style as Dig mode toggle ─────────────────── */}
-      <div style={{ display: "flex", justifyContent: "center", gap: "24px", paddingTop: "14px", borderBottom: `1px solid ${RULE}` }}>
+      <div style={{ display: "flex", justifyContent: "center", gap: "24px", paddingTop: "14px" }}>
         {([
           { label: "Profile", href: null, active: true },
           { label: "Lists",   href: "/lists", active: false },
@@ -249,7 +249,7 @@ export default function ProfileClient({
             fontFamily: MONO, fontSize: "10px", letterSpacing: "0.1em",
             textTransform: "uppercase", background: "none", border: "none",
             borderBottom: `1.5px solid ${active ? ORANGE : "transparent"}`,
-            padding: "6px 0", marginBottom: "-1px",
+            padding: "6px 0",
             color: active ? "#0d0d0d" : "#bbbbbb",
             cursor: active ? "default" : href ? "pointer" : "default",
             textDecoration: "none", display: "inline-block",
