@@ -323,7 +323,7 @@ export default function ProfileClient({
 
   const tabItems: Array<{ key: ProfileTab; label: string }> = [
     { key: "profile",   label: "Profile" },
-    ...(isOwner ? [{ key: "lists" as ProfileTab, label: "Lists" }] : []),
+    ...(isOwner ? [{ key: "lists" as ProfileTab, label: "Wantlist" }] : []),
     { key: "community", label: "Community" },
   ];
 
