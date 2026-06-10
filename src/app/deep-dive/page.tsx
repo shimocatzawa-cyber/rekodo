@@ -53,6 +53,17 @@ export default async function DeepDivePage() {
     for (const r of data ?? []) recordsMap.set(r.id, r as RecordRow);
   }
 
+  // Fetch Bandcamp-imported artist names for badge display
+  const { data: bcImports } = await supabase
+    .from("digital_imports")
+    .select("artist")
+    .eq("user_id", user.id)
+    .eq("source", "bandcamp");
+
+  const bcArtists = new Set(
+    (bcImports ?? []).map((r) => r.artist.toLowerCase().trim())
+  );
+
   // Group records by artist
   const artistMap = new Map<string, { count: number; records: { album: string; year: number | null; cover_url: string | null }[] }>();
   for (const link of allLinks) {
@@ -69,6 +80,7 @@ export default async function DeepDivePage() {
     .map(([name, { count, records }]) => ({
       name,
       count,
+      fromBandcamp: bcArtists.has(name.toLowerCase().trim()),
       records: records.sort((a, b) => (a.year ?? 9999) - (b.year ?? 9999)),
     }))
     .sort((a, b) => a.name.localeCompare(b.name));

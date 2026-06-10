@@ -15,8 +15,22 @@ type Section = "rankings" | "podcasts" | "books" | "interviews" | "related" | "b
 export type ArtistData = {
   name: string;
   count: number;
+  fromBandcamp?: boolean;
   records: { album: string; year: number | null; cover_url: string | null }[];
 };
+
+function BandcampIcon({ size = 13 }: { size?: number }) {
+  return (
+    <svg
+      width={size} height={size} viewBox="0 0 16 16"
+      aria-label="Imported from Bandcamp" role="img"
+      style={{ display: "inline-block", verticalAlign: "middle", flexShrink: 0 }}
+    >
+      <rect width="16" height="16" rx="3" fill="#1DA0C3" />
+      <text x="8" y="12.5" textAnchor="middle" fontSize="11" fontWeight="700" fill="white" fontFamily="sans-serif" fontStyle="italic">b</text>
+    </svg>
+  );
+}
 
 const TABS: { id: Section; label: string }[] = [
   { id: "rankings",   label: "Album Rankings" },
@@ -96,7 +110,7 @@ function RankingsContent({ data }: { data: { albums?: Album[] } }) {
   if (albums.length === 0) {
     return (
       <p style={{ fontFamily: MONO, fontSize: "0.72rem", letterSpacing: "0.04em", color: INK, padding: "2rem 0" }}>
-        Discography data unavailable for this artist.
+        No information available for this artist.
       </p>
     );
   }
@@ -156,9 +170,9 @@ function PodcastsContent({ data, artist }: { data: { episodes?: Episode[] }; art
           </p>
         </div>
       ))}
-      {eps.length < 2 && (
-        <p style={{ fontFamily: MONO, fontSize: "0.68rem", letterSpacing: "0.04em", color: INK, marginTop: 24, lineHeight: 1.6 }}>
-          Podcast coverage of this artist may be limited — try searching directly on Spotify Podcasts or Apple Podcasts.
+      {eps.length === 0 && (
+        <p style={{ fontFamily: MONO, fontSize: "0.72rem", letterSpacing: "0.04em", color: INK, padding: "2rem 0" }}>
+          No information available for this artist.
         </p>
       )}
     </div>
@@ -169,6 +183,13 @@ type BookItem = { title: string; author: string; year: number; type: string; for
 
 function BooksContent({ data }: { data: { items?: BookItem[] } }) {
   const items = data.items ?? [];
+  if (items.length === 0) {
+    return (
+      <p style={{ fontFamily: MONO, fontSize: "0.72rem", letterSpacing: "0.04em", color: INK, padding: "2rem 0" }}>
+        No information available for this artist.
+      </p>
+    );
+  }
   return (
     <div>
       {items.map((b, i) => (
@@ -208,6 +229,13 @@ type InterviewItem = { publication: string; title: string; year: number; format:
 
 function InterviewsContent({ data }: { data: { interviews?: InterviewItem[] } }) {
   const items = data.interviews ?? [];
+  if (items.length === 0) {
+    return (
+      <p style={{ fontFamily: MONO, fontSize: "0.72rem", letterSpacing: "0.04em", color: INK, padding: "2rem 0" }}>
+        No information available for this artist.
+      </p>
+    );
+  }
   return (
     <div>
       {items.map((iv, i) => (
@@ -295,7 +323,7 @@ function RelatedArtistsContent({ data }: { data: { artists?: RelatedArtist[] } }
   if (related.length === 0) {
     return (
       <p style={{ fontFamily: MONO, fontSize: "0.72rem", letterSpacing: "0.04em", color: INK, padding: "2rem 0" }}>
-        No related artists data available.
+        No information available for this artist.
       </p>
     );
   }
@@ -434,9 +462,12 @@ function ArtistRow({
         <ArtistInitial name={artist.name} size={40} />
       )}
       <div style={{ minWidth: 0 }}>
-        <p style={{ fontFamily: SERIF, fontSize: "0.85rem", fontWeight: 600, color: INK, margin: "0 0 3px", lineHeight: 1.2, wordBreak: "break-word" }}>
-          {artist.name}
-        </p>
+        <div style={{ display: "flex", alignItems: "center", gap: 5, marginBottom: 3 }}>
+          <p style={{ fontFamily: SERIF, fontSize: "0.85rem", fontWeight: 600, color: INK, margin: 0, lineHeight: 1.2, wordBreak: "break-word" }}>
+            {artist.name}
+          </p>
+          {artist.fromBandcamp && <BandcampIcon size={12} />}
+        </div>
         <p style={{ fontFamily: MONO, fontSize: "0.6rem", letterSpacing: "0.08em", color: INK, margin: 0 }}>
           {artist.count} {artist.count === 1 ? "record" : "records"}
         </p>
@@ -626,7 +657,7 @@ export default function DeepDiveClient({
       return (
         <div style={{ padding: "2rem 0" }}>
           <span style={{ fontFamily: MONO, fontSize: "0.72rem", letterSpacing: "0.04em", color: INK }}>
-            Couldn&apos;t load this section.{" "}
+            No information available for this artist.{" "}
           </span>
           <button
             onClick={() => retryFetch(artist, tab)}
@@ -668,9 +699,12 @@ export default function DeepDiveClient({
             <ArtistInitial name={selectedArtist} size={96} />
           )}
           <div style={{ minWidth: 0, flex: 1 }}>
-            <h2 style={{ fontFamily: SERIF, fontSize: "2rem", fontWeight: 600, color: INK, letterSpacing: "-0.025em", lineHeight: 1.1, margin: "0 0 6px" }}>
-              {selectedArtist}
-            </h2>
+            <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
+              <h2 style={{ fontFamily: SERIF, fontSize: "2rem", fontWeight: 600, color: INK, letterSpacing: "-0.025em", lineHeight: 1.1, margin: 0 }}>
+                {selectedArtist}
+              </h2>
+              {selectedData?.fromBandcamp && <BandcampIcon size={16} />}
+            </div>
             <p style={{ fontFamily: MONO, fontSize: "0.7rem", letterSpacing: "0.06em", color: INK, margin: "0 0 12px" }}>
               {selectedData.count} {selectedData.count === 1 ? "record" : "records"} in your collection
             </p>
