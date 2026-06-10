@@ -17,6 +17,12 @@ const INK    = "#0d0d0d";
 const RULE   = "#e0e0da";
 const MUTED  = "#aaaaaa";
 
+const SIGN_SYMBOL: Record<string, string> = {
+  Aries: "♈", Taurus: "♉", Gemini: "♊", Cancer: "♋",
+  Leo: "♌", Virgo: "♍", Libra: "♎", Scorpio: "♏",
+  Sagittarius: "♐", Capricorn: "♑", Aquarius: "♒", Pisces: "♓",
+};
+
 export interface ProfileData {
   id: string;
   username: string;
@@ -377,7 +383,8 @@ export default function ProfileClient({
 
               {(starSignValue || profile.star_sign) && (
                 <p style={{ fontFamily: MONO, fontSize: "12px", letterSpacing: "0.04em", color: MUTED, margin: "0 0 6px 0" }}>
-                  ☽ {starSignValue || profile.star_sign}
+                  {SIGN_SYMBOL[starSignValue || profile.star_sign || ""] ?? "☽"}{" "}
+                  {starSignValue || profile.star_sign}
                 </p>
               )}
 
@@ -521,7 +528,7 @@ export default function ProfileClient({
             <div style={{ paddingBottom: "32px" }}>
               {profile.taste_summary ? (
                 <>
-                  <p style={{ fontFamily: SERIF, fontSize: "1.1rem", fontStyle: "italic", color: "#505050", lineHeight: 1.8, margin: "0 0 20px 0", maxWidth: 620 }}>
+                  <p style={{ fontFamily: SERIF, fontSize: "1.1rem", fontStyle: "italic", color: "#505050", lineHeight: 1.8, margin: "0 0 20px 0" }}>
                     {profile.taste_summary}
                   </p>
                   {isOwner && (
