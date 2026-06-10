@@ -1,6 +1,6 @@
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import type { SlotItem, ListSlot } from "@/app/lists/page";
+import type { SlotItem, ListSlot } from "@/app/lists/types";
 
 const SERIF = "var(--font-editorial)";
 const MONO  = "var(--font-mono)";

@@ -1,5 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
-import type { DiscoverList } from "@/app/lists/page";
+import type { DiscoverList } from "@/app/lists/types";
 
 export const dynamic = "force-dynamic";
 
