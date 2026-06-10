@@ -260,43 +260,16 @@ export default function ProfileClient({
           </Link>
         )}
 
-        {/* Nav */}
-        <nav style={{ marginTop: viewer ? "1.5rem" : "2.5rem", display: "flex", flexDirection: "column", gap: "0.25rem" }}>
-
-          {/* Profile — active */}
-          <div style={{ padding: "6px 0" }}>
-            <span style={{
-              display: "block", fontFamily: MONO, fontSize: "0.72rem",
-              letterSpacing: "0.1em", textTransform: "uppercase", color: ORANGE,
-            }}>
-              Profile
-            </span>
+        {/* Nav — same style as Dig mode filter */}
+        <nav style={{ marginTop: viewer ? "1.5rem" : "2.5rem", display: "flex", flexDirection: "column", alignItems: "flex-start", gap: 0 }}>
+          <div style={{ fontFamily: MONO, fontSize: "10px", letterSpacing: "0.1em", textTransform: "uppercase", padding: "6px 0", color: "#0d0d0d", borderBottom: `1.5px solid ${ORANGE}` }}>
+            Profile
           </div>
-
-          {/* Lists */}
-          <Link href="/lists" style={{ textDecoration: "none", padding: "6px 0", display: "block" }}>
-            <span style={{
-              display: "block", fontFamily: MONO, fontSize: "0.72rem",
-              letterSpacing: "0.1em", textTransform: "uppercase", color: "#0a0a0a", opacity: 0.5,
-            }}>
-              Lists
-            </span>
+          <Link href="/lists" style={{ textDecoration: "none", fontFamily: MONO, fontSize: "10px", letterSpacing: "0.1em", textTransform: "uppercase", padding: "6px 0", color: "#bbbbbb", borderBottom: "1.5px solid transparent", display: "block" }}>
+            Lists
           </Link>
-
-          {/* Community — coming soon */}
-          <div style={{ padding: "6px 0" }}>
-            <span style={{
-              display: "block", fontFamily: MONO, fontSize: "0.72rem",
-              letterSpacing: "0.1em", textTransform: "uppercase", color: "#0a0a0a", opacity: 0.3,
-            }}>
-              Community
-            </span>
-            <span style={{
-              display: "block", fontFamily: MONO, fontSize: "0.6rem",
-              letterSpacing: "0.06em", color: "#0a0a0a", opacity: 0.3, marginTop: "3px",
-            }}>
-              Coming soon
-            </span>
+          <div style={{ fontFamily: MONO, fontSize: "10px", letterSpacing: "0.1em", textTransform: "uppercase", padding: "6px 0", color: "#bbbbbb", borderBottom: "1.5px solid transparent", opacity: 0.5 }}>
+            Community
           </div>
         </nav>
       </aside>
@@ -365,16 +338,16 @@ export default function ProfileClient({
                 <button
                   onClick={openEdit}
                   style={{
-                    fontFamily: MONO, fontSize: "9px", letterSpacing: "0.12em",
+                    fontFamily: MONO, fontSize: "9px", letterSpacing: "0.1em",
                     textTransform: "uppercase", color: INK,
-                    background: "none", border: `1px solid rgba(0,0,0,0.15)`,
-                    cursor: "pointer", padding: "7px 14px",
+                    background: "none", border: "none",
+                    cursor: "pointer", padding: 0,
                   }}
                 >
                   Edit profile
                 </button>
                 <button onClick={handleShare} style={{
-                  fontFamily: MONO, fontSize: "9px", letterSpacing: "0.08em",
+                  fontFamily: MONO, fontSize: "9px", letterSpacing: "0.1em",
                   textTransform: "uppercase",
                   color: copied ? MUTED : ORANGE, background: "none", border: "none",
                   cursor: "pointer", padding: 0,
@@ -392,7 +365,7 @@ export default function ProfileClient({
                 {displayName}
               </h1>
 
-              <p style={{ fontFamily: MONO, fontSize: "11px", letterSpacing: "0.06em", color: MUTED, margin: "0 0 6px 0", display: "flex", alignItems: "center", gap: "6px" }}>
+              <p style={{ fontFamily: MONO, fontSize: "12px", letterSpacing: "0.04em", color: MUTED, margin: "0 0 6px 0", display: "flex", alignItems: "center", gap: "6px" }}>
                 <span>@{profile.username}</span>
                 {profile.is_donor && (
                   <span style={{ fontFamily: SERIF, fontSize: "0.75rem", color: "#B8860B" }} title="rekōdo supporter">ō</span>
@@ -400,7 +373,7 @@ export default function ProfileClient({
               </p>
 
               {(followerCount > 0 || followingCount > 0) && (
-                <p style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.05em", color: "#cccccc", margin: "0 0 10px 0" }}>
+                <p style={{ fontFamily: MONO, fontSize: "12px", letterSpacing: "0.04em", color: MUTED, margin: "0 0 8px 0" }}>
                   {followerCount > 0 && <span>{followerCount} {followerCount === 1 ? "follower" : "followers"}</span>}
                   {followerCount > 0 && followingCount > 0 && <span style={{ margin: "0 8px" }}>·</span>}
                   {followingCount > 0 && <span>following {followingCount}</span>}
@@ -408,7 +381,7 @@ export default function ProfileClient({
               )}
 
               {(cityValue || countryValue) && (
-                <p style={{ fontFamily: MONO, fontSize: "11px", letterSpacing: "0.04em", color: MUTED, margin: "0 0 8px 0" }}>
+                <p style={{ fontFamily: MONO, fontSize: "12px", letterSpacing: "0.04em", color: MUTED, margin: "0 0 6px 0" }}>
                   {[cityValue || profile.city, countryValue || profile.country].filter(Boolean).join(", ")}
                 </p>
               )}
@@ -420,13 +393,13 @@ export default function ProfileClient({
               )}
 
               {(starSignValue || profile.star_sign) && (
-                <p style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.06em", color: "#cccccc", margin: "0 0 6px 0" }}>
+                <p style={{ fontFamily: MONO, fontSize: "12px", letterSpacing: "0.04em", color: MUTED, margin: "0 0 6px 0" }}>
                   ☽ {starSignValue || profile.star_sign}
                 </p>
               )}
 
               {(bandcampValue || profile.bandcamp_username) && (
-                <p style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.04em", color: "#cccccc", margin: 0 }}>
+                <p style={{ fontFamily: MONO, fontSize: "12px", letterSpacing: "0.04em", color: MUTED, margin: 0 }}>
                   bandcamp.com/{bandcampValue || profile.bandcamp_username}
                 </p>
               )}
@@ -653,16 +626,6 @@ export default function ProfileClient({
           ) : null}
         </section>
 
-        {/* ── Divider ── */}
-        <div style={{ height: 1, background: RULE, marginBottom: "40px" }} />
-
-        {/* ── Community ── */}
-        <section>
-          <p style={eyebrowSt}>Community</p>
-          <p style={{ fontFamily: MONO, fontSize: "0.65rem", letterSpacing: "0.04em", color: INK, opacity: 0.4, margin: 0 }}>
-            Collector matching coming soon.
-          </p>
-        </section>
 
       </main>
     </div>
