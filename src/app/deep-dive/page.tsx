@@ -65,10 +65,7 @@ export default async function DeepDivePage() {
   }
 
   const artists: ArtistData[] = [...artistMap.entries()]
-    .filter(([name, { count }]) =>
-      count >= 2 &&
-      !/^various/i.test(name.trim())
-    )
+    .filter(([name]) => !/^various/i.test(name.trim()))
     .map(([name, { count, records }]) => ({
       name,
       count,
