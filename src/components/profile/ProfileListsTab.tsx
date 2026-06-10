@@ -440,92 +440,10 @@ export default function ProfileListsTab({ initialLists, username }: Props) {
     <div style={{ background: "#ffffff" }}>
       <style>{`.pill-strip::-webkit-scrollbar { display: none; }`}</style>
 
-      {/* ── Pill strip ── */}
-      <div style={{ borderBottom: "1px solid rgba(0,0,0,0.08)", background: "#FEFBF8" }}>
-        <div style={{ display: "flex", alignItems: "center", padding: "8px 0 4px" }}>
-          <div
-            className="pill-strip"
-            style={{
-              flex: 1, display: "flex", alignItems: "center", gap: "8px",
-              overflowX: "auto", WebkitOverflowScrolling: "touch",
-              scrollbarWidth: "none", msOverflowStyle: "none",
-              paddingBottom: "2px", paddingLeft: "16px", paddingRight: "16px",
-            } as React.CSSProperties}
-          >
-            {(() => {
-              const wl = lists.find(l => l.slug === "wantlist" || l.slug === "want-to-buy");
-              if (!wl) return null;
-              const isActive = activePillId === wl.id;
-              return (
-                <>
-                  <button
-                    onClick={() => { setActivePillId(wl.id); closePicker(); }}
-                    style={{
-                      fontFamily: MONO, fontSize: "11px", letterSpacing: "0.08em",
-                      color: isActive ? ORANGE : "rgba(204,85,0,0.5)",
-                      background: isActive ? "rgba(204,85,0,0.05)" : "none",
-                      border: `1px solid ${isActive ? ORANGE : "rgba(204,85,0,0.4)"}`,
-                      borderRadius: "3px", cursor: "pointer", padding: "4px 10px",
-                      flexShrink: 0, whiteSpace: "nowrap", transition: "all 0.15s",
-                    }}
-                  >
-                    {`Wantlist · ${wl.slots.length}`}
-                  </button>
-
-                  {isActive && (
-                    <>
-                      <div style={{ width: "1px", height: "16px", background: "rgba(0,0,0,0.12)", flexShrink: 0, margin: "0 4px" }} />
-                      {(["must_have", "would_love", "someday"] as Priority[]).map(p => {
-                        const on = wantlistFilter.has(p);
-                        return (
-                          <button key={p} onClick={() => {
-                            setWantlistFilter(prev => {
-                              const next = new Set(prev);
-                              if (on) next.delete(p); else next.add(p);
-                              return next;
-                            });
-                          }} style={{
-                            fontFamily: MONO, fontSize: "11px", letterSpacing: "0.06em",
-                            color: on ? PRIORITY_COLORS[p] : "#aaaaaa",
-                            background: on ? `${PRIORITY_COLORS[p]}14` : "none",
-                            border: `1px solid ${on ? PRIORITY_COLORS[p] : "#e0e0da"}`,
-                            borderRadius: "3px", cursor: "pointer", padding: "4px 10px",
-                            flexShrink: 0, whiteSpace: "nowrap", transition: "all 0.15s",
-                          }}>
-                            {PRIORITY_LABELS[p]}
-                          </button>
-                        );
-                      })}
-                    </>
-                  )}
-                </>
-              );
-            })()}
-          </div>
-        </div>
-      </div>
-
-      {/* ── Two-column layout ── */}
-      <div
-        className="flex flex-col md:grid"
-        style={{ gridTemplateColumns: "1fr 340px" }}
-      >
-
-        {/* Center: list detail */}
-        <div style={{ borderRight: "1px solid rgba(0,0,0,0.08)" }}>
-          {selectedList ? (
-            <div className="px-4 md:px-7" style={{ paddingTop: "24px", paddingBottom: "40px" }}>
-              <p style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.12em", textTransform: "uppercase", color: ORANGE, marginBottom: "10px" }}>
-                {selectedList.is_public ? "Public List" : "Private List"}
-              </p>
-              <h2 style={{ fontFamily: SERIF, fontSize: "20px", fontWeight: 400, color: "#0d0d0d", lineHeight: 1.15, marginBottom: "5px" }}>
-                {selectedList.title}
-              </h2>
-              {LIST_SUBTITLES[selectedList.title] && (
-                <p style={{ fontFamily: MONO, fontStyle: "italic", fontSize: "11px", color: "#aaaaaa", lineHeight: 1.5, marginBottom: "20px", letterSpacing: "0.02em" }}>
-                  {LIST_SUBTITLES[selectedList.title]}
-                </p>
-              )}
+      {/* ── Wantlist ── */}
+      <div style={{ maxWidth: 680, margin: "0 auto", padding: "2rem 1.5rem 3rem" }}>
+        {selectedList ? (
+          <div>
 
               <div style={{ marginBottom: "20px" }}>
                 {selectedList.list_type === "top5" ? (
@@ -558,6 +476,29 @@ export default function ProfileListsTab({ initialLists, username }: Props) {
                   <>
                     {/* Wantlist controls */}
                     <div style={{ marginBottom: "12px" }}>
+                      <div style={{ display: "flex", gap: "8px", flexWrap: "wrap", marginBottom: "14px" }}>
+                        {(["must_have", "would_love", "someday"] as Priority[]).map(p => {
+                          const on = wantlistFilter.has(p);
+                          return (
+                            <button key={p} onClick={() => {
+                              setWantlistFilter(prev => {
+                                const next = new Set(prev);
+                                if (on) next.delete(p); else next.add(p);
+                                return next;
+                              });
+                            }} style={{
+                              fontFamily: MONO, fontSize: "11px", letterSpacing: "0.06em",
+                              color: on ? PRIORITY_COLORS[p] : "#aaaaaa",
+                              background: on ? `${PRIORITY_COLORS[p]}14` : "none",
+                              border: `1px solid ${on ? PRIORITY_COLORS[p] : "#e0e0da"}`,
+                              borderRadius: "3px", cursor: "pointer", padding: "4px 10px",
+                              flexShrink: 0, whiteSpace: "nowrap", transition: "all 0.15s",
+                            }}>
+                              {PRIORITY_LABELS[p]}
+                            </button>
+                          );
+                        })}
+                      </div>
                       <div style={{ marginBottom: "10px" }}>
                         <input
                           type="text"
@@ -759,78 +700,7 @@ export default function ProfileListsTab({ initialLists, username }: Props) {
                 )}
               </div>
             </div>
-          ) : (
-            <div style={{ padding: "48px", display: "flex", alignItems: "center", justifyContent: "center" }}>
-              <p style={{ fontFamily: SERIF, fontStyle: "italic", fontSize: "14px", color: "#d8d8d8" }}>Select a list from the panel →</p>
-            </div>
-          )}
-        </div>
-
-        {/* Right: My Lists */}
-        <div className="hidden md:block" style={{ borderLeft: "0.5px solid #e8e8e8" }}>
-          <div style={{ position: "sticky", top: 0, background: "#ffffff", zIndex: 1, padding: "20px 20px 12px", borderBottom: "1px solid rgba(0,0,0,0.06)" }}>
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-              <h2 style={{ fontFamily: SERIF, fontSize: "1rem", fontWeight: 600, color: "#0d0d0d" }}>My Lists</h2>
-              <button
-                onClick={() => { setCreateState({ listType: "top5", step: "templates" }); setNewTitle(""); }}
-                style={{
-                  fontFamily: MONO, fontSize: "10px", letterSpacing: "0.08em",
-                  color: ORANGE, background: "none", border: `1px solid ${ORANGE}`,
-                  borderRadius: "3px", cursor: "pointer", padding: "3px 9px", whiteSpace: "nowrap",
-                }}
-              >
-                + New list
-              </button>
-            </div>
-          </div>
-
-          <div>
-            {lists.filter(l => l.list_type === "top5").map(list => {
-              const filled   = list.slots.filter(s => s.item).length;
-              const isActive = activePillId === list.id;
-              return (
-                <div key={list.id} onClick={() => { setActivePillId(list.id); closePicker(); }}
-                  style={{
-                    display: "flex", alignItems: "center", padding: "9px 16px 9px 13px",
-                    borderLeft: `3px solid ${isActive ? ORANGE : "transparent"}`,
-                    background: isActive ? "rgba(204,85,0,0.025)" : "none",
-                    borderBottom: "1px solid rgba(0,0,0,0.04)",
-                    cursor: "pointer", transition: "background 0.1s",
-                  }}
-                >
-                  <span style={{ flex: 1, fontFamily: MONO, fontSize: "11px", letterSpacing: "0.04em", color: "#0d0d0d", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                    {list.title}
-                  </span>
-                  <span style={{ fontFamily: MONO, fontSize: "11px", color: "#aaaaaa", flexShrink: 0, marginLeft: "8px" }}>
-                    {filled}/5
-                  </span>
-                </div>
-              );
-            })}
-
-            {lists.filter(l => l.list_type === "personal" && l.slug !== "wantlist" && l.slug !== "want-to-buy").map(list => {
-              const isActive = activePillId === list.id;
-              return (
-                <div key={list.id} onClick={() => { setActivePillId(list.id); closePicker(); }}
-                  style={{
-                    display: "flex", alignItems: "center", padding: "9px 16px 9px 13px",
-                    borderLeft: `3px solid ${isActive ? ORANGE : "transparent"}`,
-                    background: isActive ? "rgba(204,85,0,0.025)" : "none",
-                    borderBottom: "1px solid rgba(0,0,0,0.04)",
-                    cursor: "pointer", transition: "background 0.1s",
-                  }}
-                >
-                  <span style={{ flex: 1, fontFamily: MONO, fontSize: "11px", letterSpacing: "0.04em", color: "#0d0d0d", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                    {list.title}
-                  </span>
-                  <span style={{ fontFamily: MONO, fontSize: "11px", color: "#aaaaaa", flexShrink: 0, marginLeft: "8px" }}>
-                    {list.slots.length}
-                  </span>
-                </div>
-              );
-            })}
-          </div>
-        </div>
+          ) : null}
       </div>
 
       {/* Modals */}

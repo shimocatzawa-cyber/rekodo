@@ -300,8 +300,6 @@ export default function ProfileClient({
   const itemsByList = new Map<string, ListItemRow[]>(lists.map(l => [l.id, []]));
   for (const item of listItems) itemsByList.get(item.list_id)?.push(item);
 
-  const top5Lists = lists.filter(l => l.list_type === "top5");
-
   const displayName    = nameValue || profile.username;
   const displayInitial = displayName.charAt(0).toUpperCase();
 
@@ -567,7 +565,7 @@ export default function ProfileClient({
             </>
           )}
 
-          {/* ── Lists section (simplified) ── */}
+          {/* ── Lists section ── */}
           <section style={{ marginBottom: "48px" }}>
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "20px" }}>
               <p style={eyebrowSt}>Lists</p>
@@ -581,26 +579,60 @@ export default function ProfileClient({
               )}
             </div>
 
-            {top5Lists.length > 0 ? (
-              <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
-                {top5Lists.map(list => {
-                  const items  = itemsByList.get(list.id) ?? [];
-                  const filled = items.filter(i => i.record_id || i.item_type === "song").length;
+            {lists.length > 0 ? (
+              <div style={{ display: "flex", flexDirection: "column", gap: "48px" }}>
+                {lists.map(list => {
+                  const items    = itemsByList.get(list.id) ?? [];
+                  const maxSlots = list.list_type === "top5" ? 5 : Math.max(items.length, 1);
                   return (
-                    <div key={list.id} style={{ display: "flex", alignItems: "center", gap: "12px", padding: "10px 0", borderBottom: "1px solid rgba(0,0,0,0.05)" }}>
-                      <Link href={`/@${profile.username}/${list.slug}`} style={{ flex: 1, fontFamily: SERIF, fontSize: "15px", color: INK, textDecoration: "none", lineHeight: 1.3 }}>
-                        {list.title}
+                    <div key={list.id}>
+                      <Link href={`/@${profile.username}/${list.slug}`} style={{ textDecoration: "none" }}>
+                        <h2 style={{ fontFamily: SERIF, fontSize: "20px", fontWeight: 400, color: INK, margin: "0 0 16px 0", lineHeight: 1.2 }}>
+                          {list.title}
+                        </h2>
                       </Link>
-                      <span style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.06em", color: MUTED, flexShrink: 0 }}>
-                        {filled}/5
-                      </span>
+                      <div style={{ display: "grid", gridTemplateColumns: `repeat(${Math.min(maxSlots, 5)}, 1fr)`, gap: "10px" }}>
+                        {Array.from({ length: maxSlots }, (_, i) => {
+                          const pos      = i + 1;
+                          const item     = items.find(it => it.position === pos);
+                          const rec      = item?.record_id ? coverById.get(item.record_id) : undefined;
+                          const coverUrl = item?.item_type === "song" ? item.song_cover_url : (rec?.cover_url ?? null);
+                          return (
+                            <div key={pos}>
+                              <div style={{ aspectRatio: "1 / 1", position: "relative", overflow: "hidden", background: coverUrl ? "transparent" : "#f4f4f4", border: coverUrl ? "none" : "1px dashed rgba(0,0,0,0.10)" }}>
+                                {coverUrl ? (
+                                  // eslint-disable-next-line @next/next/no-img-element
+                                  <img src={coverUrl} alt={item?.song_album ?? rec?.album ?? ""} style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
+                                ) : (
+                                  <div style={{ width: "100%", height: "100%", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                                    <span style={{ fontFamily: SERIF, fontSize: "18px", color: "#d8d8d8" }}>—</span>
+                                  </div>
+                                )}
+                                <span style={{ position: "absolute", top: "7px", left: "7px", fontFamily: MONO, fontSize: "9px", letterSpacing: "0.06em", color: coverUrl ? "rgba(255,255,255,0.75)" : "#cccccc", textShadow: coverUrl ? "0 1px 3px rgba(0,0,0,0.5)" : "none", lineHeight: 1 }}>
+                                  {pos}
+                                </span>
+                              </div>
+                              {item && (
+                                <div style={{ marginTop: "8px" }}>
+                                  <p style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.06em", textTransform: "uppercase", color: MUTED, margin: "0 0 3px 0", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                                    {item.item_type === "song" ? item.song_artist : rec?.artist}
+                                  </p>
+                                  <p style={{ fontFamily: SERIF, fontSize: "12px", color: INK, lineHeight: 1.3, margin: 0, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}>
+                                    {item.item_type === "song" ? item.song_album : rec?.album}
+                                  </p>
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
                     </div>
                   );
                 })}
               </div>
             ) : isOwner ? (
               <p style={{ fontFamily: MONO, fontSize: "0.65rem", letterSpacing: "0.04em", color: MUTED, margin: 0 }}>
-                No lists yet.{" "}
+                No public lists yet.{" "}
                 <button onClick={() => setProfileTab("lists")} style={{ fontFamily: MONO, fontSize: "0.65rem", letterSpacing: "0.04em", color: ORANGE, background: "none", border: "none", cursor: "pointer", padding: 0 }}>
                   Create one in Lists →
                 </button>
