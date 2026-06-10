@@ -219,21 +219,23 @@ export default function ProfileClient({
   };
 
   return (
-    <div style={{ display: "flex", flexDirection: "row", alignItems: "stretch", minHeight: "100vh", background: "#ffffff" }}>
+    <div style={{ minHeight: "100vh", background: "#ffffff" }}>
 
       {/* ── Sidebar ─────────────────────────────────────────────────────────── */}
       <aside style={{
-        width: 220,
-        flexShrink: 0,
-        borderRight: `1px solid ${RULE}`,
-        padding: "2rem 1.5rem",
-        position: "sticky",
+        position: "fixed",
+        left: 0,
         top: 0,
+        width: 220,
         height: "100vh",
         overflowY: "auto",
+        borderRight: `1px solid ${RULE}`,
+        padding: "2rem 1.5rem",
+        background: "#ffffff",
         display: "flex",
         flexDirection: "column",
         boxSizing: "border-box",
+        zIndex: 20,
       }}>
         {/* Wordmark */}
         <Link href="/collection" style={{
@@ -317,7 +319,7 @@ export default function ProfileClient({
       </aside>
 
       {/* ── Main Content ─────────────────────────────────────────────────────── */}
-      <main style={{ flex: 1, padding: "3rem 3.5rem", maxWidth: 860, minWidth: 0 }}>
+      <main style={{ marginLeft: 220, padding: "3rem 3.5rem", maxWidth: 860, minWidth: 0 }}>
 
         {/* ── Identity block ── */}
         <div style={{ marginBottom: "32px" }}>
