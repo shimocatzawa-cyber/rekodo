@@ -20,7 +20,7 @@ export default async function PublicProfilePage({ params }: { params: Params }) 
 
   const { data: profile } = await supabase
     .from("profiles")
-    .select("id, username, display_name, city, country, country_code, bio, avatar_url, is_donor, taste_summary, star_sign, bandcamp_username")
+    .select("id, username, display_name, city, country, country_code, bio, avatar_url, is_donor, taste_summary, star_sign, bandcamp_username, role")
     .eq("username", username)
     .maybeSingle();
 
@@ -121,6 +121,7 @@ export default async function PublicProfilePage({ params }: { params: Params }) 
         taste_summary:     profile.taste_summary     ?? null,
         star_sign:         profile.star_sign         ?? null,
         bandcamp_username: profile.bandcamp_username ?? null,
+        role:              profile.role              ?? null,
       }}
       isOwner={isOwner}
       totalRecords={totalRecords}

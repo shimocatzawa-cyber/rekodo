@@ -36,6 +36,7 @@ export interface ProfileData {
   taste_summary: string | null;
   star_sign: string | null;
   bandcamp_username: string | null;
+  role: string | null;
 }
 
 export interface ListRow {
@@ -350,13 +351,20 @@ export default function ProfileClient({
           {/* ── DISPLAY MODE ── */}
           {!editing && (
             <>
-              <h1 style={{ fontFamily: SERIF, fontSize: "clamp(32px, 5vw, 48px)", fontWeight: 400, color: INK, lineHeight: 1.1, margin: "0 0 12px 0" }}>
-                {displayName}
-              </h1>
+              <div style={{ display: "flex", alignItems: "baseline", gap: "12px", margin: "0 0 12px 0", flexWrap: "wrap" }}>
+                <h1 style={{ fontFamily: SERIF, fontSize: "clamp(32px, 5vw, 48px)", fontWeight: 400, color: INK, lineHeight: 1.1, margin: 0 }}>
+                  {displayName}
+                </h1>
+                {profile.role === "admin" && (
+                  <span style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.14em", textTransform: "uppercase", color: ORANGE, border: `1px solid ${ORANGE}`, padding: "3px 7px", lineHeight: 1, whiteSpace: "nowrap" }}>
+                    Admin
+                  </span>
+                )}
+              </div>
 
               <p style={{ fontFamily: MONO, fontSize: "12px", letterSpacing: "0.04em", color: MUTED, margin: "0 0 6px 0", display: "flex", alignItems: "center", gap: "6px" }}>
                 <span>@{profile.username}</span>
-                {profile.is_donor && (
+                {(profile.is_donor || profile.role === "admin") && (
                   <span style={{ fontFamily: SERIF, fontSize: "0.75rem", color: "#B8860B" }} title="rekōdo supporter">ō</span>
                 )}
               </p>
