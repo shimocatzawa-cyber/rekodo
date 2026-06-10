@@ -3,11 +3,23 @@ import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import ProfileClient from "./ProfileClient";
 import { UsernameSetupForm } from "./ProfilePageClient";
+import type { UserList, ListSlot, SlotItem, DiscoverList } from "@/app/lists/types";
 
 const SERIF  = "var(--font-editorial)";
 const ORANGE = "#CC5500";
 
 type Params = Promise<{ username: string }>;
+
+const DEFAULT_TOP5: Array<{ title: string; slug: string }> = [
+  { title: "Top 5 All Time",         slug: "top-5-all-time" },
+  { title: "Top 5 Desert Island",    slug: "top-5-desert-island" },
+  { title: "Top 5 Gateway Records",  slug: "top-5-gateway-records" },
+];
+
+const DEFAULT_PERSONAL: Array<{ title: string; slug: string }> = [
+  { title: "Wantlist",         slug: "wantlist" },
+  { title: "Need to Relisten", slug: "need-to-relisten" },
+];
 
 export default async function PublicProfilePage({ params }: { params: Params }) {
   const { username: rawHandle } = await params;
@@ -71,7 +83,6 @@ export default async function PublicProfilePage({ params }: { params: Params }) 
   const recordIds      = userRecords.map(r => r.record_id).filter(Boolean) as string[];
   const listIds        = lists.map(l => l.id);
 
-  // Parallel: record details + list items
   const [recordDetailsResult, listItemsResult] = await Promise.all([
     recordIds.length
       ? supabase.from("records").select("genre, country, label").in("id", recordIds)
@@ -87,7 +98,6 @@ export default async function PublicProfilePage({ params }: { params: Params }) 
   const details  = recordDetailsResult.data ?? [];
   const allItems = listItemsResult.data      ?? [];
 
-  // Stats
   function topOf(arr: (string | null)[]): string | null {
     const m = new Map<string, number>();
     for (const v of arr) if (v) m.set(v, (m.get(v) ?? 0) + 1);
@@ -97,7 +107,6 @@ export default async function PublicProfilePage({ params }: { params: Params }) 
   const topCountry = topOf(details.map(r => r.country));
   const topLabel   = topOf(details.map(r => r.label));
 
-  // Cover records for list items
   const itemRecordIds = allItems
     .filter(i => i.item_type !== "song" && i.record_id)
     .map(i => i.record_id as string);
@@ -105,6 +114,184 @@ export default async function PublicProfilePage({ params }: { params: Params }) 
   const { data: coverRecords } = itemRecordIds.length
     ? await supabase.from("records").select("id, cover_url, artist, album").in("id", itemRecordIds)
     : { data: [] };
+
+  // ── Owner-only: full lists data for Lists tab ─────────────────────────────────
+
+  let fullLists: UserList[] | null = null;
+
+  if (isOwner && viewer) {
+    const uid = viewer.id;
+
+    for (const def of DEFAULT_TOP5) {
+      const { error: e1 } = await supabase.from("lists").upsert(
+        { user_id: uid, title: def.title, slug: def.slug, is_public: true, list_type: "top5" },
+        { onConflict: "user_id,slug", ignoreDuplicates: true }
+      );
+      if (e1?.message?.includes("list_type")) {
+        await supabase.from("lists").upsert(
+          { user_id: uid, title: def.title, slug: def.slug, is_public: true },
+          { onConflict: "user_id,slug", ignoreDuplicates: true }
+        );
+      }
+    }
+    const { data: hasWantlist } = await supabase
+      .from("lists").select("id").eq("user_id", uid).eq("slug", "wantlist").maybeSingle();
+    if (!hasWantlist) {
+      await supabase.from("lists")
+        .update({ title: "Wantlist", slug: "wantlist" })
+        .eq("user_id", uid).eq("slug", "want-to-buy");
+    }
+    for (const def of DEFAULT_PERSONAL) {
+      const { error: e2 } = await supabase.from("lists").upsert(
+        { user_id: uid, title: def.title, slug: def.slug, is_public: false, list_type: "personal" },
+        { onConflict: "user_id,slug", ignoreDuplicates: true }
+      );
+      if (e2?.message?.includes("list_type")) {
+        await supabase.from("lists").upsert(
+          { user_id: uid, title: def.title, slug: def.slug, is_public: false },
+          { onConflict: "user_id,slug", ignoreDuplicates: true }
+        );
+      }
+    }
+
+    let listsRaw: Array<{ id: string; title: string; slug: string; is_public: boolean; list_type?: string }> = [];
+    {
+      const { data, error } = await supabase
+        .from("lists")
+        .select("id, title, slug, is_public, list_type")
+        .eq("user_id", uid)
+        .order("created_at", { ascending: true });
+      if (error?.message?.includes("list_type")) {
+        const { data: fallback } = await supabase
+          .from("lists").select("id, title, slug, is_public").eq("user_id", uid).order("created_at", { ascending: true });
+        listsRaw = (fallback ?? []).map(l => ({ ...l, list_type: "top5" }));
+      } else {
+        listsRaw = data ?? [];
+      }
+    }
+
+    const fullListIds = listsRaw.map(l => l.id);
+
+    type ItemRow = {
+      id: string; list_id: string; position: number;
+      item_type: string; record_id: string | null;
+      song_title: string | null; song_artist: string | null;
+      song_album: string | null; song_cover_url: string | null; song_year: number | null;
+      note: string | null; priority: string | null;
+      price_cap: number | null; pressing_tip: string | null;
+      found: boolean | null; created_at: string | null;
+    };
+
+    let itemsData: ItemRow[] = [];
+    if (fullListIds.length) {
+      const { data: fullData, error: fullErr } = await supabase
+        .from("list_items")
+        .select("id, list_id, position, item_type, record_id, song_title, song_artist, song_album, song_cover_url, song_year, note, priority, price_cap, pressing_tip, found, created_at")
+        .in("list_id", fullListIds).order("position");
+      if (!fullErr) {
+        itemsData = (fullData ?? []) as unknown as ItemRow[];
+      } else {
+        const { data: tier2, error: tier2Err } = await supabase
+          .from("list_items")
+          .select("id, list_id, position, item_type, record_id, song_title, song_artist, song_album, song_cover_url, song_year, note, priority")
+          .in("list_id", fullListIds).order("position");
+        if (!tier2Err) {
+          itemsData = ((tier2 ?? []) as unknown as Record<string, unknown>[]).map(i => ({ ...i, price_cap: null, pressing_tip: null, found: null, created_at: null })) as unknown as ItemRow[];
+        } else {
+          const { data: fallback } = await supabase
+            .from("list_items").select("id, list_id, position, record_id").in("list_id", fullListIds).order("position");
+          itemsData = (fallback ?? []).map(i => ({ ...i, item_type: "record", song_title: null, song_artist: null, song_album: null, song_cover_url: null, song_year: null, note: null, priority: null, price_cap: null, pressing_tip: null, found: null, created_at: null }));
+        }
+      }
+    }
+
+    const fullRecordIds = [...new Set(
+      itemsData.filter(i => i.item_type !== "song" && i.record_id).map(i => i.record_id as string)
+    )];
+    const { data: recordsData } = fullRecordIds.length
+      ? await supabase.from("records").select("id, artist, album, year, genre, cover_url").in("id", fullRecordIds)
+      : { data: [] };
+
+    const recordById = new Map((recordsData ?? []).map(r => [r.id, r]));
+
+    fullLists = listsRaw.map(l => {
+      const listType  = (l.list_type ?? "top5") as "top5" | "personal";
+      const listItems = itemsData.filter(i => i.list_id === l.id);
+      const maxPos    = listType === "top5" ? 5 : listItems.length > 0 ? Math.max(...listItems.map(i => i.position)) : 0;
+
+      const slots: ListSlot[] = Array.from({ length: maxPos }, (_, idx) => {
+        const pos  = idx + 1;
+        const item = listItems.find(i => i.position === pos);
+        if (!item) return { position: pos, item: null };
+
+        const slotMeta = {
+          note: item.note ?? null,
+          priority: (item.priority as ListSlot["priority"]) ?? null,
+          price_cap: item.price_cap ?? null,
+          pressing_tip: item.pressing_tip ?? null,
+          found: item.found ?? false,
+          created_at: item.created_at ?? null,
+        };
+
+        if (item.item_type === "song") {
+          return {
+            position: pos,
+            item: { id: item.id, item_type: "song", artist: item.song_artist ?? "", album: item.song_album ?? "", year: item.song_year ?? null, genre: null, cover_url: item.song_cover_url ?? null, song_title: item.song_title } satisfies SlotItem,
+            ...slotMeta,
+          };
+        }
+
+        const r = item.record_id ? recordById.get(item.record_id) : undefined;
+        if (!r) return { position: pos, item: null };
+        return {
+          position: pos,
+          item: { id: r.id, item_type: "record", artist: r.artist, album: r.album, year: r.year ?? null, genre: r.genre ?? null, cover_url: r.cover_url ?? null, song_title: null } satisfies SlotItem,
+          ...slotMeta,
+        };
+      });
+
+      return { id: l.id, title: l.title, slug: l.slug, is_public: l.is_public, list_type: listType, slots };
+    });
+  }
+
+  // ── Discover lists for Community tab ─────────────────────────────────────────
+
+  const excludeId     = viewer?.id ?? profile.id;
+  const discoverLists: DiscoverList[] = [];
+  try {
+    const { data: pubLists } = await supabase
+      .from("lists")
+      .select("id, title, slug, user_id")
+      .eq("is_public", true)
+      .neq("user_id", excludeId)
+      .order("created_at", { ascending: false })
+      .limit(24);
+
+    if (pubLists && pubLists.length > 0) {
+      const pubListIds = pubLists.map(l => l.id);
+      const pubUserIds = [...new Set(pubLists.map(l => l.user_id))];
+
+      const [{ data: pubProfiles }, { data: pubItems }] = await Promise.all([
+        supabase.from("profiles").select("id, username, display_name").in("id", pubUserIds),
+        supabase.from("list_items").select("list_id, position, record_id").in("list_id", pubListIds).order("position"),
+      ]);
+
+      const profileById  = new Map((pubProfiles ?? []).map(p => [p.id, p]));
+      const pubRecordIds = [...new Set((pubItems ?? []).map(i => i.record_id).filter(Boolean) as string[])];
+      const { data: pubRecords } = pubRecordIds.length
+        ? await supabase.from("records").select("id, cover_url").in("id", pubRecordIds)
+        : { data: [] };
+      const coverById = new Map((pubRecords ?? []).map(r => [r.id, r.cover_url]));
+
+      for (const l of pubLists) {
+        const p = profileById.get(l.user_id);
+        if (!p) continue;
+        const items  = (pubItems ?? []).filter(i => i.list_id === l.id).sort((a, b) => a.position - b.position);
+        const covers = items.slice(0, 4).map(i => (i.record_id ? coverById.get(i.record_id) ?? null : null));
+        discoverLists.push({ id: l.id, title: l.title, slug: l.slug, username: p.username, displayName: p.display_name ?? null, covers, itemCount: items.length, saveCount: 0 });
+      }
+    }
+  } catch { /* non-fatal */ }
 
   return (
     <ProfileClient
@@ -133,6 +320,8 @@ export default async function PublicProfilePage({ params }: { params: Params }) 
       coverRecords={coverRecords ?? []}
       followerCount={followerCount}
       followingCount={followingCount}
+      fullLists={fullLists ?? undefined}
+      discoverLists={discoverLists}
     />
   );
 }
