@@ -157,9 +157,27 @@ export default function ProfileListsTab({ initialLists, username }: Props) {
 
   useEffect(() => { setLists(initialLists); }, [initialLists]);
 
+  // If the server didn't provide lists, fetch them client-side
+  useEffect(() => {
+    if (initialLists.length > 0) return;
+    let cancelled = false;
+    fetch("/api/lists/mine")
+      .then(r => r.json())
+      .then((json: { lists?: UserList[] }) => {
+        if (cancelled) return;
+        const fetched: UserList[] = json.lists ?? [];
+        setLists(fetched);
+        const wantlist = fetched.find(l => l.slug === "wantlist" || l.slug === "want-to-buy");
+        setActivePillId((wantlist ?? fetched[0])?.id ?? null);
+      })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
   useEffect(() => {
     if (activePillId && lists.find(l => l.id === activePillId)) return;
-    setActivePillId(lists[0]?.id ?? null);
+    const wantlist = lists.find(l => l.slug === "wantlist" || l.slug === "want-to-buy");
+    setActivePillId((wantlist ?? lists[0])?.id ?? null);
   }, [lists]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
