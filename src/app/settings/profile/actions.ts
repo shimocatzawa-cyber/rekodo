@@ -46,6 +46,7 @@ export async function saveProfileSettings(
   countryCode: string,
   bio: string,
   starSign: string,
+  bandcampUsername?: string,
 ): Promise<{ error: string } | { ok: true }> {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
@@ -62,11 +63,12 @@ export async function saveProfileSettings(
   const { error } = await supabase
     .from("profiles")
     .update({
-      city:         cleanCity,
-      country:      cleanCountry,
-      country_code: cleanCode,
-      bio:          bio.trim() || null,
-      star_sign:    starSign || null,
+      city:               cleanCity,
+      country:            cleanCountry,
+      country_code:       cleanCode,
+      bio:                bio.trim() || null,
+      star_sign:          starSign || null,
+      bandcamp_username:  bandcampUsername?.trim().toLowerCase() || null,
     })
     .eq("id", user.id);
 

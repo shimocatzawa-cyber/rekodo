@@ -87,12 +87,13 @@ export default function ProfileClient({
   const [saving, startSaving] = useTransition();
   const [saveError, setSaveError] = useState<string | null>(null);
 
-  const [nameValue,     setNameValue]     = useState(profile.display_name ?? "");
-  const [cityValue,     setCityValue]     = useState(profile.city ?? "");
-  const [countryCode,   setCountryCode]   = useState(profile.country_code ?? "");
-  const [countryValue,  setCountryValue]  = useState(profile.country ?? "");
-  const [bioValue,      setBioValue]      = useState(profile.bio ?? "");
-  const [starSignValue, setStarSignValue] = useState(profile.star_sign ?? "");
+  const [nameValue,      setNameValue]      = useState(profile.display_name    ?? "");
+  const [cityValue,      setCityValue]      = useState(profile.city             ?? "");
+  const [countryCode,    setCountryCode]    = useState(profile.country_code     ?? "");
+  const [countryValue,   setCountryValue]   = useState(profile.country          ?? "");
+  const [bioValue,       setBioValue]       = useState(profile.bio              ?? "");
+  const [starSignValue,  setStarSignValue]  = useState(profile.star_sign        ?? "");
+  const [bandcampValue,  setBandcampValue]  = useState(profile.bandcamp_username ?? "");
 
   // ── Taste summary ─────────────────────────────────────────────────────────
   const [summaryPending, startSummaryTransition] = useTransition();
@@ -103,23 +104,25 @@ export default function ProfileClient({
 
   // ── Helpers ───────────────────────────────────────────────────────────────
   function openEdit() {
-    setNameValue(profile.display_name ?? "");
-    setCityValue(profile.city ?? "");
-    setCountryCode(profile.country_code ?? "");
-    setCountryValue(profile.country ?? "");
-    setBioValue(profile.bio ?? "");
-    setStarSignValue(profile.star_sign ?? "");
+    setNameValue(profile.display_name    ?? "");
+    setCityValue(profile.city            ?? "");
+    setCountryCode(profile.country_code  ?? "");
+    setCountryValue(profile.country      ?? "");
+    setBioValue(profile.bio              ?? "");
+    setStarSignValue(profile.star_sign   ?? "");
+    setBandcampValue(profile.bandcamp_username ?? "");
     setSaveError(null);
     setEditing(true);
   }
 
   function cancelEdit() {
-    setNameValue(profile.display_name ?? "");
-    setCityValue(profile.city ?? "");
-    setCountryCode(profile.country_code ?? "");
-    setCountryValue(profile.country ?? "");
-    setBioValue(profile.bio ?? "");
-    setStarSignValue(profile.star_sign ?? "");
+    setNameValue(profile.display_name    ?? "");
+    setCityValue(profile.city            ?? "");
+    setCountryCode(profile.country_code  ?? "");
+    setCountryValue(profile.country      ?? "");
+    setBioValue(profile.bio              ?? "");
+    setStarSignValue(profile.star_sign   ?? "");
+    setBandcampValue(profile.bandcamp_username ?? "");
     setSaveError(null);
     setEditing(false);
   }
@@ -129,7 +132,7 @@ export default function ProfileClient({
     startSaving(async () => {
       const [nameResult, profileResult] = await Promise.all([
         saveDisplayName(nameValue),
-        saveProfileSettings(cityValue, countryValue, countryCode, bioValue, starSignValue),
+        saveProfileSettings(cityValue, countryValue, countryCode, bioValue, starSignValue, bandcampValue),
       ]);
       const err = ("error" in nameResult ? nameResult.error : null)
                ?? ("error" in profileResult ? profileResult.error : null);
@@ -423,8 +426,14 @@ export default function ProfileClient({
               )}
 
               {(starSignValue || profile.star_sign) && (
-                <p style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.06em", color: "#cccccc", margin: 0 }}>
+                <p style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.06em", color: "#cccccc", margin: "0 0 6px 0" }}>
                   ☽ {starSignValue || profile.star_sign}
+                </p>
+              )}
+
+              {(bandcampValue || profile.bandcamp_username) && (
+                <p style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.04em", color: "#cccccc", margin: 0 }}>
+                  bandcamp.com/{bandcampValue || profile.bandcamp_username}
                 </p>
               )}
             </>
@@ -485,6 +494,22 @@ export default function ProfileClient({
                   </select>
                   <span style={{ position: "absolute", right: "2px", bottom: "13px", fontFamily: MONO, fontSize: "9px", color: MUTED, pointerEvents: "none" }}>▾</span>
                 </div>
+              </div>
+
+              <div style={{ marginBottom: "20px" }}>
+                <label style={{ ...labelSt, color: ORANGE }}>Bandcamp</label>
+                <input
+                  type="text"
+                  value={bandcampValue}
+                  onChange={e => setBandcampValue(e.target.value.trim().toLowerCase())}
+                  placeholder="your-username"
+                  maxLength={80}
+                  autoComplete="off"
+                  style={inputSt}
+                />
+                <p style={{ fontFamily: MONO, fontSize: "0.65rem", color: INK, margin: "5px 0 0" }}>
+                  bandcamp.com/your-username — must be set to public
+                </p>
               </div>
 
               <div style={{ marginBottom: "20px" }}>

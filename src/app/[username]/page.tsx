@@ -20,7 +20,7 @@ export default async function PublicProfilePage({ params }: { params: Params }) 
 
   const { data: profile } = await supabase
     .from("profiles")
-    .select("id, username, display_name, city, country, country_code, bio, avatar_url, is_donor, taste_summary, star_sign")
+    .select("id, username, display_name, city, country, country_code, bio, avatar_url, is_donor, taste_summary, star_sign, bandcamp_username")
     .eq("username", username)
     .maybeSingle();
 
@@ -109,17 +109,18 @@ export default async function PublicProfilePage({ params }: { params: Params }) 
   return (
     <ProfileClient
       profile={{
-        id:             profile.id,
-        username:       profile.username ?? "",
-        display_name:   profile.display_name   ?? null,
-        city:           profile.city           ?? null,
-        country:        profile.country        ?? null,
-        country_code:   profile.country_code   ?? null,
-        bio:            profile.bio            ?? null,
-        avatar_url:     profile.avatar_url     ?? null,
-        is_donor:       profile.is_donor       ?? false,
-        taste_summary:  profile.taste_summary  ?? null,
-        star_sign:      profile.star_sign      ?? null,
+        id:                profile.id,
+        username:          profile.username          ?? "",
+        display_name:      profile.display_name      ?? null,
+        city:              profile.city              ?? null,
+        country:           profile.country           ?? null,
+        country_code:      profile.country_code      ?? null,
+        bio:               profile.bio               ?? null,
+        avatar_url:        profile.avatar_url        ?? null,
+        is_donor:          profile.is_donor          ?? false,
+        taste_summary:     profile.taste_summary     ?? null,
+        star_sign:         profile.star_sign         ?? null,
+        bandcamp_username: profile.bandcamp_username ?? null,
       }}
       isOwner={isOwner}
       totalRecords={totalRecords}

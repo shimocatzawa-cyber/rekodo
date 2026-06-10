@@ -10,9 +10,15 @@ export type Database = {
   public: {
     Tables: {
       profiles: {
-        Row: { id: string; username: string; display_name: string | null; /** @deprecated use city + country */ location: string | null; bio: string | null; created_at: string; taste_summary: string | null; taste_summary_count: number | null; last_synced_at: string | null; avatar_url: string | null; is_donor: boolean | null; is_public: boolean; city: string | null; country: string | null; country_code: string | null; star_sign: string | null };
-        Insert: { id: string; username: string; display_name?: string | null; location?: string | null; bio?: string | null; created_at?: string; taste_summary?: string | null; taste_summary_count?: number | null; last_synced_at?: string | null; avatar_url?: string | null; is_donor?: boolean | null; is_public?: boolean; city?: string | null; country?: string | null; country_code?: string | null; star_sign?: string | null };
-        Update: { username?: string; display_name?: string | null; location?: string | null; bio?: string | null; taste_summary?: string | null; taste_summary_count?: number | null; last_synced_at?: string | null; avatar_url?: string | null; is_donor?: boolean | null; is_public?: boolean; city?: string | null; country?: string | null; country_code?: string | null; star_sign?: string | null };
+        Row: { id: string; username: string; display_name: string | null; /** @deprecated use city + country */ location: string | null; bio: string | null; created_at: string; taste_summary: string | null; taste_summary_count: number | null; last_synced_at: string | null; avatar_url: string | null; is_donor: boolean | null; is_public: boolean; city: string | null; country: string | null; country_code: string | null; star_sign: string | null; bandcamp_username: string | null };
+        Insert: { id: string; username: string; display_name?: string | null; location?: string | null; bio?: string | null; created_at?: string; taste_summary?: string | null; taste_summary_count?: number | null; last_synced_at?: string | null; avatar_url?: string | null; is_donor?: boolean | null; is_public?: boolean; city?: string | null; country?: string | null; country_code?: string | null; star_sign?: string | null; bandcamp_username?: string | null };
+        Update: { username?: string; display_name?: string | null; location?: string | null; bio?: string | null; taste_summary?: string | null; taste_summary_count?: number | null; last_synced_at?: string | null; avatar_url?: string | null; is_donor?: boolean | null; is_public?: boolean; city?: string | null; country?: string | null; country_code?: string | null; star_sign?: string | null; bandcamp_username?: string | null };
+        Relationships: [];
+      };
+      digital_imports: {
+        Row: { id: string; user_id: string; source: string; artist: string; album: string; is_duplicate: boolean; matched_record_id: string | null; imported_at: string };
+        Insert: { id?: string; user_id: string; source?: string; artist: string; album: string; is_duplicate?: boolean; matched_record_id?: string | null; imported_at?: string };
+        Update: { source?: string; artist?: string; album?: string; is_duplicate?: boolean; matched_record_id?: string | null; imported_at?: string };
         Relationships: [];
       };
       collection_photos: {

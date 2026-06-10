@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import AppNav from "@/components/AppNav";
 import DeepDiveClient, { type ArtistData } from "@/components/deep-dive/DeepDiveClient";
+import BandcampSection from "@/components/deep-dive/BandcampSection";
 
 export const dynamic = "force-dynamic";
 
@@ -13,18 +14,16 @@ export default async function DeepDivePage() {
   const emailPrefix = (user.email ?? "").split("@")[0] || "user";
   const { data: profile } = await supabase
     .from("profiles")
-    .select("username, display_name, avatar_url")
+    .select("username, display_name, avatar_url, bandcamp_username")
     .eq("id", user.id)
-    .maybeSingle() as {
-      data: { username?: string | null; display_name?: string | null; avatar_url?: string | null } | null;
-      error: unknown;
-    };
+    .maybeSingle();
 
-  const autoGen      = `${emailPrefix}_${user.id.slice(0, 6)}`;
-  const raw          = profile?.username ?? null;
-  const username     = (raw && raw !== autoGen) ? raw : (profile?.display_name?.trim() || emailPrefix);
-  const displayLabel = profile?.display_name?.trim() || username;
-  const avatarUrl    = profile?.avatar_url ?? null;
+  const autoGen          = `${emailPrefix}_${user.id.slice(0, 6)}`;
+  const raw              = profile?.username ?? null;
+  const username         = (raw && raw !== autoGen) ? raw : (profile?.display_name?.trim() || emailPrefix);
+  const displayLabel     = profile?.display_name?.trim() || username;
+  const avatarUrl        = profile?.avatar_url ?? null;
+  const bandcampUsername = profile?.bandcamp_username ?? null;
 
   // Fetch all user_record links (paginated)
   type LinkRow = { record_id: string };
@@ -74,9 +73,32 @@ export default async function DeepDivePage() {
     }))
     .sort((a, b) => a.name.localeCompare(b.name));
 
+  // Fetch last Bandcamp import stats
+  const { data: importRows } = await supabase
+    .from("digital_imports")
+    .select("is_duplicate, imported_at")
+    .eq("user_id", user.id)
+    .eq("source", "bandcamp");
+
+  const lastSyncTotal      = importRows?.length ?? 0;
+  const lastSyncDuplicates = importRows?.filter(r => r.is_duplicate).length ?? 0;
+  const lastSyncDate       = importRows && importRows.length > 0
+    ? importRows.reduce((max, r) => r.imported_at > max ? r.imported_at : max, importRows[0].imported_at)
+    : null;
+
   return (
     <>
       <AppNav username={username} displayLabel={displayLabel} avatarUrl={avatarUrl} />
+      <div style={{ display: "none" }} className="dd-bandcamp-mobile-hide">
+        <style>{`@media (min-width: 768px) { .dd-bandcamp-mobile-hide { display: block !important; } }`}</style>
+        <BandcampSection
+          userId={user.id}
+          bandcampUsername={bandcampUsername}
+          lastSyncTotal={lastSyncTotal}
+          lastSyncDuplicates={lastSyncDuplicates}
+          lastSyncDate={lastSyncDate}
+        />
+      </div>
       <DeepDiveClient artists={artists} />
     </>
   );
