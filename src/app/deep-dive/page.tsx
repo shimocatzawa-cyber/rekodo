@@ -2,7 +2,6 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import AppNav from "@/components/AppNav";
 import DeepDiveClient, { type ArtistData } from "@/components/deep-dive/DeepDiveClient";
-import BandcampSection from "@/components/deep-dive/BandcampSection";
 
 export const dynamic = "force-dynamic";
 
@@ -73,33 +72,26 @@ export default async function DeepDivePage() {
     }))
     .sort((a, b) => a.name.localeCompare(b.name));
 
-  // Fetch last Bandcamp import stats
+  // Fetch last Bandcamp sync date
   const { data: importRows } = await supabase
     .from("digital_imports")
-    .select("is_duplicate, imported_at")
+    .select("imported_at")
     .eq("user_id", user.id)
-    .eq("source", "bandcamp");
+    .eq("source", "bandcamp")
+    .order("imported_at", { ascending: false })
+    .limit(1);
 
-  const lastSyncTotal      = importRows?.length ?? 0;
-  const lastSyncDuplicates = importRows?.filter(r => r.is_duplicate).length ?? 0;
-  const lastSyncDate       = importRows && importRows.length > 0
-    ? importRows.reduce((max, r) => r.imported_at > max ? r.imported_at : max, importRows[0].imported_at)
-    : null;
+  const lastSyncDate = importRows?.[0]?.imported_at ?? null;
 
   return (
     <>
       <AppNav username={username} displayLabel={displayLabel} avatarUrl={avatarUrl} />
-      <div style={{ display: "none" }} className="dd-bandcamp-mobile-hide">
-        <style>{`@media (min-width: 768px) { .dd-bandcamp-mobile-hide { display: block !important; } }`}</style>
-        <BandcampSection
-          userId={user.id}
-          bandcampUsername={bandcampUsername}
-          lastSyncTotal={lastSyncTotal}
-          lastSyncDuplicates={lastSyncDuplicates}
-          lastSyncDate={lastSyncDate}
-        />
-      </div>
-      <DeepDiveClient artists={artists} />
+      <DeepDiveClient
+        artists={artists}
+        userId={user.id}
+        bandcampUsername={bandcampUsername}
+        lastSyncDate={lastSyncDate}
+      />
     </>
   );
 }
