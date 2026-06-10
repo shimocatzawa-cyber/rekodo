@@ -514,6 +514,15 @@ export default function DeepDiveClient({
     ? artists.filter((a) => a.name.toLowerCase().includes(query.trim().toLowerCase()))
     : artists;
 
+  // Auto-select a random artist on first load
+  useEffect(() => {
+    if (artists.length > 0) {
+      const pick = artists[Math.floor(Math.random() * artists.length)];
+      setSelectedArtist(pick.name);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   // Fire all artist image fetches on mount (best-effort, progressive)
   useEffect(() => {
     for (const a of artists) {
