@@ -58,6 +58,23 @@ export default async function PublicProfilePage({ params }: { params: Params }) 
 
   const isOwner = viewer?.id === profile.id;
 
+  // Fetch viewer's own profile info for AppNav (skip extra query if owner)
+  let viewerInfo: { username: string; displayName: string | null; avatarUrl: string | null } | null = null;
+  if (viewer) {
+    if (isOwner) {
+      viewerInfo = { username: profile.username, displayName: profile.display_name, avatarUrl: profile.avatar_url };
+    } else {
+      const { data: vp } = await supabase
+        .from("profiles")
+        .select("username, display_name, avatar_url")
+        .eq("id", viewer.id)
+        .maybeSingle();
+      if (vp?.username) {
+        viewerInfo = { username: vp.username, displayName: vp.display_name, avatarUrl: vp.avatar_url };
+      }
+    }
+  }
+
   const [userRecordsResult, listsResult, followerRes, followingRes] = await Promise.all([
     supabase.from("user_records").select("record_id").eq("user_id", profile.id),
     supabase.from("lists")
@@ -135,6 +152,7 @@ export default async function PublicProfilePage({ params }: { params: Params }) 
       coverRecords={coverRecords ?? []}
       followerCount={followerCount}
       followingCount={followingCount}
+      viewer={viewerInfo}
     />
   );
 }

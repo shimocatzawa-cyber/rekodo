@@ -8,6 +8,7 @@ import { COUNTRIES } from "@/lib/countries";
 import { STAR_SIGNS } from "@/lib/starSigns";
 import { saveAvatarUrl, saveDisplayName, saveProfileSettings } from "@/app/settings/profile/actions";
 import { generateTasteSummary } from "./actions";
+import AppNav from "@/components/AppNav";
 
 const SERIF  = "var(--font-editorial)";
 const MONO   = "var(--font-mono)";
@@ -67,11 +68,14 @@ interface Props {
   coverRecords: CoverRecord[];
   followerCount: number;
   followingCount: number;
+  viewer?: { username: string; displayName: string | null; avatarUrl: string | null } | null;
 }
+
+const NAV_HEIGHT = 69;
 
 export default function ProfileClient({
   profile, isOwner, totalRecords, topGenre, topCountry, topLabel,
-  lists, listItems, coverRecords, followerCount, followingCount,
+  lists, listItems, coverRecords, followerCount, followingCount, viewer,
 }: Props) {
   const router = useRouter();
 
@@ -221,15 +225,23 @@ export default function ProfileClient({
   return (
     <div style={{ minHeight: "100vh", background: "#ffffff" }}>
 
+      {/* ── Top nav (same as all other pages) ─────────────────────────────── */}
+      {viewer && (
+        <AppNav
+          username={viewer.username}
+          displayLabel={viewer.displayName ?? undefined}
+          avatarUrl={viewer.avatarUrl}
+        />
+      )}
+
       {/* ── Sidebar ─────────────────────────────────────────────────────────── */}
       <aside style={{
         position: "fixed",
         left: 0,
-        top: 0,
+        top: viewer ? NAV_HEIGHT : 0,
         width: 220,
-        height: "100vh",
+        height: viewer ? `calc(100vh - ${NAV_HEIGHT}px)` : "100vh",
         overflowY: "auto",
-        borderRight: `1px solid ${RULE}`,
         padding: "2rem 1.5rem",
         background: "#ffffff",
         display: "flex",
@@ -237,52 +249,42 @@ export default function ProfileClient({
         boxSizing: "border-box",
         zIndex: 20,
       }}>
-        {/* Wordmark */}
-        <Link href="/collection" style={{
-          fontFamily: SERIF, fontSize: "1rem", fontWeight: 700,
-          color: ORANGE, textDecoration: "none", letterSpacing: "-0.01em",
-          lineHeight: 1,
-        }}>
-          rekōdo
-        </Link>
+        {/* Wordmark — only when no top nav */}
+        {!viewer && (
+          <Link href="/collection" style={{
+            fontFamily: SERIF, fontSize: "1rem", fontWeight: 700,
+            color: ORANGE, textDecoration: "none", letterSpacing: "-0.01em",
+            lineHeight: 1,
+          }}>
+            rekōdo
+          </Link>
+        )}
 
         {/* Nav */}
-        <nav style={{ marginTop: "2.5rem", display: "flex", flexDirection: "column", gap: "0.25rem" }}>
+        <nav style={{ marginTop: viewer ? "1.5rem" : "2.5rem", display: "flex", flexDirection: "column", gap: "0.25rem" }}>
 
           {/* Profile — active */}
-          <div style={{ padding: "4px 0" }}>
+          <div style={{ padding: "6px 0" }}>
             <span style={{
               display: "block", fontFamily: MONO, fontSize: "0.72rem",
               letterSpacing: "0.1em", textTransform: "uppercase", color: ORANGE,
             }}>
               Profile
             </span>
-            <span style={{
-              display: "block", fontFamily: MONO, fontSize: "0.55rem",
-              letterSpacing: "0.08em", color: ORANGE, marginTop: "0.1rem",
-            }}>
-              プロフィール
-            </span>
           </div>
 
           {/* Lists */}
-          <Link href="/lists" style={{ textDecoration: "none", padding: "4px 0", display: "block" }}>
+          <Link href="/lists" style={{ textDecoration: "none", padding: "6px 0", display: "block" }}>
             <span style={{
               display: "block", fontFamily: MONO, fontSize: "0.72rem",
               letterSpacing: "0.1em", textTransform: "uppercase", color: "#0a0a0a", opacity: 0.5,
             }}>
               Lists
             </span>
-            <span style={{
-              display: "block", fontFamily: MONO, fontSize: "0.55rem",
-              letterSpacing: "0.08em", color: "#0a0a0a", opacity: 0.5, marginTop: "0.1rem",
-            }}>
-              リスト
-            </span>
           </Link>
 
           {/* Community — coming soon */}
-          <div style={{ padding: "4px 0" }}>
+          <div style={{ padding: "6px 0" }}>
             <span style={{
               display: "block", fontFamily: MONO, fontSize: "0.72rem",
               letterSpacing: "0.1em", textTransform: "uppercase", color: "#0a0a0a", opacity: 0.3,
@@ -290,32 +292,13 @@ export default function ProfileClient({
               Community
             </span>
             <span style={{
-              display: "block", fontFamily: MONO, fontSize: "0.55rem",
-              letterSpacing: "0.08em", color: "#0a0a0a", opacity: 0.3, marginTop: "0.1rem",
-            }}>
-              コミュニティ
-            </span>
-            <span style={{
-              display: "block", fontFamily: MONO, fontSize: "0.55rem",
-              letterSpacing: "0.06em", color: "#0a0a0a", opacity: 0.3, marginTop: "2px",
+              display: "block", fontFamily: MONO, fontSize: "0.6rem",
+              letterSpacing: "0.06em", color: "#0a0a0a", opacity: 0.3, marginTop: "3px",
             }}>
               Coming soon
             </span>
           </div>
         </nav>
-
-        {/* Bottom: share */}
-        {isOwner && (
-          <div style={{ marginTop: "auto" }}>
-            <button onClick={handleShare} style={{
-              fontFamily: MONO, fontSize: "0.6rem", letterSpacing: "0.08em",
-              color: copied ? MUTED : ORANGE, background: "none", border: "none",
-              cursor: "pointer", padding: 0,
-            }}>
-              {copied ? "Copied ✓" : "Share profile ↗"}
-            </button>
-          </div>
-        )}
       </aside>
 
       {/* ── Main Content ─────────────────────────────────────────────────────── */}
@@ -376,20 +359,29 @@ export default function ProfileClient({
               )
             )}
 
-            {/* Edit profile button — owner only, not while editing */}
+            {/* Edit profile + Share profile — owner only, not while editing */}
             {isOwner && !editing && (
-              <button
-                onClick={openEdit}
-                style={{
-                  fontFamily: MONO, fontSize: "9px", letterSpacing: "0.12em",
-                  textTransform: "uppercase", color: INK,
-                  background: "none", border: `1px solid rgba(0,0,0,0.15)`,
-                  cursor: "pointer", padding: "7px 14px",
-                  flexShrink: 0,
-                }}
-              >
-                Edit profile
-              </button>
+              <div style={{ display: "flex", flexDirection: "column", gap: "8px", alignItems: "flex-end", flexShrink: 0 }}>
+                <button
+                  onClick={openEdit}
+                  style={{
+                    fontFamily: MONO, fontSize: "9px", letterSpacing: "0.12em",
+                    textTransform: "uppercase", color: INK,
+                    background: "none", border: `1px solid rgba(0,0,0,0.15)`,
+                    cursor: "pointer", padding: "7px 14px",
+                  }}
+                >
+                  Edit profile
+                </button>
+                <button onClick={handleShare} style={{
+                  fontFamily: MONO, fontSize: "9px", letterSpacing: "0.08em",
+                  textTransform: "uppercase",
+                  color: copied ? MUTED : ORANGE, background: "none", border: "none",
+                  cursor: "pointer", padding: 0,
+                }}>
+                  {copied ? "Copied ✓" : "Share profile ↗"}
+                </button>
+              </div>
             )}
           </div>
 
@@ -598,24 +590,9 @@ export default function ProfileClient({
           </>
         )}
 
-        {/* ── Stats strip ── */}
-        {totalRecords > 0 && (
-          <>
-            <div style={{ paddingBottom: "40px" }}>
-              <div style={{ display: "flex", alignItems: "flex-start" }}>
-                <StatCell label="Total Records"        value={totalRecords.toLocaleString()} border={false} />
-                <StatCell label="Top Genre"            value={topGenre   ?? "—"} />
-                <StatCell label="Top Country"          value={topCountry ?? "—"} />
-                <StatCell label="Most Collected Label" value={topLabel   ?? "—"} />
-              </div>
-            </div>
-            <div style={{ height: 1, background: RULE, marginBottom: "40px" }} />
-          </>
-        )}
-
         {/* ── Lists ── */}
         <section style={{ marginBottom: "48px" }}>
-          <p style={eyebrowSt}>Lists · リスト</p>
+          <p style={eyebrowSt}>Lists</p>
 
           {lists.length > 0 ? (
             <div style={{ display: "flex", flexDirection: "column", gap: "48px" }}>
@@ -681,7 +658,7 @@ export default function ProfileClient({
 
         {/* ── Community ── */}
         <section>
-          <p style={eyebrowSt}>Community · コミュニティ</p>
+          <p style={eyebrowSt}>Community</p>
           <p style={{ fontFamily: MONO, fontSize: "0.65rem", letterSpacing: "0.04em", color: INK, opacity: 0.4, margin: 0 }}>
             Collector matching coming soon.
           </p>
@@ -692,15 +669,3 @@ export default function ProfileClient({
   );
 }
 
-function StatCell({ label, value, border = true }: { label: string; value: string; border?: boolean }) {
-  return (
-    <div style={{ flex: 1, minWidth: 0, paddingLeft: border ? "20px" : 0, paddingRight: "20px", borderLeft: border ? `1px solid ${RULE}` : "none" }}>
-      <p style={{ fontFamily: MONO, fontSize: "8px", letterSpacing: "0.14em", textTransform: "uppercase", color: MUTED, margin: "0 0 8px 0", whiteSpace: "nowrap" }}>
-        {label}
-      </p>
-      <p style={{ fontFamily: SERIF, fontSize: "clamp(16px, 2.2vw, 26px)", color: INK, margin: 0, lineHeight: 1.1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-        {value}
-      </p>
-    </div>
-  );
-}
