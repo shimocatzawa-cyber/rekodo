@@ -28,6 +28,7 @@ export interface ProfileData {
   is_donor: boolean;
   taste_summary: string | null;
   star_sign: string | null;
+  bandcamp_username: string | null;
 }
 
 export interface ListRow {
@@ -81,18 +82,17 @@ export default function ProfileClient({
   const [avatarUploading, setAvatarUploading] = useState(false);
   const [avatarError,     setAvatarError]     = useState<string | null>(null);
 
-  // ── Edit state ────────────────────────────────────────────────────────────
-  // "details" covers city/country/bio/star_sign together (saveProfileSettings requires city+country)
-  const [editingSection, setEditingSection] = useState<"name" | "details" | null>(null);
+  // ── Edit state — single unified edit mode ─────────────────────────────────
+  const [editing, setEditing] = useState(false);
   const [saving, startSaving] = useTransition();
   const [saveError, setSaveError] = useState<string | null>(null);
 
-  const [nameValue,    setNameValue]    = useState(profile.display_name ?? "");
-  const [cityValue,    setCityValue]    = useState(profile.city ?? "");
-  const [countryCode,  setCountryCode]  = useState(profile.country_code ?? "");
-  const [countryValue, setCountryValue] = useState(profile.country ?? "");
-  const [bioValue,     setBioValue]     = useState(profile.bio ?? "");
-  const [starSignValue,setStarSignValue]= useState(profile.star_sign ?? "");
+  const [nameValue,     setNameValue]     = useState(profile.display_name ?? "");
+  const [cityValue,     setCityValue]     = useState(profile.city ?? "");
+  const [countryCode,   setCountryCode]   = useState(profile.country_code ?? "");
+  const [countryValue,  setCountryValue]  = useState(profile.country ?? "");
+  const [bioValue,      setBioValue]      = useState(profile.bio ?? "");
+  const [starSignValue, setStarSignValue] = useState(profile.star_sign ?? "");
 
   // ── Taste summary ─────────────────────────────────────────────────────────
   const [summaryPending, startSummaryTransition] = useTransition();
@@ -102,6 +102,17 @@ export default function ProfileClient({
   const [copied, setCopied] = useState(false);
 
   // ── Helpers ───────────────────────────────────────────────────────────────
+  function openEdit() {
+    setNameValue(profile.display_name ?? "");
+    setCityValue(profile.city ?? "");
+    setCountryCode(profile.country_code ?? "");
+    setCountryValue(profile.country ?? "");
+    setBioValue(profile.bio ?? "");
+    setStarSignValue(profile.star_sign ?? "");
+    setSaveError(null);
+    setEditing(true);
+  }
+
   function cancelEdit() {
     setNameValue(profile.display_name ?? "");
     setCityValue(profile.city ?? "");
@@ -109,8 +120,23 @@ export default function ProfileClient({
     setCountryValue(profile.country ?? "");
     setBioValue(profile.bio ?? "");
     setStarSignValue(profile.star_sign ?? "");
-    setEditingSection(null);
     setSaveError(null);
+    setEditing(false);
+  }
+
+  function handleSave() {
+    setSaveError(null);
+    startSaving(async () => {
+      const [nameResult, profileResult] = await Promise.all([
+        saveDisplayName(nameValue),
+        saveProfileSettings(cityValue, countryValue, countryCode, bioValue, starSignValue),
+      ]);
+      const err = ("error" in nameResult ? nameResult.error : null)
+               ?? ("error" in profileResult ? profileResult.error : null);
+      if (err) { setSaveError(err); return; }
+      setEditing(false);
+      router.refresh();
+    });
   }
 
   async function handleAvatarFile(e: React.ChangeEvent<HTMLInputElement>) {
@@ -146,26 +172,6 @@ export default function ProfileClient({
     }
   }
 
-  function handleSaveName() {
-    setSaveError(null);
-    startSaving(async () => {
-      const result = await saveDisplayName(nameValue);
-      if ("error" in result) { setSaveError(result.error); return; }
-      setEditingSection(null);
-      router.refresh();
-    });
-  }
-
-  function handleSaveDetails() {
-    setSaveError(null);
-    startSaving(async () => {
-      const result = await saveProfileSettings(cityValue, countryValue, countryCode, bioValue, starSignValue);
-      if ("error" in result) { setSaveError(result.error); return; }
-      setEditingSection(null);
-      router.refresh();
-    });
-  }
-
   function handleGenerateSummary() {
     setSummaryError(null);
     startSummaryTransition(async () => {
@@ -184,15 +190,12 @@ export default function ProfileClient({
   }
 
   // ── List data ─────────────────────────────────────────────────────────────
-  const coverById    = new Map(coverRecords.map(r => [r.id, r]));
-  const itemsByList  = new Map<string, ListItemRow[]>(lists.map(l => [l.id, []]));
+  const coverById   = new Map(coverRecords.map(r => [r.id, r]));
+  const itemsByList = new Map<string, ListItemRow[]>(lists.map(l => [l.id, []]));
   for (const item of listItems) itemsByList.get(item.list_id)?.push(item);
 
   const displayName    = nameValue || profile.username;
   const displayInitial = displayName.charAt(0).toUpperCase();
-  const hasLocation    = Boolean(cityValue || countryValue);
-  const hasBio         = Boolean(bioValue);
-  const hasSummary     = Boolean(profile.taste_summary);
 
   // ── Shared styles ─────────────────────────────────────────────────────────
   const labelSt: React.CSSProperties = {
@@ -201,31 +204,11 @@ export default function ProfileClient({
     color: MUTED, marginBottom: "8px",
   };
   const inputSt: React.CSSProperties = {
-    width: "100%", fontFamily: MONO, fontSize: "15px",
+    width: "100%", fontFamily: MONO, fontSize: "14px",
     letterSpacing: "0.02em", color: INK,
     background: "transparent", border: "none",
     borderBottom: "1px solid rgba(0,0,0,0.14)",
     outline: "none", padding: "8px 0 10px", boxSizing: "border-box",
-  };
-  const saveCancelRow: React.CSSProperties = {
-    display: "flex", gap: "12px", alignItems: "center", marginTop: "12px",
-  };
-  const saveBtnSt: React.CSSProperties = {
-    fontFamily: MONO, fontSize: "9px", letterSpacing: "0.12em",
-    textTransform: "uppercase", color: "#fff",
-    background: saving ? "rgba(204,85,0,0.6)" : ORANGE,
-    border: "none", cursor: saving ? "default" : "pointer",
-    padding: "8px 16px",
-  };
-  const cancelBtnSt: React.CSSProperties = {
-    fontFamily: MONO, fontSize: "9px", letterSpacing: "0.12em",
-    textTransform: "uppercase", color: MUTED,
-    background: "none", border: "none", cursor: "pointer", padding: "8px 0",
-  };
-  const pencilSt: React.CSSProperties = {
-    fontFamily: MONO, fontSize: "10px", color: MUTED,
-    background: "none", border: "none", cursor: "pointer",
-    padding: "0 0 0 6px", opacity: 0.45, lineHeight: 1,
   };
   const eyebrowSt: React.CSSProperties = {
     fontFamily: MONO, fontSize: "0.55rem", letterSpacing: "0.14em",
@@ -233,59 +216,90 @@ export default function ProfileClient({
   };
 
   return (
-    <div style={{ minHeight: "100vh", background: "#ffffff", display: "flex" }}>
+    <div style={{ display: "flex", flexDirection: "row", alignItems: "stretch", minHeight: "100vh", background: "#ffffff" }}>
 
       {/* ── Sidebar ─────────────────────────────────────────────────────────── */}
       <aside style={{
-        width: 220, flexShrink: 0,
+        width: 220,
+        flexShrink: 0,
         borderRight: `1px solid ${RULE}`,
         padding: "2rem 1.5rem",
-        position: "sticky", top: 0, height: "100vh",
+        position: "sticky",
+        top: 0,
+        height: "100vh",
         overflowY: "auto",
-        display: "flex", flexDirection: "column",
+        display: "flex",
+        flexDirection: "column",
+        boxSizing: "border-box",
       }}>
+        {/* Wordmark */}
         <Link href="/collection" style={{
           fontFamily: SERIF, fontSize: "1rem", fontWeight: 700,
           color: ORANGE, textDecoration: "none", letterSpacing: "-0.01em",
+          lineHeight: 1,
         }}>
           rekōdo
         </Link>
 
+        {/* Nav */}
         <nav style={{ marginTop: "2.5rem", display: "flex", flexDirection: "column", gap: "0.25rem" }}>
-          {/* Profile — always active */}
+
+          {/* Profile — active */}
           <div style={{ padding: "4px 0" }}>
-            <span style={{ display: "block", fontFamily: MONO, fontSize: "0.72rem", letterSpacing: "0.1em", textTransform: "uppercase", color: ORANGE }}>
+            <span style={{
+              display: "block", fontFamily: MONO, fontSize: "0.72rem",
+              letterSpacing: "0.1em", textTransform: "uppercase", color: ORANGE,
+            }}>
               Profile
             </span>
-            <span style={{ display: "block", fontFamily: MONO, fontSize: "0.55rem", letterSpacing: "0.08em", color: ORANGE, marginTop: "0.1rem" }}>
+            <span style={{
+              display: "block", fontFamily: MONO, fontSize: "0.55rem",
+              letterSpacing: "0.08em", color: ORANGE, marginTop: "0.1rem",
+            }}>
               プロフィール
             </span>
           </div>
 
           {/* Lists */}
           <Link href="/lists" style={{ textDecoration: "none", padding: "4px 0", display: "block" }}>
-            <span style={{ display: "block", fontFamily: MONO, fontSize: "0.72rem", letterSpacing: "0.1em", textTransform: "uppercase", color: INK, opacity: 0.5 }}>
+            <span style={{
+              display: "block", fontFamily: MONO, fontSize: "0.72rem",
+              letterSpacing: "0.1em", textTransform: "uppercase", color: "#0a0a0a", opacity: 0.5,
+            }}>
               Lists
             </span>
-            <span style={{ display: "block", fontFamily: MONO, fontSize: "0.55rem", letterSpacing: "0.08em", color: INK, opacity: 0.5, marginTop: "0.1rem" }}>
+            <span style={{
+              display: "block", fontFamily: MONO, fontSize: "0.55rem",
+              letterSpacing: "0.08em", color: "#0a0a0a", opacity: 0.5, marginTop: "0.1rem",
+            }}>
               リスト
             </span>
           </Link>
 
           {/* Community — coming soon */}
           <div style={{ padding: "4px 0" }}>
-            <span style={{ display: "block", fontFamily: MONO, fontSize: "0.72rem", letterSpacing: "0.1em", textTransform: "uppercase", color: INK, opacity: 0.3 }}>
+            <span style={{
+              display: "block", fontFamily: MONO, fontSize: "0.72rem",
+              letterSpacing: "0.1em", textTransform: "uppercase", color: "#0a0a0a", opacity: 0.3,
+            }}>
               Community
             </span>
-            <span style={{ display: "block", fontFamily: MONO, fontSize: "0.55rem", letterSpacing: "0.08em", color: INK, opacity: 0.3, marginTop: "0.1rem" }}>
+            <span style={{
+              display: "block", fontFamily: MONO, fontSize: "0.55rem",
+              letterSpacing: "0.08em", color: "#0a0a0a", opacity: 0.3, marginTop: "0.1rem",
+            }}>
               コミュニティ
             </span>
-            <span style={{ display: "block", fontFamily: MONO, fontSize: "0.55rem", letterSpacing: "0.06em", color: INK, opacity: 0.3, marginTop: "2px" }}>
+            <span style={{
+              display: "block", fontFamily: MONO, fontSize: "0.55rem",
+              letterSpacing: "0.06em", color: "#0a0a0a", opacity: 0.3, marginTop: "2px",
+            }}>
               Coming soon
             </span>
           </div>
         </nav>
 
+        {/* Bottom: share */}
         {isOwner && (
           <div style={{ marginTop: "auto" }}>
             <button onClick={handleShare} style={{
@@ -300,217 +314,237 @@ export default function ProfileClient({
       </aside>
 
       {/* ── Main Content ─────────────────────────────────────────────────────── */}
-      <main style={{ flex: 1, padding: "3rem 3.5rem", maxWidth: 860 }}>
+      <main style={{ flex: 1, padding: "3rem 3.5rem", maxWidth: 860, minWidth: 0 }}>
 
-        {/* ── Avatar ── */}
-        <div style={{ marginBottom: "20px" }}>
-          {isOwner ? (
-            <>
+        {/* ── Identity block ── */}
+        <div style={{ marginBottom: "32px" }}>
+
+          {/* Avatar row + edit button */}
+          <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: "20px" }}>
+            {/* Avatar */}
+            {isOwner ? (
+              <div>
+                <button
+                  type="button"
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={avatarUploading}
+                  onMouseEnter={() => setAvatarHover(true)}
+                  onMouseLeave={() => setAvatarHover(false)}
+                  title="Change photo"
+                  style={{
+                    position: "relative", width: 64, height: 64, borderRadius: "50%",
+                    overflow: "hidden", border: "none", padding: 0,
+                    cursor: avatarUploading ? "default" : "pointer",
+                    background: ORANGE, display: "block",
+                  }}
+                >
+                  {avatarSrc ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={avatarSrc} alt="" style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
+                  ) : (
+                    <span style={{ display: "flex", alignItems: "center", justifyContent: "center", width: "100%", height: "100%", fontFamily: MONO, fontSize: "22px", fontWeight: 600, color: "#ffffff" }}>
+                      {displayInitial}
+                    </span>
+                  )}
+                  <span style={{
+                    position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center",
+                    background: "rgba(0,0,0,0.35)",
+                    opacity: (avatarHover || avatarUploading) ? 1 : 0, transition: "opacity 0.15s",
+                    fontFamily: MONO, fontSize: "8px", letterSpacing: "0.1em", textTransform: "uppercase", color: "#ffffff",
+                  }}>
+                    {avatarUploading ? "…" : "Change"}
+                  </span>
+                </button>
+                {avatarError && (
+                  <p style={{ fontFamily: MONO, fontSize: "10px", color: "#cc3300", margin: "6px 0 0" }}>{avatarError}</p>
+                )}
+                <input ref={fileInputRef} type="file" accept="image/jpeg,image/png,image/webp" onChange={handleAvatarFile} style={{ display: "none" }} />
+              </div>
+            ) : (
+              avatarSrc ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={avatarSrc} alt="" style={{ width: 64, height: 64, borderRadius: "50%", objectFit: "cover", display: "block" }} />
+              ) : (
+                <div style={{ width: 64, height: 64, borderRadius: "50%", background: ORANGE, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: MONO, fontSize: "22px", fontWeight: 600, color: "#ffffff" }}>
+                  {displayInitial}
+                </div>
+              )
+            )}
+
+            {/* Edit profile button — owner only, not while editing */}
+            {isOwner && !editing && (
               <button
-                type="button"
-                onClick={() => fileInputRef.current?.click()}
-                disabled={avatarUploading}
-                onMouseEnter={() => setAvatarHover(true)}
-                onMouseLeave={() => setAvatarHover(false)}
-                title="Change photo"
+                onClick={openEdit}
                 style={{
-                  position: "relative", width: 64, height: 64, borderRadius: "50%",
-                  overflow: "hidden", border: "none", padding: 0,
-                  cursor: avatarUploading ? "default" : "pointer",
-                  background: ORANGE, display: "block",
+                  fontFamily: MONO, fontSize: "9px", letterSpacing: "0.12em",
+                  textTransform: "uppercase", color: INK,
+                  background: "none", border: `1px solid rgba(0,0,0,0.15)`,
+                  cursor: "pointer", padding: "7px 14px",
+                  flexShrink: 0,
                 }}
               >
-                {avatarSrc ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img src={avatarSrc} alt="" style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
-                ) : (
-                  <span style={{ display: "flex", alignItems: "center", justifyContent: "center", width: "100%", height: "100%", fontFamily: MONO, fontSize: "22px", fontWeight: 600, color: "#ffffff" }}>
-                    {displayInitial}
-                  </span>
-                )}
-                <span style={{
-                  position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center",
-                  background: "rgba(0,0,0,0.35)",
-                  opacity: (avatarHover || avatarUploading) ? 1 : 0, transition: "opacity 0.15s",
-                  fontFamily: MONO, fontSize: "8px", letterSpacing: "0.1em", textTransform: "uppercase", color: "#ffffff",
-                }}>
-                  {avatarUploading ? "…" : "Change"}
-                </span>
+                Edit profile
               </button>
-              {avatarError && (
-                <p style={{ fontFamily: MONO, fontSize: "10px", color: "#cc3300", margin: "6px 0 0" }}>{avatarError}</p>
+            )}
+          </div>
+
+          {/* ── DISPLAY MODE ── */}
+          {!editing && (
+            <>
+              <h1 style={{ fontFamily: SERIF, fontSize: "clamp(32px, 5vw, 48px)", fontWeight: 400, color: INK, lineHeight: 1.1, margin: "0 0 12px 0" }}>
+                {displayName}
+              </h1>
+
+              <p style={{ fontFamily: MONO, fontSize: "11px", letterSpacing: "0.06em", color: MUTED, margin: "0 0 6px 0", display: "flex", alignItems: "center", gap: "6px" }}>
+                <span>@{profile.username}</span>
+                {profile.is_donor && (
+                  <span style={{ fontFamily: SERIF, fontSize: "0.75rem", color: "#B8860B" }} title="rekōdo supporter">ō</span>
+                )}
+              </p>
+
+              {(followerCount > 0 || followingCount > 0) && (
+                <p style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.05em", color: "#cccccc", margin: "0 0 10px 0" }}>
+                  {followerCount > 0 && <span>{followerCount} {followerCount === 1 ? "follower" : "followers"}</span>}
+                  {followerCount > 0 && followingCount > 0 && <span style={{ margin: "0 8px" }}>·</span>}
+                  {followingCount > 0 && <span>following {followingCount}</span>}
+                </p>
               )}
-              <input ref={fileInputRef} type="file" accept="image/jpeg,image/png,image/webp" onChange={handleAvatarFile} style={{ display: "none" }} />
+
+              {(cityValue || countryValue) && (
+                <p style={{ fontFamily: MONO, fontSize: "11px", letterSpacing: "0.04em", color: MUTED, margin: "0 0 8px 0" }}>
+                  {[cityValue || profile.city, countryValue || profile.country].filter(Boolean).join(", ")}
+                </p>
+              )}
+
+              {(bioValue || profile.bio) && (
+                <p style={{ fontFamily: SERIF, fontSize: "0.95rem", fontStyle: "italic", color: "#505050", lineHeight: 1.7, margin: "0 0 8px 0", maxWidth: 560 }}>
+                  {bioValue || profile.bio}
+                </p>
+              )}
+
+              {(starSignValue || profile.star_sign) && (
+                <p style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.06em", color: "#cccccc", margin: 0 }}>
+                  ☽ {starSignValue || profile.star_sign}
+                </p>
+              )}
             </>
-          ) : (
-            avatarSrc ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img src={avatarSrc} alt="" style={{ width: 64, height: 64, borderRadius: "50%", objectFit: "cover", display: "block" }} />
-            ) : (
-              <div style={{ width: 64, height: 64, borderRadius: "50%", background: ORANGE, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: MONO, fontSize: "22px", fontWeight: 600, color: "#ffffff" }}>
-                {displayInitial}
+          )}
+
+          {/* ── EDIT MODE ── */}
+          {editing && (
+            <div style={{ maxWidth: 520 }}>
+              <div style={{ marginBottom: "20px" }}>
+                <label style={labelSt}>Display name</label>
+                <input
+                  type="text" value={nameValue} onChange={e => setNameValue(e.target.value)}
+                  placeholder="Your name" maxLength={60} autoComplete="off" autoFocus style={inputSt}
+                />
               </div>
-            )
+
+              <div style={{ marginBottom: "20px" }}>
+                <label style={labelSt}>
+                  City
+                  <span style={{ opacity: 0.45, textTransform: "none", letterSpacing: 0, marginLeft: "6px" }}>required for Gigs</span>
+                </label>
+                <input
+                  type="text" value={cityValue} onChange={e => setCityValue(e.target.value)}
+                  placeholder="Sydney" maxLength={80} autoComplete="off" style={inputSt}
+                />
+              </div>
+
+              <div style={{ marginBottom: "20px" }}>
+                <label style={labelSt}>Country</label>
+                <div style={{ position: "relative" }}>
+                  <select
+                    value={countryCode}
+                    onChange={e => {
+                      const code = e.target.value;
+                      const found = COUNTRIES.find(c => c.code === code);
+                      setCountryCode(code);
+                      setCountryValue(found?.name ?? "");
+                    }}
+                    style={{ ...inputSt, appearance: "none", paddingRight: "20px", cursor: "pointer" }}
+                  >
+                    <option value="" disabled>Select country</option>
+                    {COUNTRIES.map(c => <option key={c.code} value={c.code}>{c.name}</option>)}
+                  </select>
+                  <span style={{ position: "absolute", right: "2px", bottom: "13px", fontFamily: MONO, fontSize: "9px", color: MUTED, pointerEvents: "none" }}>▾</span>
+                </div>
+              </div>
+
+              <div style={{ marginBottom: "20px" }}>
+                <label style={labelSt}>Star sign</label>
+                <div style={{ position: "relative" }}>
+                  <select
+                    value={starSignValue}
+                    onChange={e => setStarSignValue(e.target.value)}
+                    style={{ ...inputSt, appearance: "none", paddingRight: "20px", cursor: "pointer" }}
+                  >
+                    <option value="">Select star sign</option>
+                    {STAR_SIGNS.map(s => <option key={s} value={s}>{s}</option>)}
+                  </select>
+                  <span style={{ position: "absolute", right: "2px", bottom: "13px", fontFamily: MONO, fontSize: "9px", color: MUTED, pointerEvents: "none" }}>▾</span>
+                </div>
+              </div>
+
+              <div style={{ marginBottom: "20px" }}>
+                <label style={labelSt}>
+                  Taste essay
+                  <span style={{ opacity: 0.45, textTransform: "none", letterSpacing: 0, marginLeft: "6px" }}>optional · 160 chars</span>
+                </label>
+                <textarea
+                  value={bioValue}
+                  onChange={e => setBioValue(e.target.value.slice(0, 160))}
+                  placeholder="How would you describe your taste in music?"
+                  rows={4}
+                  style={{ ...inputSt, border: "none", borderBottom: "1px solid rgba(0,0,0,0.14)", resize: "none", lineHeight: 1.6, fontFamily: SERIF, fontStyle: "italic", fontSize: "14px" }}
+                />
+                <p style={{ fontFamily: MONO, fontSize: "9px", color: bioValue.length >= 140 ? ORANGE : "#dddddd", margin: "4px 0 0", textAlign: "right" }}>
+                  {bioValue.length} / 160
+                </p>
+              </div>
+
+              {saveError && (
+                <p style={{ fontFamily: MONO, fontSize: "10px", color: "#cc3300", margin: "0 0 12px 0" }}>{saveError}</p>
+              )}
+
+              <div style={{ display: "flex", gap: "12px", alignItems: "center" }}>
+                <button
+                  onClick={handleSave}
+                  disabled={saving}
+                  style={{
+                    fontFamily: MONO, fontSize: "9px", letterSpacing: "0.12em",
+                    textTransform: "uppercase", color: "#fff",
+                    background: saving ? "rgba(204,85,0,0.6)" : ORANGE,
+                    border: "none", cursor: saving ? "default" : "pointer",
+                    padding: "10px 20px",
+                  }}
+                >
+                  {saving ? "Saving…" : "Save changes"}
+                </button>
+                <button
+                  onClick={cancelEdit}
+                  style={{
+                    fontFamily: MONO, fontSize: "9px", letterSpacing: "0.12em",
+                    textTransform: "uppercase", color: MUTED,
+                    background: "none", border: "none", cursor: "pointer", padding: "10px 0",
+                  }}
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
           )}
         </div>
-
-        {/* ── Display name ── */}
-        {editingSection === "name" ? (
-          <div style={{ marginBottom: "16px" }}>
-            <label style={labelSt}>Display name</label>
-            <input
-              type="text" value={nameValue} onChange={e => setNameValue(e.target.value)}
-              placeholder="Your name" maxLength={60} autoComplete="off" autoFocus style={inputSt}
-            />
-            <div style={saveCancelRow}>
-              <button onClick={handleSaveName} disabled={saving} style={saveBtnSt}>{saving ? "Saving…" : "Save"}</button>
-              <button onClick={cancelEdit} style={cancelBtnSt}>Cancel</button>
-              {saveError && <span style={{ fontFamily: MONO, fontSize: "10px", color: "#cc3300" }}>{saveError}</span>}
-            </div>
-          </div>
-        ) : (
-          <div style={{ display: "flex", alignItems: "baseline", gap: 4, marginBottom: "12px" }}>
-            <h1 style={{ fontFamily: SERIF, fontSize: "clamp(32px, 5vw, 48px)", fontWeight: 400, color: INK, lineHeight: 1.1, margin: 0 }}>
-              {displayName}
-            </h1>
-            {isOwner && (
-              <button onClick={() => { cancelEdit(); setEditingSection("name"); }} style={pencilSt} title="Edit name">✎</button>
-            )}
-          </div>
-        )}
-
-        {/* ── Handle + donor badge ── */}
-        <p style={{ fontFamily: MONO, fontSize: "11px", letterSpacing: "0.06em", color: MUTED, margin: "0 0 6px 0", display: "flex", alignItems: "center", gap: "6px" }}>
-          <span>@{profile.username}</span>
-          {profile.is_donor && (
-            <span style={{ fontFamily: SERIF, fontSize: "0.75rem", color: "#B8860B" }} title="rekōdo supporter">ō</span>
-          )}
-        </p>
-
-        {/* ── Follower counts ── */}
-        {(followerCount > 0 || followingCount > 0) && (
-          <p style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.05em", color: "#cccccc", margin: "0 0 12px 0" }}>
-            {followerCount > 0 && <span>{followerCount} {followerCount === 1 ? "follower" : "followers"}</span>}
-            {followerCount > 0 && followingCount > 0 && <span style={{ margin: "0 8px" }}>·</span>}
-            {followingCount > 0 && <span>following {followingCount}</span>}
-          </p>
-        )}
-
-        {/* ── Location + bio + star sign (combined edit section) ── */}
-        {editingSection === "details" ? (
-          <div style={{ marginBottom: "24px", maxWidth: 520 }}>
-            <div style={{ marginBottom: "20px" }}>
-              <label style={labelSt}>
-                City
-                <span style={{ opacity: 0.45, textTransform: "none", letterSpacing: 0, marginLeft: "6px" }}>required for Gigs</span>
-              </label>
-              <input
-                type="text" value={cityValue} onChange={e => setCityValue(e.target.value)}
-                placeholder="Sydney" maxLength={80} autoComplete="off" autoFocus style={inputSt}
-              />
-            </div>
-            <div style={{ marginBottom: "20px" }}>
-              <label style={labelSt}>Country</label>
-              <div style={{ position: "relative" }}>
-                <select
-                  value={countryCode}
-                  onChange={e => {
-                    const code = e.target.value;
-                    const found = COUNTRIES.find(c => c.code === code);
-                    setCountryCode(code);
-                    setCountryValue(found?.name ?? "");
-                  }}
-                  style={{ ...inputSt, appearance: "none", paddingRight: "20px", cursor: "pointer" }}
-                >
-                  <option value="" disabled>Select country</option>
-                  {COUNTRIES.map(c => <option key={c.code} value={c.code}>{c.name}</option>)}
-                </select>
-                <span style={{ position: "absolute", right: "2px", bottom: "13px", fontFamily: MONO, fontSize: "9px", color: MUTED, pointerEvents: "none" }}>▾</span>
-              </div>
-            </div>
-            <div style={{ marginBottom: "20px" }}>
-              <label style={labelSt}>
-                Taste essay
-                <span style={{ opacity: 0.45, textTransform: "none", letterSpacing: 0, marginLeft: "6px" }}>optional · 160 chars</span>
-              </label>
-              <textarea
-                value={bioValue}
-                onChange={e => setBioValue(e.target.value.slice(0, 160))}
-                placeholder="How would you describe your taste in music?"
-                rows={4}
-                style={{ ...inputSt, border: "none", borderBottom: "1px solid rgba(0,0,0,0.14)", resize: "none", lineHeight: 1.6, fontFamily: SERIF, fontStyle: "italic", fontSize: "14px" }}
-              />
-              <p style={{ fontFamily: MONO, fontSize: "9px", color: bioValue.length >= 140 ? ORANGE : "#dddddd", margin: "5px 0 0", textAlign: "right" }}>
-                {bioValue.length} / 160
-              </p>
-            </div>
-            <div style={{ marginBottom: "4px" }}>
-              <label style={labelSt}>Star sign</label>
-              <div style={{ position: "relative" }}>
-                <select
-                  value={starSignValue}
-                  onChange={e => setStarSignValue(e.target.value)}
-                  style={{ ...inputSt, appearance: "none", paddingRight: "20px", cursor: "pointer" }}
-                >
-                  <option value="">Select star sign</option>
-                  {STAR_SIGNS.map(s => <option key={s} value={s}>{s}</option>)}
-                </select>
-                <span style={{ position: "absolute", right: "2px", bottom: "13px", fontFamily: MONO, fontSize: "9px", color: MUTED, pointerEvents: "none" }}>▾</span>
-              </div>
-            </div>
-            <div style={saveCancelRow}>
-              <button onClick={handleSaveDetails} disabled={saving} style={saveBtnSt}>{saving ? "Saving…" : "Save"}</button>
-              <button onClick={cancelEdit} style={cancelBtnSt}>Cancel</button>
-              {saveError && <span style={{ fontFamily: MONO, fontSize: "10px", color: "#cc3300" }}>{saveError}</span>}
-            </div>
-          </div>
-        ) : (
-          <div style={{ marginBottom: "24px" }}>
-            {/* Location display */}
-            <div style={{ display: "flex", alignItems: "center", gap: 4, marginBottom: "10px" }}>
-              {hasLocation ? (
-                <p style={{ fontFamily: MONO, fontSize: "11px", letterSpacing: "0.04em", color: MUTED, margin: 0 }}>
-                  {[cityValue, countryValue].filter(Boolean).join(", ")}
-                </p>
-              ) : isOwner ? (
-                <p style={{ fontFamily: MONO, fontSize: "11px", letterSpacing: "0.04em", color: "#cccccc", margin: 0 }}>No location set</p>
-              ) : null}
-              {isOwner && (
-                <button onClick={() => { cancelEdit(); setEditingSection("details"); }} style={pencilSt} title="Edit details">✎</button>
-              )}
-            </div>
-
-            {/* Bio display */}
-            {hasBio ? (
-              <p style={{ fontFamily: SERIF, fontSize: "0.95rem", fontStyle: "italic", color: "#505050", lineHeight: 1.7, margin: "0 0 8px 0", maxWidth: 560 }}>
-                {bioValue}
-              </p>
-            ) : isOwner && !hasLocation ? (
-              <button
-                onClick={() => { cancelEdit(); setEditingSection("details"); }}
-                style={{ fontFamily: MONO, fontSize: "10px", letterSpacing: "0.08em", color: MUTED, background: "none", border: "none", cursor: "pointer", padding: 0 }}
-              >
-                Add location &amp; taste essay →
-              </button>
-            ) : null}
-
-            {/* Star sign */}
-            {starSignValue && (
-              <p style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.06em", color: "#cccccc", margin: 0 }}>
-                ☽ {starSignValue}
-              </p>
-            )}
-          </div>
-        )}
 
         {/* ── Divider ── */}
         <div style={{ height: 1, background: RULE, marginBottom: "32px" }} />
 
         {/* ── Taste summary ── */}
-        {(hasSummary || isOwner) && (
+        {(profile.taste_summary || isOwner) && (
           <>
             <div style={{ paddingBottom: "32px" }}>
-              {hasSummary ? (
+              {profile.taste_summary ? (
                 <>
                   <p style={{ fontFamily: SERIF, fontSize: "1.1rem", fontStyle: "italic", color: "#505050", lineHeight: 1.8, margin: "0 0 20px 0", maxWidth: 620 }}>
                     {profile.taste_summary}
