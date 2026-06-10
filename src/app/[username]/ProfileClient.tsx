@@ -71,8 +71,6 @@ interface Props {
   viewer?: { username: string; displayName: string | null; avatarUrl: string | null } | null;
 }
 
-const NAV_HEIGHT = 69;
-
 export default function ProfileClient({
   profile, isOwner, totalRecords, topGenre, topCountry, topLabel,
   lists, listItems, coverRecords, followerCount, followingCount, viewer,
@@ -234,48 +232,33 @@ export default function ProfileClient({
         />
       )}
 
-      {/* ── Sidebar ─────────────────────────────────────────────────────────── */}
-      <aside style={{
-        position: "fixed",
-        left: 0,
-        top: viewer ? NAV_HEIGHT : 0,
-        width: 220,
-        height: viewer ? `calc(100vh - ${NAV_HEIGHT}px)` : "100vh",
-        overflowY: "auto",
-        padding: "2rem 1.5rem",
-        background: "#ffffff",
-        display: "flex",
-        flexDirection: "column",
-        boxSizing: "border-box",
-        zIndex: 20,
-      }}>
-        {/* Wordmark — only when no top nav */}
-        {!viewer && (
-          <Link href="/collection" style={{
-            fontFamily: SERIF, fontSize: "1rem", fontWeight: 700,
-            color: ORANGE, textDecoration: "none", letterSpacing: "-0.01em",
-            lineHeight: 1,
-          }}>
-            rekōdo
-          </Link>
-        )}
-
-        {/* Nav — same style as Dig mode filter */}
-        <nav style={{ marginTop: viewer ? "1.5rem" : "2.5rem", display: "flex", flexDirection: "column", alignItems: "flex-start", gap: 0 }}>
-          <div style={{ fontFamily: MONO, fontSize: "10px", letterSpacing: "0.1em", textTransform: "uppercase", padding: "6px 0", color: "#0d0d0d", borderBottom: `1.5px solid ${ORANGE}` }}>
-            Profile
-          </div>
-          <Link href="/lists" style={{ textDecoration: "none", fontFamily: MONO, fontSize: "10px", letterSpacing: "0.1em", textTransform: "uppercase", padding: "6px 0", color: "#bbbbbb", borderBottom: "1.5px solid transparent", display: "block" }}>
-            Lists
-          </Link>
-          <div style={{ fontFamily: MONO, fontSize: "10px", letterSpacing: "0.1em", textTransform: "uppercase", padding: "6px 0", color: "#bbbbbb", borderBottom: "1.5px solid transparent", opacity: 0.5 }}>
-            Community
-          </div>
-        </nav>
-      </aside>
+      {/* ── Profile tab bar — same style as Dig mode toggle ─────────────────── */}
+      <div style={{ display: "flex", justifyContent: "center", gap: "24px", paddingTop: "14px", borderBottom: `1px solid ${RULE}` }}>
+        {([
+          { label: "Profile", href: null, active: true },
+          { label: "Lists",   href: "/lists", active: false },
+          { label: "Community", href: null, active: false },
+        ] as const).map(({ label, href, active }) => {
+          const sharedStyle: React.CSSProperties = {
+            fontFamily: MONO, fontSize: "10px", letterSpacing: "0.1em",
+            textTransform: "uppercase", background: "none", border: "none",
+            borderBottom: `1.5px solid ${active ? ORANGE : "transparent"}`,
+            padding: "6px 0", marginBottom: "-1px",
+            color: active ? "#0d0d0d" : "#bbbbbb",
+            cursor: active ? "default" : href ? "pointer" : "default",
+            textDecoration: "none", display: "inline-block",
+            opacity: (!active && !href) ? 0.5 : 1,
+          };
+          return href ? (
+            <Link key={label} href={href} style={sharedStyle}>{label}</Link>
+          ) : (
+            <span key={label} style={sharedStyle}>{label}</span>
+          );
+        })}
+      </div>
 
       {/* ── Main Content ─────────────────────────────────────────────────────── */}
-      <main style={{ marginLeft: 220, padding: "3rem 3.5rem", maxWidth: 860, minWidth: 0 }}>
+      <main style={{ padding: "3rem 3.5rem", maxWidth: 860, margin: "0 auto", minWidth: 0 }}>
 
         {/* ── Identity block ── */}
         <div style={{ marginBottom: "32px" }}>
