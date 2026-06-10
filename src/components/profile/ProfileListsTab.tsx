@@ -442,37 +442,15 @@ export default function ProfileListsTab({ initialLists, username }: Props) {
 
       {/* ── Wantlist ── */}
       <div style={{ maxWidth: 680, margin: "0 auto", padding: "2rem 1.5rem 3rem" }}>
-        {selectedList ? (
+        {!selectedList && lists.length === 0 ? (
+          <p style={{ fontFamily: "var(--font-mono)", fontSize: "11px", letterSpacing: "0.06em", color: "#aaaaaa" }}>
+            Loading your lists…
+          </p>
+        ) : selectedList ? (
           <div>
 
               <div style={{ marginBottom: "20px" }}>
-                {selectedList.list_type === "top5" ? (
-                  [1, 2, 3, 4, 5].map(pos => {
-                    const slot    = selectedList.slots.find(s => s.position === pos);
-                    const isOpen  = picker?.listId === selectedList.id && "position" in picker && picker.position === pos;
-                    return (
-                      <TracklistRow
-                        key={pos}
-                        position={pos}
-                        item={slot?.item ?? null}
-                        isSaving={saving === `${selectedList.id}-${pos}`}
-                        isPickerOpen={isOpen}
-                        onOpen={() => openPicker({ listId: selectedList.id, position: pos, strategy: "replace" })}
-                        onRemove={() => handleRemoveItem(selectedList.id, pos)}
-                        isDragging={dragFromPos === pos}
-                        isDragOver={dragOverPos === pos && dragFromPos !== pos}
-                        onDragStart={slot?.item ? () => setDragFromPos(pos) : undefined}
-                        onDragOver={slot?.item ? (e: React.DragEvent) => { e.preventDefault(); setDragOverPos(pos); } : undefined}
-                        onDrop={dragFromPos !== null && dragFromPos !== pos ? () => {
-                          const from = dragFromPos;
-                          setDragFromPos(null); setDragOverPos(null);
-                          handleReorder(selectedList.id, from, pos);
-                        } : undefined}
-                        onDragEnd={() => { setDragFromPos(null); setDragOverPos(null); }}
-                      />
-                    );
-                  })
-                ) : (selectedList.slug === "wantlist" || selectedList.slug === "want-to-buy") ? (
+                {(selectedList.slug === "wantlist" || selectedList.slug === "want-to-buy") ? (
                   <>
                     {/* Wantlist controls */}
                     <div style={{ marginBottom: "12px" }}>
