@@ -90,7 +90,7 @@ export default function CollectionPhotos({ initialPhoto, userId, isOwner }: Prop
           fontFamily: MONO, fontSize: "8px", letterSpacing: "0.18em",
           textTransform: "uppercase", color: "#aaaaaa", margin: "0 0 10px 0",
         }}>
-          My Setup
+          My Collection
         </p>
         <div style={{ height: 1, background: RULE, marginBottom: "20px" }} />
 

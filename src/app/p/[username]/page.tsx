@@ -75,7 +75,7 @@ export default async function PublicProfilePage({ params }: { params: Params }) 
     }
   }
 
-  const [userRecordsResult, listsResult, followerRes, followingRes] = await Promise.all([
+  const [userRecordsResult, listsResult, followerRes, followingRes, collectionPhotoRes] = await Promise.all([
     supabase.from("user_records").select("record_id").eq("user_id", profile.id),
     supabase.from("lists")
       .select("id, title, slug, list_type")
@@ -84,12 +84,20 @@ export default async function PublicProfilePage({ params }: { params: Params }) 
       .order("created_at"),
     supabase.from("follows").select("id", { count: "exact", head: true }).eq("following_id", profile.id),
     supabase.from("follows").select("id", { count: "exact", head: true }).eq("follower_id",  profile.id),
+    supabase.from("collection_photos").select("storage_path").eq("user_id", profile.id).eq("display_order", 1).maybeSingle(),
   ]);
 
   const userRecords    = userRecordsResult.data ?? [];
   const lists          = listsResult.data ?? [];
   const followerCount  = followerRes.count  ?? 0;
   const followingCount = followingRes.count ?? 0;
+
+  const collectionPhotoPath = collectionPhotoRes.data?.storage_path ?? null;
+  let collectionPhoto: string | null = null;
+  if (collectionPhotoPath) {
+    const { data: { publicUrl } } = supabase.storage.from("collection-photos").getPublicUrl(collectionPhotoPath);
+    collectionPhoto = publicUrl;
+  }
   const totalRecords   = userRecords.length;
   const recordIds      = userRecords.map(r => r.record_id).filter(Boolean) as string[];
   const listIds        = lists.map(l => l.id);
@@ -154,6 +162,7 @@ export default async function PublicProfilePage({ params }: { params: Params }) 
       followerCount={followerCount}
       followingCount={followingCount}
       viewer={viewerInfo}
+      collectionPhoto={collectionPhoto}
     />
   );
 }

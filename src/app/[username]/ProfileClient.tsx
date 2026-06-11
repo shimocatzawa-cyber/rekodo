@@ -10,6 +10,7 @@ import { saveAvatarUrl, saveDisplayName, saveProfileSettings } from "@/app/setti
 import { generateTasteSummary } from "./actions";
 import AppNav from "@/components/AppNav";
 import ProfileListsTab from "@/components/profile/ProfileListsTab";
+import CollectionPhotos from "@/app/p/[username]/CollectionPhotos";
 import type { UserList, DiscoverList } from "@/app/lists/types";
 
 const SERIF  = "var(--font-editorial)";
@@ -92,6 +93,7 @@ interface Props {
   viewer?: { username: string; displayName: string | null; avatarUrl: string | null } | null;
   fullLists?: UserList[];
   discoverLists?: DiscoverList[];
+  collectionPhoto?: string | null;
 }
 
 type ProfileTab  = "profile" | "lists" | "community";
@@ -137,7 +139,7 @@ function DiscoverCard({ title, username, recordCount, badge, saves, onSave, save
 export default function ProfileClient({
   profile, isOwner, totalRecords, topGenre, topCountry, topLabel,
   lists, listItems, coverRecords, followerCount, followingCount, viewer,
-  fullLists, discoverLists = [],
+  fullLists, discoverLists = [], collectionPhoto = null,
 }: Props) {
   const router       = useRouter();
   const searchParams = useSearchParams();
@@ -565,17 +567,26 @@ export default function ProfileClient({
             </>
           )}
 
+          {/* ── Collection photo ── */}
+          <div style={{ marginBottom: "48px" }}>
+            <CollectionPhotos
+              initialPhoto={collectionPhoto}
+              userId={profile.id}
+              isOwner={isOwner}
+            />
+          </div>
+
           {/* ── Lists section ── */}
           <section style={{ marginBottom: "48px" }}>
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "20px" }}>
               <p style={eyebrowSt}>Lists</p>
               {isOwner && (
-                <button
-                  onClick={() => setProfileTab("lists")}
-                  style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.1em", textTransform: "uppercase", color: ORANGE, background: "none", border: `1px solid ${ORANGE}`, borderRadius: "3px", cursor: "pointer", padding: "4px 10px", whiteSpace: "nowrap" }}
+                <Link
+                  href="/lists"
+                  style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.1em", textTransform: "uppercase", color: ORANGE, background: "none", border: `1px solid ${ORANGE}`, borderRadius: "3px", cursor: "pointer", padding: "4px 10px", whiteSpace: "nowrap", textDecoration: "none" }}
                 >
                   + New Top 5
-                </button>
+                </Link>
               )}
             </div>
 
