@@ -87,11 +87,11 @@ export default async function PublicListPage({ params }: { params: Params }) {
 
         <div style={{ display: "grid", gridTemplateColumns: "repeat(5, 1fr)", gap: "16px" }}>
           {slots.map(({ position, item }) => (
-            <div key={position}>
+            <div key={position} style={{ minWidth: 0 }}>
               <div style={{ position: "relative", overflow: "hidden", lineHeight: 0 }}>
                 {item?.cover_url ? (
                   // eslint-disable-next-line @next/next/no-img-element
-                  <img src={item.cover_url} alt={item.song_title ?? item.album} style={{ display: "block", width: "100%", aspectRatio: "1/1", objectFit: "cover" }} />
+                  <img src={item.cover_url} alt={item.song_title ?? item.album} style={{ display: "block", width: "100%", aspectRatio: "1/1", objectFit: "cover", minWidth: 0 }} />
                 ) : (
                   <div style={{ width: "100%", aspectRatio: "1/1", background: "#f4f4f4", border: "1px dashed rgba(0,0,0,0.12)", display: "flex", alignItems: "center", justifyContent: "center" }}>
                     <span style={{ fontFamily: SERIF, fontSize: "22px", color: "#d0d0d0" }}>—</span>

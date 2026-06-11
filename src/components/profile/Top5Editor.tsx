@@ -151,7 +151,7 @@ export default function Top5Editor({ listId, listTitle, initialSlots, onClose }:
             const busy      = isSaving || isRemoving;
 
             return (
-              <div key={slot.position}>
+              <div key={slot.position} style={{ minWidth: 0 }}>
                 <div
                   onClick={() => { if (!busy) isActive ? closeSearch() : openSlot(slot.position); }}
                   style={{

@@ -12,7 +12,7 @@ import AppNav from "@/components/AppNav";
 import ProfileListsTab from "@/components/profile/ProfileListsTab";
 import CollectionPhotos from "@/app/p/[username]/CollectionPhotos";
 import Top5Editor, { type EditorSlot } from "@/components/profile/Top5Editor";
-import { createList } from "@/app/lists/actions";
+import { createList, deleteList } from "@/app/lists/actions";
 import WantlistClient from "@/components/wantlist/WantlistClient";
 import type { UserList, DiscoverList } from "@/app/lists/types";
 
@@ -212,6 +212,12 @@ export default function ProfileClient({
       };
     });
     setEditorModal({ step: "editor", listId, listTitle, slots });
+  }
+
+  async function handleDeleteList(listId: string, listTitle: string) {
+    if (!confirm(`Delete "${listTitle}"? This cannot be undone.`)) return;
+    await deleteList(listId);
+    router.refresh();
   }
 
   function handleEditorClose() {
@@ -671,12 +677,20 @@ export default function ProfileClient({
                           </h2>
                         </Link>
                         {isOwner && (
-                          <button
-                            onClick={() => openListEdit(list.id, list.title)}
-                            style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.1em", textTransform: "uppercase", color: ORANGE, background: "none", border: "none", cursor: "pointer", padding: 0, flexShrink: 0, marginLeft: "16px" }}
-                          >
-                            Edit →
-                          </button>
+                          <div style={{ display: "flex", alignItems: "center", gap: "16px", flexShrink: 0, marginLeft: "16px" }}>
+                            <button
+                              onClick={() => openListEdit(list.id, list.title)}
+                              style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.1em", textTransform: "uppercase", color: ORANGE, background: "none", border: "none", cursor: "pointer", padding: 0 }}
+                            >
+                              Edit →
+                            </button>
+                            <button
+                              onClick={() => handleDeleteList(list.id, list.title)}
+                              style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.1em", textTransform: "uppercase", color: "#cccccc", background: "none", border: "none", cursor: "pointer", padding: 0 }}
+                            >
+                              Delete
+                            </button>
+                          </div>
                         )}
                       </div>
                       <div style={{ display: "grid", gridTemplateColumns: `repeat(${Math.min(maxSlots, 5)}, 1fr)`, gap: "10px" }}>
@@ -686,11 +700,11 @@ export default function ProfileClient({
                           const rec      = item?.record_id ? coverById.get(item.record_id) : undefined;
                           const coverUrl = item?.item_type === "song" ? item.song_cover_url : (rec?.cover_url ?? null);
                           return (
-                            <div key={pos}>
+                            <div key={pos} style={{ minWidth: 0 }}>
                               <div style={{ position: "relative", overflow: "hidden", lineHeight: 0 }}>
                                 {coverUrl ? (
                                   // eslint-disable-next-line @next/next/no-img-element
-                                  <img src={coverUrl} alt={item?.song_album ?? rec?.album ?? ""} style={{ display: "block", width: "100%", aspectRatio: "1/1", objectFit: "cover" }} />
+                                  <img src={coverUrl} alt={item?.song_album ?? rec?.album ?? ""} style={{ display: "block", width: "100%", aspectRatio: "1/1", objectFit: "cover", minWidth: 0 }} />
                                 ) : (
                                   <div style={{ width: "100%", aspectRatio: "1/1", background: "#f4f4f4", border: "1px dashed rgba(0,0,0,0.10)", display: "flex", alignItems: "center", justifyContent: "center" }}>
                                     <span style={{ fontFamily: SERIF, fontSize: "18px", color: "#d8d8d8", lineHeight: 1 }}>—</span>
