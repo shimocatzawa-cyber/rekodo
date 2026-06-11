@@ -13,6 +13,7 @@ const ORANGE = "#CC5500";
 const NAV_ITEMS = [
   { href: "/about",      label: "About",      jp: "について" },
   { href: "/collection", label: "Collection", jp: "コレクション" },
+  { href: "/selects",    label: "Selects",    jp: "選集" },
   { href: "/dig",        label: "Dig",        jp: "発掘" },
   { href: "/deep-dive",  label: "Deep Dive",  jp: "ディープダイブ" },
   { href: "/gigs",       label: "Live",       jp: "ライブ" },
