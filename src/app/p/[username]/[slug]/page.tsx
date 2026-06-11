@@ -88,12 +88,12 @@ export default async function PublicListPage({ params }: { params: Params }) {
         <div style={{ display: "grid", gridTemplateColumns: "repeat(5, 1fr)", gap: "16px" }}>
           {slots.map(({ position, item }) => (
             <div key={position}>
-              <div style={{ aspectRatio: "1 / 1", position: "relative", overflow: "hidden", background: item ? "transparent" : "#f4f4f4", border: item ? "none" : "1px dashed rgba(0,0,0,0.12)" }}>
+              <div style={{ position: "relative", paddingTop: "100%", overflow: "hidden", background: item ? "transparent" : "#f4f4f4", border: item ? "none" : "1px dashed rgba(0,0,0,0.12)" }}>
                 {item?.cover_url ? (
                   // eslint-disable-next-line @next/next/no-img-element
-                  <img src={item.cover_url} alt={item.song_title ?? item.album} style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
+                  <img src={item.cover_url} alt={item.song_title ?? item.album} style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
                 ) : (
-                  <div style={{ width: "100%", height: "100%", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                  <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center" }}>
                     <span style={{ fontFamily: SERIF, fontSize: "22px", color: "#d0d0d0" }}>—</span>
                   </div>
                 )}

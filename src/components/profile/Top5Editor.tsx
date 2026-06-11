@@ -155,8 +155,8 @@ export default function Top5Editor({ listId, listTitle, initialSlots, onClose }:
                 <div
                   onClick={() => { if (!busy) isActive ? closeSearch() : openSlot(slot.position); }}
                   style={{
-                    aspectRatio: "1 / 1",
                     position: "relative",
+                    paddingTop: "100%",
                     overflow: "hidden",
                     background: slot.coverUrl ? "transparent" : "#f8f8f8",
                     border: isActive
@@ -173,7 +173,7 @@ export default function Top5Editor({ listId, listTitle, initialSlots, onClose }:
                     // eslint-disable-next-line @next/next/no-img-element
                     <img src={slot.coverUrl} alt="" style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
                   ) : (
-                    <div style={{ width: "100%", height: "100%", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                    <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center" }}>
                       <span style={{ fontFamily: MONO, fontSize: "20px", color: "#d8d8d8", lineHeight: 1 }}>+</span>
                     </div>
                   )}

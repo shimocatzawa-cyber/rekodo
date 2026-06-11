@@ -687,12 +687,12 @@ export default function ProfileClient({
                           const coverUrl = item?.item_type === "song" ? item.song_cover_url : (rec?.cover_url ?? null);
                           return (
                             <div key={pos}>
-                              <div style={{ aspectRatio: "1 / 1", position: "relative", overflow: "hidden", background: coverUrl ? "transparent" : "#f4f4f4", border: coverUrl ? "none" : "1px dashed rgba(0,0,0,0.10)" }}>
+                              <div style={{ position: "relative", paddingTop: "100%", overflow: "hidden", background: coverUrl ? "transparent" : "#f4f4f4", border: coverUrl ? "none" : "1px dashed rgba(0,0,0,0.10)" }}>
                                 {coverUrl ? (
                                   // eslint-disable-next-line @next/next/no-img-element
                                   <img src={coverUrl} alt={item?.song_album ?? rec?.album ?? ""} style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
                                 ) : (
-                                  <div style={{ width: "100%", height: "100%", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                                  <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center" }}>
                                     <span style={{ fontFamily: SERIF, fontSize: "18px", color: "#d8d8d8" }}>—</span>
                                   </div>
                                 )}
