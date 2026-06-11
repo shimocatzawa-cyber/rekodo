@@ -1001,32 +1001,8 @@ function WantlistCard({ slot, monthsOld, showSomedayPrompt, onRemove, onKeepSome
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
     >
-      <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "5px" }}>
-        <button onClick={cyclePriority} title="Click to change priority"
-          style={{
-            fontFamily: MONO, fontSize: "0.65rem", letterSpacing: "0.08em", textTransform: "uppercase",
-            color: priority ? PRIORITY_COLORS[priority] : "#bbbbbb",
-            background: "none", border: `1px solid ${priority ? PRIORITY_COLORS[priority] : "#ccc"}`,
-            borderRadius: "2px", cursor: "pointer", padding: "0.15rem 0.5rem",
-            whiteSpace: "nowrap", flexShrink: 0, transition: "all 0.15s",
-          }}
-        >
-          {priority ? PRIORITY_LABELS[priority] : "Priority"}
-        </button>
-        <div style={{ flex: 1 }} />
-        <a href={discogsUrl} target="_blank" rel="noopener noreferrer"
-          style={{ fontFamily: MONO, fontSize: "10px", letterSpacing: "0.05em", color: hovered ? "#a34400" : ORANGE, textDecoration: "none", flexShrink: 0, transition: "color 0.15s", whiteSpace: "nowrap" }}>
-          Discogs ↗
-        </a>
-        {hovered && (
-          <button onClick={onRemove}
-            style={{ fontFamily: MONO, fontSize: "13px", color: "#cccccc", background: "none", border: "none", cursor: "pointer", padding: "0 0 0 2px", lineHeight: 1, flexShrink: 0 }}>
-            ×
-          </button>
-        )}
-      </div>
-
-      <div style={{ display: "flex", alignItems: "center", gap: "12px", marginBottom: "6px" }}>
+      <div style={{ display: "flex", alignItems: "flex-start", gap: "12px", marginBottom: "6px" }}>
+        {/* Cover art */}
         <div style={{
           width: 80, height: 80, flexShrink: 0, overflow: "hidden", borderRadius: "2px",
           background: coverUrl ? "transparent" : "#f0f0f0",
@@ -1037,15 +1013,44 @@ function WantlistCard({ slot, monthsOld, showSomedayPrompt, onRemove, onKeepSome
             <img src={coverUrl} alt="" style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
           )}
         </div>
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <p style={{ fontFamily: SERIF, fontSize: "1rem", fontWeight: 600, color: "#0d0d0d", lineHeight: 1.25, marginBottom: "3px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+
+        {/* Content column */}
+        <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", gap: "3px" }}>
+          {/* Priority tag */}
+          <div>
+            <button onClick={cyclePriority} title="Click to change priority"
+              style={{
+                fontFamily: MONO, fontSize: "0.6rem", letterSpacing: "0.08em", textTransform: "uppercase",
+                color: priority ? PRIORITY_COLORS[priority] : "#bbbbbb",
+                background: "none", border: `1px solid ${priority ? PRIORITY_COLORS[priority] : "#ccc"}`,
+                borderRadius: "2px", cursor: "pointer", padding: "0.1rem 0.45rem",
+                whiteSpace: "nowrap", transition: "all 0.15s",
+              }}
+            >
+              {priority ? PRIORITY_LABELS[priority] : "Priority"}
+            </button>
+          </div>
+          <p style={{ fontFamily: SERIF, fontSize: "1rem", fontWeight: 600, color: "#0d0d0d", lineHeight: 1.25, margin: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
             {item.artist}
           </p>
-          <p style={{ fontFamily: SERIF, fontStyle: "italic", fontSize: "0.85rem", color: "#444444", lineHeight: 1.25, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+          <p style={{ fontFamily: SERIF, fontStyle: "italic", fontSize: "0.85rem", color: "#444444", lineHeight: 1.25, margin: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
             {item.song_title ?? item.album}
             {item.year && <span style={{ fontFamily: MONO, fontStyle: "normal", fontSize: "0.7rem", color: "#999999", letterSpacing: "0.05em" }}> · {item.year}</span>}
           </p>
+          {/* Discogs link */}
+          <a href={discogsUrl} target="_blank" rel="noopener noreferrer"
+            style={{ fontFamily: MONO, fontSize: "10px", letterSpacing: "0.05em", color: hovered ? "#a34400" : ORANGE, textDecoration: "none", transition: "color 0.15s" }}>
+            Discogs ↗
+          </a>
         </div>
+
+        {/* Remove button */}
+        {hovered && (
+          <button onClick={onRemove}
+            style={{ fontFamily: MONO, fontSize: "13px", color: "#cccccc", background: "none", border: "none", cursor: "pointer", padding: 0, lineHeight: 1, flexShrink: 0 }}>
+            ×
+          </button>
+        )}
       </div>
 
       <div style={{ display: "flex", alignItems: "flex-start", gap: "8px", marginTop: "5px", paddingTop: "5px", borderTop: "1px solid rgba(0,0,0,0.05)" }}>
