@@ -143,7 +143,7 @@ async function processSync(supabase: SB, jobId: string, userId: string) {
       id: number;
       basic_information: {
         id: number; title: string; year: number;
-        artists: Array<{ name: string }>;
+        artists: Array<{ id: number; name: string }>;
         genres: string[]; styles: string[];
         cover_image: string; thumb: string;
         labels: Array<{ name: string }>;
@@ -158,6 +158,7 @@ async function processSync(supabase: SB, jobId: string, userId: string) {
       genre: string | null; styles: string[]; cover_url: string | null; label: string | null;
       format: string | null; country: string | null;
       media_condition: string | null; sleeve_condition: string | null;
+      discogs_artist_id: number | null;
     }
 
     let totalPages   = 1;
@@ -214,6 +215,7 @@ async function processSync(supabase: SB, jobId: string, userId: string) {
         country:          info.country ?? null,
         media_condition:  notes.find((n) => n.field_id === mediaFieldId)?.value?.trim()  || null,
         sleeve_condition: notes.find((n) => n.field_id === sleeveFieldId)?.value?.trim() || null,
+        discogs_artist_id: info.artists?.[0]?.id ?? null,
       };
     });
 
@@ -250,6 +252,7 @@ async function processSync(supabase: SB, jobId: string, userId: string) {
           discogs_id: r.discogs_id, artist: r.artist, album: r.album,
           year: r.year, genre: r.genre, styles: r.styles, cover_url: r.cover_url,
           label: r.label, format: r.format, country: r.country,
+          discogs_artist_id: r.discogs_artist_id,
         })))
         .select("id, discogs_id");
 

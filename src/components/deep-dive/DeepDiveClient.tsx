@@ -15,6 +15,7 @@ type Section = "rankings" | "podcasts" | "books" | "interviews" | "related" | "b
 export type ArtistData = {
   name: string;
   count: number;
+  wantlistCount?: number;
   fromBandcamp?: boolean;
   records: { album: string; year: number | null; cover_url: string | null }[];
 };
@@ -706,7 +707,10 @@ export default function DeepDiveClient({
               {selectedData?.fromBandcamp && <BandcampIcon size={16} />}
             </div>
             <p style={{ fontFamily: MONO, fontSize: "0.7rem", letterSpacing: "0.06em", color: INK, margin: "0 0 12px" }}>
-              {selectedData.count} {selectedData.count === 1 ? "record" : "records"} in your collection
+              {[
+                selectedData.count > 0 ? `${selectedData.count} ${selectedData.count === 1 ? "record" : "records"} in your collection` : "",
+                (selectedData.wantlistCount ?? 0) > 0 ? `${selectedData.wantlistCount} ${selectedData.wantlistCount === 1 ? "record" : "records"} in your wantlist` : "",
+              ].filter(Boolean).join(" · ")}
             </p>
             <CollectionStrip records={selectedData.records} tileSize={36} />
           </div>

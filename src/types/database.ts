@@ -45,6 +45,7 @@ export type Database = {
           community_want:         number | null;
           community_num_for_sale: number | null;
           community_fetched_at:   string | null;
+          discogs_artist_id:      number | null;
         };
         Insert: {
           id?: string;
@@ -63,6 +64,7 @@ export type Database = {
           community_want?:         number | null;
           community_num_for_sale?: number | null;
           community_fetched_at?:   string | null;
+          discogs_artist_id?:      number | null;
         };
         Update: {
           discogs_id?: string | null;
@@ -79,6 +81,7 @@ export type Database = {
           community_want?:         number | null;
           community_num_for_sale?: number | null;
           community_fetched_at?:   string | null;
+          discogs_artist_id?:      number | null;
         };
         Relationships: [];
       };
@@ -425,6 +428,47 @@ export type Database = {
           match_reason?: string | null;
           status?: "saved" | "in_progress" | "done";
           actioned_at?: string | null;
+        };
+        Relationships: [];
+      };
+      wantlist: {
+        Row: {
+          id:                 string;
+          user_id:            string;
+          discogs_release_id: number;
+          catalog:            string | null;
+          artist:             string;
+          title:              string;
+          label:              string | null;
+          format:             string | null;
+          released:           number | null;
+          date_added:         string | null;
+          cover_image_url:    string | null;
+          created_at:         string;
+        };
+        Insert: {
+          id?:                string;
+          user_id:            string;
+          discogs_release_id: number;
+          catalog?:           string | null;
+          artist:             string;
+          title:              string;
+          label?:             string | null;
+          format?:            string | null;
+          released?:          number | null;
+          date_added?:        string | null;
+          cover_image_url?:   string | null;
+          created_at?:        string;
+        };
+        Update: {
+          catalog?:           string | null;
+          artist?:            string;
+          title?:             string;
+          label?:             string | null;
+          format?:            string | null;
+          released?:          number | null;
+          date_added?:        string | null;
+          cover_image_url?:   string | null;
         };
         Relationships: [];
       };

@@ -75,11 +75,24 @@ export default async function DeepDivePage() {
     artistMap.set(r.artist, entry);
   }
 
+  // Fetch wantlist and build per-artist count map
+  const { data: wantlistRows } = await supabase
+    .from("wantlist")
+    .select("artist")
+    .eq("user_id", user.id);
+
+  const wantlistCountMap = new Map<string, number>();
+  for (const row of wantlistRows ?? []) {
+    const key = (row.artist ?? "").toLowerCase().trim();
+    wantlistCountMap.set(key, (wantlistCountMap.get(key) ?? 0) + 1);
+  }
+
   const artists: ArtistData[] = [...artistMap.entries()]
     .filter(([name]) => !/^various/i.test(name.trim()))
     .map(([name, { count, records }]) => ({
       name,
       count,
+      wantlistCount: wantlistCountMap.get(name.toLowerCase().trim()) ?? 0,
       fromBandcamp: bcArtists.has(name.toLowerCase().trim()),
       records: records.sort((a, b) => (a.year ?? 9999) - (b.year ?? 9999)),
     }))
