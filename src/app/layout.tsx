@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Shippori_Mincho, DM_Mono, Caveat } from "next/font/google";
+import { SpeedInsights } from "@vercel/speed-insights/next";
 import "./globals.css";
 
 const shipporiMincho = Shippori_Mincho({
@@ -58,6 +59,7 @@ export default function RootLayout({
       </head>
       <body className="min-h-full flex flex-col bg-white text-black antialiased">
         {children}
+        <SpeedInsights />
       </body>
     </html>
   );
