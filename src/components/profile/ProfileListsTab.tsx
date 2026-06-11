@@ -72,9 +72,10 @@ const PERSONAL_TEMPLATES = [
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 interface Props {
-  initialLists: UserList[];
-  username:     string;
-  autoCreate?:  boolean;
+  initialLists:          UserList[];
+  username:              string;
+  autoCreate?:           boolean;
+  initialActivePillId?:  string | null;
 }
 
 type PickerMode =
@@ -117,13 +118,15 @@ function reorderSlots(slots: ListSlot[], fromPos: number, toPos: number): ListSl
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
-export default function ProfileListsTab({ initialLists, username, autoCreate }: Props) {
+export default function ProfileListsTab({ initialLists, username, autoCreate, initialActivePillId }: Props) {
   const router = useRouter();
 
   const [lists,        setLists]       = useState<UserList[]>(initialLists);
   const [saving,       setSaving]      = useState<string | null>(null);
   const [activePillId, setActivePillId] = useState<string | null>(
-    (initialLists.find(l => l.slug === "wantlist" || l.slug === "want-to-buy") ?? initialLists[0])?.id ?? null
+    initialActivePillId
+      ?? (initialLists.find(l => l.slug === "wantlist" || l.slug === "want-to-buy") ?? initialLists[0])?.id
+      ?? null
   );
   const [createState, setCreateState] = useState<CreateState>(
     autoCreate ? { listType: "top5", step: "templates" } : null
@@ -178,10 +181,12 @@ export default function ProfileListsTab({ initialLists, username, autoCreate }: 
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
-    if (activePillId && lists.find(l => l.id === activePillId)) return;
-    const wantlist = lists.find(l => l.slug === "wantlist" || l.slug === "want-to-buy");
-    setActivePillId((wantlist ?? lists[0])?.id ?? null);
-  }, [lists]); // eslint-disable-line react-hooks/exhaustive-deps
+    setActivePillId(prev => {
+      if (prev && lists.find(l => l.id === prev)) return prev;
+      const wantlist = lists.find(l => l.slug === "wantlist" || l.slug === "want-to-buy");
+      return (wantlist ?? lists[0])?.id ?? null;
+    });
+  }, [lists]);
 
   useEffect(() => {
     if (pickerTab !== "collection") return;
@@ -408,7 +413,6 @@ export default function ProfileListsTab({ initialLists, username, autoCreate }: 
         setNewTitle("");
         setCreateState(null);
         setActivePillId(newList.id);
-        router.refresh();
       }
     });
   }
@@ -1125,16 +1129,7 @@ function CreateModal({ state, newTitle, isCreating, onChangeTitle, onChangeState
         <div style={{ display: "flex", alignItems: "start", justifyContent: "space-between", marginBottom: "28px" }}>
           <div>
             <p style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.14em", textTransform: "uppercase", color: "#aaaaaa", marginBottom: "6px" }}>New list</p>
-            <div style={{ display: "flex", gap: "20px" }}>
-              {(["top5", "personal"] as const).map(lt => (
-                <button key={lt}
-                  onClick={() => onChangeState({ listType: lt, step: "templates" })}
-                  style={{ fontFamily: SERIF, fontSize: "18px", fontWeight: 400, color: state.listType === lt ? "#0d0d0d" : "#cccccc", background: "none", border: "none", cursor: "pointer", padding: 0, borderBottom: `1px solid ${state.listType === lt ? "#0d0d0d" : "transparent"}`, paddingBottom: "2px" }}
-                >
-                  {lt === "top5" ? "Top 5 list" : "Private list"}
-                </button>
-              ))}
-            </div>
+            <p style={{ fontFamily: SERIF, fontSize: "18px", fontWeight: 400, color: "#0d0d0d", margin: 0 }}>Top 5 list</p>
           </div>
           <button onClick={onClose} style={{ fontFamily: MONO, fontSize: "18px", color: "#aaaaaa", background: "none", border: "none", cursor: "pointer", lineHeight: 1 }}>×</button>
         </div>
