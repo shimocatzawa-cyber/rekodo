@@ -72,10 +72,8 @@ const PERSONAL_TEMPLATES = [
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 interface Props {
-  initialLists:          UserList[];
-  username:              string;
-  autoCreate?:           boolean;
-  initialActivePillId?:  string | null;
+  initialLists: UserList[];
+  username:     string;
 }
 
 type PickerMode =
@@ -118,19 +116,15 @@ function reorderSlots(slots: ListSlot[], fromPos: number, toPos: number): ListSl
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
-export default function ProfileListsTab({ initialLists, username, autoCreate, initialActivePillId }: Props) {
+export default function ProfileListsTab({ initialLists, username }: Props) {
   const router = useRouter();
 
   const [lists,        setLists]       = useState<UserList[]>(initialLists);
   const [saving,       setSaving]      = useState<string | null>(null);
   const [activePillId, setActivePillId] = useState<string | null>(
-    initialActivePillId
-      ?? (initialLists.find(l => l.slug === "wantlist" || l.slug === "want-to-buy") ?? initialLists[0])?.id
-      ?? null
+    (initialLists.find(l => l.slug === "wantlist" || l.slug === "want-to-buy") ?? initialLists[0])?.id ?? null
   );
-  const [createState, setCreateState] = useState<CreateState>(
-    autoCreate ? { listType: "top5", step: "templates" } : null
-  );
+  const [createState, setCreateState] = useState<CreateState>(null);
   const [newTitle,    setNewTitle]    = useState("");
   const [isCreating,  startCreating]  = useTransition();
 

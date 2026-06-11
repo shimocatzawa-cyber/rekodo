@@ -11,6 +11,8 @@ import { generateTasteSummary } from "./actions";
 import AppNav from "@/components/AppNav";
 import ProfileListsTab from "@/components/profile/ProfileListsTab";
 import CollectionPhotos from "@/app/p/[username]/CollectionPhotos";
+import Top5Editor, { type EditorSlot } from "@/components/profile/Top5Editor";
+import { createList } from "@/app/lists/actions";
 import WantlistClient from "@/components/wantlist/WantlistClient";
 import type { UserList, DiscoverList } from "@/app/lists/types";
 import type { WantlistItem } from "./wantlist/page";
@@ -154,24 +156,69 @@ export default function ProfileClient({
     if (p === "community") return "community";
     return "profile";
   });
-  const [autoCreate,   setAutoCreate]   = useState(false);
-  const [editListId,   setEditListId]   = useState<string | null>(null);
+  // ── Top 5 editor ─────────────────────────────────────────────────────────
+  type EditorModal =
+    | null
+    | { step: "template"; customMode: boolean; customTitle: string }
+    | { step: "editor";   listId: string; listTitle: string; slots: EditorSlot[] };
 
-  function switchTab(tab: ProfileTab) {
-    if (tab !== "lists") { setAutoCreate(false); setEditListId(null); }
-    setProfileTab(tab);
+  const [editorModal,    setEditorModal]    = useState<EditorModal>(null);
+  const [creatingList,   startCreatingList] = useTransition();
+
+  const TOP5_TEMPLATES = [
+    "Top 5 All Time",
+    "Top 5 Desert Island Records",
+    "Top 5 Break Up Records",
+    "Top 5 Make Up Records",
+    "Top 5 Sunday Morning Records",
+    "Top 5 Saturday Night Records",
+    "Top 5 Records That Changed My Life",
+    "Top 5 Gateway Records",
+    "Top 5 Most Played",
+    "Top 5 Hidden Gems",
+  ] as const;
+
+  function openCreate() {
+    setEditorModal({ step: "template", customMode: false, customTitle: "" });
   }
 
-  function openListsToCreate() {
-    setAutoCreate(true);
-    setEditListId(null);
-    setProfileTab("lists");
+  function handlePickTemplate(title: string) {
+    startCreatingList(async () => {
+      const res = await createList(title, "top5");
+      if (res && "success" in res && res.success && res.list) {
+        setEditorModal({ step: "editor", listId: res.list.id, listTitle: res.list.title, slots: [] });
+      }
+    });
   }
 
-  function openListsToEdit(listId: string) {
-    setEditListId(listId);
-    setAutoCreate(false);
-    setProfileTab("lists");
+  function handleCustomCreate() {
+    if (editorModal?.step !== "template") return;
+    const raw = editorModal.customTitle.trim();
+    if (!raw) return;
+    const title = raw.replace(/^top\s+5\s+/i, "");
+    handlePickTemplate(`Top 5 ${title}`);
+  }
+
+  function openListEdit(listId: string, listTitle: string) {
+    const items = itemsByList.get(listId) ?? [];
+    const slots: EditorSlot[] = Array.from({ length: 5 }, (_, i) => {
+      const pos  = i + 1;
+      const item = items.find(it => it.position === pos);
+      const rec  = item?.record_id ? coverById.get(item.record_id) : undefined;
+      return {
+        position: pos,
+        recordId: item?.record_id ?? null,
+        coverUrl: item?.item_type === "song" ? item.song_cover_url : (rec?.cover_url ?? null),
+        artist:   item?.item_type === "song" ? item.song_artist   : (rec?.artist    ?? null),
+        album:    item?.item_type === "song" ? item.song_album    : (rec?.album     ?? null),
+      };
+    });
+    setEditorModal({ step: "editor", listId, listTitle, slots });
+  }
+
+  function handleEditorClose() {
+    setEditorModal(null);
+    router.refresh();
   }
 
   // ── Avatar ────────────────────────────────────────────────────────────────
@@ -368,7 +415,7 @@ export default function ProfileClient({
         {tabItems.map(({ key, label }) => (
           <button
             key={key}
-            onClick={() => switchTab(key)}
+            onClick={() => setProfileTab(key)}
             style={{
               fontFamily: MONO, fontSize: "10px", letterSpacing: "0.1em",
               textTransform: "uppercase", background: "none", border: "none",
@@ -604,7 +651,7 @@ export default function ProfileClient({
               <p style={eyebrowSt}>Lists</p>
               {isOwner && (
                 <button
-                  onClick={openListsToCreate}
+                  onClick={openCreate}
                   style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.1em", textTransform: "uppercase", color: ORANGE, background: "none", border: `1px solid ${ORANGE}`, borderRadius: "3px", cursor: "pointer", padding: "4px 10px", whiteSpace: "nowrap" }}
                 >
                   + New Top 5
@@ -627,7 +674,7 @@ export default function ProfileClient({
                         </Link>
                         {isOwner && (
                           <button
-                            onClick={() => openListsToEdit(list.id)}
+                            onClick={() => openListEdit(list.id, list.title)}
                             style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.1em", textTransform: "uppercase", color: ORANGE, background: "none", border: "none", cursor: "pointer", padding: 0, flexShrink: 0, marginLeft: "16px" }}
                           >
                             Edit →
@@ -676,8 +723,8 @@ export default function ProfileClient({
             ) : isOwner ? (
               <p style={{ fontFamily: MONO, fontSize: "0.65rem", letterSpacing: "0.04em", color: MUTED, margin: 0 }}>
                 No public lists yet.{" "}
-                <button onClick={openListsToCreate} style={{ fontFamily: MONO, fontSize: "0.65rem", letterSpacing: "0.04em", color: ORANGE, background: "none", border: "none", cursor: "pointer", padding: 0 }}>
-                  Create one in Lists →
+                <button onClick={openCreate} style={{ fontFamily: MONO, fontSize: "0.65rem", letterSpacing: "0.04em", color: ORANGE, background: "none", border: "none", cursor: "pointer", padding: 0 }}>
+                  Create one →
                 </button>
               </p>
             ) : null}
@@ -688,13 +735,21 @@ export default function ProfileClient({
 
       {/* ─────────────── WANTLIST TAB ────────────────────────────────────────── */}
       {profileTab === "lists" && (
-        <WantlistClient
-          profileUsername={profile.username}
-          isOwner={isOwner}
-          userId={isOwner ? profile.id : null}
-          initialItems={wantlistItems}
-          embedded
-        />
+        <>
+          <WantlistClient
+            profileUsername={profile.username}
+            isOwner={isOwner}
+            userId={isOwner ? profile.id : null}
+            initialItems={wantlistItems}
+            embedded
+          />
+          {isOwner && (
+            <ProfileListsTab
+              initialLists={fullLists ?? []}
+              username={profile.username}
+            />
+          )}
+        </>
       )}
 
       {/* ─────────────── COMMUNITY TAB ───────────────────────────────────────── */}
@@ -782,6 +837,83 @@ export default function ProfileClient({
             </>
           )}
         </div>
+      )}
+
+      {/* ── Template picker modal ── */}
+      {editorModal?.step === "template" && (
+        <div
+          style={{ position: "fixed", inset: 0, zIndex: 100, background: "rgba(255,255,255,0.92)", backdropFilter: "blur(6px)", display: "flex", alignItems: "center", justifyContent: "center", padding: "24px" }}
+          onClick={e => { if (e.target === e.currentTarget) setEditorModal(null); }}
+        >
+          <div style={{ background: "#fff", border: "1px solid rgba(0,0,0,0.1)", width: "100%", maxWidth: "660px", padding: "40px" }}>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "28px" }}>
+              <div>
+                <p style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.14em", textTransform: "uppercase", color: "#aaaaaa", marginBottom: "6px" }}>New list</p>
+                <p style={{ fontFamily: SERIF, fontSize: "18px", color: INK, margin: 0 }}>Top 5 list</p>
+              </div>
+              <button onClick={() => setEditorModal(null)} style={{ fontFamily: MONO, fontSize: "18px", color: "#aaaaaa", background: "none", border: "none", cursor: "pointer", lineHeight: 1 }}>×</button>
+            </div>
+
+            {!editorModal.customMode ? (
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(160px, 1fr))", gap: "10px" }}>
+                {TOP5_TEMPLATES.map(title => (
+                  <button key={title} disabled={creatingList}
+                    onClick={() => handlePickTemplate(title)}
+                    style={{ textAlign: "left", padding: "16px 14px", background: "#fff", border: "1px solid rgba(0,0,0,0.1)", cursor: creatingList ? "wait" : "pointer" }}
+                    onMouseEnter={e => { if (!creatingList) (e.currentTarget as HTMLButtonElement).style.borderColor = ORANGE; }}
+                    onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = "rgba(0,0,0,0.1)"; }}
+                  >
+                    <p style={{ fontFamily: SERIF, fontSize: "13px", color: INK, lineHeight: 1.35, margin: 0 }}>{title}</p>
+                  </button>
+                ))}
+                <button disabled={creatingList}
+                  onClick={() => setEditorModal({ ...editorModal, customMode: true })}
+                  style={{ textAlign: "left", padding: "16px 14px", background: "#fff", border: "1px solid rgba(0,0,0,0.1)", cursor: "pointer" }}
+                  onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = ORANGE; }}
+                  onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = "rgba(0,0,0,0.1)"; }}
+                >
+                  <p style={{ fontFamily: SERIF, fontSize: "13px", color: INK, lineHeight: 1.35, margin: 0 }}>+ Custom</p>
+                </button>
+              </div>
+            ) : (
+              <form onSubmit={e => { e.preventDefault(); handleCustomCreate(); }} style={{ display: "flex", alignItems: "center", gap: "16px" }}>
+                <div style={{ flex: 1, display: "flex", alignItems: "baseline", borderBottom: "1px solid rgba(0,0,0,0.2)", paddingBottom: "6px" }}>
+                  <span style={{ fontFamily: SERIF, fontSize: "20px", color: "#cccccc", whiteSpace: "nowrap", userSelect: "none" }}>Top 5 </span>
+                  <input
+                    autoFocus type="text"
+                    value={editorModal.customTitle}
+                    onChange={e => setEditorModal({ ...editorModal, customTitle: e.target.value })}
+                    placeholder="Rainy Day Records…"
+                    maxLength={60}
+                    style={{ flex: 1, outline: "none", fontFamily: SERIF, fontSize: "20px", color: INK, background: "transparent", border: "none" }}
+                  />
+                </div>
+                <button type="submit" disabled={!editorModal.customTitle.trim() || creatingList}
+                  style={{ fontFamily: MONO, fontSize: "10px", letterSpacing: "0.1em", textTransform: "uppercase", color: editorModal.customTitle.trim() ? ORANGE : "#cccccc", background: "none", border: "none", cursor: "pointer", padding: 0 }}>
+                  {creatingList ? "Creating…" : "Create →"}
+                </button>
+                <button type="button" onClick={() => setEditorModal({ ...editorModal, customMode: false })}
+                  style={{ fontFamily: MONO, fontSize: "10px", letterSpacing: "0.1em", textTransform: "uppercase", color: "#aaaaaa", background: "none", border: "none", cursor: "pointer", padding: 0 }}>
+                  ← Back
+                </button>
+              </form>
+            )}
+
+            {creatingList && (
+              <p style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.1em", textTransform: "uppercase", color: "#aaaaaa", marginTop: "20px" }}>Creating…</p>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* ── Top 5 editor overlay ── */}
+      {editorModal?.step === "editor" && (
+        <Top5Editor
+          listId={editorModal.listId}
+          listTitle={editorModal.listTitle}
+          initialSlots={editorModal.slots}
+          onClose={handleEditorClose}
+        />
       )}
 
     </div>
