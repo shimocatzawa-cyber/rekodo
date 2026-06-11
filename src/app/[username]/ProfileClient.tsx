@@ -151,7 +151,12 @@ export default function ProfileClient({
     if (p === "community") return "community";
     return "profile";
   });
-  const autoCreateList = searchParams.get("create") === "top5" && isOwner;
+  const [autoCreate, setAutoCreate] = useState(false);
+
+  function switchTab(tab: ProfileTab) {
+    if (tab !== "lists") setAutoCreate(false);
+    setProfileTab(tab);
+  }
 
   // ── Avatar ────────────────────────────────────────────────────────────────
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -347,7 +352,7 @@ export default function ProfileClient({
         {tabItems.map(({ key, label }) => (
           <button
             key={key}
-            onClick={() => setProfileTab(key)}
+            onClick={() => switchTab(key)}
             style={{
               fontFamily: MONO, fontSize: "10px", letterSpacing: "0.1em",
               textTransform: "uppercase", background: "none", border: "none",
@@ -582,12 +587,12 @@ export default function ProfileClient({
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "20px" }}>
               <p style={eyebrowSt}>Lists</p>
               {isOwner && (
-                <Link
-                  href={`/@${profile.username}?tab=lists&create=top5`}
-                  style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.1em", textTransform: "uppercase", color: ORANGE, background: "none", border: `1px solid ${ORANGE}`, borderRadius: "3px", cursor: "pointer", padding: "4px 10px", whiteSpace: "nowrap", textDecoration: "none" }}
+                <button
+                  onClick={() => { setAutoCreate(true); setProfileTab("lists"); }}
+                  style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.1em", textTransform: "uppercase", color: ORANGE, background: "none", border: `1px solid ${ORANGE}`, borderRadius: "3px", cursor: "pointer", padding: "4px 10px", whiteSpace: "nowrap" }}
                 >
                   + New Top 5
-                </Link>
+                </button>
               )}
             </div>
 
@@ -645,9 +650,9 @@ export default function ProfileClient({
             ) : isOwner ? (
               <p style={{ fontFamily: MONO, fontSize: "0.65rem", letterSpacing: "0.04em", color: MUTED, margin: 0 }}>
                 No public lists yet.{" "}
-                <Link href={`/@${profile.username}?tab=lists&create=top5`} style={{ fontFamily: MONO, fontSize: "0.65rem", letterSpacing: "0.04em", color: ORANGE, textDecoration: "none" }}>
+                <button onClick={() => { setAutoCreate(true); setProfileTab("lists"); }} style={{ fontFamily: MONO, fontSize: "0.65rem", letterSpacing: "0.04em", color: ORANGE, background: "none", border: "none", cursor: "pointer", padding: 0 }}>
                   Create one in Lists →
-                </Link>
+                </button>
               </p>
             ) : null}
           </section>
@@ -660,7 +665,7 @@ export default function ProfileClient({
         <ProfileListsTab
           initialLists={fullLists ?? []}
           username={profile.username}
-          autoCreate={autoCreateList}
+          autoCreate={autoCreate}
         />
       )}
 
