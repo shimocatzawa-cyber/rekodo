@@ -15,7 +15,6 @@ import Top5Editor, { type EditorSlot } from "@/components/profile/Top5Editor";
 import { createList } from "@/app/lists/actions";
 import WantlistClient from "@/components/wantlist/WantlistClient";
 import type { UserList, DiscoverList } from "@/app/lists/types";
-import type { WantlistItem } from "./wantlist/page";
 
 const SERIF  = "var(--font-editorial)";
 const MONO   = "var(--font-mono)";
@@ -98,7 +97,6 @@ interface Props {
   fullLists?: UserList[];
   discoverLists?: DiscoverList[];
   collectionPhoto?: string | null;
-  wantlistItems?: WantlistItem[];
 }
 
 type ProfileTab  = "profile" | "lists" | "community";
@@ -144,7 +142,7 @@ function DiscoverCard({ title, username, recordCount, badge, saves, onSave, save
 export default function ProfileClient({
   profile, isOwner, totalRecords, topGenre, topCountry, topLabel,
   lists, listItems, coverRecords, followerCount, followingCount, viewer,
-  fullLists, discoverLists = [], collectionPhoto = null, wantlistItems = [],
+  fullLists, discoverLists = [], collectionPhoto = null,
 }: Props) {
   const router       = useRouter();
   const searchParams = useSearchParams();
@@ -692,7 +690,7 @@ export default function ProfileClient({
                               <div style={{ aspectRatio: "1 / 1", position: "relative", overflow: "hidden", background: coverUrl ? "transparent" : "#f4f4f4", border: coverUrl ? "none" : "1px dashed rgba(0,0,0,0.10)" }}>
                                 {coverUrl ? (
                                   // eslint-disable-next-line @next/next/no-img-element
-                                  <img src={coverUrl} alt={item?.song_album ?? rec?.album ?? ""} style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
+                                  <img src={coverUrl} alt={item?.song_album ?? rec?.album ?? ""} style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
                                 ) : (
                                   <div style={{ width: "100%", height: "100%", display: "flex", alignItems: "center", justifyContent: "center" }}>
                                     <span style={{ fontFamily: SERIF, fontSize: "18px", color: "#d8d8d8" }}>—</span>
@@ -737,10 +735,8 @@ export default function ProfileClient({
       {profileTab === "lists" && (
         <>
           <WantlistClient
-            profileUsername={profile.username}
             isOwner={isOwner}
             userId={isOwner ? profile.id : null}
-            initialItems={wantlistItems}
             embedded
           />
           {isOwner && (

@@ -7,19 +7,6 @@ export const dynamic = "force-dynamic";
 
 type Params = Promise<{ username: string }>;
 
-export type WantlistItem = {
-  id: string;
-  discogs_release_id: number;
-  catalog: string | null;
-  artist: string;
-  title: string;
-  label: string | null;
-  format: string | null;
-  released: number | null;
-  date_added: string | null;
-  cover_image_url: string | null;
-};
-
 export default async function WantlistPage({ params }: { params: Params }) {
   const { username: rawHandle } = await params;
   if (!rawHandle.startsWith("@")) notFound();
@@ -48,14 +35,6 @@ export default async function WantlistPage({ params }: { params: Params }) {
     }
   }
 
-  const { data: items } = await supabase
-    .from("wantlist")
-    .select("id, discogs_release_id, catalog, artist, title, label, format, released, date_added, cover_image_url")
-    .eq("user_id", profile.id)
-    .order("date_added", { ascending: false });
-
-  const wantlistItems: WantlistItem[] = (items ?? []) as WantlistItem[];
-
   return (
     <div style={{ minHeight: "100vh", background: "#FDF6F0" }}>
       {viewerNav && (
@@ -65,12 +44,20 @@ export default async function WantlistPage({ params }: { params: Params }) {
           avatarUrl={viewerNav.avatarUrl}
         />
       )}
-      <WantlistClient
-        profileUsername={profile.username ?? username}
-        isOwner={isOwner}
-        userId={viewer?.id ?? null}
-        initialItems={wantlistItems}
-      />
+      <div style={{ maxWidth: 680, margin: "0 auto", padding: "2.5rem 1.5rem 4rem" }}>
+        <div style={{ marginBottom: "2rem", borderBottom: "1px solid #e0e0da", paddingBottom: "1.5rem" }}>
+          <p style={{ fontFamily: "var(--font-mono)", fontSize: "0.55rem", letterSpacing: "0.16em", textTransform: "uppercase", color: "#CC5500", margin: "0 0 8px" }}>
+            @{username}
+          </p>
+          <h1 style={{ fontFamily: "var(--font-editorial)", fontSize: "clamp(1.8rem, 3vw, 2.6rem)", color: "#0a0a0a", margin: 0, lineHeight: 1 }}>
+            Wantlist
+          </h1>
+        </div>
+        <WantlistClient
+          isOwner={isOwner}
+          userId={viewer?.id ?? null}
+        />
+      </div>
     </div>
   );
 }

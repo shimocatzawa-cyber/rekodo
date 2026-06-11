@@ -85,19 +85,17 @@ function ArtistInitial({ name, size }: { name: string; size: number }) {
 
 function SkeletonRows() {
   return (
-    <div>
-      <style>{`
-        @keyframes dd-pulse {
-          0%, 100% { opacity: 0.5; }
-          50%       { opacity: 1; }
-        }
-      `}</style>
-      {[0, 1, 2, 3].map((i) => (
-        <div key={i} style={{ padding: "1.5rem 0", borderBottom: `1px solid ${SUBTLE}` }}>
-          <div style={{ width: "60%", height: 12, background: WARM, animation: "dd-pulse 1.5s ease-in-out infinite", marginBottom: 8 }} />
-          <div style={{ width: "40%", height: 10, background: WARM, animation: "dd-pulse 1.5s ease-in-out infinite" }} />
-        </div>
-      ))}
+    <div style={{ padding: "2rem 0" }}>
+      <p style={{
+        fontFamily: "var(--font-mono)",
+        fontSize: "0.7rem",
+        letterSpacing: "0.06em",
+        color: "#999999",
+        margin: 0,
+        lineHeight: 1.6,
+      }}>
+        Your collection is talking.<br />Give us a moment.
+      </p>
     </div>
   );
 }

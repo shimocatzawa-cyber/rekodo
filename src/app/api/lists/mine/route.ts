@@ -39,13 +39,14 @@ export async function GET() {
     note: string | null; priority: string | null;
     price_cap: number | null; pressing_tip: string | null;
     found: boolean | null; created_at: string | null;
+    source: string | null; discogs_release_id: number | null;
   };
 
   let itemsData: ItemRow[] = [];
   {
     const { data: full, error: fullErr } = await supabase
       .from("list_items")
-      .select("id, list_id, position, item_type, record_id, song_title, song_artist, song_album, song_cover_url, song_year, note, priority, price_cap, pressing_tip, found, created_at")
+      .select("id, list_id, position, item_type, record_id, song_title, song_artist, song_album, song_cover_url, song_year, note, priority, price_cap, pressing_tip, found, created_at, source, discogs_release_id")
       .in("list_id", listIds).order("position");
     if (!fullErr) {
       itemsData = (full ?? []) as unknown as ItemRow[];
@@ -56,7 +57,7 @@ export async function GET() {
         .in("list_id", listIds).order("position");
       if (!tier2Err) {
         itemsData = ((tier2 ?? []) as unknown as Record<string, unknown>[]).map(i => ({
-          ...i, price_cap: null, pressing_tip: null, found: null, created_at: null,
+          ...i, price_cap: null, pressing_tip: null, found: null, created_at: null, source: null, discogs_release_id: null,
         })) as unknown as ItemRow[];
       } else {
         const { data: fallback } = await supabase
@@ -64,7 +65,7 @@ export async function GET() {
         itemsData = (fallback ?? []).map(i => ({
           ...i, item_type: "record", song_title: null, song_artist: null, song_album: null,
           song_cover_url: null, song_year: null, note: null, priority: null,
-          price_cap: null, pressing_tip: null, found: null, created_at: null,
+          price_cap: null, pressing_tip: null, found: null, created_at: null, source: null, discogs_release_id: null,
         }));
       }
     }
@@ -95,6 +96,8 @@ export async function GET() {
         pressing_tip: item.pressing_tip ?? null,
         found: item.found ?? false,
         created_at: item.created_at ?? null,
+        source: item.source ?? null,
+        discogs_release_id: item.discogs_release_id ?? null,
       };
 
       if (item.item_type === "song") {
@@ -111,7 +114,19 @@ export async function GET() {
       }
 
       const r = item.record_id ? recordById.get(item.record_id) : undefined;
-      if (!r) return { position: pos, item: null };
+      if (!r && !item.song_artist) return { position: pos, item: null };
+      if (!r) {
+        return {
+          position: pos,
+          item: {
+            id: item.id, item_type: "record",
+            artist: item.song_artist ?? "", album: item.song_album ?? "",
+            year: item.song_year ?? null, genre: null,
+            cover_url: item.song_cover_url ?? null, song_title: null,
+          } satisfies SlotItem,
+          ...slotMeta,
+        };
+      }
       return {
         position: pos,
         item: {

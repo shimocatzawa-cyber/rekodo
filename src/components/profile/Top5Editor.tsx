@@ -171,7 +171,7 @@ export default function Top5Editor({ listId, listTitle, initialSlots, onClose }:
                 >
                   {slot.coverUrl ? (
                     // eslint-disable-next-line @next/next/no-img-element
-                    <img src={slot.coverUrl} alt="" style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
+                    <img src={slot.coverUrl} alt="" style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
                   ) : (
                     <div style={{ width: "100%", height: "100%", display: "flex", alignItems: "center", justifyContent: "center" }}>
                       <span style={{ fontFamily: MONO, fontSize: "20px", color: "#d8d8d8", lineHeight: 1 }}>+</span>

@@ -4,7 +4,6 @@ import { createClient } from "@/lib/supabase/server";
 import ProfileClient from "./ProfileClient";
 import { UsernameSetupForm } from "./ProfilePageClient";
 import type { UserList, ListSlot, SlotItem, DiscoverList } from "@/app/lists/types";
-import type { WantlistItem } from "./wantlist/page";
 
 const SERIF  = "var(--font-editorial)";
 const ORANGE = "#CC5500";
@@ -257,7 +256,14 @@ export default async function PublicProfilePage({ params }: { params: Params }) 
         }
 
         const r = item.record_id ? recordById.get(item.record_id) : undefined;
-        if (!r) return { position: pos, item: null };
+        if (!r && !item.song_artist) return { position: pos, item: null };
+        if (!r) {
+          return {
+            position: pos,
+            item: { id: item.id, item_type: "record", artist: item.song_artist ?? "", album: item.song_album ?? "", year: item.song_year ?? null, genre: null, cover_url: item.song_cover_url ?? null, song_title: null } satisfies SlotItem,
+            ...slotMeta,
+          };
+        }
         return {
           position: pos,
           item: { id: r.id, item_type: "record", artist: r.artist, album: r.album, year: r.year ?? null, genre: r.genre ?? null, cover_url: r.cover_url ?? null, song_title: null } satisfies SlotItem,
@@ -308,14 +314,6 @@ export default async function PublicProfilePage({ params }: { params: Params }) 
     }
   } catch { /* non-fatal */ }
 
-  const { data: wantlistData } = await supabase
-    .from("wantlist")
-    .select("id, discogs_release_id, catalog, artist, title, label, format, released, date_added, cover_image_url")
-    .eq("user_id", profile.id)
-    .order("date_added", { ascending: false });
-
-  const wantlistItems: WantlistItem[] = (wantlistData ?? []) as WantlistItem[];
-
   return (
     <ProfileClient
       profile={{
@@ -346,7 +344,6 @@ export default async function PublicProfilePage({ params }: { params: Params }) 
       viewer={viewerNav}
       fullLists={fullLists ?? undefined}
       discoverLists={discoverLists}
-      wantlistItems={wantlistItems}
     />
   );
 }

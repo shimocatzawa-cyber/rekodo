@@ -31,8 +31,6 @@ const PRIORITY_COLORS: Record<Priority, string> = {
   would_love: "#7A4E2D",
   someday:    "#999999",
 };
-const PRIORITY_CYCLE: (Priority | null)[] = ["must_have", "would_love", "someday", null];
-
 // ─── Constants ────────────────────────────────────────────────────────────────
 
 const LIST_SUBTITLES: Record<string, string> = {
@@ -980,13 +978,9 @@ function WantlistCard({ slot, monthsOld, showSomedayPrompt, onRemove, onKeepSome
 
   const priority = (slot.priority ?? null) as Priority | null;
 
-  function cyclePriority() {
-    const idx  = PRIORITY_CYCLE.indexOf(priority);
-    const next = PRIORITY_CYCLE[(idx + 1) % PRIORITY_CYCLE.length];
-    onUpdateMeta({ priority: next });
-  }
-
-  const discogsUrl  = `https://www.discogs.com/search/?q=${encodeURIComponent(`${item.artist} ${item.album}`)}&type=release`;
+  const discogsUrl = slot.discogs_release_id
+    ? `https://www.discogs.com/release/${slot.discogs_release_id}`
+    : `https://www.discogs.com/search/?q=${encodeURIComponent(`${item.artist} ${item.album}`)}&type=release`;
   const dateLabel   = slot.created_at
     ? new Date(slot.created_at).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })
     : null;
@@ -1016,19 +1010,36 @@ function WantlistCard({ slot, monthsOld, showSomedayPrompt, onRemove, onKeepSome
 
         {/* Content column */}
         <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", gap: "3px" }}>
-          {/* Priority tag */}
-          <div>
-            <button onClick={cyclePriority} title="Click to change priority"
+          {/* Priority select + Discogs import badge */}
+          <div style={{ display: "flex", alignItems: "center", gap: "6px", flexWrap: "wrap" }}>
+            <select
+              value={priority ?? ""}
+              onChange={e => onUpdateMeta({ priority: (e.target.value as Priority) || null })}
+              onClick={e => e.stopPropagation()}
               style={{
-                fontFamily: MONO, fontSize: "0.6rem", letterSpacing: "0.08em", textTransform: "uppercase",
+                fontFamily: MONO, fontSize: "0.6rem", letterSpacing: "0.07em",
                 color: priority ? PRIORITY_COLORS[priority] : "#bbbbbb",
-                background: "none", border: `1px solid ${priority ? PRIORITY_COLORS[priority] : "#ccc"}`,
-                borderRadius: "2px", cursor: "pointer", padding: "0.1rem 0.45rem",
-                whiteSpace: "nowrap", transition: "all 0.15s",
+                background: "none",
+                border: `1px solid ${priority ? PRIORITY_COLORS[priority] : "#ccc"}`,
+                borderRadius: "2px", cursor: "pointer", padding: "0.1rem 0.35rem",
+                outline: "none", appearance: "none", WebkitAppearance: "none",
               }}
             >
-              {priority ? PRIORITY_LABELS[priority] : "Priority"}
-            </button>
+              <option value="">Priority</option>
+              <option value="must_have">Must Have</option>
+              <option value="would_love">Would Love</option>
+              <option value="someday">Someday</option>
+            </select>
+            {slot.source === "discogs" && (
+              <span style={{
+                fontFamily: MONO, fontSize: "0.55rem", letterSpacing: "0.07em",
+                color: "#999", border: "1px solid #ddd",
+                borderRadius: "2px", padding: "0.1rem 0.35rem",
+                whiteSpace: "nowrap",
+              }}>
+                Discogs import
+              </span>
+            )}
           </div>
           <p style={{ fontFamily: SERIF, fontSize: "1rem", fontWeight: 600, color: "#0d0d0d", lineHeight: 1.25, margin: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
             {item.artist}
