@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import ProfileClient from "./ProfileClient";
 import { UsernameSetupForm } from "./ProfilePageClient";
 import type { UserList, ListSlot, SlotItem, DiscoverList } from "@/app/lists/types";
+import type { WantlistItem } from "./wantlist/page";
 
 const SERIF  = "var(--font-editorial)";
 const ORANGE = "#CC5500";
@@ -304,6 +305,14 @@ export default async function PublicProfilePage({ params }: { params: Params }) 
     }
   } catch { /* non-fatal */ }
 
+  const { data: wantlistData } = await supabase
+    .from("wantlist")
+    .select("id, discogs_release_id, catalog, artist, title, label, format, released, date_added, cover_image_url")
+    .eq("user_id", profile.id)
+    .order("date_added", { ascending: false });
+
+  const wantlistItems: WantlistItem[] = (wantlistData ?? []) as WantlistItem[];
+
   return (
     <ProfileClient
       profile={{
@@ -334,6 +343,7 @@ export default async function PublicProfilePage({ params }: { params: Params }) 
       viewer={viewerNav}
       fullLists={fullLists ?? undefined}
       discoverLists={discoverLists}
+      wantlistItems={wantlistItems}
     />
   );
 }

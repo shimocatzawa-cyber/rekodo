@@ -17,6 +17,7 @@ interface Props {
   isOwner: boolean;
   userId: string | null;
   initialItems: WantlistItem[];
+  embedded?: boolean;
 }
 
 type ParsedRow = {
@@ -98,7 +99,7 @@ type UploadState =
   | { phase: "done"; count: number; timestamp: string }
   | { phase: "error"; message: string };
 
-export default function WantlistClient({ profileUsername, isOwner, userId, initialItems }: Props) {
+export default function WantlistClient({ profileUsername, isOwner, userId, initialItems, embedded = false }: Props) {
   const fileRef = useRef<HTMLInputElement>(null);
   const [items, setItems] = useState<WantlistItem[]>(initialItems);
   const [upload, setUpload] = useState<UploadState>({ phase: "idle" });
@@ -172,15 +173,17 @@ export default function WantlistClient({ profileUsername, isOwner, userId, initi
   return (
     <div style={{ maxWidth: 1200, margin: "0 auto", padding: "2.5rem 1.5rem 4rem" }}>
 
-      {/* Page header */}
-      <div style={{ marginBottom: "2rem", borderBottom: `1px solid ${RULE}`, paddingBottom: "1.5rem" }}>
-        <p style={{ fontFamily: MONO, fontSize: "0.55rem", letterSpacing: "0.16em", textTransform: "uppercase", color: ORANGE, margin: "0 0 8px" }}>
-          @{profileUsername}
-        </p>
-        <h1 style={{ fontFamily: SERIF, fontSize: "clamp(1.8rem, 3vw, 2.6rem)", color: INK, margin: 0, lineHeight: 1 }}>
-          Wantlist
-        </h1>
-      </div>
+      {/* Page header — hidden when embedded in a profile tab */}
+      {!embedded && (
+        <div style={{ marginBottom: "2rem", borderBottom: `1px solid ${RULE}`, paddingBottom: "1.5rem" }}>
+          <p style={{ fontFamily: MONO, fontSize: "0.55rem", letterSpacing: "0.16em", textTransform: "uppercase", color: ORANGE, margin: "0 0 8px" }}>
+            @{profileUsername}
+          </p>
+          <h1 style={{ fontFamily: SERIF, fontSize: "clamp(1.8rem, 3vw, 2.6rem)", color: INK, margin: 0, lineHeight: 1 }}>
+            Wantlist
+          </h1>
+        </div>
+      )}
 
       {/* Owner: upload controls */}
       {isOwner && (

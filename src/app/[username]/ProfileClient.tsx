@@ -11,7 +11,9 @@ import { generateTasteSummary } from "./actions";
 import AppNav from "@/components/AppNav";
 import ProfileListsTab from "@/components/profile/ProfileListsTab";
 import CollectionPhotos from "@/app/p/[username]/CollectionPhotos";
+import WantlistClient from "@/components/wantlist/WantlistClient";
 import type { UserList, DiscoverList } from "@/app/lists/types";
+import type { WantlistItem } from "./wantlist/page";
 
 const SERIF  = "var(--font-editorial)";
 const MONO   = "var(--font-mono)";
@@ -94,6 +96,7 @@ interface Props {
   fullLists?: UserList[];
   discoverLists?: DiscoverList[];
   collectionPhoto?: string | null;
+  wantlistItems?: WantlistItem[];
 }
 
 type ProfileTab  = "profile" | "lists" | "community";
@@ -139,7 +142,7 @@ function DiscoverCard({ title, username, recordCount, badge, saves, onSave, save
 export default function ProfileClient({
   profile, isOwner, totalRecords, topGenre, topCountry, topLabel,
   lists, listItems, coverRecords, followerCount, followingCount, viewer,
-  fullLists, discoverLists = [], collectionPhoto = null,
+  fullLists, discoverLists = [], collectionPhoto = null, wantlistItems = [],
 }: Props) {
   const router       = useRouter();
   const searchParams = useSearchParams();
@@ -683,13 +686,14 @@ export default function ProfileClient({
         </main>
       )}
 
-      {/* ─────────────── LISTS TAB (owner only) ──────────────────────────────── */}
-      {profileTab === "lists" && isOwner && (
-        <ProfileListsTab
-          initialLists={fullLists ?? []}
-          username={profile.username}
-          autoCreate={autoCreate}
-          initialActivePillId={editListId}
+      {/* ─────────────── WANTLIST TAB ────────────────────────────────────────── */}
+      {profileTab === "lists" && (
+        <WantlistClient
+          profileUsername={profile.username}
+          isOwner={isOwner}
+          userId={isOwner ? profile.id : null}
+          initialItems={wantlistItems}
+          embedded
         />
       )}
 
