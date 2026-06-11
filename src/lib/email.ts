@@ -1,11 +1,14 @@
 import { Resend } from "resend";
 
-const resend = new Resend(process.env.RESEND_API_KEY);
-
 const FROM = "rekōdo <hello@rekodo.co>";
 const ADMIN = "hello@rekodo.co";
 
+function getResend() {
+  return new Resend(process.env.RESEND_API_KEY);
+}
+
 export async function sendWaitlistConfirmation(email: string, name?: string | null) {
+  const resend = getResend();
   const greeting = name ? `Hi ${name},` : "Hi,";
 
   await resend.emails.send({
@@ -68,6 +71,7 @@ export async function sendWaitlistConfirmation(email: string, name?: string | nu
 }
 
 export async function sendWaitlistNotification(email: string, name?: string | null) {
+  const resend = getResend();
   await resend.emails.send({
     from: FROM,
     to: ADMIN,
