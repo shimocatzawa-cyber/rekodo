@@ -687,13 +687,13 @@ export default function ProfileClient({
                           const coverUrl = item?.item_type === "song" ? item.song_cover_url : (rec?.cover_url ?? null);
                           return (
                             <div key={pos}>
-                              <div style={{ position: "relative", paddingTop: "100%", overflow: "hidden", background: coverUrl ? "transparent" : "#f4f4f4", border: coverUrl ? "none" : "1px dashed rgba(0,0,0,0.10)" }}>
+                              <div style={{ position: "relative", overflow: "hidden", lineHeight: 0 }}>
                                 {coverUrl ? (
                                   // eslint-disable-next-line @next/next/no-img-element
-                                  <img src={coverUrl} alt={item?.song_album ?? rec?.album ?? ""} style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
+                                  <img src={coverUrl} alt={item?.song_album ?? rec?.album ?? ""} style={{ display: "block", width: "100%", aspectRatio: "1/1", objectFit: "cover" }} />
                                 ) : (
-                                  <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center" }}>
-                                    <span style={{ fontFamily: SERIF, fontSize: "18px", color: "#d8d8d8" }}>—</span>
+                                  <div style={{ width: "100%", aspectRatio: "1/1", background: "#f4f4f4", border: "1px dashed rgba(0,0,0,0.10)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                                    <span style={{ fontFamily: SERIF, fontSize: "18px", color: "#d8d8d8", lineHeight: 1 }}>—</span>
                                   </div>
                                 )}
                                 <span style={{ position: "absolute", top: "7px", left: "7px", fontFamily: MONO, fontSize: "9px", letterSpacing: "0.06em", color: coverUrl ? "rgba(255,255,255,0.75)" : "#cccccc", textShadow: coverUrl ? "0 1px 3px rgba(0,0,0,0.5)" : "none", lineHeight: 1 }}>

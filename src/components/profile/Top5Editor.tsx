@@ -156,24 +156,18 @@ export default function Top5Editor({ listId, listTitle, initialSlots, onClose }:
                   onClick={() => { if (!busy) isActive ? closeSearch() : openSlot(slot.position); }}
                   style={{
                     position: "relative",
-                    paddingTop: "100%",
                     overflow: "hidden",
-                    background: slot.coverUrl ? "transparent" : "#f8f8f8",
-                    border: isActive
-                      ? `2px solid ${ORANGE}`
-                      : slot.coverUrl
-                        ? "none"
-                        : `1px dashed ${RULE}`,
+                    lineHeight: 0,
+                    border: isActive ? `2px solid ${ORANGE}` : slot.coverUrl ? "none" : `1px dashed ${RULE}`,
                     cursor: busy ? "wait" : "pointer",
                     transition: "border-color 0.1s",
-                    boxSizing: "border-box",
                   }}
                 >
                   {slot.coverUrl ? (
                     // eslint-disable-next-line @next/next/no-img-element
-                    <img src={slot.coverUrl} alt="" style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
+                    <img src={slot.coverUrl} alt="" style={{ display: "block", width: "100%", aspectRatio: "1/1", objectFit: "cover" }} />
                   ) : (
-                    <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center" }}>
+                    <div style={{ width: "100%", aspectRatio: "1/1", background: "#f8f8f8", display: "flex", alignItems: "center", justifyContent: "center" }}>
                       <span style={{ fontFamily: MONO, fontSize: "20px", color: "#d8d8d8", lineHeight: 1 }}>+</span>
                     </div>
                   )}
