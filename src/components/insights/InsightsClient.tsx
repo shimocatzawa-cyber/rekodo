@@ -232,7 +232,7 @@ export default function InsightsClient({
       <AppNav username={username} displayLabel={displayLabel} avatarUrl={avatarUrl} />
 
       {/* ── Tab bar ── */}
-      <div style={{ display: "flex", justifyContent: "center", gap: "24px", paddingTop: "14px", paddingBottom: "2px", borderBottom: "1px solid rgba(0,0,0,0.06)", background: "#ffffff" }}>
+      <div style={{ display: "flex", justifyContent: "center", gap: "24px", paddingTop: "14px", paddingBottom: "2px", background: "#ffffff" }}>
         {(["collection", "taste-profile"] as const).map((tab) => {
           const label = tab === "collection" ? "Collection" : "Taste Profile";
           return (

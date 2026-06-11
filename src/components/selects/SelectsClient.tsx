@@ -53,7 +53,6 @@ export default function SelectsClient({ username, displayLabel, avatarUrl }: Pro
       <div style={{
         display: "flex", justifyContent: "center", gap: "24px",
         paddingTop: "14px", paddingBottom: "2px",
-        borderBottom: "1px solid rgba(0,0,0,0.06)",
         background: "#ffffff",
       }}>
         {TABS.map(({ key, label }) => (

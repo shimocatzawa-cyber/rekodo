@@ -151,11 +151,24 @@ export default function ProfileClient({
     if (p === "community") return "community";
     return "profile";
   });
-  const [autoCreate, setAutoCreate] = useState(false);
+  const [autoCreate,   setAutoCreate]   = useState(false);
+  const [editListId,   setEditListId]   = useState<string | null>(null);
 
   function switchTab(tab: ProfileTab) {
-    if (tab !== "lists") setAutoCreate(false);
+    if (tab !== "lists") { setAutoCreate(false); setEditListId(null); }
     setProfileTab(tab);
+  }
+
+  function openListsToCreate() {
+    setAutoCreate(true);
+    setEditListId(null);
+    setProfileTab("lists");
+  }
+
+  function openListsToEdit(listId: string) {
+    setEditListId(listId);
+    setAutoCreate(false);
+    setProfileTab("lists");
   }
 
   // ── Avatar ────────────────────────────────────────────────────────────────
@@ -348,7 +361,7 @@ export default function ProfileClient({
       )}
 
       {/* ── Tab bar ── */}
-      <div style={{ display: "flex", justifyContent: "center", gap: "24px", paddingTop: "14px", paddingBottom: "2px", borderBottom: "1px solid rgba(0,0,0,0.06)", background: "#ffffff" }}>
+      <div style={{ display: "flex", justifyContent: "center", gap: "24px", paddingTop: "14px", paddingBottom: "2px", background: "#ffffff" }}>
         {tabItems.map(({ key, label }) => (
           <button
             key={key}
@@ -588,7 +601,7 @@ export default function ProfileClient({
               <p style={eyebrowSt}>Lists</p>
               {isOwner && (
                 <button
-                  onClick={() => { setAutoCreate(true); setProfileTab("lists"); }}
+                  onClick={openListsToCreate}
                   style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.1em", textTransform: "uppercase", color: ORANGE, background: "none", border: `1px solid ${ORANGE}`, borderRadius: "3px", cursor: "pointer", padding: "4px 10px", whiteSpace: "nowrap" }}
                 >
                   + New Top 5
@@ -603,11 +616,21 @@ export default function ProfileClient({
                   const maxSlots = list.list_type === "top5" ? 5 : Math.max(items.length, 1);
                   return (
                     <div key={list.id}>
-                      <Link href={`/@${profile.username}/${list.slug}`} style={{ textDecoration: "none" }}>
-                        <h2 style={{ fontFamily: SERIF, fontSize: "20px", fontWeight: 400, color: INK, margin: "0 0 16px 0", lineHeight: 1.2 }}>
-                          {list.title}
-                        </h2>
-                      </Link>
+                      <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", marginBottom: "16px" }}>
+                        <Link href={`/@${profile.username}/${list.slug}`} style={{ textDecoration: "none" }}>
+                          <h2 style={{ fontFamily: SERIF, fontSize: "20px", fontWeight: 400, color: INK, margin: 0, lineHeight: 1.2 }}>
+                            {list.title}
+                          </h2>
+                        </Link>
+                        {isOwner && (
+                          <button
+                            onClick={() => openListsToEdit(list.id)}
+                            style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.1em", textTransform: "uppercase", color: ORANGE, background: "none", border: "none", cursor: "pointer", padding: 0, flexShrink: 0, marginLeft: "16px" }}
+                          >
+                            Edit →
+                          </button>
+                        )}
+                      </div>
                       <div style={{ display: "grid", gridTemplateColumns: `repeat(${Math.min(maxSlots, 5)}, 1fr)`, gap: "10px" }}>
                         {Array.from({ length: maxSlots }, (_, i) => {
                           const pos      = i + 1;
@@ -650,7 +673,7 @@ export default function ProfileClient({
             ) : isOwner ? (
               <p style={{ fontFamily: MONO, fontSize: "0.65rem", letterSpacing: "0.04em", color: MUTED, margin: 0 }}>
                 No public lists yet.{" "}
-                <button onClick={() => { setAutoCreate(true); setProfileTab("lists"); }} style={{ fontFamily: MONO, fontSize: "0.65rem", letterSpacing: "0.04em", color: ORANGE, background: "none", border: "none", cursor: "pointer", padding: 0 }}>
+                <button onClick={openListsToCreate} style={{ fontFamily: MONO, fontSize: "0.65rem", letterSpacing: "0.04em", color: ORANGE, background: "none", border: "none", cursor: "pointer", padding: 0 }}>
                   Create one in Lists →
                 </button>
               </p>
@@ -666,6 +689,7 @@ export default function ProfileClient({
           initialLists={fullLists ?? []}
           username={profile.username}
           autoCreate={autoCreate}
+          initialActivePillId={editListId}
         />
       )}
 
