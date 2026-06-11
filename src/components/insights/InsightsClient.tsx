@@ -192,6 +192,7 @@ export default function InsightsClient({
 }: InsightsProps) {
 
   const [oneLiner, setOneLiner] = useState<string | null>(null);
+  const [insightsTab, setInsightsTab] = useState<"collection" | "taste-profile">("collection");
 
   useEffect(() => {
     if (totalRecords < 5) return;
@@ -230,6 +231,30 @@ export default function InsightsClient({
     <div style={{ minHeight: "100vh", background: "#ffffff" }}>
       <AppNav username={username} displayLabel={displayLabel} avatarUrl={avatarUrl} />
 
+      {/* ── Tab bar ── */}
+      <div style={{ display: "flex", justifyContent: "center", gap: "24px", paddingTop: "14px", paddingBottom: "2px", borderBottom: "1px solid rgba(0,0,0,0.06)", background: "#ffffff" }}>
+        {(["collection", "taste-profile"] as const).map((tab) => {
+          const label = tab === "collection" ? "Collection" : "Taste Profile";
+          return (
+            <button
+              key={tab}
+              onClick={() => setInsightsTab(tab)}
+              style={{
+                fontFamily: MONO, fontSize: "10px", letterSpacing: "0.1em",
+                textTransform: "uppercase", background: "none", border: "none",
+                borderBottom: `1.5px solid ${insightsTab === tab ? ORANGE : "transparent"}`,
+                padding: "6px 0",
+                color: insightsTab === tab ? INK : "#bbbbbb",
+                cursor: "pointer", display: "inline-block",
+              }}
+            >
+              {label}
+            </button>
+          );
+        })}
+      </div>
+
+      {insightsTab === "collection" && (
       <main style={{ padding: "48px 32px 80px", maxWidth: "960px", margin: "0 auto" }}>
 
 
@@ -602,6 +627,36 @@ export default function InsightsClient({
         </p>
 
       </main>
+      )}
+
+      {insightsTab === "taste-profile" && (
+        <main style={{ padding: "48px 32px 80px", maxWidth: "960px", margin: "0 auto" }}>
+          <div style={{
+            display: "flex", flexDirection: "column", alignItems: "center",
+            justifyContent: "center", gap: "16px", paddingTop: "80px",
+          }}>
+            <p style={{
+              fontFamily: MONO, fontSize: "0.6rem", letterSpacing: "0.14em",
+              textTransform: "uppercase", color: ORANGE, margin: 0,
+            }}>
+              Coming Soon
+            </p>
+            <h2 style={{
+              fontFamily: SERIF, fontSize: "2rem", fontWeight: 600,
+              color: INK, letterSpacing: "-0.025em", lineHeight: 1.15,
+              margin: 0, textAlign: "center",
+            }}>
+              Taste Profile
+            </h2>
+            <p style={{
+              fontFamily: MONO, fontSize: "11px", letterSpacing: "0.04em",
+              color: "#aaaaaa", margin: 0, textAlign: "center", maxWidth: "400px",
+            }}>
+              A deep read of your listening identity — sonic patterns, era obsessions, pressing origins, and more. Work in progress.
+            </p>
+          </div>
+        </main>
+      )}
     </div>
   );
 }
