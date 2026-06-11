@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useRef, useTransition, useCallback } from "react";
-import { setListRecord, removeListItem, addDiscogsRecordToList } from "@/app/lists/actions";
+import { setListRecord, removeListItem } from "@/app/lists/actions";
 
 const SERIF  = "var(--font-editorial)";
 const MONO   = "var(--font-mono)";
