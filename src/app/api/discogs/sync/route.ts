@@ -1,26 +1,7 @@
 import { type NextRequest } from "next/server";
 import { cookies } from "next/headers";
 import { createClient } from "@/lib/supabase/server";
-import { createClient as createServiceClient } from "@supabase/supabase-js";
-import { buildAuthHeader } from "@/lib/discogs/oauth";
 import { enqueueSync } from "@/lib/sync-queue";
-
-const UA          = "rekodo/1.0";
-const BATCH       = 100;
-const VINYL_SIZES = ['LP', '12"', '10"', '7"', 'EP', 'Mini-Album'] as const;
-
-interface FormatShape { name?: string; descriptions?: string[] }
-
-function extractFormat(formats: FormatShape[] | undefined): string | null {
-  const fmt = formats?.[0];
-  if (!fmt) return null;
-  const name  = fmt.name ?? "";
-  const descs = fmt.descriptions ?? [];
-  if (name === "Vinyl") {
-    return (descs.find(d => (VINYL_SIZES as readonly string[]).includes(d)) ?? "Vinyl");
-  }
-  return name || null;
-}
 
 export async function GET(request: NextRequest) {
   const supabase = await createClient();
@@ -38,9 +19,6 @@ export async function GET(request: NextRequest) {
   if (!accessToken || !tokenSecret || !discogsUser) {
     return Response.json({ error: "No Discogs session — please reconnect" }, { status: 400 });
   }
-
-  const key    = process.env.DISCOGS_CONSUMER_KEY!;
-  const secret = process.env.DISCOGS_CONSUMER_SECRET!;
 
   const encoder = new TextEncoder();
   const { readable, writable } = new TransformStream<Uint8Array, Uint8Array>();
@@ -61,6 +39,8 @@ export async function GET(request: NextRequest) {
       const jobId = await enqueueSync(supabase, user.id);
 
       // Fire Edge Function — intentionally no await (non-blocking)
+      // All data work (fetch, insert, link, backfill, collection value) runs
+      // inside the Edge Function, so it completes even if the user navigates away.
       const edgeFnUrl = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/discogs-sync-processor`;
       fetch(edgeFnUrl, {
         method: "POST",
@@ -72,11 +52,11 @@ export async function GET(request: NextRequest) {
       }).catch(err => console.error("[sync] Edge Function fire error:", err));
 
       // ── Poll sync_queue and translate progress → SSE events ────────────────
-      // This keeps the existing client-side SSE stream format unchanged.
       let lastPhase = "";
       let lastPage  = 0;
       let completedData: {
         total_records: number; new_added: number; records_updated: number;
+        completed_at: string | null;
       } | null = null;
 
       const POLL_MS   = 2000;
@@ -88,7 +68,7 @@ export async function GET(request: NextRequest) {
 
         const { data: job } = await supabase
           .from("sync_queue")
-          .select("status, phase, total_records, current_page, total_pages, progress_done, new_added, records_updated, error_message")
+          .select("status, phase, total_records, current_page, total_pages, progress_done, new_added, records_updated, error_message, completed_at")
           .eq("id", jobId)
           .single();
 
@@ -105,7 +85,7 @@ export async function GET(request: NextRequest) {
           send({ type: "fetch_page", page: job.current_page, totalPages: job.total_pages, fetched: job.progress_done });
         } else if (
           (job.phase === "inserting" || job.phase === "linking" || job.phase === "conditions" ||
-           job.phase === "updating" || job.phase === "cleanup") &&
+           job.phase === "updating" || job.phase === "cleanup" || job.phase === "backfill") &&
           job.phase !== lastPhase
         ) {
           lastPhase = job.phase ?? "";
@@ -115,6 +95,7 @@ export async function GET(request: NextRequest) {
             conditions: "Saving grades",
             updating:   "Updating metadata",
             cleanup:    "Cleaning up",
+            backfill:   "Finalising sync",
           };
           send({
             type: "processing", done: job.progress_done ?? 0, total: job.total_records ?? 0,
@@ -128,6 +109,7 @@ export async function GET(request: NextRequest) {
             total_records:   job.total_records   ?? 0,
             new_added:       job.new_added        ?? 0,
             records_updated: job.records_updated  ?? 0,
+            completed_at:    job.completed_at     ?? null,
           };
           break;
         }
@@ -137,7 +119,7 @@ export async function GET(request: NextRequest) {
       if (!completedData) {
         const { data: finalJob } = await supabase
           .from("sync_queue")
-          .select("status, total_records, new_added, records_updated, error_message")
+          .select("status, total_records, new_added, records_updated, error_message, completed_at")
           .eq("id", jobId)
           .single();
 
@@ -149,123 +131,17 @@ export async function GET(request: NextRequest) {
           total_records:   finalJob.total_records   ?? 0,
           new_added:       finalJob.new_added        ?? 0,
           records_updated: finalJob.records_updated  ?? 0,
+          completed_at:    finalJob.completed_at     ?? null,
         };
       }
 
-      const total    = completedData.total_records;
-      const newAdded = completedData.new_added;
+      const total     = completedData.total_records;
+      const newAdded  = completedData.new_added;
+      const timestamp = completedData.completed_at ?? new Date().toISOString();
 
-      // ── Collection value + snapshot — runs BEFORE backfill so a snapshot is
-      //    always saved even if the backfill later times out or is aborted. ──────
-      type ColVal = { minimum?: { value?: number; currency?: string }; median?: { value?: number }; maximum?: { value?: number } };
-      let colVal: ColVal = {};
-      try {
-        const cvUrl  = `https://api.discogs.com/users/${encodeURIComponent(discogsUser)}/collection/value`;
-        const cvAuth = buildAuthHeader("GET", cvUrl, key, secret, accessToken, tokenSecret);
-        const cvRes  = await fetch(cvUrl, { headers: { Authorization: cvAuth, "User-Agent": UA } });
-        if (cvRes.ok) colVal = await cvRes.json() as ColVal;
-      } catch { /* non-fatal */ }
+      send({ type: "complete", total, newAdded, updated: completedData.records_updated, priceUpdated: 0, timestamp });
 
-      const timestamp = new Date().toISOString();
-
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      await (supabase.from("profiles") as any)
-        .update({
-          last_synced_at:            timestamp,
-          collection_value_low:      colVal.minimum?.value     ?? null,
-          collection_value_med:      colVal.median?.value      ?? null,
-          collection_value_high:     colVal.maximum?.value     ?? null,
-          collection_value_currency: colVal.minimum?.currency  ?? null,
-          collection_value_at:       colVal.minimum?.value ? timestamp : null,
-          taste_summary_count:       null,
-        })
-        .eq("id", user.id);
-
-      if (colVal.minimum?.value != null) {
-        try {
-          const svcKey  = process.env.SUPABASE_SERVICE_ROLE_KEY;
-          const sbUrl   = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-          const adminDb = svcKey
-            ? createServiceClient(sbUrl, svcKey, { auth: { persistSession: false } })
-            : supabase;
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          await (adminDb as any).from("collection_value_snapshots").insert({
-            user_id:      user.id,
-            snapshot_at:  timestamp,
-            value_low:    colVal.minimum?.value  ?? null,
-            value_med:    colVal.median?.value   ?? null,
-            value_high:   colVal.maximum?.value  ?? null,
-            currency:     colVal.minimum?.currency ?? "USD",
-            record_count: total,
-          });
-        } catch { /* non-fatal */ }
-      }
-
-      // ── Backfill missing format/country ─────────────────────────────────────
-      // The Discogs collection listing API does not include country, so individual
-      // release lookups are needed. Capped to 30 per sync (~18s max) to avoid
-      // Vercel timeouts; country fills progressively across subsequent syncs.
-      const allUserRecordIds: string[] = [];
-      for (let from = 0; ; from += BATCH) {
-        const { data } = await supabase
-          .from("user_records")
-          .select("record_id")
-          .eq("user_id", user.id)
-          .range(from, from + BATCH - 1);
-        if (!data || data.length === 0) break;
-        allUserRecordIds.push(...data.map(r => r.record_id));
-        if (data.length < BATCH) break;
-      }
-
-      interface RecordStub { id: string; discogs_id: string }
-      const needingBackfill: RecordStub[] = [];
-
-      for (let i = 0; i < allUserRecordIds.length; i += BATCH) {
-        const { data } = await supabase
-          .from("records")
-          .select("id, discogs_id")
-          .in("id", allUserRecordIds.slice(i, i + BATCH))
-          .not("discogs_id", "is", null)
-          .or("format.is.null,country.is.null");
-        for (const r of data ?? []) needingBackfill.push(r as RecordStub);
-      }
-
-      const BACKFILL_CAP = 30;
-      const toBackfill   = needingBackfill.slice(0, BACKFILL_CAP);
-      let   backfillDone = 0;
-
-      if (toBackfill.length > 0) {
-        send({ type: "processing", done: total, total, phase: "backfill",
-               message: `Finalising sync...` });
-
-        const BACKFILL_BATCH = 3;
-        for (let bi = 0; bi < toBackfill.length; bi += BACKFILL_BATCH) {
-          if (request.signal.aborted) break;
-
-          const bfBatch = toBackfill.slice(bi, bi + BACKFILL_BATCH);
-          await Promise.all(bfBatch.map(async (record) => {
-            try {
-              const releaseUrl = `https://api.discogs.com/releases/${encodeURIComponent(record.discogs_id)}?key=${key}&secret=${secret}`;
-              const res = await fetch(releaseUrl, { headers: { "User-Agent": UA } });
-              if (res.ok) {
-                const data = await res.json() as { formats?: FormatShape[]; country?: string };
-                await supabase.from("records")
-                  .update({ format: extractFormat(data.formats), country: data.country ?? null })
-                  .eq("id", record.id);
-              }
-            } catch { /* skip */ }
-          }));
-
-          backfillDone += bfBatch.length;
-          if (bi + BACKFILL_BATCH < toBackfill.length) await sleep(1_000);
-        }
-      }
-
-      send({ type: "complete", total, newAdded, updated: backfillDone, priceUpdated: 0, timestamp });
-
-      // ── Phase 7: Collection intelligence ────────────────────────────────────
-      // collectionItems is not available after the queue handoff — intelligence
-      // will recompute on the next Library tab load (non-fatal if this fails).
+      // Phase 7: Collection intelligence — recomputes on next Library tab load
       try {
         const { computeCollectionIntelligence } = await import("@/lib/library/intelligence");
         await computeCollectionIntelligence(supabase, user.id, []);

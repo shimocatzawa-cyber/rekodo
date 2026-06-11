@@ -229,6 +229,12 @@ interface DiscogsValue {
   currency: string;
 }
 
+interface LastSyncJob {
+  total_records: number | null;
+  new_added:     number | null;
+  completed_at:  string | null;
+}
+
 interface Props {
   initialCollection: CollectionRecord[];
   username: string;
@@ -240,6 +246,7 @@ interface Props {
   discogsValue?: DiscogsValue;
   insights?: CollectionInsights;
   lastSyncedAt?: string | null;
+  lastSyncJob?: LastSyncJob | null;
   startSync?: boolean;
   oauthDenied?: boolean;
   oauthError?: boolean;
@@ -258,6 +265,7 @@ export default function CollectionClient({
   discogsValue,
   insights,
   lastSyncedAt   = null,
+  lastSyncJob    = null,
   startSync      = false,
   oauthDenied    = false,
   oauthError     = false,
@@ -370,9 +378,28 @@ export default function CollectionClient({
 
   const syncTriggered = useRef(false);
   const syncAbort     = useRef<AbortController | null>(null);
-  const [syncState,    setSyncState]    = useState<SyncState>("idle");
+
+  // Pre-populate from a recently completed job so returning users see the result
+  // rather than a blank idle state. Capped to 2 hours — older jobs are already
+  // reflected in the "Last sync: date" line via lastSyncedAt.
+  const [syncState, setSyncState] = useState<SyncState>(() => {
+    if (!lastSyncJob?.completed_at) return "idle";
+    const age = Date.now() - new Date(lastSyncJob.completed_at).getTime();
+    return age < 2 * 60 * 60 * 1000 ? "complete" : "idle";
+  });
   const [syncProgress, setSyncProgress] = useState<SyncProgress | null>(null);
-  const [syncResult,   setSyncResult]   = useState<SyncResult | null>(null);
+  const [syncResult,   setSyncResult]   = useState<SyncResult | null>(() => {
+    if (!lastSyncJob?.completed_at) return null;
+    const age = Date.now() - new Date(lastSyncJob.completed_at).getTime();
+    if (age >= 2 * 60 * 60 * 1000) return null;
+    return {
+      total:        lastSyncJob.total_records ?? 0,
+      newAdded:     lastSyncJob.new_added     ?? 0,
+      updated:      0,
+      priceUpdated: 0,
+      timestamp:    lastSyncJob.completed_at,
+    };
+  });
 
   const [priceProgress, setPriceProgress] = useState<{ done: number; total: number; phase: "low" } | null>(null);
 

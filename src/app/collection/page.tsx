@@ -64,6 +64,7 @@ export default async function CollectionPage({
   }
 
   const emailPrefix = (user.email ?? "").split("@")[0] || "user";
+
   const { data: profile } = await supabase
     .from("profiles")
     .select("username, display_name, last_synced_at, avatar_url, country_code, collection_value_low, collection_value_med, collection_value_high, collection_value_currency")
@@ -74,6 +75,15 @@ export default async function CollectionPage({
       collection_value_low?: number | null; collection_value_med?: number | null;
       collection_value_high?: number | null; collection_value_currency?: string | null;
     } | null; error: unknown };
+
+  const { data: lastSyncJob } = await supabase
+    .from("sync_queue")
+    .select("total_records, new_added, completed_at")
+    .eq("user_id", user.id)
+    .eq("status", "completed")
+    .order("completed_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
   const autoGen      = `${emailPrefix}_${user.id.slice(0, 6)}`;
   const rawUsername  = profile?.username ?? null;
   const username     = (rawUsername && rawUsername !== autoGen)
@@ -316,6 +326,7 @@ export default async function CollectionPage({
       discogsValue={discogsValue}
       insights={insights}
       lastSyncedAt={lastSyncedAt}
+      lastSyncJob={lastSyncJob}
       avatarUrl={avatarUrl}
       startSync={params.start_sync === "1"}
       oauthDenied={params.oauth_denied === "1"}

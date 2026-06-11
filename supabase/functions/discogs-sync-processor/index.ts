@@ -388,7 +388,57 @@ async function processSync(supabase: SB, jobId: string, userId: string) {
       }
     }
 
-    // ── Phase 5: Fetch collection value from Discogs and persist ─────────────
+    // ── Phase 5: Backfill missing format / country ───────────────────────────
+    // Individual release lookups fill in fields the collection listing API omits.
+    // Capped at 30 per sync so large collections fill progressively.
+    await updateJob(supabase, jobId, { phase: "backfill" });
+
+    try {
+      const BACKFILL_CAP   = 30;
+      const BACKFILL_BATCH = 3;
+      type RecordStub = { id: string; discogs_id: string };
+      const needingBackfill: RecordStub[] = [];
+
+      for (let i = 0; i < savedRecordIds.length; i += BATCH) {
+        const { data } = await supabase
+          .from("records")
+          .select("id, discogs_id")
+          .in("id", savedRecordIds.slice(i, i + BATCH))
+          .not("discogs_id", "is", null)
+          .or("format.is.null,country.is.null");
+        for (const r of data ?? []) {
+          if (r.discogs_id) needingBackfill.push({ id: r.id, discogs_id: r.discogs_id as string });
+        }
+      }
+
+      const toBackfill = needingBackfill.slice(0, BACKFILL_CAP);
+
+      for (let bi = 0; bi < toBackfill.length; bi += BACKFILL_BATCH) {
+        const bfBatch = toBackfill.slice(bi, bi + BACKFILL_BATCH);
+        await Promise.all(bfBatch.map(async (record) => {
+          try {
+            const releaseUrl = `https://api.discogs.com/releases/${encodeURIComponent(record.discogs_id)}?key=${DISCOGS_CONSUMER_KEY}&secret=${DISCOGS_CONSUMER_SECRET}`;
+            const res = await fetch(releaseUrl, { headers: { "User-Agent": UA } });
+            if (res.ok) {
+              const rd = await res.json() as { formats?: Array<{ name?: string; descriptions?: string[] }>; country?: string };
+              await supabase.from("records")
+                .update({ format: extractFormat(rd.formats), country: rd.country ?? null })
+                .eq("id", record.id);
+            }
+          } catch { /* skip */ }
+        }));
+        if (bi + BACKFILL_BATCH < toBackfill.length) {
+          await new Promise((r) => setTimeout(r, RATE_MS));
+        }
+      }
+    } catch { /* non-fatal */ }
+
+    // ── Phase 6: Set last_synced_at + fetch collection value ─────────────────
+    const syncedAt = new Date().toISOString();
+    await supabase.from("profiles")
+      .update({ last_synced_at: syncedAt, taste_summary_count: null })
+      .eq("id", userId);
+
     try {
       const cvUrl  = `https://api.discogs.com/users/${encodeURIComponent(discogsUser)}/collection/value`;
       const cvAuth = await buildAuthHeader("GET", cvUrl, accessToken, tokenSecret);
@@ -405,10 +455,8 @@ async function processSync(supabase: SB, jobId: string, userId: string) {
         const valMed  = colVal.median?.value   ?? null;
         const valHigh = colVal.maximum?.value  ?? null;
         const valCurr = colVal.minimum?.currency ?? "USD";
-        const now     = new Date().toISOString();
 
-        await supabase
-          .from("profiles")
+        await supabase.from("profiles")
           .update({
             collection_value_low:      valLow,
             collection_value_med:      valMed,
@@ -420,7 +468,7 @@ async function processSync(supabase: SB, jobId: string, userId: string) {
         if (valMed != null) {
           await supabase.from("collection_value_snapshots").insert({
             user_id:      userId,
-            snapshot_at:  now,
+            snapshot_at:  syncedAt,
             value_low:    valLow,
             value_med:    valMed,
             value_high:   valHigh,

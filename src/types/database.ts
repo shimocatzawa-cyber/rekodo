@@ -172,6 +172,8 @@ export type Database = {
           song_cover_url: string | null;
           song_year: number | null;
           created_at: string;
+          source: string | null;
+          discogs_release_id: number | null;
         };
         Insert: {
           id?: string;
@@ -185,6 +187,8 @@ export type Database = {
           song_cover_url?: string | null;
           song_year?: number | null;
           created_at?: string;
+          source?: string | null;
+          discogs_release_id?: number | null;
         };
         Update: {
           record_id?: string | null;
@@ -195,6 +199,8 @@ export type Database = {
           song_album?: string | null;
           song_cover_url?: string | null;
           song_year?: number | null;
+          source?: string | null;
+          discogs_release_id?: number | null;
         };
         Relationships: [];
       };

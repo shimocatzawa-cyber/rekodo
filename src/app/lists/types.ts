@@ -31,6 +31,8 @@ export type ListSlot = {
   pressing_tip?: string | null;
   found?: boolean | null;
   created_at?: string | null;
+  source?: string | null;
+  discogs_release_id?: number | null;
 };
 
 export type UserList = {
