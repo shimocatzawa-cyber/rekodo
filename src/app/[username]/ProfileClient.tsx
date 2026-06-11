@@ -151,6 +151,7 @@ export default function ProfileClient({
     if (p === "community") return "community";
     return "profile";
   });
+  const autoCreateList = searchParams.get("create") === "top5" && isOwner;
 
   // ── Avatar ────────────────────────────────────────────────────────────────
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -582,7 +583,7 @@ export default function ProfileClient({
               <p style={eyebrowSt}>Lists</p>
               {isOwner && (
                 <Link
-                  href="/lists"
+                  href={`/@${profile.username}?tab=lists&create=top5`}
                   style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.1em", textTransform: "uppercase", color: ORANGE, background: "none", border: `1px solid ${ORANGE}`, borderRadius: "3px", cursor: "pointer", padding: "4px 10px", whiteSpace: "nowrap", textDecoration: "none" }}
                 >
                   + New Top 5
@@ -644,9 +645,9 @@ export default function ProfileClient({
             ) : isOwner ? (
               <p style={{ fontFamily: MONO, fontSize: "0.65rem", letterSpacing: "0.04em", color: MUTED, margin: 0 }}>
                 No public lists yet.{" "}
-                <button onClick={() => setProfileTab("lists")} style={{ fontFamily: MONO, fontSize: "0.65rem", letterSpacing: "0.04em", color: ORANGE, background: "none", border: "none", cursor: "pointer", padding: 0 }}>
+                <Link href={`/@${profile.username}?tab=lists&create=top5`} style={{ fontFamily: MONO, fontSize: "0.65rem", letterSpacing: "0.04em", color: ORANGE, textDecoration: "none" }}>
                   Create one in Lists →
-                </button>
+                </Link>
               </p>
             ) : null}
           </section>
@@ -659,6 +660,7 @@ export default function ProfileClient({
         <ProfileListsTab
           initialLists={fullLists ?? []}
           username={profile.username}
+          autoCreate={autoCreateList}
         />
       )}
 
