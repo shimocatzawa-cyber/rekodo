@@ -21,6 +21,18 @@ const DEFAULT_PERSONAL: Array<{ title: string; slug: string }> = [
   { title: "Need to Relisten", slug: "need-to-relisten" },
 ];
 
+const PINNED_LISTS = ["Top 5 All Time", "Top 5 Records That Changed My Life", "Top 5 Most Played"];
+function sortListsByPriority<T extends { title: string }>(arr: T[]): T[] {
+  return [...arr].sort((a, b) => {
+    const ai = PINNED_LISTS.indexOf(a.title);
+    const bi = PINNED_LISTS.indexOf(b.title);
+    if (ai !== -1 && bi !== -1) return ai - bi;
+    if (ai !== -1) return -1;
+    if (bi !== -1) return 1;
+    return 0;
+  });
+}
+
 export default async function PublicProfilePage({ params }: { params: Params }) {
   const { username: rawHandle } = await params;
 
@@ -87,19 +99,6 @@ export default async function PublicProfilePage({ params }: { params: Params }) 
   ]);
 
   const userRecords    = userRecordsResult.data ?? [];
-
-  // Pinned titles that must appear first, in this order
-  const PINNED_LISTS = ["Top 5 All Time", "Top 5 Records That Changed My Life", "Top 5 Most Played"];
-  function sortListsByPriority<T extends { title: string }>(arr: T[]): T[] {
-    return [...arr].sort((a, b) => {
-      const ai = PINNED_LISTS.indexOf(a.title);
-      const bi = PINNED_LISTS.indexOf(b.title);
-      if (ai !== -1 && bi !== -1) return ai - bi;
-      if (ai !== -1) return -1;
-      if (bi !== -1) return 1;
-      return 0;
-    });
-  }
 
   const lists          = sortListsByPriority(listsResult.data ?? []);
   const followerCount  = followerRes.count  ?? 0;
