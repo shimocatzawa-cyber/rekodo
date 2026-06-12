@@ -55,7 +55,7 @@ type SpotlightData = {
 
 const SPOTLIGHT: Record<SelectsTab, SpotlightData> = {
   artist: {
-    eyebrow:  "ARTIST SPOTLIGHT · アーティスト",
+    eyebrow:  "ARTIST SELECT - JUNE",
     name:     "Alice Coltrane",
     meta:     ["Jazz · Spiritual · Avant-Garde", "1937 – 2007 · Detroit"],
     body: [
@@ -69,7 +69,7 @@ const SPOTLIGHT: Record<SelectsTab, SpotlightData> = {
     imageUrl: null,
   },
   label: {
-    eyebrow:  "LABEL SPOTLIGHT · レーベル",
+    eyebrow:  "LABEL SELECT - JUNE",
     name:     "Blue Note Records",
     meta:     ["Jazz · Soul · Funk · Avant-Garde", "Founded 1939 · New York"],
     body: [
