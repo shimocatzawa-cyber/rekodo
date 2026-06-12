@@ -1,6 +1,8 @@
 import { type NextRequest, NextResponse } from "next/server";
 import Anthropic from "@anthropic-ai/sdk";
 
+export const maxDuration = 60;
+
 const client = new Anthropic();
 
 const PROMPTS: Record<string, (artist: string, ownedAlbums?: string[]) => string> = {
@@ -89,10 +91,15 @@ export async function POST(request: NextRequest) {
 
     const model = (section === "rankings" || section === "blindspot") ? "claude-sonnet-4-6" : "claude-haiku-4-5";
     const maxTokens = (section === "rankings" || section === "blindspot") ? 4096 : 1500;
+    // For rankings, cap owned albums at 8 — enough to anchor factual accuracy
+    // without making the prompt so long it slows the model down.
+    const promptAlbums = section === "rankings" && ownedAlbums && ownedAlbums.length > 8
+      ? ownedAlbums.slice(0, 8)
+      : ownedAlbums;
     const message = await client.messages.create({
       model,
       max_tokens: maxTokens,
-      messages: [{ role: "user", content: PROMPTS[section](artist, ownedAlbums) }],
+      messages: [{ role: "user", content: PROMPTS[section](artist, promptAlbums) }],
     });
 
     if (message.stop_reason === "max_tokens") {
