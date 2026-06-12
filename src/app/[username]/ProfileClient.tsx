@@ -748,11 +748,13 @@ export default function ProfileClient({
       {/* ─────────────── WANTLIST TAB ────────────────────────────────────────── */}
       {profileTab === "lists" && (
         <>
-          <WantlistClient
-            isOwner={isOwner}
-            userId={isOwner ? profile.id : null}
-            embedded
-          />
+          <div style={{ maxWidth: 680, margin: "0 auto", padding: "2rem 1.5rem 0" }}>
+            <WantlistClient
+              isOwner={isOwner}
+              userId={isOwner ? profile.id : null}
+              embedded
+            />
+          </div>
           {isOwner && (
             <ProfileListsTab
               initialLists={fullLists ?? []}
