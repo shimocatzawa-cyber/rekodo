@@ -26,6 +26,9 @@ export async function POST(request: Request) {
     body.mode === "hallucinations" ? "hallucinations" :
     "discover";
 
+  // Artists shown in earlier digs this session — hard-exclude to prevent repetition
+  const previousArtists: string[] = Array.isArray(body.previousArtists) ? body.previousArtists : [];
+
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return Response.json({ error: "Not authenticated" }, { status: 401 });
@@ -157,9 +160,13 @@ export async function POST(request: Request) {
       ? `\nOWNED ARTISTS — you must not recommend any record by any of these artists:\n${ownedArtists.join(" · ")}\n`
       : "";
 
+    const prevBlock = previousArtists.length > 0
+      ? `\nALREADY RECOMMENDED THIS SESSION — do not repeat any of these artists (user has already seen them):\n${previousArtists.join(" · ")}\n`
+      : "";
+
     // Random exploration angle — forces variety on every call
     const digDecade = pick(["1950s", "1960s", "early 1970s", "late 1970s", "1980s", "early 1990s", "late 1990s", "2000s"]);
-    const digRegion = pick(["West Africa", "Japan", "Brazil", "Jamaica", "Germany", "Nigeria", "Colombia", "South Korea", "Ethiopia", "Scandinavia", "India", "Turkey", "Eastern Europe", "Caribbean", "Indonesia", "Argentina"]);
+    const digRegion = pick(["West Africa", "Japan", "Brazil", "Jamaica", "Germany", "Nigeria", "Colombia", "South Korea", "East Africa", "Scandinavia", "India", "Turkey", "Eastern Europe", "Caribbean", "Indonesia", "Argentina"]);
     const digAngle  = pick([
       "deeply obscure and rarely discussed even among collectors",
       "critically overlooked on release but reassessed since",
@@ -182,7 +189,7 @@ ${collectionLines || "(Empty collection)"}
 
 TOP 5 LISTS:
 ${listsLines}
-${artistsBlock}${wantlistBlock}${angleBlock}
+${artistsBlock}${prevBlock}${wantlistBlock}${angleBlock}
 MODE: DISCOVER — recommend artists this collector does not own yet and has not already wishlisted.
 
 Rules:
@@ -200,6 +207,10 @@ ${JSON_SCHEMA}`;
     const ownedArtists = [...new Set(collection.map((r) => r.artist))].sort();
     const artistsBlock = ownedArtists.length > 0
       ? `\nOWNED ARTISTS — do not recommend any record by any of these artists:\n${ownedArtists.join(" · ")}\n`
+      : "";
+
+    const prevBlock = previousArtists.length > 0
+      ? `\nALREADY RECOMMENDED THIS SESSION — do not repeat any of these artists:\n${previousArtists.join(" · ")}\n`
       : "";
 
     prompt = `You are a fearless crate-digging oracle with encyclopaedic knowledge of the entire recorded music universe — mainstream and deeply obscure. Your mission: take this collector somewhere they have never been.

@@ -100,6 +100,7 @@ export default async function InsightsPage() {
     year: number | null;
     genre: string | null; styles: string[] | null;
     label: string | null; country: string | null; format: string | null;
+    vinyl_colour: string | null;
     cover_url: string | null;
     community_have: number | null; community_want: number | null;
     community_num_for_sale: number | null;
@@ -109,7 +110,7 @@ export default async function InsightsPage() {
   for (let i = 0; i < recordIds.length; i += BATCH) {
     const { data, error } = await supabase
       .from("records")
-      .select("id, artist, album, year, genre, styles, label, country, format, cover_url, community_have, community_want, community_num_for_sale")
+      .select("id, artist, album, year, genre, styles, label, country, format, vinyl_colour, cover_url, community_have, community_want, community_num_for_sale")
       .in("id", recordIds.slice(i, i + BATCH));
     if (!error) for (const r of data ?? []) recordsMap.set(r.id, r as RecordRow);
   }
@@ -334,6 +335,21 @@ export default async function InsightsPage() {
     : null;
   const topFormat = topFormatEntry ? { name: topFormatEntry[0], count: topFormatEntry[1] } : null;
 
+  // ── Vinyl colour breakdown ────────────────────────────────────────────────
+  const colourCounts = new Map<string, number>();
+  for (const link of allLinks) {
+    const colour = recordsMap.get(link.record_id)?.vinyl_colour?.trim();
+    if (colour) colourCounts.set(colour, (colourCounts.get(colour) ?? 0) + 1);
+  }
+  const colourTotal = [...colourCounts.values()].reduce((a, b) => a + b, 0);
+  const vinylColourBreakdown = [...colourCounts.entries()]
+    .sort((a, b) => b[1] - a[1])
+    .map(([colour, count]) => ({
+      colour,
+      count,
+      pct: colourTotal > 0 ? Math.round((count / colourTotal) * 100) : 0,
+    }));
+
   const allYears = [...recordsMap.values()]
     .map((r) => r.year)
     .filter((y): y is number => y != null && y > 0);
@@ -371,6 +387,7 @@ export default async function InsightsPage() {
       topFormat={topFormat}
       yearRange={yearRange}
       mostPopularYear={mostPopularYear}
+      vinylColourBreakdown={vinylColourBreakdown}
     />
   );
 }

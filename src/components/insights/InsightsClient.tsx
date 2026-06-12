@@ -36,6 +36,7 @@ export interface InsightsProps {
   topFormat:       { name: string; count: number } | null;
   yearRange:       { oldest: number; newest: number } | null;
   mostPopularYear: number | null;
+  vinylColourBreakdown: { colour: string; count: number; pct: number }[];
 }
 
 // ── Tier metadata ──────────────────────────────────────────────────────────────
@@ -188,7 +189,7 @@ export default function InsightsClient({
   mediaConditionBreakdown, sleeveConditionBreakdown,
   genreBreakdown, styleBreakdown, hasStyles,
   countryBreakdown, topLabels, topArtists, desirabilityBreakdown,
-  topFormat, yearRange, mostPopularYear,
+  topFormat, yearRange, mostPopularYear, vinylColourBreakdown,
 }: InsightsProps) {
 
   const [oneLiner, setOneLiner] = useState<string | null>(null);
@@ -621,10 +622,47 @@ export default function InsightsClient({
         <SectionDivider />
 
         {/* ── Section 6: Vinyl Colour ───────────────────────────────────────── */}
-        <SectionHeader eyebrow="Vinyl Colour" title="Coming soon." />
-        <p style={{ fontFamily: MONO, fontSize: "11px", letterSpacing: "0.04em", color: INK, margin: 0 }}>
-          Vinyl colour analysis requires a schema update and resync. Coming soon.
-        </p>
+        <SectionHeader eyebrow="Pressing Colours" title="What colour is your collection." />
+
+        {vinylColourBreakdown.length === 0 ? (
+          <p style={{ fontFamily: MONO, fontSize: "11px", letterSpacing: "0.04em", color: INK, margin: 0 }}>
+            Colour data will appear here after your next Discogs sync.
+          </p>
+        ) : (
+          <>
+            {/* Colour swatch grid */}
+            <div style={{ display: "flex", flexWrap: "wrap", gap: "8px", marginBottom: "32px" }}>
+              {vinylColourBreakdown.map(({ colour, count }) => (
+                <div key={colour} style={{
+                  display: "inline-flex", alignItems: "center", gap: "6px",
+                  border: `1px solid ${RULE}`,
+                  padding: "6px 12px",
+                }}>
+                  <span style={{ fontFamily: MONO, fontSize: "11px", color: INK }}>{colour}</span>
+                  <span style={{ fontFamily: MONO, fontSize: "10px", color: ORANGE }}>{count}</span>
+                </div>
+              ))}
+            </div>
+
+            {/* Breakdown bars */}
+            <div style={{ display: "flex", flexDirection: "column", gap: "14px" }}>
+              {vinylColourBreakdown.map(({ colour, count, pct }) => (
+                <div key={colour}>
+                  <div style={{
+                    display: "flex", justifyContent: "space-between",
+                    alignItems: "baseline", marginBottom: "6px", gap: "12px",
+                  }}>
+                    <span style={{ fontFamily: MONO, fontSize: "11px", color: INK }}>{colour}</span>
+                    <span style={{ fontFamily: MONO, fontSize: "11px", color: INK, whiteSpace: "nowrap" }}>
+                      {count} record{count !== 1 ? "s" : ""} · <span style={{ color: ORANGE }}>{pct}%</span>
+                    </span>
+                  </div>
+                  <PercentBar pct={pct} maxPct={vinylColourBreakdown[0].pct} />
+                </div>
+              ))}
+            </div>
+          </>
+        )}
 
       </main>
       )}

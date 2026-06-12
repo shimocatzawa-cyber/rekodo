@@ -39,6 +39,7 @@ export type Database = {
           label: string | null;
           format: string | null;
           country: string | null;
+          vinyl_colour: string | null;
           created_at: string;
           styles:                 string[] | null;
           community_have:         number | null;
@@ -59,6 +60,7 @@ export type Database = {
           label?: string | null;
           format?: string | null;
           country?: string | null;
+          vinyl_colour?: string | null;
           created_at?: string;
           community_have?:         number | null;
           community_want?:         number | null;
@@ -77,6 +79,7 @@ export type Database = {
           label?: string | null;
           format?: string | null;
           country?: string | null;
+          vinyl_colour?: string | null;
           community_have?:         number | null;
           community_want?:         number | null;
           community_num_for_sale?: number | null;

@@ -75,6 +75,23 @@ function extractFormat(formats?: Array<{ name?: string; descriptions?: string[] 
   return name || null;
 }
 
+const COLOUR_KW = [
+  "Black", "White", "Red", "Blue", "Green", "Yellow", "Orange", "Purple",
+  "Clear", "Colored", "Coloured", "Marbled", "Splatter", "Opaque",
+  "Translucent", "Transparent", "Picture Disc", "Etched",
+];
+
+// text field is only present on the full release API (not basic_information)
+function extractVinylColour(formats?: Array<{ name?: string; descriptions?: string[]; text?: string }>): string | null {
+  const vinyl = formats?.find((f) => f.name === "Vinyl");
+  if (!vinyl) return null;
+  if (vinyl.text?.trim()) return vinyl.text.trim();
+  const match = (vinyl.descriptions ?? []).find((d) =>
+    COLOUR_KW.some((kw) => d.toLowerCase().includes(kw.toLowerCase()))
+  );
+  return match ?? null;
+}
+
 // ─── Rate-limited fetch with 429 back-off ─────────────────────────────────────
 
 async function rateFetch(url: string, auth: string, attempt = 0): Promise<Response> {
@@ -156,7 +173,7 @@ async function processSync(supabase: SB, jobId: string, userId: string) {
     interface CollectionItem {
       discogs_id: string; artist: string; album: string; year: number | null;
       genre: string | null; styles: string[]; cover_url: string | null; label: string | null;
-      format: string | null; country: string | null;
+      format: string | null; country: string | null; vinyl_colour: string | null;
       media_condition: string | null; sleeve_condition: string | null;
       discogs_artist_id: number | null;
     }
@@ -213,6 +230,7 @@ async function processSync(supabase: SB, jobId: string, userId: string) {
         label:            info.labels?.[0]?.name ?? null,
         format:           extractFormat(info.formats),
         country:          info.country ?? null,
+        vinyl_colour:     extractVinylColour(info.formats),
         media_condition:  notes.find((n) => n.field_id === mediaFieldId)?.value?.trim()  || null,
         sleeve_condition: notes.find((n) => n.field_id === sleeveFieldId)?.value?.trim() || null,
         discogs_artist_id: info.artists?.[0]?.id ?? null,
@@ -251,7 +269,7 @@ async function processSync(supabase: SB, jobId: string, userId: string) {
         .insert(batch.map((r) => ({
           discogs_id: r.discogs_id, artist: r.artist, album: r.album,
           year: r.year, genre: r.genre, styles: r.styles, cover_url: r.cover_url,
-          label: r.label, format: r.format, country: r.country,
+          label: r.label, format: r.format, country: r.country, vinyl_colour: r.vinyl_colour,
           discogs_artist_id: r.discogs_artist_id,
         })))
         .select("id, discogs_id");
@@ -405,7 +423,7 @@ async function processSync(supabase: SB, jobId: string, userId: string) {
           .select("id, discogs_id")
           .in("id", savedRecordIds.slice(i, i + BATCH))
           .not("discogs_id", "is", null)
-          .or("format.is.null,country.is.null");
+          .or("format.is.null,country.is.null,vinyl_colour.is.null");
         for (const r of data ?? []) {
           if (r.discogs_id) needingBackfill.push({ id: r.id, discogs_id: r.discogs_id as string });
         }
@@ -420,9 +438,9 @@ async function processSync(supabase: SB, jobId: string, userId: string) {
             const releaseUrl = `https://api.discogs.com/releases/${encodeURIComponent(record.discogs_id)}?key=${DISCOGS_CONSUMER_KEY}&secret=${DISCOGS_CONSUMER_SECRET}`;
             const res = await fetch(releaseUrl, { headers: { "User-Agent": UA } });
             if (res.ok) {
-              const rd = await res.json() as { formats?: Array<{ name?: string; descriptions?: string[] }>; country?: string };
+              const rd = await res.json() as { formats?: Array<{ name?: string; descriptions?: string[]; text?: string }>; country?: string };
               await supabase.from("records")
-                .update({ format: extractFormat(rd.formats), country: rd.country ?? null })
+                .update({ format: extractFormat(rd.formats), country: rd.country ?? null, vinyl_colour: extractVinylColour(rd.formats) })
                 .eq("id", record.id);
             }
           } catch { /* skip */ }
