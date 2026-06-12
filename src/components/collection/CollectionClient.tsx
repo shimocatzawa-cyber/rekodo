@@ -1912,6 +1912,22 @@ function TracklistPanel({ tracks, loading, bandcamp, record }: {
         )}
       </div>
 
+      {/* ── SongMeanings ── */}
+      {record && (
+        <div style={{ borderTop: "1px solid #e0e0da", margin: "0 28px", paddingTop: "1.5rem", paddingBottom: "0.5rem" }}>
+          <a
+            href={`https://songmeanings.com/query/?query=${encodeURIComponent(artist + " " + album)}&type=albums`}
+            target="_blank"
+            rel="noopener noreferrer"
+            style={{ fontFamily: MONO, fontSize: "0.7rem", color: "#0a0a0a", textDecoration: "none" }}
+            onMouseEnter={(e) => { (e.currentTarget as HTMLAnchorElement).style.textDecoration = "underline"; }}
+            onMouseLeave={(e) => { (e.currentTarget as HTMLAnchorElement).style.textDecoration = "none"; }}
+          >
+            Discuss these songs on SongMeanings →
+          </a>
+        </div>
+      )}
+
       {/* ── Bandcamp + streaming ── */}
       {record && (
         <>
