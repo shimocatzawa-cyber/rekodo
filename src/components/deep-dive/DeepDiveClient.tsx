@@ -164,9 +164,19 @@ function PodcastsContent({ data, artist }: { data: { episodes?: Episode[] }; art
             <span style={{ fontFamily: MONO, fontSize: "0.65rem", letterSpacing: "0.06em", color: INK }}>{ep.year}</span>
             <Badge label={ep.type} />
           </div>
-          <p style={{ fontFamily: MONO, fontSize: "0.68rem", letterSpacing: "0.04em", color: INK, fontStyle: "italic", lineHeight: 1.5, margin: 0 }}>
+          <p style={{ fontFamily: MONO, fontSize: "0.68rem", letterSpacing: "0.04em", color: INK, fontStyle: "italic", lineHeight: 1.5, margin: "0 0 8px" }}>
             {ep.note}
           </p>
+          <a
+            href={`https://podcasts.apple.com/search?term=${encodeURIComponent(ep.show)}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            style={{ fontFamily: MONO, fontSize: "0.65rem", letterSpacing: "0.08em", color: ORANGE, textDecoration: "none" }}
+            onMouseEnter={(e) => { (e.currentTarget as HTMLAnchorElement).style.textDecoration = "underline"; }}
+            onMouseLeave={(e) => { (e.currentTarget as HTMLAnchorElement).style.textDecoration = "none"; }}
+          >
+            Listen on Apple Podcasts →
+          </a>
         </div>
       ))}
       {eps.length === 0 && (
@@ -226,7 +236,7 @@ function BooksContent({ data }: { data: { items?: BookItem[] } }) {
 
 type InterviewItem = { publication: string; title: string; year: number; format: string; note: string };
 
-function InterviewsContent({ data }: { data: { interviews?: InterviewItem[] } }) {
+function InterviewsContent({ data, artist }: { data: { interviews?: InterviewItem[] }; artist: string }) {
   const items = data.interviews ?? [];
   if (items.length === 0) {
     return (
@@ -237,23 +247,40 @@ function InterviewsContent({ data }: { data: { interviews?: InterviewItem[] } })
   }
   return (
     <div>
-      {items.map((iv, i) => (
-        <div key={i} style={{ padding: "1.5rem 0", borderBottom: `1px solid ${RULE}` }}>
-          <p style={{ fontFamily: SERIF, fontSize: "0.9rem", fontWeight: 600, color: INK, margin: "0 0 6px" }}>
-            {iv.publication}
-          </p>
-          <p style={{ fontFamily: MONO, fontSize: "0.72rem", letterSpacing: "0.04em", color: INK, margin: "0 0 8px" }}>
-            {iv.title}
-          </p>
-          <div style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 8, flexWrap: "wrap" }}>
-            <span style={{ fontFamily: MONO, fontSize: "0.65rem", letterSpacing: "0.06em", color: INK }}>{iv.year}</span>
-            <Badge label={iv.format} />
+      {items.map((iv, i) => {
+        const isVideo = iv.format.toLowerCase().includes("video");
+        const linkHref = isVideo
+          ? `https://www.youtube.com/results?search_query=${encodeURIComponent(`${artist} ${iv.title}`)}`
+          : `https://www.google.com/search?q=${encodeURIComponent(`${iv.publication} ${artist} ${iv.title}`)}`;
+        const linkLabel = isVideo ? "Watch on YouTube →" : `Find at ${iv.publication} →`;
+        return (
+          <div key={i} style={{ padding: "1.5rem 0", borderBottom: `1px solid ${RULE}` }}>
+            <p style={{ fontFamily: SERIF, fontSize: "0.9rem", fontWeight: 600, color: INK, margin: "0 0 6px" }}>
+              {iv.publication}
+            </p>
+            <p style={{ fontFamily: MONO, fontSize: "0.72rem", letterSpacing: "0.04em", color: INK, margin: "0 0 8px" }}>
+              {iv.title}
+            </p>
+            <div style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 8, flexWrap: "wrap" }}>
+              <span style={{ fontFamily: MONO, fontSize: "0.65rem", letterSpacing: "0.06em", color: INK }}>{iv.year}</span>
+              <Badge label={iv.format} />
+            </div>
+            <p style={{ fontFamily: MONO, fontSize: "0.68rem", letterSpacing: "0.04em", color: INK, fontStyle: "italic", lineHeight: 1.5, margin: "0 0 8px" }}>
+              {iv.note}
+            </p>
+            <a
+              href={linkHref}
+              target="_blank"
+              rel="noopener noreferrer"
+              style={{ fontFamily: MONO, fontSize: "0.65rem", letterSpacing: "0.08em", color: ORANGE, textDecoration: "none" }}
+              onMouseEnter={(e) => { (e.currentTarget as HTMLAnchorElement).style.textDecoration = "underline"; }}
+              onMouseLeave={(e) => { (e.currentTarget as HTMLAnchorElement).style.textDecoration = "none"; }}
+            >
+              {linkLabel}
+            </a>
           </div>
-          <p style={{ fontFamily: MONO, fontSize: "0.68rem", letterSpacing: "0.04em", color: INK, fontStyle: "italic", lineHeight: 1.5, margin: 0 }}>
-            {iv.note}
-          </p>
-        </div>
-      ))}
+        );
+      })}
     </div>
   );
 }
@@ -674,7 +701,7 @@ export default function DeepDiveClient({
     if (tab === "rankings")   return <RankingsContent   data={data as { albums?: Album[] }} />;
     if (tab === "podcasts")   return <PodcastsContent   data={data as { episodes?: Episode[] }} artist={selectedArtist} />;
     if (tab === "books")      return <BooksContent      data={data as { items?: BookItem[] }} />;
-    if (tab === "interviews") return <InterviewsContent data={data as { interviews?: InterviewItem[] }} />;
+    if (tab === "interviews") return <InterviewsContent data={data as { interviews?: InterviewItem[] }} artist={selectedArtist} />;
     if (tab === "related")    return <RelatedArtistsContent data={data as { artists?: RelatedArtist[] }} />;
     if (tab === "blindspot")  return <BlindSpotContent  data={data as { albums?: BlindSpotAlbum[] }} artist={selectedArtist} />;
     return null;
