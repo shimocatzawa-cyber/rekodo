@@ -81,7 +81,7 @@ function parseWantlistCsv(text: string): { rows: ParsedRow[]; errors: string[] }
 type UploadState =
   | { phase: "idle" }
   | { phase: "importing"; done: number; total: number }
-  | { phase: "done"; count: number; timestamp: string }
+  | { phase: "done"; count: number; timestamp: string; skipped: number }
   | { phase: "error"; message: string };
 
 export default function WantlistClient({ isOwner, userId, embedded = false }: Props) {
@@ -94,8 +94,8 @@ export default function WantlistClient({ isOwner, userId, embedded = false }: Pr
     const text = await file.text();
     const { rows, errors } = parseWantlistCsv(text);
 
-    if (errors.length > 0 && rows.length === 0) {
-      setUpload({ phase: "error", message: errors[0] });
+    if (rows.length === 0) {
+      setUpload({ phase: "error", message: errors.length > 0 ? errors[0] : "No valid rows found in CSV." });
       return;
     }
 
@@ -106,12 +106,17 @@ export default function WantlistClient({ isOwner, userId, embedded = false }: Pr
     // Find or create the wantlist list
     let listId: string;
     {
-      const { data: existing } = await supabase
+      const { data: existing, error: findErr } = await supabase
         .from("lists")
         .select("id")
         .eq("user_id", userId)
         .eq("slug", "wantlist")
         .single();
+
+      if (findErr && findErr.code !== "PGRST116") {
+        setUpload({ phase: "error", message: `Could not look up wantlist: ${findErr.message}` });
+        return;
+      }
 
       if (existing) {
         listId = existing.id;
@@ -140,7 +145,7 @@ export default function WantlistClient({ isOwner, userId, embedded = false }: Pr
       (existingItems ?? []).map(e => [e.discogs_release_id as number, e.position])
     );
     const maxPos = existingItems && existingItems.length > 0
-      ? Math.max(...existingItems.map(e => e.position))
+      ? existingItems.reduce((m, e) => Math.max(m, e.position), 0)
       : 0;
 
     let nextPos = maxPos + 1;
@@ -178,7 +183,7 @@ export default function WantlistClient({ isOwner, userId, embedded = false }: Pr
     }
 
     const timestamp = new Date().toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
-    setUpload({ phase: "done", count: imported, timestamp });
+    setUpload({ phase: "done", count: imported, timestamp, skipped: errors.length });
 
     window.location.reload();
   }, [userId]);
@@ -244,6 +249,7 @@ export default function WantlistClient({ isOwner, userId, embedded = false }: Pr
       {upload.phase === "done" && (
         <p style={{ fontFamily: MONO, fontSize: "0.7rem", color: INK, margin: "10px 0 0" }}>
           {upload.count.toLocaleString()} items imported on {upload.timestamp}.
+          {upload.skipped > 0 && ` ${upload.skipped} row${upload.skipped > 1 ? "s" : ""} skipped (missing data).`}
         </p>
       )}
       {upload.phase === "error" && (
