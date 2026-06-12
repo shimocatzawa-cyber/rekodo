@@ -8,15 +8,16 @@ const PROMPTS: Record<string, (artist: string, ownedAlbums?: string[]) => string
     const ownedBlock = ownedAlbums.length > 0
       ? `\nCONFIRMED ALBUMS (the collector owns these — they definitely exist, include them):\n${ownedAlbums.map(a => `- ${a}`).join("\n")}\n`
       : "";
-    return `You are a music critic writing for serious vinyl collectors. Rank ${artist}'s studio albums from best to worst.
+    return `You are a music critic writing for serious vinyl collectors. Rank ${artist}'s studio albums from best to worst — the top 10 most essential only, not every release.
 
 CRITICAL ACCURACY RULES — read before answering:
 - Only include albums you are certain exist. If you are not sure a title is correct, omit it.
 - Do not confuse ${artist} with any other artist. Double-check every album title and year.
-- It is far better to list 3 confirmed albums than 7 where one is fabricated.
+- It is far better to list 5 confirmed albums than 10 where one is fabricated.
 - "Studio albums" only — no compilations, live records, EPs, or demos unless they are widely regarded as major works.
+- Maximum 10 albums. Focus on the albums that define the artist's legacy, not an exhaustive survey.
 ${ownedBlock}
-For each confirmed album: be specific and opinionated about what makes it succeed or fail, and include a collector note about pressings worth seeking.
+For each album: be specific and opinionated about what makes it succeed or fail, and include a collector note about pressings worth seeking.
 Return ONLY valid JSON, no markdown, no backticks, no preamble:
 {"albums":[{"rank":1,"title":"Album Title","year":1975,"review":"2-3 sentence critical review","collectorNote":"Pressing note for collectors"}]}`;
   },
@@ -87,11 +88,16 @@ export async function POST(request: NextRequest) {
     }
 
     const model = (section === "rankings" || section === "blindspot") ? "claude-sonnet-4-6" : "claude-haiku-4-5";
+    const maxTokens = (section === "rankings" || section === "blindspot") ? 4096 : 1500;
     const message = await client.messages.create({
       model,
-      max_tokens: 1500,
+      max_tokens: maxTokens,
       messages: [{ role: "user", content: PROMPTS[section](artist, ownedAlbums) }],
     });
+
+    if (message.stop_reason === "max_tokens") {
+      return NextResponse.json({ error: "Response too long — try a more specific artist" }, { status: 500 });
+    }
 
     const text =
       message.content[0].type === "text" ? message.content[0].text : "";
