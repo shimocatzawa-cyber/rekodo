@@ -448,8 +448,7 @@ async function processSync(supabase: SB, jobId: string, userId: string) {
     await updateJob(supabase, jobId, { phase: "backfill" });
 
     try {
-      const BACKFILL_CAP   = 30;
-      const BACKFILL_BATCH = 3;
+      const BACKFILL_CAP = 100;
       type RecordStub = { id: string; discogs_id: string };
       const needingBackfill: RecordStub[] = [];
 
@@ -467,26 +466,22 @@ async function processSync(supabase: SB, jobId: string, userId: string) {
 
       const toBackfill = needingBackfill.slice(0, BACKFILL_CAP);
 
-      for (let bi = 0; bi < toBackfill.length; bi += BACKFILL_BATCH) {
-        const bfBatch = toBackfill.slice(bi, bi + BACKFILL_BATCH);
-        await Promise.all(bfBatch.map(async (record) => {
-          try {
-            const releaseUrl = `https://api.discogs.com/releases/${encodeURIComponent(record.discogs_id)}?key=${DISCOGS_CONSUMER_KEY}&secret=${DISCOGS_CONSUMER_SECRET}`;
-            const res = await fetch(releaseUrl, { headers: { "User-Agent": UA } });
-            if (res.ok) {
-              const rd = await res.json() as { formats?: Array<{ name?: string; descriptions?: string[]; text?: string }>; country?: string };
-              // Write "" as sentinel when no colour found so this record is
-              // skipped on future syncs — prevents repeated full-release fetches.
-              const colour = extractVinylColour(rd.formats) ?? "";
-              await supabase.from("records")
-                .update({ format: extractFormat(rd.formats), country: rd.country ?? null, vinyl_colour: colour })
-                .eq("id", record.id);
-            }
-          } catch { /* skip */ }
-        }));
-        if (bi + BACKFILL_BATCH < toBackfill.length) {
-          await new Promise((r) => setTimeout(r, RATE_MS));
-        }
+      for (let bi = 0; bi < toBackfill.length; bi++) {
+        const record = toBackfill[bi];
+        try {
+          const releaseUrl = `https://api.discogs.com/releases/${encodeURIComponent(record.discogs_id)}?key=${DISCOGS_CONSUMER_KEY}&secret=${DISCOGS_CONSUMER_SECRET}`;
+          const res = await fetch(releaseUrl, { headers: { "User-Agent": UA } });
+          if (res.ok) {
+            const rd = await res.json() as { formats?: Array<{ name?: string; descriptions?: string[]; text?: string }>; country?: string };
+            // Write "" as sentinel when no colour found so this record is
+            // skipped on future syncs — prevents repeated full-release fetches.
+            const colour = extractVinylColour(rd.formats) ?? "";
+            await supabase.from("records")
+              .update({ format: extractFormat(rd.formats), country: rd.country ?? null, vinyl_colour: colour })
+              .eq("id", record.id);
+          }
+        } catch { /* skip */ }
+        if (bi < toBackfill.length - 1) await new Promise((r) => setTimeout(r, RATE_MS));
       }
     } catch { /* non-fatal */ }
 
