@@ -31,7 +31,7 @@ type TrackItem = {
   type_: string;
 };
 
-type FormatItem  = { name: string; qty: string; descriptions?: string[] };
+type FormatItem  = { name: string; qty: string; descriptions?: string[]; text?: string };
 type LabelItem   = { name: string; catno: string };
 
 type ReleaseDetail = {
@@ -113,6 +113,7 @@ function formatLabel(formats?: FormatItem[]): string {
       const token = i === 0 && qty ? `${qty}${keep[i]}` : keep[i];
       if (!seen.has(token)) { seen.add(token); tokens.push(token); }
     }
+    // `text` holds the colour/variant — omit it here since it shows in the Vinyl row
   }
 
   return tokens.join(", ");
@@ -122,6 +123,9 @@ function extractVinylColour(formats?: FormatItem[]): string | null {
   if (!formats?.length) return null;
   const vinyl = formats.find((f) => f.name === "Vinyl");
   if (!vinyl) return null;
+  // Discogs puts the colour/variant description in `text` (shown in italics on their site)
+  if (vinyl.text?.trim()) return vinyl.text.trim();
+  // Fallback: scan descriptions for a colour keyword
   const match = (vinyl.descriptions ?? []).find((d) =>
     [...COLOUR_KEYWORDS].some((kw) => d.toLowerCase().includes(kw.toLowerCase()))
   );
