@@ -54,13 +54,23 @@ Return ONLY valid JSON, no markdown, no backticks, no preamble:
 {"artists":[{"name":"Artist Name","genre":"Style or genre","reason":"Why fans of ${artist} will connect with this artist","mustHear":"The one album to start with"}]}`,
 
   blindspot: (artist, ownedAlbums = []) => {
-    const ownedList = ownedAlbums.length > 0
-      ? `The collector already owns: ${ownedAlbums.join(", ")}.`
+    const ownedBlock = ownedAlbums.length > 0
+      ? `ALREADY OWNED — do NOT recommend any of these under any circumstances:\n${ownedAlbums.map(a => `  - ${a}`).join("\n")}`
       : `The collector does not yet own any albums by ${artist}.`;
-    return `You are a record collector's guide. A vinyl enthusiast collects ${artist}. ${ownedList} Identify the essential studio albums NOT in their collection that belong in any serious ${artist} library. Be selective — flag only genuine gaps, not completionist picks.
+    return `You are a record collector's guide helping a vinyl enthusiast identify genuine gaps in their ${artist} collection.
+
+${ownedBlock}
+
+CRITICAL RULES:
+- NEVER recommend an album that appears in the ALREADY OWNED list above. If you are unsure whether an album matches one already owned, do not recommend it.
+- Only recommend albums you are certain ${artist} actually released. Do not fabricate or guess titles.
+- Studio albums only — no live albums, compilations, or EPs unless they are genuinely essential to the artist's legacy.
+- Be selective: flag only albums a serious collector would consider essential gaps, not completionist picks.
+- If the collection already covers the essential catalogue, return {"albums":[]}.
+
 Return ONLY valid JSON, no markdown, no backticks, no preamble:
 {"albums":[{"title":"Album Title","year":1975,"why":"Why this album is essential and what the collector is missing","tip":"Edition or pressing worth seeking"}]}
-List at most 8 albums. If no significant gaps exist, return {"albums":[]}.`;
+List at most 6 albums.`;
   },
 };
 
@@ -76,7 +86,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Invalid request" }, { status: 400 });
     }
 
-    const model = section === "rankings" ? "claude-sonnet-4-6" : "claude-haiku-4-5";
+    const model = (section === "rankings" || section === "blindspot") ? "claude-sonnet-4-6" : "claude-haiku-4-5";
     const message = await client.messages.create({
       model,
       max_tokens: 1500,
