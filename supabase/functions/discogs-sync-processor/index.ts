@@ -164,7 +164,7 @@ async function processSync(supabase: SB, jobId: string, userId: string) {
         genres: string[]; styles: string[];
         cover_image: string; thumb: string;
         labels: Array<{ name: string }>;
-        formats: Array<{ name?: string; descriptions?: string[] }>;
+        formats: Array<{ name?: string; descriptions?: string[]; text?: string }>;
         country?: string;
       };
       notes?: Array<{ field_id: number; value: string }>;
@@ -327,6 +327,40 @@ async function processSync(supabase: SB, jobId: string, userId: string) {
       }
     } catch { /* non-fatal — styles will retry on next sync */ }
 
+    // ── Phase 2c: Backfill vinyl_colour for existing records ─────────────────
+    // Uses already-fetched basic_information data — no extra API calls.
+    // Stores "" (empty string) as a sentinel for "checked, no colour found"
+    // so records are never re-processed on subsequent syncs.
+    try {
+      const colourLookup = new Map<string, string>(
+        collectionItems.map((item) => [item.discogs_id, item.vinyl_colour ?? ""])
+      );
+
+      const allRecordIds2 = [...new Set(existingMap.values())];
+      const toUpdateColour: { id: string; vinyl_colour: string }[] = [];
+
+      for (let i = 0; i < allRecordIds2.length; i += BATCH) {
+        const { data } = await supabase
+          .from("records")
+          .select("id, discogs_id")
+          .in("id", allRecordIds2.slice(i, i + BATCH))
+          .is("vinyl_colour", null);
+
+        for (const r of data ?? []) {
+          if (!r.discogs_id) continue;
+          const colour = colourLookup.get(r.discogs_id);
+          if (colour !== undefined) toUpdateColour.push({ id: r.id, vinyl_colour: colour });
+        }
+      }
+
+      for (let i = 0; i < toUpdateColour.length; i += BATCH) {
+        await supabase
+          .from("records")
+          .upsert(toUpdateColour.slice(i, i + BATCH), { onConflict: "id" });
+        await updateJob(supabase, jobId, { phase: "updating" });
+      }
+    } catch { /* non-fatal — will retry on next sync */ }
+
     // ── Phase 3: Link records to user_records ─────────────────────────────────
     await updateJob(supabase, jobId, { phase: "linking", progress_done: 0 });
 
@@ -423,7 +457,7 @@ async function processSync(supabase: SB, jobId: string, userId: string) {
           .select("id, discogs_id")
           .in("id", savedRecordIds.slice(i, i + BATCH))
           .not("discogs_id", "is", null)
-          .or("format.is.null,country.is.null,vinyl_colour.is.null");
+          .or("format.is.null,country.is.null");
         for (const r of data ?? []) {
           if (r.discogs_id) needingBackfill.push({ id: r.id, discogs_id: r.discogs_id as string });
         }
