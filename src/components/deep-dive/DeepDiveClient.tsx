@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
+import { useRouter } from "next/navigation";
 
 const SERIF  = "var(--font-editorial)";
 const MONO   = "var(--font-mono)";
@@ -530,6 +531,7 @@ export default function DeepDiveClient({
   bandcampUsername: string | null;
   lastSyncDate: string | null;
 }) {
+  const router = useRouter();
   const [query, setQuery] = useState("");
   const [bcSyncState, setBcSyncState] = useState<BandcampSyncState>("idle");
   const [bcSyncDate,  setBcSyncDate]  = useState<string | null>(initialSyncDate);
@@ -551,6 +553,7 @@ export default function DeepDiveClient({
       } else {
         setBcSyncDate(new Date().toISOString());
         setBcSyncState("done");
+        router.refresh();
       }
     } catch {
       setBcError("Network error. Please try again.");
