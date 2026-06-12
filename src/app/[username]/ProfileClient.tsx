@@ -14,6 +14,7 @@ import CollectionPhotos from "@/app/p/[username]/CollectionPhotos";
 import Top5Editor, { type EditorSlot } from "@/components/profile/Top5Editor";
 import { createList, deleteList } from "@/app/lists/actions";
 import WantlistClient from "@/components/wantlist/WantlistClient";
+import SupporterContent from "@/components/profile/SupporterContent";
 import type { UserList, DiscoverList } from "@/app/lists/types";
 
 const SERIF  = "var(--font-editorial)";
@@ -99,7 +100,7 @@ interface Props {
   collectionPhoto?: string | null;
 }
 
-type ProfileTab  = "profile" | "lists" | "community";
+type ProfileTab  = "profile" | "lists" | "community" | "supporter";
 type DiscoverTab = "similar" | "following" | "trending" | "all";
 
 // ─── Discover card component ──────────────────────────────────────────────────
@@ -398,6 +399,7 @@ export default function ProfileClient({
 
   const tabItems: Array<{ key: ProfileTab; label: string }> = [
     { key: "profile",   label: "Profile" },
+    { key: "supporter", label: "Supporter" },
     ...(isOwner ? [{ key: "lists" as ProfileTab, label: "Wantlist" }] : []),
     { key: "community", label: "Community" },
   ];
@@ -762,6 +764,14 @@ export default function ProfileClient({
             />
           )}
         </>
+      )}
+
+      {/* ─────────────── SUPPORTER TAB ───────────────────────────────────────── */}
+      {profileTab === "supporter" && (
+        <SupporterContent
+          isOwner={isOwner}
+          isSupporter={!!profile.is_donor}
+        />
       )}
 
       {/* ─────────────── COMMUNITY TAB ───────────────────────────────────────── */}

@@ -1,7 +1,6 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import AppNav from "@/components/AppNav";
-import PayWhatYouFeel from "@/components/about/PayWhatYouFeel";
 
 const SERIF  = "var(--font-editorial)";
 const MONO   = "var(--font-mono)";
@@ -14,8 +13,6 @@ const BODY_PARAGRAPHS = [
 ];
 
 export default async function AboutPage() {
-  const stripeLink = process.env.STRIPE_PAYMENT_LINK ?? "#";
-
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
 
@@ -102,62 +99,6 @@ export default async function AboutPage() {
           ))}
         </div>
 
-        {/* Pay What You Feel */}
-        <PayWhatYouFeel stripeLink={stripeLink} />
-
-        {/* Label Spotlight */}
-        <section style={{ marginTop: 72 }}>
-          <div style={{ height: 1, background: "rgba(0,0,0,0.07)", marginBottom: 52 }} />
-
-          <p style={{
-            fontFamily: MONO,
-            fontSize: 9,
-            letterSpacing: "0.18em",
-            textTransform: "uppercase",
-            color: "#aaaaaa",
-            margin: "0 0 20px 0",
-          }}>
-            Partners
-          </p>
-
-          <h2 style={{
-            fontFamily: SERIF,
-            fontSize: "clamp(28px, 4vw, 40px)",
-            fontWeight: 400,
-            color: "#0d0d0d",
-            margin: "0 0 20px 0",
-            lineHeight: 1.15,
-          }}>
-            Label Spotlight
-          </h2>
-
-          <p style={{
-            fontFamily: SERIF,
-            fontSize: "clamp(15px, 1.8vw, 17px)",
-            color: "#505050",
-            lineHeight: 1.75,
-            margin: "0 0 24px 0",
-          }}>
-            rekōdo reaches the most engaged record collectors on the internet.
-            If you run an independent label and want to reach them, get in touch.
-          </p>
-
-          <a
-            href="mailto:hello@rekodo.co"
-            style={{
-              fontFamily: MONO,
-              fontSize: 11,
-              letterSpacing: "0.1em",
-              textTransform: "uppercase",
-              color: ORANGE,
-              textDecoration: "none",
-              borderBottom: `1px solid ${ORANGE}`,
-              paddingBottom: 2,
-            }}
-          >
-            Get in touch ↗
-          </a>
-        </section>
 
       </main>
     </div>
