@@ -96,7 +96,7 @@ export default async function DeepDivePage() {
       fromBandcamp: bcArtists.has(name.toLowerCase().trim()),
       records: records.sort((a, b) => (a.year ?? 9999) - (b.year ?? 9999)),
     }))
-    .sort((a, b) => a.name.localeCompare(b.name));
+    .sort((a, b) => b.count - a.count || a.name.localeCompare(b.name));
 
   // Fetch last Bandcamp sync date
   const { data: importRows } = await supabase
