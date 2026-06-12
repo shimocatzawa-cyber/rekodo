@@ -26,6 +26,7 @@ export type CollectionRecord = {
   community_have:         number | null;
   community_want:         number | null;
   community_num_for_sale: number | null;
+  last_played_at:         string | null;
 };
 
 export type CollectionInsights = {
@@ -132,6 +133,7 @@ export default async function CollectionPage({
     price_currency:   string | null;
     media_condition:  string | null;
     sleeve_condition: string | null;
+    last_played_at:   string | null;
   };
   console.log('[collection/page] fetching for user:', user.id);
   const allLinks: LinkRow[] = [];
@@ -139,7 +141,8 @@ export default async function CollectionPage({
   for (let from = 0; ; from += PAGE) {
     const { data, error } = await supabase
       .from("user_records")
-      .select("record_id, created_at, value, price_low, price_median, price_currency, media_condition, sleeve_condition")
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      .select("record_id, created_at, value, price_low, price_median, price_currency, media_condition, sleeve_condition, last_played_at" as any)
       .eq("user_id", user.id)
       .order("created_at", { ascending: false })
       .range(from, from + PAGE - 1);
@@ -149,7 +152,7 @@ export default async function CollectionPage({
     }
     console.log(`[collection/page] user_records page from=${from}: ${data?.length ?? 0} rows`);
     if (!data || data.length === 0) break;
-    allLinks.push(...(data as LinkRow[]));
+    allLinks.push(...(data as unknown as LinkRow[]));
     if (data.length < PAGE) break;
   }
   console.log('[collection/page] total allLinks:', allLinks.length);
@@ -190,7 +193,9 @@ export default async function CollectionPage({
     l.record_id, l.price_low ?? null,
   ]));
 
-  const recordsMap = new Map<string, Omit<CollectionRecord, "value" | "price_low" | "price_median" | "price_currency" | "media_condition" | "sleeve_condition">>();
+  const lastPlayedMap = new Map<string, string | null>(allLinks.map((l) => [l.record_id, l.last_played_at ?? null]));
+
+  const recordsMap = new Map<string, Omit<CollectionRecord, "value" | "price_low" | "price_median" | "price_currency" | "media_condition" | "sleeve_condition" | "last_played_at">>();
   for (let i = 0; i < recordIds.length; i += BATCH) {
     const { data, error } = await supabase
       .from("records")
@@ -198,7 +203,7 @@ export default async function CollectionPage({
       .in("id", recordIds.slice(i, i + BATCH));
     if (error) console.error('[collection/page] records batch error:', JSON.stringify(error));
     else console.log(`[collection/page] records batch i=${i}: ${data?.length ?? 0} rows`);
-    for (const r of data ?? []) recordsMap.set(r.id, r as Omit<CollectionRecord, "value" | "price_low" | "price_median" | "price_currency" | "media_condition" | "sleeve_condition">);
+    for (const r of data ?? []) recordsMap.set(r.id, r as Omit<CollectionRecord, "value" | "price_low" | "price_median" | "price_currency" | "media_condition" | "sleeve_condition" | "last_played_at">);
   }
 
   const collection: CollectionRecord[] = recordIds
@@ -217,6 +222,7 @@ export default async function CollectionPage({
         community_have:         r.community_have         ?? null,
         community_want:         r.community_want         ?? null,
         community_num_for_sale: r.community_num_for_sale ?? null,
+        last_played_at:         lastPlayedMap.get(id)    ?? null,
       };
     })
     .filter((r): r is CollectionRecord => r !== undefined);

@@ -1809,6 +1809,34 @@ function TracklistPanel({ tracks, loading, bandcamp, record }: {
   const amSearch    = `https://music.apple.com/search?term=${encodeURIComponent(`${artist} ${album}`)}`;
   const tidalSearch = `https://tidal.com/search?q=${encodeURIComponent(`${artist} ${album}`)}`;
 
+  const [lastPlayed, setLastPlayed] = useState<string | null>(record?.last_played_at ?? null);
+  const [playedLoading, setPlayedLoading] = useState(false);
+
+  // Sync when selected record changes
+  useEffect(() => {
+    setLastPlayed(record?.last_played_at ?? null);
+  }, [record?.id, record?.last_played_at]);
+
+  async function handlePlayedToday() {
+    if (!record?.id || playedLoading) return;
+    setPlayedLoading(true);
+    try {
+      const res = await fetch("/api/collection/played", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ recordId: record.id }),
+      });
+      const json = await res.json() as { last_played_at?: string };
+      if (json.last_played_at) setLastPlayed(json.last_played_at);
+    } finally {
+      setPlayedLoading(false);
+    }
+  }
+
+  function formatLastPlayed(iso: string): string {
+    return new Date(iso).toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" });
+  }
+
   const baseLinkStyle: React.CSSProperties = {
     fontFamily: MONO, fontSize: "10px", letterSpacing: "0.08em", textDecoration: "none",
   };
@@ -1817,6 +1845,30 @@ function TracklistPanel({ tracks, loading, bandcamp, record }: {
 
   return (
     <div>
+      {/* ── Played Today ── */}
+      {record && (
+        <div style={{ padding: "16px 28px 0" }}>
+          <button
+            onClick={handlePlayedToday}
+            disabled={playedLoading}
+            style={{
+              fontFamily: MONO, fontSize: "9px", letterSpacing: "0.12em",
+              textTransform: "uppercase", color: playedLoading ? "#aaaaaa" : ORANGE,
+              background: "transparent", border: `1px solid ${playedLoading ? "#dddddd" : ORANGE}`,
+              padding: "5px 12px", cursor: playedLoading ? "default" : "pointer",
+              display: "inline-block",
+            }}
+          >
+            {playedLoading ? "Saving…" : "Played Today"}
+          </button>
+          {lastPlayed && (
+            <p style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.08em", color: "#aaaaaa", margin: "6px 0 0" }}>
+              Last played: {formatLastPlayed(lastPlayed)}
+            </p>
+          )}
+        </div>
+      )}
+
       {/* ── Tracklist ── */}
       <div style={{ padding: "20px 28px 24px" }}>
         {loading ? (
