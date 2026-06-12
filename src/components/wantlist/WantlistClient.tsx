@@ -150,8 +150,8 @@ export default function WantlistClient({ isOwner, userId, embedded = false }: Pr
       return {
         list_id: listId,
         position,
-        item_type: "record" as const,
-        record_id: null,
+        item_type: "song" as const,
+        song_title: r.title,
         song_artist: r.artist,
         song_album: r.title,
         song_year: r.released,
