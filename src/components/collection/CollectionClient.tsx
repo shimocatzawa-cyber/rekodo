@@ -1898,9 +1898,9 @@ function TracklistPanel({ tracks, loading, bandcamp, record }: {
               style={{
                 fontFamily: MONO, fontSize: "9px", letterSpacing: "0.12em",
                 textTransform: "uppercase",
-                color: offersLoading ? "#aaaaaa" : openToOffers ? ORANGE : "#aaaaaa",
+                color: offersLoading ? "#aaaaaa" : ORANGE,
                 background: "transparent",
-                border: `1px solid ${offersLoading ? "#dddddd" : openToOffers ? ORANGE : "#dddddd"}`,
+                border: `1px solid ${offersLoading ? "#dddddd" : ORANGE}`,
                 padding: "5px 12px", cursor: offersLoading ? "default" : "pointer",
                 display: "inline-block",
               }}
