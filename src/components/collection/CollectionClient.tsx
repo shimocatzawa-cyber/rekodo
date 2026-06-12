@@ -323,18 +323,20 @@ export default function CollectionClient({
         price_currency:   string | null;
         media_condition:  string | null;
         sleeve_condition: string | null;
+        open_to_offers:   boolean | null;
       };
       const allLinks: LinkRow[] = [];
       const PAGE = 1000;
       for (let from = 0; ; from += PAGE) {
         const { data, error } = await supabase
           .from("user_records")
-          .select("record_id, value, price_low, price_median, price_currency, media_condition, sleeve_condition")
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          .select("record_id, value, price_low, price_median, price_currency, media_condition, sleeve_condition, open_to_offers" as any)
           .eq("user_id", user.id)
           .range(from, from + PAGE - 1);
         console.log(`[collection] user_records page from=${from}: count=${data?.length ?? 0} error=${JSON.stringify(error)}`);
         if (!data || data.length === 0) break;
-        allLinks.push(...(data as LinkRow[]));
+        allLinks.push(...(data as unknown as LinkRow[]));
         if (data.length < PAGE) break;
       }
 
@@ -345,6 +347,7 @@ export default function CollectionClient({
       const priceCurrencyMap   = new Map<string, string | null>(allLinks.map((l) => [l.record_id, l.price_currency ?? null]));
       const mediaConditionMap  = new Map<string, string | null>(allLinks.map((l) => [l.record_id, l.media_condition  ?? null]));
       const sleeveConditionMap = new Map<string, string | null>(allLinks.map((l) => [l.record_id, l.sleeve_condition ?? null]));
+      const openToOffersMap    = new Map<string, boolean | null>(allLinks.map((l) => [l.record_id, l.open_to_offers ?? null]));
       const BATCH        = 400;
       const recordsMap   = new Map<string, Omit<CollectionRecord, "value" | "price_low" | "price_low_usd" | "price_median" | "price_currency" | "media_condition" | "sleeve_condition">>();
       for (let i = 0; i < recordIds.length; i += BATCH) {
@@ -369,6 +372,7 @@ export default function CollectionClient({
             price_currency:   priceCurrencyMap.get(id)   ?? null,
             media_condition:  mediaConditionMap.get(id)  ?? null,
             sleeve_condition: sleeveConditionMap.get(id) ?? null,
+            open_to_offers:   openToOffersMap.get(id)    ?? null,
           };
         })
         .filter((r): r is CollectionRecord => r !== undefined);
@@ -1812,10 +1816,36 @@ function TracklistPanel({ tracks, loading, bandcamp, record }: {
   const [lastPlayed, setLastPlayed] = useState<string | null>(record?.last_played_at ?? null);
   const [playedLoading, setPlayedLoading] = useState(false);
 
+  const [openToOffers, setOpenToOffers] = useState<boolean>(record?.open_to_offers ?? false);
+  const [offersLoading, setOffersLoading] = useState(false);
+
   // Sync when selected record changes
   useEffect(() => {
     setLastPlayed(record?.last_played_at ?? null);
   }, [record?.id, record?.last_played_at]);
+
+  useEffect(() => {
+    setOpenToOffers(record?.open_to_offers ?? false);
+  }, [record?.id, record?.open_to_offers]);
+
+  async function handleOpenToOffers() {
+    if (!record?.id || offersLoading) return;
+    const next = !openToOffers;
+    setOpenToOffers(next);
+    setOffersLoading(true);
+    try {
+      const res = await fetch("/api/collection/offers", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ recordId: record.id, open_to_offers: next }),
+      });
+      if (!res.ok) setOpenToOffers(!next);
+    } catch {
+      setOpenToOffers(!next);
+    } finally {
+      setOffersLoading(false);
+    }
+  }
 
   async function handlePlayedToday() {
     if (!record?.id || playedLoading) return;
@@ -1845,22 +1875,39 @@ function TracklistPanel({ tracks, loading, bandcamp, record }: {
 
   return (
     <div>
-      {/* ── Played Today ── */}
+      {/* ── Played Today + Open to Offers ── */}
       {record && (
         <div style={{ padding: "16px 28px 0" }}>
-          <button
-            onClick={handlePlayedToday}
-            disabled={playedLoading}
-            style={{
-              fontFamily: MONO, fontSize: "9px", letterSpacing: "0.12em",
-              textTransform: "uppercase", color: playedLoading ? "#aaaaaa" : ORANGE,
-              background: "transparent", border: `1px solid ${playedLoading ? "#dddddd" : ORANGE}`,
-              padding: "5px 12px", cursor: playedLoading ? "default" : "pointer",
-              display: "inline-block",
-            }}
-          >
-            {playedLoading ? "Saving…" : "Played Today"}
-          </button>
+          <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
+            <button
+              onClick={handlePlayedToday}
+              disabled={playedLoading}
+              style={{
+                fontFamily: MONO, fontSize: "9px", letterSpacing: "0.12em",
+                textTransform: "uppercase", color: playedLoading ? "#aaaaaa" : ORANGE,
+                background: "transparent", border: `1px solid ${playedLoading ? "#dddddd" : ORANGE}`,
+                padding: "5px 12px", cursor: playedLoading ? "default" : "pointer",
+                display: "inline-block",
+              }}
+            >
+              {playedLoading ? "Saving…" : "Played Today"}
+            </button>
+            <button
+              onClick={handleOpenToOffers}
+              disabled={offersLoading}
+              style={{
+                fontFamily: MONO, fontSize: "9px", letterSpacing: "0.12em",
+                textTransform: "uppercase",
+                color: offersLoading ? "#aaaaaa" : openToOffers ? ORANGE : "#aaaaaa",
+                background: "transparent",
+                border: `1px solid ${offersLoading ? "#dddddd" : openToOffers ? ORANGE : "#dddddd"}`,
+                padding: "5px 12px", cursor: offersLoading ? "default" : "pointer",
+                display: "inline-block",
+              }}
+            >
+              {offersLoading ? "Saving…" : "Open to Offers"}
+            </button>
+          </div>
           {lastPlayed && (
             <p style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.08em", color: "#aaaaaa", margin: "6px 0 0" }}>
               Last played: {formatLastPlayed(lastPlayed)}

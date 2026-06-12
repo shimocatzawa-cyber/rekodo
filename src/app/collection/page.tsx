@@ -27,6 +27,7 @@ export type CollectionRecord = {
   community_want:         number | null;
   community_num_for_sale: number | null;
   last_played_at:         string | null;
+  open_to_offers:         boolean | null;
 };
 
 export type CollectionInsights = {
@@ -134,6 +135,7 @@ export default async function CollectionPage({
     media_condition:  string | null;
     sleeve_condition: string | null;
     last_played_at:   string | null;
+    open_to_offers:   boolean | null;
   };
   console.log('[collection/page] fetching for user:', user.id);
   const allLinks: LinkRow[] = [];
@@ -142,7 +144,7 @@ export default async function CollectionPage({
     const { data, error } = await supabase
       .from("user_records")
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      .select("record_id, created_at, value, price_low, price_median, price_currency, media_condition, sleeve_condition, last_played_at" as any)
+      .select("record_id, created_at, value, price_low, price_median, price_currency, media_condition, sleeve_condition, last_played_at, open_to_offers" as any)
       .eq("user_id", user.id)
       .order("created_at", { ascending: false })
       .range(from, from + PAGE - 1);
@@ -193,9 +195,10 @@ export default async function CollectionPage({
     l.record_id, l.price_low ?? null,
   ]));
 
-  const lastPlayedMap = new Map<string, string | null>(allLinks.map((l) => [l.record_id, l.last_played_at ?? null]));
+  const lastPlayedMap    = new Map<string, string | null>(allLinks.map((l) => [l.record_id, l.last_played_at ?? null]));
+  const openToOffersMap  = new Map<string, boolean | null>(allLinks.map((l) => [l.record_id, l.open_to_offers ?? null]));
 
-  const recordsMap = new Map<string, Omit<CollectionRecord, "value" | "price_low" | "price_median" | "price_currency" | "media_condition" | "sleeve_condition" | "last_played_at">>();
+  const recordsMap = new Map<string, Omit<CollectionRecord, "value" | "price_low" | "price_median" | "price_currency" | "media_condition" | "sleeve_condition" | "last_played_at" | "open_to_offers">>();
   for (let i = 0; i < recordIds.length; i += BATCH) {
     const { data, error } = await supabase
       .from("records")
@@ -223,6 +226,7 @@ export default async function CollectionPage({
         community_want:         r.community_want         ?? null,
         community_num_for_sale: r.community_num_for_sale ?? null,
         last_played_at:         lastPlayedMap.get(id)    ?? null,
+        open_to_offers:         openToOffersMap.get(id)  ?? null,
       };
     })
     .filter((r): r is CollectionRecord => r !== undefined);
