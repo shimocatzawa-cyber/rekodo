@@ -22,10 +22,17 @@ Return ONLY valid JSON, no markdown, no backticks, no preamble:
   },
 
   podcasts: (artist) =>
-    `You are a music research assistant. List notable podcast episodes that feature or deeply discuss ${artist}. Only include episodes where ${artist} is a main subject or guest — not passing mentions.
+    `You are a music research assistant. Find podcast listening material for a fan of ${artist}.
+
+Priority order — include whichever you can confirm:
+1. Episodes where ${artist} is a main guest or subject
+2. Episodes that review or significantly discuss a specific ${artist} album
+3. Podcasts (any episode) that regularly cover the scene, genre, or era ${artist} belongs to — episodes a fan would genuinely enjoy
+
+Do not fabricate specific episode titles or dates you are not certain of. For genre/scene shows it is fine to recommend the show generally without a specific episode.
 Return ONLY valid JSON, no markdown, no backticks, no preamble:
-{"episodes":[{"show":"Show Name","episode":"Episode title or description","year":2021,"type":"interview","note":"One sentence on why worth listening"}]}
-If fewer than 3 genuinely exist, return what you know — do not fabricate.`,
+{"episodes":[{"show":"Show Name","episode":"Episode title, or 'Various episodes' for a recommended show","year":2021,"type":"interview","note":"One sentence on why worth listening"}]}
+Return an empty array only if you genuinely cannot identify any relevant podcast. Do not fabricate.`,
 
   books: (artist) =>
     `You are a music research assistant helping a vinyl collector. List books and audiobooks about or significantly featuring ${artist}. Include biographies, memoirs, critical studies, and essential books about the era or scene they defined.
@@ -34,10 +41,12 @@ Return ONLY valid JSON, no markdown, no backticks, no preamble:
 format field must be one of: "book", "audiobook", "both". Do not fabricate titles.`,
 
   interviews: (artist) =>
-    `You are a music research assistant. List the most significant interviews given by ${artist} — print, video, or audio. Focus on interviews that reveal something meaningful about their creative process, influences, or philosophy.
+    `You are a music research assistant. List interviews given by ${artist} — any format, any outlet. Include major publications, smaller music blogs, YouTube sessions, Bandcamp features, label interviews, radio sessions, or any documented conversation that reveals something about their creative process or influences.
+
+For lesser-known or independent artists, smaller outlets (The Wire, Bandcamp Daily, local press, independent music blogs, YouTube live sessions) are entirely valid — include them.
 Return ONLY valid JSON, no markdown, no backticks, no preamble:
-{"interviews":[{"publication":"Publication or platform","title":"Interview title or description","year":1982,"format":"print","note":"What makes it essential"}]}
-format must be one of: "print", "video", "audio". Do not fabricate.`,
+{"interviews":[{"publication":"Publication or platform","title":"Interview title or description","year":1982,"format":"print","note":"What makes it worth reading or watching"}]}
+format must be one of: "print", "video", "audio". Only include interviews you are confident exist. Return an empty array if you genuinely cannot identify any — do not fabricate.`,
 
   related: (artist) =>
     `You are a music expert guiding a vinyl collector. Based on ${artist}'s style, sound, and era, suggest 8 related artists worth exploring. Cover both the obvious (close contemporaries, same scene) and the less obvious (stylistic connections, cross-genre links).

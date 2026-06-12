@@ -181,9 +181,20 @@ function PodcastsContent({ data, artist }: { data: { episodes?: Episode[] }; art
         </div>
       ))}
       {eps.length === 0 && (
-        <p style={{ fontFamily: MONO, fontSize: "0.72rem", letterSpacing: "0.04em", color: INK, padding: "2rem 0" }}>
-          No information available for this artist.
-        </p>
+        <div style={{ padding: "2rem 0" }}>
+          <p style={{ fontFamily: MONO, fontSize: "0.72rem", letterSpacing: "0.04em", color: INK, margin: "0 0 10px" }}>
+            No documented episodes found.
+          </p>
+          <a
+            href={`https://podcasts.apple.com/search?term=${encodeURIComponent(artist)}`}
+            target="_blank" rel="noopener noreferrer"
+            style={{ fontFamily: MONO, fontSize: "0.65rem", letterSpacing: "0.08em", color: ORANGE, textDecoration: "none" }}
+            onMouseEnter={(e) => { (e.currentTarget as HTMLAnchorElement).style.textDecoration = "underline"; }}
+            onMouseLeave={(e) => { (e.currentTarget as HTMLAnchorElement).style.textDecoration = "none"; }}
+          >
+            Search Apple Podcasts →
+          </a>
+        </div>
       )}
     </div>
   );
@@ -241,9 +252,29 @@ function InterviewsContent({ data, artist }: { data: { interviews?: InterviewIte
   const items = data.interviews ?? [];
   if (items.length === 0) {
     return (
-      <p style={{ fontFamily: MONO, fontSize: "0.72rem", letterSpacing: "0.04em", color: INK, padding: "2rem 0" }}>
-        No information available for this artist.
-      </p>
+      <div style={{ padding: "2rem 0" }}>
+        <p style={{ fontFamily: MONO, fontSize: "0.72rem", letterSpacing: "0.04em", color: INK, margin: "0 0 10px" }}>
+          No documented interviews found.
+        </p>
+        <a
+          href={`https://www.youtube.com/results?search_query=${encodeURIComponent(`${artist} interview`)}`}
+          target="_blank" rel="noopener noreferrer"
+          style={{ fontFamily: MONO, fontSize: "0.65rem", letterSpacing: "0.08em", color: ORANGE, textDecoration: "none", display: "block", marginBottom: 6 }}
+          onMouseEnter={(e) => { (e.currentTarget as HTMLAnchorElement).style.textDecoration = "underline"; }}
+          onMouseLeave={(e) => { (e.currentTarget as HTMLAnchorElement).style.textDecoration = "none"; }}
+        >
+          Search YouTube →
+        </a>
+        <a
+          href={`https://www.google.com/search?q=${encodeURIComponent(`"${artist}" interview`)}`}
+          target="_blank" rel="noopener noreferrer"
+          style={{ fontFamily: MONO, fontSize: "0.65rem", letterSpacing: "0.08em", color: ORANGE, textDecoration: "none" }}
+          onMouseEnter={(e) => { (e.currentTarget as HTMLAnchorElement).style.textDecoration = "underline"; }}
+          onMouseLeave={(e) => { (e.currentTarget as HTMLAnchorElement).style.textDecoration = "none"; }}
+        >
+          Search the web →
+        </a>
+      </div>
     );
   }
   return (
