@@ -222,7 +222,7 @@ ${collectionLines || "(Empty collection)"}
 
 TOP 5 LISTS:
 ${listsLines}
-${artistsBlock}${wantlistBlock}
+${artistsBlock}${prevBlock}${wantlistBlock}
 MODE: HALLUCINATIONS · TAKE THE TRIP — surface 3 records that push into territory this collector has never explored. You are not limited to what is far from their collection; you are hunting for genuinely mind-expanding music from obscure and psychedelic corners of the recorded universe.
 
 Rules:

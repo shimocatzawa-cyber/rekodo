@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import AppNav from "@/components/AppNav";
 import { addToWantlist } from "@/app/dig/actions";
 import RecordSpinner from "@/components/RecordSpinner";
@@ -375,6 +375,9 @@ export default function DigClient({ username, displayLabel, avatarUrl, collectio
   const [mode,          setMode]          = useState<DigMode>("discover");
   const [wantlistAdded, setWantlistAdded] = useState<Set<string>>(new Set());
 
+  // Accumulates artists already shown this session so the API can exclude them
+  const shownArtists = useRef<string[]>([]);
+
   // fetchKey drives all fetches. Incrementing `n` re-triggers the effect for
   // "dig again" without changing mode; swapping `mode` handles mode changes.
   const [fetchKey, setFetchKey] = useState<{ mode: DigMode; n: number }>({ mode: "discover", n: 0 });
@@ -388,12 +391,19 @@ export default function DigClient({ username, displayLabel, avatarUrl, collectio
         const res = await fetch("/api/dig", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ mode: fetchKey.mode }),
+          body: JSON.stringify({ mode: fetchKey.mode, previousArtists: shownArtists.current }),
         });
         const data = await res.json();
         if (cancelled) return;
         if (!res.ok) throw new Error(data.error ?? "Failed to get recommendations");
-        setRecs(data.recommendations);
+        const newRecs: Recommendation[] = data.recommendations;
+        // Accumulate artists for future exclusion — reset only when mode changes
+        for (const r of newRecs) {
+          if (r.artist && !shownArtists.current.includes(r.artist)) {
+            shownArtists.current.push(r.artist);
+          }
+        }
+        setRecs(newRecs);
         setIdx(0);
         setError(null);
       } catch (e) {
@@ -406,6 +416,7 @@ export default function DigClient({ username, displayLabel, avatarUrl, collectio
   }, [fetchKey]);
 
   function handleModeChange(newMode: DigMode) {
+    shownArtists.current = [];
     setMode(newMode);
     setLoading(true);
     setError(null);
