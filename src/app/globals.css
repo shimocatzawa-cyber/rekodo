@@ -54,3 +54,25 @@ h1, h2, h3, h4, h5, h6 {
     min-height: 0;
   }
 }
+
+/* Community tab two-column layout */
+.community-layout {
+  display: grid;
+  grid-template-columns: 260px 1fr;
+  gap: 0;
+  align-items: start;
+}
+
+@media (max-width: 768px) {
+  .community-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .community-feed {
+    padding-left: 0 !important;
+    border-left: none !important;
+    border-top: 1px solid #e0e0da;
+    margin-top: 1.5rem;
+    padding-top: 1.5rem !important;
+  }
+}

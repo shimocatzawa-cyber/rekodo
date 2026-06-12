@@ -15,6 +15,7 @@ import Top5Editor, { type EditorSlot } from "@/components/profile/Top5Editor";
 import { createList, deleteList } from "@/app/lists/actions";
 import WantlistClient from "@/components/wantlist/WantlistClient";
 import SupporterContent from "@/components/profile/SupporterContent";
+import CommunitySidebar from "@/components/community/CommunitySidebar";
 import type { UserList, DiscoverList } from "@/app/lists/types";
 
 const SERIF  = "var(--font-editorial)";
@@ -120,7 +121,7 @@ function DiscoverCard({ title, username, recordCount, badge, saves, onSave, save
       </p>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "10px" }}>
         {badge ? (
-          <span style={{ fontFamily: MONO, fontSize: "0.7rem", letterSpacing: "0.06em", fontStyle: "italic", color: "#666", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+          <span style={{ fontFamily: MONO, fontSize: "0.7rem", letterSpacing: "0.06em", fontStyle: "italic", color: ORANGE, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
             {badge}
           </span>
         ) : <span />}
@@ -776,62 +777,24 @@ export default function ProfileClient({
 
       {/* ─────────────── COMMUNITY TAB ───────────────────────────────────────── */}
       {profileTab === "community" && (
-        <div style={{ maxWidth: 680, margin: "0 auto", padding: "0 1.5rem 3rem", width: "100%" }}>
+        <div style={{ width: "100%", padding: "0 1.5rem 3rem" }}>
+          <div style={{
+            display: "grid",
+            gridTemplateColumns: "260px 1fr",
+            gap: 0,
+            alignItems: "start",
+            maxWidth: 960,
+            margin: "0 auto",
+          }}
+            className="community-layout"
+          >
+            {/* Left sidebar */}
+            <CommunitySidebar profileOwnerId={profile.id} isOwner={isOwner} />
 
-          {/* Sticky header */}
-          <div style={{ position: "sticky", top: 0, background: "#ffffff", zIndex: 1, padding: "24px 0 14px", borderBottom: "1px solid rgba(0,0,0,0.06)", marginBottom: 0 }}>
-            <h2 style={{ fontFamily: SERIF, fontSize: "1.3rem", fontWeight: 400, color: INK, marginBottom: "14px" }}>
-              Community
-            </h2>
-            <div style={{ display: "flex", gap: "24px" }}>
-              {(["similar", "following", "trending", "all"] as DiscoverTab[]).map(tab => (
-                <button
-                  key={tab}
-                  onClick={() => setDiscoverTab(tab)}
-                  style={{
-                    fontFamily: MONO, fontSize: "11px", letterSpacing: "0.08em",
-                    textTransform: "capitalize", background: "none", border: "none",
-                    cursor: "pointer", padding: "0 0 4px",
-                    color: discoverTab === tab ? INK : MUTED,
-                    borderBottom: `1px solid ${discoverTab === tab ? INK : "transparent"}`,
-                    transition: "color 0.15s",
-                  }}
-                >
-                  {tab === "similar" ? "Similar" : tab === "following" ? "Following" : tab === "trending" ? "Trending" : "All"}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {/* Following tab content */}
-          {discoverTab === "following" ? (
-            followingState === "loading" ? (
-              <div style={{ padding: "32px 0" }}>
-                <p style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.12em", textTransform: "uppercase", color: "#ccc" }}>Loading…</p>
-              </div>
-            ) : followingState === "empty" ? (
-              <div style={{ padding: "32px 0" }}>
-                <p style={{ fontFamily: SERIF, fontStyle: "italic", fontSize: "13px", color: "#ccc", lineHeight: 1.6 }}>
-                  No lists yet from people you follow.
-                </p>
-              </div>
-            ) : (
-              followingLists.map(list => (
-                <DiscoverCard
-                  key={list.id}
-                  title={list.title}
-                  username={list.username}
-                  recordCount={`${list.itemCount} records`}
-                  badge={null}
-                  saves={list.saveCount}
-                  onSave={() => saveCard(list.id, list.title, list.username)}
-                  saved={savedCards.some(c => c.id === list.id)}
-                />
-              ))
-            )
-          ) : (
-            /* Similar / Trending / All tabs */
-            <>
+            {/* Right — list feed */}
+            <div style={{ paddingLeft: "2rem", borderLeft: `1px solid ${RULE}`, paddingTop: "24px", paddingBottom: "3rem" }}
+              className="community-feed"
+            >
               {STATIC_DISCOVER_CARDS.map(card => (
                 <DiscoverCard
                   key={card.id}
@@ -844,7 +807,7 @@ export default function ProfileClient({
                   saved={savedCards.some(c => c.id === card.id)}
                 />
               ))}
-              {sortedDiscoverLists.map(list => (
+              {discoverLists.map(list => (
                 <DiscoverCard
                   key={list.id}
                   title={list.title}
@@ -856,8 +819,8 @@ export default function ProfileClient({
                   saved={savedCards.some(c => c.id === list.id)}
                 />
               ))}
-            </>
-          )}
+            </div>
+          </div>
         </div>
       )}
 
