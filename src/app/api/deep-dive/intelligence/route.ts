@@ -4,10 +4,22 @@ import Anthropic from "@anthropic-ai/sdk";
 const client = new Anthropic();
 
 const PROMPTS: Record<string, (artist: string, ownedAlbums?: string[]) => string> = {
-  rankings: (artist) =>
-    `You are a music critic writing for serious vinyl collectors. Rank ${artist}'s studio albums from best to worst. Be specific and opinionated — name what makes each album succeed or fail. For each include a collector note about pressings worth seeking.
+  rankings: (artist, ownedAlbums = []) => {
+    const ownedBlock = ownedAlbums.length > 0
+      ? `\nCONFIRMED ALBUMS (the collector owns these — they definitely exist, include them):\n${ownedAlbums.map(a => `- ${a}`).join("\n")}\n`
+      : "";
+    return `You are a music critic writing for serious vinyl collectors. Rank ${artist}'s studio albums from best to worst.
+
+CRITICAL ACCURACY RULES — read before answering:
+- Only include albums you are certain exist. If you are not sure a title is correct, omit it.
+- Do not confuse ${artist} with any other artist. Double-check every album title and year.
+- It is far better to list 3 confirmed albums than 7 where one is fabricated.
+- "Studio albums" only — no compilations, live records, EPs, or demos unless they are widely regarded as major works.
+${ownedBlock}
+For each confirmed album: be specific and opinionated about what makes it succeed or fail, and include a collector note about pressings worth seeking.
 Return ONLY valid JSON, no markdown, no backticks, no preamble:
-{"albums":[{"rank":1,"title":"Album Title","year":1975,"review":"2-3 sentence critical review","collectorNote":"Pressing note for collectors"}]}`,
+{"albums":[{"rank":1,"title":"Album Title","year":1975,"review":"2-3 sentence critical review","collectorNote":"Pressing note for collectors"}]}`;
+  },
 
   podcasts: (artist) =>
     `You are a music research assistant. List notable podcast episodes that feature or deeply discuss ${artist}. Only include episodes where ${artist} is a main subject or guest — not passing mentions.
@@ -55,8 +67,9 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Invalid request" }, { status: 400 });
     }
 
+    const model = section === "rankings" ? "claude-sonnet-4-6" : "claude-haiku-4-5";
     const message = await client.messages.create({
-      model: "claude-haiku-4-5",
+      model,
       max_tokens: 1500,
       messages: [{ role: "user", content: PROMPTS[section](artist, ownedAlbums) }],
     });

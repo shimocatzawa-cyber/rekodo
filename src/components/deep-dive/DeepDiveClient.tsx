@@ -608,7 +608,9 @@ export default function DeepDiveClient({
     const artist = selectedArtist;
     const section = activeTab;
     const artistData = artists.find((a) => a.name === selectedArtist);
-    const ownedAlbums = section === "blindspot" ? (artistData?.records.map((r) => r.album) ?? []) : undefined;
+    const ownedAlbums = (section === "blindspot" || section === "rankings")
+      ? (artistData?.records.map((r) => r.album) ?? [])
+      : undefined;
 
     setLoadingTabs((prev) => ({ ...prev, [key]: true }));
     setErrorTabs((prev) => { const n = { ...prev }; delete n[key]; return n; });
@@ -651,7 +653,9 @@ export default function DeepDiveClient({
     startedRef.current.add(key);
 
     const artistData = artists.find((a) => a.name === artist);
-    const ownedAlbums = section === "blindspot" ? (artistData?.records.map((r) => r.album) ?? []) : undefined;
+    const ownedAlbums = (section === "blindspot" || section === "rankings")
+      ? (artistData?.records.map((r) => r.album) ?? [])
+      : undefined;
 
     fetch("/api/deep-dive/intelligence", {
       method: "POST",
