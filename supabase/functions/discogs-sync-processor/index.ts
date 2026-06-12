@@ -329,11 +329,11 @@ async function processSync(supabase: SB, jobId: string, userId: string) {
 
     // ── Phase 2c: Backfill vinyl_colour for existing records ─────────────────
     // Uses already-fetched basic_information data — no extra API calls.
-    // Stores "" (empty string) as a sentinel for "checked, no colour found"
-    // so records are never re-processed on subsequent syncs.
+    // Only writes when an actual colour is found; leaves null records as null
+    // so Phase 5 (full release API) can pick them up and check the text field.
     try {
-      const colourLookup = new Map<string, string>(
-        collectionItems.map((item) => [item.discogs_id, item.vinyl_colour ?? ""])
+      const colourLookup = new Map<string, string | null>(
+        collectionItems.map((item) => [item.discogs_id, item.vinyl_colour])
       );
 
       const allRecordIds2 = [...new Set(existingMap.values())];
@@ -349,7 +349,9 @@ async function processSync(supabase: SB, jobId: string, userId: string) {
         for (const r of data ?? []) {
           if (!r.discogs_id) continue;
           const colour = colourLookup.get(r.discogs_id);
-          if (colour !== undefined) toUpdateColour.push({ id: r.id, vinyl_colour: colour });
+          // Only write real colour values — leave null so Phase 5 can check
+          // the full release API's text field on the next pass.
+          if (colour) toUpdateColour.push({ id: r.id, vinyl_colour: colour });
         }
       }
 
@@ -457,7 +459,7 @@ async function processSync(supabase: SB, jobId: string, userId: string) {
           .select("id, discogs_id")
           .in("id", savedRecordIds.slice(i, i + BATCH))
           .not("discogs_id", "is", null)
-          .or("format.is.null,country.is.null");
+          .or("format.is.null,country.is.null,vinyl_colour.is.null");
         for (const r of data ?? []) {
           if (r.discogs_id) needingBackfill.push({ id: r.id, discogs_id: r.discogs_id as string });
         }
@@ -473,8 +475,11 @@ async function processSync(supabase: SB, jobId: string, userId: string) {
             const res = await fetch(releaseUrl, { headers: { "User-Agent": UA } });
             if (res.ok) {
               const rd = await res.json() as { formats?: Array<{ name?: string; descriptions?: string[]; text?: string }>; country?: string };
+              // Write "" as sentinel when no colour found so this record is
+              // skipped on future syncs — prevents repeated full-release fetches.
+              const colour = extractVinylColour(rd.formats) ?? "";
               await supabase.from("records")
-                .update({ format: extractFormat(rd.formats), country: rd.country ?? null, vinyl_colour: extractVinylColour(rd.formats) })
+                .update({ format: extractFormat(rd.formats), country: rd.country ?? null, vinyl_colour: colour })
                 .eq("id", record.id);
             }
           } catch { /* skip */ }
