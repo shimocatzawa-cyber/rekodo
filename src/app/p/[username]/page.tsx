@@ -23,11 +23,13 @@ export default async function PublicProfilePage({ params }: { params: Params }) 
     bio: string | null; avatar_url: string | null; is_donor: boolean;
     taste_summary: string | null; star_sign: string | null;
     bandcamp_username: string | null; role: string | null;
+    spotify_connected: boolean | null; spotify_display_name: string | null;
+    spotify_product: string | null;
   };
 
   const { data: profile } = await supabase
     .from("profiles")
-    .select("id, username, display_name, city, country, country_code, bio, avatar_url, is_donor, taste_summary, star_sign, bandcamp_username, role")
+    .select("id, username, display_name, city, country, country_code, bio, avatar_url, is_donor, taste_summary, star_sign, bandcamp_username, role, spotify_connected, spotify_display_name, spotify_product")
     .eq("username", username)
     .maybeSingle() as { data: ProfileRow | null; error: unknown };
 
@@ -148,8 +150,11 @@ export default async function PublicProfilePage({ params }: { params: Params }) 
         is_donor:          profile.is_donor          ?? false,
         taste_summary:     profile.taste_summary     ?? null,
         star_sign:         profile.star_sign         ?? null,
-        bandcamp_username: profile.bandcamp_username ?? null,
-        role:              profile.role              ?? null,
+        bandcamp_username:     profile.bandcamp_username     ?? null,
+        role:                 profile.role                 ?? null,
+        spotify_connected:    profile.spotify_connected    ?? false,
+        spotify_display_name: profile.spotify_display_name ?? null,
+        spotify_product:      profile.spotify_product      ?? null,
       }}
       isOwner={isOwner}
       totalRecords={totalRecords}

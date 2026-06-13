@@ -7,6 +7,7 @@ import type { CollectionRecord, CollectionInsights } from "@/app/collection/page
 import { persistRecordPrice } from "@/app/collection/actions";
 import { createClient } from "@/lib/supabase/client";
 import { getDesirabilityTier, type DesirabilityTier } from "@/lib/desirability";
+import SpotifyPlayer from "@/components/SpotifyPlayer";
 
 const SERIF  = "var(--font-editorial)";
 const MONO   = "var(--font-mono)";
@@ -1828,6 +1829,51 @@ function TracklistPanel({ tracks, loading, bandcamp, record }: {
     setOpenToOffers(record?.open_to_offers ?? false);
   }, [record?.id, record?.open_to_offers]);
 
+  // ── Spotify ───────────────────────────────────────────────────────────────
+  const [spotifyToken,    setSpotifyToken]    = useState<string | null>(null);
+  const [spotifyPremium,  setSpotifyPremium]  = useState(false);
+  const [currentSpotifyUri, setCurrentSpotifyUri] = useState<string | null | undefined>(undefined);
+  const spotifyUriCache = useRef<Map<string, string | null>>(new Map());
+
+  useEffect(() => {
+    fetch("/api/spotify/token")
+      .then(r => r.json() as Promise<{ connected: boolean; access_token?: string; product?: string }>)
+      .then(data => {
+        if (data.connected && data.access_token && data.product === "premium") {
+          setSpotifyToken(data.access_token);
+          setSpotifyPremium(true);
+        }
+      })
+      .catch(() => {});
+  }, []);
+
+  useEffect(() => {
+    if (!spotifyPremium || !spotifyToken || !record) {
+      setCurrentSpotifyUri(undefined);
+      return;
+    }
+    const key = record.id;
+    if (spotifyUriCache.current.has(key)) {
+      setCurrentSpotifyUri(spotifyUriCache.current.get(key) ?? null);
+      return;
+    }
+    setCurrentSpotifyUri(undefined);
+    const q = encodeURIComponent(`album:${record.album} artist:${record.artist}`);
+    fetch(`https://api.spotify.com/v1/search?q=${q}&type=album&limit=1`, {
+      headers: { Authorization: `Bearer ${spotifyToken}` },
+    })
+      .then(r => r.json())
+      .then((data: unknown) => {
+        const uri = (data as { albums?: { items?: Array<{ uri: string }> } })?.albums?.items?.[0]?.uri ?? null;
+        spotifyUriCache.current.set(key, uri);
+        setCurrentSpotifyUri(uri);
+      })
+      .catch(() => {
+        spotifyUriCache.current.set(key, null);
+        setCurrentSpotifyUri(null);
+      });
+  }, [record?.id, spotifyPremium, spotifyToken]);
+
   async function handleOpenToOffers() {
     if (!record?.id || offersLoading) return;
     const next = !openToOffers;
@@ -1875,6 +1921,16 @@ function TracklistPanel({ tracks, loading, bandcamp, record }: {
 
   return (
     <div>
+      {/* ── Spotify Player ── */}
+      {spotifyPremium && record && currentSpotifyUri && (
+        <SpotifyPlayer mode="collection" spotifyUri={currentSpotifyUri} />
+      )}
+      {spotifyPremium && record && currentSpotifyUri === null && (
+        <div style={{ padding: "10px 28px", borderBottom: "1px solid #e0e0da", fontFamily: "var(--font-mono)", fontSize: "9px", letterSpacing: "0.04em", color: "#aaaaaa" }}>
+          No Spotify match for this release.
+        </div>
+      )}
+
       {/* ── Played Today + Open to Offers ── */}
       {record && (
         <div style={{ padding: "16px 28px 0" }}>

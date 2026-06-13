@@ -4,6 +4,7 @@ import { useState, useEffect, useRef } from "react";
 import AppNav from "@/components/AppNav";
 import { addToWantlist } from "@/app/dig/actions";
 import RecordSpinner from "@/components/RecordSpinner";
+import SpotifyPlayer from "@/components/SpotifyPlayer";
 
 const SERIF  = "var(--font-editorial)";
 const MONO   = "var(--font-mono)";
@@ -126,6 +127,9 @@ function SleeveCard({ rec, mode, onAddToWantlist, wantlistAdded }: {
 }) {
   // Component remounts on every rec change (key prop), so useState resets naturally.
   const [coverUrl, setCoverUrl] = useState<string | null>(null);
+  const [spotifyPreview, setSpotifyPreview] = useState<{
+    previewUrl: string | null; trackUri: string | null;
+  } | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -143,6 +147,19 @@ function SleeveCard({ rec, mode, onAddToWantlist, wantlistAdded }: {
         if (url) setCoverUrl(url);
       })
       .catch(() => { /* fall back to vinyl disc */ });
+    return () => { cancelled = true; };
+  }, [rec.artist, rec.album]);
+
+  useEffect(() => {
+    let cancelled = false;
+    const params = new URLSearchParams({ artist: rec.artist, title: rec.album });
+    fetch(`/api/spotify/preview?${params.toString()}`)
+      .then(r => r.json() as Promise<{ preview_url: string | null; track_uri: string | null }>)
+      .then(data => {
+        if (cancelled) return;
+        setSpotifyPreview({ previewUrl: data.preview_url, trackUri: data.track_uri });
+      })
+      .catch(() => {});
     return () => { cancelled = true; };
   }, [rec.artist, rec.album]);
 
@@ -257,6 +274,17 @@ function SleeveCard({ rec, mode, onAddToWantlist, wantlistAdded }: {
 
         {/* Spacer — pushes links to the bottom */}
         <div style={{ flex: 1 }} />
+
+        {/* Spotify Player */}
+        {(spotifyPreview?.previewUrl || spotifyPreview?.trackUri) && (
+          <div style={{ marginBottom: "12px" }}>
+            <SpotifyPlayer
+              mode="dig"
+              previewUrl={spotifyPreview.previewUrl ?? undefined}
+              spotifyTrackUri={spotifyPreview.trackUri ?? undefined}
+            />
+          </div>
+        )}
 
         {/* Links */}
         <div style={{ flexShrink: 0, paddingTop: "16px", borderTop: "1px solid rgba(0,0,0,0.06)" }}>

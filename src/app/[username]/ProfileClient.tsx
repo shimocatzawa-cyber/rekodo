@@ -57,6 +57,9 @@ export interface ProfileData {
   star_sign: string | null;
   bandcamp_username: string | null;
   role: string | null;
+  spotify_connected: boolean;
+  spotify_display_name: string | null;
+  spotify_product: string | null;
 }
 
 export interface ListRow {
@@ -270,6 +273,25 @@ export default function ProfileClient({
       setBcError("Network error. Please try again.");
     } finally {
       setBcSyncing(false);
+    }
+  }
+
+  // ── Spotify ───────────────────────────────────────────────────────────────
+  const spotifyError = searchParams.get("spotify_error") === "true";
+  const [spotifyConnected,     setSpotifyConnected]     = useState(profile.spotify_connected);
+  const [spotifyDisplayName,   setSpotifyDisplayName]   = useState(profile.spotify_display_name);
+  const [spotifyProduct,       setSpotifyProduct]       = useState(profile.spotify_product);
+  const [spotifyDisconnecting, setSpotifyDisconnecting] = useState(false);
+
+  async function handleSpotifyDisconnect() {
+    setSpotifyDisconnecting(true);
+    try {
+      await fetch("/api/auth/spotify/disconnect", { method: "POST" });
+      setSpotifyConnected(false);
+      setSpotifyDisplayName(null);
+      setSpotifyProduct(null);
+    } finally {
+      setSpotifyDisconnecting(false);
     }
   }
 
@@ -591,6 +613,75 @@ export default function ProfileClient({
                     <p style={{ fontFamily: MONO, fontSize: "12px", letterSpacing: "0.04em", color: MUTED, margin: 0 }}>
                       bandcamp.com/{bandcampValue || profile.bandcamp_username}
                     </p>
+                  </div>
+                )}
+
+                {/* ── SPOTIFY ── */}
+                {isOwner && (
+                  <div style={{ marginTop: "16px", paddingTop: "16px", borderTop: `1px solid ${RULE}` }}>
+                    <p style={{
+                      fontFamily: MONO, fontSize: "9px", letterSpacing: "0.14em",
+                      textTransform: "uppercase", color: ORANGE, margin: "0 0 10px 0",
+                    }}>
+                      Spotify
+                    </p>
+
+                    {spotifyError && (
+                      <p style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.04em", color: "#9a1f1f", margin: "0 0 8px 0" }}>
+                        Connection failed. Please try again.
+                      </p>
+                    )}
+
+                    {spotifyConnected ? (
+                      <>
+                        <p style={{ fontFamily: MONO, fontSize: "11px", letterSpacing: "0.04em", color: "#0a0a0a", margin: "0 0 2px 0", display: "flex", alignItems: "center", gap: "6px" }}>
+                          <span style={{ width: "6px", height: "6px", borderRadius: "50%", background: "#1DB954", flexShrink: 0, display: "inline-block" }} />
+                          {spotifyDisplayName ?? "Connected"}
+                        </p>
+                        <p style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.04em", color: MUTED, margin: "0 0 10px 0" }}>
+                          {spotifyProduct === "premium" ? "Premium account" : "Free account"}
+                        </p>
+                        <button
+                          onClick={spotifyDisconnecting ? undefined : handleSpotifyDisconnect}
+                          disabled={spotifyDisconnecting}
+                          style={{
+                            fontFamily: MONO, fontSize: "9px", letterSpacing: "0.1em",
+                            textTransform: "uppercase",
+                            color: spotifyDisconnecting ? "#aaaaaa" : "#0a0a0a",
+                            background: "transparent",
+                            border: `1px solid ${spotifyDisconnecting ? "#dddddd" : RULE}`,
+                            padding: "5px 12px", cursor: spotifyDisconnecting ? "default" : "pointer",
+                          }}
+                          onMouseEnter={e => { if (!spotifyDisconnecting) { (e.currentTarget as HTMLButtonElement).style.color = "#9a1f1f"; (e.currentTarget as HTMLButtonElement).style.borderColor = "#9a1f1f"; }}}
+                          onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.color = "#0a0a0a"; (e.currentTarget as HTMLButtonElement).style.borderColor = RULE; }}
+                        >
+                          {spotifyDisconnecting ? "Disconnecting…" : "Disconnect"}
+                        </button>
+                      </>
+                    ) : (
+                      <>
+                        <p style={{ fontFamily: MONO, fontSize: "11px", letterSpacing: "0.04em", color: MUTED, margin: "0 0 10px 0", lineHeight: 1.6 }}>
+                          Connect Spotify to enable playback on your Collection and Dig pages.
+                        </p>
+                        <a
+                          href="/api/auth/spotify"
+                          style={{
+                            fontFamily: MONO, fontSize: "9px", letterSpacing: "0.1em",
+                            textTransform: "uppercase",
+                            color: "#0a0a0a",
+                            border: `1px solid ${RULE}`,
+                            padding: "5px 12px",
+                            textDecoration: "none", display: "inline-block",
+                          }}
+                          onMouseEnter={e => { (e.currentTarget as HTMLAnchorElement).style.color = ORANGE; (e.currentTarget as HTMLAnchorElement).style.borderColor = ORANGE; }}
+                          onMouseLeave={e => { (e.currentTarget as HTMLAnchorElement).style.color = "#0a0a0a"; (e.currentTarget as HTMLAnchorElement).style.borderColor = RULE; }}
+                        >
+                          Connect Spotify →
+                        </a>
+                      </>
+                    )}
+
+                    <div style={{ height: "1px", background: RULE, marginTop: "16px" }} />
                   </div>
                 )}
               </>
