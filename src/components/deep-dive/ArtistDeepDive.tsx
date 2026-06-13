@@ -184,6 +184,12 @@ function Rankings({ data }: { data: { albums?: Album[] } }) {
 
 type Episode = { show: string; episode: string; year: number; type: string; note: string };
 
+const podcastLinkStyle: React.CSSProperties = {
+  fontFamily: MONO, fontSize: "0.65rem", letterSpacing: "0.06em",
+  color: ORANGE, background: "none", border: "none",
+  textDecoration: "none", cursor: "pointer", padding: 0,
+};
+
 function Podcasts({ data, artist }: { data: { episodes?: Episode[] }; artist: string }) {
   const eps = data.episodes ?? [];
   return (
@@ -196,7 +202,29 @@ function Podcasts({ data, artist }: { data: { episodes?: Episode[] }; artist: st
             <Badge label={ep.type} />
           </div>
           <p style={{ fontFamily: MONO, fontSize: "0.72rem", letterSpacing: "0.04em", color: INK, margin: "0 0 6px" }}>{ep.episode}</p>
-          <p style={{ fontFamily: MONO, fontSize: "0.68rem", letterSpacing: "0.04em", color: "#777777", margin: 0, lineHeight: 1.5 }}>{ep.note}</p>
+          <p style={{ fontFamily: MONO, fontSize: "0.68rem", letterSpacing: "0.04em", color: "#777777", margin: "0 0 10px", lineHeight: 1.5 }}>{ep.note}</p>
+          <div style={{ display: "flex", gap: "1rem" }}>
+            <a
+              href={`https://open.spotify.com/search/${encodeURIComponent(ep.show + " " + ep.episode)}/podcasts`}
+              target="_blank"
+              rel="noopener noreferrer"
+              style={podcastLinkStyle}
+              onMouseEnter={e => (e.currentTarget.style.textDecoration = "underline")}
+              onMouseLeave={e => (e.currentTarget.style.textDecoration = "none")}
+            >
+              Search Spotify →
+            </a>
+            <a
+              href={`https://podcasts.apple.com/search?term=${encodeURIComponent(artist + " " + ep.show)}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              style={podcastLinkStyle}
+              onMouseEnter={e => (e.currentTarget.style.textDecoration = "underline")}
+              onMouseLeave={e => (e.currentTarget.style.textDecoration = "none")}
+            >
+              Search Apple Podcasts →
+            </a>
+          </div>
         </div>
       ))}
       {eps.length < 3 && (
@@ -211,6 +239,17 @@ function Podcasts({ data, artist }: { data: { episodes?: Episode[] }; artist: st
 // ── Books ──────────────────────────────────────────────────────────────────────
 
 type BookItem = { title: string; author: string; year: number; type: string; format: string; note: string };
+
+function getAudibleUrl(title: string, author: string): string {
+  const locale = typeof navigator !== "undefined" ? navigator.language : "";
+  let domain = "audible.com";
+  if (locale.startsWith("en-AU")) domain = "audible.com.au";
+  else if (locale.startsWith("en-GB")) domain = "audible.co.uk";
+  else if (locale.startsWith("de")) domain = "audible.de";
+  else if (locale.startsWith("fr")) domain = "audible.fr";
+  else if (locale.startsWith("ja")) domain = "audible.co.jp";
+  return `https://www.${domain}/search?keywords=${encodeURIComponent(title + " " + author)}`;
+}
 
 function Books({ data }: { data: { items?: BookItem[] } }) {
   const items = data.items ?? [];
@@ -230,10 +269,12 @@ function Books({ data }: { data: { items?: BookItem[] } }) {
           <p style={{ fontFamily: MONO, fontSize: "0.68rem", letterSpacing: "0.04em", color: "#777777", margin: "0 0 8px", lineHeight: 1.5 }}>{b.note}</p>
           {b.format.toLowerCase().includes("audiobook") && (
             <a
-              href={`https://www.audible.com/search?keywords=${encodeURIComponent(b.title)}`}
+              href={getAudibleUrl(b.title, b.author)}
               target="_blank"
               rel="noopener noreferrer"
               style={{ fontFamily: MONO, fontSize: "0.65rem", letterSpacing: "0.08em", color: ORANGE, textDecoration: "none" }}
+              onMouseEnter={e => (e.currentTarget.style.textDecoration = "underline")}
+              onMouseLeave={e => (e.currentTarget.style.textDecoration = "none")}
             >
               Find on Audible →
             </a>
