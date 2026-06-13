@@ -588,6 +588,43 @@ export default function ProfileClient({
                   </p>
                 )}
 
+                {/* ── Album recommendation ── */}
+                {profile.star_sign && (
+                  <div style={{ margin: "10px 0 12px 0" }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "6px" }}>
+                      {SIGN_SYMBOL[profile.star_sign] ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img src={SIGN_SYMBOL[profile.star_sign]} alt={profile.star_sign} style={{ height: "14px", width: "auto", opacity: 0.4 }} />
+                      ) : null}
+                      <p style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.14em", textTransform: "uppercase", color: ORANGE, margin: 0 }}>
+                        Album Recommendation
+                      </p>
+                    </div>
+                    {profile.taste_summary ? (
+                      <>
+                        <p style={{ fontFamily: SERIF, fontSize: "0.9rem", fontStyle: "italic", color: "#505050", lineHeight: 1.7, margin: "0 0 8px 0", display: "-webkit-box", WebkitLineClamp: 4, WebkitBoxOrient: "vertical", overflow: "hidden" }}>
+                          {profile.taste_summary}
+                        </p>
+                        {isOwner && (
+                          <div>
+                            <button onClick={handleGenerateSummary} disabled={summaryPending} style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.1em", textTransform: "uppercase", color: summaryPending ? "#ccc" : "#bbb", background: "none", border: "none", cursor: summaryPending ? "default" : "pointer", padding: 0 }}>
+                              {summaryPending ? "Generating…" : "Regenerate →"}
+                            </button>
+                            {summaryError && <p style={{ fontFamily: MONO, fontSize: "10px", color: "#cc3300", margin: "4px 0 0" }}>{summaryError}</p>}
+                          </div>
+                        )}
+                      </>
+                    ) : isOwner ? (
+                      <div>
+                        <button onClick={handleGenerateSummary} disabled={summaryPending} style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.1em", textTransform: "uppercase", color: summaryPending ? "#ccc" : ORANGE, background: "none", border: "none", cursor: summaryPending ? "default" : "pointer", padding: 0 }}>
+                          {summaryPending ? "Generating…" : "Generate →"}
+                        </button>
+                        {summaryError && <p style={{ fontFamily: MONO, fontSize: "10px", color: "#cc3300", margin: "4px 0 0" }}>{summaryError}</p>}
+                      </div>
+                    ) : null}
+                  </div>
+                )}
+
                 {(bioValue || profile.bio) && (
                   <p style={{ fontFamily: SERIF, fontSize: "0.95rem", fontStyle: "italic", color: "#505050", lineHeight: 1.7, margin: "0 0 8px 0", maxWidth: 560 }}>
                     {bioValue || profile.bio}
@@ -796,51 +833,6 @@ export default function ProfileClient({
 
           {/* Divider */}
           <div style={{ height: 1, background: RULE, marginBottom: "32px" }} />
-
-          {/* Album recommendation (requires star sign) */}
-          {profile.star_sign && (
-            <>
-              <div style={{ paddingBottom: "32px" }}>
-                <p style={eyebrowSt}>Horoscope Album Recommendation</p>
-                <div style={{ display: "flex", alignItems: "center", gap: "10px", margin: "0 0 16px 0" }}>
-                  {SIGN_SYMBOL[profile.star_sign] ? (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img
-                      src={SIGN_SYMBOL[profile.star_sign]}
-                      alt={profile.star_sign}
-                      style={{ height: "20px", width: "auto", opacity: 0.45 }}
-                    />
-                  ) : null}
-                  <p style={{ fontFamily: MONO, fontSize: "12px", letterSpacing: "0.04em", color: MUTED, margin: 0 }}>
-                    {profile.star_sign}
-                  </p>
-                </div>
-                {profile.taste_summary ? (
-                  <>
-                    <p style={{ fontFamily: SERIF, fontSize: "1.1rem", fontStyle: "italic", color: "#505050", lineHeight: 1.8, margin: "0 0 20px 0" }}>
-                      {profile.taste_summary}
-                    </p>
-                    {isOwner && (
-                      <div>
-                        <button onClick={handleGenerateSummary} disabled={summaryPending} style={{ fontFamily: MONO, fontSize: "10px", letterSpacing: "0.1em", textTransform: "uppercase", color: summaryPending ? "#ccc" : "#bbb", background: "none", border: "none", cursor: summaryPending ? "default" : "pointer", padding: 0 }}>
-                          {summaryPending ? "Generating…" : "Regenerate →"}
-                        </button>
-                        {summaryError && <p style={{ fontFamily: MONO, fontSize: "10px", color: "#cc3300", margin: "8px 0 0" }}>{summaryError}</p>}
-                      </div>
-                    )}
-                  </>
-                ) : isOwner ? (
-                  <div>
-                    <button onClick={handleGenerateSummary} disabled={summaryPending} style={{ fontFamily: MONO, fontSize: "10px", letterSpacing: "0.1em", textTransform: "uppercase", color: summaryPending ? "#ccc" : ORANGE, background: "none", border: "none", cursor: summaryPending ? "default" : "pointer", padding: 0 }}>
-                      {summaryPending ? "Generating…" : "Generate album recommendation →"}
-                    </button>
-                    {summaryError && <p style={{ fontFamily: MONO, fontSize: "10px", color: "#cc3300", margin: "8px 0 0" }}>{summaryError}</p>}
-                  </div>
-                ) : null}
-              </div>
-              <div style={{ height: 1, background: RULE, marginBottom: "32px" }} />
-            </>
-          )}
 
           {/* ── Collection photo ── */}
           <div style={{ marginBottom: "48px" }}>

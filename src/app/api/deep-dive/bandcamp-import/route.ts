@@ -44,60 +44,51 @@ function normalize(s: string): string {
 const UA = "Mozilla/5.0 (compatible; rekodo/1.0)";
 
 async function getFanId(username: string): Promise<{ fanId: number | null; error?: string }> {
-  const res = await fetch(`https://bandcamp.com/${username}`, {
+  const htmlRes = await fetch(`https://bandcamp.com/${username}`, {
     headers: { "User-Agent": UA, "Accept": "text/html" },
   });
 
-  if (res.status === 404) {
+  if (htmlRes.status === 404) {
     return {
       fanId: null,
-      error: "Bandcamp user not found. Check the username in your profile settings and make sure the collection is public.",
+      error: "Bandcamp user not found. Check the username in your profile settings.",
     };
   }
-  if (!res.ok) {
-    return { fanId: null, error: `Could not reach Bandcamp (status ${res.status}).` };
+  if (!htmlRes.ok) {
+    return { fanId: null, error: `Could not reach Bandcamp (status ${htmlRes.status}).` };
   }
 
-  const html = await res.text();
+  const html = await htmlRes.text();
 
-  const blobMatch = html.match(/id="pagedata"[^>]+data-blob="([^"]+)"/);
-  if (!blobMatch) {
-    return {
-      fanId: null,
-      error: "Could not parse Bandcamp profile. Make sure the collection is public.",
-    };
+  // Strategy 1: data-blob attribute (works on older Bandcamp page structure)
+  for (const match of html.matchAll(/data-blob="([^"]+)"/g)) {
+    try {
+      const raw = match[1].replace(/&quot;/g, '"').replace(/&amp;/g, '&').replace(/&#39;/g, "'");
+      const blob = JSON.parse(raw) as Record<string, unknown>;
+      type FanData = { id?: number };
+      const fanData = (blob?.fan_data ?? blob?.CurrentFan ?? blob?.FanData ?? blob?.current_fan) as FanData | undefined;
+      if (fanData?.id) return { fanId: fanData.id };
+    } catch { continue; }
   }
 
-  let blob: Record<string, unknown>;
-  try {
-    const raw = blobMatch[1]
-      .replace(/&quot;/g, '"')
-      .replace(/&amp;/g, "&")
-      .replace(/&#39;/g, "'");
-    blob = JSON.parse(raw) as Record<string, unknown>;
-  } catch {
-    return { fanId: null, error: "Could not parse Bandcamp profile data." };
+  // Strategy 2: fan_id embedded directly in HTML (script tags, gift links, etc.)
+  const inlineMatch = html.match(/"fan_id"\s*:\s*(\d+)/) ?? html.match(/[?&]fan_id=(\d+)/);
+  if (inlineMatch) return { fanId: parseInt(inlineMatch[1], 10) };
+
+  // Strategy 3: wishlist RSS feed — Bandcamp embeds fan_id in gift link query params
+  const rssRes = await fetch(`https://bandcamp.com/${username}/wishlist?format=rss`, {
+    headers: { "User-Agent": UA },
+  });
+  if (rssRes.ok) {
+    const rssText = await rssRes.text();
+    const rssMatch = rssText.match(/[?&]fan_id=(\d+)/);
+    if (rssMatch) return { fanId: parseInt(rssMatch[1], 10) };
   }
 
-  type FanData = { id?: number; collection_count?: number };
-  const fanData = (blob?.fan_data ?? blob?.CurrentFan ?? blob?.FanData) as FanData | undefined;
-  const fanId   = fanData?.id ?? null;
-
-  if (!fanId) {
-    return {
-      fanId: null,
-      error: "This Bandcamp collection is private. Make your collection public in Bandcamp settings, then re-import.",
-    };
-  }
-
-  if (fanData?.collection_count === 0) {
-    return {
-      fanId: null,
-      error: "This Bandcamp collection is private. Make your collection public in Bandcamp settings, then re-import.",
-    };
-  }
-
-  return { fanId };
+  return {
+    fanId: null,
+    error: "Could not find your Bandcamp fan ID. Make sure your collection is set to Public in your Bandcamp account settings.",
+  };
 }
 
 type CollectionItem = { band_name: string; album_title: string };
