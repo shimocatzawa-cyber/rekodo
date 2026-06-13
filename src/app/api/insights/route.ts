@@ -20,15 +20,20 @@ export async function POST() {
 
   const collectionCount = links.length;
 
-  // Return cached summary when collection size hasn't changed
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("taste_summary, taste_summary_count")
-    .eq("id", user.id)
+  // Cache in taste_profile_cache.profile_data under a dedicated key,
+  // keeping it separate from taste_summary (used for album recommendations on profile page)
+  const { data: cached } = await (supabase as any)
+    .from("taste_profile_cache")
+    .select("profile_data, record_count_at_generation")
+    .eq("user_id", user.id)
     .maybeSingle();
 
-  if (profile?.taste_summary && profile.taste_summary_count === collectionCount) {
-    return Response.json({ oneLiner: profile.taste_summary });
+  type ProfileData = Record<string, unknown> & { collectionSummary?: string };
+  const cachedData    = (cached?.profile_data ?? {}) as ProfileData;
+  const cachedCount   = cached?.record_count_at_generation ?? 0;
+
+  if (cachedData.collectionSummary && cachedCount === collectionCount) {
+    return Response.json({ oneLiner: cachedData.collectionSummary });
   }
 
   const recordIds = links.map(l => l.record_id);
@@ -49,21 +54,21 @@ export async function POST() {
   const genreMap = new Map<string, number>();
   for (const r of allRecords) if (r.genre) genreMap.set(r.genre, (genreMap.get(r.genre) ?? 0) + 1);
   const topGenres = [...genreMap.entries()]
-    .sort((a, b) => b[1] - a[1]).slice(0, 3)
-    .map(([g, n]) => `${g} ${Math.round((n / allRecords.length) * 100)}%`).join(", ");
+    .sort((a, b) => b[1] - a[1]).slice(0, 5)
+    .map(([g, n]) => `${g} (${Math.round((n / allRecords.length) * 100)}%)`).join(", ");
 
-  // Peak decade
+  // Decade breakdown
   const decadeMap = new Map<string, number>();
   for (const r of allRecords) {
     if (!r.year) continue;
     const d = r.year < 1960 ? "pre-1960s" : `${Math.floor(r.year / 10) * 10}s`;
     decadeMap.set(d, (decadeMap.get(d) ?? 0) + 1);
   }
-  const topDecade = decadeMap.size > 0
-    ? [...decadeMap.entries()].sort((a, b) => b[1] - a[1])[0][0]
-    : null;
+  const topDecades = [...decadeMap.entries()]
+    .sort((a, b) => b[1] - a[1]).slice(0, 3)
+    .map(([d, n]) => `${d} (${n})`).join(", ");
 
-  // Artist frequency (completist detection)
+  // Artist obsessions
   const artistMap = new Map<string, number>();
   for (const r of allRecords) artistMap.set(r.artist, (artistMap.get(r.artist) ?? 0) + 1);
   const topArtists = [...artistMap.entries()]
@@ -71,19 +76,19 @@ export async function POST() {
     .filter(([, n]) => n >= 2)
     .map(([a, n]) => `${a} (${n})`).join(", ");
 
-  // Top label
+  // Top labels
   const labelMap = new Map<string, number>();
   for (const r of allRecords) if (r.label) labelMap.set(r.label, (labelMap.get(r.label) ?? 0) + 1);
-  const topLabelEntry = labelMap.size > 0
-    ? [...labelMap.entries()].sort((a, b) => b[1] - a[1])[0]
-    : null;
+  const topLabels = [...labelMap.entries()]
+    .sort((a, b) => b[1] - a[1]).slice(0, 3)
+    .map(([l, n]) => `${l} (${n})`).join(", ");
 
-  const summary = [
+  const collectionData = [
     `Total: ${allRecords.length} records`,
-    topGenres     && `Genres: ${topGenres}`,
-    topDecade     && `Peak decade: ${topDecade}`,
-    topLabelEntry && `Top label: ${topLabelEntry[0]} (${topLabelEntry[1]} records)`,
-    topArtists    && `Multiple records by same artist: ${topArtists}`,
+    topGenres   && `Genres: ${topGenres}`,
+    topDecades  && `Decades: ${topDecades}`,
+    topLabels   && `Top labels: ${topLabels}`,
+    topArtists  && `Artist obsessions: ${topArtists}`,
   ].filter(Boolean).join("\n");
 
   try {
@@ -93,21 +98,26 @@ export async function POST() {
       system: [
         {
           type: "text",
-          text: "You analyse vinyl record collections and write exactly 1–2 sentences (under 35 words total) revealing the collector's musical personality. Be specific — reference artists, labels, decades, or genres. Start with 'Your'. Return only the sentences, no quotes.",
+          text: "You are a perceptive music critic writing a short reflection on a vinyl collection. Write exactly 2 sentences (under 40 words total) that analyse what this collection reveals — the collector's obsessions, crate-digging instincts, label loyalties, or era fixations. Be specific: reference real genres, labels, artists, or decades from the data. Start with 'Your collection'. No quotes, no album recommendations.",
           cache_control: { type: "ephemeral" },
         },
       ],
-      messages: [{ role: "user", content: summary }],
+      messages: [{ role: "user", content: collectionData }],
     });
+
     const block = msg.content[0];
     if (block.type !== "text") throw new Error("Unexpected response");
     const oneLiner = block.text.trim().replace(/^["']|["']$/g, "");
 
-    // Persist so subsequent calls return instantly until collection size changes
-    await supabase
-      .from("profiles")
-      .update({ taste_summary: oneLiner, taste_summary_count: collectionCount })
-      .eq("id", user.id);
+    // Store in taste_profile_cache without touching taste_summary
+    await (supabase as any)
+      .from("taste_profile_cache")
+      .upsert({
+        user_id:                    user.id,
+        profile_data:               { ...cachedData, collectionSummary: oneLiner },
+        record_count_at_generation: collectionCount,
+        generated_at:               new Date().toISOString(),
+      }, { onConflict: "user_id" });
 
     return Response.json({ oneLiner });
   } catch (err) {
