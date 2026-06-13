@@ -16,6 +16,7 @@ import { createList, deleteList } from "@/app/lists/actions";
 import WantlistClient from "@/components/wantlist/WantlistClient";
 import SupporterContent from "@/components/profile/SupporterContent";
 import CommunitySidebar from "@/components/community/CommunitySidebar";
+import LunarListeningRitual from "@/components/LunarListeningRitual";
 import type { UserList, DiscoverList } from "@/app/lists/types";
 
 const SERIF  = "var(--font-editorial)";
@@ -841,6 +842,11 @@ export default function ProfileClient({
               userId={profile.id}
               isOwner={isOwner}
             />
+          </div>
+
+          {/* ── Lunar Listening Ritual ── */}
+          <div style={{ marginBottom: "48px" }}>
+            <LunarListeningRitual />
           </div>
 
           {/* ── Lists section ── */}
