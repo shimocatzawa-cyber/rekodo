@@ -1,6 +1,7 @@
 import { type NextRequest, NextResponse } from "next/server";
 import Anthropic from "@anthropic-ai/sdk";
 
+export const runtime = "edge";
 export const maxDuration = 60;
 
 const client = new Anthropic();
@@ -89,7 +90,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Invalid request" }, { status: 400 });
     }
 
-    const model = "claude-haiku-4-5";
+    const model = (section === "rankings" || section === "blindspot") ? "claude-sonnet-4-6" : "claude-haiku-4-5";
     const maxTokens = (section === "rankings" || section === "blindspot") ? 4096 : 1500;
     // For rankings, cap owned albums at 8 — enough to anchor factual accuracy
     // without making the prompt so long it slows the model down.
