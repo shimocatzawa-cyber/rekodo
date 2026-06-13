@@ -306,7 +306,7 @@ export default async function InsightsPage() {
   }
   const topArtists: InsightsProps["topArtists"] = [...artistCounts.entries()]
     .sort((a, b) => b[1].count - a[1].count)
-    .slice(0, 5)
+    .slice(0, 10)
     .map(([artist, { count, valueSum }]) => ({ artist, count, valueSum }));
 
   // ── Label Obsession ────────────────────────────────────────────────────────
@@ -321,7 +321,7 @@ export default async function InsightsPage() {
   }
   const topLabels: InsightsProps["topLabels"] = [...labelCounts.entries()]
     .sort((a, b) => b[1].count - a[1].count)
-    .slice(0, 5)
+    .slice(0, 10)
     .map(([label, { count, valueSum }]) => ({ label, count, valueSum }));
 
   // ── Stats bar supplemental data ───────────────────────────────────────────

@@ -309,10 +309,10 @@ export default function InsightsClient({
             <SubLabel>Collection by desirability</SubLabel>
             <div style={{ borderTop: `0.5px solid ${RULE}` }}>
               <div style={{
-                display: "grid", gridTemplateColumns: "160px 1fr 1fr",
+                display: "grid", gridTemplateColumns: "1fr 80px 160px",
                 gap: "16px", padding: "10px 0", borderBottom: `0.5px solid ${RULE}`,
               }}>
-                {["Tier", "Items", "Est. Value"].map((h) => (
+                {["Tier", "Items", "Market Value"].map((h) => (
                   <span key={h} style={{
                     fontFamily: MONO, fontSize: "9px", fontWeight: 700,
                     letterSpacing: "0.12em", textTransform: "uppercase", color: INK,
@@ -325,7 +325,7 @@ export default function InsightsClient({
                 const meta = TIER_META[tier];
                 return (
                   <div key={tier} style={{
-                    display: "grid", gridTemplateColumns: "160px 1fr 1fr",
+                    display: "grid", gridTemplateColumns: "1fr 80px 160px",
                     gap: "16px", padding: "12px 0", borderBottom: `0.5px solid ${RULE}`,
                     alignItems: "center",
                   }}>
@@ -472,7 +472,7 @@ export default function InsightsClient({
                 }}>
                   <span style={{ fontFamily: MONO, fontSize: "11px", color: INK }}>{genre}</span>
                   <span style={{ fontFamily: MONO, fontSize: "11px", color: INK, whiteSpace: "nowrap" }}>
-                    {count} items · <span style={{ color: ORANGE }}>{pct}%</span>
+                    {count} · <span style={{ color: ORANGE }}>{pct}%</span>
                   </span>
                 </div>
                 <PercentBar pct={pct} maxPct={maxGenrePct} />
@@ -496,7 +496,7 @@ export default function InsightsClient({
                 }}>
                   <span style={{ fontFamily: MONO, fontSize: "11px", color: INK }}>{style}</span>
                   <span style={{ fontFamily: MONO, fontSize: "11px", color: INK }}>
-                    {count}{" "}<span style={{ color: ORANGE }}>{pct}%</span>
+                    {count} items · <span style={{ color: ORANGE }}>{pct}%</span>
                   </span>
                 </div>
                 <PercentBar pct={pct} maxPct={maxStylePct} />
@@ -545,30 +545,30 @@ export default function InsightsClient({
         <SectionDivider />
 
         {/* ── Section 5: Label Obsession ────────────────────────────────────── */}
-        <SectionHeader eyebrow="Label Obsession" title="Who you keep going back to." />
+        <SectionHeader eyebrow="Most Collected" title="Who you keep going back to." />
 
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "48px" }}>
           {/* Labels */}
           <div>
-            <SubLabel>Top 5 Labels</SubLabel>
+            <SubLabel>Top 10 Labels</SubLabel>
             {topLabels.length === 0 ? (
               <p style={{ fontFamily: MONO, fontSize: "11px", color: INK, margin: 0 }}>
                 No label data available.
               </p>
             ) : (
-              <div style={{ display: "flex", flexDirection: "column", gap: "24px" }}>
+              <div style={{ display: "flex", flexDirection: "column", gap: "14px" }}>
                 {topLabels.map(({ label, count, valueSum }, i) => (
-                  <div key={label} style={{ display: "flex", alignItems: "flex-start", gap: "16px" }}>
+                  <div key={label} style={{ display: "flex", alignItems: "flex-start", gap: "12px" }}>
                     <span style={{
-                      fontFamily: SERIF, fontSize: "30px", fontWeight: 700,
-                      color: ORANGE, lineHeight: 1, minWidth: "38px",
+                      fontFamily: SERIF, fontSize: "18px", fontWeight: 700,
+                      color: ORANGE, lineHeight: 1, minWidth: "28px",
                     }}>
                       {String(i + 1).padStart(2, "0")}
                     </span>
-                    <div style={{ flex: 1, paddingTop: "3px" }}>
+                    <div style={{ flex: 1, paddingTop: "2px" }}>
                       <div style={{
-                        fontFamily: MONO, fontSize: "12px", letterSpacing: "0.04em",
-                        color: INK, marginBottom: "3px",
+                        fontFamily: MONO, fontSize: "11px", letterSpacing: "0.04em",
+                        color: INK, marginBottom: "2px",
                       }}>
                         {label}
                       </div>
@@ -585,25 +585,25 @@ export default function InsightsClient({
 
           {/* Artists */}
           <div>
-            <SubLabel>Top 5 Artists</SubLabel>
+            <SubLabel>Top 10 Artists</SubLabel>
             {topArtists.length === 0 ? (
               <p style={{ fontFamily: MONO, fontSize: "11px", color: INK, margin: 0 }}>
                 No artist data available.
               </p>
             ) : (
-              <div style={{ display: "flex", flexDirection: "column", gap: "24px" }}>
+              <div style={{ display: "flex", flexDirection: "column", gap: "14px" }}>
                 {topArtists.map(({ artist, count, valueSum }, i) => (
-                  <div key={artist} style={{ display: "flex", alignItems: "flex-start", gap: "16px" }}>
+                  <div key={artist} style={{ display: "flex", alignItems: "flex-start", gap: "12px" }}>
                     <span style={{
-                      fontFamily: SERIF, fontSize: "30px", fontWeight: 700,
-                      color: ORANGE, lineHeight: 1, minWidth: "38px",
+                      fontFamily: SERIF, fontSize: "18px", fontWeight: 700,
+                      color: ORANGE, lineHeight: 1, minWidth: "28px",
                     }}>
                       {String(i + 1).padStart(2, "0")}
                     </span>
-                    <div style={{ flex: 1, paddingTop: "3px" }}>
+                    <div style={{ flex: 1, paddingTop: "2px" }}>
                       <div style={{
-                        fontFamily: MONO, fontSize: "12px", letterSpacing: "0.04em",
-                        color: INK, marginBottom: "3px",
+                        fontFamily: MONO, fontSize: "11px", letterSpacing: "0.04em",
+                        color: INK, marginBottom: "2px",
                       }}>
                         {artist}
                       </div>
