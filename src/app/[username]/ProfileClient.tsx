@@ -581,16 +581,18 @@ export default function ProfileClient({
                   {(profile.is_donor || profile.role === "admin") && (
                     <span style={{ fontFamily: SERIF, fontSize: "clamp(16px, 2.5vw, 24px)", fontWeight: 400, color: "#B8860B", lineHeight: 1.1 }} title="rekōdo supporter">ō</span>
                   )}
+                </div>
+
+                <div style={{ display: "flex", alignItems: "center", gap: "8px", margin: "0 0 6px 0" }}>
+                  <p style={{ fontFamily: MONO, fontSize: "12px", letterSpacing: "0.04em", color: MUTED, margin: 0 }}>
+                    @{profile.username}
+                  </p>
                   {profile.role === "admin" && (
                     <span style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.14em", textTransform: "uppercase", color: ORANGE, border: `1px solid ${ORANGE}`, padding: "3px 7px", lineHeight: 1, whiteSpace: "nowrap" }}>
                       Admin
                     </span>
                   )}
                 </div>
-
-                <p style={{ fontFamily: MONO, fontSize: "12px", letterSpacing: "0.04em", color: MUTED, margin: "0 0 6px 0" }}>
-                  @{profile.username}
-                </p>
 
                 {(followerCount > 0 || followingCount > 0) && (
                   <p style={{ fontFamily: MONO, fontSize: "12px", letterSpacing: "0.04em", color: MUTED, margin: "0 0 8px 0" }}>
@@ -754,7 +756,7 @@ export default function ProfileClient({
                 )}
 
                 {/* ── Lunar Listening Ritual ── */}
-                <div style={{ marginTop: "16px", paddingTop: "16px", borderTop: `1px solid ${RULE}` }}>
+                <div style={{ marginTop: "16px" }}>
                   <LunarListeningRitual />
                 </div>
 

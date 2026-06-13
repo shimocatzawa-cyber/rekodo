@@ -71,7 +71,7 @@ export default function LunarListeningRitual() {
   const ritual = RITUALS[ritualKey];
 
   return (
-    <div style={{ fontFamily: "var(--font-mono)", color: "#0a0a0a", borderTop: "1px solid #e0e0da", borderBottom: "1px solid #e0e0da" }}>
+    <div style={{ fontFamily: "var(--font-mono)", color: "#0a0a0a", borderTop: "1px solid #e0e0da" }}>
 
       {/* Eyebrow row */}
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "10px 20px", borderBottom: "1px solid #e0e0da" }}>
@@ -104,7 +104,7 @@ export default function LunarListeningRitual() {
       </div>
 
       {/* Footer */}
-      <div style={{ borderTop: "1px solid #e0e0da", padding: "9px 20px" }}>
+      <div style={{ padding: "9px 20px" }}>
         <span style={{ fontSize: "0.52rem", letterSpacing: "0.08em", textTransform: "uppercase", opacity: 0.35 }}>
           Changes with the moon
         </span>
