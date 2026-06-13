@@ -43,7 +43,6 @@ export default async function AdminPage() {
   // Build user list from auth (source of truth — includes everyone)
   const users: AdminUser[] = authUsers.map(u => {
     const p = profileById.get(u.id);
-    const bannedUntil = ((u as unknown) as Record<string, unknown>).banned_until as string | null ?? null;
     return {
       id:                u.id,
       username:          p?.username ?? null,
@@ -52,7 +51,7 @@ export default async function AdminPage() {
       role:              p?.role ?? null,
       created_at:        p?.created_at ?? u.created_at,
       last_sign_in_at:   u.last_sign_in_at ?? null,
-      banned_until:      bannedUntil,
+      banned_until:      u.banned_until ?? null,
       record_count:      recordCountMap.get(u.id) ?? 0,
     };
   }).sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
