@@ -247,6 +247,32 @@ export default function ProfileClient({
   const [starSignValue, setStarSignValue] = useState(profile.star_sign         ?? "");
   const [bandcampValue, setBandcampValue] = useState(profile.bandcamp_username ?? "");
 
+  // ── Bandcamp sync ─────────────────────────────────────────────────────────
+  const [bcSyncing, setBcSyncing] = useState(false);
+  const [bcError,   setBcError]   = useState<string | null>(null);
+
+  async function runBandcampSync() {
+    setBcSyncing(true);
+    setBcError(null);
+    try {
+      const res  = await fetch("/api/deep-dive/bandcamp-import", {
+        method:  "POST",
+        headers: { "Content-Type": "application/json" },
+        body:    JSON.stringify({ userId: profile.id }),
+      });
+      const json = await res.json() as { success?: boolean; error?: string };
+      if (!res.ok || json.error) {
+        setBcError(json.error ?? "Sync failed. Please try again.");
+      } else {
+        router.refresh();
+      }
+    } catch {
+      setBcError("Network error. Please try again.");
+    } finally {
+      setBcSyncing(false);
+    }
+  }
+
   // ── Taste summary ─────────────────────────────────────────────────────────
   const [summaryPending, startSummaryTransition] = useTransition();
   const [summaryError,   setSummaryError]        = useState<string | null>(null);
@@ -545,9 +571,34 @@ export default function ProfileClient({
                 )}
 
                 {(bandcampValue || profile.bandcamp_username) && (
-                  <p style={{ fontFamily: MONO, fontSize: "12px", letterSpacing: "0.04em", color: MUTED, margin: 0 }}>
-                    bandcamp.com/{bandcampValue || profile.bandcamp_username}
-                  </p>
+                  <div style={{ margin: 0 }}>
+                    {isOwner && profile.bandcamp_username && (
+                      <div style={{ marginBottom: "4px" }}>
+                        <button
+                          type="button"
+                          onClick={bcSyncing ? undefined : runBandcampSync}
+                          disabled={bcSyncing}
+                          style={{
+                            fontFamily: MONO, fontSize: "10px", letterSpacing: "0.06em",
+                            color: bcSyncing ? "#aaaaaa" : ORANGE,
+                            background: "none", border: "none",
+                            cursor: bcSyncing ? "default" : "pointer",
+                            padding: 0,
+                          }}
+                        >
+                          {bcSyncing ? "Syncing Bandcamp…" : "Sync Bandcamp →"}
+                        </button>
+                        {bcError && (
+                          <p style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.04em", color: "#cc3300", margin: "2px 0 0" }}>
+                            {bcError}
+                          </p>
+                        )}
+                      </div>
+                    )}
+                    <p style={{ fontFamily: MONO, fontSize: "12px", letterSpacing: "0.04em", color: MUTED, margin: 0 }}>
+                      bandcamp.com/{bandcampValue || profile.bandcamp_username}
+                    </p>
+                  </div>
                 )}
               </>
             )}

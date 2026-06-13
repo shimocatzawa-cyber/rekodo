@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { useRouter } from "next/navigation";
 
 const SERIF  = "var(--font-editorial)";
 const MONO   = "var(--font-mono)";
@@ -594,49 +593,12 @@ function EmptyPanel() {
 
 // ── Main component ─────────────────────────────────────────────────────────────
 
-type BandcampSyncState = "idle" | "syncing" | "done" | "error";
-
-function formatSyncDate(iso: string): string {
-  return new Date(iso).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
-}
-
 export default function DeepDiveClient({
-  artists, userId, bandcampUsername, lastSyncDate: initialSyncDate,
+  artists,
 }: {
   artists: ArtistData[];
-  userId: string;
-  bandcampUsername: string | null;
-  lastSyncDate: string | null;
 }) {
-  const router = useRouter();
   const [query, setQuery] = useState("");
-  const [bcSyncState, setBcSyncState] = useState<BandcampSyncState>("idle");
-  const [bcSyncDate,  setBcSyncDate]  = useState<string | null>(initialSyncDate);
-  const [bcError,     setBcError]     = useState<string | null>(null);
-
-  async function runBandcampSync() {
-    setBcSyncState("syncing");
-    setBcError(null);
-    try {
-      const res  = await fetch("/api/deep-dive/bandcamp-import", {
-        method:  "POST",
-        headers: { "Content-Type": "application/json" },
-        body:    JSON.stringify({ userId }),
-      });
-      const json = await res.json() as { success?: boolean; error?: string };
-      if (!res.ok || json.error) {
-        setBcError(json.error ?? "Sync failed. Please try again.");
-        setBcSyncState("error");
-      } else {
-        setBcSyncDate(new Date().toISOString());
-        setBcSyncState("done");
-        router.refresh();
-      }
-    } catch {
-      setBcError("Network error. Please try again.");
-      setBcSyncState("error");
-    }
-  }
   const [selectedArtist, setSelectedArtist] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<Section>("rankings");
   const [imageMap, setImageMap] = useState<Record<string, string>>({});
@@ -884,34 +846,23 @@ export default function DeepDiveClient({
           overflowY: "auto",
           alignSelf: "flex-start",
         }}>
-          {/* Bandcamp sync row */}
-          {bandcampUsername && (
-            <div style={{ padding: "8px 1rem 0", borderBottom: `1px solid ${RULE}` }}>
+          {/* Randomiser */}
+          {artists.length > 0 && (
+            <div style={{ padding: "8px 1rem", borderBottom: `1px solid ${RULE}` }}>
               <button
                 type="button"
-                onClick={bcSyncState === "syncing" ? undefined : runBandcampSync}
-                disabled={bcSyncState === "syncing"}
+                onClick={() => {
+                  const idx = Math.floor(Math.random() * artists.length);
+                  selectArtist(artists[idx].name);
+                }}
                 style={{
                   fontFamily: MONO, fontSize: "10px", letterSpacing: "0.06em",
-                  color: bcSyncState === "syncing" ? "#aaaaaa" : ORANGE,
-                  background: "none", border: "none",
-                  cursor: bcSyncState === "syncing" ? "default" : "pointer",
-                  padding: 0, display: "block",
+                  color: ORANGE, background: "none", border: "none",
+                  cursor: "pointer", padding: 0,
                 }}
               >
-                {bcSyncState === "syncing" ? "Syncing Bandcamp…" : "Sync Bandcamp →"}
+                ↺ Randomiser
               </button>
-              {bcError && (
-                <p style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.04em", color: "#cc3300", margin: "3px 0 0" }}>
-                  {bcError}
-                </p>
-              )}
-              {bcSyncDate && !bcError && (
-                <p style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.04em", color: "#bbbbbb", margin: "3px 0 0" }}>
-                  Last sync: {formatSyncDate(bcSyncDate)}
-                </p>
-              )}
-              <div style={{ height: 8 }} />
             </div>
           )}
           <input

@@ -13,16 +13,15 @@ export default async function DeepDivePage() {
   const emailPrefix = (user.email ?? "").split("@")[0] || "user";
   const { data: profile } = await supabase
     .from("profiles")
-    .select("username, display_name, avatar_url, bandcamp_username")
+    .select("username, display_name, avatar_url")
     .eq("id", user.id)
     .maybeSingle();
 
-  const autoGen          = `${emailPrefix}_${user.id.slice(0, 6)}`;
-  const raw              = profile?.username ?? null;
-  const username         = (raw && raw !== autoGen) ? raw : (profile?.display_name?.trim() || emailPrefix);
-  const displayLabel     = profile?.display_name?.trim() || username;
-  const avatarUrl        = profile?.avatar_url ?? null;
-  const bandcampUsername = profile?.bandcamp_username ?? null;
+  const autoGen      = `${emailPrefix}_${user.id.slice(0, 6)}`;
+  const raw          = profile?.username ?? null;
+  const username     = (raw && raw !== autoGen) ? raw : (profile?.display_name?.trim() || emailPrefix);
+  const displayLabel = profile?.display_name?.trim() || username;
+  const avatarUrl    = profile?.avatar_url ?? null;
 
   // Fetch all user_record links (paginated)
   type LinkRow = { record_id: string };
@@ -98,25 +97,11 @@ export default async function DeepDivePage() {
     }))
     .sort((a, b) => b.count - a.count || a.name.localeCompare(b.name));
 
-  // Fetch last Bandcamp sync date
-  const { data: importRows } = await supabase
-    .from("digital_imports")
-    .select("imported_at")
-    .eq("user_id", user.id)
-    .eq("source", "bandcamp")
-    .order("imported_at", { ascending: false })
-    .limit(1);
-
-  const lastSyncDate = importRows?.[0]?.imported_at ?? null;
-
   return (
     <>
       <AppNav username={username} displayLabel={displayLabel} avatarUrl={avatarUrl} />
       <DeepDiveClient
         artists={artists}
-        userId={user.id}
-        bandcampUsername={bandcampUsername}
-        lastSyncDate={lastSyncDate}
       />
     </>
   );
