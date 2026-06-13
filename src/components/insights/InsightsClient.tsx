@@ -312,7 +312,7 @@ export default function InsightsClient({
                 display: "grid", gridTemplateColumns: "160px 1fr 1fr",
                 gap: "16px", padding: "10px 0", borderBottom: `0.5px solid ${RULE}`,
               }}>
-                {["Tier", "Records", "Est. Value"].map((h) => (
+                {["Tier", "Items", "Est. Value"].map((h) => (
                   <span key={h} style={{
                     fontFamily: MONO, fontSize: "9px", fontWeight: 700,
                     letterSpacing: "0.12em", textTransform: "uppercase", color: INK,
@@ -354,7 +354,7 @@ export default function InsightsClient({
         {/* Top 5 records */}
         {topRecordsByValue.length > 0 && (
           <div>
-            <SubLabel>Top records by value</SubLabel>
+            <SubLabel>Top items by value</SubLabel>
             <div style={{ borderTop: `0.5px solid ${RULE}` }}>
               <div style={{
                 display: "grid", gridTemplateColumns: "44px 1fr 1fr 160px",
@@ -472,7 +472,7 @@ export default function InsightsClient({
                 }}>
                   <span style={{ fontFamily: MONO, fontSize: "11px", color: INK }}>{genre}</span>
                   <span style={{ fontFamily: MONO, fontSize: "11px", color: INK, whiteSpace: "nowrap" }}>
-                    {count} records · <span style={{ color: ORANGE }}>{pct}%</span>
+                    {count} items · <span style={{ color: ORANGE }}>{pct}%</span>
                   </span>
                 </div>
                 <PercentBar pct={pct} maxPct={maxGenrePct} />
@@ -508,7 +508,7 @@ export default function InsightsClient({
         <SectionDivider />
 
         {/* ── Section 4: Geographic DNA ──────────────────────────────────────── */}
-        <SectionHeader eyebrow="Geographic DNA" title="Where your records come from." />
+        <SectionHeader eyebrow="Geographic DNA" title="Where your items come from." />
 
         <SubLabel>Pressing Origins</SubLabel>
         {countryBreakdown.length === 0 ? (
@@ -533,7 +533,7 @@ export default function InsightsClient({
                     <span style={{ fontFamily: MONO, fontSize: "11px", color: INK }}>{country}</span>
                   </div>
                   <span style={{ fontFamily: MONO, fontSize: "11px", color: INK, whiteSpace: "nowrap" }}>
-                    {count} records · <span style={{ color: ORANGE }}>{pct}%</span>
+                    {count} items · <span style={{ color: ORANGE }}>{pct}%</span>
                   </span>
                 </div>
                 <PercentBar pct={count} maxPct={maxCountryCount} />
@@ -573,7 +573,7 @@ export default function InsightsClient({
                         {label}
                       </div>
                       <div style={{ fontFamily: MONO, fontSize: "10px", color: INK }}>
-                        {count} record{count !== 1 ? "s" : ""}
+                        {count} item{count !== 1 ? "s" : ""}
                         {valueSum > 0 && <> · <span style={{ color: ORANGE }}>{fmtCurrency(valueSum, currency)}</span></>}
                       </div>
                     </div>
@@ -608,7 +608,7 @@ export default function InsightsClient({
                         {artist}
                       </div>
                       <div style={{ fontFamily: MONO, fontSize: "10px", color: INK }}>
-                        {count} record{count !== 1 ? "s" : ""}
+                        {count} item{count !== 1 ? "s" : ""}
                         {valueSum > 0 && <> · <span style={{ color: ORANGE }}>{fmtCurrency(valueSum, currency)}</span></>}
                       </div>
                     </div>
@@ -654,7 +654,7 @@ export default function InsightsClient({
                   }}>
                     <span style={{ fontFamily: MONO, fontSize: "11px", color: INK }}>{colour}</span>
                     <span style={{ fontFamily: MONO, fontSize: "11px", color: INK, whiteSpace: "nowrap" }}>
-                      {count} record{count !== 1 ? "s" : ""} · <span style={{ color: ORANGE }}>{pct}%</span>
+                      {count} item{count !== 1 ? "s" : ""} · <span style={{ color: ORANGE }}>{pct}%</span>
                     </span>
                   </div>
                   <PercentBar pct={pct} maxPct={vinylColourBreakdown[0].pct} />
