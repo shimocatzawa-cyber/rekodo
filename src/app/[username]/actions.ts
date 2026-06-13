@@ -69,11 +69,11 @@ export async function generateTasteSummary(
   try {
     const msg = await anthropic.messages.create({
       model: "claude-haiku-4-5-20251001",
-      max_tokens: 200,
+      max_tokens: 80,
       system: [
         {
           type: "text",
-          text: "You are rekōdo, a music recommendation app for serious vinyl collectors. Based on a collector's taste profile and star sign, recommend ONE specific album they don't already own. Start with the album title and artist in the format 'Title by Artist —' then write 2 sentences explaining why it suits both their established taste and their star sign's character. Be specific and poetic — no generic phrases. Return only the recommendation, no quotes or extra formatting.",
+          text: "You are rekōdo, a music recommendation app for serious vinyl collectors. Based on a collector's taste profile and star sign, recommend ONE specific album they don't already own. Format: 'Title by Artist — ' then ONE sentence (max 20 words) on why it fits their taste and star sign. Be specific and poetic. Total response must be under 50 words. No quotes, no extra formatting.",
           cache_control: { type: "ephemeral" },
         },
       ],
