@@ -781,10 +781,10 @@ export default function ProfileClient({
                             <div style={{ minWidth: 0 }}>
                               {rec ? (
                                 <>
-                                  <p style={{ fontFamily: MONO, fontSize: "0.65rem", fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase", color: INK, margin: "0 0 1px 0" }}>
+                                  <p style={{ fontFamily: SERIF, fontSize: "0.85rem", fontWeight: 600, color: INK, margin: "0 0 1px 0", lineHeight: 1.3 }}>
                                     {rec.artist}
                                   </p>
-                                  <p style={{ fontFamily: SERIF, fontSize: "0.85rem", fontWeight: 600, color: INK, margin: "0 0 6px 0", lineHeight: 1.3 }}>
+                                  <p style={{ fontFamily: SERIF, fontSize: "0.75rem", fontWeight: 600, color: INK, margin: "0 0 6px 0", lineHeight: 1.3 }}>
                                     {rec.album}
                                   </p>
                                   <p style={{ fontFamily: SERIF, fontSize: "0.85rem", fontStyle: "italic", color: "#505050", lineHeight: 1.6, margin: 0 }}>
