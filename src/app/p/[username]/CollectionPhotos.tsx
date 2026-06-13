@@ -4,8 +4,9 @@ import { useRef, useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 
-const MONO = "var(--font-mono)";
-const RULE = "#e0e0da";
+const MONO   = "var(--font-mono)";
+const RULE   = "#e0e0da";
+const ORANGE = "#CC5500";
 
 interface Props {
   initialPhoto: string | null;
@@ -87,12 +88,19 @@ export default function CollectionPhotos({ initialPhoto, userId, isOwner }: Prop
     <>
       <div>
         <p style={{
-          fontFamily: MONO, fontSize: "8px", letterSpacing: "0.18em",
-          textTransform: "uppercase", color: "#aaaaaa", margin: "0 0 10px 0",
+          fontFamily: MONO, fontSize: "0.55rem", letterSpacing: "0.14em",
+          textTransform: "uppercase", color: ORANGE, margin: "0 0 4px 0",
         }}>
           My Collection
         </p>
-        <div style={{ height: 1, background: RULE, marginBottom: "20px" }} />
+        {isOwner && (
+          <p style={{
+            fontFamily: MONO, fontSize: "0.65rem", letterSpacing: "0.04em",
+            color: "#aaaaaa", margin: "0 0 16px 0",
+          }}>
+            Add photos of your collection here.
+          </p>
+        )}
 
         {/* Photo frame — full column width, 16:9 */}
         <div

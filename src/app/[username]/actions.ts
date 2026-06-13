@@ -8,7 +8,8 @@ import { createClient } from "@/lib/supabase/server";
 const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
 export async function generateTasteSummary(
-  userId: string
+  userId: string,
+  starSign: string,
 ): Promise<{ ok: true; summary: string } | { error: string }> {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
@@ -21,14 +22,14 @@ export async function generateTasteSummary(
 
   if (!links?.length) return { error: "Your collection is empty." };
 
-  type RecordRow = { artist: string; genre: string | null; year: number | null; label: string | null; country: string | null };
+  type RecordRow = { artist: string; album: string; genre: string | null; year: number | null; label: string | null; country: string | null };
   const allRecords: RecordRow[] = [];
   const recordIds = links.map(l => l.record_id);
   const BATCH = 400;
   for (let i = 0; i < recordIds.length; i += BATCH) {
     const { data } = await supabase
       .from("records")
-      .select("artist, genre, year, label, country")
+      .select("artist, album, genre, year, label, country")
       .in("id", recordIds.slice(i, i + BATCH));
     if (data) allRecords.push(...(data as RecordRow[]));
   }
@@ -50,14 +51,19 @@ export async function generateTasteSummary(
       .map(y => y < 1960 ? "pre-1960s" : `${Math.floor(y / 10) * 10}s`),
     6,
   );
+  const ownedAlbums = allRecords
+    .map(r => `${r.artist} — ${r.album}`)
+    .slice(0, 80);
 
   const collectionSummary = [
-    `Total: ${allRecords.length} records`,
+    `Star sign: ${starSign}`,
+    `Total records: ${allRecords.length}`,
     genres.length    && `Genres: ${genres.map(([g, n]) => `${g} (${n})`).join(", ")}`,
     countries.length && `Countries: ${countries.map(([c, n]) => `${c} (${n})`).join(", ")}`,
     labels.length    && `Labels: ${labels.map(([l, n]) => `${l} (${n})`).join(", ")}`,
     artists.length   && `Artists with multiple records: ${artists.map(([a, n]) => `${a} (${n})`).join(", ")}`,
     decades.length   && `Decades: ${decades.map(([d, n]) => `${d} (${n})`).join(", ")}`,
+    `Already owned (do NOT recommend any of these): ${ownedAlbums.join("; ")}`,
   ].filter(Boolean).join("\n");
 
   try {
@@ -67,7 +73,7 @@ export async function generateTasteSummary(
       system: [
         {
           type: "text",
-          text: "You are rekōdo, a music identity app for serious vinyl collectors. Based on collection data, write a single evocative paragraph (2–3 sentences max) about this collector's musical identity. Be specific — reference actual genres, countries, or eras present in their data. Never use generic language. Begin with 'You' — for example: 'You are drawn to music made in rooms — intimate recordings with audible space.' Return only the paragraph, no quotes or formatting.",
+          text: "You are rekōdo, a music recommendation app for serious vinyl collectors. Based on a collector's taste profile and star sign, recommend ONE specific album they don't already own. Start with the album title and artist in the format 'Title by Artist —' then write 2 sentences explaining why it suits both their established taste and their star sign's character. Be specific and poetic — no generic phrases. Return only the recommendation, no quotes or extra formatting.",
           cache_control: { type: "ephemeral" },
         },
       ],
@@ -88,7 +94,7 @@ export async function generateTasteSummary(
 
     return { ok: true, summary };
   } catch (err) {
-    return { error: err instanceof Error ? err.message : "Failed to generate summary." };
+    return { error: err instanceof Error ? err.message : "Failed to generate recommendation." };
   }
 }
 

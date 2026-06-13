@@ -380,7 +380,7 @@ export default function ProfileClient({
   function handleGenerateSummary() {
     setSummaryError(null);
     startSummaryTransition(async () => {
-      const result = await generateTasteSummary(profile.id);
+      const result = await generateTasteSummary(profile.id, profile.star_sign ?? "");
       if ("error" in result) { setSummaryError(result.error); return; }
       router.refresh();
     });
@@ -563,13 +563,6 @@ export default function ProfileClient({
                   </p>
                 )}
 
-                {(starSignValue || profile.star_sign) && (
-                  <p style={{ fontFamily: MONO, fontSize: "12px", letterSpacing: "0.04em", color: MUTED, margin: "0 0 6px 0" }}>
-                    {SIGN_SYMBOL[starSignValue || profile.star_sign || ""] ?? "☽"}{" "}
-                    {starSignValue || profile.star_sign}
-                  </p>
-                )}
-
                 {(bandcampValue || profile.bandcamp_username) && (
                   <div style={{ margin: 0 }}>
                     {isOwner && profile.bandcamp_username && (
@@ -663,10 +656,14 @@ export default function ProfileClient({
           {/* Divider */}
           <div style={{ height: 1, background: RULE, marginBottom: "32px" }} />
 
-          {/* Taste summary */}
-          {(profile.taste_summary || isOwner) && (
+          {/* Album recommendation (requires star sign) */}
+          {profile.star_sign && (
             <>
               <div style={{ paddingBottom: "32px" }}>
+                <p style={eyebrowSt}>Album Recommendation</p>
+                <p style={{ fontFamily: MONO, fontSize: "12px", letterSpacing: "0.04em", color: MUTED, margin: "0 0 16px 0" }}>
+                  {SIGN_SYMBOL[profile.star_sign] ?? "☽"}{" "}{profile.star_sign}
+                </p>
                 {profile.taste_summary ? (
                   <>
                     <p style={{ fontFamily: SERIF, fontSize: "1.1rem", fontStyle: "italic", color: "#505050", lineHeight: 1.8, margin: "0 0 20px 0" }}>
@@ -675,20 +672,20 @@ export default function ProfileClient({
                     {isOwner && (
                       <div>
                         <button onClick={handleGenerateSummary} disabled={summaryPending} style={{ fontFamily: MONO, fontSize: "10px", letterSpacing: "0.1em", textTransform: "uppercase", color: summaryPending ? "#ccc" : "#bbb", background: "none", border: "none", cursor: summaryPending ? "default" : "pointer", padding: 0 }}>
-                          {summaryPending ? "Generating…" : "Regenerate summary →"}
+                          {summaryPending ? "Generating…" : "Regenerate →"}
                         </button>
                         {summaryError && <p style={{ fontFamily: MONO, fontSize: "10px", color: "#cc3300", margin: "8px 0 0" }}>{summaryError}</p>}
                       </div>
                     )}
                   </>
-                ) : (
+                ) : isOwner ? (
                   <div>
                     <button onClick={handleGenerateSummary} disabled={summaryPending} style={{ fontFamily: MONO, fontSize: "10px", letterSpacing: "0.1em", textTransform: "uppercase", color: summaryPending ? "#ccc" : ORANGE, background: "none", border: "none", cursor: summaryPending ? "default" : "pointer", padding: 0 }}>
-                      {summaryPending ? "Generating…" : "Generate your taste summary →"}
+                      {summaryPending ? "Generating…" : "Generate album recommendation →"}
                     </button>
                     {summaryError && <p style={{ fontFamily: MONO, fontSize: "10px", color: "#cc3300", margin: "8px 0 0" }}>{summaryError}</p>}
                   </div>
-                )}
+                ) : null}
               </div>
               <div style={{ height: 1, background: RULE, marginBottom: "32px" }} />
             </>
