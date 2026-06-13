@@ -20,24 +20,32 @@ function getAdminDb() {
 export default async function AdminPage() {
   const adminDb = getAdminDb();
 
-  const [profilesResult, usersResult, recordLinksResult] = await Promise.all([
+  // Fetch profiles and auth users — explicit limit avoids Supabase's default 1000-row cap
+  const [profilesResult, usersResult] = await Promise.all([
     adminDb
       .from("profiles")
-      .select("id, username, display_name, subscription_tier, role, created_at"),
+      .select("id, username, display_name, subscription_tier, role, created_at, last_synced_at")
+      .limit(5000),
     adminDb.auth.admin.listUsers({ perPage: 1000 }),
-    adminDb.from("user_records").select("user_id"),
   ]);
 
-  const profiles   = profilesResult.data ?? [];
-  const authUsers  = usersResult.data?.users ?? [];
-  const recordLinks = recordLinksResult.data ?? [];
+  const profiles  = profilesResult.data ?? [];
+  const authUsers = usersResult.data?.users ?? [];
 
   const profileById = new Map(profiles.map(p => [p.id, p]));
 
-  // Count records per user
+  // Paginate user_records — default PostgREST cap is 1000 which undercounts large collections
   const recordCountMap = new Map<string, number>();
-  for (const r of recordLinks) {
-    recordCountMap.set(r.user_id, (recordCountMap.get(r.user_id) ?? 0) + 1);
+  for (let from = 0; ; from += 5000) {
+    const { data } = await adminDb
+      .from("user_records")
+      .select("user_id")
+      .range(from, from + 4999);
+    if (!data?.length) break;
+    for (const r of data) {
+      recordCountMap.set(r.user_id, (recordCountMap.get(r.user_id) ?? 0) + 1);
+    }
+    if (data.length < 5000) break;
   }
 
   // Build user list from auth (source of truth — includes everyone)
@@ -46,11 +54,13 @@ export default async function AdminPage() {
     return {
       id:                u.id,
       username:          p?.username ?? null,
+      display_name:      p?.display_name ?? null,
       email:             u.email ?? "",
       subscription_tier: p?.subscription_tier ?? null,
       role:              p?.role ?? null,
       created_at:        p?.created_at ?? u.created_at,
       last_sign_in_at:   u.last_sign_in_at ?? null,
+      last_synced_at:    p?.last_synced_at ?? null,
       banned_until:      u.banned_until ?? null,
       record_count:      recordCountMap.get(u.id) ?? 0,
     };

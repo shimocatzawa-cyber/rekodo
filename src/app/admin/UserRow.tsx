@@ -13,23 +13,23 @@ const RED    = "#cc2200";
 export interface AdminUser {
   id: string;
   username: string | null;
+  display_name: string | null;
   email: string;
   subscription_tier: string | null;
   role: string | null;
   created_at: string;
   last_sign_in_at: string | null;
+  last_synced_at: string | null;
   banned_until: string | null;
   record_count: number;
 }
 
 function TierPill({ tier }: { tier: string | null }) {
   const t = tier ?? "free";
-  const style: React.CSSProperties =
-    t === "premium"
-      ? { background: ORANGE, color: "#fff" }
-      : t === "plus"
-      ? { background: "#fde8d8", color: ORANGE }
-      : { background: "#f0f0f0", color: MUTED };
+  const isSupporter = t === "premium" || t === "plus" || t === "supporter";
+  const style: React.CSSProperties = isSupporter
+    ? { background: ORANGE, color: "#fff" }
+    : { background: "#f0f0f0", color: MUTED };
   return (
     <span style={{
       ...style,
@@ -37,7 +37,7 @@ function TierPill({ tier }: { tier: string | null }) {
       textTransform: "uppercase", padding: "3px 8px",
       display: "inline-block",
     }}>
-      {t}
+      {isSupporter ? "Supporter" : "Free"}
     </span>
   );
 }
@@ -54,7 +54,8 @@ function formatDate(iso: string | null): string {
 
 export default function UserRow({ user }: { user: AdminUser }) {
   const [open,        setOpen]       = useState(false);
-  const [tier,        setTier]       = useState(user.subscription_tier ?? "free");
+  const initialTier = ["plus", "premium", "supporter"].includes(user.subscription_tier ?? "") ? "supporter" : "free";
+  const [tier,        setTier]       = useState(initialTier);
   const [role,        setRole]       = useState(user.role ?? "user");
   const [error,       setError]      = useState<string | null>(null);
   const [savePending, startSave]     = useTransition();
@@ -63,7 +64,7 @@ export default function UserRow({ user }: { user: AdminUser }) {
   const blocked = isBlocked(user.banned_until);
 
   function handleCancel() {
-    setTier(user.subscription_tier ?? "free");
+    setTier(initialTier);
     setRole(user.role ?? "user");
     setError(null);
     setOpen(false);
@@ -114,6 +115,8 @@ export default function UserRow({ user }: { user: AdminUser }) {
             >
               {user.username}
             </a>
+          ) : user.display_name ? (
+            <span style={{ color: MUTED }}>{user.display_name}</span>
           ) : (
             <span style={{ color: MUTED, fontFamily: MONO, fontSize: "11px" }}>—</span>
           )}
@@ -135,7 +138,7 @@ export default function UserRow({ user }: { user: AdminUser }) {
         </td>
 
         <td style={{ ...cellSt, color: MUTED, whiteSpace: "nowrap" as const }}>
-          {formatDate(user.last_sign_in_at)}
+          {formatDate(user.last_synced_at ?? user.last_sign_in_at)}
         </td>
 
         <td style={cellSt}>
@@ -175,8 +178,7 @@ export default function UserRow({ user }: { user: AdminUser }) {
                 </label>
                 <select value={tier} onChange={e => setTier(e.target.value)} style={selectSt}>
                   <option value="free">Free</option>
-                  <option value="plus">Plus</option>
-                  <option value="premium">Premium</option>
+                  <option value="supporter">Supporter</option>
                 </select>
               </div>
 
