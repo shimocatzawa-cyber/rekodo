@@ -309,6 +309,23 @@ export default function ProfileClient({
   const [summaryPending, startSummaryTransition] = useTransition();
   const [summaryError,   setSummaryError]        = useState<string | null>(null);
 
+  // ── Album recommendation cover art ────────────────────────────────────────
+  type RecData = { artist: string; album: string; description: string };
+  function parseRec(raw: string | null): RecData | null {
+    if (!raw) return null;
+    try { return JSON.parse(raw) as RecData; } catch { return null; }
+  }
+  const [recCoverUrl, setRecCoverUrl] = useState<string | null>(null);
+
+  useEffect(() => {
+    const rec = parseRec(profile.taste_summary);
+    if (!rec?.artist || !rec?.album) return;
+    fetch(`/api/deep-dive/album-art?artist=${encodeURIComponent(rec.artist)}&album=${encodeURIComponent(rec.album)}`)
+      .then(r => r.ok ? r.json() : null)
+      .then((d: { url?: string | null } | null) => { if (d?.url) setRecCoverUrl(d.url); })
+      .catch(() => {});
+  }, [profile.taste_summary]); // eslint-disable-line react-hooks/exhaustive-deps
+
   // ── Share ─────────────────────────────────────────────────────────────────
   const [copied, setCopied] = useState(false);
 
@@ -748,21 +765,50 @@ export default function ProfileClient({
                         Album Recommendation
                       </p>
                     </div>
-                    {profile.taste_summary ? (
-                      <>
-                        <p style={{ fontFamily: SERIF, fontSize: "0.9rem", fontStyle: "italic", color: "#505050", lineHeight: 1.7, margin: "0 0 8px 0", display: "-webkit-box", WebkitLineClamp: 4, WebkitBoxOrient: "vertical", overflow: "hidden" }}>
-                          {profile.taste_summary}
-                        </p>
-                        {isOwner && (
-                          <div>
-                            <button onClick={handleGenerateSummary} disabled={summaryPending} style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.1em", textTransform: "uppercase", color: summaryPending ? "#ccc" : "#bbb", background: "none", border: "none", cursor: summaryPending ? "default" : "pointer", padding: 0 }}>
-                              {summaryPending ? "Generating…" : "Regenerate →"}
-                            </button>
-                            {summaryError && <p style={{ fontFamily: MONO, fontSize: "10px", color: "#cc3300", margin: "4px 0 0" }}>{summaryError}</p>}
+                    {profile.taste_summary ? (() => {
+                      const rec = parseRec(profile.taste_summary);
+                      return (
+                        <>
+                          <div style={{ display: "flex", gap: "12px", alignItems: "flex-start", marginBottom: "8px" }}>
+                            {recCoverUrl && (
+                              // eslint-disable-next-line @next/next/no-img-element
+                              <img
+                                src={recCoverUrl}
+                                alt={rec?.album ?? ""}
+                                style={{ width: "64px", height: "64px", objectFit: "cover", flexShrink: 0 }}
+                              />
+                            )}
+                            <div style={{ minWidth: 0 }}>
+                              {rec ? (
+                                <>
+                                  <p style={{ fontFamily: MONO, fontSize: "0.65rem", fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase", color: INK, margin: "0 0 1px 0" }}>
+                                    {rec.artist}
+                                  </p>
+                                  <p style={{ fontFamily: SERIF, fontSize: "0.85rem", fontWeight: 600, color: INK, margin: "0 0 6px 0", lineHeight: 1.3 }}>
+                                    {rec.album}
+                                  </p>
+                                  <p style={{ fontFamily: SERIF, fontSize: "0.85rem", fontStyle: "italic", color: "#505050", lineHeight: 1.6, margin: 0 }}>
+                                    {rec.description}
+                                  </p>
+                                </>
+                              ) : (
+                                <p style={{ fontFamily: SERIF, fontSize: "0.9rem", fontStyle: "italic", color: "#505050", lineHeight: 1.7, margin: 0 }}>
+                                  {profile.taste_summary}
+                                </p>
+                              )}
+                            </div>
                           </div>
-                        )}
-                      </>
-                    ) : isOwner ? (
+                          {isOwner && (
+                            <div>
+                              <button onClick={handleGenerateSummary} disabled={summaryPending} style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.1em", textTransform: "uppercase", color: summaryPending ? "#ccc" : "#bbb", background: "none", border: "none", cursor: summaryPending ? "default" : "pointer", padding: 0 }}>
+                                {summaryPending ? "Generating…" : "Regenerate →"}
+                              </button>
+                              {summaryError && <p style={{ fontFamily: MONO, fontSize: "10px", color: "#cc3300", margin: "4px 0 0" }}>{summaryError}</p>}
+                            </div>
+                          )}
+                        </>
+                      );
+                    })() : isOwner ? (
                       <div>
                         <button onClick={handleGenerateSummary} disabled={summaryPending} style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.1em", textTransform: "uppercase", color: summaryPending ? "#ccc" : ORANGE, background: "none", border: "none", cursor: summaryPending ? "default" : "pointer", padding: 0 }}>
                           {summaryPending ? "Generating…" : "Generate →"}

@@ -69,11 +69,11 @@ export async function generateTasteSummary(
   try {
     const msg = await anthropic.messages.create({
       model: "claude-haiku-4-5-20251001",
-      max_tokens: 80,
+      max_tokens: 120,
       system: [
         {
           type: "text",
-          text: "You are rekōdo, a music recommendation app for serious vinyl collectors. Based on a collector's taste profile and star sign, recommend ONE specific album they don't already own. Format: 'Title by Artist — ' then ONE sentence (max 20 words) on why it fits their taste and star sign. Be specific and poetic. Total response must be under 50 words. No quotes, no extra formatting.",
+          text: "You are rekōdo, a music recommendation app for serious vinyl collectors. Based on a collector's taste profile and star sign, recommend ONE specific album they don't already own. Respond with a raw JSON object (no markdown, no code block) with exactly three keys: \"artist\" (string), \"album\" (string), \"description\" (one sentence, max 20 words, poetic and specific to their taste and star sign).",
           cache_control: { type: "ephemeral" },
         },
       ],
@@ -82,7 +82,9 @@ export async function generateTasteSummary(
 
     const block = msg.content[0];
     if (block.type !== "text") throw new Error("Unexpected response type");
-    const summary = block.text.trim().replace(/^["']|["']$/g, "");
+    const raw = block.text.trim().replace(/^```(?:json)?\n?|\n?```$/g, "");
+    const parsed = JSON.parse(raw) as { artist: string; album: string; description: string };
+    const summary = JSON.stringify({ artist: parsed.artist, album: parsed.album, description: parsed.description });
 
     await supabase
       .from("profiles")
