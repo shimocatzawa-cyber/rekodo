@@ -15,14 +15,32 @@ Return ONLY valid JSON, no markdown, no backticks:
 {"episodes":[{"show":"Show Name","episode":"Episode title","year":2021,"type":"interview","note":"Why worth listening"}]}`,
 
   books: (artist) =>
-    `You are a music research assistant helping a vinyl collector deepen their knowledge. List books and audiobooks about or significantly featuring ${artist}. Include biographies, memoirs, critical studies, and essential books about their era or scene.
-Return ONLY valid JSON, no markdown, no backticks:
-{"items":[{"title":"Book Title","author":"Author","year":2003,"type":"biography","format":"book","note":"Why essential"}]}`,
+    `You are a music research assistant helping a vinyl collector deepen their knowledge.
+
+List books and audiobooks about or significantly featuring ${artist}.
+IMPORTANT ORDERING RULE — return results in this priority order:
+1. Works written BY the artist themselves (memoirs, autobiographies, manifestos, collected writings) — these come first, always
+2. Official or authorised biographies
+3. Critical studies focused primarily on this artist
+4. Books where this artist features substantially (not just mentioned)
+5. Essential books about the scene or era they defined
+
+Return ONLY valid JSON, no markdown:
+{"items":[{"title":"Book Title","author":"Author Name","year":2003,"type":"memoir","written_by_artist":true,"format":"book","note":"One sentence on why this is essential reading for a fan of this artist"}]}
+
+The "type" field must be one of: "memoir", "autobiography", "biography", "authorised biography", "critical study", "collected writings", "scene history".
+The "format" field must be one of: "book", "audiobook", "both".
+The "written_by_artist" field must be true if the artist wrote it themselves, otherwise false.`,
 
   interviews: (artist) =>
     `You are a music research assistant. List the most significant interviews given by ${artist} — print, video, or audio. Focus on interviews that reveal something meaningful about their creative process, influences, or philosophy.
-Return ONLY valid JSON, no markdown, no backticks:
-{"interviews":[{"publication":"Publication","title":"Interview title","year":1982,"format":"print","note":"What makes it essential"}]}`,
+
+For each interview, provide the publication's primary domain (e.g. "pitchfork.com", "thewire.co.uk", "npr.org", "youtube.com") — this is used to construct a search link and must be accurate.
+
+Return ONLY valid JSON, no markdown:
+{"interviews":[{"publication":"Publication or platform display name","domain":"publicationdomain.com","title":"Interview title or description","year":1982,"format":"print","note":"One sentence on what makes this interview essential"}]}
+
+The "format" field must be one of: "print", "video", "audio".`,
 };
 
 export async function POST(request: NextRequest) {

@@ -200,7 +200,7 @@ function PodcastsContent({ data, artist }: { data: { episodes?: Episode[] }; art
   );
 }
 
-type BookItem = { title: string; author: string; year: number; type: string; format: string; note: string };
+type BookItem = { title: string; author: string; year: number; type: string; format: string; note: string; written_by_artist?: boolean };
 
 function BooksContent({ data }: { data: { items?: BookItem[] } }) {
   const items = data.items ?? [];
@@ -211,42 +211,89 @@ function BooksContent({ data }: { data: { items?: BookItem[] } }) {
       </p>
     );
   }
+  const hasArtistWritten = items.some(b => b.written_by_artist === true);
+  const firstAboutIndex  = hasArtistWritten ? items.findIndex(b => b.written_by_artist !== true) : -1;
   return (
     <div>
       {items.map((b, i) => (
-        <div key={i} style={{ padding: "1.5rem 0", borderBottom: `1px solid ${RULE}` }}>
-          <p style={{ fontFamily: SERIF, fontSize: "0.9rem", fontWeight: 600, color: INK, margin: "0 0 4px" }}>
-            {b.title}
-          </p>
-          <p style={{ fontFamily: MONO, fontSize: "0.72rem", letterSpacing: "0.04em", color: INK, margin: "0 0 8px" }}>
-            {b.author} · {b.year}
-          </p>
-          <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 8 }}>
-            <Badge label={b.type} />
-            <Badge label={b.format} />
-          </div>
-          <p style={{ fontFamily: MONO, fontSize: "0.68rem", letterSpacing: "0.04em", color: INK, fontStyle: "italic", lineHeight: 1.5, margin: "0 0 8px" }}>
-            {b.note}
-          </p>
-          {b.format.toLowerCase().includes("audiobook") && (
-            <a
-              href={`https://www.audible.com/search?keywords=${encodeURIComponent(b.title)}`}
-              target="_blank"
-              rel="noopener noreferrer"
-              style={{ fontFamily: MONO, fontSize: "0.65rem", letterSpacing: "0.08em", color: ORANGE, textDecoration: "none" }}
-              onMouseEnter={(e) => { (e.currentTarget as HTMLAnchorElement).style.textDecoration = "underline"; }}
-              onMouseLeave={(e) => { (e.currentTarget as HTMLAnchorElement).style.textDecoration = "none"; }}
-            >
-              Find on Audible →
-            </a>
+        <div key={i}>
+          {i === firstAboutIndex && (
+            <div style={{ margin: "0.5rem 0 1.25rem" }}>
+              <div style={{ borderTop: `1px solid ${RULE}`, marginBottom: "0.75rem" }} />
+              <p style={{ fontFamily: MONO, fontSize: "0.52rem", letterSpacing: "0.14em", textTransform: "uppercase", color: INK, margin: 0 }}>
+                ABOUT THE ARTIST
+              </p>
+            </div>
           )}
+          <div style={{ padding: "1.5rem 0", borderBottom: `1px solid ${RULE}` }}>
+            {b.written_by_artist === true && (
+              <p style={{ fontFamily: MONO, fontSize: "0.52rem", letterSpacing: "0.14em", textTransform: "uppercase", color: ORANGE, margin: "0 0 0.3rem 0" }}>
+                BY THE ARTIST
+              </p>
+            )}
+            <p style={{ fontFamily: SERIF, fontSize: "0.9rem", fontWeight: 600, color: INK, margin: "0 0 4px" }}>
+              {b.title}
+            </p>
+            <p style={{ fontFamily: MONO, fontSize: "0.72rem", letterSpacing: "0.04em", color: INK, margin: "0 0 8px" }}>
+              {b.author} · {b.year}
+            </p>
+            <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 8 }}>
+              <Badge label={b.type} />
+              <Badge label={b.format} />
+            </div>
+            <p style={{ fontFamily: MONO, fontSize: "0.68rem", letterSpacing: "0.04em", color: INK, fontStyle: "italic", lineHeight: 1.5, margin: "0 0 8px" }}>
+              {b.note}
+            </p>
+            {b.format.toLowerCase().includes("audiobook") && (
+              <a
+                href={`https://www.audible.com/search?keywords=${encodeURIComponent(b.title)}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                style={{ fontFamily: MONO, fontSize: "0.65rem", letterSpacing: "0.08em", color: ORANGE, textDecoration: "none" }}
+                onMouseEnter={(e) => { (e.currentTarget as HTMLAnchorElement).style.textDecoration = "underline"; }}
+                onMouseLeave={(e) => { (e.currentTarget as HTMLAnchorElement).style.textDecoration = "none"; }}
+              >
+                Find on Audible →
+              </a>
+            )}
+          </div>
         </div>
       ))}
     </div>
   );
 }
 
-type InterviewItem = { publication: string; title: string; year: number; format: string; note: string };
+type InterviewItem = { publication: string; domain: string; title: string; year: number; format: string; note: string };
+
+const KNOWN_DOMAINS = [
+  "pitchfork.com", "thewire.co.uk", "npr.org", "rollingstone.com",
+  "theguardian.com", "nytimes.com", "newyorker.com", "factmag.com",
+  "residentadvisor.net", "xlr8r.com", "mixmag.net", "djmag.com",
+  "fadermagazine.com", "stereogum.com", "tinymixtapes.com",
+];
+
+function getInterviewSearchUrl(
+  interview: { title: string; publication: string; domain: string; year: number; format: string },
+  artist: string
+): string {
+  const query = encodeURIComponent(`${artist} ${interview.title} ${interview.year}`);
+
+  if (interview.format === "video" || interview.domain === "youtube.com") {
+    return `https://www.youtube.com/results?search_query=${query}`;
+  }
+
+  if (interview.domain && KNOWN_DOMAINS.includes(interview.domain)) {
+    const scopedQuery = encodeURIComponent(`"${interview.title}" ${interview.year} site:${interview.domain}`);
+    return `https://www.google.com/search?q=${scopedQuery}`;
+  }
+
+  if (interview.domain && interview.domain !== "") {
+    const scopedQuery = encodeURIComponent(`${artist} ${interview.title} site:${interview.domain}`);
+    return `https://www.google.com/search?q=${scopedQuery}`;
+  }
+
+  return `https://www.google.com/search?q=${query}`;
+}
 
 function InterviewsContent({ data, artist }: { data: { interviews?: InterviewItem[] }; artist: string }) {
   const items = data.interviews ?? [];
@@ -280,11 +327,10 @@ function InterviewsContent({ data, artist }: { data: { interviews?: InterviewIte
   return (
     <div>
       {items.map((iv, i) => {
-        const isVideo = iv.format.toLowerCase().includes("video");
-        const linkHref = isVideo
-          ? `https://www.youtube.com/results?search_query=${encodeURIComponent(`${artist} ${iv.title}`)}`
-          : `https://www.google.com/search?q=${encodeURIComponent(`${iv.publication} ${artist} ${iv.title}`)}`;
-        const linkLabel = isVideo ? "Watch on YouTube →" : `Find at ${iv.publication} →`;
+        const linkHref  = getInterviewSearchUrl(iv, artist);
+        const linkLabel = iv.format === "video" ? "Watch on YouTube →"
+                        : iv.format === "audio" ? "Find recording →"
+                        : "Find article →";
         return (
           <div key={i} style={{ padding: "1.5rem 0", borderBottom: `1px solid ${RULE}` }}>
             <p style={{ fontFamily: SERIF, fontSize: "0.9rem", fontWeight: 600, color: INK, margin: "0 0 6px" }}>
