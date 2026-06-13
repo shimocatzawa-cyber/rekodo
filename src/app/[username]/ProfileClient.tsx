@@ -475,9 +475,9 @@ export default function ProfileClient({
 
   const tabItems: Array<{ key: ProfileTab; label: string }> = [
     { key: "profile",   label: "Profile" },
-    { key: "supporter", label: "Supporter" },
     ...(isOwner ? [{ key: "lists" as ProfileTab, label: "Wantlist" }] : []),
     { key: "community", label: "Community" },
+    { key: "supporter", label: "Supporter" },
   ];
 
   return (
