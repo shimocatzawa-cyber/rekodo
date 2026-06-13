@@ -1,5 +1,6 @@
 import { createClient as createServiceClient } from "@supabase/supabase-js";
-import UserRow, { type AdminUser } from "./UserRow";
+import AdminClient from "./AdminClient";
+import type { AdminUser } from "./UserRow";
 
 const SERIF  = "var(--font-editorial)";
 const MONO   = "var(--font-mono)";
@@ -19,32 +20,46 @@ function getAdminDb() {
 export default async function AdminPage() {
   const adminDb = getAdminDb();
 
-  const [profilesResult, usersResult] = await Promise.all([
+  const [profilesResult, usersResult, recordLinksResult] = await Promise.all([
     adminDb
       .from("profiles")
-      .select("id, username, display_name, subscription_tier, role, created_at")
-      .order("created_at", { ascending: false }),
+      .select("id, username, display_name, subscription_tier, role, created_at"),
     adminDb.auth.admin.listUsers({ perPage: 1000 }),
+    adminDb.from("user_records").select("user_id"),
   ]);
 
-  const profiles = profilesResult.data ?? [];
-  const authUsers = usersResult.data?.users ?? [];
+  const profiles   = profilesResult.data ?? [];
+  const authUsers  = usersResult.data?.users ?? [];
+  const recordLinks = recordLinksResult.data ?? [];
 
-  const emailById = new Map(authUsers.map(u => [u.id, u.email ?? ""]));
+  const profileById = new Map(profiles.map(p => [p.id, p]));
 
-  const users: AdminUser[] = profiles.map(p => ({
-    id:                p.id,
-    username:          p.username,
-    email:             emailById.get(p.id) ?? "",
-    subscription_tier: p.subscription_tier,
-    role:              p.role,
-    created_at:        p.created_at,
-  }));
+  // Count records per user
+  const recordCountMap = new Map<string, number>();
+  for (const r of recordLinks) {
+    recordCountMap.set(r.user_id, (recordCountMap.get(r.user_id) ?? 0) + 1);
+  }
 
-  const total    = users.length;
-  const plus      = users.filter(u => u.subscription_tier === "plus").length;
-  const premium   = users.filter(u => u.subscription_tier === "premium").length;
-  const free      = users.filter(u => !u.subscription_tier || u.subscription_tier === "free").length;
+  // Build user list from auth (source of truth — includes everyone)
+  const users: AdminUser[] = authUsers.map(u => {
+    const p = profileById.get(u.id);
+    const bannedUntil = (u as Record<string, unknown>).banned_until as string | null ?? null;
+    return {
+      id:                u.id,
+      username:          p?.username ?? null,
+      email:             u.email ?? "",
+      subscription_tier: p?.subscription_tier ?? null,
+      role:              p?.role ?? null,
+      created_at:        p?.created_at ?? u.created_at,
+      last_sign_in_at:   u.last_sign_in_at ?? null,
+      banned_until:      bannedUntil,
+      record_count:      recordCountMap.get(u.id) ?? 0,
+    };
+  }).sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+
+  const total      = users.length;
+  const supporters = users.filter(u => u.subscription_tier && u.subscription_tier !== "free").length;
+  const free       = users.filter(u => !u.subscription_tier || u.subscription_tier === "free").length;
 
   return (
     <div style={{ minHeight: "100vh", background: "#ffffff" }}>
@@ -62,10 +77,9 @@ export default async function AdminPage() {
       {/* Stats bar */}
       <div style={{ borderBottom: `1px solid ${RULE}`, display: "flex" }}>
         {[
-          { label: "Total users",        value: total },
-          { label: "Plus",               value: plus },
-          { label: "Premium",            value: premium },
-          { label: "Free",               value: free },
+          { label: "Total users", value: total },
+          { label: "Supporters",  value: supporters },
+          { label: "Free",        value: free },
         ].map(({ label, value }, i) => (
           <div key={label} style={{
             flex: 1, padding: "28px 32px",
@@ -82,35 +96,7 @@ export default async function AdminPage() {
       </div>
 
       {/* User table */}
-      <div style={{ padding: "40px 48px" }}>
-        <p style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.14em", textTransform: "uppercase", color: ORANGE, margin: "0 0 20px 0" }}>
-          Users
-        </p>
-        <div style={{ overflowX: "auto" }}>
-          <table style={{ width: "100%", borderCollapse: "collapse" }}>
-            <thead>
-              <tr>
-                {["Username", "Email", "Tier", "Role", "Joined", ""].map(col => (
-                  <th key={col} style={{
-                    fontFamily: MONO, fontSize: "9px", letterSpacing: "0.14em",
-                    textTransform: "uppercase", color: ORANGE,
-                    textAlign: "left", padding: "0 16px 12px",
-                    borderBottom: `1px solid ${RULE}`,
-                    whiteSpace: "nowrap",
-                  }}>
-                    {col}
-                  </th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {users.map(user => (
-                <UserRow key={user.id} user={user} />
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </div>
+      <AdminClient users={users} />
 
     </div>
   );
