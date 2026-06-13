@@ -25,17 +25,6 @@ export default function SupporterContent({ isOwner, isSupporter }: Props) {
   return (
     <div style={{ maxWidth: 860, margin: "0 auto", padding: "3rem 3.5rem 5rem" }}>
 
-      {/* Subtext */}
-      <p style={{
-        fontFamily: SERIF, fontStyle: "italic",
-        fontSize: "clamp(0.95rem, 1.6vw, 1.1rem)", color: "#505050",
-        lineHeight: 1.75, margin: "0 0 32px",
-      }}>
-        rekōdo is built by one person, for serious collectors. A Supporter
-        subscription keeps it independent, ad-free, and growing — and unlocks
-        the features that go deepest into your collection.
-      </p>
-
       {/* Badge pill */}
       <div style={{ marginBottom: 32 }}>
         <span style={{
