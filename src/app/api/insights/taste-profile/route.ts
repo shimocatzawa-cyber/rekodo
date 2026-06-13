@@ -25,13 +25,29 @@ export async function GET() {
     const ageDays = age / (1000 * 60 * 60 * 24);
     if (ageDays < CACHE_DAYS) {
       // Check record count drift
-      const { count } = await supabase
+      const { count: recordCount } = await supabase
         .from("user_records")
         .select("*", { count: "exact", head: true })
         .eq("user_id", user.id);
-      const current = count ?? 0;
-      const stored  = cached.record_count_at_generation ?? 0;
-      if (stored === 0 || Math.abs(current - stored) / Math.max(stored, 1) <= DRIFT_PCT) {
+      const currentRecords = recordCount ?? 0;
+      const storedRecords  = cached.record_count_at_generation ?? 0;
+      const recordDriftOk  = storedRecords === 0 ||
+        Math.abs(currentRecords - storedRecords) / Math.max(storedRecords, 1) <= DRIFT_PCT;
+
+      // Also check wantlist count — if it was 0 at generation but now exists, invalidate
+      const cachedWantlistCount: number =
+        (cached.profile_data as { metrics?: { m12?: { wantlistCount?: number } } })
+          ?.metrics?.m12?.wantlistCount ?? 0;
+      let wantlistDriftOk = true;
+      if (cachedWantlistCount === 0) {
+        const { count: wlCount } = await supabase
+          .from("wantlist")
+          .select("*", { count: "exact", head: true })
+          .eq("user_id", user.id);
+        if ((wlCount ?? 0) > 0) wantlistDriftOk = false;
+      }
+
+      if (recordDriftOk && wantlistDriftOk) {
         return NextResponse.json(cached.profile_data);
       }
     }
