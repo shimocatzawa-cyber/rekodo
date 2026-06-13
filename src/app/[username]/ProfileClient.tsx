@@ -585,35 +585,10 @@ export default function ProfileClient({
                   </p>
                 )}
 
-                {(bandcampValue || profile.bandcamp_username) && (
-                  <div style={{ margin: 0 }}>
-                    {isOwner && profile.bandcamp_username && (
-                      <div style={{ marginBottom: "4px" }}>
-                        <button
-                          type="button"
-                          onClick={bcSyncing ? undefined : runBandcampSync}
-                          disabled={bcSyncing}
-                          style={{
-                            fontFamily: MONO, fontSize: "10px", letterSpacing: "0.06em",
-                            color: bcSyncing ? "#aaaaaa" : ORANGE,
-                            background: "none", border: "none",
-                            cursor: bcSyncing ? "default" : "pointer",
-                            padding: 0,
-                          }}
-                        >
-                          {bcSyncing ? "Syncing Bandcamp…" : "Sync Bandcamp →"}
-                        </button>
-                        {bcError && (
-                          <p style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.04em", color: "#cc3300", margin: "2px 0 0" }}>
-                            {bcError}
-                          </p>
-                        )}
-                      </div>
-                    )}
-                    <p style={{ fontFamily: MONO, fontSize: "12px", letterSpacing: "0.04em", color: MUTED, margin: 0 }}>
-                      bandcamp.com/{bandcampValue || profile.bandcamp_username}
-                    </p>
-                  </div>
+                {!isOwner && (bandcampValue || profile.bandcamp_username) && (
+                  <p style={{ fontFamily: MONO, fontSize: "12px", letterSpacing: "0.04em", color: MUTED, margin: 0 }}>
+                    bandcamp.com/{bandcampValue || profile.bandcamp_username}
+                  </p>
                 )}
 
                 {/* ── SPOTIFY ── */}
@@ -681,7 +656,73 @@ export default function ProfileClient({
                       </>
                     )}
 
-                    <div style={{ height: "1px", background: RULE, marginTop: "16px" }} />
+                  </div>
+                )}
+
+                {/* ── BANDCAMP ── */}
+                {isOwner && (
+                  <div style={{ marginTop: "16px", paddingTop: "16px", borderTop: `1px solid ${RULE}` }}>
+                    <p style={{
+                      fontFamily: MONO, fontSize: "9px", letterSpacing: "0.14em",
+                      textTransform: "uppercase", color: ORANGE, margin: "0 0 10px 0",
+                    }}>
+                      Bandcamp
+                    </p>
+
+                    {(bandcampValue || profile.bandcamp_username) ? (
+                      <>
+                        <p style={{ fontFamily: MONO, fontSize: "11px", letterSpacing: "0.04em", color: "#0a0a0a", margin: "0 0 2px 0", display: "flex", alignItems: "center", gap: "6px" }}>
+                          <span style={{ width: "6px", height: "6px", borderRadius: "50%", background: "#1DA0C3", flexShrink: 0, display: "inline-block" }} />
+                          bandcamp.com/{bandcampValue || profile.bandcamp_username}
+                        </p>
+                        <div style={{ marginTop: "10px" }}>
+                          <button
+                            type="button"
+                            onClick={bcSyncing ? undefined : runBandcampSync}
+                            disabled={bcSyncing}
+                            style={{
+                              fontFamily: MONO, fontSize: "9px", letterSpacing: "0.1em",
+                              textTransform: "uppercase",
+                              color: bcSyncing ? "#aaaaaa" : "#0a0a0a",
+                              background: "transparent",
+                              border: `1px solid ${bcSyncing ? "#dddddd" : RULE}`,
+                              padding: "5px 12px", cursor: bcSyncing ? "default" : "pointer",
+                            }}
+                            onMouseEnter={e => { if (!bcSyncing) { (e.currentTarget as HTMLButtonElement).style.color = ORANGE; (e.currentTarget as HTMLButtonElement).style.borderColor = ORANGE; }}}
+                            onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.color = "#0a0a0a"; (e.currentTarget as HTMLButtonElement).style.borderColor = RULE; }}
+                          >
+                            {bcSyncing ? "Syncing…" : "Sync collection →"}
+                          </button>
+                          {bcError && (
+                            <p style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.04em", color: "#cc3300", margin: "6px 0 0" }}>
+                              {bcError}
+                            </p>
+                          )}
+                        </div>
+                      </>
+                    ) : (
+                      <>
+                        <p style={{ fontFamily: MONO, fontSize: "11px", letterSpacing: "0.04em", color: MUTED, margin: "0 0 10px 0", lineHeight: 1.6 }}>
+                          Connect your Bandcamp to import your record collection.
+                        </p>
+                        <button
+                          onClick={openEdit}
+                          style={{
+                            fontFamily: MONO, fontSize: "9px", letterSpacing: "0.1em",
+                            textTransform: "uppercase",
+                            color: "#0a0a0a",
+                            border: `1px solid ${RULE}`,
+                            padding: "5px 12px",
+                            background: "transparent",
+                            cursor: "pointer",
+                          }}
+                          onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.color = ORANGE; (e.currentTarget as HTMLButtonElement).style.borderColor = ORANGE; }}
+                          onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.color = "#0a0a0a"; (e.currentTarget as HTMLButtonElement).style.borderColor = RULE; }}
+                        >
+                          Connect Bandcamp →
+                        </button>
+                      </>
+                    )}
                   </div>
                 )}
               </>
