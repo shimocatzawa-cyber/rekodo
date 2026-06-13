@@ -213,7 +213,7 @@ function Podcasts({ data, artist }: { data: { episodes?: Episode[] }; artist: st
           <p style={{ fontFamily: MONO, fontSize: "0.68rem", letterSpacing: "0.04em", color: "#777777", margin: "0 0 10px", lineHeight: 1.5 }}>{ep.note}</p>
           <div style={{ display: "flex", gap: "1rem" }}>
             <a
-              href={`https://open.spotify.com/search/${encodeURIComponent(ep.show + " " + ep.episode)}/podcasts`}
+              href={`https://open.spotify.com/search/${encodeURIComponent(ep.show + " " + ep.episode)}/episodes`}
               target="_blank"
               rel="noopener noreferrer"
               style={podcastLinkStyle}
@@ -223,7 +223,7 @@ function Podcasts({ data, artist }: { data: { episodes?: Episode[] }; artist: st
               Search Spotify →
             </a>
             <a
-              href={`https://podcasts.apple.com/search?term=${encodeURIComponent(artist + " " + ep.show)}`}
+              href={`https://podcasts.apple.com/search?term=${encodeURIComponent(ep.show + " " + ep.episode)}`}
               target="_blank"
               rel="noopener noreferrer"
               style={podcastLinkStyle}
