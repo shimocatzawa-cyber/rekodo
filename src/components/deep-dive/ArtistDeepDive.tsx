@@ -138,13 +138,21 @@ function ErrorState({ section, onRetry }: { section: Section; onRetry: () => voi
 
 type Album = { rank: number; title: string; year: number; review: string; collectorNote: string };
 
-function Rankings({ data }: { data: { albums?: Album[] } }) {
+function Rankings({ data, onRetry }: { data: { albums?: Album[] }; onRetry: () => void }) {
   const albums = data.albums ?? [];
   if (albums.length === 0) {
     return (
-      <p style={{ fontFamily: MONO, fontSize: "0.72rem", letterSpacing: "0.08em", color: "#aaaaaa", padding: "32px 0" }}>
-        rekōdo couldn&apos;t find discography data for this artist. Try a more widely documented artist.
-      </p>
+      <div style={{ padding: "48px 0" }}>
+        <p style={{ fontFamily: MONO, fontSize: "0.72rem", letterSpacing: "0.08em", color: "#aaaaaa", marginBottom: 16 }}>
+          No ranking data returned. This can happen with less-documented artists — try again.
+        </p>
+        <button
+          onClick={onRetry}
+          style={{ fontFamily: MONO, fontSize: "0.68rem", letterSpacing: "0.1em", textTransform: "uppercase", color: ORANGE, background: "none", border: `1px solid ${ORANGE}`, borderRadius: 0, padding: "8px 18px", cursor: "pointer" }}
+        >
+          Try again
+        </button>
+      </div>
     );
   }
   return (
@@ -359,7 +367,7 @@ export default function ArtistDeepDive({
       return <GenerateButton artist={artist} section={section} onLoad={() => fetchSection(section)} />;
     }
 
-    if (section === "rankings")   return <Rankings data={cache[section]} />;
+    if (section === "rankings")   return <Rankings data={cache[section]} onRetry={() => fetchSection(section)} />;
     if (section === "podcasts")   return <Podcasts data={cache[section]} artist={artist} />;
     if (section === "books")      return <Books data={cache[section]} />;
     if (section === "interviews") return <Interviews data={cache[section]} />;
