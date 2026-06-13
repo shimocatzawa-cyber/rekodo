@@ -4,6 +4,7 @@ import { useState, useEffect, type ReactNode } from "react";
 import { AreaChart } from "@tremor/react";
 import AppNav from "@/components/AppNav";
 import type { DesirabilityTier } from "@/lib/desirability";
+import TasteProfile from "@/components/insights/TasteProfile";
 
 const SERIF  = "var(--font-editorial)";
 const MONO   = "var(--font-mono)";
@@ -669,30 +670,7 @@ export default function InsightsClient({
 
       {insightsTab === "taste-profile" && (
         <main style={{ padding: "48px 32px 80px", maxWidth: "960px", margin: "0 auto" }}>
-          <div style={{
-            display: "flex", flexDirection: "column", alignItems: "center",
-            justifyContent: "center", gap: "16px", paddingTop: "80px",
-          }}>
-            <p style={{
-              fontFamily: MONO, fontSize: "0.6rem", letterSpacing: "0.14em",
-              textTransform: "uppercase", color: ORANGE, margin: 0,
-            }}>
-              Coming Soon
-            </p>
-            <h2 style={{
-              fontFamily: SERIF, fontSize: "2rem", fontWeight: 600,
-              color: INK, letterSpacing: "-0.025em", lineHeight: 1.15,
-              margin: 0, textAlign: "center",
-            }}>
-              Taste Profile
-            </h2>
-            <p style={{
-              fontFamily: MONO, fontSize: "11px", letterSpacing: "0.04em",
-              color: "#aaaaaa", margin: 0, textAlign: "center", maxWidth: "400px",
-            }}>
-              A deep read of your listening identity — sonic patterns, era obsessions, pressing origins, and more. Work in progress.
-            </p>
-          </div>
+          <TasteProfile />
         </main>
       )}
     </div>
