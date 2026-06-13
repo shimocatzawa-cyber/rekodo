@@ -331,7 +331,7 @@ export default function InsightsClient({
                     alignItems: "center",
                   }}>
                     <span style={{
-                      display: "inline-block",
+                      display: "inline-block", width: "fit-content",
                       fontFamily: MONO, fontSize: "10px", letterSpacing: "0.06em",
                       background: meta.bg, color: meta.color,
                       padding: "3px 8px", borderRadius: "3px",
@@ -473,7 +473,7 @@ export default function InsightsClient({
                 }}>
                   <span style={{ fontFamily: MONO, fontSize: "11px", color: INK }}>{genre}</span>
                   <span style={{ fontFamily: MONO, fontSize: "11px", color: INK, whiteSpace: "nowrap" }}>
-                    {count} · <span style={{ color: ORANGE }}>{pct}%</span>
+                    {count} items · <span style={{ color: ORANGE }}>{pct}%</span>
                   </span>
                 </div>
                 <PercentBar pct={pct} maxPct={maxGenrePct} />
