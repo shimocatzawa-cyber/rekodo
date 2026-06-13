@@ -1,7 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import AppNav from "@/components/AppNav";
+import { createClient } from "@/lib/supabase/client";
 
 const SERIF  = "var(--font-editorial)";
 const MONO   = "var(--font-mono)";
@@ -9,12 +10,304 @@ const ORANGE = "#CC5500";
 const INK    = "#0a0a0a";
 const RULE   = "#e0e0da";
 
+// ─── Label feed types ─────────────────────────────────────────────────────────
+
+type LabelFeedItem = {
+  id: string;
+  gmail_message_id: string | null;
+  sender: string | null;
+  subject: string | null;
+  received_at: string | null;
+  artist: string | null;
+  album: string | null;
+  release_type: "new_release" | "repress" | "preorder" | "announcement" | "unknown" | null;
+  format: string | null;
+  label: string | null;
+  description: string | null;
+  tags: string[] | null;
+  created_at: string | null;
+};
+
+// ─── Selects tabs ─────────────────────────────────────────────────────────────
+
 type SelectsTab = "artist" | "label";
 
 const TABS: { key: SelectsTab; label: string }[] = [
   { key: "artist", label: "Artist" },
   { key: "label",  label: "Label"  },
 ];
+
+// ─── Buy link helper ──────────────────────────────────────────────────────────
+
+function getBuyLink(label: string | null, artist: string | null): string {
+  const lbl = (label ?? "").toUpperCase();
+  const q = encodeURIComponent(artist ?? "");
+  if (lbl.includes("BOOMKAT"))     return `https://boomkat.com/products/search?q=${q}`;
+  if (lbl.includes("ROUGH TRADE")) return `https://roughtrade.com/search?q=${q}`;
+  if (lbl.includes("JUNO"))        return `https://www.juno.co.uk/search/?q=${q}`;
+  if (lbl.includes("SACRED BONES")) return "https://sacredbonesrecords.com";
+  if (lbl.includes("FUZZ CLUB"))   return "https://fuzzclub.com";
+  return `https://www.discogs.com/search/?q=${q}&type=release`;
+}
+
+// ─── Badge config ─────────────────────────────────────────────────────────────
+
+function getBadge(type: LabelFeedItem["release_type"]): { text: string; bg: string; color: string } {
+  switch (type) {
+    case "new_release": return { text: "OUT NOW",   bg: "#fde8d8", color: "#CC5500" };
+    case "preorder":    return { text: "PRE-ORDER", bg: "#e8f5eb", color: "#2d7a3a" };
+    case "repress":     return { text: "REPRESS",   bg: "#e8f0fd", color: "#2d4a9a" };
+    default:            return { text: "RELEASE",   bg: "#f0f0f0", color: "#666666" };
+  }
+}
+
+function getCardBorder(type: LabelFeedItem["release_type"]): string {
+  switch (type) {
+    case "new_release": return "#CC5500";
+    case "preorder":    return "#2d7a3a";
+    case "repress":     return "#2d4a9a";
+    default:            return "#e0e0da";
+  }
+}
+
+// ─── Static filter labels ─────────────────────────────────────────────────────
+
+const STATIC_FILTERS = [
+  { key: "ALL",       label: "ALL" },
+  { key: "OUT NOW",   label: "OUT NOW" },
+  { key: "PRE-ORDER", label: "PRE-ORDER" },
+  { key: "REPRESS",   label: "REPRESS" },
+];
+
+const TYPE_FILTER_MAP: Record<string, LabelFeedItem["release_type"]> = {
+  "OUT NOW":   "new_release",
+  "PRE-ORDER": "preorder",
+  "REPRESS":   "repress",
+};
+
+// ─── Release card ─────────────────────────────────────────────────────────────
+
+function ReleaseCard({ item }: { item: LabelFeedItem }) {
+  const [hovered, setHovered] = useState(false);
+  const badge = getBadge(item.release_type);
+  const borderColor = getCardBorder(item.release_type);
+  const buyHref = getBuyLink(item.label, item.artist);
+
+  return (
+    <div
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+      style={{
+        background: hovered ? "#f0ebe4" : "#FDF6F0",
+        padding: "1rem",
+        borderLeft: `3px solid ${borderColor}`,
+        display: "flex",
+        flexDirection: "column",
+        gap: "0.45rem",
+        transition: "background 0.15s",
+      }}
+    >
+      {/* Top row: badge + source */}
+      <div style={{ display: "flex", alignItems: "center", gap: "0.4rem", flexWrap: "wrap" }}>
+        <span style={{
+          fontFamily: MONO, fontSize: "0.44rem", letterSpacing: "0.1em",
+          textTransform: "uppercase", background: badge.bg, color: badge.color,
+          padding: "0.1rem 0.35rem",
+        }}>
+          {badge.text}
+        </span>
+        {item.label && (
+          <span style={{
+            fontFamily: MONO, fontSize: "0.5rem", letterSpacing: "0.08em",
+            textTransform: "uppercase", color: ORANGE,
+          }}>
+            {item.label.toUpperCase()}
+          </span>
+        )}
+      </div>
+
+      {/* Artist */}
+      {item.artist && (
+        <p style={{
+          fontFamily: SERIF, fontSize: "0.95rem", fontWeight: 600,
+          color: INK, margin: 0, lineHeight: 1.2,
+        }}>
+          {item.artist}
+        </p>
+      )}
+
+      {/* Album */}
+      {item.album && (
+        <p style={{
+          fontFamily: MONO, fontSize: "0.7rem", color: INK, margin: 0,
+        }}>
+          {item.album}
+        </p>
+      )}
+
+      {/* Format */}
+      {item.format && (
+        <p style={{
+          fontFamily: MONO, fontSize: "0.6rem", color: INK,
+          opacity: 0.55, margin: 0,
+        }}>
+          {item.format}
+        </p>
+      )}
+
+      {/* Description */}
+      {item.description && (
+        <p style={{
+          fontFamily: MONO, fontSize: "0.58rem", color: INK,
+          opacity: 0.7, margin: 0, lineHeight: 1.55,
+        }}>
+          {item.description}
+        </p>
+      )}
+
+      {/* Buy link */}
+      <a
+        href={buyHref}
+        target="_blank"
+        rel="noopener noreferrer"
+        style={{
+          fontFamily: MONO, fontSize: "0.55rem", color: ORANGE,
+          textDecoration: "none", marginTop: "auto",
+        }}
+        onMouseEnter={e => { (e.currentTarget as HTMLAnchorElement).style.textDecoration = "underline"; }}
+        onMouseLeave={e => { (e.currentTarget as HTMLAnchorElement).style.textDecoration = "none"; }}
+      >
+        BUY →
+      </a>
+    </div>
+  );
+}
+
+// ─── Skeleton card ────────────────────────────────────────────────────────────
+
+function SkeletonCard() {
+  return (
+    <div style={{
+      background: "#FDF6F0", padding: "1rem",
+      borderLeft: `3px solid ${RULE}`,
+      display: "flex", flexDirection: "column", gap: "0.5rem",
+    }}>
+      <div className="nr-shimmer" style={{ height: "0.75rem", width: "40%", background: "#e8e3dc" }} />
+      <div className="nr-shimmer" style={{ height: "1rem",   width: "70%", background: "#e8e3dc" }} />
+      <div className="nr-shimmer" style={{ height: "0.7rem", width: "55%", background: "#e8e3dc" }} />
+      <div className="nr-shimmer" style={{ height: "0.6rem", width: "90%", background: "#e8e3dc" }} />
+      <div className="nr-shimmer" style={{ height: "0.6rem", width: "80%", background: "#e8e3dc" }} />
+    </div>
+  );
+}
+
+// ─── New Releases section ─────────────────────────────────────────────────────
+
+function NewReleasesSection() {
+  const [items, setItems]       = useState<LabelFeedItem[]>([]);
+  const [loading, setLoading]   = useState(true);
+  const [activeFilter, setActiveFilter] = useState("ALL");
+
+  useEffect(() => {
+    const supabase = createClient();
+    supabase
+      .from("label_feed")
+      .select("*")
+      .order("received_at", { ascending: false })
+      .limit(48)
+      .then(({ data }) => {
+        setItems((data as unknown as LabelFeedItem[]) ?? []);
+        setLoading(false);
+      });
+  }, []);
+
+  // Dynamic source filters from unique label values
+  const sourceFilters: string[] = Array.from(
+    new Set(items.map(i => (i.label ?? "").toUpperCase()).filter(Boolean))
+  ).sort();
+
+  const allFilters = [
+    ...STATIC_FILTERS,
+    ...sourceFilters.map(s => ({ key: s, label: s })),
+  ];
+
+  // Apply filter
+  const filtered = activeFilter === "ALL"
+    ? items
+    : TYPE_FILTER_MAP[activeFilter]
+      ? items.filter(i => i.release_type === TYPE_FILTER_MAP[activeFilter])
+      : items.filter(i => (i.label ?? "").toUpperCase() === activeFilter);
+
+  return (
+    <section style={{ marginBottom: "0" }}>
+      {/* Section header */}
+      <div style={{ marginBottom: "1rem" }}>
+        <p style={{
+          fontFamily: MONO, fontSize: "0.6rem", letterSpacing: "0.14em",
+          textTransform: "uppercase", color: ORANGE,
+          margin: "0 0 0.75rem",
+          display: "flex", alignItems: "center", gap: "0.5rem",
+        }}>
+          <span>NEW RELEASES</span>
+          <span style={{ color: RULE }}>|</span>
+          <span>新着情報</span>
+        </p>
+
+        {/* Filter strip */}
+        <div style={{
+          display: "flex", flexWrap: "wrap", gap: "0.5rem",
+        }}>
+          {allFilters.map(({ key, label }) => {
+            const isActive = activeFilter === key;
+            return (
+              <button
+                key={key}
+                onClick={() => setActiveFilter(key)}
+                style={{
+                  fontFamily: MONO, fontSize: "0.55rem", letterSpacing: "0.1em",
+                  textTransform: "uppercase",
+                  background: isActive ? INK : "transparent",
+                  color: isActive ? "#ffffff" : INK,
+                  border: `1px solid ${isActive ? INK : RULE}`,
+                  borderRadius: 0,
+                  padding: "0.3rem 0.75rem",
+                  cursor: "pointer",
+                }}
+              >
+                {label}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* Grid */}
+      {loading ? (
+        <div className="nr-grid">
+          {Array.from({ length: 4 }).map((_, i) => <SkeletonCard key={i} />)}
+        </div>
+      ) : items.length === 0 ? (
+        <p style={{
+          fontFamily: MONO, fontSize: "0.65rem", color: INK,
+          opacity: 0.5, margin: 0,
+        }}>
+          No releases yet. The feed updates daily once labels@rekodo.co is subscribed to label newsletters.
+        </p>
+      ) : filtered.length === 0 ? (
+        <p style={{
+          fontFamily: MONO, fontSize: "0.65rem", color: INK,
+          opacity: 0.5, margin: 0,
+        }}>
+          No releases match this filter.
+        </p>
+      ) : (
+        <div className="nr-grid">
+          {filtered.map(item => <ReleaseCard key={item.id} item={item} />)}
+        </div>
+      )}
+    </section>
+  );
+}
 
 // ─── Placeholder image ────────────────────────────────────────────────────────
 
@@ -203,6 +496,25 @@ export default function SelectsClient({ username, displayLabel, avatarUrl }: Pro
   return (
     <div style={{ minHeight: "100vh", background: "#ffffff" }}>
       <style>{`
+        @keyframes nr-pulse {
+          0%, 100% { opacity: 1; }
+          50%       { opacity: 0.45; }
+        }
+        .nr-shimmer { animation: nr-pulse 1.4s ease-in-out infinite; }
+
+        .nr-grid {
+          display: grid;
+          grid-template-columns: repeat(4, 1fr);
+          gap: 1px;
+          background: ${RULE};
+        }
+        @media (max-width: 1023px) {
+          .nr-grid { grid-template-columns: repeat(3, 1fr); }
+        }
+        @media (max-width: 639px) {
+          .nr-grid { grid-template-columns: repeat(2, 1fr); }
+        }
+
         @media (max-width: 767px) {
           .selects-card {
             grid-template-columns: 1fr !important;
@@ -221,56 +533,63 @@ export default function SelectsClient({ username, displayLabel, avatarUrl }: Pro
 
       <AppNav username={username} displayLabel={displayLabel} avatarUrl={avatarUrl} />
 
-      {/* ── Sub-navigation ── */}
-      <div style={{
-        display: "flex", justifyContent: "center", gap: "24px",
-        paddingTop: "14px", paddingBottom: "2px",
-        background: "#ffffff",
-      }}>
-        {TABS.map(({ key, label }) => (
-          <button
-            key={key}
-            onClick={() => setActiveTab(key)}
-            style={{
-              fontFamily: MONO, fontSize: "10px", letterSpacing: "0.1em",
-              textTransform: "uppercase", background: "none", border: "none",
-              borderBottom: `1.5px solid ${activeTab === key ? ORANGE : "transparent"}`,
-              padding: "6px 0",
-              color: activeTab === key ? INK : "#bbbbbb",
-              cursor: "pointer",
-              transition: "color 0.15s, border-color 0.15s",
-            }}
-          >
-            {label}
-          </button>
-        ))}
-      </div>
-
-      {/* ── Content ── */}
       <main style={{ padding: "36px 40px 80px", maxWidth: 1200, margin: "0 auto" }}>
-        <SpotlightCard data={SPOTLIGHT[activeTab]} tab={activeTab} />
+        {/* ── New Releases feed ── */}
+        <NewReleasesSection />
 
-        {/* Coming next */}
+        {/* ── Divider ── */}
+        <div style={{ height: 1, background: RULE, margin: "36px 0 0" }} />
+
+        {/* ── Sub-navigation ── */}
         <div style={{
-          marginTop: "48px",
-          paddingTop: "24px",
-          borderTop: `1px solid ${RULE}`,
-          display: "flex", alignItems: "center", justifyContent: "space-between",
+          display: "flex", gap: "24px",
+          paddingTop: "14px", paddingBottom: "2px",
         }}>
-          <p style={{
-            fontFamily: MONO, fontSize: "0.6rem", letterSpacing: "0.12em",
-            textTransform: "uppercase", color: "#bbbbbb", margin: 0,
+          {TABS.map(({ key, label }) => (
+            <button
+              key={key}
+              onClick={() => setActiveTab(key)}
+              style={{
+                fontFamily: MONO, fontSize: "10px", letterSpacing: "0.1em",
+                textTransform: "uppercase", background: "none", border: "none",
+                borderBottom: `1.5px solid ${activeTab === key ? ORANGE : "transparent"}`,
+                padding: "6px 0",
+                color: activeTab === key ? INK : "#bbbbbb",
+                cursor: "pointer",
+                transition: "color 0.15s, border-color 0.15s",
+              }}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+
+        {/* ── Spotlight content ── */}
+        <div style={{ marginTop: "24px" }}>
+          <SpotlightCard data={SPOTLIGHT[activeTab]} tab={activeTab} />
+
+          {/* Coming next */}
+          <div style={{
+            marginTop: "48px",
+            paddingTop: "24px",
+            borderTop: `1px solid ${RULE}`,
+            display: "flex", alignItems: "center", justifyContent: "space-between",
           }}>
-            More {activeTab === "artist" ? "artist" : "label"} spotlights coming soon
-          </p>
-          <span style={{
-            fontFamily: MONO, fontSize: "0.6rem", letterSpacing: "0.1em",
-            textTransform: "uppercase", color: INK,
-            border: `1px solid ${RULE}`,
-            padding: "0.2rem 0.6rem",
-          }}>
-            01 / —
-          </span>
+            <p style={{
+              fontFamily: MONO, fontSize: "0.6rem", letterSpacing: "0.12em",
+              textTransform: "uppercase", color: "#bbbbbb", margin: 0,
+            }}>
+              More {activeTab === "artist" ? "artist" : "label"} spotlights coming soon
+            </p>
+            <span style={{
+              fontFamily: MONO, fontSize: "0.6rem", letterSpacing: "0.1em",
+              textTransform: "uppercase", color: INK,
+              border: `1px solid ${RULE}`,
+              padding: "0.2rem 0.6rem",
+            }}>
+              01 / —
+            </span>
+          </div>
         </div>
       </main>
     </div>

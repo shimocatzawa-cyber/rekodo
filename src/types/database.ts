@@ -511,6 +511,52 @@ export type Database = {
         };
         Relationships: [];
       };
+      label_feed: {
+        Row: {
+          id:               string;
+          gmail_message_id: string | null;
+          sender:           string | null;
+          subject:          string | null;
+          received_at:      string | null;
+          artist:           string | null;
+          album:            string | null;
+          release_type:     "new_release" | "repress" | "preorder" | "announcement" | "unknown" | null;
+          format:           string | null;
+          label:            string | null;
+          description:      string | null;
+          tags:             string[] | null;
+          created_at:       string | null;
+        };
+        Insert: {
+          id?:               string;
+          gmail_message_id?: string | null;
+          sender?:           string | null;
+          subject?:          string | null;
+          received_at?:      string | null;
+          artist?:           string | null;
+          album?:            string | null;
+          release_type?:     "new_release" | "repress" | "preorder" | "announcement" | "unknown" | null;
+          format?:           string | null;
+          label?:            string | null;
+          description?:      string | null;
+          tags?:             string[] | null;
+          created_at?:       string | null;
+        };
+        Update: {
+          gmail_message_id?: string | null;
+          sender?:           string | null;
+          subject?:          string | null;
+          received_at?:      string | null;
+          artist?:           string | null;
+          album?:            string | null;
+          release_type?:     "new_release" | "repress" | "preorder" | "announcement" | "unknown" | null;
+          format?:           string | null;
+          label?:            string | null;
+          description?:      string | null;
+          tags?:             string[] | null;
+        };
+        Relationships: [];
+      };
     };
     Views: { [_ in never]: never };
     Functions: { [_ in never]: never };
