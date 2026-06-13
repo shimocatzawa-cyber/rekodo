@@ -30,11 +30,12 @@ type LabelFeedItem = {
 
 // ─── Selects tabs ─────────────────────────────────────────────────────────────
 
-type SelectsTab = "artist" | "label";
+type SelectsTab = "new_releases" | "artist" | "label";
 
 const TABS: { key: SelectsTab; label: string }[] = [
-  { key: "artist", label: "Artist" },
-  { key: "label",  label: "Label"  },
+  { key: "new_releases", label: "New Releases" },
+  { key: "artist",       label: "Artist"       },
+  { key: "label",        label: "Label"        },
 ];
 
 // ─── Buy link helper ──────────────────────────────────────────────────────────
@@ -240,45 +241,29 @@ function NewReleasesSection() {
 
   return (
     <section style={{ marginBottom: "0" }}>
-      {/* Section header */}
-      <div style={{ marginBottom: "1rem" }}>
-        <p style={{
-          fontFamily: MONO, fontSize: "0.6rem", letterSpacing: "0.14em",
-          textTransform: "uppercase", color: ORANGE,
-          margin: "0 0 0.75rem",
-          display: "flex", alignItems: "center", gap: "0.5rem",
-        }}>
-          <span>NEW RELEASES</span>
-          <span style={{ color: RULE }}>|</span>
-          <span>新着情報</span>
-        </p>
-
-        {/* Filter strip */}
-        <div style={{
-          display: "flex", flexWrap: "wrap", gap: "0.5rem",
-        }}>
-          {allFilters.map(({ key, label }) => {
-            const isActive = activeFilter === key;
-            return (
-              <button
-                key={key}
-                onClick={() => setActiveFilter(key)}
-                style={{
-                  fontFamily: MONO, fontSize: "0.55rem", letterSpacing: "0.1em",
-                  textTransform: "uppercase",
-                  background: isActive ? INK : "transparent",
-                  color: isActive ? "#ffffff" : INK,
-                  border: `1px solid ${isActive ? INK : RULE}`,
-                  borderRadius: 0,
-                  padding: "0.3rem 0.75rem",
-                  cursor: "pointer",
-                }}
-              >
-                {label}
-              </button>
-            );
-          })}
-        </div>
+      {/* Filter strip */}
+      <div style={{ display: "flex", flexWrap: "wrap", gap: "0.5rem", marginBottom: "1rem" }}>
+        {allFilters.map(({ key, label }) => {
+          const isActive = activeFilter === key;
+          return (
+            <button
+              key={key}
+              onClick={() => setActiveFilter(key)}
+              style={{
+                fontFamily: MONO, fontSize: "0.55rem", letterSpacing: "0.1em",
+                textTransform: "uppercase",
+                background: isActive ? INK : "transparent",
+                color: isActive ? "#ffffff" : INK,
+                border: `1px solid ${isActive ? INK : RULE}`,
+                borderRadius: 0,
+                padding: "0.3rem 0.75rem",
+                cursor: "pointer",
+              }}
+            >
+              {label}
+            </button>
+          );
+        })}
       </div>
 
       {/* Grid */}
@@ -346,7 +331,7 @@ type SpotlightData = {
   imageUrl: string | null;
 };
 
-const SPOTLIGHT: Record<SelectsTab, SpotlightData> = {
+const SPOTLIGHT: Record<"artist" | "label", SpotlightData> = {
   artist: {
     eyebrow:  "ARTIST SELECT - JUNE",
     name:     "Alice Coltrane",
@@ -379,7 +364,7 @@ const SPOTLIGHT: Record<SelectsTab, SpotlightData> = {
 
 // ─── Main spotlight card ──────────────────────────────────────────────────────
 
-function SpotlightCard({ data, tab }: { data: SpotlightData; tab: SelectsTab }) {
+function SpotlightCard({ data, tab }: { data: SpotlightData; tab: "artist" | "label" }) {
   return (
     <div
       className="selects-card"
@@ -491,7 +476,7 @@ interface Props {
 // ─── Main component ───────────────────────────────────────────────────────────
 
 export default function SelectsClient({ username, displayLabel, avatarUrl }: Props) {
-  const [activeTab, setActiveTab] = useState<SelectsTab>("artist");
+  const [activeTab, setActiveTab] = useState<SelectsTab>("new_releases");
 
   return (
     <div style={{ minHeight: "100vh", background: "#ffffff" }}>
@@ -533,64 +518,62 @@ export default function SelectsClient({ username, displayLabel, avatarUrl }: Pro
 
       <AppNav username={username} displayLabel={displayLabel} avatarUrl={avatarUrl} />
 
+      {/* ── Sub-navigation ── */}
+      <div style={{
+        display: "flex", justifyContent: "center", gap: "24px",
+        paddingTop: "14px", paddingBottom: "2px",
+        background: "#ffffff",
+      }}>
+        {TABS.map(({ key, label }) => (
+          <button
+            key={key}
+            onClick={() => setActiveTab(key)}
+            style={{
+              fontFamily: MONO, fontSize: "10px", letterSpacing: "0.1em",
+              textTransform: "uppercase", background: "none", border: "none",
+              borderBottom: `1.5px solid ${activeTab === key ? ORANGE : "transparent"}`,
+              padding: "6px 0",
+              color: activeTab === key ? INK : "#bbbbbb",
+              cursor: "pointer",
+              transition: "color 0.15s, border-color 0.15s",
+            }}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
+
       <main style={{ padding: "36px 40px 80px", maxWidth: 1200, margin: "0 auto" }}>
-        {/* ── New Releases feed ── */}
-        <NewReleasesSection />
+        {activeTab === "new_releases" ? (
+          <NewReleasesSection />
+        ) : (
+          <>
+            <SpotlightCard data={SPOTLIGHT[activeTab]} tab={activeTab} />
 
-        {/* ── Divider ── */}
-        <div style={{ height: 1, background: RULE, margin: "36px 0 0" }} />
-
-        {/* ── Sub-navigation ── */}
-        <div style={{
-          display: "flex", gap: "24px",
-          paddingTop: "14px", paddingBottom: "2px",
-        }}>
-          {TABS.map(({ key, label }) => (
-            <button
-              key={key}
-              onClick={() => setActiveTab(key)}
-              style={{
-                fontFamily: MONO, fontSize: "10px", letterSpacing: "0.1em",
-                textTransform: "uppercase", background: "none", border: "none",
-                borderBottom: `1.5px solid ${activeTab === key ? ORANGE : "transparent"}`,
-                padding: "6px 0",
-                color: activeTab === key ? INK : "#bbbbbb",
-                cursor: "pointer",
-                transition: "color 0.15s, border-color 0.15s",
-              }}
-            >
-              {label}
-            </button>
-          ))}
-        </div>
-
-        {/* ── Spotlight content ── */}
-        <div style={{ marginTop: "24px" }}>
-          <SpotlightCard data={SPOTLIGHT[activeTab]} tab={activeTab} />
-
-          {/* Coming next */}
-          <div style={{
-            marginTop: "48px",
-            paddingTop: "24px",
-            borderTop: `1px solid ${RULE}`,
-            display: "flex", alignItems: "center", justifyContent: "space-between",
-          }}>
-            <p style={{
-              fontFamily: MONO, fontSize: "0.6rem", letterSpacing: "0.12em",
-              textTransform: "uppercase", color: "#bbbbbb", margin: 0,
+            {/* Coming next */}
+            <div style={{
+              marginTop: "48px",
+              paddingTop: "24px",
+              borderTop: `1px solid ${RULE}`,
+              display: "flex", alignItems: "center", justifyContent: "space-between",
             }}>
-              More {activeTab === "artist" ? "artist" : "label"} spotlights coming soon
-            </p>
-            <span style={{
-              fontFamily: MONO, fontSize: "0.6rem", letterSpacing: "0.1em",
-              textTransform: "uppercase", color: INK,
-              border: `1px solid ${RULE}`,
-              padding: "0.2rem 0.6rem",
-            }}>
-              01 / —
-            </span>
-          </div>
-        </div>
+              <p style={{
+                fontFamily: MONO, fontSize: "0.6rem", letterSpacing: "0.12em",
+                textTransform: "uppercase", color: "#bbbbbb", margin: 0,
+              }}>
+                More {activeTab === "artist" ? "artist" : "label"} spotlights coming soon
+              </p>
+              <span style={{
+                fontFamily: MONO, fontSize: "0.6rem", letterSpacing: "0.1em",
+                textTransform: "uppercase", color: INK,
+                border: `1px solid ${RULE}`,
+                padding: "0.2rem 0.6rem",
+              }}>
+                01 / —
+              </span>
+            </div>
+          </>
+        )}
       </main>
     </div>
   );
