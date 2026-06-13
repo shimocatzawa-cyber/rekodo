@@ -26,18 +26,18 @@ const RULE   = "#e0e0da";
 const MUTED  = "#aaaaaa";
 
 const SIGN_SYMBOL: Record<string, string> = {
-  Aries:       "https://upload.wikimedia.org/wikipedia/commons/thumb/0/00/Aries_symbol_%28fixed_width%29.svg/80px-Aries_symbol_%28fixed_width%29.svg.png",
-  Taurus:      "https://upload.wikimedia.org/wikipedia/commons/thumb/0/0b/Taurus_symbol_%28fixed_width%29.svg/80px-Taurus_symbol_%28fixed_width%29.svg.png",
-  Gemini:      "https://upload.wikimedia.org/wikipedia/commons/thumb/0/0c/Gemini_symbol_%28fixed_width%29.svg/80px-Gemini_symbol_%28fixed_width%29.svg.png",
-  Cancer:      "https://upload.wikimedia.org/wikipedia/commons/thumb/e/ec/Cancer_symbol_%28fixed_width%29.svg/80px-Cancer_symbol_%28fixed_width%29.svg.png",
-  Leo:         "https://upload.wikimedia.org/wikipedia/commons/thumb/2/2c/Leo_symbol_%28fixed_width%29.svg/80px-Leo_symbol_%28fixed_width%29.svg.png",
-  Virgo:       "https://upload.wikimedia.org/wikipedia/commons/thumb/a/a8/Virgo_symbol_%28fixed_width%29.svg/80px-Virgo_symbol_%28fixed_width%29.svg.png",
-  Libra:       "https://upload.wikimedia.org/wikipedia/commons/thumb/0/07/Libra_symbol_%28fixed_width%29.svg/80px-Libra_symbol_%28fixed_width%29.svg.png",
-  Scorpio:     "https://upload.wikimedia.org/wikipedia/commons/thumb/7/7c/Scorpius_symbol_%28fixed_width%29.svg/80px-Scorpius_symbol_%28fixed_width%29.svg.png",
-  Sagittarius: "https://upload.wikimedia.org/wikipedia/commons/thumb/5/52/Sagittarius_symbol_%28fixed_width%29.svg/80px-Sagittarius_symbol_%28fixed_width%29.svg.png",
-  Capricorn:   "https://upload.wikimedia.org/wikipedia/commons/thumb/a/a9/Capricornus_symbol_%28fixed_width%29.svg/80px-Capricornus_symbol_%28fixed_width%29.svg.png",
-  Aquarius:    "https://upload.wikimedia.org/wikipedia/commons/thumb/f/fd/Aquarius_symbol_%28fixed_width%29.svg/80px-Aquarius_symbol_%28fixed_width%29.svg.png",
-  Pisces:      "https://upload.wikimedia.org/wikipedia/commons/thumb/2/21/Pisces_symbol_%28fixed_width%29.svg/80px-Pisces_symbol_%28fixed_width%29.svg.png",
+  Aries:       "https://upload.wikimedia.org/wikipedia/commons/0/00/Aries_symbol_%28fixed_width%29.svg",
+  Taurus:      "https://upload.wikimedia.org/wikipedia/commons/0/0b/Taurus_symbol_%28fixed_width%29.svg",
+  Gemini:      "https://upload.wikimedia.org/wikipedia/commons/0/0c/Gemini_symbol_%28fixed_width%29.svg",
+  Cancer:      "https://upload.wikimedia.org/wikipedia/commons/e/ec/Cancer_symbol_%28fixed_width%29.svg",
+  Leo:         "https://upload.wikimedia.org/wikipedia/commons/2/2c/Leo_symbol_%28fixed_width%29.svg",
+  Virgo:       "https://upload.wikimedia.org/wikipedia/commons/a/a8/Virgo_symbol_%28fixed_width%29.svg",
+  Libra:       "https://upload.wikimedia.org/wikipedia/commons/0/07/Libra_symbol_%28fixed_width%29.svg",
+  Scorpio:     "https://upload.wikimedia.org/wikipedia/commons/7/7c/Scorpius_symbol_%28fixed_width%29.svg",
+  Sagittarius: "https://upload.wikimedia.org/wikipedia/commons/5/52/Sagittarius_symbol_%28fixed_width%29.svg",
+  Capricorn:   "https://upload.wikimedia.org/wikipedia/commons/a/a9/Capricornus_symbol_%28fixed_width%29.svg",
+  Aquarius:    "https://upload.wikimedia.org/wikipedia/commons/f/fd/Aquarius_symbol_%28fixed_width%29.svg",
+  Pisces:      "https://upload.wikimedia.org/wikipedia/commons/2/21/Pisces_symbol_%28fixed_width%29.svg",
 };
 
 // ─── Static placeholder discover cards ────────────────────────────────────────
