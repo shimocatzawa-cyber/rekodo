@@ -660,7 +660,7 @@ export default function ProfileClient({
           {profile.star_sign && (
             <>
               <div style={{ paddingBottom: "32px" }}>
-                <p style={eyebrowSt}>Album Recommendation</p>
+                <p style={eyebrowSt}>Horoscope Album Recommendation</p>
                 <p style={{ fontFamily: MONO, fontSize: "12px", letterSpacing: "0.04em", color: MUTED, margin: "0 0 16px 0" }}>
                   {SIGN_SYMBOL[profile.star_sign] ?? "☽"}{" "}{profile.star_sign}
                 </p>

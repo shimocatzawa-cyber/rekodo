@@ -98,7 +98,7 @@ export default function CollectionPhotos({ initialPhoto, userId, isOwner }: Prop
             fontFamily: MONO, fontSize: "0.65rem", letterSpacing: "0.04em",
             color: "#aaaaaa", margin: "0 0 16px 0",
           }}>
-            Add photos of your collection here.
+            Add a photo of your collection.
           </p>
         )}
 
