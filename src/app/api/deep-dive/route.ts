@@ -1,6 +1,8 @@
 import { type NextRequest, NextResponse } from "next/server";
 import Anthropic from "@anthropic-ai/sdk";
 
+export const maxDuration = 60;
+
 const client = new Anthropic();
 
 const PROMPTS: Record<string, (artist: string) => string> = {
@@ -56,9 +58,13 @@ export async function POST(request: NextRequest) {
 
     const message = await client.messages.create({
       model: "claude-haiku-4-5",
-      max_tokens: 2048,
+      max_tokens: section === "rankings" ? 3000 : 2048,
       messages: [{ role: "user", content: PROMPTS[section](artist) }],
     });
+
+    if (message.stop_reason === "max_tokens") {
+      return NextResponse.json({ error: "Response truncated" }, { status: 500 });
+    }
 
     const text =
       message.content[0].type === "text" ? message.content[0].text : "";
