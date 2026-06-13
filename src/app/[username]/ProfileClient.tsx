@@ -753,6 +753,11 @@ export default function ProfileClient({
                   </div>
                 )}
 
+                {/* ── Lunar Listening Ritual ── */}
+                <div style={{ marginTop: "16px", paddingTop: "16px", borderTop: `1px solid ${RULE}` }}>
+                  <LunarListeningRitual />
+                </div>
+
                 {/* ── Album recommendation ── */}
                 {profile.star_sign && (
                   <div style={{ marginTop: "16px", paddingTop: "16px", borderTop: `1px solid ${RULE}` }}>
@@ -888,11 +893,6 @@ export default function ProfileClient({
               userId={profile.id}
               isOwner={isOwner}
             />
-          </div>
-
-          {/* ── Lunar Listening Ritual ── */}
-          <div style={{ marginBottom: "48px" }}>
-            <LunarListeningRitual />
           </div>
 
           {/* ── Lists section ── */}
