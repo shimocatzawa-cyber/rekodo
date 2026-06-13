@@ -26,9 +26,18 @@ const RULE   = "#e0e0da";
 const MUTED  = "#aaaaaa";
 
 const SIGN_SYMBOL: Record<string, string> = {
-  Aries: "♈", Taurus: "♉", Gemini: "♊", Cancer: "♋",
-  Leo: "♌", Virgo: "♍", Libra: "♎", Scorpio: "♏",
-  Sagittarius: "♐", Capricorn: "♑", Aquarius: "♒", Pisces: "♓",
+  Aries:       "https://upload.wikimedia.org/wikipedia/commons/thumb/0/00/Aries_symbol_%28fixed_width%29.svg/80px-Aries_symbol_%28fixed_width%29.svg.png",
+  Taurus:      "https://upload.wikimedia.org/wikipedia/commons/thumb/0/0b/Taurus_symbol_%28fixed_width%29.svg/80px-Taurus_symbol_%28fixed_width%29.svg.png",
+  Gemini:      "https://upload.wikimedia.org/wikipedia/commons/thumb/0/0c/Gemini_symbol_%28fixed_width%29.svg/80px-Gemini_symbol_%28fixed_width%29.svg.png",
+  Cancer:      "https://upload.wikimedia.org/wikipedia/commons/thumb/e/ec/Cancer_symbol_%28fixed_width%29.svg/80px-Cancer_symbol_%28fixed_width%29.svg.png",
+  Leo:         "https://upload.wikimedia.org/wikipedia/commons/thumb/2/2c/Leo_symbol_%28fixed_width%29.svg/80px-Leo_symbol_%28fixed_width%29.svg.png",
+  Virgo:       "https://upload.wikimedia.org/wikipedia/commons/thumb/a/a8/Virgo_symbol_%28fixed_width%29.svg/80px-Virgo_symbol_%28fixed_width%29.svg.png",
+  Libra:       "https://upload.wikimedia.org/wikipedia/commons/thumb/0/07/Libra_symbol_%28fixed_width%29.svg/80px-Libra_symbol_%28fixed_width%29.svg.png",
+  Scorpio:     "https://upload.wikimedia.org/wikipedia/commons/thumb/7/7c/Scorpius_symbol_%28fixed_width%29.svg/80px-Scorpius_symbol_%28fixed_width%29.svg.png",
+  Sagittarius: "https://upload.wikimedia.org/wikipedia/commons/thumb/5/52/Sagittarius_symbol_%28fixed_width%29.svg/80px-Sagittarius_symbol_%28fixed_width%29.svg.png",
+  Capricorn:   "https://upload.wikimedia.org/wikipedia/commons/thumb/a/a9/Capricornus_symbol_%28fixed_width%29.svg/80px-Capricornus_symbol_%28fixed_width%29.svg.png",
+  Aquarius:    "https://upload.wikimedia.org/wikipedia/commons/thumb/f/fd/Aquarius_symbol_%28fixed_width%29.svg/80px-Aquarius_symbol_%28fixed_width%29.svg.png",
+  Pisces:      "https://upload.wikimedia.org/wikipedia/commons/thumb/2/21/Pisces_symbol_%28fixed_width%29.svg/80px-Pisces_symbol_%28fixed_width%29.svg.png",
 };
 
 // ─── Static placeholder discover cards ────────────────────────────────────────
@@ -793,9 +802,19 @@ export default function ProfileClient({
             <>
               <div style={{ paddingBottom: "32px" }}>
                 <p style={eyebrowSt}>Horoscope Album Recommendation</p>
-                <p style={{ fontFamily: MONO, fontSize: "12px", letterSpacing: "0.04em", color: MUTED, margin: "0 0 16px 0" }}>
-                  {SIGN_SYMBOL[profile.star_sign] ?? "☽"}{" "}{profile.star_sign}
-                </p>
+                <div style={{ display: "flex", alignItems: "center", gap: "10px", margin: "0 0 16px 0" }}>
+                  {SIGN_SYMBOL[profile.star_sign] ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={SIGN_SYMBOL[profile.star_sign]}
+                      alt={profile.star_sign}
+                      style={{ height: "20px", width: "auto", opacity: 0.45 }}
+                    />
+                  ) : null}
+                  <p style={{ fontFamily: MONO, fontSize: "12px", letterSpacing: "0.04em", color: MUTED, margin: 0 }}>
+                    {profile.star_sign}
+                  </p>
+                </div>
                 {profile.taste_summary ? (
                   <>
                     <p style={{ fontFamily: SERIF, fontSize: "1.1rem", fontStyle: "italic", color: "#505050", lineHeight: 1.8, margin: "0 0 20px 0" }}>
