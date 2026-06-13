@@ -8,7 +8,8 @@ import { createClient } from "@/lib/supabase/server";
 const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
 export async function generateTasteSummary(
-  userId: string
+  userId: string,
+  _starSign = "",
 ): Promise<{ ok: true; summary: string } | { error: string }> {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();

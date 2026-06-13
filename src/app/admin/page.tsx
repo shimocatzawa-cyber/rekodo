@@ -43,7 +43,7 @@ export default async function AdminPage() {
   // Build user list from auth (source of truth — includes everyone)
   const users: AdminUser[] = authUsers.map(u => {
     const p = profileById.get(u.id);
-    const bannedUntil = (u as Record<string, unknown>).banned_until as string | null ?? null;
+    const bannedUntil = ((u as unknown) as Record<string, unknown>).banned_until as string | null ?? null;
     return {
       id:                u.id,
       username:          p?.username ?? null,

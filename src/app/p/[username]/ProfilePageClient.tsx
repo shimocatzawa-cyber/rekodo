@@ -57,9 +57,11 @@ export function FollowButton({ profileId, initialIsFollowing }: { profileId: str
 
 export function GenerateSummaryBtn({
   userId,
+  starSign = "",
   hasExisting,
 }: {
   userId: string;
+  starSign?: string;
   hasExisting: boolean;
 }) {
   const router = useRouter();
@@ -69,7 +71,7 @@ export function GenerateSummaryBtn({
   function handle() {
     setError(null);
     startTransition(async () => {
-      const result = await generateTasteSummary(userId);
+      const result = await generateTasteSummary(userId, starSign);
       if ("error" in result) {
         setError(result.error);
       } else {
