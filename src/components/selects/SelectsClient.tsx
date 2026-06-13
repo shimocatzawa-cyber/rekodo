@@ -207,6 +207,7 @@ function SkeletonCard() {
 function NewReleasesSection() {
   const [items, setItems]       = useState<LabelFeedItem[]>([]);
   const [loading, setLoading]   = useState(true);
+  const [fetchError, setFetchError] = useState<string | null>(null);
   const [activeFilter, setActiveFilter] = useState("ALL");
 
   useEffect(() => {
@@ -216,8 +217,12 @@ function NewReleasesSection() {
       .select("*")
       .order("received_at", { ascending: false })
       .limit(48)
-      .then(({ data }) => {
-        setItems((data as unknown as LabelFeedItem[]) ?? []);
+      .then(({ data, error }) => {
+        if (error) {
+          setFetchError(error.message);
+        } else {
+          setItems((data as unknown as LabelFeedItem[]) ?? []);
+        }
         setLoading(false);
       });
   }, []);
@@ -271,6 +276,13 @@ function NewReleasesSection() {
         <div className="nr-grid">
           {Array.from({ length: 4 }).map((_, i) => <SkeletonCard key={i} />)}
         </div>
+      ) : fetchError ? (
+        <p style={{
+          fontFamily: MONO, fontSize: "0.65rem", color: "#cc3300",
+          margin: 0,
+        }}>
+          Feed error: {fetchError}
+        </p>
       ) : items.length === 0 ? (
         <p style={{
           fontFamily: MONO, fontSize: "0.65rem", color: INK,
