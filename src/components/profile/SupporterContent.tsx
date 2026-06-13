@@ -23,25 +23,7 @@ interface Props {
 
 export default function SupporterContent({ isOwner, isSupporter }: Props) {
   return (
-    <div style={{ maxWidth: 620, margin: "0 auto", padding: "2.5rem 1.5rem 5rem" }}>
-
-      {/* Eyebrow */}
-      <p style={{
-        fontFamily: MONO, fontSize: "0.55rem", letterSpacing: "0.16em",
-        textTransform: "uppercase", color: ORANGE, margin: "0 0 20px",
-      }}>
-        rekōdo / Supporter
-      </p>
-
-      {/* Heading */}
-      <h1 style={{
-        fontFamily: SERIF, fontSize: "clamp(1.9rem, 3.5vw, 2.8rem)", fontWeight: 400,
-        color: INK, lineHeight: 1.1, letterSpacing: "-0.02em",
-        margin: "0 0 18px",
-      }}>
-        Support rekōdo. Earn the golden{" "}
-        <span style={{ color: GOLD }}>ō</span>.
-      </h1>
+    <div style={{ maxWidth: 860, margin: "0 auto", padding: "3rem 3.5rem 5rem" }}>
 
       {/* Subtext */}
       <p style={{
@@ -142,7 +124,7 @@ export default function SupporterContent({ isOwner, isSupporter }: Props) {
           fontFamily: MONO, fontSize: "0.6rem", letterSpacing: "0.14em",
           textTransform: "uppercase", color: "#aaaaaa", margin: "0 0 14px",
         }}>
-          What&rsquo;s included
+          What extras you get
         </p>
         <div style={{
           display: "grid", gridTemplateColumns: "1fr 1fr",
