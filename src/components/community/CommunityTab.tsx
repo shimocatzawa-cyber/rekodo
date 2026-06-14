@@ -373,34 +373,52 @@ export default function CommunityTab({ profileOwnerId }: { profileOwnerId: strin
     <div style={{ width: "100%", padding: "24px 1.5rem 4rem" }}>
       <div style={{ maxWidth: 860, margin: "0 auto" }}>
 
-        {/* ── My Followers ─────────────────────────────────────────────────────── */}
+        {/* ── Followers + Following ──────────────────────────────────────────────── */}
         {followersLoaded && (
-          <div style={{ marginBottom: "32px", paddingBottom: "28px", borderBottom: `1px solid ${RULE}` }}>
-            <div style={{ display: "flex", alignItems: "baseline", gap: "10px", marginBottom: "14px" }}>
-              <p style={{ fontFamily: MONO, fontSize: "0.58rem", letterSpacing: "0.14em", textTransform: "uppercase", color: INK, margin: 0 }}>
-                My Followers
-              </p>
-              <span style={{ fontFamily: MONO, fontSize: "0.55rem", color: MUTED }}>
-                {followers.length}
-              </span>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "24px", marginBottom: "32px", paddingBottom: "28px", borderBottom: `1px solid ${RULE}` }}>
+            {/* Following — who this profile follows */}
+            <div>
+              <div style={{ display: "flex", alignItems: "baseline", gap: "8px", marginBottom: "12px" }}>
+                <p style={{ fontFamily: MONO, fontSize: "0.58rem", letterSpacing: "0.14em", textTransform: "uppercase", color: INK, margin: 0 }}>Following</p>
+                <span style={{ fontFamily: MONO, fontSize: "0.55rem", color: MUTED }}>{following.length}</span>
+              </div>
+              {following.length === 0 ? (
+                <p style={{ fontFamily: MONO, fontSize: "0.62rem", color: MUTED, lineHeight: 1.6 }}>
+                  Not following anyone yet.
+                </p>
+              ) : (
+                <div style={{ display: "flex", flexWrap: "wrap", gap: "8px" }}>
+                  {following.map(f => (
+                    <Link key={f.id} href={`/@${f.username}`} title={f.display_name ?? f.username} style={{ textDecoration: "none", position: "relative", display: "inline-block" }}>
+                      <Avatar avatarUrl={f.avatar_url} name={f.display_name} username={f.username} size={38} />
+                      {f.is_donor && <span style={{ position: "absolute", bottom: -1, right: -1, fontFamily: SERIF, fontSize: "9px", color: GOLD, lineHeight: 1, background: "#fff", borderRadius: "50%", padding: "1px" }} title="rekōdo supporter">ō</span>}
+                    </Link>
+                  ))}
+                </div>
+              )}
             </div>
 
-            {followers.length === 0 ? (
-              <p style={{ fontFamily: MONO, fontSize: "0.62rem", color: MUTED, lineHeight: 1.6 }}>
-                No followers yet. Share your profile to start building your network.
-              </p>
-            ) : (
-              <div style={{ display: "flex", flexWrap: "wrap", gap: "8px" }}>
-                {followers.map(f => (
-                  <Link key={f.id} href={`/@${f.username}`} title={f.display_name ?? f.username} style={{ textDecoration: "none", position: "relative", display: "inline-block" }}>
-                    <Avatar avatarUrl={f.avatar_url} name={f.display_name} username={f.username} size={38} />
-                    {f.is_donor && (
-                      <span style={{ position: "absolute", bottom: -1, right: -1, fontFamily: SERIF, fontSize: "9px", color: GOLD, lineHeight: 1, background: "#fff", borderRadius: "50%", padding: "1px" }} title="rekōdo supporter">ō</span>
-                    )}
-                  </Link>
-                ))}
+            {/* Followers — who follows this profile */}
+            <div>
+              <div style={{ display: "flex", alignItems: "baseline", gap: "8px", marginBottom: "12px" }}>
+                <p style={{ fontFamily: MONO, fontSize: "0.58rem", letterSpacing: "0.14em", textTransform: "uppercase", color: INK, margin: 0 }}>Followers</p>
+                <span style={{ fontFamily: MONO, fontSize: "0.55rem", color: MUTED }}>{followers.length}</span>
               </div>
-            )}
+              {followers.length === 0 ? (
+                <p style={{ fontFamily: MONO, fontSize: "0.62rem", color: MUTED, lineHeight: 1.6 }}>
+                  No followers yet.
+                </p>
+              ) : (
+                <div style={{ display: "flex", flexWrap: "wrap", gap: "8px" }}>
+                  {followers.map(f => (
+                    <Link key={f.id} href={`/@${f.username}`} title={f.display_name ?? f.username} style={{ textDecoration: "none", position: "relative", display: "inline-block" }}>
+                      <Avatar avatarUrl={f.avatar_url} name={f.display_name} username={f.username} size={38} />
+                      {f.is_donor && <span style={{ position: "absolute", bottom: -1, right: -1, fontFamily: SERIF, fontSize: "9px", color: GOLD, lineHeight: 1, background: "#fff", borderRadius: "50%", padding: "1px" }} title="rekōdo supporter">ō</span>}
+                    </Link>
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
         )}
 
