@@ -167,7 +167,11 @@ export async function POST(request: Request) {
       : "";
 
     // Random exploration angle — forces variety on every call
-    const digDecade = pick(["1950s", "1960s", "early 1970s", "late 1970s", "1980s", "early 1990s", "late 1990s", "2000s"]);
+    const digDecade = pick([
+      "1950s", "1960s", "early 1970s", "late 1970s",
+      "1980s", "early 1990s", "late 1990s",
+      "2000s", "2010s", "2020s",
+    ]);
     const digRegion = pick([
       "West Africa", "Japan", "Brazil", "Jamaica", "Germany", "Nigeria", "Colombia",
       "South Korea", "Scandinavia", "India", "Turkey", "Eastern Europe", "Caribbean",
@@ -190,7 +194,7 @@ export async function POST(request: Request) {
       ? `\nALREADY RECOMMENDED THIS SESSION (avoid the same genre, region, or sonic territory as these):\n${previousRecommendations.map(r => `- ${r.artist} — ${r.album}`).join("\n")}\n`
       : "";
 
-    const angleBlock = `\nEXPLORATION ANGLE — use this to steer away from defaults and ensure variety:\n- Era: favour records from the ${digDecade}\n- Geography: look toward music originating from ${digRegion}\n- At least one pick must be: ${digAngle}\n`;
+    const angleBlock = `\nEXPLORATION ANGLE — anchor this batch in a specific era and territory:\n- Era: at least one pick MUST come from the ${digDecade} — do not drift to a different era unless it is genuinely impossible to satisfy\n- Geography: look toward music originating from ${digRegion}\n- At least one pick must be: ${digAngle}\n`;
 
     prompt = `You are a vinyl crate-digging assistant with encyclopaedic knowledge of recorded music across all genres, eras, and territories.
 
@@ -207,6 +211,8 @@ MODE: DISCOVER — recommend artists this collector does not own yet and has not
 Rules:
 - STRICT: Every recommendation must be by an artist NOT in the OWNED ARTISTS list and NOT in the WANTLIST.
 - STRICT: Do not recommend anything from the same genre, regional scene, or sonic territory as the ALREADY RECOMMENDED list above — every "Dig again" must open a genuinely different crate.
+- STRICT: The 3 picks must span at least 2 different decades. Three picks from the same era is a failure — music history runs from the 1950s to today.
+- STRICT: Do not default to the 1960s–1970s classic canon unless the EXPLORATION ANGLE specifically targets that era. Resist your training bias toward that period.
 - Follow the EXPLORATION ANGLE — do not default to the most obvious or well-known records that match this taste profile.
 - Each recommendation must have a reason written in plain English that reveals the aesthetic logic — not genre tags, but the texture, atmosphere, and emotional territory. Write it as if pointing at two records already on their shelf and saying "this is where those two shelves collide." Maximum 2 sentences.
 - The picks should feel genuinely surprising but inevitable in hindsight — the kind of record they will wonder how they missed.
@@ -230,6 +236,12 @@ ${JSON_SCHEMA}`;
       ? `\nALREADY RECOMMENDED THIS SESSION (avoid the same genre, region, or sonic territory as these):\n${previousRecommendations.map(r => `- ${r.artist} — ${r.album}`).join("\n")}\n`
       : "";
 
+    const digDecadeH = pick([
+      "1950s", "1960s", "early 1970s", "late 1970s",
+      "1980s", "early 1990s", "late 1990s",
+      "2000s", "2010s", "2020s",
+    ]);
+
     prompt = `You are a fearless crate-digging oracle with encyclopaedic knowledge of the entire recorded music universe — mainstream and deeply obscure. Your mission: take this collector somewhere they have never been.
 
 Below is a collector's vinyl collection and their curated Top 5 lists. Study their taste carefully — so you can transcend it.
@@ -245,6 +257,8 @@ MODE: HALLUCINATIONS · TAKE THE TRIP — surface 3 records that push into terri
 Rules:
 - STRONG BIAS toward perception-altering music: acid folk, kosmische, psych rock, free jazz, raga, tropicália, Afrobeat, spiritual jazz, noise, drone, outer limits electronic, ritual music, sacred minimalism, and any tradition where sound itself becomes a technology for shifting consciousness. Dig deep — not the famous touchstones, but the genuinely obscure pressings and lost masterpieces.
 - STRICT: Do not repeat a genre, regional scene, or sonic territory already covered in the ALREADY RECOMMENDED list — every session must map genuinely different territory.
+- STRICT: The 3 picks must span at least 2 different decades — the history of mind-expanding music runs from the 1950s to today, not just the 1960s–1970s. At least one pick should come from the ${digDecadeH}.
+- STRICT: Resist the default toward 1960s–1970s psychedelia and classic Afrobeat — push into other eras unless this batch is specifically anchored there.
 - Each pick should come from a different part of the world or a different musical lineage — three picks from the same region or tradition is a failure.
 - At least one pick must be from a non-Western musical tradition the collector shows no sign of owning.
 - Recommend artists NOT in the OWNED ARTISTS list.
