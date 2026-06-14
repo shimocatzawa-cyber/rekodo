@@ -398,14 +398,7 @@ function CollectionStrip({ records, artist, tileSize = 80 }: { records: ArtistDa
         style={{ display: "flex", overflowX: "auto", gap: "0.5rem", paddingBottom: "0.25rem", scrollbarWidth: "none" as const }}
       >
         {records.map((r, i) => (
-          <a
-            key={i}
-            href={`/collection?q=${encodeURIComponent(r.album)}`}
-            target="_blank"
-            rel="noopener noreferrer"
-            style={{ flexShrink: 0, width: tileSize, textDecoration: "none", display: "block" }}
-            title={`${r.album}${r.year ? ` (${r.year})` : ""} — open in collection`}
-          >
+          <div key={i} style={{ flexShrink: 0, width: tileSize }}>
             {r.cover_url ? (
               // eslint-disable-next-line @next/next/no-img-element
               <img
@@ -428,7 +421,7 @@ function CollectionStrip({ records, artist, tileSize = 80 }: { records: ArtistDa
                 {r.year}
               </p>
             )}
-          </a>
+          </div>
         ))}
       </div>
     </div>

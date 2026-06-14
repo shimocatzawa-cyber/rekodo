@@ -288,12 +288,7 @@ export default function CollectionClient({
   const [filterGenre,        setFilterGenre]        = useState("");
   const [filterYear,         setFilterYear]         = useState("");
 
-  // Pre-fill search from ?q= URL param (e.g. deep-link from Deep Dive page)
-  useEffect(() => {
-    const q = new URLSearchParams(window.location.search).get("q");
-    if (q) setSearchQuery(q);
-  }, []);
-  const [filterFormat,       setFilterFormat]       = useState("");
+const [filterFormat,       setFilterFormat]       = useState("");
   const [filterDesirability, setFilterDesirability] = useState("");
   const [sortBy,             setSortBy]             = useState("artist-az");
 
