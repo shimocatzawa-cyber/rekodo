@@ -363,58 +363,66 @@ export default function TasteProfile() {
 
           {/* ── Archetype ── */}
           <div style={{ borderTop: `1px solid ${RULE}`, borderBottom: `1px solid ${RULE}`, padding: "32px 0", marginBottom: "40px" }}>
+
+            {/* Primary label */}
             <p style={{
               fontFamily: MONO, fontSize: "9px", letterSpacing: "0.14em",
-              textTransform: "uppercase", color: "#aaaaaa", margin: "0 0 10px",
+              textTransform: "uppercase", color: ORANGE, margin: "0 0 12px",
             }}>
               Primary archetype · {data.archetypes.primaryScore} / 100
             </p>
+
+            {/* Primary title */}
             <h3 style={{
-              fontFamily: SERIF, fontSize: "1.8rem", fontWeight: 600,
-              color: primaryColor, margin: "0 0 8px", lineHeight: 1.15,
+              fontFamily: SERIF, fontSize: "2rem", fontWeight: 600,
+              color: primaryColor, margin: "0 0 14px", lineHeight: 1.1,
               letterSpacing: "-0.02em",
             }}>
               {primaryCopy?.title ?? data.archetypes.primary}
             </h3>
-            <p style={{
-              fontFamily: SERIF, fontStyle: "italic",
-              fontSize: "0.95rem", color: "#555555", lineHeight: 1.7,
-              margin: "0 0 10px", maxWidth: "560px",
-            }}>
-              {primaryCopy?.short}
-            </p>
+
+            {/* Primary short — italic, full width */}
+            {primaryCopy?.short && (
+              <p style={{
+                fontFamily: SERIF, fontStyle: "italic",
+                fontSize: "1.05rem", color: INK, lineHeight: 1.65,
+                margin: "0 0 12px",
+              }}>
+                {primaryCopy.short}
+              </p>
+            )}
+
+            {/* Primary detail — full width */}
             {primaryCopy?.detail && (
               <p style={{
-                fontFamily: MONO, fontSize: "10px", letterSpacing: "0.02em",
-                color: "#888888", lineHeight: 1.7, margin: "0 0 20px", maxWidth: "560px",
+                fontFamily: MONO, fontSize: "11px", letterSpacing: "0.02em",
+                color: INK, lineHeight: 1.75, margin: "0 0 28px",
               }}>
                 {primaryCopy.detail}
               </p>
             )}
 
+            {/* Secondary archetype */}
             {secondaryCopy && (
-              <div>
-                <div style={{ display: "flex", alignItems: "baseline", gap: "10px", marginBottom: "6px" }}>
+              <div style={{ paddingTop: "20px", borderTop: `1px solid ${RULE}` }}>
+                <div style={{ display: "flex", alignItems: "baseline", gap: "10px", marginBottom: "8px" }}>
                   <p style={{
                     fontFamily: MONO, fontSize: "9px", letterSpacing: "0.14em",
-                    textTransform: "uppercase", color: "#aaaaaa", margin: 0,
+                    textTransform: "uppercase", color: ORANGE, margin: 0,
                   }}>
-                    Secondary:
-                  </p>
-                  <p style={{
-                    fontFamily: SERIF, fontSize: "1rem",
-                    color: ARCHETYPE_COLORS[data.archetypes.secondary!] ?? INK,
-                    margin: 0,
-                  }}>
-                    {secondaryCopy.title}
-                  </p>
-                  <p style={{ fontFamily: MONO, fontSize: "9px", color: "#aaaaaa", margin: 0 }}>
-                    {data.archetypes.secondaryScore} / 100
+                    Secondary archetype · {data.archetypes.secondaryScore} / 100
                   </p>
                 </div>
                 <p style={{
-                  fontFamily: MONO, fontSize: "10px", letterSpacing: "0.02em",
-                  color: "#aaaaaa", lineHeight: 1.6, margin: 0, maxWidth: "480px",
+                  fontFamily: SERIF, fontSize: "1.2rem", fontWeight: 600,
+                  color: ARCHETYPE_COLORS[data.archetypes.secondary!] ?? INK,
+                  margin: "0 0 8px", letterSpacing: "-0.01em",
+                }}>
+                  {secondaryCopy.title}
+                </p>
+                <p style={{
+                  fontFamily: MONO, fontSize: "11px", letterSpacing: "0.02em",
+                  color: INK, lineHeight: 1.65, margin: 0,
                 }}>
                   {secondaryCopy.short}
                 </p>
