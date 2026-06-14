@@ -874,7 +874,8 @@ const [filterFormat,       setFilterFormat]       = useState("");
       )}
 
       {/* ── Enrichment progress banner ── */}
-      {collection.length > 0 && enrichStatus && enrichStatus.pending > 0 && (
+      {/* Only show when enrichment has actually started (percentComplete > 0 prevents stuck "0 of N" from migration backfill) */}
+      {collection.length > 0 && enrichStatus && enrichStatus.pending > 0 && enrichStatus.percentComplete > 0 && (
         <div style={{ flexShrink: 0, background: "#FDF6F0", borderTop: "1px solid #e0e0da", borderBottom: "1px solid #e0e0da", padding: "8px 20px 10px" }}>
           <p style={{ fontFamily: MONO, fontSize: "0.62rem", letterSpacing: "0.05em", color: "#888888", margin: "0 0 6px" }}>
             Enriching your collection — {enrichStatus.enriched} of {enrichStatus.total} records processed. Insights will be available shortly.
