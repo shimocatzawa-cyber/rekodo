@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
@@ -24,6 +24,21 @@ export default function AppNav({ username, displayLabel, avatarUrl }: { username
   const pathname = usePathname();
   const router   = useRouter();
   const [menuOpen, setMenuOpen] = useState(false);
+  const [isSupporter, setIsSupporter] = useState(false);
+
+  useEffect(() => {
+    const sb = createClient();
+    sb.auth.getUser().then(({ data: { user } }) => {
+      if (!user) return;
+      sb.from("profiles")
+        .select("is_donor, role")
+        .eq("id", user.id)
+        .maybeSingle()
+        .then(({ data }) => {
+          if (data?.is_donor || data?.role === "admin") setIsSupporter(true);
+        });
+    });
+  }, []);
 
   async function handleSignOut() {
     await createClient().auth.signOut();
@@ -175,7 +190,7 @@ export default function AppNav({ username, displayLabel, avatarUrl }: { username
                 color: "#888888",
               }}
             >
-              @{username}
+              @{username}{isSupporter && <span style={{ fontFamily: SERIF, fontSize: "10px", color: "#B8860B", marginLeft: "3px" }} title="rekōdo supporter">ō</span>}
             </span>
           </Link>
           <button
@@ -266,7 +281,7 @@ export default function AppNav({ username, displayLabel, avatarUrl }: { username
                 gap: "8px",
               }}
             >
-              @{username}
+              @{username}{isSupporter && <span style={{ fontFamily: SERIF, fontSize: "12px", color: "#B8860B", marginLeft: "3px" }} title="rekōdo supporter">ō</span>}
             </Link>
             <button
               onClick={() => { setMenuOpen(false); handleSignOut(); }}
