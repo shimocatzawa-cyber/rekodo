@@ -232,14 +232,21 @@ export async function POST(request: NextRequest) {
       };
     });
 
-    const UPSERT_BATCH = 100;
-    for (let i = 0; i < upsertRows.length; i += UPSERT_BATCH) {
-      await supabase
+    // Replace previous sync data rather than upsert — avoids depending on a
+    // unique constraint and ensures stale entries are cleaned up.
+    const { error: delError } = await supabase
+      .from("digital_imports")
+      .delete()
+      .eq("user_id", userId)
+      .eq("source", "bandcamp");
+    if (delError) throw new Error(`Failed to clear previous import: ${delError.message}`);
+
+    const INSERT_BATCH = 100;
+    for (let i = 0; i < upsertRows.length; i += INSERT_BATCH) {
+      const { error: insError } = await supabase
         .from("digital_imports")
-        .upsert(upsertRows.slice(i, i + UPSERT_BATCH), {
-          onConflict: "user_id,source,artist,album",
-          ignoreDuplicates: false,
-        });
+        .insert(upsertRows.slice(i, i + INSERT_BATCH));
+      if (insError) throw new Error(`Failed to save import batch: ${insError.message}`);
     }
 
     const total    = collection.length;
