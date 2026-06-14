@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import BandcampSection from "./BandcampSection";
 
 const SERIF  = "var(--font-editorial)";
 const MONO   = "var(--font-mono)";
@@ -607,18 +606,8 @@ function EmptyPanel() {
 
 export default function DeepDiveClient({
   artists,
-  userId,
-  bandcampUsername,
-  lastSyncTotal,
-  lastSyncDuplicates,
-  lastSyncDate,
 }: {
   artists: ArtistData[];
-  userId: string;
-  bandcampUsername: string | null;
-  lastSyncTotal: number;
-  lastSyncDuplicates: number;
-  lastSyncDate: string | null;
 }) {
   const [query, setQuery] = useState("");
   const [selectedArtist, setSelectedArtist] = useState<string | null>(null);
@@ -932,15 +921,6 @@ export default function DeepDiveClient({
               </p>
             </div>
           )}
-          <div style={{ borderTop: `1px solid ${RULE}` }}>
-            <BandcampSection
-              userId={userId}
-              bandcampUsername={bandcampUsername}
-              lastSyncTotal={lastSyncTotal}
-              lastSyncDuplicates={lastSyncDuplicates}
-              lastSyncDate={lastSyncDate}
-            />
-          </div>
         </div>
 
         {/* Right panel */}
@@ -951,13 +931,6 @@ export default function DeepDiveClient({
 
       {/* ── Mobile layout ──────────────────────────────────────────────────── */}
       <div className="md:hidden">
-        <BandcampSection
-          userId={userId}
-          bandcampUsername={bandcampUsername}
-          lastSyncTotal={lastSyncTotal}
-          lastSyncDuplicates={lastSyncDuplicates}
-          lastSyncDate={lastSyncDate}
-        />
         {/* Horizontal pill strip */}
         {artists.length > 0 && (
           <div style={{

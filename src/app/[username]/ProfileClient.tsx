@@ -112,6 +112,9 @@ interface Props {
   fullLists?: UserList[];
   discoverLists?: DiscoverList[];
   collectionPhoto?: string | null;
+  bcSyncTotal?: number;
+  bcSyncDuplicates?: number;
+  bcSyncDate?: string | null;
 }
 
 type ProfileTab  = "profile" | "lists" | "community" | "supporter";
@@ -158,6 +161,7 @@ export default function ProfileClient({
   profile, isOwner, totalRecords, topGenre, topCountry, topLabel,
   lists, listItems, coverRecords, followerCount, followingCount, viewer,
   fullLists, discoverLists = [], collectionPhoto = null,
+  bcSyncTotal = 0, bcSyncDuplicates = 0, bcSyncDate = null,
 }: Props) {
   const router       = useRouter();
   const searchParams = useSearchParams();
@@ -261,8 +265,11 @@ export default function ProfileClient({
   const [bandcampValue, setBandcampValue] = useState(profile.bandcamp_username ?? "");
 
   // ── Bandcamp sync ─────────────────────────────────────────────────────────
-  const [bcSyncing, setBcSyncing] = useState(false);
-  const [bcError,   setBcError]   = useState<string | null>(null);
+  const [bcSyncing,    setBcSyncing]    = useState(false);
+  const [bcError,      setBcError]      = useState<string | null>(null);
+  const [bcResult,     setBcResult]     = useState<{ total: number; duplicates: number; date: string } | null>(
+    bcSyncDate ? { total: bcSyncTotal, duplicates: bcSyncDuplicates, date: bcSyncDate } : null
+  );
 
   async function runBandcampSync() {
     setBcSyncing(true);
@@ -273,17 +280,21 @@ export default function ProfileClient({
         headers: { "Content-Type": "application/json" },
         body:    JSON.stringify({ userId: profile.id }),
       });
-      const json = await res.json() as { success?: boolean; error?: string };
+      const json = await res.json() as { success?: boolean; error?: string; total?: number; duplicates?: number };
       if (!res.ok || json.error) {
         setBcError(json.error ?? "Sync failed. Please try again.");
       } else {
-        router.refresh();
+        setBcResult({ total: json.total ?? 0, duplicates: json.duplicates ?? 0, date: new Date().toISOString() });
       }
     } catch {
       setBcError("Network error. Please try again.");
     } finally {
       setBcSyncing(false);
     }
+  }
+
+  function formatSyncDate(iso: string) {
+    return new Date(iso).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
   }
 
   // ── Spotify ───────────────────────────────────────────────────────────────
@@ -692,11 +703,21 @@ export default function ProfileClient({
 
                       {(bandcampValue || profile.bandcamp_username) ? (
                         <>
-                          <p style={{ fontFamily: MONO, fontSize: "11px", letterSpacing: "0.04em", color: "#0a0a0a", margin: "0 0 2px 0", display: "flex", alignItems: "center", gap: "6px" }}>
+                          <p style={{ fontFamily: MONO, fontSize: "11px", letterSpacing: "0.04em", color: "#0a0a0a", margin: "0 0 6px 0", display: "flex", alignItems: "center", gap: "6px" }}>
                             <span style={{ width: "6px", height: "6px", borderRadius: "50%", background: "#1DA0C3", flexShrink: 0, display: "inline-block" }} />
                             bandcamp.com/{bandcampValue || profile.bandcamp_username}
                           </p>
-                          <div style={{ marginTop: "10px" }}>
+                          {bcResult && (
+                            <>
+                              <p style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.04em", color: "#0a0a0a", margin: "0 0 1px 0" }}>
+                                ✓ {bcResult.total.toLocaleString()} albums · {bcResult.duplicates.toLocaleString()} already in your physical collection
+                              </p>
+                              <p style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.04em", color: MUTED, margin: "0 0 8px 0" }}>
+                                Last synced: {formatSyncDate(bcResult.date)}
+                              </p>
+                            </>
+                          )}
+                          <div style={{ marginTop: bcResult ? 0 : "10px" }}>
                             <button
                               type="button"
                               onClick={bcSyncing ? undefined : runBandcampSync}
@@ -710,7 +731,7 @@ export default function ProfileClient({
                               onMouseEnter={e => { if (!bcSyncing) { (e.currentTarget as HTMLButtonElement).style.color = ORANGE; (e.currentTarget as HTMLButtonElement).style.borderColor = ORANGE; }}}
                               onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.color = "#0a0a0a"; (e.currentTarget as HTMLButtonElement).style.borderColor = RULE; }}
                             >
-                              {bcSyncing ? "Syncing…" : "Sync collection →"}
+                              {bcSyncing ? "Syncing…" : bcResult ? "Re-sync →" : "Sync collection →"}
                             </button>
                             {bcError && (
                               <p style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.04em", color: "#cc3300", margin: "6px 0 0" }}>
@@ -722,7 +743,7 @@ export default function ProfileClient({
                       ) : (
                         <>
                           <p style={{ fontFamily: MONO, fontSize: "11px", letterSpacing: "0.04em", color: MUTED, margin: "0 0 10px 0", lineHeight: 1.6 }}>
-                            Connect your Bandcamp to import your record collection.
+                            Connect your Bandcamp to import your digital collection.
                           </p>
                           <button
                             onClick={openEdit}
@@ -738,7 +759,7 @@ export default function ProfileClient({
                           onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.color = ORANGE; (e.currentTarget as HTMLButtonElement).style.borderColor = ORANGE; }}
                           onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.color = "#0a0a0a"; (e.currentTarget as HTMLButtonElement).style.borderColor = RULE; }}
                         >
-                          Connect Bandcamp →
+                          Add username in settings →
                         </button>
                       </>
                     )}

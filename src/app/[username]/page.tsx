@@ -299,6 +299,25 @@ export default async function PublicProfilePage({ params }: { params: Params }) 
     fullLists = sortListsByPriority(fullLists);
   }
 
+  // ── Bandcamp sync stats (owner only) ─────────────────────────────────────────
+  let bcSyncTotal = 0;
+  let bcSyncDuplicates = 0;
+  let bcSyncDate: string | null = null;
+  if (isOwner && viewer) {
+    type DiRow = { is_duplicate: boolean; imported_at: string };
+    const { data: diRows } = await supabase
+      .from("digital_imports")
+      .select("is_duplicate, imported_at")
+      .eq("user_id", viewer.id)
+      .eq("source", "bandcamp");
+    const diAll = (diRows ?? []) as DiRow[];
+    bcSyncTotal      = diAll.length;
+    bcSyncDuplicates = diAll.filter(r => r.is_duplicate).length;
+    bcSyncDate       = diAll.length > 0
+      ? diAll.reduce((latest, r) => r.imported_at > latest ? r.imported_at : latest, diAll[0].imported_at)
+      : null;
+  }
+
   // ── Discover lists for Community tab ─────────────────────────────────────────
 
   const excludeId     = viewer?.id ?? profile.id;
@@ -371,6 +390,9 @@ export default async function PublicProfilePage({ params }: { params: Params }) 
       viewer={viewerNav}
       fullLists={fullLists ?? undefined}
       discoverLists={discoverLists}
+      bcSyncTotal={bcSyncTotal}
+      bcSyncDuplicates={bcSyncDuplicates}
+      bcSyncDate={bcSyncDate}
     />
   );
 }

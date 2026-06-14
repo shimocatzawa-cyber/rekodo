@@ -13,7 +13,7 @@ export default async function DeepDivePage() {
   const emailPrefix = (user.email ?? "").split("@")[0] || "user";
   const { data: profile } = await supabase
     .from("profiles")
-    .select("username, display_name, avatar_url, bandcamp_username")
+    .select("username, display_name, avatar_url")
     .eq("id", user.id)
     .maybeSingle();
 
@@ -22,21 +22,6 @@ export default async function DeepDivePage() {
   const username     = (raw && raw !== autoGen) ? raw : (profile?.display_name?.trim() || emailPrefix);
   const displayLabel = profile?.display_name?.trim() || username;
   const avatarUrl    = profile?.avatar_url ?? null;
-  const bandcampUsername = profile?.bandcamp_username ?? null;
-
-  // Fetch Bandcamp sync stats (last sync date, totals)
-  type DiRow = { is_duplicate: boolean; imported_at: string };
-  const { data: diRows } = await supabase
-    .from("digital_imports")
-    .select("is_duplicate, imported_at")
-    .eq("user_id", user.id)
-    .eq("source", "bandcamp");
-  const diAll = (diRows ?? []) as DiRow[];
-  const lastSyncTotal      = diAll.length;
-  const lastSyncDuplicates = diAll.filter((r) => r.is_duplicate).length;
-  const lastSyncDate       = diAll.length > 0
-    ? diAll.reduce((latest, r) => r.imported_at > latest ? r.imported_at : latest, diAll[0].imported_at)
-    : null;
 
   // Fetch all user_record links (paginated)
   type LinkRow = { record_id: string };
@@ -136,11 +121,6 @@ export default async function DeepDivePage() {
       <AppNav username={username} displayLabel={displayLabel} avatarUrl={avatarUrl} />
       <DeepDiveClient
         artists={artists}
-        userId={user.id}
-        bandcampUsername={bandcampUsername}
-        lastSyncTotal={lastSyncTotal}
-        lastSyncDuplicates={lastSyncDuplicates}
-        lastSyncDate={lastSyncDate}
       />
     </>
   );
