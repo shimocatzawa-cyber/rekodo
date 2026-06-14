@@ -620,123 +620,113 @@ export default function ProfileClient({
                   </p>
                 )}
 
-                {/* ── SPOTIFY ── */}
+                {/* ── SPOTIFY + BANDCAMP ── */}
                 {isOwner && (
-                  <div style={{ marginTop: "16px", paddingTop: "16px", borderTop: `1px solid ${RULE}` }}>
-                    <p style={{
-                      fontFamily: MONO, fontSize: "9px", letterSpacing: "0.14em",
-                      textTransform: "uppercase", color: ORANGE, margin: "0 0 10px 0",
-                    }}>
-                      Spotify
-                    </p>
+                  <div style={{ marginTop: "16px", paddingTop: "16px", borderTop: `1px solid ${RULE}`, display: "flex", gap: "0", alignItems: "flex-start" }}>
 
-                    {spotifyError && (
-                      <p style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.04em", color: "#9a1f1f", margin: "0 0 8px 0" }}>
-                        Connection failed. Please try again.
+                    {/* Spotify */}
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <p style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.14em", textTransform: "uppercase", color: ORANGE, margin: "0 0 10px 0" }}>
+                        Spotify
                       </p>
-                    )}
 
-                    {spotifyConnected ? (
-                      <>
-                        <p style={{ fontFamily: MONO, fontSize: "11px", letterSpacing: "0.04em", color: "#0a0a0a", margin: "0 0 2px 0", display: "flex", alignItems: "center", gap: "6px" }}>
-                          <span style={{ width: "6px", height: "6px", borderRadius: "50%", background: "#1DB954", flexShrink: 0, display: "inline-block" }} />
-                          {spotifyDisplayName ?? "Connected"}
+                      {spotifyError && (
+                        <p style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.04em", color: "#9a1f1f", margin: "0 0 8px 0" }}>
+                          Connection failed. Please try again.
                         </p>
-                        <p style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.04em", color: MUTED, margin: "0 0 10px 0" }}>
-                          {spotifyProduct === "premium" ? "Premium account" : "Free account"}
-                        </p>
-                        <button
-                          onClick={spotifyDisconnecting ? undefined : handleSpotifyDisconnect}
-                          disabled={spotifyDisconnecting}
-                          style={{
-                            fontFamily: MONO, fontSize: "9px", letterSpacing: "0.1em",
-                            textTransform: "uppercase",
-                            color: spotifyDisconnecting ? "#aaaaaa" : "#0a0a0a",
-                            background: "transparent",
-                            border: `1px solid ${spotifyDisconnecting ? "#dddddd" : RULE}`,
-                            padding: "5px 12px", cursor: spotifyDisconnecting ? "default" : "pointer",
-                          }}
-                          onMouseEnter={e => { if (!spotifyDisconnecting) { (e.currentTarget as HTMLButtonElement).style.color = "#9a1f1f"; (e.currentTarget as HTMLButtonElement).style.borderColor = "#9a1f1f"; }}}
-                          onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.color = "#0a0a0a"; (e.currentTarget as HTMLButtonElement).style.borderColor = RULE; }}
-                        >
-                          {spotifyDisconnecting ? "Disconnecting…" : "Disconnect"}
-                        </button>
-                      </>
-                    ) : (
-                      <>
-                        <p style={{ fontFamily: MONO, fontSize: "11px", letterSpacing: "0.04em", color: MUTED, margin: "0 0 10px 0", lineHeight: 1.6 }}>
-                          Connect Spotify to enable playback on your Collection and Dig pages.
-                        </p>
-                        <a
-                          href="/api/auth/spotify"
-                          style={{
-                            fontFamily: MONO, fontSize: "9px", letterSpacing: "0.1em",
-                            textTransform: "uppercase",
-                            color: "#0a0a0a",
-                            border: `1px solid ${RULE}`,
-                            padding: "5px 12px",
-                            textDecoration: "none", display: "inline-block",
-                          }}
-                          onMouseEnter={e => { (e.currentTarget as HTMLAnchorElement).style.color = ORANGE; (e.currentTarget as HTMLAnchorElement).style.borderColor = ORANGE; }}
-                          onMouseLeave={e => { (e.currentTarget as HTMLAnchorElement).style.color = "#0a0a0a"; (e.currentTarget as HTMLAnchorElement).style.borderColor = RULE; }}
-                        >
-                          Connect Spotify →
-                        </a>
-                      </>
-                    )}
+                      )}
 
-                  </div>
-                )}
-
-                {/* ── BANDCAMP ── */}
-                {isOwner && (
-                  <div style={{ marginTop: "16px", paddingTop: "16px", borderTop: `1px solid ${RULE}` }}>
-                    <p style={{
-                      fontFamily: MONO, fontSize: "9px", letterSpacing: "0.14em",
-                      textTransform: "uppercase", color: ORANGE, margin: "0 0 10px 0",
-                    }}>
-                      Bandcamp
-                    </p>
-
-                    {(bandcampValue || profile.bandcamp_username) ? (
-                      <>
-                        <p style={{ fontFamily: MONO, fontSize: "11px", letterSpacing: "0.04em", color: "#0a0a0a", margin: "0 0 2px 0", display: "flex", alignItems: "center", gap: "6px" }}>
-                          <span style={{ width: "6px", height: "6px", borderRadius: "50%", background: "#1DA0C3", flexShrink: 0, display: "inline-block" }} />
-                          bandcamp.com/{bandcampValue || profile.bandcamp_username}
-                        </p>
-                        <div style={{ marginTop: "10px" }}>
+                      {spotifyConnected ? (
+                        <>
+                          <p style={{ fontFamily: MONO, fontSize: "11px", letterSpacing: "0.04em", color: "#0a0a0a", margin: "0 0 2px 0", display: "flex", alignItems: "center", gap: "6px" }}>
+                            <span style={{ width: "6px", height: "6px", borderRadius: "50%", background: "#1DB954", flexShrink: 0, display: "inline-block" }} />
+                            {spotifyDisplayName ?? "Connected"}
+                          </p>
+                          <p style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.04em", color: MUTED, margin: "0 0 10px 0" }}>
+                            {spotifyProduct === "premium" ? "Premium account" : "Free account"}
+                          </p>
                           <button
-                            type="button"
-                            onClick={bcSyncing ? undefined : runBandcampSync}
-                            disabled={bcSyncing}
+                            onClick={spotifyDisconnecting ? undefined : handleSpotifyDisconnect}
+                            disabled={spotifyDisconnecting}
                             style={{
-                              fontFamily: MONO, fontSize: "9px", letterSpacing: "0.1em",
-                              textTransform: "uppercase",
-                              color: bcSyncing ? "#aaaaaa" : "#0a0a0a",
-                              background: "transparent",
-                              border: `1px solid ${bcSyncing ? "#dddddd" : RULE}`,
-                              padding: "5px 12px", cursor: bcSyncing ? "default" : "pointer",
+                              fontFamily: MONO, fontSize: "9px", letterSpacing: "0.1em", textTransform: "uppercase",
+                              color: spotifyDisconnecting ? "#aaaaaa" : "#0a0a0a", background: "transparent",
+                              border: `1px solid ${spotifyDisconnecting ? "#dddddd" : RULE}`,
+                              padding: "5px 12px", cursor: spotifyDisconnecting ? "default" : "pointer",
                             }}
-                            onMouseEnter={e => { if (!bcSyncing) { (e.currentTarget as HTMLButtonElement).style.color = ORANGE; (e.currentTarget as HTMLButtonElement).style.borderColor = ORANGE; }}}
+                            onMouseEnter={e => { if (!spotifyDisconnecting) { (e.currentTarget as HTMLButtonElement).style.color = "#9a1f1f"; (e.currentTarget as HTMLButtonElement).style.borderColor = "#9a1f1f"; }}}
                             onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.color = "#0a0a0a"; (e.currentTarget as HTMLButtonElement).style.borderColor = RULE; }}
                           >
-                            {bcSyncing ? "Syncing…" : "Sync collection →"}
+                            {spotifyDisconnecting ? "Disconnecting…" : "Disconnect"}
                           </button>
-                          {bcError && (
-                            <p style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.04em", color: "#cc3300", margin: "6px 0 0" }}>
-                              {bcError}
-                            </p>
-                          )}
-                        </div>
-                      </>
-                    ) : (
-                      <>
-                        <p style={{ fontFamily: MONO, fontSize: "11px", letterSpacing: "0.04em", color: MUTED, margin: "0 0 10px 0", lineHeight: 1.6 }}>
-                          Connect your Bandcamp to import your record collection.
-                        </p>
-                        <button
-                          onClick={openEdit}
-                          style={{
+                        </>
+                      ) : (
+                        <>
+                          <p style={{ fontFamily: MONO, fontSize: "11px", letterSpacing: "0.04em", color: MUTED, margin: "0 0 10px 0", lineHeight: 1.6 }}>
+                            Connect Spotify to enable playback on your Collection and Dig pages.
+                          </p>
+                          <a
+                            href="/api/auth/spotify"
+                            style={{
+                              fontFamily: MONO, fontSize: "9px", letterSpacing: "0.1em", textTransform: "uppercase",
+                              color: "#0a0a0a", border: `1px solid ${RULE}`, padding: "5px 12px",
+                              textDecoration: "none", display: "inline-block",
+                            }}
+                            onMouseEnter={e => { (e.currentTarget as HTMLAnchorElement).style.color = ORANGE; (e.currentTarget as HTMLAnchorElement).style.borderColor = ORANGE; }}
+                            onMouseLeave={e => { (e.currentTarget as HTMLAnchorElement).style.color = "#0a0a0a"; (e.currentTarget as HTMLAnchorElement).style.borderColor = RULE; }}
+                          >
+                            Connect Spotify →
+                          </a>
+                        </>
+                      )}
+                    </div>
+
+                    {/* Divider */}
+                    <div style={{ width: "1px", background: RULE, alignSelf: "stretch", margin: "0 16px", flexShrink: 0 }} />
+
+                    {/* Bandcamp */}
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <p style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.14em", textTransform: "uppercase", color: ORANGE, margin: "0 0 10px 0" }}>
+                        Bandcamp
+                      </p>
+
+                      {(bandcampValue || profile.bandcamp_username) ? (
+                        <>
+                          <p style={{ fontFamily: MONO, fontSize: "11px", letterSpacing: "0.04em", color: "#0a0a0a", margin: "0 0 2px 0", display: "flex", alignItems: "center", gap: "6px" }}>
+                            <span style={{ width: "6px", height: "6px", borderRadius: "50%", background: "#1DA0C3", flexShrink: 0, display: "inline-block" }} />
+                            bandcamp.com/{bandcampValue || profile.bandcamp_username}
+                          </p>
+                          <div style={{ marginTop: "10px" }}>
+                            <button
+                              type="button"
+                              onClick={bcSyncing ? undefined : runBandcampSync}
+                              disabled={bcSyncing}
+                              style={{
+                                fontFamily: MONO, fontSize: "9px", letterSpacing: "0.1em", textTransform: "uppercase",
+                                color: bcSyncing ? "#aaaaaa" : "#0a0a0a", background: "transparent",
+                                border: `1px solid ${bcSyncing ? "#dddddd" : RULE}`,
+                                padding: "5px 12px", cursor: bcSyncing ? "default" : "pointer",
+                              }}
+                              onMouseEnter={e => { if (!bcSyncing) { (e.currentTarget as HTMLButtonElement).style.color = ORANGE; (e.currentTarget as HTMLButtonElement).style.borderColor = ORANGE; }}}
+                              onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.color = "#0a0a0a"; (e.currentTarget as HTMLButtonElement).style.borderColor = RULE; }}
+                            >
+                              {bcSyncing ? "Syncing…" : "Sync collection →"}
+                            </button>
+                            {bcError && (
+                              <p style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.04em", color: "#cc3300", margin: "6px 0 0" }}>
+                                {bcError}
+                              </p>
+                            )}
+                          </div>
+                        </>
+                      ) : (
+                        <>
+                          <p style={{ fontFamily: MONO, fontSize: "11px", letterSpacing: "0.04em", color: MUTED, margin: "0 0 10px 0", lineHeight: 1.6 }}>
+                            Connect your Bandcamp to import your record collection.
+                          </p>
+                          <button
+                            onClick={openEdit}
+                            style={{
                             fontFamily: MONO, fontSize: "9px", letterSpacing: "0.1em",
                             textTransform: "uppercase",
                             color: "#0a0a0a",
@@ -752,6 +742,8 @@ export default function ProfileClient({
                         </button>
                       </>
                     )}
+                    </div>
+
                   </div>
                 )}
 
