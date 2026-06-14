@@ -232,33 +232,58 @@ export default function SpotifyPlayer({
   }, [playing]);
 
   // ── Preview audio element ─────────────────────────────────────────────────
+  // Dep array uses only previewUrl (not usePreview) so the audio element is not
+  // destroyed when the SDK becomes live — avoids a silent kill of in-progress audio.
+  // State is driven by element events rather than the play() promise to avoid the
+  // "press play twice" bug caused by buffering or silent promise rejection.
   useEffect(() => {
-    if (!usePreview || !previewUrl) return;
+    if (!previewUrl) return;
     const audio = new Audio(previewUrl);
-    audio.volume = volume;
+    audio.preload = "auto";
+    audio.volume  = volume;
     audioRef.current = audio;
-    audio.addEventListener("timeupdate", () => {
+    const onPlaying = () => setPlaying(true);
+    const onPause   = () => setPlaying(false);
+    const onEnd     = () => { setPlaying(false); setPosition(0); };
+    const onTime    = () => {
       setPosition(audio.currentTime * 1000);
       setDuration(isFinite(audio.duration) ? audio.duration * 1000 : 30_000);
-    });
-    audio.addEventListener("ended", () => setPlaying(false));
-    return () => { audio.pause(); audioRef.current = null; setPlaying(false); };
+    };
+    audio.addEventListener("playing",    onPlaying);
+    audio.addEventListener("pause",      onPause);
+    audio.addEventListener("ended",      onEnd);
+    audio.addEventListener("timeupdate", onTime);
+    return () => {
+      audio.pause();
+      audio.removeEventListener("playing",    onPlaying);
+      audio.removeEventListener("pause",      onPause);
+      audio.removeEventListener("ended",      onEnd);
+      audio.removeEventListener("timeupdate", onTime);
+      audioRef.current = null;
+      setPlaying(false);
+    };
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [previewUrl, usePreview]);
+  }, [previewUrl]);
 
   // ── Play / pause ──────────────────────────────────────────────────────────
   const handlePlayPause = useCallback(async () => {
     if (useSDK && playerRef.current) {
       const state = await playerRef.current.getCurrentState();
       if (!state) {
-        // Nothing loaded (auto-play failed or first dig press) — issue full play command
+        // Nothing loaded yet (auto-play failed or SDK still warming up).
+        // deviceId is included when available but is NOT required to start the request —
+        // without it Spotify targets the most-recently-connected device (this SDK player),
+        // which fixes the silent no-op when the user clicks before the 'ready' event fires.
         const body = mode === "collection" && spotifyUri
           ? { context_uri: spotifyUri }
           : spotifyTrackUri
             ? { uris: [spotifyTrackUri] }
             : null;
-        if (body && deviceId && tokenData?.access_token) {
-          await fetch(`https://api.spotify.com/v1/me/player/play?device_id=${deviceId}`, {
+        if (body && tokenData?.access_token) {
+          const playUrl = deviceId
+            ? `https://api.spotify.com/v1/me/player/play?device_id=${deviceId}`
+            : `https://api.spotify.com/v1/me/player/play`;
+          await fetch(playUrl, {
             method:  "PUT",
             headers: { Authorization: `Bearer ${tokenData.access_token}`, "Content-Type": "application/json" },
             body:    JSON.stringify(body),
@@ -267,16 +292,15 @@ export default function SpotifyPlayer({
       } else {
         await playerRef.current.togglePlay();
       }
-    } else if (usePreview && audioRef.current) {
+    } else if (audioRef.current) {
+      // Audio state is driven by element events — just call play/pause.
       if (playing) {
         audioRef.current.pause();
-        setPlaying(false);
       } else {
-        await audioRef.current.play();
-        setPlaying(true);
+        audioRef.current.play().catch(() => {});
       }
     }
-  }, [useSDK, usePreview, playing, mode, spotifyUri, spotifyTrackUri, deviceId, tokenData?.access_token]);
+  }, [useSDK, playing, mode, spotifyUri, spotifyTrackUri, deviceId, tokenData?.access_token]);
 
   // ── Seek ──────────────────────────────────────────────────────────────────
   const handleSeek = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
