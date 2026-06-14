@@ -361,9 +361,9 @@ function DigCompactPlayer({ previewUrl, albumUri, trackUri, artist, album }: {
   const playerRef     = useRef<DigSdkPlayer | null>(null);
   const audioRef      = useRef<HTMLAudioElement | null>(null);
   const pollRef       = useRef<ReturnType<typeof setInterval> | null>(null);
-  // Tracks whether we've sent a "start playback" command for this record instance.
-  // Prevents togglePlay() being called when the SDK is still on a previous album.
   const sdkStartedRef = useRef(false);
+  // When user clicks play before deviceId is ready, store the intent here and fire on 'ready'.
+  const pendingPlayRef = useRef<{ albumUri: string | null; trackUri: string | null } | null>(null);
 
   const isPremium = !!(tokenData?.connected && tokenData.product === "premium");
   const useSDK    = isPremium && !!(albumUri || trackUri);
@@ -443,6 +443,7 @@ function DigCompactPlayer({ previewUrl, albumUri, trackUri, artist, album }: {
     setPosition(0);
     setNowTrack(null);
     sdkStartedRef.current = false;
+    pendingPlayRef.current = null;
   }, [albumUri, trackUri, previewUrl]);
 
   // Preview audio — always created when previewUrl is set, used as fallback before SDK is live.
@@ -478,14 +479,27 @@ function DigCompactPlayer({ previewUrl, albumUri, trackUri, artist, album }: {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [previewUrl]);
 
-  // Stop preview audio the moment the SDK device registers (avoid overlap)
+  // When deviceId arrives: stop any preview audio, then fire any queued play command.
   useEffect(() => {
-    if (deviceId && audioRef.current) {
+    if (!deviceId) return;
+    if (audioRef.current) {
       audioRef.current.pause();
       setPlaying(false);
       setPosition(0);
     }
-  }, [deviceId]);
+    const pending = pendingPlayRef.current;
+    if (pending && tokenData?.access_token) {
+      pendingPlayRef.current = null;
+      sdkStartedRef.current = true;
+      const body = pending.albumUri ? { context_uri: pending.albumUri } : { uris: [pending.trackUri!] };
+      fetch(`https://api.spotify.com/v1/me/player/play?device_id=${deviceId}`, {
+        method:  "PUT",
+        headers: { Authorization: `Bearer ${tokenData.access_token}`, "Content-Type": "application/json" },
+        body:    JSON.stringify(body),
+      }).catch(() => { sdkStartedRef.current = false; });
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [deviceId, tokenData?.access_token]);
 
   const fmt = (ms: number) => {
     const s = Math.floor(ms / 1000);
@@ -496,9 +510,6 @@ function DigCompactPlayer({ previewUrl, albumUri, trackUri, artist, album }: {
   async function handlePlayPause() {
     if (sdkLive && playerRef.current) {
       if (!sdkStartedRef.current) {
-        // First click for this record — always start the album from scratch.
-        // Using togglePlay() here would act on whatever the SDK was playing before
-        // (e.g. the previous record), so we always send an explicit start command.
         if (tokenData?.access_token) {
           sdkStartedRef.current = true;
           const body = albumUri ? { context_uri: albumUri } : { uris: [trackUri!] };
@@ -509,11 +520,12 @@ function DigCompactPlayer({ previewUrl, albumUri, trackUri, artist, album }: {
           }).catch(() => { sdkStartedRef.current = false; });
         }
       } else {
-        // Already started this record — safe to toggle
         await playerRef.current.togglePlay();
       }
+    } else if (useSDK && !sdkLive && (albumUri || trackUri)) {
+      // SDK still connecting — queue the play; it fires the moment deviceId arrives.
+      pendingPlayRef.current = { albumUri, trackUri };
     } else if (audioRef.current) {
-      // Preview fallback — state is driven by element events, so just call play/pause.
       if (playing) {
         audioRef.current.pause();
       } else {
@@ -1006,15 +1018,15 @@ export default function DigClient({ username, displayLabel, avatarUrl, collectio
                 onPreviewReady={setDigSpotify}
               />
               <NavBar idx={idx} total={recs.length} onNav={navigate} onDigAgain={handleDigAgain} />
-              {digSpotify && (digSpotify.previewUrl || digSpotify.albumUri) && (
-                <DigCompactPlayer
-                  previewUrl={digSpotify.previewUrl}
-                  albumUri={digSpotify.albumUri}
-                  trackUri={digSpotify.trackUri}
-                  artist={digSpotify.artist}
-                  album={digSpotify.album}
-                />
-              )}
+              {/* Always mounted so the SDK player and deviceId survive album navigation.
+                  Returns null internally when nothing is playable yet. */}
+              <DigCompactPlayer
+                previewUrl={digSpotify?.previewUrl ?? null}
+                albumUri={digSpotify?.albumUri ?? null}
+                trackUri={digSpotify?.trackUri ?? null}
+                artist={digSpotify?.artist ?? ""}
+                album={digSpotify?.album ?? ""}
+              />
             </>
           )}
 
