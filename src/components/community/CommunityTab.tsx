@@ -191,6 +191,8 @@ function ListCard({ list }: { list: ListEntry }) {
 
 export default function CommunityTab({ profileOwnerId }: { profileOwnerId: string }) {
   const [viewerUserId, setViewerUserId] = useState<string | null>(null);
+  const viewerUserIdRef  = useRef<string | null>(null);
+  const pendingTogglesRef = useRef<Set<string>>(new Set());
   const [subTab,       setSubTab]       = useState<SubTab>("matches");
   const [searchQuery,  setSearchQuery]  = useState("");
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -218,7 +220,9 @@ export default function CommunityTab({ profileOwnerId }: { profileOwnerId: strin
   // Get viewer + load followers on mount
   useEffect(() => {
     createClient().auth.getUser().then(({ data: { user } }) => {
-      setViewerUserId(user?.id ?? null);
+      const id = user?.id ?? null;
+      viewerUserIdRef.current = id;
+      setViewerUserId(id);
     });
 
     async function loadFollowData() {
@@ -290,7 +294,9 @@ export default function CommunityTab({ profileOwnerId }: { profileOwnerId: strin
       .catch(() => setListsState("done"));
   }, [subTab, listsState]);
 
-  // Load collectors with debounced search, pre-populating follow state from DB
+  // Load collectors with debounced search, pre-populating follow state from DB.
+  // Uses refs (not state) for viewerUserId and pendingToggles so this callback
+  // is stable across renders and never triggers a spurious re-fetch.
   const loadCollectors = useCallback(async (query: string) => {
     setCollectorsLoading(true);
     try {
@@ -309,23 +315,30 @@ export default function CommunityTab({ profileOwnerId }: { profileOwnerId: strin
       const profiles = (data ?? []) as Collector[];
       setCollectors(profiles);
 
-      // Fetch actual follow state so buttons reflect reality, not just session clicks
-      if (viewerUserId && profiles.length > 0) {
+      // Read viewerUserId from ref so this callback doesn't rebuild on auth load
+      const vid = viewerUserIdRef.current;
+      if (vid && profiles.length > 0) {
         const ids = profiles.map(c => c.id);
         const { data: followRows } = await supabase
           .from("follows")
           .select("following_id")
-          .eq("follower_id", viewerUserId)
+          .eq("follower_id", vid)
           .in("following_id", ids);
         const followedSet = new Set((followRows ?? []).map(r => r.following_id as string));
         const fs: Record<string, boolean> = {};
-        for (const id of ids) fs[id] = followedSet.has(id);
+        for (const id of ids) {
+          // Never overwrite a follow state that's mid-toggle — that would undo
+          // the optimistic update before the API call has confirmed the change.
+          if (!pendingTogglesRef.current.has(id)) {
+            fs[id] = followedSet.has(id);
+          }
+        }
         setFollowState(prev => ({ ...prev, ...fs }));
       }
     } finally {
       setCollectorsLoading(false);
     }
-  }, [viewerUserId]);
+  }, []); // stable — reads viewerUserId from ref, not closure
 
   useEffect(() => {
     if (subTab !== "collectors") return;
@@ -336,7 +349,11 @@ export default function CommunityTab({ profileOwnerId }: { profileOwnerId: strin
 
   async function toggleFollow(targetId: string, targetProfile?: Follower) {
     if (!viewerUserId || targetId === viewerUserId) return;
+    // Ignore double-clicks while an API call is in flight for this ID
+    if (pendingTogglesRef.current.has(targetId)) return;
+
     const prev = followState[targetId] ?? false;
+    pendingTogglesRef.current.add(targetId);
     setFollowState(s => ({ ...s, [targetId]: !prev }));
     try {
       const res = await fetch("/api/collectors/follow", {
@@ -344,22 +361,23 @@ export default function CommunityTab({ profileOwnerId }: { profileOwnerId: strin
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ followingId: targetId }),
       });
-      const data = await res.json();
+      const data = await res.json() as { isFollowing?: boolean; error?: string };
       if (!res.ok || typeof data.isFollowing !== "boolean") {
-        // Server error — revert optimistic update
         setFollowState(s => ({ ...s, [targetId]: prev }));
         return;
       }
-      setFollowState(s => ({ ...s, [targetId]: data.isFollowing }));
+      setFollowState(s => ({ ...s, [targetId]: data.isFollowing! }));
 
       // Keep the Following list in sync without a full reload
       if (data.isFollowing && targetProfile) {
-        setFollowing(prev => prev.some(f => f.id === targetId) ? prev : [targetProfile, ...prev]);
+        setFollowing(p => p.some(f => f.id === targetId) ? p : [targetProfile, ...p]);
       } else if (!data.isFollowing) {
-        setFollowing(prev => prev.filter(f => f.id !== targetId));
+        setFollowing(p => p.filter(f => f.id !== targetId));
       }
     } catch {
       setFollowState(s => ({ ...s, [targetId]: prev }));
+    } finally {
+      pendingTogglesRef.current.delete(targetId);
     }
   }
 

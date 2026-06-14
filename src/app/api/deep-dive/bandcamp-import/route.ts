@@ -2,6 +2,9 @@ import { type NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createClient as createSupabaseClient } from "@supabase/supabase-js";
 
+export const dynamic   = "force-dynamic";
+export const maxDuration = 300;
+
 // ── String utilities ──────────────────────────────────────────────────────────
 
 function levenshteinDistance(a: string, b: string): number {
@@ -42,53 +45,109 @@ function normalize(s: string): string {
 
 // ── Bandcamp scraping ─────────────────────────────────────────────────────────
 
-const UA = "Mozilla/5.0 (compatible; rekodo/1.0)";
+const UA = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36";
+
+function extractFanIdFromText(text: string): number | null {
+  // Try all known patterns — ordered by reliability
+  const patterns = [
+    /"fan_id"\s*:\s*(\d+)/,
+    /[?&]fan_id=(\d+)/,
+    /"id"\s*:\s*(\d+)[^}]*"bandcamp_url"/,
+    /FanData[^{]*\{[^}]*"id"\s*:\s*(\d+)/,
+    /current_fan[^{]*\{[^}]*"id"\s*:\s*(\d+)/,
+    /CurrentFan[^{]*\{[^}]*"id"\s*:\s*(\d+)/,
+  ];
+  for (const pattern of patterns) {
+    const m = text.match(pattern);
+    if (m) {
+      const n = parseInt(m[1], 10);
+      if (n > 0) return n;
+    }
+  }
+  return null;
+}
 
 async function getFanId(username: string): Promise<{ fanId: number | null; error?: string }> {
-  const htmlRes = await fetch(`https://bandcamp.com/${username}`, {
-    headers: { "User-Agent": UA, "Accept": "text/html" },
-  });
+  const timeout = 12_000;
 
-  if (htmlRes.status === 404) {
-    return {
-      fanId: null,
-      error: "Bandcamp user not found. Check the username in your profile settings.",
-    };
+  let html = "";
+  try {
+    const htmlRes = await fetch(`https://bandcamp.com/${username}`, {
+      headers: {
+        "User-Agent": UA,
+        "Accept": "text/html,application/xhtml+xml",
+        "Accept-Language": "en-US,en;q=0.9",
+      },
+      signal: AbortSignal.timeout(timeout),
+    });
+
+    if (htmlRes.status === 404) {
+      return { fanId: null, error: "Bandcamp user not found. Check the username in your profile settings." };
+    }
+    if (!htmlRes.ok) {
+      return { fanId: null, error: `Could not reach Bandcamp (HTTP ${htmlRes.status}). Try again in a moment.` };
+    }
+    html = await htmlRes.text();
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    return { fanId: null, error: `Could not connect to Bandcamp: ${msg}` };
   }
-  if (!htmlRes.ok) {
-    return { fanId: null, error: `Could not reach Bandcamp (status ${htmlRes.status}).` };
-  }
 
-  const html = await htmlRes.text();
+  // Strategy 1: search all inline text for fan_id patterns
+  const fromInline = extractFanIdFromText(html);
+  if (fromInline) return { fanId: fromInline };
 
-  // Strategy 1: data-blob attribute (works on older Bandcamp page structure)
+  // Strategy 2: data-blob JSON blobs (older Bandcamp page structure)
   for (const match of html.matchAll(/data-blob="([^"]+)"/g)) {
     try {
       const raw = match[1].replace(/&quot;/g, '"').replace(/&amp;/g, '&').replace(/&#39;/g, "'");
       const blob = JSON.parse(raw) as Record<string, unknown>;
       type FanData = { id?: number };
       const fanData = (blob?.fan_data ?? blob?.CurrentFan ?? blob?.FanData ?? blob?.current_fan) as FanData | undefined;
-      if (fanData?.id) return { fanId: fanData.id };
+      if (fanData?.id && typeof fanData.id === "number") return { fanId: fanData.id };
+      // Also scan the whole blob text
+      const blobFanId = extractFanIdFromText(JSON.stringify(blob));
+      if (blobFanId) return { fanId: blobFanId };
     } catch { continue; }
   }
 
-  // Strategy 2: fan_id embedded directly in HTML (script tags, gift links, etc.)
-  const inlineMatch = html.match(/"fan_id"\s*:\s*(\d+)/) ?? html.match(/[?&]fan_id=(\d+)/);
-  if (inlineMatch) return { fanId: parseInt(inlineMatch[1], 10) };
-
-  // Strategy 3: wishlist RSS feed — Bandcamp embeds fan_id in gift link query params
-  const rssRes = await fetch(`https://bandcamp.com/${username}/wishlist?format=rss`, {
-    headers: { "User-Agent": UA },
-  });
-  if (rssRes.ok) {
-    const rssText = await rssRes.text();
-    const rssMatch = rssText.match(/[?&]fan_id=(\d+)/);
-    if (rssMatch) return { fanId: parseInt(rssMatch[1], 10) };
+  // Strategy 3: any JSON in <script> tags
+  for (const scriptMatch of html.matchAll(/<script[^>]*>([\s\S]*?)<\/script>/gi)) {
+    const content = scriptMatch[1];
+    if (!content.includes("fan")) continue;
+    const id = extractFanIdFromText(content);
+    if (id) return { fanId: id };
   }
+
+  // Strategy 4: wishlist RSS feed — embeds fan_id in gift-link query params
+  try {
+    const rssRes = await fetch(`https://bandcamp.com/${username}/wishlist?format=rss`, {
+      headers: { "User-Agent": UA },
+      signal: AbortSignal.timeout(timeout),
+    });
+    if (rssRes.ok) {
+      const rssText = await rssRes.text();
+      const id = extractFanIdFromText(rssText);
+      if (id) return { fanId: id };
+    }
+  } catch { /* continue */ }
+
+  // Strategy 5: collection RSS feed
+  try {
+    const collRssRes = await fetch(`https://bandcamp.com/${username}/collection?format=rss`, {
+      headers: { "User-Agent": UA },
+      signal: AbortSignal.timeout(timeout),
+    });
+    if (collRssRes.ok) {
+      const rssText = await collRssRes.text();
+      const id = extractFanIdFromText(rssText);
+      if (id) return { fanId: id };
+    }
+  } catch { /* continue */ }
 
   return {
     fanId: null,
-    error: "Could not find your Bandcamp fan ID. Make sure your collection is set to Public in your Bandcamp account settings.",
+    error: "Could not find your Bandcamp fan ID. Make sure your Bandcamp collection is set to Public in your account settings, then try again.",
   };
 }
 
@@ -97,13 +156,20 @@ type CollectionItem = { band_name: string; album_title: string };
 async function fetchCollection(fanId: number): Promise<CollectionItem[]> {
   const items: CollectionItem[] = [];
   let olderThanToken = "9999999999:9999999999:a::";
+  const MAX_PAGES = 500; // safety cap — ~10,000 albums
 
-  for (;;) {
-    const res = await fetch("https://bandcamp.com/api/fancollection/1/collection_items", {
-      method: "POST",
-      headers: { "Content-Type": "application/json", "User-Agent": UA },
-      body: JSON.stringify({ fan_id: fanId, older_than_token: olderThanToken, count: 20 }),
-    });
+  for (let page = 0; page < MAX_PAGES; page++) {
+    let res: Response;
+    try {
+      res = await fetch("https://bandcamp.com/api/fancollection/1/collection_items", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "User-Agent": UA },
+        body: JSON.stringify({ fan_id: fanId, older_than_token: olderThanToken, count: 20 }),
+        signal: AbortSignal.timeout(15_000),
+      });
+    } catch {
+      break; // network error — return what we have
+    }
 
     if (!res.ok) break;
 
@@ -119,8 +185,8 @@ async function fetchCollection(fanId: number): Promise<CollectionItem[]> {
       }
     }
 
-    if (!data.more_available) break;
-    olderThanToken = data.last_token ?? olderThanToken;
+    if (!data.more_available || !data.last_token || data.last_token === olderThanToken) break;
+    olderThanToken = data.last_token;
 
     await new Promise(r => setTimeout(r, 300));
   }
