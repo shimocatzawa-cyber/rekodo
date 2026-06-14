@@ -90,7 +90,6 @@ export default function SpotifyPlayer({
   const playerRef  = useRef<SpotifySDKPlayer | null>(null);
   const audioRef   = useRef<HTMLAudioElement | null>(null);
   const pollRef    = useRef<ReturnType<typeof setInterval> | null>(null);
-  const startedRef = useRef(false);
 
   const isPremium = !!(tokenData?.connected && tokenData.product === "premium");
   const useSDK    = isPremium && (mode === "collection" ? !!spotifyUri : !!spotifyTrackUri);
@@ -137,6 +136,11 @@ export default function SpotifyPlayer({
       setDuration(s.duration);
     });
 
+    // Reconnect if the browser kills the SDK connection (e.g. tab throttling)
+    player.addListener("not_ready", () => {
+      setTimeout(() => { player.connect().catch(() => {}); }, 1000);
+    });
+
     player.connect();
     playerRef.current = player;
 
@@ -149,13 +153,24 @@ export default function SpotifyPlayer({
   // ── Auto-play in collection mode when URI + device ready ──────────────────
   useEffect(() => {
     if (mode !== "collection" || !deviceId || !tokenData?.access_token || !spotifyUri) return;
-    startedRef.current = true;
     fetch(`https://api.spotify.com/v1/me/player/play?device_id=${deviceId}`, {
       method:  "PUT",
       headers: { Authorization: `Bearer ${tokenData.access_token}`, "Content-Type": "application/json" },
       body:    JSON.stringify({ context_uri: spotifyUri }),
     }).catch(() => {});
   }, [mode, deviceId, spotifyUri, tokenData?.access_token]);
+
+  // ── Keep SDK alive across tab switches ────────────────────────────────────
+  useEffect(() => {
+    if (!sdkReady) return;
+    const onVisible = () => {
+      if (!document.hidden && playerRef.current) {
+        playerRef.current.connect().catch(() => {});
+      }
+    };
+    document.addEventListener("visibilitychange", onVisible);
+    return () => document.removeEventListener("visibilitychange", onVisible);
+  }, [sdkReady]);
 
   // ── Poll position while SDK playing ───────────────────────────────────────
   useEffect(() => {
@@ -185,13 +200,21 @@ export default function SpotifyPlayer({
   // ── Play / pause ──────────────────────────────────────────────────────────
   const handlePlayPause = useCallback(async () => {
     if (useSDK && playerRef.current) {
-      if (!startedRef.current && mode === "dig" && spotifyTrackUri && deviceId && tokenData?.access_token) {
-        startedRef.current = true;
-        await fetch(`https://api.spotify.com/v1/me/player/play?device_id=${deviceId}`, {
-          method:  "PUT",
-          headers: { Authorization: `Bearer ${tokenData.access_token}`, "Content-Type": "application/json" },
-          body:    JSON.stringify({ uris: [spotifyTrackUri] }),
-        });
+      const state = await playerRef.current.getCurrentState();
+      if (!state) {
+        // Nothing loaded (auto-play failed or first dig press) — issue full play command
+        const body = mode === "collection" && spotifyUri
+          ? { context_uri: spotifyUri }
+          : spotifyTrackUri
+            ? { uris: [spotifyTrackUri] }
+            : null;
+        if (body && deviceId && tokenData?.access_token) {
+          await fetch(`https://api.spotify.com/v1/me/player/play?device_id=${deviceId}`, {
+            method:  "PUT",
+            headers: { Authorization: `Bearer ${tokenData.access_token}`, "Content-Type": "application/json" },
+            body:    JSON.stringify(body),
+          }).catch(() => {});
+        }
       } else {
         await playerRef.current.togglePlay();
       }
@@ -204,7 +227,7 @@ export default function SpotifyPlayer({
         setPlaying(true);
       }
     }
-  }, [useSDK, usePreview, playing, mode, spotifyTrackUri, deviceId, tokenData?.access_token]);
+  }, [useSDK, usePreview, playing, mode, spotifyUri, spotifyTrackUri, deviceId, tokenData?.access_token]);
 
   // ── Seek ──────────────────────────────────────────────────────────────────
   const handleSeek = useCallback((e: React.MouseEvent<HTMLDivElement>) => {

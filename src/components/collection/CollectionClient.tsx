@@ -1858,20 +1858,36 @@ function TracklistPanel({ tracks, loading, bandcamp, record }: {
       return;
     }
     setCurrentSpotifyUri(undefined);
-    const q = encodeURIComponent(`album:${record.album} artist:${record.artist}`);
-    fetch(`https://api.spotify.com/v1/search?q=${q}&type=album&limit=1`, {
-      headers: { Authorization: `Bearer ${spotifyToken}` },
-    })
-      .then(r => r.json())
-      .then((data: unknown) => {
-        const uri = (data as { albums?: { items?: Array<{ uri: string }> } })?.albums?.items?.[0]?.uri ?? null;
+    const artist = record.artist;
+    const album  = record.album;
+    const token  = spotifyToken;
+    (async () => {
+      try {
+        // Quoted field-filter search — precise match
+        const q1 = encodeURIComponent(`album:"${album}" artist:"${artist}"`);
+        const r1 = await fetch(`https://api.spotify.com/v1/search?q=${q1}&type=album&limit=1`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        const d1 = await r1.json() as { albums?: { items?: Array<{ uri: string }> } };
+        let uri  = d1?.albums?.items?.[0]?.uri ?? null;
+
+        if (!uri) {
+          // Fallback: plain-text search handles name variations (e.g. "Various", remaster suffixes)
+          const q2 = encodeURIComponent(`${artist} ${album}`);
+          const r2 = await fetch(`https://api.spotify.com/v1/search?q=${q2}&type=album&limit=1`, {
+            headers: { Authorization: `Bearer ${token}` },
+          });
+          const d2 = await r2.json() as { albums?: { items?: Array<{ uri: string }> } };
+          uri = d2?.albums?.items?.[0]?.uri ?? null;
+        }
+
         spotifyUriCache.current.set(key, uri);
         setCurrentSpotifyUri(uri);
-      })
-      .catch(() => {
+      } catch {
         spotifyUriCache.current.set(key, null);
         setCurrentSpotifyUri(null);
-      });
+      }
+    })();
   }, [record?.id, spotifyPremium, spotifyToken]);
 
   async function handleOpenToOffers() {
