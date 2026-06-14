@@ -34,20 +34,42 @@ export async function GET() {
       const recordDriftOk  = storedRecords === 0 ||
         Math.abs(currentRecords - storedRecords) / Math.max(storedRecords, 1) <= DRIFT_PCT;
 
-      // Also check wantlist count — if it was 0 at generation but now exists, invalidate
-      const cachedWantlistCount: number =
-        (cached.profile_data as { metrics?: { m12?: { wantlistCount?: number } } })
-          ?.metrics?.m12?.wantlistCount ?? 0;
+      type CachedProfile = { metrics?: { m12?: { wantlistCount?: number }; m02?: { noData?: boolean } } };
+      const cachedProfile = cached.profile_data as CachedProfile;
+
+      // Invalidate if wantlist was empty at generation but now has items
+      const cachedWantlistCount = cachedProfile?.metrics?.m12?.wantlistCount ?? 0;
       let wantlistDriftOk = true;
       if (cachedWantlistCount === 0) {
         const { count: wlCount } = await supabase
           .from("wantlist")
           .select("*", { count: "exact", head: true })
           .eq("user_id", user.id);
-        if ((wlCount ?? 0) > 0) wantlistDriftOk = false;
+        // Also check in-app wantlist
+        const { data: appWL } = await supabase
+          .from("lists")
+          .select("id")
+          .eq("user_id", user.id)
+          .eq("slug", "wantlist")
+          .maybeSingle();
+        const { count: appWLCount } = appWL?.id
+          ? await supabase.from("list_items").select("*", { count: "exact", head: true }).eq("list_id", appWL.id)
+          : { count: 0 };
+        if ((wlCount ?? 0) + (appWLCount ?? 0) > 0) wantlistDriftOk = false;
       }
 
-      if (recordDriftOk && wantlistDriftOk) {
+      // Invalidate if Bandcamp imports were empty at generation but now exist
+      const cachedNoDigital = cachedProfile?.metrics?.m02?.noData ?? true;
+      let digitalDriftOk = true;
+      if (cachedNoDigital) {
+        const { count: diCount } = await supabase
+          .from("digital_imports")
+          .select("*", { count: "exact", head: true })
+          .eq("user_id", user.id);
+        if ((diCount ?? 0) > 0) digitalDriftOk = false;
+      }
+
+      if (recordDriftOk && wantlistDriftOk && digitalDriftOk) {
         return NextResponse.json(cached.profile_data);
       }
     }

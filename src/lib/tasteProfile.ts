@@ -207,13 +207,40 @@ export async function computeTasteProfile(
 
   const totalRecords = enriched.length;
 
-  // C. Wantlist (Discogs wantlist table)
+  // C. Wantlist — combines Discogs wantlist table + app wantlist (lists slug="wantlist")
   type WantRow = { artist: string; released: number | null; date_added: string | null };
+
   const { data: wantlistRows } = await supabase
     .from("wantlist")
     .select("artist, released, date_added")
     .eq("user_id", userId);
-  const wantlist = (wantlistRows ?? []) as WantRow[];
+  const wantlist: WantRow[] = (wantlistRows ?? []) as WantRow[];
+
+  // Also pull from the in-app wantlist (records added via Dig page)
+  const { data: appWantlistMeta } = await supabase
+    .from("lists")
+    .select("id")
+    .eq("user_id", userId)
+    .eq("slug", "wantlist")
+    .maybeSingle();
+
+  if (appWantlistMeta?.id) {
+    const { data: appItems } = await supabase
+      .from("list_items")
+      .select("record_id")
+      .eq("list_id", appWantlistMeta.id);
+    const appIds = (appItems ?? []).map((i: { record_id: string }) => i.record_id);
+    for (let i = 0; i < appIds.length; i += BATCH) {
+      const { data: wRecs } = await supabase
+        .from("records")
+        .select("artist")
+        .in("id", appIds.slice(i, i + BATCH));
+      for (const r of wRecs ?? []) {
+        wantlist.push({ artist: (r as { artist: string }).artist, released: null, date_added: null });
+      }
+    }
+  }
+
   const wantlistCount = wantlist.length;
 
   // D. Digital imports
