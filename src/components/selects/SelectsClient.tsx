@@ -38,143 +38,51 @@ const TABS: { key: SelectsTab; label: string }[] = [
   { key: "label",        label: "Label"        },
 ];
 
-// ─── Buy link helper ──────────────────────────────────────────────────────────
+// ─── Release row ─────────────────────────────────────────────────────────────
 
-function getBuyLink(label: string | null, artist: string | null): string {
-  const lbl = (label ?? "").toUpperCase();
-  const q = encodeURIComponent(artist ?? "");
-  if (lbl.includes("BOOMKAT"))     return `https://boomkat.com/products/search?q=${q}`;
-  if (lbl.includes("ROUGH TRADE")) return `https://roughtrade.com/search?q=${q}`;
-  if (lbl.includes("JUNO"))        return `https://www.juno.co.uk/search/?q=${q}`;
-  if (lbl.includes("SACRED BONES")) return "https://sacredbonesrecords.com";
-  if (lbl.includes("FUZZ CLUB"))   return "https://fuzzclub.com";
-  return `https://www.discogs.com/search/?q=${q}&type=release`;
-}
-
-// ─── Badge config ─────────────────────────────────────────────────────────────
-
-function getBadge(type: LabelFeedItem["release_type"]): { text: string; bg: string; color: string } {
-  switch (type) {
-    case "new_release": return { text: "OUT NOW",   bg: "#fde8d8", color: "#CC5500" };
-    case "preorder":    return { text: "PRE-ORDER", bg: "#e8f5eb", color: "#2d7a3a" };
-    case "repress":     return { text: "REPRESS",   bg: "#e8f0fd", color: "#2d4a9a" };
-    default:            return { text: "RELEASE",   bg: "#f0f0f0", color: "#666666" };
-  }
-}
-
-function getCardBorder(type: LabelFeedItem["release_type"]): string {
-  switch (type) {
-    case "new_release": return "#CC5500";
-    case "preorder":    return "#2d7a3a";
-    case "repress":     return "#2d4a9a";
-    default:            return "#e0e0da";
-  }
-}
-
-// ─── Static filter labels ─────────────────────────────────────────────────────
-
-const STATIC_FILTERS = [
-  { key: "ALL",       label: "ALL" },
-  { key: "OUT NOW",   label: "OUT NOW" },
-  { key: "PRE-ORDER", label: "PRE-ORDER" },
-  { key: "REPRESS",   label: "REPRESS" },
-];
-
-const TYPE_FILTER_MAP: Record<string, LabelFeedItem["release_type"]> = {
-  "OUT NOW":   "new_release",
-  "PRE-ORDER": "preorder",
-  "REPRESS":   "repress",
-};
-
-// ─── Release card ─────────────────────────────────────────────────────────────
-
-function ReleaseCard({ item }: { item: LabelFeedItem }) {
+function ReleaseRow({ item }: { item: LabelFeedItem }) {
   const [hovered, setHovered] = useState(false);
-  const badge = getBadge(item.release_type);
-  const borderColor = getCardBorder(item.release_type);
-  const buyHref = getBuyLink(item.label, item.artist);
+  const buyHref = `https://www.discogs.com/search/?q=${encodeURIComponent(`${item.artist ?? ""} ${item.album ?? ""}`)}&type=release`;
 
   return (
     <div
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
       style={{
-        background: hovered ? "#f0ebe4" : "#FDF6F0",
-        padding: "1rem",
-        borderLeft: `3px solid ${borderColor}`,
-        display: "flex",
-        flexDirection: "column",
-        gap: "0.45rem",
-        transition: "background 0.15s",
+        display: "flex", alignItems: "center", gap: "16px",
+        padding: "14px 0", borderBottom: `1px solid ${RULE}`,
+        background: hovered ? "#f7f5f0" : "transparent",
       }}
     >
-      {/* Top row: badge + source */}
-      <div style={{ display: "flex", alignItems: "center", gap: "0.4rem", flexWrap: "wrap" }}>
-        <span style={{
-          fontFamily: MONO, fontSize: "0.44rem", letterSpacing: "0.1em",
-          textTransform: "uppercase", background: badge.bg, color: badge.color,
-          padding: "0.1rem 0.35rem",
-        }}>
-          {badge.text}
-        </span>
-        {item.label && (
-          <span style={{
-            fontFamily: MONO, fontSize: "0.5rem", letterSpacing: "0.08em",
-            textTransform: "uppercase", color: ORANGE,
-          }}>
-            {item.label.toUpperCase()}
-          </span>
-        )}
-      </div>
+      {/* Artwork placeholder */}
+      <div style={{ width: 80, height: 80, background: "#f0ede8", flexShrink: 0 }} />
 
-      {/* Artist */}
-      {item.artist && (
-        <p style={{
-          fontFamily: SERIF, fontSize: "0.95rem", fontWeight: 600,
-          color: INK, margin: 0, lineHeight: 1.2,
-        }}>
+      {/* Release info */}
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <p style={{ fontFamily: SERIF, fontSize: "0.95rem", fontWeight: 600, color: INK, margin: "0 0 2px 0", lineHeight: 1.2 }}>
           {item.artist}
         </p>
-      )}
-
-      {/* Album */}
-      {item.album && (
-        <p style={{
-          fontFamily: MONO, fontSize: "0.7rem", color: INK, margin: 0,
-        }}>
+        <p style={{ fontFamily: SERIF, fontSize: "0.85rem", fontWeight: 400, fontStyle: "italic", color: INK, margin: "0 0 5px 0", lineHeight: 1.2 }}>
           {item.album}
         </p>
-      )}
-
-      {/* Format */}
-      {item.format && (
-        <p style={{
-          fontFamily: MONO, fontSize: "0.6rem", color: INK,
-          opacity: 0.55, margin: 0,
-        }}>
-          {item.format}
-        </p>
-      )}
-
-      {/* Description */}
-      {item.description && (
-        <p style={{
-          fontFamily: MONO, fontSize: "0.58rem", color: INK,
-          opacity: 0.7, margin: 0, lineHeight: 1.55,
-        }}>
-          {item.description}
-        </p>
-      )}
+        {(item.label || item.format) && (
+          <p style={{ fontFamily: MONO, fontSize: "0.6rem", letterSpacing: "0.08em", textTransform: "uppercase", color: INK, margin: "0 0 3px 0" }}>
+            {[item.label, item.format].filter(Boolean).join(" · ")}
+          </p>
+        )}
+        {item.tags && item.tags.length > 0 && (
+          <p style={{ fontFamily: MONO, fontSize: "0.55rem", color: ORANGE, margin: 0 }}>
+            {item.tags.join(", ")}
+          </p>
+        )}
+      </div>
 
       {/* Buy link */}
       <a
         href={buyHref}
         target="_blank"
         rel="noopener noreferrer"
-        style={{
-          fontFamily: MONO, fontSize: "0.55rem", color: ORANGE,
-          textDecoration: "none", marginTop: "auto",
-        }}
+        style={{ fontFamily: MONO, fontSize: "0.65rem", letterSpacing: "0.1em", textTransform: "uppercase", color: INK, textDecoration: "none", flexShrink: 0 }}
         onMouseEnter={e => { (e.currentTarget as HTMLAnchorElement).style.textDecoration = "underline"; }}
         onMouseLeave={e => { (e.currentTarget as HTMLAnchorElement).style.textDecoration = "none"; }}
       >
@@ -184,20 +92,17 @@ function ReleaseCard({ item }: { item: LabelFeedItem }) {
   );
 }
 
-// ─── Skeleton card ────────────────────────────────────────────────────────────
+// ─── Skeleton row ─────────────────────────────────────────────────────────────
 
-function SkeletonCard() {
+function SkeletonRow() {
   return (
-    <div style={{
-      background: "#FDF6F0", padding: "1rem",
-      borderLeft: `3px solid ${RULE}`,
-      display: "flex", flexDirection: "column", gap: "0.5rem",
-    }}>
-      <div className="nr-shimmer" style={{ height: "0.75rem", width: "40%", background: "#e8e3dc" }} />
-      <div className="nr-shimmer" style={{ height: "1rem",   width: "70%", background: "#e8e3dc" }} />
-      <div className="nr-shimmer" style={{ height: "0.7rem", width: "55%", background: "#e8e3dc" }} />
-      <div className="nr-shimmer" style={{ height: "0.6rem", width: "90%", background: "#e8e3dc" }} />
-      <div className="nr-shimmer" style={{ height: "0.6rem", width: "80%", background: "#e8e3dc" }} />
+    <div style={{ display: "flex", alignItems: "center", gap: "16px", padding: "14px 0", borderBottom: `1px solid ${RULE}` }}>
+      <div style={{ width: 80, height: 80, background: "#f0ede8", flexShrink: 0 }} />
+      <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: "7px" }}>
+        <div className="nr-shimmer" style={{ height: "0.95rem", width: "32%", background: "#e8e3dc" }} />
+        <div className="nr-shimmer" style={{ height: "0.85rem", width: "48%", background: "#e8e3dc" }} />
+        <div className="nr-shimmer" style={{ height: "0.6rem",  width: "22%", background: "#e8e3dc" }} />
+      </div>
     </div>
   );
 }
@@ -205,103 +110,63 @@ function SkeletonCard() {
 // ─── New Releases section ─────────────────────────────────────────────────────
 
 function NewReleasesSection() {
-  const [items, setItems]       = useState<LabelFeedItem[]>([]);
-  const [loading, setLoading]   = useState(true);
+  const [items, setItems]         = useState<LabelFeedItem[]>([]);
+  const [loading, setLoading]     = useState(true);
   const [fetchError, setFetchError] = useState<string | null>(null);
-  const [activeFilter, setActiveFilter] = useState("ALL");
 
   useEffect(() => {
     const supabase = createClient();
-    supabase
-      .from("label_feed")
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (supabase as any)
+      .from("label_releases")
       .select("*")
+      .not("artist", "is", null)
+      .neq("artist", "")
+      .not("album", "is", null)
+      .neq("album", "")
       .order("received_at", { ascending: false })
-      .limit(48)
-      .then(({ data, error }) => {
-        if (error) {
-          setFetchError(error.message);
-        } else {
-          setItems((data as unknown as LabelFeedItem[]) ?? []);
-        }
+      .limit(100)
+      .then(({ data, error }: { data: unknown; error: { message: string } | null }) => {
+        if (error) setFetchError(error.message);
+        else setItems((data as LabelFeedItem[]) ?? []);
         setLoading(false);
       });
   }, []);
 
-  // Dynamic source filters from unique label values
-  const sourceFilters: string[] = Array.from(
-    new Set(items.map(i => (i.label ?? "").toUpperCase()).filter(Boolean))
-  ).sort();
+  if (loading) {
+    return (
+      <section>
+        <div style={{ borderTop: `1px solid ${RULE}` }}>
+          {Array.from({ length: 6 }).map((_, i) => <SkeletonRow key={i} />)}
+        </div>
+      </section>
+    );
+  }
 
-  const allFilters = [
-    ...STATIC_FILTERS,
-    ...sourceFilters.map(s => ({ key: s, label: s })),
-  ];
+  if (fetchError) {
+    return (
+      <p style={{ fontFamily: MONO, fontSize: "0.7rem", color: "#cc3300", textAlign: "center", padding: "4rem 0", margin: 0 }}>
+        Feed error: {fetchError}
+      </p>
+    );
+  }
 
-  // Apply filter
-  const filtered = activeFilter === "ALL"
-    ? items
-    : TYPE_FILTER_MAP[activeFilter]
-      ? items.filter(i => i.release_type === TYPE_FILTER_MAP[activeFilter])
-      : items.filter(i => (i.label ?? "").toUpperCase() === activeFilter);
+  if (items.length === 0) {
+    return (
+      <div style={{ textAlign: "center", padding: "4rem 0" }}>
+        <p style={{ fontFamily: MONO, fontSize: "0.7rem", color: INK, margin: "0 0 6px 0" }}>No releases yet.</p>
+        <p style={{ fontFamily: MONO, fontSize: "0.7rem", color: INK, margin: 0 }}>
+          rekōdo checks your label subscriptions daily — new releases will appear here.
+        </p>
+      </div>
+    );
+  }
 
   return (
-    <section style={{ marginBottom: "0" }}>
-      {/* Filter strip */}
-      <div style={{ display: "flex", flexWrap: "wrap", gap: "0.5rem", marginBottom: "1rem" }}>
-        {allFilters.map(({ key, label }) => {
-          const isActive = activeFilter === key;
-          return (
-            <button
-              key={key}
-              onClick={() => setActiveFilter(key)}
-              style={{
-                fontFamily: MONO, fontSize: "0.55rem", letterSpacing: "0.1em",
-                textTransform: "uppercase",
-                background: isActive ? INK : "transparent",
-                color: isActive ? "#ffffff" : INK,
-                border: `1px solid ${isActive ? INK : RULE}`,
-                borderRadius: 0,
-                padding: "0.3rem 0.75rem",
-                cursor: "pointer",
-              }}
-            >
-              {label}
-            </button>
-          );
-        })}
+    <section>
+      <div style={{ borderTop: `1px solid ${RULE}` }}>
+        {items.map(item => <ReleaseRow key={item.id} item={item} />)}
       </div>
-
-      {/* Grid */}
-      {loading ? (
-        <div className="nr-grid">
-          {Array.from({ length: 4 }).map((_, i) => <SkeletonCard key={i} />)}
-        </div>
-      ) : fetchError ? (
-        <p style={{
-          fontFamily: MONO, fontSize: "0.65rem", color: "#cc3300",
-          margin: 0,
-        }}>
-          Feed error: {fetchError}
-        </p>
-      ) : items.length === 0 ? (
-        <p style={{
-          fontFamily: MONO, fontSize: "0.65rem", color: INK,
-          opacity: 0.5, margin: 0,
-        }}>
-          No releases yet. The feed updates daily once labels@rekodo.co is subscribed to label newsletters.
-        </p>
-      ) : filtered.length === 0 ? (
-        <p style={{
-          fontFamily: MONO, fontSize: "0.65rem", color: INK,
-          opacity: 0.5, margin: 0,
-        }}>
-          No releases match this filter.
-        </p>
-      ) : (
-        <div className="nr-grid">
-          {filtered.map(item => <ReleaseCard key={item.id} item={item} />)}
-        </div>
-      )}
     </section>
   );
 }
@@ -498,19 +363,6 @@ export default function SelectsClient({ username, displayLabel, avatarUrl }: Pro
           50%       { opacity: 0.45; }
         }
         .nr-shimmer { animation: nr-pulse 1.4s ease-in-out infinite; }
-
-        .nr-grid {
-          display: grid;
-          grid-template-columns: repeat(4, 1fr);
-          gap: 1px;
-          background: ${RULE};
-        }
-        @media (max-width: 1023px) {
-          .nr-grid { grid-template-columns: repeat(3, 1fr); }
-        }
-        @media (max-width: 639px) {
-          .nr-grid { grid-template-columns: repeat(2, 1fr); }
-        }
 
         @media (max-width: 767px) {
           .selects-card {
