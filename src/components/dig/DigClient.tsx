@@ -362,11 +362,12 @@ function DigCompactPlayer({ previewUrl, albumUri, trackUri, artist, album }: {
   const audioRef  = useRef<HTMLAudioElement | null>(null);
   const pollRef   = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  const isPremium  = !!(tokenData?.connected && tokenData.product === "premium");
-  const useSDK     = isPremium && !!(albumUri || trackUri);
-  const usePreview = !useSDK && !!previewUrl;
+  const isPremium = !!(tokenData?.connected && tokenData.product === "premium");
+  const useSDK    = isPremium && !!(albumUri || trackUri);
+  // SDK is only "live" once the device is registered — before that, preview is the fallback
+  const sdkLive   = useSDK && !!deviceId;
 
-  // Fetch token once
+  // Fetch token once — non-blocking; preview plays immediately while this resolves
   useEffect(() => {
     fetch("/api/spotify/token")
       .then(r => r.json() as Promise<DigTokenData>)
@@ -419,7 +420,7 @@ function DigCompactPlayer({ previewUrl, albumUri, trackUri, artist, album }: {
     return () => document.removeEventListener("visibilitychange", onVisible);
   }, [sdkReady]);
 
-  // Poll position while playing via SDK
+  // Poll position while SDK is playing
   useEffect(() => {
     if (!playing || !playerRef.current) return;
     pollRef.current = setInterval(async () => {
@@ -429,9 +430,9 @@ function DigCompactPlayer({ previewUrl, albumUri, trackUri, artist, album }: {
     return () => { if (pollRef.current) clearInterval(pollRef.current); };
   }, [playing]);
 
-  // Preview audio element
+  // Preview audio — always created when previewUrl is set, used as fallback before SDK is live
   useEffect(() => {
-    if (!usePreview || !previewUrl) return;
+    if (!previewUrl) return;
     const audio = new Audio(previewUrl);
     audio.volume = volume;
     audioRef.current = audio;
@@ -451,7 +452,16 @@ function DigCompactPlayer({ previewUrl, albumUri, trackUri, artist, album }: {
       setPosition(0);
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [previewUrl, usePreview]);
+  }, [previewUrl]);
+
+  // Stop preview audio the moment the SDK device registers (avoid overlap)
+  useEffect(() => {
+    if (deviceId && audioRef.current) {
+      audioRef.current.pause();
+      setPlaying(false);
+      setPosition(0);
+    }
+  }, [deviceId]);
 
   const fmt = (ms: number) => {
     const s = Math.floor(ms / 1000);
@@ -460,10 +470,11 @@ function DigCompactPlayer({ previewUrl, albumUri, trackUri, artist, album }: {
   const pct = duration > 0 ? Math.min(100, (position / duration) * 100) : 0;
 
   async function handlePlayPause() {
-    if (useSDK && playerRef.current) {
+    if (sdkLive && playerRef.current) {
+      // Full album via SDK
       const state = await playerRef.current.getCurrentState();
       if (!state) {
-        if (deviceId && tokenData?.access_token) {
+        if (tokenData?.access_token) {
           const body = albumUri ? { context_uri: albumUri } : { uris: [trackUri!] };
           await fetch(`https://api.spotify.com/v1/me/player/play?device_id=${deviceId}`, {
             method:  "PUT",
@@ -474,19 +485,24 @@ function DigCompactPlayer({ previewUrl, albumUri, trackUri, artist, album }: {
       } else {
         await playerRef.current.togglePlay();
       }
-    } else if (usePreview && audioRef.current) {
-      if (playing) { audioRef.current.pause(); setPlaying(false); }
-      else         { await audioRef.current.play(); setPlaying(true); }
+    } else if (audioRef.current) {
+      // Preview fallback (non-premium OR premium before SDK device registers)
+      if (playing) {
+        audioRef.current.pause();
+        setPlaying(false);
+      } else {
+        audioRef.current.play().then(() => setPlaying(true)).catch(() => {});
+      }
     }
   }
 
   function handleSeek(e: React.MouseEvent<HTMLDivElement>) {
     const rect  = e.currentTarget.getBoundingClientRect();
     const ratio = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
-    if (useSDK && tokenData?.access_token && duration) {
+    if (sdkLive && tokenData?.access_token && duration) {
       const ms = Math.round(ratio * duration);
       setPosition(ms);
-      fetch(`https://api.spotify.com/v1/me/player/seek?position_ms=${ms}${deviceId ? `&device_id=${deviceId}` : ""}`, {
+      fetch(`https://api.spotify.com/v1/me/player/seek?position_ms=${ms}&device_id=${deviceId}`, {
         method: "PUT", headers: { Authorization: `Bearer ${tokenData.access_token}` },
       }).catch(() => {});
     } else if (audioRef.current && duration) {
@@ -499,17 +515,17 @@ function DigCompactPlayer({ previewUrl, albumUri, trackUri, artist, album }: {
     const rect   = e.currentTarget.getBoundingClientRect();
     const newVol = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
     setVolume(newVol);
-    if (useSDK && playerRef.current) playerRef.current.setVolume(newVol).catch(() => {});
-    else if (audioRef.current)       audioRef.current.volume = newVol;
+    if (sdkLive && playerRef.current) playerRef.current.setVolume(newVol).catch(() => {});
+    else if (audioRef.current)        audioRef.current.volume = newVol;
   }
 
-  if (tokenData === null) return null;
-  if (!useSDK && !usePreview) return null;
+  // Show as soon as we know something can play — no waiting for tokenData
+  if (!useSDK && !previewUrl) return null;
 
-  const eyebrow       = useSDK ? "Now Playing" : "Preview";
-  const nowPlayingText = useSDK && nowTrack
+  const eyebrow       = sdkLive ? "Now Playing" : "Preview";
+  const nowPlayingText = sdkLive && nowTrack
     ? `${nowTrack.artist} — ${nowTrack.name}`
-    : `${artist} — ${album}${!useSDK ? " (30s)" : ""}`;
+    : `${artist} — ${album}${!sdkLive ? " (30s)" : ""}`;
 
   const iconBtn: React.CSSProperties = {
     background: "none", border: "none", cursor: "pointer", padding: "4px",
@@ -546,7 +562,7 @@ function DigCompactPlayer({ previewUrl, albumUri, trackUri, artist, album }: {
 
       {/* Transport controls */}
       <div style={{ display: "flex", alignItems: "center", gap: "4px", flexShrink: 0 }}>
-        {useSDK && (
+        {sdkLive && (
           <button
             onClick={() => playerRef.current?.previousTrack().catch(() => {})}
             style={iconBtn} aria-label="Previous"
@@ -577,7 +593,7 @@ function DigCompactPlayer({ previewUrl, albumUri, trackUri, artist, album }: {
             : <svg width="12" height="12" viewBox="0 0 16 16"><polygon points="3,1 3,15 14,8" fill="currentColor"/></svg>
           }
         </button>
-        {useSDK && (
+        {sdkLive && (
           <button
             onClick={() => playerRef.current?.nextTrack().catch(() => {})}
             style={iconBtn} aria-label="Next"
@@ -631,7 +647,7 @@ function DigCompactPlayer({ previewUrl, albumUri, trackUri, artist, album }: {
       <div style={{ display: "flex", alignItems: "center", gap: "4px", flexShrink: 0 }}>
         <span style={{ width: "5px", height: "5px", borderRadius: "50%", background: "#1DB954", display: "inline-block" }} />
         <span style={{ fontFamily: MONO, fontSize: "8px", color: "#1DB954", whiteSpace: "nowrap" }}>
-          {useSDK ? "Streaming" : "Spotify"}
+          {sdkLive ? "Streaming" : "Spotify"}
         </span>
       </div>
     </div>
