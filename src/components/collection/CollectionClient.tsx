@@ -414,12 +414,46 @@ const [filterFormat,       setFilterFormat]       = useState("");
 
   const [priceProgress, setPriceProgress] = useState<{ done: number; total: number; phase: "low" } | null>(null);
 
+  const [csvUploading, setCsvUploading] = useState(false);
+
+  type EnrichStatus = { total: number; enriched: number; pending: number; failed: number; percentComplete: number };
+  const [enrichStatus, setEnrichStatus] = useState<EnrichStatus | null>(null);
+  const enrichPollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
   useEffect(() => {
     if (!startSync || syncTriggered.current) return;
     syncTriggered.current = true;
     router.replace("/collection", { scroll: false });
     runSync();
   }, [startSync]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Poll enrichment status when collection has records
+  useEffect(() => {
+    if (collection.length === 0) return;
+
+    const checkEnrichStatus = async () => {
+      try {
+        const res = await fetch("/api/collection/enrich-status");
+        if (!res.ok) return;
+        const data: EnrichStatus = await res.json();
+        setEnrichStatus(data);
+        if (data.pending === 0 && enrichPollRef.current) {
+          clearInterval(enrichPollRef.current);
+          enrichPollRef.current = null;
+        }
+      } catch { /* ignore */ }
+    };
+
+    checkEnrichStatus();
+    enrichPollRef.current = setInterval(checkEnrichStatus, 8000);
+
+    return () => {
+      if (enrichPollRef.current) {
+        clearInterval(enrichPollRef.current);
+        enrichPollRef.current = null;
+      }
+    };
+  }, [collection.length]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Auto-select a random record on load — fires once when collection is first non-empty
   const autoSelected = useRef(false);
@@ -429,6 +463,20 @@ const [filterFormat,       setFilterFormat]       = useState("");
     const idx = Math.floor(Math.random() * collection.length);
     selectRecord(collection[idx]);
   }, [collection]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  async function handleCsvUpload(file: File) {
+    setCsvUploading(true);
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+      const res = await fetch("/api/collection/csv-import", { method: "POST", body: formData });
+      if (res.ok) {
+        router.refresh();
+      }
+    } finally {
+      setCsvUploading(false);
+    }
+  }
 
   async function runSync() {
     setSyncState("syncing");
@@ -737,27 +785,103 @@ const [filterFormat,       setFilterFormat]       = useState("");
 
       {/* ── Empty state (0 records) ── */}
       {collection.length === 0 && (
-        <div style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: "0" }}>
-          <h1 style={{ fontFamily: SERIF, fontSize: "28px", fontWeight: 400, color: "#0d0d0d", marginBottom: "10px", letterSpacing: "-0.01em" }}>
+        <div style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "40px 24px" }}>
+          <input
+            type="file"
+            accept=".csv"
+            style={{ display: "none" }}
+            id="csv-file-input"
+            onChange={(e) => {
+              const file = e.target.files?.[0];
+              if (file) handleCsvUpload(file);
+              e.target.value = "";
+            }}
+          />
+          <h1 style={{ fontFamily: SERIF, fontSize: "28px", fontWeight: 400, color: "#0d0d0d", marginBottom: "10px", letterSpacing: "-0.02em", textAlign: "center" }}>
             Your collection starts here.
           </h1>
-          <p style={{ fontFamily: MONO, fontSize: "11px", letterSpacing: "0.06em", color: "#aaaaaa", marginBottom: "28px" }}>
-            Import your Discogs collection to get started
+          <p style={{ fontFamily: MONO, fontSize: "11px", letterSpacing: "0.06em", color: "#aaaaaa", marginBottom: "40px", textAlign: "center" }}>
+            Two ways to import your Discogs collection.
           </p>
-          <button
-            type="button"
-            onClick={() => { window.location.href = "/api/discogs/oauth/init"; }}
-            style={{
-              fontFamily: MONO, fontSize: "11px", letterSpacing: "0.1em",
-              textTransform: "uppercase",
-              color: "#ffffff", background: ORANGE,
-              border: "none", cursor: "pointer",
-              padding: "12px 28px",
-              marginBottom: "16px",
-            }}
-          >
-            Import from Discogs
-          </button>
+
+          {/* Two-option layout */}
+          <div style={{ display: "flex", width: "100%", maxWidth: "660px" }}>
+
+            {/* LEFT — Connect Discogs via OAuth */}
+            <div style={{ flex: 1, padding: "28px 32px" }}>
+              <p style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.12em", textTransform: "uppercase", color: ORANGE, margin: "0 0 12px" }}>
+                Connect Discogs
+              </p>
+              <p style={{ fontFamily: SERIF, fontSize: "1.1rem", fontWeight: 400, color: "#0d0d0d", margin: "0 0 12px", letterSpacing: "-0.01em" }}>
+                Sync via OAuth
+              </p>
+              <p style={{ fontFamily: MONO, fontSize: "0.65rem", color: "#aaaaaa", lineHeight: 1.7, margin: "0 0 28px" }}>
+                The fastest path. Connects your Discogs account directly and syncs your full collection in the background.
+              </p>
+              <button
+                type="button"
+                onClick={() => { window.location.href = "/api/discogs/oauth/init"; }}
+                style={{
+                  fontFamily: MONO, fontSize: "10px", letterSpacing: "0.1em",
+                  textTransform: "uppercase", background: ORANGE, color: "#ffffff",
+                  border: "none", padding: "11px 20px", cursor: "pointer",
+                }}
+              >
+                Connect Discogs →
+              </button>
+            </div>
+
+            {/* Divider */}
+            <div style={{ width: "1px", background: "#e0e0da", alignSelf: "stretch", flexShrink: 0 }} />
+
+            {/* RIGHT — CSV upload */}
+            <div style={{ flex: 1, padding: "28px 32px" }}>
+              <p style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.12em", textTransform: "uppercase", color: ORANGE, margin: "0 0 12px" }}>
+                Import CSV
+              </p>
+              <p style={{ fontFamily: SERIF, fontSize: "1.1rem", fontWeight: 400, color: "#0d0d0d", margin: "0 0 12px", letterSpacing: "-0.01em" }}>
+                Upload your export file
+              </p>
+              <p style={{ fontFamily: MONO, fontSize: "0.65rem", color: "#aaaaaa", lineHeight: 1.7, margin: "0 0 28px" }}>
+                Download your collection CSV from Discogs (My Account → Collection → Export), then upload it here. Records appear immediately while we enrich in the background.
+              </p>
+              <div
+                onClick={() => { if (!csvUploading) document.getElementById("csv-file-input")?.click(); }}
+                onDragOver={(e) => e.preventDefault()}
+                onDrop={(e) => {
+                  e.preventDefault();
+                  const file = e.dataTransfer.files?.[0];
+                  if (file && !csvUploading) handleCsvUpload(file);
+                }}
+                style={{
+                  border: "1px solid #e0e0da",
+                  padding: "18px 16px",
+                  textAlign: "center",
+                  cursor: csvUploading ? "default" : "pointer",
+                  opacity: csvUploading ? 0.6 : 1,
+                }}
+              >
+                <p style={{ fontFamily: MONO, fontSize: "10px", letterSpacing: "0.06em", color: "#aaaaaa", margin: 0 }}>
+                  {csvUploading ? "Uploading…" : "Drop CSV here or click to browse"}
+                </p>
+              </div>
+              <p style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.04em", color: "#cccccc", margin: "8px 0 0" }}>
+                .csv files only · your data is stored securely
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Enrichment progress banner ── */}
+      {collection.length > 0 && enrichStatus && enrichStatus.pending > 0 && (
+        <div style={{ flexShrink: 0, background: "#FDF6F0", borderTop: "1px solid #e0e0da", borderBottom: "1px solid #e0e0da", padding: "8px 20px 10px" }}>
+          <p style={{ fontFamily: MONO, fontSize: "0.62rem", letterSpacing: "0.05em", color: "#888888", margin: "0 0 6px" }}>
+            Enriching your collection — {enrichStatus.enriched} of {enrichStatus.total} records processed. Insights will be available shortly.
+          </p>
+          <div style={{ height: "2px", background: "#e0e0da", width: "100%" }}>
+            <div style={{ height: "100%", background: ORANGE, width: `${enrichStatus.percentComplete}%`, transition: "width 0.5s ease" }} />
+          </div>
         </div>
       )}
 
