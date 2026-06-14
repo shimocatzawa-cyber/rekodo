@@ -95,6 +95,32 @@ export default function SignupPage() {
             </div>
           ) : (
             <form action={action} className="space-y-6">
+              {/* Username */}
+              <div>
+                <label htmlFor="username" style={labelStyle}>Username</label>
+                <input
+                  id="username"
+                  name="username"
+                  type="text"
+                  required
+                  autoFocus
+                  autoComplete="username"
+                  autoCapitalize="none"
+                  spellCheck={false}
+                  maxLength={30}
+                  pattern="[a-zA-Z0-9_]+"
+                  title="Letters, numbers, and underscores only"
+                  className="border border-[#dddddd] focus:border-[#CC5500] outline-none transition-colors"
+                  style={inputStyle}
+                />
+                <p
+                  className="mt-2"
+                  style={{ fontFamily: MONO, fontSize: "10px", color: "#bbbbbb", letterSpacing: "0.05em" }}
+                >
+                  Letters, numbers and underscores only
+                </p>
+              </div>
+
               {/* Email */}
               <div>
                 <label htmlFor="email" style={labelStyle}>Email</label>

@@ -4,8 +4,8 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 
-const SERIF = "var(--font-editorial)";
-const MONO  = "var(--font-mono)";
+const SERIF  = "var(--font-editorial)";
+const MONO   = "var(--font-mono)";
 const ORANGE = "#CC5500";
 const RULE   = "#e0e0da";
 const INK    = "#0a0a0a";
@@ -13,6 +13,14 @@ const MUTED  = "#aaaaaa";
 const GOLD   = "#C9A84C";
 
 type SubTab = "matches" | "collectors" | "lists";
+
+type Follower = {
+  id: string;
+  username: string;
+  display_name: string | null;
+  avatar_url: string | null;
+  is_donor: boolean | null;
+};
 
 type Match = {
   userId: string;
@@ -32,6 +40,7 @@ type Collector = {
   id: string;
   username: string;
   display_name: string | null;
+  avatar_url: string | null;
   city: string | null;
   country: string | null;
   is_donor: boolean | null;
@@ -50,6 +59,24 @@ type ListEntry = {
 function initials(name: string | null, username: string): string {
   if (!name) return (username[0] ?? "?").toUpperCase();
   return name.trim().split(/\s+/).slice(0, 2).map(p => p[0]).join("").toUpperCase();
+}
+
+// ── Avatar circle ─────────────────────────────────────────────────────────────
+
+function Avatar({ avatarUrl, name, username, size = 36 }: {
+  avatarUrl: string | null; name: string | null; username: string; size?: number;
+}) {
+  const init = initials(name, username);
+  return (
+    <div style={{ width: size, height: size, borderRadius: "50%", background: "#f0ede8", overflow: "hidden", flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center" }}>
+      {avatarUrl ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img src={avatarUrl} alt={name ?? username} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+      ) : (
+        <span style={{ fontFamily: MONO, fontSize: `${Math.floor(size * 0.28)}px`, color: "#666", fontWeight: 600 }}>{init}</span>
+      )}
+    </div>
+  );
 }
 
 // ── Sub-components ─────────────────────────────────────────────────────────────
@@ -104,20 +131,17 @@ function MatchCard({ match, isFollowing, canFollow, onFollow }: {
 function CollectorRow({ collector, isLast, isFollowing, canFollow, onFollow }: {
   collector: Collector; isLast: boolean; isFollowing: boolean; canFollow: boolean; onFollow: () => void;
 }) {
-  const init = initials(collector.display_name, collector.username);
   const location = [collector.city, collector.country].filter(Boolean).join(", ");
   return (
     <div style={{ display: "flex", alignItems: "center", gap: "14px", padding: "14px 0", borderBottom: isLast ? "none" : `1px solid ${RULE}` }}>
       <Link href={`/@${collector.username}`} style={{ textDecoration: "none", flexShrink: 0 }}>
-        <div style={{ width: 36, height: 36, borderRadius: "50%", background: "#f0ede8", display: "flex", alignItems: "center", justifyContent: "center" }}>
-          <span style={{ fontFamily: MONO, fontSize: "10px", color: "#666", fontWeight: 600 }}>{init}</span>
-        </div>
+        <Avatar avatarUrl={collector.avatar_url} name={collector.display_name} username={collector.username} size={40} />
       </Link>
       <div style={{ flex: 1, minWidth: 0 }}>
         <Link href={`/@${collector.username}`} style={{ textDecoration: "none" }}>
           <p style={{ fontFamily: SERIF, fontSize: "0.9rem", fontWeight: 600, color: INK, margin: "0 0 2px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
             {collector.display_name ?? collector.username}
-            {collector.is_donor && <span style={{ fontFamily: SERIF, fontSize: "0.75rem", color: GOLD, marginLeft: "4px" }} title="rekōdo supporter">ō</span>}
+            {collector.is_donor && <span style={{ fontFamily: SERIF, fontSize: "0.75rem", color: GOLD, marginLeft: "5px" }} title="rekōdo supporter">ō</span>}
           </p>
           <p style={{ fontFamily: MONO, fontSize: "0.55rem", letterSpacing: "0.06em", color: MUTED, margin: 0 }}>
             @{collector.username}{location ? ` · ${location}` : ""}
@@ -171,6 +195,10 @@ export default function CommunityTab({ profileOwnerId }: { profileOwnerId: strin
   const [searchQuery,  setSearchQuery]  = useState("");
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  // Followers section
+  const [followers,        setFollowers]        = useState<Follower[]>([]);
+  const [followersLoaded,  setFollowersLoaded]  = useState(false);
+
   // Matches
   const [matches,        setMatches]        = useState<Match[] | null>(null);
   const [matchesLoading, setMatchesLoading] = useState(false);
@@ -180,20 +208,50 @@ export default function CommunityTab({ profileOwnerId }: { profileOwnerId: strin
   const [collectorsLoading, setCollectorsLoading] = useState(false);
 
   // Lists from network
-  const [lists,       setLists]       = useState<ListEntry[]>([]);
-  const [listsState,  setListsState]  = useState<"idle" | "loading" | "done">("idle");
+  const [lists,      setLists]      = useState<ListEntry[]>([]);
+  const [listsState, setListsState] = useState<"idle" | "loading" | "done">("idle");
 
   // Follow state
   const [followState, setFollowState] = useState<Record<string, boolean>>({});
 
-  // Get viewer user ID on mount
+  // Get viewer + load followers on mount
   useEffect(() => {
     createClient().auth.getUser().then(({ data: { user } }) => {
       setViewerUserId(user?.id ?? null);
     });
-  }, []);
 
-  // Load top matches
+    async function loadFollowers() {
+      const supabase = createClient();
+      // Get follower_ids for this profile
+      const { data: followRows } = await supabase
+        .from("follows")
+        .select("follower_id")
+        .eq("following_id", profileOwnerId)
+        .order("created_at", { ascending: false })
+        .limit(100);
+
+      if (!followRows || followRows.length === 0) {
+        setFollowersLoaded(true);
+        return;
+      }
+
+      const ids = followRows.map(r => r.follower_id);
+      const { data: profiles } = await supabase
+        .from("profiles")
+        .select("id, username, display_name, avatar_url, is_donor")
+        .in("id", ids);
+
+      // Preserve most-recent-first order
+      const byId = new Map((profiles ?? []).map(p => [p.id, p]));
+      const ordered = ids.map(id => byId.get(id)).filter(Boolean) as Follower[];
+      setFollowers(ordered);
+      setFollowersLoaded(true);
+    }
+
+    loadFollowers();
+  }, [profileOwnerId]);
+
+  // Load top matches when tab is active (lazy)
   useEffect(() => {
     if (subTab !== "matches" || matches !== null) return;
     setMatchesLoading(true);
@@ -210,7 +268,7 @@ export default function CommunityTab({ profileOwnerId }: { profileOwnerId: strin
       .finally(() => setMatchesLoading(false));
   }, [subTab, profileOwnerId, matches]);
 
-  // Load lists from network
+  // Load lists when tab is active (lazy)
   useEffect(() => {
     if (subTab !== "lists" || listsState !== "idle") return;
     setListsState("loading");
@@ -220,14 +278,14 @@ export default function CommunityTab({ profileOwnerId }: { profileOwnerId: strin
       .catch(() => setListsState("done"));
   }, [subTab, listsState]);
 
-  // Load collectors (debounced search)
+  // Load collectors with debounced search
   const loadCollectors = useCallback(async (query: string) => {
     setCollectorsLoading(true);
     try {
       const supabase = createClient();
       let q = supabase
         .from("profiles")
-        .select("id, username, display_name, city, country, is_donor")
+        .select("id, username, display_name, avatar_url, city, country, is_donor")
         .eq("is_public", true)
         .limit(50);
       if (query.trim()) {
@@ -277,6 +335,37 @@ export default function CommunityTab({ profileOwnerId }: { profileOwnerId: strin
   return (
     <div style={{ width: "100%", padding: "24px 1.5rem 4rem" }}>
       <div style={{ maxWidth: 860, margin: "0 auto" }}>
+
+        {/* ── My Followers ─────────────────────────────────────────────────────── */}
+        {followersLoaded && (
+          <div style={{ marginBottom: "32px", paddingBottom: "28px", borderBottom: `1px solid ${RULE}` }}>
+            <div style={{ display: "flex", alignItems: "baseline", gap: "10px", marginBottom: "14px" }}>
+              <p style={{ fontFamily: MONO, fontSize: "0.58rem", letterSpacing: "0.14em", textTransform: "uppercase", color: INK, margin: 0 }}>
+                My Followers
+              </p>
+              <span style={{ fontFamily: MONO, fontSize: "0.55rem", color: MUTED }}>
+                {followers.length}
+              </span>
+            </div>
+
+            {followers.length === 0 ? (
+              <p style={{ fontFamily: MONO, fontSize: "0.62rem", color: MUTED, lineHeight: 1.6 }}>
+                No followers yet. Share your profile to start building your network.
+              </p>
+            ) : (
+              <div style={{ display: "flex", flexWrap: "wrap", gap: "8px" }}>
+                {followers.map(f => (
+                  <Link key={f.id} href={`/@${f.username}`} title={f.display_name ?? f.username} style={{ textDecoration: "none", position: "relative", display: "inline-block" }}>
+                    <Avatar avatarUrl={f.avatar_url} name={f.display_name} username={f.username} size={38} />
+                    {f.is_donor && (
+                      <span style={{ position: "absolute", bottom: -1, right: -1, fontFamily: SERIF, fontSize: "9px", color: GOLD, lineHeight: 1, background: "#fff", borderRadius: "50%", padding: "1px" }} title="rekōdo supporter">ō</span>
+                    )}
+                  </Link>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
 
         {/* Search bar */}
         <input
@@ -355,7 +444,7 @@ export default function CommunityTab({ profileOwnerId }: { profileOwnerId: strin
             )}
             {!collectorsLoading && collectors.length === 0 && (
               <p style={{ fontFamily: MONO, fontSize: "0.65rem", color: MUTED, paddingTop: "8px" }}>
-                {searchQuery.trim() ? `No collectors found for "${searchQuery}".` : "No collectors yet."}
+                {searchQuery.trim() ? `No collectors found for "${searchQuery}".` : "No public collectors yet."}
               </p>
             )}
             {!collectorsLoading && collectors.length > 0 && (
