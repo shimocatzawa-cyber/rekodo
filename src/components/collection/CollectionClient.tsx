@@ -36,14 +36,15 @@ type FormatItem  = { name: string; qty: string; descriptions?: string[]; text?: 
 type LabelItem   = { name: string; catno: string };
 
 type ReleaseDetail = {
-  tracklist?:  TrackItem[];
-  formats?:    FormatItem[];
-  labels?:     LabelItem[];
-  country?:    string;
-  year?:       number;
-  genres?:     string[];
-  styles?:     string[];
-  community?:  { have: number; want: number };
+  tracklist?:    TrackItem[];
+  formats?:      FormatItem[];
+  labels?:       LabelItem[];
+  country?:      string;
+  year?:         number;
+  genres?:       string[];
+  styles?:       string[];
+  community?:    { have: number; want: number };
+  extraartists?: Array<{ name: string; role: string }>;
 };
 
 type PriceData = {
@@ -1649,6 +1650,10 @@ function AlbumDetail({ record, detail, price, loading, valueCurrency }: {
   const year         = record.year ?? detail?.year ?? null;
   const genre        = record.genre ?? detail?.genres?.[0] ?? null;
   const styles       = detail?.styles?.length ? detail.styles.join(", ") : null;
+  const producers    = detail?.extraartists
+    ?.filter((e) => /producer/i.test(e.role))
+    .map((e) => e.name)
+    .join(", ") || null;
 
   const tier = getDesirabilityTier(
     detail?.community?.have  ?? null,
@@ -1705,7 +1710,8 @@ function AlbumDetail({ record, detail, price, loading, valueCurrency }: {
         <MetaRow label="Year"    value={year ? String(year) : null} />
         <MetaRow label="Genre"   value={genre} />
         {styles   && <MetaRow label="Style"   value={styles} />}
-        {catno    && <MetaRow label="Cat #"   value={catno} />}
+        {catno     && <MetaRow label="Cat #"     value={catno} />}
+        {producers && <MetaRow label="Producers" value={producers} />}
 
         {/* Marketplace pricing */}
         {price && (

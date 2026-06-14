@@ -81,6 +81,13 @@ const COLOUR_KW = [
   "Translucent", "Transparent", "Picture Disc", "Etched",
 ];
 
+function extractProducers(extraartists?: Array<{ name: string; role: string }>): string[] {
+  if (!extraartists?.length) return [];
+  return extraartists
+    .filter((e) => /producer/i.test(e.role))
+    .map((e) => e.name);
+}
+
 // text field is only present on the full release API (not basic_information)
 function extractVinylColour(formats?: Array<{ name?: string; descriptions?: string[]; text?: string }>): string | null {
   const vinyl = formats?.find((f) => f.name === "Vinyl");
@@ -458,7 +465,7 @@ async function processSync(supabase: SB, jobId: string, userId: string) {
           .select("id, discogs_id")
           .in("id", savedRecordIds.slice(i, i + BATCH))
           .not("discogs_id", "is", null)
-          .or("format.is.null,country.is.null,vinyl_colour.is.null");
+          .or("format.is.null,country.is.null,vinyl_colour.is.null,producers.is.null");
         for (const r of data ?? []) {
           if (r.discogs_id) needingBackfill.push({ id: r.id, discogs_id: r.discogs_id as string });
         }
@@ -472,12 +479,21 @@ async function processSync(supabase: SB, jobId: string, userId: string) {
           const releaseUrl = `https://api.discogs.com/releases/${encodeURIComponent(record.discogs_id)}?key=${DISCOGS_CONSUMER_KEY}&secret=${DISCOGS_CONSUMER_SECRET}`;
           const res = await fetch(releaseUrl, { headers: { "User-Agent": UA } });
           if (res.ok) {
-            const rd = await res.json() as { formats?: Array<{ name?: string; descriptions?: string[]; text?: string }>; country?: string };
+            const rd = await res.json() as {
+              formats?:     Array<{ name?: string; descriptions?: string[]; text?: string }>;
+              country?:     string;
+              extraartists?: Array<{ name: string; role: string }>;
+            };
             // Write "" as sentinel when no colour found so this record is
             // skipped on future syncs — prevents repeated full-release fetches.
             const colour = extractVinylColour(rd.formats) ?? "";
             await supabase.from("records")
-              .update({ format: extractFormat(rd.formats), country: rd.country ?? null, vinyl_colour: colour })
+              .update({
+                format:    extractFormat(rd.formats),
+                country:   rd.country ?? null,
+                vinyl_colour: colour,
+                producers: extractProducers(rd.extraartists),
+              })
               .eq("id", record.id);
           }
         } catch { /* skip */ }
