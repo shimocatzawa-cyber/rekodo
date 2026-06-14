@@ -116,9 +116,8 @@ function NewReleasesSection() {
 
   useEffect(() => {
     const supabase = createClient();
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (supabase as any)
-      .from("label_releases")
+    supabase
+      .from("label_feed")
       .select("*")
       .not("artist", "is", null)
       .neq("artist", "")
@@ -126,9 +125,9 @@ function NewReleasesSection() {
       .neq("album", "")
       .order("received_at", { ascending: false })
       .limit(100)
-      .then(({ data, error }: { data: unknown; error: { message: string } | null }) => {
+      .then(({ data, error }) => {
         if (error) setFetchError(error.message);
-        else setItems((data as LabelFeedItem[]) ?? []);
+        else setItems((data as unknown as LabelFeedItem[]) ?? []);
         setLoading(false);
       });
   }, []);
