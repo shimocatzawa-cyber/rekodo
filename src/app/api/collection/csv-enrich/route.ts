@@ -5,19 +5,51 @@ export const dynamic = "force-dynamic";
 export const maxDuration = 300;
 
 const DISCOGS_DELAY_MS = 1200; // 50 req/min — stays under 60/min ceiling
+const VINYL_SIZES = ["LP", '12"', '10"', '7"', "EP", "Mini-Album"];
+const COLOUR_KW = [
+  "Black", "White", "Red", "Blue", "Green", "Yellow", "Orange", "Purple",
+  "Clear", "Colored", "Coloured", "Marbled", "Splatter", "Opaque",
+  "Translucent", "Transparent", "Picture Disc", "Etched",
+];
 
 function sleep(ms: number) {
   return new Promise<void>(r => setTimeout(r, ms));
 }
 
+function extractFormat(formats?: Array<{ name?: string; descriptions?: string[] }>): string | null {
+  const fmt = formats?.[0];
+  if (!fmt) return null;
+  const name  = fmt.name ?? "";
+  const descs = fmt.descriptions ?? [];
+  if (name === "Vinyl") return descs.find((d) => VINYL_SIZES.includes(d)) ?? "Vinyl";
+  return name || null;
+}
+
+function extractVinylColour(formats?: Array<{ name?: string; descriptions?: string[]; text?: string }>): string | null {
+  const vinyl = formats?.find((f) => f.name === "Vinyl");
+  if (!vinyl) return null;
+  if (vinyl.text?.trim()) return vinyl.text.trim();
+  const match = (vinyl.descriptions ?? []).find((d) =>
+    COLOUR_KW.some((kw) => d.toLowerCase().includes(kw.toLowerCase()))
+  );
+  return match ?? null;
+}
+
+function extractProducers(extraartists?: Array<{ name: string; role: string }>): string[] {
+  if (!extraartists?.length) return [];
+  return extraartists.filter((e) => /producer/i.test(e.role)).map((e) => e.name);
+}
+
 interface DiscogsRelease {
-  id:        number;
-  master_id: number | null;
-  country:   string | null;
-  genres:    string[] | null;
-  styles:    string[] | null;
-  images:    Array<{ uri: string; type: string }> | null;
-  thumb:     string | null;
+  id:          number;
+  master_id:   number | null;
+  country:     string | null;
+  genres:      string[] | null;
+  styles:      string[] | null;
+  images:      Array<{ uri: string; type: string }> | null;
+  thumb:       string | null;
+  formats?:    Array<{ name?: string; descriptions?: string[]; text?: string }>;
+  extraartists?: Array<{ name: string; role: string }>;
 }
 
 export async function POST(request: NextRequest) {
@@ -117,12 +149,15 @@ export async function POST(request: NextRequest) {
       await (supabase as any)
         .from("records")
         .update({
-          cover_url:  coverUrl,
-          master_id:  data.master_id ?? null,
-          country:    data.country ?? null,
-          genre:      data.genres?.[0] ?? null,
-          genres:     data.genres ?? null,
-          styles:     data.styles ?? null,
+          cover_url:    coverUrl,
+          master_id:    data.master_id ?? null,
+          country:      data.country ?? null,
+          genre:        data.genres?.[0] ?? null,
+          genres:       data.genres ?? null,
+          styles:       data.styles ?? null,
+          format:       extractFormat(data.formats),
+          vinyl_colour: extractVinylColour(data.formats) ?? "",
+          producers:    extractProducers(data.extraartists),
         })
         .eq("id", link.record_id);
 

@@ -101,6 +101,7 @@ export default async function InsightsPage() {
     genre: string | null; styles: string[] | null;
     label: string | null; country: string | null; format: string | null;
     vinyl_colour: string | null;
+    producers: string[] | null;
     cover_url: string | null;
     community_have: number | null; community_want: number | null;
     community_num_for_sale: number | null;
@@ -110,7 +111,7 @@ export default async function InsightsPage() {
   for (let i = 0; i < recordIds.length; i += BATCH) {
     const { data, error } = await supabase
       .from("records")
-      .select("id, artist, album, year, genre, styles, label, country, format, vinyl_colour, cover_url, community_have, community_want, community_num_for_sale")
+      .select("id, artist, album, year, genre, styles, label, country, format, vinyl_colour, producers, cover_url, community_have, community_want, community_num_for_sale")
       .in("id", recordIds.slice(i, i + BATCH));
     if (!error) for (const r of data ?? []) recordsMap.set(r.id, r as RecordRow);
   }
@@ -324,6 +325,24 @@ export default async function InsightsPage() {
     .slice(0, 10)
     .map(([label, { count, valueSum }]) => ({ label, count, valueSum }));
 
+  // ── Top Producers ─────────────────────────────────────────────────────────
+  const producerCounts = new Map<string, { count: number; valueSum: number }>();
+  for (const link of allLinks) {
+    const rec = recordsMap.get(link.record_id);
+    if (!rec?.producers?.length) continue;
+    const val = convertPrice(link.price_median, link.price_currency) ?? 0;
+    for (const producer of rec.producers) {
+      const p = producer?.trim();
+      if (!p) continue;
+      const curr = producerCounts.get(p) ?? { count: 0, valueSum: 0 };
+      producerCounts.set(p, { count: curr.count + 1, valueSum: curr.valueSum + (val > 0 ? val : 0) });
+    }
+  }
+  const topProducers: InsightsProps["topProducers"] = [...producerCounts.entries()]
+    .sort((a, b) => b[1].count - a[1].count)
+    .slice(0, 10)
+    .map(([producer, { count, valueSum }]) => ({ producer, count, valueSum }));
+
   // ── Stats bar supplemental data ───────────────────────────────────────────
   const formatCounts = new Map<string, number>();
   for (const link of allLinks) {
@@ -382,6 +401,7 @@ export default async function InsightsPage() {
       hasStyles={hasStyles}
       countryBreakdown={countryBreakdown}
       topLabels={topLabels}
+      topProducers={topProducers}
       desirabilityBreakdown={desirabilityBreakdown}
       topArtists={topArtists}
       topFormat={topFormat}

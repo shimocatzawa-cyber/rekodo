@@ -31,8 +31,9 @@ export interface InsightsProps {
   styleBreakdown:  { style: string; count: number; pct: number }[];
   hasStyles:       boolean;
   countryBreakdown: { country: string; count: number; valueSum: number; pct: number }[];
-  topLabels:            { label: string; count: number; valueSum: number }[];
-  topArtists:           { artist: string; count: number; valueSum: number }[];
+  topLabels:     { label: string; count: number; valueSum: number }[];
+  topArtists:    { artist: string; count: number; valueSum: number }[];
+  topProducers:  { producer: string; count: number; valueSum: number }[];
   desirabilityBreakdown: { tier: DesirabilityTier; count: number; valueSum: number }[];
   topFormat:       { name: string; count: number } | null;
   yearRange:       { oldest: number; newest: number } | null;
@@ -189,7 +190,7 @@ export default function InsightsClient({
   totalMed, totalRecords, snapshots, topRecordsByValue,
   mediaConditionBreakdown, sleeveConditionBreakdown,
   genreBreakdown, styleBreakdown, hasStyles,
-  countryBreakdown, topLabels, topArtists, desirabilityBreakdown,
+  countryBreakdown, topLabels, topArtists, topProducers, desirabilityBreakdown,
   topFormat, yearRange, mostPopularYear, vinylColourBreakdown,
 }: InsightsProps) {
 
@@ -618,6 +619,41 @@ export default function InsightsClient({
               </div>
             )}
           </div>
+        </div>
+
+        {/* Producers */}
+        <div style={{ marginTop: "40px" }}>
+          <SubLabel>Top 10 Producers</SubLabel>
+          {topProducers.length === 0 ? (
+            <p style={{ fontFamily: MONO, fontSize: "11px", letterSpacing: "0.04em", color: INK, margin: 0 }}>
+              Producer data will appear here after your next Discogs sync.
+            </p>
+          ) : (
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "14px 48px" }}>
+              {topProducers.map(({ producer, count, valueSum }, i) => (
+                <div key={producer} style={{ display: "flex", alignItems: "flex-start", gap: "12px" }}>
+                  <span style={{
+                    fontFamily: SERIF, fontSize: "18px", fontWeight: 700,
+                    color: ORANGE, lineHeight: 1, minWidth: "28px",
+                  }}>
+                    {String(i + 1).padStart(2, "0")}
+                  </span>
+                  <div style={{ flex: 1, paddingTop: "2px" }}>
+                    <div style={{
+                      fontFamily: MONO, fontSize: "11px", letterSpacing: "0.04em",
+                      color: INK, marginBottom: "2px",
+                    }}>
+                      {producer}
+                    </div>
+                    <div style={{ fontFamily: MONO, fontSize: "10px", color: INK }}>
+                      {count} item{count !== 1 ? "s" : ""}
+                      {valueSum > 0 && <> · <span style={{ color: ORANGE }}>{fmtCurrency(valueSum, currency)}</span></>}
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
 
         <SectionDivider />

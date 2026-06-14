@@ -195,8 +195,9 @@ export default function CommunityTab({ profileOwnerId }: { profileOwnerId: strin
   const [searchQuery,  setSearchQuery]  = useState("");
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Followers section
+  // Followers / Following sections
   const [followers,        setFollowers]        = useState<Follower[]>([]);
+  const [following,        setFollowing]        = useState<Follower[]>([]);
   const [followersLoaded,  setFollowersLoaded]  = useState(false);
 
   // Matches
@@ -220,35 +221,46 @@ export default function CommunityTab({ profileOwnerId }: { profileOwnerId: strin
       setViewerUserId(user?.id ?? null);
     });
 
-    async function loadFollowers() {
+    async function loadFollowData() {
       const supabase = createClient();
-      // Get follower_ids for this profile
-      const { data: followRows } = await supabase
+
+      async function resolveProfiles(ids: string[]): Promise<Follower[]> {
+        if (ids.length === 0) return [];
+        const { data } = await supabase
+          .from("profiles")
+          .select("id, username, display_name, avatar_url, is_donor")
+          .in("id", ids);
+        const byId = new Map((data ?? []).map(p => [p.id, p]));
+        return ids.map(id => byId.get(id)).filter(Boolean) as Follower[];
+      }
+
+      // Who follows this profile
+      const { data: followerRows } = await supabase
         .from("follows")
         .select("follower_id")
         .eq("following_id", profileOwnerId)
         .order("created_at", { ascending: false })
         .limit(100);
 
-      if (!followRows || followRows.length === 0) {
-        setFollowersLoaded(true);
-        return;
-      }
+      // Who this profile follows
+      const { data: followingRows } = await supabase
+        .from("follows")
+        .select("following_id")
+        .eq("follower_id", profileOwnerId)
+        .order("created_at", { ascending: false })
+        .limit(100);
 
-      const ids = followRows.map(r => r.follower_id);
-      const { data: profiles } = await supabase
-        .from("profiles")
-        .select("id, username, display_name, avatar_url, is_donor")
-        .in("id", ids);
+      const [followerProfiles, followingProfiles] = await Promise.all([
+        resolveProfiles((followerRows ?? []).map(r => r.follower_id)),
+        resolveProfiles((followingRows ?? []).map(r => r.following_id)),
+      ]);
 
-      // Preserve most-recent-first order
-      const byId = new Map((profiles ?? []).map(p => [p.id, p]));
-      const ordered = ids.map(id => byId.get(id)).filter(Boolean) as Follower[];
-      setFollowers(ordered);
+      setFollowers(followerProfiles);
+      setFollowing(followingProfiles);
       setFollowersLoaded(true);
     }
 
-    loadFollowers();
+    loadFollowData();
   }, [profileOwnerId]);
 
   // Load top matches when tab is active (lazy)
@@ -322,7 +334,7 @@ export default function CommunityTab({ profileOwnerId }: { profileOwnerId: strin
     return () => { if (debounceRef.current) clearTimeout(debounceRef.current); };
   }, [subTab, searchQuery, loadCollectors]);
 
-  async function toggleFollow(targetId: string) {
+  async function toggleFollow(targetId: string, targetProfile?: Follower) {
     if (!viewerUserId || targetId === viewerUserId) return;
     const prev = followState[targetId] ?? false;
     setFollowState(s => ({ ...s, [targetId]: !prev }));
@@ -333,8 +345,18 @@ export default function CommunityTab({ profileOwnerId }: { profileOwnerId: strin
         body: JSON.stringify({ followingId: targetId }),
       });
       const data = await res.json();
-      if (typeof data.isFollowing === "boolean") {
-        setFollowState(s => ({ ...s, [targetId]: data.isFollowing }));
+      if (!res.ok || typeof data.isFollowing !== "boolean") {
+        // Server error — revert optimistic update
+        setFollowState(s => ({ ...s, [targetId]: prev }));
+        return;
+      }
+      setFollowState(s => ({ ...s, [targetId]: data.isFollowing }));
+
+      // Keep the Following list in sync without a full reload
+      if (data.isFollowing && targetProfile) {
+        setFollowing(prev => prev.some(f => f.id === targetId) ? prev : [targetProfile, ...prev]);
+      } else if (!data.isFollowing) {
+        setFollowing(prev => prev.filter(f => f.id !== targetId));
       }
     } catch {
       setFollowState(s => ({ ...s, [targetId]: prev }));
@@ -443,7 +465,7 @@ export default function CommunityTab({ profileOwnerId }: { profileOwnerId: strin
                     match={m}
                     isFollowing={followState[m.userId] ?? m.isFollowing}
                     canFollow={!!viewerUserId && viewerUserId !== m.userId}
-                    onFollow={() => toggleFollow(m.userId)}
+                    onFollow={() => toggleFollow(m.userId, { id: m.userId, username: m.username, display_name: m.displayName, avatar_url: null, is_donor: null })}
                   />
                 ))}
               </div>
@@ -471,7 +493,7 @@ export default function CommunityTab({ profileOwnerId }: { profileOwnerId: strin
                     isLast={i === collectors.length - 1}
                     isFollowing={followState[c.id] ?? false}
                     canFollow={!!viewerUserId && viewerUserId !== c.id}
-                    onFollow={() => toggleFollow(c.id)}
+                    onFollow={() => toggleFollow(c.id, { id: c.id, username: c.username, display_name: c.display_name, avatar_url: c.avatar_url, is_donor: c.is_donor })}
                   />
                 ))}
               </div>

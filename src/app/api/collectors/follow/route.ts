@@ -15,21 +15,29 @@ export async function POST(request: Request) {
     return Response.json({ error: "Cannot follow yourself" }, { status: 400 });
   }
 
-  // Check current follow state
-  const { data: existing } = await supabase
+  const { data: existing, error: selectError } = await supabase
     .from("follows")
     .select("id")
     .eq("follower_id", user.id)
     .eq("following_id", followingId)
     .maybeSingle();
 
+  if (selectError) {
+    return Response.json({ error: selectError.message }, { status: 500 });
+  }
+
   if (existing) {
-    // Unfollow
-    await supabase.from("follows").delete().eq("id", existing.id);
+    const { error: delError } = await supabase
+      .from("follows")
+      .delete()
+      .eq("id", existing.id);
+    if (delError) return Response.json({ error: delError.message }, { status: 500 });
     return Response.json({ isFollowing: false });
   } else {
-    // Follow
-    await supabase.from("follows").insert({ follower_id: user.id, following_id: followingId });
+    const { error: insError } = await supabase
+      .from("follows")
+      .insert({ follower_id: user.id, following_id: followingId });
+    if (insError) return Response.json({ error: insError.message }, { status: 500 });
     return Response.json({ isFollowing: true });
   }
 }
