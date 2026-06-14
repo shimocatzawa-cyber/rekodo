@@ -92,10 +92,22 @@ function SkeletonRows() {
         letterSpacing: "0.06em",
         color: "#999999",
         margin: 0,
-        lineHeight: 1.6,
       }}>
-        Your collection is talking.<br />Give us a moment.
+        Rekōdo is thinking
+        <span className="thinking-dot">.</span>
+        <span className="thinking-dot">.</span>
+        <span className="thinking-dot">.</span>
       </p>
+      <style>{`
+        @keyframes thinking-dot-pulse {
+          0%, 66%, 100% { opacity: 0.2; }
+          33%            { opacity: 1; }
+        }
+        .thinking-dot { display: inline-block; }
+        .thinking-dot:nth-child(1) { animation: thinking-dot-pulse 1.2s ease-in-out infinite 0s; }
+        .thinking-dot:nth-child(2) { animation: thinking-dot-pulse 1.2s ease-in-out infinite 0.4s; }
+        .thinking-dot:nth-child(3) { animation: thinking-dot-pulse 1.2s ease-in-out infinite 0.8s; }
+      `}</style>
     </div>
   );
 }
