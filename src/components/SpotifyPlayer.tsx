@@ -16,6 +16,14 @@ const _sdkCallbacks: Array<() => void> = [];
 function ensureSDK(onReady: () => void) {
   if (_sdkLoaded) { onReady(); return; }
   _sdkCallbacks.push(onReady);
+  if (typeof window === "undefined") return;
+  // The SDK script may have been injected by DigCompactPlayer on a previous
+  // page — in that case window.Spotify already exists but _sdkLoaded is false.
+  if (window.Spotify) {
+    _sdkLoaded = true;
+    _sdkCallbacks.splice(0).forEach(cb => cb());
+    return;
+  }
   if (!document.querySelector('script[src="https://sdk.scdn.co/spotify-player.js"]')) {
     window.onSpotifyWebPlaybackSDKReady = () => {
       _sdkLoaded = true;
@@ -164,9 +172,15 @@ export default function SpotifyPlayer({
     const player = new window.Spotify.Player({
       name:          "rekōdo",
       getOAuthToken: async (cb) => {
-        const res  = await fetch("/api/spotify/token");
-        const data = await res.json() as TokenData;
-        if (data.access_token) cb(data.access_token);
+        try {
+          const res  = await fetch("/api/spotify/token");
+          const data = await res.json() as TokenData;
+          // Always call cb — passing empty string tells the SDK the token is
+          // unavailable, which causes a graceful disconnect rather than hanging.
+          cb(data.access_token ?? "");
+        } catch {
+          cb("");
+        }
       },
       volume: 0.8,
     });
@@ -182,7 +196,10 @@ export default function SpotifyPlayer({
       setPosition(s.position);
       setDuration(s.duration);
       const t = s.track_window?.current_track;
-      if (t) setCurrentTrack({ artist: t.artists?.[0]?.name ?? "", name: t.name });
+      if (t) setCurrentTrack({
+        artist: t.artists?.[0]?.name ?? "",
+        name:   t.name ?? "",
+      });
     });
 
     // Reconnect if the browser kills the SDK connection (e.g. tab throttling)
@@ -198,6 +215,13 @@ export default function SpotifyPlayer({
       playerRef.current = null;
     };
   }, [sdkReady, tokenData?.access_token]);
+
+  // ── Reset UI state when the album changes (SpotifyPlayer stays mounted) ──
+  useEffect(() => {
+    setCurrentTrack(null);
+    setPosition(0);
+    setPlaying(false);
+  }, [spotifyUri]);
 
   // ── Auto-play in collection mode when URI + device ready ──────────────────
   useEffect(() => {
@@ -304,15 +328,20 @@ export default function SpotifyPlayer({
 
   // ── Seek ──────────────────────────────────────────────────────────────────
   const handleSeek = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
-    if (!useSDK || !duration || !tokenData?.access_token) return;
+    if (!duration) return;
     const rect = e.currentTarget.getBoundingClientRect();
     const pct  = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
-    const ms   = Math.round(pct * duration);
-    setPosition(ms);
-    fetch(`https://api.spotify.com/v1/me/player/seek?position_ms=${ms}${deviceId ? `&device_id=${deviceId}` : ""}`, {
-      method:  "PUT",
-      headers: { Authorization: `Bearer ${tokenData.access_token}` },
-    }).catch(() => {});
+    if (useSDK && tokenData?.access_token) {
+      const ms = Math.round(pct * duration);
+      setPosition(ms);
+      fetch(`https://api.spotify.com/v1/me/player/seek?position_ms=${ms}${deviceId ? `&device_id=${deviceId}` : ""}`, {
+        method:  "PUT",
+        headers: { Authorization: `Bearer ${tokenData.access_token}` },
+      }).catch(() => {});
+    } else if (audioRef.current) {
+      audioRef.current.currentTime = (pct * duration) / 1000;
+      setPosition(pct * duration);
+    }
   }, [useSDK, duration, tokenData?.access_token, deviceId]);
 
   // ── Volume (vertical — click top=loud, bottom=quiet) ─────────────────────
@@ -383,7 +412,7 @@ export default function SpotifyPlayer({
         <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", gap: "16px" }}>
           <CtrlBtn disabled aria-label="Shuffle"><IconShuffle /></CtrlBtn>
 
-          <CtrlBtn disabled={!useSDK} onClick={() => playerRef.current?.previousTrack().catch(() => {})} aria-label="Previous">
+          <CtrlBtn disabled={!currentTrack} onClick={() => playerRef.current?.previousTrack().catch(() => {})} aria-label="Previous">
             <IconPrev />
           </CtrlBtn>
 
@@ -401,7 +430,7 @@ export default function SpotifyPlayer({
             {playing ? <IconPause /> : <IconPlay />}
           </button>
 
-          <CtrlBtn disabled={!useSDK} onClick={() => playerRef.current?.nextTrack().catch(() => {})} aria-label="Next">
+          <CtrlBtn disabled={!currentTrack} onClick={() => playerRef.current?.nextTrack().catch(() => {})} aria-label="Next">
             <IconNext />
           </CtrlBtn>
 
@@ -427,10 +456,10 @@ export default function SpotifyPlayer({
       {/* ── Progress (bottom) ── */}
       <div style={{ padding: "0.5rem 0.9rem 0.6rem" }}>
         <div
-          onClick={useSDK ? handleSeek : undefined}
+          onClick={handleSeek}
           style={{
             position: "relative", height: "2px", background: RULE,
-            cursor: useSDK ? "pointer" : "default", marginBottom: "5px",
+            cursor: "pointer", marginBottom: "5px",
           }}
         >
           <div style={{

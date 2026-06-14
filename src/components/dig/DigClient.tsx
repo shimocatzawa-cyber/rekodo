@@ -391,9 +391,13 @@ function DigCompactPlayer({ previewUrl, albumUri, trackUri, artist, album }: {
     const player = new window.Spotify.Player({
       name: "rekōdo",
       getOAuthToken: async (cb) => {
-        const res  = await fetch("/api/spotify/token");
-        const data = await res.json() as DigTokenData;
-        if (data.access_token) cb(data.access_token);
+        try {
+          const res  = await fetch("/api/spotify/token");
+          const data = await res.json() as DigTokenData;
+          cb(data.access_token ?? "");
+        } catch {
+          cb("");
+        }
       },
       volume: 0.8,
     }) as unknown as DigSdkPlayer;
@@ -405,7 +409,7 @@ function DigCompactPlayer({ previewUrl, albumUri, trackUri, artist, album }: {
       setPosition(state.position);
       setDuration(state.duration);
       const t = state.track_window?.current_track;
-      if (t) setNowTrack({ artist: t.artists?.[0]?.name ?? "", name: t.name });
+      if (t) setNowTrack({ artist: t.artists?.[0]?.name ?? "", name: t.name ?? "" });
     });
     player.addListener("not_ready", () => { setTimeout(() => player.connect().catch(() => {}), 1000); });
     player.connect();
