@@ -1964,7 +1964,7 @@ function TracklistPanel({ tracks, loading, bandcamp, record }: {
   // ── Spotify ───────────────────────────────────────────────────────────────
   const [spotifyToken,    setSpotifyToken]    = useState<string | null>(null);
   const [spotifyPremium,  setSpotifyPremium]  = useState(false);
-  const [currentSpotifyUri, setCurrentSpotifyUri] = useState<string | null | undefined>(undefined);
+  const [currentSpotifyUri, setCurrentSpotifyUri] = useState<string | null>(null);
   const spotifyUriCache = useRef<Map<string, string | null>>(new Map());
 
   useEffect(() => {
@@ -1981,7 +1981,7 @@ function TracklistPanel({ tracks, loading, bandcamp, record }: {
 
   useEffect(() => {
     if (!spotifyPremium || !spotifyToken || !record) {
-      setCurrentSpotifyUri(undefined);
+      setCurrentSpotifyUri(null);
       return;
     }
     const key = record.id;
@@ -1989,7 +1989,8 @@ function TracklistPanel({ tracks, loading, bandcamp, record }: {
       setCurrentSpotifyUri(spotifyUriCache.current.get(key) ?? null);
       return;
     }
-    setCurrentSpotifyUri(undefined);
+    // Don't reset to null/undefined while searching — keep previous URI live so the
+    // SDK player stays connected and doesn't need to re-initialise for every album switch.
     const artist = record.artist;
     const album  = record.album;
     const token  = spotifyToken;
@@ -2070,8 +2071,11 @@ function TracklistPanel({ tracks, loading, bandcamp, record }: {
   return (
     <div>
       {/* ── Spotify Player ── */}
-      {spotifyPremium && record && currentSpotifyUri && (
-        <SpotifyPlayer mode="collection" spotifyUri={currentSpotifyUri} />
+      {/* SpotifyPlayer stays mounted while Premium + a record is selected so the SDK
+          player never disconnects between album switches. spotifyUri=undefined when
+          searching so the player renders nothing but keeps the SDK connection alive. */}
+      {spotifyPremium && record && (
+        <SpotifyPlayer mode="collection" spotifyUri={currentSpotifyUri ?? undefined} />
       )}
       {spotifyPremium && record && currentSpotifyUri === null && (
         <div style={{ padding: "10px 28px", borderBottom: "1px solid #e0e0da", fontFamily: "var(--font-mono)", fontSize: "9px", letterSpacing: "0.04em", color: "#aaaaaa" }}>

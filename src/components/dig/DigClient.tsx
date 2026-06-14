@@ -437,6 +437,14 @@ function DigCompactPlayer({ previewUrl, albumUri, trackUri, artist, album }: {
     return () => { if (pollRef.current) clearInterval(pollRef.current); };
   }, [playing]);
 
+  // Reset playback state when the album changes (no unmount/remount — SDK stays alive)
+  useEffect(() => {
+    setPlaying(false);
+    setPosition(0);
+    setNowTrack(null);
+    sdkStartedRef.current = false;
+  }, [albumUri, trackUri, previewUrl]);
+
   // Preview audio — always created when previewUrl is set, used as fallback before SDK is live.
   // State is driven by element events ("playing"/"pause"/"ended") rather than the play() promise,
   // which avoids the "press twice" bug caused by buffering or silent promise rejection.
@@ -992,9 +1000,8 @@ export default function DigClient({ username, displayLabel, avatarUrl, collectio
                 onPreviewReady={setDigSpotify}
               />
               <NavBar idx={idx} total={recs.length} onNav={navigate} onDigAgain={handleDigAgain} />
-              {(digSpotify?.previewUrl || digSpotify?.albumUri) && (
+              {digSpotify && (digSpotify.previewUrl || digSpotify.albumUri) && (
                 <DigCompactPlayer
-                  key={`${digSpotify.artist}||${digSpotify.album}`}
                   previewUrl={digSpotify.previewUrl}
                   albumUri={digSpotify.albumUri}
                   trackUri={digSpotify.trackUri}
