@@ -54,7 +54,7 @@ export async function GET(request: NextRequest) {
     if (!album) return NextResponse.json(empty);
 
     const tracksRes = await fetch(
-      `https://api.spotify.com/v1/albums/${album.id}/tracks?limit=1`,
+      `https://api.spotify.com/v1/albums/${album.id}/tracks?limit=10`,
       { headers: { Authorization: `Bearer ${token}` } }
     );
     if (!tracksRes.ok) return NextResponse.json({ ...empty, album_uri: album.uri });
@@ -62,7 +62,9 @@ export async function GET(request: NextRequest) {
     const tracksData = await tracksRes.json() as {
       items: Array<{ uri: string; preview_url: string | null }>;
     };
-    const track = tracksData.items?.[0];
+    const items = tracksData.items ?? [];
+    // Prefer the first track that has a 30s preview; fall back to first track
+    const track = items.find(t => t.preview_url) ?? items[0] ?? null;
 
     return NextResponse.json({
       preview_url: track?.preview_url ?? null,

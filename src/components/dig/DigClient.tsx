@@ -329,7 +329,6 @@ function ensureDigSDK(cb: () => void) {
   _digSdkCbs.push(cb);
   if (typeof window === "undefined") return;
   if (window.Spotify) {
-    // Already loaded by another component
     _digSdkLoaded = true; _digSdkCbs.splice(0).forEach(f => f()); return;
   }
   if (!document.querySelector('script[src="https://sdk.scdn.co/spotify-player.js"]')) {
@@ -342,6 +341,39 @@ function ensureDigSDK(cb: () => void) {
   }
 }
 
+// Always fetch a fresh token so play commands never use an expired credential.
+async function getFreshToken(): Promise<string | null> {
+  try {
+    const res  = await fetch("/api/spotify/token");
+    const data = await res.json() as DigTokenData;
+    return data.access_token ?? null;
+  } catch {
+    return null;
+  }
+}
+
+// Send a play command and retry on 404 (device not yet registered server-side).
+async function sendPlay(token: string, deviceId: string, body: object): Promise<boolean> {
+  const url  = `https://api.spotify.com/v1/me/player/play?device_id=${deviceId}`;
+  const opts = {
+    method:  "PUT",
+    headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+    body:    JSON.stringify(body),
+  };
+  for (let attempt = 0; attempt < 3; attempt++) {
+    let res: Response | null = null;
+    try { res = await fetch(url, opts); } catch { return false; }
+    if (res.status === 204 || res.ok) return true;
+    // 404 = device not yet registered on Spotify's backend — retry with backoff
+    if (res.status === 404 && attempt < 2) {
+      await new Promise(r => setTimeout(r, 600 + attempt * 500));
+      continue;
+    }
+    return false;
+  }
+  return false;
+}
+
 function DigCompactPlayer({ previewUrl, albumUri, trackUri, artist, album }: {
   previewUrl: string | null;
   albumUri:   string | null;
@@ -349,33 +381,31 @@ function DigCompactPlayer({ previewUrl, albumUri, trackUri, artist, album }: {
   artist:     string;
   album:      string;
 }) {
-  const [tokenData, setTokenData] = useState<DigTokenData | null>(null);
-  const [deviceId,  setDeviceId]  = useState<string | null>(null);
-  const [sdkReady,  setSdkReady]  = useState(false);
-  const [playing,   setPlaying]   = useState(false);
-  const [position,  setPosition]  = useState(0);
-  const [duration,  setDuration]  = useState(30_000);
-  const [volume,    setVolume]    = useState(0.8);
-  const [nowTrack,  setNowTrack]  = useState<{ artist: string; name: string } | null>(null);
+  const [isPremium,    setIsPremium]    = useState(false);
+  const [deviceId,     setDeviceId]     = useState<string | null>(null);
+  const [sdkReady,     setSdkReady]     = useState(false);
+  const [playing,      setPlaying]      = useState(false);
+  const [position,     setPosition]     = useState(0);
+  const [duration,     setDuration]     = useState(30_000);
+  const [volume,       setVolume]       = useState(0.8);
+  const [nowTrack,     setNowTrack]     = useState<{ artist: string; name: string } | null>(null);
+  const [playPending,  setPlayPending]  = useState(false);
 
-  const playerRef     = useRef<DigSdkPlayer | null>(null);
-  const audioRef      = useRef<HTMLAudioElement | null>(null);
-  const pollRef       = useRef<ReturnType<typeof setInterval> | null>(null);
-  const sdkStartedRef = useRef(false);
-  // When user clicks play before deviceId is ready, store the intent here and fire on 'ready'.
+  const playerRef      = useRef<DigSdkPlayer | null>(null);
+  const audioRef       = useRef<HTMLAudioElement | null>(null);
+  const pollRef        = useRef<ReturnType<typeof setInterval> | null>(null);
+  const sdkStartedRef  = useRef(false);
   const pendingPlayRef = useRef<{ albumUri: string | null; trackUri: string | null } | null>(null);
 
-  const isPremium = !!(tokenData?.connected && tokenData.product === "premium");
-  const useSDK    = isPremium && !!(albumUri || trackUri);
-  // SDK is only "live" once the device is registered — before that, preview is the fallback
-  const sdkLive   = useSDK && !!deviceId;
+  const useSDK  = isPremium && !!(albumUri || trackUri);
+  const sdkLive = useSDK && !!deviceId;
 
-  // Fetch token once — non-blocking; preview plays immediately while this resolves
+  // Fetch token once to determine Premium status. Play commands always re-fetch fresh.
   useEffect(() => {
     fetch("/api/spotify/token")
       .then(r => r.json() as Promise<DigTokenData>)
-      .then(setTokenData)
-      .catch(() => setTokenData({ connected: false }));
+      .then(d => { if (d.connected && d.product === "premium") setIsPremium(true); })
+      .catch(() => {});
   }, []);
 
   // Load SDK when Premium
@@ -385,23 +415,22 @@ function DigCompactPlayer({ previewUrl, albumUri, trackUri, artist, album }: {
     ensureDigSDK(() => setSdkReady(true));
   }, [isPremium]);
 
-  // Init SDK player
+  // Init SDK player — only once per mount
   useEffect(() => {
-    if (!sdkReady || !tokenData?.access_token || playerRef.current) return;
+    if (!sdkReady || playerRef.current) return;
     const player = new window.Spotify.Player({
       name: "rekōdo",
+      // The SDK calls this whenever it needs a token for its own requests
       getOAuthToken: async (cb) => {
-        try {
-          const res  = await fetch("/api/spotify/token");
-          const data = await res.json() as DigTokenData;
-          cb(data.access_token ?? "");
-        } catch {
-          cb("");
-        }
+        const token = await getFreshToken();
+        cb(token ?? "");
       },
       volume: 0.8,
     }) as unknown as DigSdkPlayer;
-    player.addListener("ready", (d) => setDeviceId((d as { device_id: string }).device_id));
+
+    player.addListener("ready", (d) => {
+      setDeviceId((d as { device_id: string }).device_id);
+    });
     player.addListener("player_state_changed", (s) => {
       if (!s) return;
       const state = s as DigPlaybackState;
@@ -411,11 +440,15 @@ function DigCompactPlayer({ previewUrl, albumUri, trackUri, artist, album }: {
       const t = state.track_window?.current_track;
       if (t) setNowTrack({ artist: t.artists?.[0]?.name ?? "", name: t.name ?? "" });
     });
-    player.addListener("not_ready", () => { setTimeout(() => player.connect().catch(() => {}), 1000); });
+    player.addListener("not_ready", () => {
+      setDeviceId(null);
+      setTimeout(() => player.connect().catch(() => {}), 1000);
+    });
+
     player.connect();
     playerRef.current = player;
-    return () => { player.disconnect(); playerRef.current = null; };
-  }, [sdkReady, tokenData?.access_token]);
+    return () => { player.disconnect(); playerRef.current = null; setDeviceId(null); };
+  }, [sdkReady]);
 
   // Keep SDK alive on tab switch
   useEffect(() => {
@@ -437,18 +470,17 @@ function DigCompactPlayer({ previewUrl, albumUri, trackUri, artist, album }: {
     return () => { if (pollRef.current) clearInterval(pollRef.current); };
   }, [playing]);
 
-  // Reset playback state when the album changes (no unmount/remount — SDK stays alive)
+  // Reset playback state when the track changes — SDK stays alive
   useEffect(() => {
     setPlaying(false);
     setPosition(0);
     setNowTrack(null);
+    setPlayPending(false);
     sdkStartedRef.current = false;
     pendingPlayRef.current = null;
   }, [albumUri, trackUri, previewUrl]);
 
-  // Preview audio — always created when previewUrl is set, used as fallback before SDK is live.
-  // State is driven by element events ("playing"/"pause"/"ended") rather than the play() promise,
-  // which avoids the "press twice" bug caused by buffering or silent promise rejection.
+  // Preview audio element — state driven by element events, not play() promise
   useEffect(() => {
     if (!previewUrl) return;
     const audio = new Audio(previewUrl);
@@ -479,7 +511,8 @@ function DigCompactPlayer({ previewUrl, albumUri, trackUri, artist, album }: {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [previewUrl]);
 
-  // When deviceId arrives: stop any preview audio, then fire any queued play command.
+  // When deviceId arrives: stop preview audio and fire any queued play command.
+  // Does NOT depend on tokenData — always fetches a fresh token.
   useEffect(() => {
     if (!deviceId) return;
     if (audioRef.current) {
@@ -488,18 +521,16 @@ function DigCompactPlayer({ previewUrl, albumUri, trackUri, artist, album }: {
       setPosition(0);
     }
     const pending = pendingPlayRef.current;
-    if (pending && tokenData?.access_token) {
-      pendingPlayRef.current = null;
-      sdkStartedRef.current = true;
-      const body = pending.albumUri ? { context_uri: pending.albumUri } : { uris: [pending.trackUri!] };
-      fetch(`https://api.spotify.com/v1/me/player/play?device_id=${deviceId}`, {
-        method:  "PUT",
-        headers: { Authorization: `Bearer ${tokenData.access_token}`, "Content-Type": "application/json" },
-        body:    JSON.stringify(body),
-      }).catch(() => { sdkStartedRef.current = false; });
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [deviceId, tokenData?.access_token]);
+    if (!pending) return;
+    pendingPlayRef.current = null;
+    const body = pending.albumUri ? { context_uri: pending.albumUri } : { uris: [pending.trackUri!] };
+    getFreshToken().then(async token => {
+      if (!token) { setPlayPending(false); return; }
+      const ok = await sendPlay(token, deviceId, body);
+      if (ok) { sdkStartedRef.current = true; }
+      setPlayPending(false);
+    });
+  }, [deviceId]);
 
   const fmt = (ms: number) => {
     const s = Math.floor(ms / 1000);
@@ -508,23 +539,25 @@ function DigCompactPlayer({ previewUrl, albumUri, trackUri, artist, album }: {
   const pct = duration > 0 ? Math.min(100, (position / duration) * 100) : 0;
 
   async function handlePlayPause() {
+    if (playPending) return;
+
     if (sdkLive && playerRef.current) {
       if (!sdkStartedRef.current) {
-        if (tokenData?.access_token) {
-          sdkStartedRef.current = true;
+        setPlayPending(true);
+        const token = await getFreshToken();
+        if (token && deviceId) {
           const body = albumUri ? { context_uri: albumUri } : { uris: [trackUri!] };
-          await fetch(`https://api.spotify.com/v1/me/player/play?device_id=${deviceId}`, {
-            method:  "PUT",
-            headers: { Authorization: `Bearer ${tokenData.access_token}`, "Content-Type": "application/json" },
-            body:    JSON.stringify(body),
-          }).catch(() => { sdkStartedRef.current = false; });
+          const ok   = await sendPlay(token, deviceId, body);
+          if (ok) sdkStartedRef.current = true;
         }
+        setPlayPending(false);
       } else {
-        await playerRef.current.togglePlay();
+        await playerRef.current.togglePlay().catch(() => {});
       }
     } else if (useSDK && !sdkLive && (albumUri || trackUri)) {
-      // SDK still connecting — queue the play; it fires the moment deviceId arrives.
+      // SDK still connecting — queue play; fires the moment deviceId arrives
       pendingPlayRef.current = { albumUri, trackUri };
+      setPlayPending(true);
     } else if (audioRef.current) {
       if (playing) {
         audioRef.current.pause();
@@ -534,14 +567,16 @@ function DigCompactPlayer({ previewUrl, albumUri, trackUri, artist, album }: {
     }
   }
 
-  function handleSeek(e: React.MouseEvent<HTMLDivElement>) {
+  async function handleSeek(e: React.MouseEvent<HTMLDivElement>) {
     const rect  = e.currentTarget.getBoundingClientRect();
     const ratio = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
-    if (sdkLive && tokenData?.access_token && duration) {
-      const ms = Math.round(ratio * duration);
+    if (sdkLive && duration) {
+      const ms    = Math.round(ratio * duration);
+      const token = await getFreshToken();
+      if (!token) return;
       setPosition(ms);
       fetch(`https://api.spotify.com/v1/me/player/seek?position_ms=${ms}&device_id=${deviceId}`, {
-        method: "PUT", headers: { Authorization: `Bearer ${tokenData.access_token}` },
+        method: "PUT", headers: { Authorization: `Bearer ${token}` },
       }).catch(() => {});
     } else if (audioRef.current && duration) {
       audioRef.current.currentTime = (ratio * duration) / 1000;
@@ -557,10 +592,10 @@ function DigCompactPlayer({ previewUrl, albumUri, trackUri, artist, album }: {
     else if (audioRef.current)        audioRef.current.volume = newVol;
   }
 
-  // Show as soon as we know something can play — no waiting for tokenData
+  // Invisible until there's something to play
   if (!useSDK && !previewUrl) return null;
 
-  const eyebrow       = sdkLive ? "Now Playing" : "Preview";
+  const eyebrow        = sdkLive ? "Now Playing" : "Preview";
   const nowPlayingText = sdkLive && nowTrack
     ? `${nowTrack.artist} — ${nowTrack.name}`
     : `${artist} — ${album}${!sdkLive ? " (30s)" : ""}`;
@@ -615,20 +650,23 @@ function DigCompactPlayer({ previewUrl, albumUri, trackUri, artist, album }: {
         )}
         <button
           onClick={handlePlayPause}
+          disabled={playPending}
           aria-label={playing ? "Pause" : "Play"}
           style={{
             width: "30px", height: "30px", flexShrink: 0,
-            background: "#0d0d0d", color: "#ffffff",
-            border: "none", cursor: "pointer",
+            background: playPending ? "#888" : "#0d0d0d", color: "#ffffff",
+            border: "none", cursor: playPending ? "wait" : "pointer",
             display: "flex", alignItems: "center", justifyContent: "center",
             transition: "background 0.15s",
           }}
-          onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background = ORANGE; }}
-          onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = "#0d0d0d"; }}
+          onMouseEnter={e => { if (!playPending) (e.currentTarget as HTMLButtonElement).style.background = ORANGE; }}
+          onMouseLeave={e => { if (!playPending) (e.currentTarget as HTMLButtonElement).style.background = "#0d0d0d"; }}
         >
-          {playing
-            ? <svg width="12" height="12" viewBox="0 0 16 16"><rect x="2" y="1" width="4" height="14" fill="currentColor"/><rect x="10" y="1" width="4" height="14" fill="currentColor"/></svg>
-            : <svg width="12" height="12" viewBox="0 0 16 16"><polygon points="3,1 3,15 14,8" fill="currentColor"/></svg>
+          {playPending
+            ? <svg width="10" height="10" viewBox="0 0 10 10"><circle cx="5" cy="5" r="4" fill="none" stroke="#fff" strokeWidth="1.5" strokeDasharray="16" strokeDashoffset="4"><animateTransform attributeName="transform" type="rotate" from="0 5 5" to="360 5 5" dur="0.7s" repeatCount="indefinite"/></circle></svg>
+            : playing
+              ? <svg width="12" height="12" viewBox="0 0 16 16"><rect x="2" y="1" width="4" height="14" fill="currentColor"/><rect x="10" y="1" width="4" height="14" fill="currentColor"/></svg>
+              : <svg width="12" height="12" viewBox="0 0 16 16"><polygon points="3,1 3,15 14,8" fill="currentColor"/></svg>
           }
         </button>
         {sdkLive && (
@@ -1018,17 +1056,18 @@ export default function DigClient({ username, displayLabel, avatarUrl, collectio
                 onPreviewReady={setDigSpotify}
               />
               <NavBar idx={idx} total={recs.length} onNav={navigate} onDigAgain={handleDigAgain} />
-              {/* Always mounted so the SDK player and deviceId survive album navigation.
-                  Returns null internally when nothing is playable yet. */}
-              <DigCompactPlayer
-                previewUrl={digSpotify?.previewUrl ?? null}
-                albumUri={digSpotify?.albumUri ?? null}
-                trackUri={digSpotify?.trackUri ?? null}
-                artist={digSpotify?.artist ?? ""}
-                album={digSpotify?.album ?? ""}
-              />
             </>
           )}
+
+          {/* Always mounted outside the loading gate so the SDK never disconnects
+              between "Dig Again" fetches. Renders null internally when nothing is playable. */}
+          <DigCompactPlayer
+            previewUrl={digSpotify?.previewUrl ?? null}
+            albumUri={digSpotify?.albumUri ?? null}
+            trackUri={digSpotify?.trackUri ?? null}
+            artist={digSpotify?.artist ?? ""}
+            album={digSpotify?.album ?? ""}
+          />
 
         </div>
       </main>
