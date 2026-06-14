@@ -389,7 +389,7 @@ function VinylFallback({ size = 80 }: { size?: number }) {
   );
 }
 
-function CollectionStrip({ records, tileSize = 80 }: { records: ArtistData["records"]; tileSize?: number }) {
+function CollectionStrip({ records, artist, tileSize = 80 }: { records: ArtistData["records"]; artist: string; tileSize?: number }) {
   return (
     <div>
       <style>{`.dd-strip::-webkit-scrollbar { display: none; }`}</style>
@@ -398,13 +398,19 @@ function CollectionStrip({ records, tileSize = 80 }: { records: ArtistData["reco
         style={{ display: "flex", overflowX: "auto", gap: "0.5rem", paddingBottom: "0.25rem", scrollbarWidth: "none" as const }}
       >
         {records.map((r, i) => (
-          <div key={i} style={{ flexShrink: 0, width: tileSize }}>
+          <a
+            key={i}
+            href={`/collection?q=${encodeURIComponent(r.album)}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            style={{ flexShrink: 0, width: tileSize, textDecoration: "none", display: "block" }}
+            title={`${r.album}${r.year ? ` (${r.year})` : ""} — open in collection`}
+          >
             {r.cover_url ? (
               // eslint-disable-next-line @next/next/no-img-element
               <img
                 src={r.cover_url}
-                alt=""
-                aria-hidden
+                alt={r.album}
                 style={{ width: tileSize, height: tileSize, objectFit: "cover", display: "block" }}
               />
             ) : (
@@ -422,7 +428,7 @@ function CollectionStrip({ records, tileSize = 80 }: { records: ArtistData["reco
                 {r.year}
               </p>
             )}
-          </div>
+          </a>
         ))}
       </div>
     </div>
@@ -584,7 +590,7 @@ function ArtistRow({
           {artist.fromBandcamp && <BandcampIcon size={12} />}
         </div>
         <p style={{ fontFamily: MONO, fontSize: "0.6rem", letterSpacing: "0.08em", color: INK, margin: 0 }}>
-          {artist.count} {artist.count === 1 ? "record" : "records"}
+          {artist.count} {artist.count === 1 ? "item" : "items"}
         </p>
       </div>
     </div>
@@ -791,25 +797,29 @@ export default function DeepDiveClient({
             </div>
             <p style={{ fontFamily: MONO, fontSize: "0.7rem", letterSpacing: "0.06em", color: INK, margin: "0 0 12px" }}>
               {[
-                selectedData.count > 0 ? `${selectedData.count} ${selectedData.count === 1 ? "record" : "records"} in your collection` : "",
-                (selectedData.wantlistCount ?? 0) > 0 ? `${selectedData.wantlistCount} ${selectedData.wantlistCount === 1 ? "record" : "records"} in your wantlist` : "",
+                selectedData.count > 0 ? `${selectedData.count} ${selectedData.count === 1 ? "item" : "items"} in your collection` : "",
+                (selectedData.wantlistCount ?? 0) > 0 ? `${selectedData.wantlistCount} ${selectedData.wantlistCount === 1 ? "item" : "items"} in your wantlist` : "",
               ].filter(Boolean).join(" · ")}
             </p>
-            <CollectionStrip records={selectedData.records} tileSize={36} />
+            <CollectionStrip records={selectedData.records} artist={selectedArtist} tileSize={36} />
           </div>
         </div>
 
         <div style={{ borderBottom: `1px solid ${RULE}` }} />
 
         {/* Tabs */}
-        <div style={{
-          display: "flex",
-          padding: "1rem 0",
-          borderBottom: `1px solid ${RULE}`,
-          overflowX: "auto",
-          WebkitOverflowScrolling: "touch",
-          gap: 0,
-        }}>
+        <style>{`.dd-tabbar::-webkit-scrollbar { display: none; }`}</style>
+        <div
+          className="dd-tabbar"
+          style={{
+            display: "flex",
+            borderBottom: `1px solid ${RULE}`,
+            overflowX: "auto",
+            scrollbarWidth: "none" as const,
+            WebkitOverflowScrolling: "touch",
+            gap: 0,
+          }}
+        >
           {TABS.map((tab) => (
             <button
               key={tab.id}
@@ -823,10 +833,10 @@ export default function DeepDiveClient({
                 background: "none",
                 border: "none",
                 borderBottom: activeTab === tab.id ? `2px solid ${ORANGE}` : "2px solid transparent",
-                padding: "0 1rem 8px",
+                padding: "1rem 1rem 10px",
                 cursor: "pointer",
                 whiteSpace: "nowrap",
-                marginBottom: -17,
+                marginBottom: -1,
               }}
             >
               {tab.label}
