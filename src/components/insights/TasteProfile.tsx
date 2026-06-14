@@ -354,11 +354,9 @@ export default function TasteProfile() {
               alt={primaryCopy?.title ?? data.archetypes.primary}
               style={{
                 display: "block",
-                width: "100%",
-                maxHeight: "320px",
-                objectFit: "cover",
-                objectPosition: "center top",
-                marginBottom: "0",
+                width: "85%",
+                height: "auto",
+                margin: "0 auto",
               }}
             />
           )}
