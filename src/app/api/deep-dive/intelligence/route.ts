@@ -8,16 +8,15 @@ const client = new Anthropic();
 const PROMPTS: Record<string, (artist: string, ownedAlbums?: string[]) => string> = {
   rankings: (artist, ownedAlbums = []) => {
     const ownedBlock = ownedAlbums.length > 0
-      ? `\nCONFIRMED ALBUMS (the collector owns these — they definitely exist, include them):\n${ownedAlbums.map(a => `- ${a}`).join("\n")}\n`
+      ? `\nALBUMS THIS COLLECTOR OWNS — include ALL of these in the ranking (they are confirmed to exist):\n${ownedAlbums.map(a => `- ${a}`).join("\n")}\nAlso include any other essential ${artist} albums you are confident about, up to 8 total.\n`
       : "";
-    return `You are a music critic writing for serious vinyl collectors. Rank ${artist}'s 5 most essential studio albums from best to worst — not an exhaustive survey, just the records that matter most.
+    return `You are a music critic writing for serious vinyl collectors. Rank ${artist}'s most essential studio albums from best to worst.
 
 CRITICAL ACCURACY RULES — read before answering:
 - Only include albums you are certain exist. If you are not sure a title is correct, omit it.
 - Do not confuse ${artist} with any other artist. Double-check every album title and year.
-- It is far better to list 5 confirmed albums than 10 where one is fabricated.
 - "Studio albums" only — no compilations, live records, EPs, or demos unless they are widely regarded as major works.
-- Maximum 5 albums. Pick only the most essential — the records that define the artist's legacy above all others.
+- Aim for 5–8 albums. Include all confirmed essential records — do not artificially cut the list short.
 ${ownedBlock}
 For each album: be specific and opinionated about what makes it succeed or fail, and include a collector note about pressings worth seeking.
 Return ONLY valid JSON, no markdown, no backticks, no preamble:

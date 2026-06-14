@@ -34,7 +34,7 @@ function BandcampIcon({ size = 13 }: { size?: number }) {
 }
 
 const TABS: { id: Section; label: string }[] = [
-  { id: "rankings",   label: "Album Rankings" },
+  { id: "rankings",   label: "Essential Albums" },
   { id: "podcasts",   label: "Podcasts" },
   { id: "books",      label: "Books & Audiobooks" },
   { id: "interviews", label: "Interviews" },
