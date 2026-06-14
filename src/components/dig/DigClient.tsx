@@ -768,8 +768,10 @@ export default function DigClient({ username, displayLabel, avatarUrl, collectio
     previewUrl: string | null; trackUri: string | null; albumUri: string | null; artist: string; album: string;
   } | null>(null);
 
-  // Accumulates artists already shown this session so the API can exclude them
+  // Accumulates artists and full recs shown this session so the API can avoid
+  // repeating the same artists, genres, and stylistic territory
   const shownArtists = useRef<string[]>([]);
+  const shownRecs    = useRef<Array<{ artist: string; album: string }>>([]);
 
   // fetchKey drives all fetches. Incrementing `n` re-triggers the effect for
   // "dig again" without changing mode; swapping `mode` handles mode changes.
@@ -787,16 +789,19 @@ export default function DigClient({ username, displayLabel, avatarUrl, collectio
         const res = await fetch("/api/dig", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ mode: fetchKey.mode, previousArtists: shownArtists.current }),
+          body: JSON.stringify({ mode: fetchKey.mode, previousArtists: shownArtists.current, previousRecommendations: shownRecs.current }),
         });
         const data = await res.json();
         if (cancelled) return;
         if (!res.ok) throw new Error(data.error ?? "Failed to get recommendations");
         const newRecs: Recommendation[] = data.recommendations;
-        // Accumulate artists for future exclusion — reset only when mode changes
+        // Accumulate artists + recs for future exclusion — reset only when mode changes
         for (const r of newRecs) {
           if (r.artist && !shownArtists.current.includes(r.artist)) {
             shownArtists.current.push(r.artist);
+          }
+          if (r.artist && r.album) {
+            shownRecs.current.push({ artist: r.artist, album: r.album });
           }
         }
         setRecs(newRecs);
@@ -813,6 +818,7 @@ export default function DigClient({ username, displayLabel, avatarUrl, collectio
 
   function handleModeChange(newMode: DigMode) {
     shownArtists.current = [];
+    shownRecs.current    = [];
     setMode(newMode);
     setLoading(true);
     setError(null);

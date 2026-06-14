@@ -26,8 +26,10 @@ export async function POST(request: Request) {
     body.mode === "hallucinations" ? "hallucinations" :
     "discover";
 
-  // Artists shown in earlier digs this session — hard-exclude to prevent repetition
+  // Artists and full recs shown in earlier digs this session — hard-exclude to prevent repetition
   const previousArtists: string[] = Array.isArray(body.previousArtists) ? body.previousArtists : [];
+  const previousRecommendations: Array<{ artist: string; album: string }> =
+    Array.isArray(body.previousRecommendations) ? body.previousRecommendations : [];
 
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
@@ -166,7 +168,11 @@ export async function POST(request: Request) {
 
     // Random exploration angle — forces variety on every call
     const digDecade = pick(["1950s", "1960s", "early 1970s", "late 1970s", "1980s", "early 1990s", "late 1990s", "2000s"]);
-    const digRegion = pick(["West Africa", "Japan", "Brazil", "Jamaica", "Germany", "Nigeria", "Colombia", "South Korea", "East Africa", "Scandinavia", "India", "Turkey", "Eastern Europe", "Caribbean", "Indonesia", "Argentina"]);
+    const digRegion = pick([
+      "West Africa", "Japan", "Brazil", "Jamaica", "Germany", "Nigeria", "Colombia",
+      "South Korea", "Scandinavia", "India", "Turkey", "Eastern Europe", "Caribbean",
+      "Indonesia", "Argentina", "Morocco", "Cuba", "Mali", "Iran", "Ghana", "Portugal",
+    ]);
     const digAngle  = pick([
       "deeply obscure and rarely discussed even among collectors",
       "critically overlooked on release but reassessed since",
@@ -176,7 +182,13 @@ export async function POST(request: Request) {
       "a late-career revelation by an artist known for something else entirely",
       "an influential record that shaped a genre without ever becoming famous itself",
       "a collaborative or side-project record that outshines the artists' main work",
+      "a debut record that arrived fully-formed and changed everything for a small scene",
+      "a record so genre-defying it still has no accurate descriptor",
     ]);
+
+    const prevRecsBlock = previousRecommendations.length > 0
+      ? `\nALREADY RECOMMENDED THIS SESSION (avoid the same genre, region, or sonic territory as these):\n${previousRecommendations.map(r => `- ${r.artist} — ${r.album}`).join("\n")}\n`
+      : "";
 
     const angleBlock = `\nEXPLORATION ANGLE — use this to steer away from defaults and ensure variety:\n- Era: favour records from the ${digDecade}\n- Geography: look toward music originating from ${digRegion}\n- At least one pick must be: ${digAngle}\n`;
 
@@ -189,12 +201,13 @@ ${collectionLines || "(Empty collection)"}
 
 TOP 5 LISTS:
 ${listsLines}
-${artistsBlock}${prevBlock}${wantlistBlock}${angleBlock}
+${artistsBlock}${prevBlock}${wantlistBlock}${prevRecsBlock}${angleBlock}
 MODE: DISCOVER — recommend artists this collector does not own yet and has not already wishlisted.
 
 Rules:
-- STRICT: Every recommendation must be by an artist NOT in the OWNED ARTISTS list and NOT in the WANTLIST. This collector wants completely new discoveries.
-- Follow the EXPLORATION ANGLE — do not default to the most obvious or well-known records that match this taste profile. Each "Dig again" should feel like a different crate.
+- STRICT: Every recommendation must be by an artist NOT in the OWNED ARTISTS list and NOT in the WANTLIST.
+- STRICT: Do not recommend anything from the same genre, regional scene, or sonic territory as the ALREADY RECOMMENDED list above — every "Dig again" must open a genuinely different crate.
+- Follow the EXPLORATION ANGLE — do not default to the most obvious or well-known records that match this taste profile.
 - Each recommendation must have a reason written in plain English that reveals the aesthetic logic — not genre tags, but the texture, atmosphere, and emotional territory. Write it as if pointing at two records already on their shelf and saying "this is where those two shelves collide." Maximum 2 sentences.
 - The picks should feel genuinely surprising but inevitable in hindsight — the kind of record they will wonder how they missed.
 - Prioritise records obtainable on vinyl (original pressings, reissues, or easily available secondhand).
@@ -213,6 +226,10 @@ ${JSON_SCHEMA}`;
       ? `\nALREADY RECOMMENDED THIS SESSION — do not repeat any of these artists:\n${previousArtists.join(" · ")}\n`
       : "";
 
+    const prevRecsBlockH = previousRecommendations.length > 0
+      ? `\nALREADY RECOMMENDED THIS SESSION (avoid the same genre, region, or sonic territory as these):\n${previousRecommendations.map(r => `- ${r.artist} — ${r.album}`).join("\n")}\n`
+      : "";
+
     prompt = `You are a fearless crate-digging oracle with encyclopaedic knowledge of the entire recorded music universe — mainstream and deeply obscure. Your mission: take this collector somewhere they have never been.
 
 Below is a collector's vinyl collection and their curated Top 5 lists. Study their taste carefully — so you can transcend it.
@@ -222,11 +239,13 @@ ${collectionLines || "(Empty collection)"}
 
 TOP 5 LISTS:
 ${listsLines}
-${artistsBlock}${prevBlock}${wantlistBlock}
-MODE: HALLUCINATIONS · TAKE THE TRIP — surface 3 records that push into territory this collector has never explored. You are not limited to what is far from their collection; you are hunting for genuinely mind-expanding music from obscure and psychedelic corners of the recorded universe.
+${artistsBlock}${prevBlock}${wantlistBlock}${prevRecsBlockH}
+MODE: HALLUCINATIONS · TAKE THE TRIP — surface 3 records that push into territory this collector has never explored.
 
 Rules:
-- STRONG BIAS toward psychedelic music in all its forms: acid folk, kosmische, psych rock, free jazz, raga, Ethiopian jazz, Brazilian tropicália, Afrobeat, spiritual jazz, noise, drone, outer limits electronic, and any genre where the music itself alters perception. Dig deep — not the obvious psych classics, but the genuinely obscure pressings and lost masterpieces.
+- STRONG BIAS toward perception-altering music: acid folk, kosmische, psych rock, free jazz, raga, tropicália, Afrobeat, spiritual jazz, noise, drone, outer limits electronic, ritual music, sacred minimalism, and any tradition where sound itself becomes a technology for shifting consciousness. Dig deep — not the famous touchstones, but the genuinely obscure pressings and lost masterpieces.
+- STRICT: Do not repeat a genre, regional scene, or sonic territory already covered in the ALREADY RECOMMENDED list — every session must map genuinely different territory.
+- Each pick should come from a different part of the world or a different musical lineage — three picks from the same region or tradition is a failure.
 - At least one pick must be from a non-Western musical tradition the collector shows no sign of owning.
 - Recommend artists NOT in the OWNED ARTISTS list.
 - Each reason must do two things: (1) describe the sonic and spiritual territory of the record — what it feels like to hear it, the world it opens; (2) acknowledge the leap from their current taste and make it feel like an invitation rather than a challenge. Maximum 2 sentences. Write with conviction.
