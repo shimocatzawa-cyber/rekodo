@@ -278,7 +278,7 @@ export default function CommunityTab({ profileOwnerId }: { profileOwnerId: strin
       .catch(() => setListsState("done"));
   }, [subTab, listsState]);
 
-  // Load collectors with debounced search
+  // Load collectors with debounced search, pre-populating follow state from DB
   const loadCollectors = useCallback(async (query: string) => {
     setCollectorsLoading(true);
     try {
@@ -294,11 +294,26 @@ export default function CommunityTab({ profileOwnerId }: { profileOwnerId: strin
         q = q.order("username", { ascending: true });
       }
       const { data } = await q;
-      setCollectors((data ?? []) as Collector[]);
+      const profiles = (data ?? []) as Collector[];
+      setCollectors(profiles);
+
+      // Fetch actual follow state so buttons reflect reality, not just session clicks
+      if (viewerUserId && profiles.length > 0) {
+        const ids = profiles.map(c => c.id);
+        const { data: followRows } = await supabase
+          .from("follows")
+          .select("following_id")
+          .eq("follower_id", viewerUserId)
+          .in("following_id", ids);
+        const followedSet = new Set((followRows ?? []).map(r => r.following_id as string));
+        const fs: Record<string, boolean> = {};
+        for (const id of ids) fs[id] = followedSet.has(id);
+        setFollowState(prev => ({ ...prev, ...fs }));
+      }
     } finally {
       setCollectorsLoading(false);
     }
-  }, []);
+  }, [viewerUserId]);
 
   useEffect(() => {
     if (subTab !== "collectors") return;

@@ -434,7 +434,11 @@ export default function ProfileClient({
         {tabItems.map(({ key, label }) => (
           <button
             key={key}
-            onClick={() => setProfileTab(key)}
+            onClick={() => {
+              setProfileTab(key);
+              const qs = key === "profile" ? "" : `?tab=${key}`;
+              router.replace(qs || window.location.pathname, { scroll: false });
+            }}
             style={{
               fontFamily: MONO, fontSize: "10px", letterSpacing: "0.1em",
               textTransform: "uppercase", background: "none", border: "none",
