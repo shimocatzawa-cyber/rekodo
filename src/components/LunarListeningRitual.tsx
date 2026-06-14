@@ -41,7 +41,6 @@ const RITUALS = {
 } as const;
 
 type RitualKey = keyof typeof RITUALS;
-const PHASE_KEYS: RitualKey[] = ["new", "first_quarter", "full", "waning"];
 
 function MoonSVG({ illumination }: { illumination: number }) {
   const size = 52;
@@ -74,15 +73,13 @@ export default function LunarListeningRitual() {
     <div style={{ fontFamily: "var(--font-mono)", color: "#0a0a0a", borderTop: "1px solid #e0e0da" }}>
 
       {/* Eyebrow row */}
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "10px 20px", borderBottom: "1px solid #e0e0da" }}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "10px 20px" }}>
         <span style={{ fontSize: "0.56rem", letterSpacing: "0.14em", textTransform: "uppercase", color: "#CC5500" }}>
           Lunar Listening
         </span>
-        <div style={{ display: "flex", gap: "6px", alignItems: "center" }}>
-          {PHASE_KEYS.map((key) => (
-            <div key={key} style={{ width: key === ritualKey ? "20px" : "6px", height: "2px", background: key === ritualKey ? "#CC5500" : "#e0e0da", transition: "width 0.4s ease" }} />
-          ))}
-        </div>
+        <span style={{ fontSize: "0.52rem", letterSpacing: "0.08em", textTransform: "uppercase", opacity: 0.35 }}>
+          Changes with the moon
+        </span>
       </div>
 
       {/* Body */}
@@ -97,17 +94,10 @@ export default function LunarListeningRitual() {
           <p style={{ fontFamily: "var(--font-serif)", fontSize: "0.9rem", fontWeight: 500, lineHeight: 1.4, marginBottom: "7px" }}>
             {ritual.instruction}
           </p>
-          <p style={{ fontSize: "0.6rem", lineHeight: 1.7, opacity: 0.65 }}>
+          <p style={{ fontSize: "0.85rem", lineHeight: 1.7, opacity: 0.65 }}>
             {ritual.detail}
           </p>
         </div>
-      </div>
-
-      {/* Footer */}
-      <div style={{ padding: "9px 20px" }}>
-        <span style={{ fontSize: "0.52rem", letterSpacing: "0.08em", textTransform: "uppercase", opacity: 0.35 }}>
-          Changes with the moon
-        </span>
       </div>
 
     </div>
