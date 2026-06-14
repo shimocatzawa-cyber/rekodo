@@ -227,14 +227,25 @@ export async function computeTasteProfile(
   if (appWantlistMeta?.id) {
     const { data: appItems } = await supabase
       .from("list_items")
-      .select("record_id")
+      .select("record_id, song_artist")
       .eq("list_id", appWantlistMeta.id);
-    const appIds = (appItems ?? []).map((i: { record_id: string }) => i.record_id);
-    for (let i = 0; i < appIds.length; i += BATCH) {
+
+    // CSV-imported items (WantlistClient): artist stored directly in song_artist, record_id is null
+    for (const item of appItems ?? []) {
+      if ((item as { song_artist: string | null }).song_artist) {
+        wantlist.push({ artist: (item as { song_artist: string }).song_artist, released: null, date_added: null });
+      }
+    }
+
+    // Dig-added items: joined via record_id → records
+    const recordIds = (appItems ?? [])
+      .map((i: { record_id: string | null }) => i.record_id)
+      .filter((id): id is string => id != null);
+    for (let i = 0; i < recordIds.length; i += BATCH) {
       const { data: wRecs } = await supabase
         .from("records")
         .select("artist")
-        .in("id", appIds.slice(i, i + BATCH));
+        .in("id", recordIds.slice(i, i + BATCH));
       for (const r of wRecs ?? []) {
         wantlist.push({ artist: (r as { artist: string }).artist, released: null, date_added: null });
       }
