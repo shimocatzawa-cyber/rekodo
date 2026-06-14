@@ -4,7 +4,6 @@ import { useState, useEffect, useRef } from "react";
 import AppNav from "@/components/AppNav";
 import { addToWantlist } from "@/app/dig/actions";
 import RecordSpinner from "@/components/RecordSpinner";
-import SpotifyPlayer from "@/components/SpotifyPlayer";
 
 const SERIF  = "var(--font-editorial)";
 const MONO   = "var(--font-mono)";
@@ -121,15 +120,13 @@ function PositionIndicator({ idx, total, onNav }: { idx: number; total: number; 
 
 // ─── Sleeve card ──────────────────────────────────────────────────────────────
 
-function SleeveCard({ rec, mode, onAddToWantlist, wantlistAdded }: {
+function SleeveCard({ rec, mode, onAddToWantlist, wantlistAdded, onPreviewReady }: {
   rec: Recommendation; mode: DigMode;
   onAddToWantlist: () => void; wantlistAdded: boolean;
+  onPreviewReady: (data: { previewUrl: string | null; trackUri: string | null; albumUri: string | null; artist: string; album: string } | null) => void;
 }) {
   // Component remounts on every rec change (key prop), so useState resets naturally.
   const [coverUrl, setCoverUrl] = useState<string | null>(null);
-  const [spotifyPreview, setSpotifyPreview] = useState<{
-    previewUrl: string | null; trackUri: string | null;
-  } | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -154,13 +151,15 @@ function SleeveCard({ rec, mode, onAddToWantlist, wantlistAdded }: {
     let cancelled = false;
     const params = new URLSearchParams({ artist: rec.artist, title: rec.album });
     fetch(`/api/spotify/preview?${params.toString()}`)
-      .then(r => r.json() as Promise<{ preview_url: string | null; track_uri: string | null }>)
+      .then(r => r.json() as Promise<{ preview_url: string | null; track_uri: string | null; album_uri: string | null }>)
       .then(data => {
         if (cancelled) return;
-        setSpotifyPreview({ previewUrl: data.preview_url, trackUri: data.track_uri });
+        onPreviewReady({ previewUrl: data.preview_url, trackUri: data.track_uri, albumUri: data.album_uri ?? null, artist: rec.artist, album: rec.album });
       })
       .catch(() => {});
     return () => { cancelled = true; };
+  // onPreviewReady is stable for the lifetime of this component (remounts on rec change)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [rec.artist, rec.album]);
 
   const q = encodeURIComponent(`${rec.artist} ${rec.album}`);
@@ -275,19 +274,6 @@ function SleeveCard({ rec, mode, onAddToWantlist, wantlistAdded }: {
         {/* Spacer — pushes links to the bottom */}
         <div style={{ flex: 1 }} />
 
-        {/* Spotify Player */}
-        {(spotifyPreview?.previewUrl || spotifyPreview?.trackUri) && (
-          <div style={{ marginBottom: "12px" }}>
-            <SpotifyPlayer
-              mode="dig"
-              previewUrl={spotifyPreview.previewUrl ?? undefined}
-              spotifyTrackUri={spotifyPreview.trackUri ?? undefined}
-              artist={rec.artist}
-              albumTitle={rec.album}
-            />
-          </div>
-        )}
-
         {/* Links */}
         <div style={{ flexShrink: 0, paddingTop: "16px", borderTop: "1px solid rgba(0,0,0,0.06)" }}>
           {mode === "explore" ? (
@@ -315,6 +301,338 @@ function SleeveCard({ rec, mode, onAddToWantlist, wantlistAdded }: {
           )}
         </div>
 
+      </div>
+    </div>
+  );
+}
+
+// ─── Compact player (dig page) — preview fallback, full album for Premium ──────
+
+// Local SDK types (Window.Spotify is declared globally in SpotifyPlayer.tsx)
+interface DigTokenData { connected: boolean; access_token?: string; product?: string; }
+interface DigPlaybackState {
+  paused: boolean; position: number; duration: number;
+  track_window: { current_track: { name: string; artists: Array<{ name: string }> } };
+}
+type DigSdkPlayer = {
+  connect(): Promise<boolean>; disconnect(): void;
+  addListener(event: string, cb: (d: unknown) => void): boolean;
+  togglePlay(): Promise<void>; previousTrack(): Promise<void>; nextTrack(): Promise<void>;
+  setVolume(v: number): Promise<void>;
+  getCurrentState(): Promise<DigPlaybackState | null>;
+};
+
+let _digSdkLoaded = false;
+const _digSdkCbs: Array<() => void> = [];
+function ensureDigSDK(cb: () => void) {
+  if (_digSdkLoaded) { cb(); return; }
+  _digSdkCbs.push(cb);
+  if (typeof window === "undefined") return;
+  if (window.Spotify) {
+    // Already loaded by another component
+    _digSdkLoaded = true; _digSdkCbs.splice(0).forEach(f => f()); return;
+  }
+  if (!document.querySelector('script[src="https://sdk.scdn.co/spotify-player.js"]')) {
+    window.onSpotifyWebPlaybackSDKReady = () => {
+      _digSdkLoaded = true; _digSdkCbs.splice(0).forEach(f => f());
+    };
+    const s = document.createElement("script");
+    s.src = "https://sdk.scdn.co/spotify-player.js";
+    document.body.appendChild(s);
+  }
+}
+
+function DigCompactPlayer({ previewUrl, albumUri, trackUri, artist, album }: {
+  previewUrl: string | null;
+  albumUri:   string | null;
+  trackUri:   string | null;
+  artist:     string;
+  album:      string;
+}) {
+  const [tokenData, setTokenData] = useState<DigTokenData | null>(null);
+  const [deviceId,  setDeviceId]  = useState<string | null>(null);
+  const [sdkReady,  setSdkReady]  = useState(false);
+  const [playing,   setPlaying]   = useState(false);
+  const [position,  setPosition]  = useState(0);
+  const [duration,  setDuration]  = useState(30_000);
+  const [volume,    setVolume]    = useState(0.8);
+  const [nowTrack,  setNowTrack]  = useState<{ artist: string; name: string } | null>(null);
+
+  const playerRef = useRef<DigSdkPlayer | null>(null);
+  const audioRef  = useRef<HTMLAudioElement | null>(null);
+  const pollRef   = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  const isPremium  = !!(tokenData?.connected && tokenData.product === "premium");
+  const useSDK     = isPremium && !!(albumUri || trackUri);
+  const usePreview = !useSDK && !!previewUrl;
+
+  // Fetch token once
+  useEffect(() => {
+    fetch("/api/spotify/token")
+      .then(r => r.json() as Promise<DigTokenData>)
+      .then(setTokenData)
+      .catch(() => setTokenData({ connected: false }));
+  }, []);
+
+  // Load SDK when Premium
+  useEffect(() => {
+    if (!isPremium) return;
+    if (_digSdkLoaded) { setSdkReady(true); return; }
+    ensureDigSDK(() => setSdkReady(true));
+  }, [isPremium]);
+
+  // Init SDK player
+  useEffect(() => {
+    if (!sdkReady || !tokenData?.access_token || playerRef.current) return;
+    const player = new window.Spotify.Player({
+      name: "rekōdo",
+      getOAuthToken: async (cb) => {
+        const res  = await fetch("/api/spotify/token");
+        const data = await res.json() as DigTokenData;
+        if (data.access_token) cb(data.access_token);
+      },
+      volume: 0.8,
+    }) as unknown as DigSdkPlayer;
+    player.addListener("ready", (d) => setDeviceId((d as { device_id: string }).device_id));
+    player.addListener("player_state_changed", (s) => {
+      if (!s) return;
+      const state = s as DigPlaybackState;
+      setPlaying(!state.paused);
+      setPosition(state.position);
+      setDuration(state.duration);
+      const t = state.track_window?.current_track;
+      if (t) setNowTrack({ artist: t.artists?.[0]?.name ?? "", name: t.name });
+    });
+    player.addListener("not_ready", () => { setTimeout(() => player.connect().catch(() => {}), 1000); });
+    player.connect();
+    playerRef.current = player;
+    return () => { player.disconnect(); playerRef.current = null; };
+  }, [sdkReady, tokenData?.access_token]);
+
+  // Keep SDK alive on tab switch
+  useEffect(() => {
+    if (!sdkReady) return;
+    const onVisible = () => {
+      if (!document.hidden && playerRef.current) playerRef.current.connect().catch(() => {});
+    };
+    document.addEventListener("visibilitychange", onVisible);
+    return () => document.removeEventListener("visibilitychange", onVisible);
+  }, [sdkReady]);
+
+  // Poll position while playing via SDK
+  useEffect(() => {
+    if (!playing || !playerRef.current) return;
+    pollRef.current = setInterval(async () => {
+      const s = await playerRef.current?.getCurrentState();
+      if (s) { setPosition(s.position); setDuration(s.duration); }
+    }, 500);
+    return () => { if (pollRef.current) clearInterval(pollRef.current); };
+  }, [playing]);
+
+  // Preview audio element
+  useEffect(() => {
+    if (!usePreview || !previewUrl) return;
+    const audio = new Audio(previewUrl);
+    audio.volume = volume;
+    audioRef.current = audio;
+    const onTime = () => {
+      setPosition(audio.currentTime * 1000);
+      if (isFinite(audio.duration)) setDuration(audio.duration * 1000);
+    };
+    const onEnd = () => setPlaying(false);
+    audio.addEventListener("timeupdate", onTime);
+    audio.addEventListener("ended",      onEnd);
+    return () => {
+      audio.pause();
+      audio.removeEventListener("timeupdate", onTime);
+      audio.removeEventListener("ended",      onEnd);
+      audioRef.current = null;
+      setPlaying(false);
+      setPosition(0);
+    };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [previewUrl, usePreview]);
+
+  const fmt = (ms: number) => {
+    const s = Math.floor(ms / 1000);
+    return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;
+  };
+  const pct = duration > 0 ? Math.min(100, (position / duration) * 100) : 0;
+
+  async function handlePlayPause() {
+    if (useSDK && playerRef.current) {
+      const state = await playerRef.current.getCurrentState();
+      if (!state) {
+        if (deviceId && tokenData?.access_token) {
+          const body = albumUri ? { context_uri: albumUri } : { uris: [trackUri!] };
+          await fetch(`https://api.spotify.com/v1/me/player/play?device_id=${deviceId}`, {
+            method:  "PUT",
+            headers: { Authorization: `Bearer ${tokenData.access_token}`, "Content-Type": "application/json" },
+            body:    JSON.stringify(body),
+          }).catch(() => {});
+        }
+      } else {
+        await playerRef.current.togglePlay();
+      }
+    } else if (usePreview && audioRef.current) {
+      if (playing) { audioRef.current.pause(); setPlaying(false); }
+      else         { await audioRef.current.play(); setPlaying(true); }
+    }
+  }
+
+  function handleSeek(e: React.MouseEvent<HTMLDivElement>) {
+    const rect  = e.currentTarget.getBoundingClientRect();
+    const ratio = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
+    if (useSDK && tokenData?.access_token && duration) {
+      const ms = Math.round(ratio * duration);
+      setPosition(ms);
+      fetch(`https://api.spotify.com/v1/me/player/seek?position_ms=${ms}${deviceId ? `&device_id=${deviceId}` : ""}`, {
+        method: "PUT", headers: { Authorization: `Bearer ${tokenData.access_token}` },
+      }).catch(() => {});
+    } else if (audioRef.current && duration) {
+      audioRef.current.currentTime = (ratio * duration) / 1000;
+      setPosition(ratio * duration);
+    }
+  }
+
+  function handleVolume(e: React.MouseEvent<HTMLDivElement>) {
+    const rect   = e.currentTarget.getBoundingClientRect();
+    const newVol = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
+    setVolume(newVol);
+    if (useSDK && playerRef.current) playerRef.current.setVolume(newVol).catch(() => {});
+    else if (audioRef.current)       audioRef.current.volume = newVol;
+  }
+
+  if (tokenData === null) return null;
+  if (!useSDK && !usePreview) return null;
+
+  const eyebrow       = useSDK ? "Now Playing" : "Preview";
+  const nowPlayingText = useSDK && nowTrack
+    ? `${nowTrack.artist} — ${nowTrack.name}`
+    : `${artist} — ${album}${!useSDK ? " (30s)" : ""}`;
+
+  const iconBtn: React.CSSProperties = {
+    background: "none", border: "none", cursor: "pointer", padding: "4px",
+    color: "#888", display: "flex", alignItems: "center", flexShrink: 0,
+    transition: "color 0.15s",
+  };
+
+  return (
+    <div
+      className="dig-compact-player"
+      style={{
+        display:    "flex",
+        alignItems: "center",
+        gap:        "10px",
+        paddingTop: "10px",
+        borderTop:  "1px solid rgba(0,0,0,0.08)",
+      }}
+    >
+      {/* Eyebrow + track text */}
+      <div style={{ display: "flex", alignItems: "center", gap: "8px", minWidth: 0, flex: "0 1 36%" }}>
+        <span style={{
+          fontFamily: MONO, fontSize: "8px", letterSpacing: "0.16em",
+          textTransform: "uppercase", color: ORANGE, flexShrink: 0,
+        }}>
+          {eyebrow}
+        </span>
+        <span style={{
+          fontFamily: MONO, fontSize: "10px", color: "#0d0d0d",
+          overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
+        }}>
+          {nowPlayingText}
+        </span>
+      </div>
+
+      {/* Transport controls */}
+      <div style={{ display: "flex", alignItems: "center", gap: "4px", flexShrink: 0 }}>
+        {useSDK && (
+          <button
+            onClick={() => playerRef.current?.previousTrack().catch(() => {})}
+            style={iconBtn} aria-label="Previous"
+            onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.color = "#0d0d0d"; }}
+            onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.color = "#888"; }}
+          >
+            <svg width="14" height="14" viewBox="0 0 22 22">
+              <polygon points="19,3 19,19 8,11" fill="currentColor"/>
+              <rect x="3" y="3" width="3" height="16" fill="currentColor"/>
+            </svg>
+          </button>
+        )}
+        <button
+          onClick={handlePlayPause}
+          aria-label={playing ? "Pause" : "Play"}
+          style={{
+            width: "30px", height: "30px", flexShrink: 0,
+            background: "#0d0d0d", color: "#ffffff",
+            border: "none", cursor: "pointer",
+            display: "flex", alignItems: "center", justifyContent: "center",
+            transition: "background 0.15s",
+          }}
+          onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background = ORANGE; }}
+          onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = "#0d0d0d"; }}
+        >
+          {playing
+            ? <svg width="12" height="12" viewBox="0 0 16 16"><rect x="2" y="1" width="4" height="14" fill="currentColor"/><rect x="10" y="1" width="4" height="14" fill="currentColor"/></svg>
+            : <svg width="12" height="12" viewBox="0 0 16 16"><polygon points="3,1 3,15 14,8" fill="currentColor"/></svg>
+          }
+        </button>
+        {useSDK && (
+          <button
+            onClick={() => playerRef.current?.nextTrack().catch(() => {})}
+            style={iconBtn} aria-label="Next"
+            onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.color = "#0d0d0d"; }}
+            onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.color = "#888"; }}
+          >
+            <svg width="14" height="14" viewBox="0 0 22 22">
+              <polygon points="3,3 3,19 14,11" fill="currentColor"/>
+              <rect x="16" y="3" width="3" height="16" fill="currentColor"/>
+            </svg>
+          </button>
+        )}
+      </div>
+
+      {/* Progress */}
+      <div style={{ flex: 1, display: "flex", alignItems: "center", gap: "6px", minWidth: 0 }}>
+        <span style={{ fontFamily: MONO, fontSize: "8px", color: "#aaaaaa", flexShrink: 0 }}>
+          {fmt(position)}
+        </span>
+        <div
+          onClick={handleSeek}
+          style={{ flex: 1, height: "2px", background: "#e0e0da", position: "relative", cursor: "pointer" }}
+        >
+          <div style={{ position: "absolute", left: 0, top: 0, height: "100%", width: `${pct}%`, background: ORANGE }} />
+          <div style={{
+            position: "absolute", top: "50%", left: `${pct}%`,
+            transform: "translate(-50%, -50%)",
+            width: "8px", height: "8px", borderRadius: "50%", background: ORANGE,
+          }} />
+        </div>
+        <span style={{ fontFamily: MONO, fontSize: "8px", color: "#aaaaaa", flexShrink: 0 }}>
+          {fmt(duration)}
+        </span>
+      </div>
+
+      {/* Volume */}
+      <div style={{ display: "flex", alignItems: "center", gap: "5px", flexShrink: 0, width: "68px" }}>
+        <svg width="11" height="11" viewBox="0 0 14 14" aria-hidden="true">
+          <polygon points="2,5 5,5 8,2 8,12 5,9 2,9" fill="#555"/>
+          <path d="M10,4 q2,3 0,6" stroke="#555" strokeWidth="1.3" fill="none" strokeLinecap="round"/>
+        </svg>
+        <div
+          onClick={handleVolume}
+          style={{ flex: 1, height: "2px", background: "#e0e0da", position: "relative", cursor: "pointer" }}
+        >
+          <div style={{ position: "absolute", left: 0, top: 0, height: "100%", width: `${volume * 100}%`, background: "#888" }} />
+        </div>
+      </div>
+
+      {/* Spotify badge */}
+      <div style={{ display: "flex", alignItems: "center", gap: "4px", flexShrink: 0 }}>
+        <span style={{ width: "5px", height: "5px", borderRadius: "50%", background: "#1DB954", display: "inline-block" }} />
+        <span style={{ fontFamily: MONO, fontSize: "8px", color: "#1DB954", whiteSpace: "nowrap" }}>
+          {useSDK ? "Streaming" : "Spotify"}
+        </span>
       </div>
     </div>
   );
@@ -404,6 +722,9 @@ export default function DigClient({ username, displayLabel, avatarUrl, collectio
   const [idx,           setIdx]           = useState(0);
   const [mode,          setMode]          = useState<DigMode>("discover");
   const [wantlistAdded, setWantlistAdded] = useState<Set<string>>(new Set());
+  const [digSpotify,    setDigSpotify]    = useState<{
+    previewUrl: string | null; trackUri: string | null; albumUri: string | null; artist: string; album: string;
+  } | null>(null);
 
   // Accumulates artists already shown this session so the API can exclude them
   const shownArtists = useRef<string[]>([]);
@@ -411,6 +732,9 @@ export default function DigClient({ username, displayLabel, avatarUrl, collectio
   // fetchKey drives all fetches. Incrementing `n` re-triggers the effect for
   // "dig again" without changing mode; swapping `mode` handles mode changes.
   const [fetchKey, setFetchKey] = useState<{ mode: DigMode; n: number }>({ mode: "discover", n: 0 });
+
+  // Clear the compact player whenever we navigate to a new rec or reload
+  useEffect(() => { setDigSpotify(null); }, [idx, mode, fetchKey]);
 
   // All setState calls inside the effect are in async callbacks, never synchronously
   // in the effect body — satisfies react-hooks/set-state-in-effect.
@@ -631,8 +955,18 @@ export default function DigClient({ username, displayLabel, avatarUrl, collectio
                 mode={mode}
                 onAddToWantlist={() => handleAddToWantlist(recs[idx])}
                 wantlistAdded={wantlistAdded.has(`${recs[idx].artist}||${recs[idx].album}`)}
+                onPreviewReady={setDigSpotify}
               />
               <NavBar idx={idx} total={recs.length} onNav={navigate} onDigAgain={handleDigAgain} />
+              {(digSpotify?.previewUrl || digSpotify?.albumUri) && (
+                <DigCompactPlayer
+                  previewUrl={digSpotify.previewUrl}
+                  albumUri={digSpotify.albumUri}
+                  trackUri={digSpotify.trackUri}
+                  artist={digSpotify.artist}
+                  album={digSpotify.album}
+                />
+              )}
             </>
           )}
 
