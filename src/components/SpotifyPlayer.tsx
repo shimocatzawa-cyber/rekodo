@@ -291,10 +291,10 @@ export default function SpotifyPlayer({
     }).catch(() => {});
   }, [useSDK, duration, tokenData?.access_token, deviceId]);
 
-  // ── Volume ────────────────────────────────────────────────────────────────
+  // ── Volume (vertical — click top=loud, bottom=quiet) ─────────────────────
   const handleVolume = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
     const rect   = e.currentTarget.getBoundingClientRect();
-    const newVol = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
+    const newVol = Math.max(0, Math.min(1, 1 - (e.clientY - rect.top) / rect.height));
     setVolume(newVol);
     if (useSDK && playerRef.current) playerRef.current.setVolume(newVol).catch(() => {});
     else if (audioRef.current)       audioRef.current.volume = newVol;
@@ -352,8 +352,56 @@ export default function SpotifyPlayer({
         )}
       </div>
 
-      {/* ── Progress ── */}
-      <div style={{ padding: "0.75rem 0.9rem 0.4rem" }}>
+      {/* ── Controls + vertical volume ── */}
+      <div style={{ padding: "0.75rem 0.9rem", display: "flex", alignItems: "center" }}>
+
+        {/* Centred transport controls */}
+        <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", gap: "16px" }}>
+          <CtrlBtn disabled aria-label="Shuffle"><IconShuffle /></CtrlBtn>
+
+          <CtrlBtn disabled={!useSDK} onClick={() => playerRef.current?.previousTrack().catch(() => {})} aria-label="Previous">
+            <IconPrev />
+          </CtrlBtn>
+
+          <button
+            onClick={handlePlayPause}
+            aria-label={playing ? "Pause" : "Play"}
+            style={{
+              width: "44px", height: "44px", flexShrink: 0,
+              background: INK, color: "#ffffff", border: "none", cursor: "pointer",
+              display: "flex", alignItems: "center", justifyContent: "center",
+            }}
+            onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background = ORANGE; }}
+            onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = INK; }}
+          >
+            {playing ? <IconPause /> : <IconPlay />}
+          </button>
+
+          <CtrlBtn disabled={!useSDK} onClick={() => playerRef.current?.nextTrack().catch(() => {})} aria-label="Next">
+            <IconNext />
+          </CtrlBtn>
+
+          <CtrlBtn disabled aria-label="Repeat"><IconRepeat /></CtrlBtn>
+        </div>
+
+        {/* Vertical volume on right */}
+        <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "6px", paddingLeft: "14px" }}>
+          <span style={{ color: "#555", display: "flex" }}><IconVolume /></span>
+          <div
+            onClick={handleVolume}
+            style={{ width: "2px", height: "52px", background: RULE, position: "relative", cursor: "pointer" }}
+          >
+            <div style={{
+              position: "absolute", bottom: 0, left: 0,
+              width: "100%", height: `${volume * 100}%`,
+              background: "#666",
+            }} />
+          </div>
+        </div>
+      </div>
+
+      {/* ── Progress (bottom) ── */}
+      <div style={{ padding: "0.5rem 0.9rem 0.6rem" }}>
         <div
           onClick={useSDK ? handleSeek : undefined}
           style={{
@@ -374,8 +422,6 @@ export default function SpotifyPlayer({
             }} />
           )}
         </div>
-
-        {/* Times */}
         <div style={{ display: "flex", justifyContent: "space-between" }}>
           <span style={{ fontFamily: MONO, fontSize: "0.48rem", letterSpacing: "0.06em", color: "#aaaaaa" }}>
             {fmt(position)}
@@ -383,53 +429,6 @@ export default function SpotifyPlayer({
           <span style={{ fontFamily: MONO, fontSize: "0.48rem", letterSpacing: "0.06em", color: "#aaaaaa" }}>
             {duration > 0 ? fmt(duration) : "--:--"}
           </span>
-        </div>
-      </div>
-
-      {/* ── Controls ── */}
-      <div style={{ padding: "0.75rem 0.9rem", display: "flex", alignItems: "center", justifyContent: "center", gap: "16px" }}>
-
-        <CtrlBtn disabled aria-label="Shuffle">
-          <IconShuffle />
-        </CtrlBtn>
-
-        <CtrlBtn disabled={!useSDK} onClick={() => playerRef.current?.previousTrack().catch(() => {})} aria-label="Previous">
-          <IconPrev />
-        </CtrlBtn>
-
-        <button
-          onClick={handlePlayPause}
-          aria-label={playing ? "Pause" : "Play"}
-          style={{
-            width: "44px", height: "44px", flexShrink: 0,
-            background: INK, color: "#ffffff", border: "none", cursor: "pointer",
-            display: "flex", alignItems: "center", justifyContent: "center",
-          }}
-          onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background = ORANGE; }}
-          onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = INK; }}
-        >
-          {playing ? <IconPause /> : <IconPlay />}
-        </button>
-
-        <CtrlBtn disabled={!useSDK} onClick={() => playerRef.current?.nextTrack().catch(() => {})} aria-label="Next">
-          <IconNext />
-        </CtrlBtn>
-
-        <CtrlBtn disabled aria-label="Repeat">
-          <IconRepeat />
-        </CtrlBtn>
-      </div>
-
-      {/* ── Volume ── */}
-      <div style={{ padding: "0.6rem 0.9rem", display: "flex", alignItems: "center", gap: "8px" }}>
-        <span style={{ color: "#aaaaaa", opacity: 0.35, flexShrink: 0, display: "flex" }}>
-          <IconVolume />
-        </span>
-        <div
-          onClick={handleVolume}
-          style={{ flex: 1, height: "2px", background: RULE, position: "relative", cursor: "pointer" }}
-        >
-          <div style={{ position: "absolute", left: 0, top: 0, height: "100%", width: `${volume * 100}%`, background: "#888" }} />
         </div>
       </div>
 
