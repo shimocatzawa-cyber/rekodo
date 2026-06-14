@@ -1,0 +1,403 @@
+"use client";
+
+import { useState, useEffect, useRef, useCallback } from "react";
+import Link from "next/link";
+import { createClient } from "@/lib/supabase/client";
+
+const SERIF = "var(--font-editorial)";
+const MONO  = "var(--font-mono)";
+const ORANGE = "#CC5500";
+const RULE   = "#e0e0da";
+const INK    = "#0a0a0a";
+const MUTED  = "#aaaaaa";
+const GOLD   = "#C9A84C";
+
+type SubTab = "matches" | "collectors" | "lists";
+
+type Match = {
+  userId: string;
+  username: string;
+  displayName: string | null;
+  location: string | null;
+  recordCount: number;
+  score: number;
+  label: string;
+  description: string;
+  sharedTags: string[];
+  isFollowing: boolean;
+  isDonor: boolean;
+};
+
+type Collector = {
+  id: string;
+  username: string;
+  display_name: string | null;
+  city: string | null;
+  country: string | null;
+  is_donor: boolean | null;
+};
+
+type ListEntry = {
+  id: string;
+  title: string;
+  slug: string;
+  username: string;
+  displayName: string | null;
+  covers: (string | null)[];
+  itemCount: number;
+};
+
+function initials(name: string | null, username: string): string {
+  if (!name) return (username[0] ?? "?").toUpperCase();
+  return name.trim().split(/\s+/).slice(0, 2).map(p => p[0]).join("").toUpperCase();
+}
+
+// ── Sub-components ─────────────────────────────────────────────────────────────
+
+function MatchCard({ match, isFollowing, canFollow, onFollow }: {
+  match: Match; isFollowing: boolean; canFollow: boolean; onFollow: () => void;
+}) {
+  const init = (match.displayName || match.username).charAt(0).toUpperCase();
+  return (
+    <div style={{ border: `1px solid ${RULE}`, padding: "20px 18px 16px", display: "flex", flexDirection: "column", gap: "10px" }}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+        <Link href={`/@${match.username}`} style={{ display: "flex", alignItems: "center", gap: "9px", textDecoration: "none" }}>
+          <span style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", width: 28, height: 28, borderRadius: "50%", background: ORANGE, color: "#fff", fontFamily: MONO, fontSize: "10px", fontWeight: 600, flexShrink: 0 }}>
+            {init}
+          </span>
+          <span style={{ display: "flex", alignItems: "center", gap: "4px" }}>
+            <span style={{ fontFamily: MONO, fontSize: "0.65rem", letterSpacing: "0.05em", color: INK }}>@{match.username}</span>
+            {match.isDonor && <span style={{ fontFamily: SERIF, fontSize: "0.75rem", color: GOLD }} title="rekōdo supporter">ō</span>}
+          </span>
+        </Link>
+        <span style={{ fontFamily: MONO, fontSize: "0.7rem", color: ORANGE, flexShrink: 0 }}>{match.score}%</span>
+      </div>
+
+      <p style={{ fontFamily: SERIF, fontStyle: "italic", fontSize: "0.85rem", color: "#505050", lineHeight: 1.4, margin: 0 }}>
+        {match.label}
+      </p>
+
+      {match.sharedTags.length > 0 && (
+        <div style={{ display: "flex", flexWrap: "wrap", gap: "4px" }}>
+          {match.sharedTags.map(tag => (
+            <span key={tag} style={{ fontFamily: MONO, fontSize: "0.5rem", letterSpacing: "0.08em", textTransform: "uppercase", color: "#888", border: `1px solid ${RULE}`, padding: "2px 6px" }}>
+              {tag}
+            </span>
+          ))}
+        </div>
+      )}
+
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", paddingTop: "8px", borderTop: `1px solid ${RULE}`, marginTop: "auto" }}>
+        <span style={{ fontFamily: MONO, fontSize: "0.5rem", color: MUTED, letterSpacing: "0.04em" }}>
+          {match.location ? `${match.location} · ` : ""}{match.recordCount.toLocaleString()} records
+        </span>
+        {canFollow && (
+          <button onClick={onFollow} style={{ fontFamily: MONO, fontSize: "0.5rem", letterSpacing: "0.08em", textTransform: "uppercase", background: "none", border: `1px solid ${isFollowing ? RULE : ORANGE}`, color: isFollowing ? MUTED : ORANGE, cursor: "pointer", padding: "3px 10px" }}>
+            {isFollowing ? "Following" : "Follow"}
+          </button>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function CollectorRow({ collector, isLast, isFollowing, canFollow, onFollow }: {
+  collector: Collector; isLast: boolean; isFollowing: boolean; canFollow: boolean; onFollow: () => void;
+}) {
+  const init = initials(collector.display_name, collector.username);
+  const location = [collector.city, collector.country].filter(Boolean).join(", ");
+  return (
+    <div style={{ display: "flex", alignItems: "center", gap: "14px", padding: "14px 0", borderBottom: isLast ? "none" : `1px solid ${RULE}` }}>
+      <Link href={`/@${collector.username}`} style={{ textDecoration: "none", flexShrink: 0 }}>
+        <div style={{ width: 36, height: 36, borderRadius: "50%", background: "#f0ede8", display: "flex", alignItems: "center", justifyContent: "center" }}>
+          <span style={{ fontFamily: MONO, fontSize: "10px", color: "#666", fontWeight: 600 }}>{init}</span>
+        </div>
+      </Link>
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <Link href={`/@${collector.username}`} style={{ textDecoration: "none" }}>
+          <p style={{ fontFamily: SERIF, fontSize: "0.9rem", fontWeight: 600, color: INK, margin: "0 0 2px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+            {collector.display_name ?? collector.username}
+            {collector.is_donor && <span style={{ fontFamily: SERIF, fontSize: "0.75rem", color: GOLD, marginLeft: "4px" }} title="rekōdo supporter">ō</span>}
+          </p>
+          <p style={{ fontFamily: MONO, fontSize: "0.55rem", letterSpacing: "0.06em", color: MUTED, margin: 0 }}>
+            @{collector.username}{location ? ` · ${location}` : ""}
+          </p>
+        </Link>
+      </div>
+      {canFollow && (
+        <button onClick={onFollow} style={{ fontFamily: MONO, fontSize: "0.5rem", letterSpacing: "0.08em", textTransform: "uppercase", background: "none", border: `1px solid ${isFollowing ? RULE : ORANGE}`, color: isFollowing ? MUTED : ORANGE, cursor: "pointer", padding: "4px 12px", flexShrink: 0 }}>
+          {isFollowing ? "Following" : "Follow"}
+        </button>
+      )}
+    </div>
+  );
+}
+
+function ListCard({ list }: { list: ListEntry }) {
+  const hasCover = list.covers.some(Boolean);
+  return (
+    <div style={{ borderBottom: `1px solid ${RULE}`, padding: "16px 0" }}>
+      <div style={{ display: "flex", alignItems: "flex-start", gap: "14px" }}>
+        {hasCover && (
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "2px", width: 44, flexShrink: 0 }}>
+            {list.covers.slice(0, 4).map((cover, i) => (
+              <div key={i} style={{ width: 21, height: 21, background: "#f0ede8", overflow: "hidden" }}>
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                {cover && <img src={cover} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />}
+              </div>
+            ))}
+          </div>
+        )}
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <Link href={`/@${list.username}/lists/${list.slug}`} style={{ textDecoration: "none" }}>
+            <p style={{ fontFamily: SERIF, fontSize: "0.95rem", fontWeight: 600, color: INK, margin: "0 0 4px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+              {list.title}
+            </p>
+          </Link>
+          <p style={{ fontFamily: MONO, fontSize: "0.55rem", color: MUTED, letterSpacing: "0.05em", margin: 0 }}>
+            @{list.username} · {list.itemCount} record{list.itemCount !== 1 ? "s" : ""}
+          </p>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── Main component ─────────────────────────────────────────────────────────────
+
+export default function CommunityTab({ profileOwnerId }: { profileOwnerId: string }) {
+  const [viewerUserId, setViewerUserId] = useState<string | null>(null);
+  const [subTab,       setSubTab]       = useState<SubTab>("matches");
+  const [searchQuery,  setSearchQuery]  = useState("");
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Matches
+  const [matches,        setMatches]        = useState<Match[] | null>(null);
+  const [matchesLoading, setMatchesLoading] = useState(false);
+
+  // All collectors
+  const [collectors,        setCollectors]        = useState<Collector[]>([]);
+  const [collectorsLoading, setCollectorsLoading] = useState(false);
+
+  // Lists from network
+  const [lists,       setLists]       = useState<ListEntry[]>([]);
+  const [listsState,  setListsState]  = useState<"idle" | "loading" | "done">("idle");
+
+  // Follow state
+  const [followState, setFollowState] = useState<Record<string, boolean>>({});
+
+  // Get viewer user ID on mount
+  useEffect(() => {
+    createClient().auth.getUser().then(({ data: { user } }) => {
+      setViewerUserId(user?.id ?? null);
+    });
+  }, []);
+
+  // Load top matches
+  useEffect(() => {
+    if (subTab !== "matches" || matches !== null) return;
+    setMatchesLoading(true);
+    fetch(`/api/collectors/matches?userId=${encodeURIComponent(profileOwnerId)}`)
+      .then(r => r.ok ? r.json() : { matches: [] })
+      .then(d => {
+        const list: Match[] = d.matches ?? [];
+        setMatches(list);
+        const fs: Record<string, boolean> = {};
+        for (const m of list) fs[m.userId] = m.isFollowing;
+        setFollowState(prev => ({ ...prev, ...fs }));
+      })
+      .catch(() => setMatches([]))
+      .finally(() => setMatchesLoading(false));
+  }, [subTab, profileOwnerId, matches]);
+
+  // Load lists from network
+  useEffect(() => {
+    if (subTab !== "lists" || listsState !== "idle") return;
+    setListsState("loading");
+    fetch("/api/lists/following")
+      .then(r => r.ok ? r.json() : { lists: [] })
+      .then(d => { setLists(d.lists ?? []); setListsState("done"); })
+      .catch(() => setListsState("done"));
+  }, [subTab, listsState]);
+
+  // Load collectors (debounced search)
+  const loadCollectors = useCallback(async (query: string) => {
+    setCollectorsLoading(true);
+    try {
+      const supabase = createClient();
+      let q = supabase
+        .from("profiles")
+        .select("id, username, display_name, city, country, is_donor")
+        .eq("is_public", true)
+        .limit(50);
+      if (query.trim()) {
+        q = q.or(`username.ilike.%${query.trim()}%,display_name.ilike.%${query.trim()}%`);
+      } else {
+        q = q.order("username", { ascending: true });
+      }
+      const { data } = await q;
+      setCollectors((data ?? []) as Collector[]);
+    } finally {
+      setCollectorsLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (subTab !== "collectors") return;
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    debounceRef.current = setTimeout(() => loadCollectors(searchQuery), 280);
+    return () => { if (debounceRef.current) clearTimeout(debounceRef.current); };
+  }, [subTab, searchQuery, loadCollectors]);
+
+  async function toggleFollow(targetId: string) {
+    if (!viewerUserId || targetId === viewerUserId) return;
+    const prev = followState[targetId] ?? false;
+    setFollowState(s => ({ ...s, [targetId]: !prev }));
+    try {
+      const res = await fetch("/api/collectors/follow", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ followingId: targetId }),
+      });
+      const data = await res.json();
+      if (typeof data.isFollowing === "boolean") {
+        setFollowState(s => ({ ...s, [targetId]: data.isFollowing }));
+      }
+    } catch {
+      setFollowState(s => ({ ...s, [targetId]: prev }));
+    }
+  }
+
+  const TABS: Array<{ key: SubTab; label: string }> = [
+    { key: "matches",    label: "Top Matches" },
+    { key: "collectors", label: "All Collectors" },
+    { key: "lists",      label: "Lists" },
+  ];
+
+  return (
+    <div style={{ width: "100%", padding: "24px 1.5rem 4rem" }}>
+      <div style={{ maxWidth: 860, margin: "0 auto" }}>
+
+        {/* Search bar */}
+        <input
+          type="text"
+          placeholder="Search collectors by name or username…"
+          value={searchQuery}
+          onChange={e => {
+            setSearchQuery(e.target.value);
+            if (e.target.value.trim()) setSubTab("collectors");
+          }}
+          style={{
+            width: "100%", fontFamily: MONO, fontSize: "0.72rem", letterSpacing: "0.04em",
+            color: INK, background: "#fafaf8", border: `1px solid ${RULE}`,
+            padding: "10px 14px", outline: "none", boxSizing: "border-box",
+            marginBottom: "24px",
+          }}
+        />
+
+        {/* Sub-tabs */}
+        <div style={{ display: "flex", borderBottom: `1px solid ${RULE}`, marginBottom: "28px" }}>
+          {TABS.map(t => (
+            <button
+              key={t.key}
+              onClick={() => setSubTab(t.key)}
+              style={{
+                fontFamily: MONO, fontSize: "0.58rem", letterSpacing: "0.12em",
+                textTransform: "uppercase",
+                color: subTab === t.key ? ORANGE : MUTED,
+                background: "none", border: "none",
+                borderBottom: subTab === t.key ? `1.5px solid ${ORANGE}` : "1.5px solid transparent",
+                padding: "8px 20px 10px", cursor: "pointer", marginBottom: "-1px",
+              }}
+            >
+              {t.label}
+            </button>
+          ))}
+        </div>
+
+        {/* ── Top Matches ────────────────────────────────────────────────────── */}
+        {subTab === "matches" && (
+          <>
+            {matchesLoading && (
+              <p style={{ fontFamily: MONO, fontSize: "0.55rem", color: MUTED, letterSpacing: "0.08em" }}>
+                Finding closest matches…
+              </p>
+            )}
+            {!matchesLoading && matches !== null && matches.length === 0 && (
+              <div style={{ paddingTop: "16px" }}>
+                <p style={{ fontFamily: SERIF, fontSize: "1.1rem", color: INK, marginBottom: "8px" }}>No matches yet.</p>
+                <p style={{ fontFamily: MONO, fontSize: "0.65rem", color: MUTED, lineHeight: 1.7 }}>
+                  Matches are computed from shared artists, genres and decades across the rekōdo community. As more collectors join, your closest matches will appear here.
+                </p>
+              </div>
+            )}
+            {!matchesLoading && matches && matches.length > 0 && (
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(240px, 1fr))", gap: "14px" }}>
+                {matches.map(m => (
+                  <MatchCard
+                    key={m.userId}
+                    match={m}
+                    isFollowing={followState[m.userId] ?? m.isFollowing}
+                    canFollow={!!viewerUserId && viewerUserId !== m.userId}
+                    onFollow={() => toggleFollow(m.userId)}
+                  />
+                ))}
+              </div>
+            )}
+          </>
+        )}
+
+        {/* ── All Collectors ─────────────────────────────────────────────────── */}
+        {subTab === "collectors" && (
+          <>
+            {collectorsLoading && (
+              <p style={{ fontFamily: MONO, fontSize: "0.55rem", color: MUTED, letterSpacing: "0.08em" }}>Loading…</p>
+            )}
+            {!collectorsLoading && collectors.length === 0 && (
+              <p style={{ fontFamily: MONO, fontSize: "0.65rem", color: MUTED, paddingTop: "8px" }}>
+                {searchQuery.trim() ? `No collectors found for "${searchQuery}".` : "No collectors yet."}
+              </p>
+            )}
+            {!collectorsLoading && collectors.length > 0 && (
+              <div>
+                {collectors.map((c, i) => (
+                  <CollectorRow
+                    key={c.id}
+                    collector={c}
+                    isLast={i === collectors.length - 1}
+                    isFollowing={followState[c.id] ?? false}
+                    canFollow={!!viewerUserId && viewerUserId !== c.id}
+                    onFollow={() => toggleFollow(c.id)}
+                  />
+                ))}
+              </div>
+            )}
+          </>
+        )}
+
+        {/* ── Lists from Network ──────────────────────────────────────────────── */}
+        {subTab === "lists" && (
+          <>
+            {listsState === "loading" && (
+              <p style={{ fontFamily: MONO, fontSize: "0.55rem", color: MUTED, letterSpacing: "0.08em" }}>Loading…</p>
+            )}
+            {listsState === "done" && lists.length === 0 && (
+              <div style={{ paddingTop: "16px" }}>
+                <p style={{ fontFamily: SERIF, fontSize: "1.1rem", color: INK, marginBottom: "8px" }}>No lists yet.</p>
+                <p style={{ fontFamily: MONO, fontSize: "0.65rem", color: MUTED, lineHeight: 1.7 }}>
+                  Follow collectors to see their lists here. Use Top Matches to find collectors with similar taste.
+                </p>
+              </div>
+            )}
+            {listsState === "done" && lists.length > 0 && (
+              <div>
+                {lists.map(list => <ListCard key={list.id} list={list} />)}
+              </div>
+            )}
+          </>
+        )}
+
+      </div>
+    </div>
+  );
+}

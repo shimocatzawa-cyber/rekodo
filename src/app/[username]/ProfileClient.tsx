@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState, useTransition, useEffect, useMemo } from "react";
+import { useRef, useState, useTransition, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
@@ -15,7 +15,7 @@ import Top5Editor, { type EditorSlot } from "@/components/profile/Top5Editor";
 import { createList, deleteList } from "@/app/lists/actions";
 import WantlistClient from "@/components/wantlist/WantlistClient";
 import SupporterContent from "@/components/profile/SupporterContent";
-import CommunitySidebar from "@/components/community/CommunitySidebar";
+import CommunityTab from "@/components/community/CommunityTab";
 import LunarListeningRitual from "@/components/LunarListeningRitual";
 import type { UserList, DiscoverList } from "@/app/lists/types";
 
@@ -40,16 +40,6 @@ const SIGN_SYMBOL: Record<string, string> = {
   Aquarius:    "https://upload.wikimedia.org/wikipedia/commons/f/fd/Aquarius_symbol_%28fixed_width%29.svg",
   Pisces:      "https://upload.wikimedia.org/wikipedia/commons/2/21/Pisces_symbol_%28fixed_width%29.svg",
 };
-
-// ─── Static placeholder discover cards ────────────────────────────────────────
-
-const STATIC_DISCOVER_CARDS = [
-  { id: "s1", title: "Top 5 Japanese Jazz",       username: "tokyovinyl",  count: "892 records",   badge: "Label Mate · 71%",             saves: 312 },
-  { id: "s2", title: "Top 5 Kosmische",            username: "analogdrift", count: "634 records",   badge: "Bandmates · 79%",              saves: 156 },
-  { id: "s3", title: "Top 5 Drag City Records",    username: "indiehead",   count: "445 records",   badge: "A Side to my B · 58%",         saves: 89  },
-  { id: "s4", title: "Top 5 Records of 1972",      username: "cratedigger", count: "23 versions",   badge: "Trending 🔥",                  saves: 847 },
-  { id: "s5", title: "Top 5 Blue Note Originals",  username: "jazzhead",    count: "1,204 records", badge: "Regular at the Same Shop · 42%", saves: 234 },
-] as const;
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -117,50 +107,14 @@ interface Props {
   bcSyncDate?: string | null;
 }
 
-type ProfileTab  = "profile" | "lists" | "community" | "supporter";
-type DiscoverTab = "similar" | "following" | "trending" | "all";
-
-// ─── Discover card component ──────────────────────────────────────────────────
-
-function DiscoverCard({ title, username, recordCount, badge, saves, onSave, saved }: {
-  title: string; username: string; recordCount: string;
-  badge: string | null; saves: number;
-  onSave: () => void; saved: boolean;
-}) {
-  return (
-    <div style={{ borderBottom: "1px solid #e0e0da", padding: "16px 0" }}>
-      <p style={{ fontFamily: SERIF, fontSize: "0.95rem", fontWeight: 600, color: INK, lineHeight: 1.3, marginBottom: "4px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-        {title}
-      </p>
-      <p style={{ fontFamily: MONO, fontSize: "0.7rem", color: MUTED, letterSpacing: "0.06em", marginBottom: "12px" }}>
-        @{username} · {recordCount}
-      </p>
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "10px" }}>
-        {badge ? (
-          <span style={{ fontFamily: MONO, fontSize: "0.7rem", letterSpacing: "0.06em", fontStyle: "italic", color: ORANGE, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-            {badge}
-          </span>
-        ) : <span />}
-        <div style={{ display: "flex", alignItems: "center", gap: "12px", flexShrink: 0 }}>
-          <button onClick={onSave} disabled={saved}
-            style={{ fontFamily: MONO, fontSize: "0.7rem", letterSpacing: "0.06em", color: saved ? MUTED : ORANGE, background: "none", border: "none", cursor: saved ? "default" : "pointer", padding: 0 }}>
-            {saved ? "Saved ✓" : "Save ↓"}
-          </button>
-          <span style={{ fontFamily: MONO, fontSize: "0.7rem", color: MUTED, letterSpacing: "0.04em" }}>
-            {saves.toLocaleString()} saves
-          </span>
-        </div>
-      </div>
-    </div>
-  );
-}
+type ProfileTab = "profile" | "lists" | "community" | "supporter";
 
 // ─── Main component ───────────────────────────────────────────────────────────
 
 export default function ProfileClient({
   profile, isOwner, totalRecords, topGenre, topCountry, topLabel,
   lists, listItems, coverRecords, followerCount, followingCount, viewer,
-  fullLists, discoverLists = [], collectionPhoto = null,
+  fullLists, collectionPhoto = null,
   bcSyncTotal = 0, bcSyncDuplicates = 0, bcSyncDate = null,
 }: Props) {
   const router       = useRouter();
@@ -340,30 +294,6 @@ export default function ProfileClient({
   // ── Share ─────────────────────────────────────────────────────────────────
   const [copied, setCopied] = useState(false);
 
-  // ── Community tab state ───────────────────────────────────────────────────
-  const [discoverTab,    setDiscoverTab]    = useState<DiscoverTab>("similar");
-  const [followingLists, setFollowingLists] = useState<DiscoverList[]>([]);
-  const [followingState, setFollowingState] = useState<"idle" | "loading" | "done" | "empty">("idle");
-  const [savedCards,     setSavedCards]     = useState<Array<{ id: string; title: string; username: string }>>([]);
-
-  useEffect(() => {
-    if (discoverTab !== "following" || followingState !== "idle") return;
-    setFollowingState("loading");
-    fetch("/api/lists/following")
-      .then(r => r.ok ? r.json() : { lists: [] })
-      .then((data: { lists?: DiscoverList[] }) => {
-        const ls = data.lists ?? [];
-        setFollowingLists(ls);
-        setFollowingState(ls.length === 0 ? "empty" : "done");
-      })
-      .catch(() => setFollowingState("empty"));
-  }, [discoverTab, followingState]);
-
-  const sortedDiscoverLists = useMemo(() => {
-    if (discoverTab === "trending") return [...discoverLists].sort((a, b) => b.itemCount - a.itemCount);
-    return discoverLists;
-  }, [discoverLists, discoverTab]);
-
   // ── Helpers ───────────────────────────────────────────────────────────────
   function openEdit() {
     setNameValue(profile.display_name     ?? "");
@@ -452,10 +382,6 @@ export default function ProfileClient({
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     } catch { /* non-fatal */ }
-  }
-
-  function saveCard(id: string, title: string, username: string) {
-    setSavedCards(prev => prev.some(c => c.id === id) ? prev : [...prev, { id, title, username }]);
   }
 
   // ── List data (for Profile tab cover grid) ────────────────────────────────
@@ -1040,51 +966,7 @@ export default function ProfileClient({
 
       {/* ─────────────── COMMUNITY TAB ───────────────────────────────────────── */}
       {profileTab === "community" && (
-        <div style={{ width: "100%", padding: "0 1.5rem 3rem" }}>
-          <div style={{
-            display: "grid",
-            gridTemplateColumns: "260px 1fr",
-            gap: 0,
-            alignItems: "start",
-            maxWidth: 960,
-            margin: "0 auto",
-          }}
-            className="community-layout"
-          >
-            {/* Left sidebar */}
-            <CommunitySidebar profileOwnerId={profile.id} isOwner={isOwner} />
-
-            {/* Right — list feed */}
-            <div style={{ paddingLeft: "2rem", borderLeft: `1px solid ${RULE}`, paddingTop: "24px", paddingBottom: "3rem" }}
-              className="community-feed"
-            >
-              {STATIC_DISCOVER_CARDS.map(card => (
-                <DiscoverCard
-                  key={card.id}
-                  title={card.title}
-                  username={card.username}
-                  recordCount={card.count}
-                  badge={card.badge}
-                  saves={card.saves}
-                  onSave={() => saveCard(card.id, card.title, card.username)}
-                  saved={savedCards.some(c => c.id === card.id)}
-                />
-              ))}
-              {discoverLists.map(list => (
-                <DiscoverCard
-                  key={list.id}
-                  title={list.title}
-                  username={list.username}
-                  recordCount={`${list.itemCount} records`}
-                  badge={null}
-                  saves={list.saveCount}
-                  onSave={() => saveCard(list.id, list.title, list.username)}
-                  saved={savedCards.some(c => c.id === list.id)}
-                />
-              ))}
-            </div>
-          </div>
-        </div>
+        <CommunityTab profileOwnerId={profile.id} />
       )}
 
       {/* ── Template picker modal ── */}
