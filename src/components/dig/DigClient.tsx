@@ -282,6 +282,8 @@ function SleeveCard({ rec, mode, onAddToWantlist, wantlistAdded }: {
               mode="dig"
               previewUrl={spotifyPreview.previewUrl ?? undefined}
               spotifyTrackUri={spotifyPreview.trackUri ?? undefined}
+              artist={rec.artist}
+              albumTitle={rec.album}
             />
           </div>
         )}
