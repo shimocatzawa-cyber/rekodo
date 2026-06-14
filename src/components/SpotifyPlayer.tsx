@@ -142,12 +142,9 @@ export default function SpotifyPlayer({
   const [sdkReady,     setSdkReady]     = useState(false);
   const [currentTrack, setCurrentTrack] = useState<{ artist: string; name: string } | null>(null);
 
-  const playerRef    = useRef<SpotifySDKPlayer | null>(null);
-  const audioRef     = useRef<HTMLAudioElement | null>(null);
-  const pollRef      = useRef<ReturnType<typeof setInterval> | null>(null);
-  // Tracks which spotifyUri we've sent a play command for so handlePlayPause can
-  // distinguish "toggle current album" from "start a different album".
-  const activeUriRef = useRef<string | null>(null);
+  const playerRef = useRef<SpotifySDKPlayer | null>(null);
+  const audioRef  = useRef<HTMLAudioElement | null>(null);
+  const pollRef   = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const isPremium  = !!(tokenData?.connected && tokenData.product === "premium");
   const useSDK     = isPremium && (mode === "collection" ? !!spotifyUri : !!spotifyTrackUri);
@@ -221,22 +218,10 @@ export default function SpotifyPlayer({
 
   // ── Reset UI state when the album changes (SpotifyPlayer stays mounted) ──
   useEffect(() => {
-    activeUriRef.current = null; // force fresh play command on next click/auto-play
     setCurrentTrack(null);
     setPosition(0);
     setPlaying(false);
   }, [spotifyUri]);
-
-  // ── Auto-play in collection mode when URI + device ready ──────────────────
-  useEffect(() => {
-    if (mode !== "collection" || !deviceId || !tokenData?.access_token || !spotifyUri) return;
-    activeUriRef.current = spotifyUri;
-    fetch(`https://api.spotify.com/v1/me/player/play?device_id=${deviceId}`, {
-      method:  "PUT",
-      headers: { Authorization: `Bearer ${tokenData.access_token}`, "Content-Type": "application/json" },
-      body:    JSON.stringify({ context_uri: spotifyUri }),
-    }).catch(() => { activeUriRef.current = null; });
-  }, [mode, deviceId, spotifyUri, tokenData?.access_token]);
 
   // ── Keep SDK alive across tab switches ────────────────────────────────────
   useEffect(() => {
@@ -295,39 +280,30 @@ export default function SpotifyPlayer({
   }, [previewUrl]);
 
   // ── Play / pause ──────────────────────────────────────────────────────────
+  // `playing` (from player_state_changed) is the truth: if true we're already
+  // playing so we pause; if false we always send an explicit play command for the
+  // current URI — no guessing about which album the SDK has loaded.
   const handlePlayPause = useCallback(async () => {
     if (useSDK && playerRef.current) {
-      const needsFreshStart = activeUriRef.current !== (spotifyUri ?? null);
-      if (needsFreshStart) {
-        // Either first click on this album, or auto-play hasn't confirmed yet —
-        // always send an explicit start command so we never togglePlay the wrong album.
+      if (playing) {
+        await playerRef.current.togglePlay().catch(() => {});
+      } else {
+        if (!deviceId || !tokenData?.access_token) return;
         const body = mode === "collection" && spotifyUri
           ? { context_uri: spotifyUri }
           : spotifyTrackUri
             ? { uris: [spotifyTrackUri] }
             : null;
-        if (body && tokenData?.access_token) {
-          activeUriRef.current = spotifyUri ?? null;
-          const playUrl = deviceId
-            ? `https://api.spotify.com/v1/me/player/play?device_id=${deviceId}`
-            : `https://api.spotify.com/v1/me/player/play`;
-          await fetch(playUrl, {
-            method:  "PUT",
-            headers: { Authorization: `Bearer ${tokenData.access_token}`, "Content-Type": "application/json" },
-            body:    JSON.stringify(body),
-          }).catch(() => { activeUriRef.current = null; });
-        }
-      } else {
-        // Same album already started — safe to toggle play/pause.
-        await playerRef.current.togglePlay();
+        if (!body) return;
+        await fetch(`https://api.spotify.com/v1/me/player/play?device_id=${deviceId}`, {
+          method:  "PUT",
+          headers: { Authorization: `Bearer ${tokenData.access_token}`, "Content-Type": "application/json" },
+          body:    JSON.stringify(body),
+        }).catch(() => {});
       }
     } else if (audioRef.current) {
-      // Audio state is driven by element events — just call play/pause.
-      if (playing) {
-        audioRef.current.pause();
-      } else {
-        audioRef.current.play().catch(() => {});
-      }
+      if (playing) audioRef.current.pause();
+      else audioRef.current.play().catch(() => {});
     }
   }, [useSDK, playing, mode, spotifyUri, spotifyTrackUri, deviceId, tokenData?.access_token]);
 

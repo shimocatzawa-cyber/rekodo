@@ -1967,7 +1967,8 @@ function TracklistPanel({ tracks, loading, bandcamp, record }: {
   // ── Spotify ───────────────────────────────────────────────────────────────
   const [spotifyToken,    setSpotifyToken]    = useState<string | null>(null);
   const [spotifyPremium,  setSpotifyPremium]  = useState(false);
-  const [currentSpotifyUri, setCurrentSpotifyUri] = useState<string | null>(null);
+  // undefined = searching (loading), null = no match found, string = match
+  const [currentSpotifyUri, setCurrentSpotifyUri] = useState<string | null | undefined>(undefined);
   const spotifyUriCache = useRef<Map<string, string | null>>(new Map());
 
   useEffect(() => {
@@ -1983,6 +1984,9 @@ function TracklistPanel({ tracks, loading, bandcamp, record }: {
   }, []);
 
   useEffect(() => {
+    // Reset immediately so SpotifyPlayer's reset effect fires for the new album.
+    // undefined keeps the player mounted (SDK stays alive) but clears the old URI.
+    setCurrentSpotifyUri(undefined);
     if (!spotifyPremium || !spotifyToken || !record) {
       setCurrentSpotifyUri(null);
       return;
@@ -1992,11 +1996,10 @@ function TracklistPanel({ tracks, loading, bandcamp, record }: {
       setCurrentSpotifyUri(spotifyUriCache.current.get(key) ?? null);
       return;
     }
-    // Don't reset to null/undefined while searching — keep previous URI live so the
-    // SDK player stays connected and doesn't need to re-initialise for every album switch.
     const artist = record.artist;
     const album  = record.album;
     const token  = spotifyToken;
+    let cancelled = false;
     (async () => {
       try {
         // Quoted field-filter search — precise match
@@ -2017,13 +2020,16 @@ function TracklistPanel({ tracks, loading, bandcamp, record }: {
           uri = d2?.albums?.items?.[0]?.uri ?? null;
         }
 
+        if (cancelled) return;
         spotifyUriCache.current.set(key, uri);
         setCurrentSpotifyUri(uri);
       } catch {
+        if (cancelled) return;
         spotifyUriCache.current.set(key, null);
         setCurrentSpotifyUri(null);
       }
     })();
+    return () => { cancelled = true; };
   }, [record?.id, spotifyPremium, spotifyToken]);
 
   async function handleOpenToOffers() {
