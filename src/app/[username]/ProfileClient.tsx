@@ -754,51 +754,55 @@ export default function ProfileClient({
 
                 {/* ── Album recommendation ── */}
                 {profile.star_sign && (
-                  <div style={{ marginTop: "16px", paddingTop: "16px", borderTop: `1px solid ${RULE}` }}>
-                    <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "8px" }}>
-                      {SIGN_SYMBOL[profile.star_sign] ? (
-                        // eslint-disable-next-line @next/next/no-img-element
-                        <img src={SIGN_SYMBOL[profile.star_sign]} alt={profile.star_sign} style={{ height: "14px", width: "auto", opacity: 0.4 }} />
-                      ) : null}
-                      <p style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.14em", textTransform: "uppercase", color: ORANGE, margin: 0 }}>
+                  <div style={{ fontFamily: MONO, color: INK }}>
+
+                    {/* Eyebrow — mirrors Lunar Listening header */}
+                    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "10px 20px" }}>
+                      <span style={{ fontSize: "0.56rem", letterSpacing: "0.14em", textTransform: "uppercase", color: ORANGE }}>
                         Album Recommendation
-                      </p>
+                      </span>
+                      {SIGN_SYMBOL[profile.star_sign] && (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img src={SIGN_SYMBOL[profile.star_sign]} alt={profile.star_sign} style={{ height: "14px", width: "auto", opacity: 0.3 }} />
+                      )}
                     </div>
+
+                    {/* Body — same grid as Lunar Listening */}
                     {profile.taste_summary ? (() => {
                       const rec = parseRec(profile.taste_summary);
                       return (
                         <>
-                          <div style={{ display: "flex", gap: "12px", alignItems: "flex-start", marginBottom: "8px" }}>
-                            {recCoverUrl && (
-                              // eslint-disable-next-line @next/next/no-img-element
-                              <img
-                                src={recCoverUrl}
-                                alt={rec?.album ?? ""}
-                                style={{ width: "64px", height: "64px", objectFit: "cover", flexShrink: 0 }}
-                              />
-                            )}
-                            <div style={{ minWidth: 0 }}>
+                          <div style={{ padding: "0 20px 18px", display: "grid", gridTemplateColumns: "56px 1fr", gap: "18px", alignItems: "start" }}>
+                            <div style={{ paddingTop: "2px" }}>
+                              {recCoverUrl ? (
+                                // eslint-disable-next-line @next/next/no-img-element
+                                <img src={recCoverUrl} alt={rec?.album ?? ""} style={{ width: "52px", height: "52px", objectFit: "cover", display: "block" }} />
+                              ) : (
+                                <div style={{ width: "52px", height: "52px", background: "#f0ede8" }} />
+                              )}
+                            </div>
+                            <div>
                               {rec ? (
                                 <>
-                                  <p style={{ fontFamily: SERIF, fontSize: "0.85rem", fontWeight: 600, color: INK, margin: "0 0 1px 0", lineHeight: 1.3 }}>
+                                  <p style={{ fontFamily: SERIF, fontSize: "1.05rem", fontWeight: 600, letterSpacing: "-0.02em", color: INK, margin: "0 0 5px 0", lineHeight: 1.2 }}>
                                     {rec.artist}
                                   </p>
-                                  <p style={{ fontFamily: SERIF, fontSize: "0.75rem", fontWeight: 600, color: INK, margin: "0 0 6px 0", lineHeight: 1.3 }}>
+                                  <p style={{ fontFamily: SERIF, fontSize: "0.9rem", fontWeight: 500, color: INK, lineHeight: 1.4, margin: "0 0 7px 0" }}>
                                     {rec.album}
                                   </p>
-                                  <p style={{ fontFamily: SERIF, fontSize: "0.85rem", fontStyle: "italic", color: "#505050", lineHeight: 1.6, margin: 0 }}>
+                                  <p style={{ fontSize: "0.85rem", lineHeight: 1.7, opacity: 0.65, margin: 0 }}>
                                     {rec.description}
                                   </p>
                                 </>
                               ) : (
-                                <p style={{ fontFamily: SERIF, fontSize: "0.9rem", fontStyle: "italic", color: "#505050", lineHeight: 1.7, margin: 0 }}>
+                                <p style={{ fontSize: "0.85rem", lineHeight: 1.7, opacity: 0.65, margin: 0 }}>
                                   {profile.taste_summary}
                                 </p>
                               )}
                             </div>
                           </div>
                           {isOwner && (
-                            <div>
+                            <div style={{ padding: "0 20px 12px" }}>
                               <button onClick={handleGenerateSummary} disabled={summaryPending} style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.1em", textTransform: "uppercase", color: summaryPending ? "#ccc" : "#bbb", background: "none", border: "none", cursor: summaryPending ? "default" : "pointer", padding: 0 }}>
                                 {summaryPending ? "Generating…" : "Regenerate →"}
                               </button>
@@ -808,13 +812,14 @@ export default function ProfileClient({
                         </>
                       );
                     })() : isOwner ? (
-                      <div>
+                      <div style={{ padding: "0 20px 18px" }}>
                         <button onClick={handleGenerateSummary} disabled={summaryPending} style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.1em", textTransform: "uppercase", color: summaryPending ? "#ccc" : ORANGE, background: "none", border: "none", cursor: summaryPending ? "default" : "pointer", padding: 0 }}>
                           {summaryPending ? "Generating…" : "Generate →"}
                         </button>
                         {summaryError && <p style={{ fontFamily: MONO, fontSize: "10px", color: "#cc3300", margin: "4px 0 0" }}>{summaryError}</p>}
                       </div>
                     ) : null}
+
                   </div>
                 )}
               </>
