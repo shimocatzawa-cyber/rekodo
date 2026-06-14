@@ -1,5 +1,6 @@
 import { type NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { createClient as createSupabaseClient } from "@supabase/supabase-js";
 
 // ── String utilities ──────────────────────────────────────────────────────────
 
@@ -134,12 +135,19 @@ export async function POST(request: NextRequest) {
     const { userId } = (await request.json()) as { userId?: string };
     if (!userId) return NextResponse.json({ error: "Missing userId" }, { status: 400 });
 
+    // Verify the caller's session using the cookie-based client
     const supabase = await createClient();
-
     const { data: { user } } = await supabase.auth.getUser();
     if (!user || user.id !== userId) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
+
+    // Use service-role client for DB writes so RLS never blocks them.
+    // Auth is already verified above — the service role is safe here.
+    const admin = createSupabaseClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.SUPABASE_SERVICE_ROLE_KEY!
+    );
 
     const { data: profile } = await supabase
       .from("profiles")
@@ -232,9 +240,8 @@ export async function POST(request: NextRequest) {
       };
     });
 
-    // Replace previous sync data rather than upsert — avoids depending on a
-    // unique constraint and ensures stale entries are cleaned up.
-    const { error: delError } = await supabase
+    // Replace previous sync data — delete then insert via service role (bypasses RLS).
+    const { error: delError } = await admin
       .from("digital_imports")
       .delete()
       .eq("user_id", userId)
@@ -243,7 +250,7 @@ export async function POST(request: NextRequest) {
 
     const INSERT_BATCH = 100;
     for (let i = 0; i < upsertRows.length; i += INSERT_BATCH) {
-      const { error: insError } = await supabase
+      const { error: insError } = await admin
         .from("digital_imports")
         .insert(upsertRows.slice(i, i + INSERT_BATCH));
       if (insError) throw new Error(`Failed to save import batch: ${insError.message}`);
