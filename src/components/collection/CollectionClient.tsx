@@ -842,8 +842,11 @@ const [filterFormat,       setFilterFormat]       = useState("");
               <p style={{ fontFamily: SERIF, fontSize: "1.1rem", fontWeight: 400, color: "#0d0d0d", margin: "0 0 12px", letterSpacing: "-0.01em" }}>
                 Upload your export file
               </p>
-              <p style={{ fontFamily: MONO, fontSize: "0.65rem", color: "#aaaaaa", lineHeight: 1.7, margin: "0 0 28px" }}>
+              <p style={{ fontFamily: MONO, fontSize: "0.65rem", color: "#aaaaaa", lineHeight: 1.7, margin: "0 0 8px" }}>
                 Download your collection CSV from Discogs (My Account → Collection → Export), then upload it here. Records appear immediately while we enrich in the background.
+              </p>
+              <p style={{ fontFamily: MONO, fontSize: "0.65rem", color: ORANGE, lineHeight: 1.7, margin: "0 0 28px" }}>
+                Recommended for collectors with &gt;2,000 records.
               </p>
               <div
                 onClick={() => { if (!csvUploading) document.getElementById("csv-file-input")?.click(); }}
