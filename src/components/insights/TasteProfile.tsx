@@ -11,6 +11,17 @@ const RULE   = "#e0e0da";
 
 // ── Archetype metadata ─────────────────────────────────────────────────────────
 
+const ARCHETYPE_IMAGES: Record<string, string> = {
+  archaeologist: "/archetypes/rekodo_archetype_01_archaeologist.PNG",
+  cartographer:  "/archetypes/rekodo_archetype_02_cartographer.PNG",
+  archivist:     "/archetypes/rekodo_archetype_03_archivist.PNG",
+  emotional:     "/archetypes/rekodo_archetype_04_emotional.PNG",
+  sensualist:    "/archetypes/rekodo_archetype_05_sensualist.PNG",
+  scout:         "/archetypes/rekodo_archetype_06_scout.PNG",
+  custodian:     "/archetypes/rekodo_archetype_07_custodian.PNG",
+  biographer:    "/archetypes/rekodo_archetype_08_biographer.PNG",
+};
+
 const ARCHETYPE_COLORS: Record<string, string> = {
   archaeologist: "#185FA5",
   cartographer:  "#0F6E56",
@@ -335,6 +346,23 @@ export default function TasteProfile() {
 
       {data && (
         <>
+          {/* ── Archetype image ── */}
+          {ARCHETYPE_IMAGES[data.archetypes.primary] && (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={ARCHETYPE_IMAGES[data.archetypes.primary]}
+              alt={primaryCopy?.title ?? data.archetypes.primary}
+              style={{
+                display: "block",
+                width: "100%",
+                maxHeight: "320px",
+                objectFit: "cover",
+                objectPosition: "center top",
+                marginBottom: "0",
+              }}
+            />
+          )}
+
           {/* ── Archetype ── */}
           <div style={{ borderTop: `1px solid ${RULE}`, borderBottom: `1px solid ${RULE}`, padding: "32px 0", marginBottom: "40px" }}>
             <p style={{
