@@ -358,9 +358,12 @@ function DigCompactPlayer({ previewUrl, albumUri, trackUri, artist, album }: {
   const [volume,    setVolume]    = useState(0.8);
   const [nowTrack,  setNowTrack]  = useState<{ artist: string; name: string } | null>(null);
 
-  const playerRef = useRef<DigSdkPlayer | null>(null);
-  const audioRef  = useRef<HTMLAudioElement | null>(null);
-  const pollRef   = useRef<ReturnType<typeof setInterval> | null>(null);
+  const playerRef     = useRef<DigSdkPlayer | null>(null);
+  const audioRef      = useRef<HTMLAudioElement | null>(null);
+  const pollRef       = useRef<ReturnType<typeof setInterval> | null>(null);
+  // Tracks whether we've sent a "start playback" command for this record instance.
+  // Prevents togglePlay() being called when the SDK is still on a previous album.
+  const sdkStartedRef = useRef(false);
 
   const isPremium = !!(tokenData?.connected && tokenData.product === "premium");
   const useSDK    = isPremium && !!(albumUri || trackUri);
@@ -430,23 +433,32 @@ function DigCompactPlayer({ previewUrl, albumUri, trackUri, artist, album }: {
     return () => { if (pollRef.current) clearInterval(pollRef.current); };
   }, [playing]);
 
-  // Preview audio — always created when previewUrl is set, used as fallback before SDK is live
+  // Preview audio — always created when previewUrl is set, used as fallback before SDK is live.
+  // State is driven by element events ("playing"/"pause"/"ended") rather than the play() promise,
+  // which avoids the "press twice" bug caused by buffering or silent promise rejection.
   useEffect(() => {
     if (!previewUrl) return;
     const audio = new Audio(previewUrl);
-    audio.volume = volume;
+    audio.preload = "auto";
+    audio.volume  = volume;
     audioRef.current = audio;
-    const onTime = () => {
+    const onPlaying = () => setPlaying(true);
+    const onPause   = () => setPlaying(false);
+    const onEnd     = () => { setPlaying(false); setPosition(0); };
+    const onTime    = () => {
       setPosition(audio.currentTime * 1000);
       if (isFinite(audio.duration)) setDuration(audio.duration * 1000);
     };
-    const onEnd = () => setPlaying(false);
-    audio.addEventListener("timeupdate", onTime);
+    audio.addEventListener("playing",    onPlaying);
+    audio.addEventListener("pause",      onPause);
     audio.addEventListener("ended",      onEnd);
+    audio.addEventListener("timeupdate", onTime);
     return () => {
       audio.pause();
-      audio.removeEventListener("timeupdate", onTime);
+      audio.removeEventListener("playing",    onPlaying);
+      audio.removeEventListener("pause",      onPause);
       audio.removeEventListener("ended",      onEnd);
+      audio.removeEventListener("timeupdate", onTime);
       audioRef.current = null;
       setPlaying(false);
       setPosition(0);
@@ -471,27 +483,29 @@ function DigCompactPlayer({ previewUrl, albumUri, trackUri, artist, album }: {
 
   async function handlePlayPause() {
     if (sdkLive && playerRef.current) {
-      // Full album via SDK
-      const state = await playerRef.current.getCurrentState();
-      if (!state) {
+      if (!sdkStartedRef.current) {
+        // First click for this record — always start the album from scratch.
+        // Using togglePlay() here would act on whatever the SDK was playing before
+        // (e.g. the previous record), so we always send an explicit start command.
         if (tokenData?.access_token) {
+          sdkStartedRef.current = true;
           const body = albumUri ? { context_uri: albumUri } : { uris: [trackUri!] };
           await fetch(`https://api.spotify.com/v1/me/player/play?device_id=${deviceId}`, {
             method:  "PUT",
             headers: { Authorization: `Bearer ${tokenData.access_token}`, "Content-Type": "application/json" },
             body:    JSON.stringify(body),
-          }).catch(() => {});
+          }).catch(() => { sdkStartedRef.current = false; });
         }
       } else {
+        // Already started this record — safe to toggle
         await playerRef.current.togglePlay();
       }
     } else if (audioRef.current) {
-      // Preview fallback (non-premium OR premium before SDK device registers)
+      // Preview fallback — state is driven by element events, so just call play/pause.
       if (playing) {
         audioRef.current.pause();
-        setPlaying(false);
       } else {
-        audioRef.current.play().then(() => setPlaying(true)).catch(() => {});
+        audioRef.current.play().catch(() => {});
       }
     }
   }
@@ -976,6 +990,7 @@ export default function DigClient({ username, displayLabel, avatarUrl, collectio
               <NavBar idx={idx} total={recs.length} onNav={navigate} onDigAgain={handleDigAgain} />
               {(digSpotify?.previewUrl || digSpotify?.albumUri) && (
                 <DigCompactPlayer
+                  key={`${digSpotify.artist}||${digSpotify.album}`}
                   previewUrl={digSpotify.previewUrl}
                   albumUri={digSpotify.albumUri}
                   trackUri={digSpotify.trackUri}
