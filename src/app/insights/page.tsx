@@ -343,16 +343,22 @@ export default async function InsightsPage() {
     .slice(0, 10)
     .map(([producer, { count, valueSum }]) => ({ producer, count, valueSum }));
 
-  // ── Stats bar supplemental data ───────────────────────────────────────────
-  const formatCounts = new Map<string, number>();
+  // ── Format breakdown ──────────────────────────────────────────────────────
+  const formatData = new Map<string, { count: number; valueSum: number }>();
   for (const link of allLinks) {
     const fmt = recordsMap.get(link.record_id)?.format;
-    if (fmt) formatCounts.set(fmt, (formatCounts.get(fmt) ?? 0) + 1);
+    if (!fmt) continue;
+    const val  = convertPrice(link.price_median, link.price_currency) ?? 0;
+    const curr = formatData.get(fmt) ?? { count: 0, valueSum: 0 };
+    formatData.set(fmt, { count: curr.count + 1, valueSum: curr.valueSum + (val > 0 ? val : 0) });
   }
-  const topFormatEntry = formatCounts.size > 0
-    ? [...formatCounts.entries()].sort((a, b) => b[1] - a[1])[0]
+  const formatBreakdown = [...formatData.entries()]
+    .sort((a, b) => b[1].count - a[1].count)
+    .map(([format, { count, valueSum }]) => ({ format, count, valueSum }));
+
+  const topFormat = formatBreakdown.length > 0
+    ? { name: formatBreakdown[0].format, count: formatBreakdown[0].count }
     : null;
-  const topFormat = topFormatEntry ? { name: topFormatEntry[0], count: topFormatEntry[1] } : null;
 
   // ── Vinyl colour breakdown ────────────────────────────────────────────────
   const colourCounts = new Map<string, number>();
@@ -402,6 +408,7 @@ export default async function InsightsPage() {
       countryBreakdown={countryBreakdown}
       topLabels={topLabels}
       topProducers={topProducers}
+      formatBreakdown={formatBreakdown}
       desirabilityBreakdown={desirabilityBreakdown}
       topArtists={topArtists}
       topFormat={topFormat}

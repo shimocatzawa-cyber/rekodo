@@ -34,6 +34,7 @@ export interface InsightsProps {
   topLabels:     { label: string; count: number; valueSum: number }[];
   topArtists:    { artist: string; count: number; valueSum: number }[];
   topProducers:  { producer: string; count: number; valueSum: number }[];
+  formatBreakdown: { format: string; count: number; valueSum: number }[];
   desirabilityBreakdown: { tier: DesirabilityTier; count: number; valueSum: number }[];
   topFormat:       { name: string; count: number } | null;
   yearRange:       { oldest: number; newest: number } | null;
@@ -190,7 +191,8 @@ export default function InsightsClient({
   totalMed, totalRecords, snapshots, topRecordsByValue,
   mediaConditionBreakdown, sleeveConditionBreakdown,
   genreBreakdown, styleBreakdown, hasStyles,
-  countryBreakdown, topLabels, topArtists, topProducers, desirabilityBreakdown,
+  countryBreakdown, topLabels, topArtists, topProducers,
+  formatBreakdown, desirabilityBreakdown,
   topFormat, yearRange, mostPopularYear, vinylColourBreakdown,
 }: InsightsProps) {
 
@@ -304,6 +306,45 @@ export default function InsightsClient({
             </p>
           )}
         </div>
+
+        {/* Format breakdown */}
+        {formatBreakdown.length > 0 && (
+          <div style={{ marginBottom: "40px" }}>
+            <SubLabel>Collection by format</SubLabel>
+            <div style={{ borderTop: `0.5px solid ${RULE}` }}>
+              <div style={{
+                display: "grid", gridTemplateColumns: "1fr 80px 160px",
+                gap: "16px", padding: "10px 0", borderBottom: `0.5px solid ${RULE}`,
+              }}>
+                {["Format", "Items", "Market Value"].map((h) => (
+                  <span key={h} style={{
+                    fontFamily: MONO, fontSize: "9px", fontWeight: 700,
+                    letterSpacing: "0.12em", textTransform: "uppercase", color: INK,
+                  }}>
+                    {h}
+                  </span>
+                ))}
+              </div>
+              {formatBreakdown.map(({ format, count, valueSum }) => (
+                <div key={format} style={{
+                  display: "grid", gridTemplateColumns: "1fr 80px 160px",
+                  gap: "16px", padding: "12px 0", borderBottom: `0.5px solid ${RULE}`,
+                  alignItems: "center",
+                }}>
+                  <span style={{ fontFamily: MONO, fontSize: "11px", color: INK }}>
+                    {fmtFormatLabel(format)}
+                  </span>
+                  <span style={{ fontFamily: MONO, fontSize: "11px", color: INK }}>
+                    {count}
+                  </span>
+                  <span style={{ fontFamily: MONO, fontSize: "11px", color: ORANGE }}>
+                    {valueSum > 0 ? fmtCurrency(valueSum, currency) : "—"}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* Desirability breakdown */}
         {desirabilityBreakdown.length > 0 && (
