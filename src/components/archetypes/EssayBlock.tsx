@@ -70,7 +70,7 @@ export default function EssayBlock({ primary, primaryScore, secondary, shadow, s
         </div>
       </div>
 
-      <div style={{ fontFamily: SERIF, fontSize: "1rem", fontWeight: 400, color: INK, marginBottom: 16 }}>
+      <div style={{ fontFamily: SERIF, fontSize: "1rem", fontWeight: 700, color: INK, marginBottom: 16 }}>
         {primaryDef?.name ?? primary}
       </div>
 
