@@ -8,7 +8,6 @@ const RULE   = "#e0e0da";
 const ORANGE = "#CC5500";
 const INK    = "#0a0a0a";
 const MUTED  = "#8a7e76";
-const WARM   = "#FDF6F0";
 
 interface Props {
   signals: ComputedSignals;
@@ -20,7 +19,7 @@ function SignalCell({ signal, result }: { signal: typeof SIGNALS[number]; result
   return (
     <div style={{
       padding: "18px 16px",
-      background: unavail ? WARM : "transparent",
+      background: "transparent",
     }}>
       <div style={{
         fontFamily: MONO,
@@ -71,7 +70,7 @@ export default function SignalGrid({ signals }: Props) {
           letterSpacing: "0.12em",
           color: ORANGE,
         }}>
-          {SIGNALS.length} Signs
+          {SIGNALS.length} Elements
         </div>
       </div>
 

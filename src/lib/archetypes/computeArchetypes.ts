@@ -635,7 +635,11 @@ export async function computeArchetypes(
   const secondaryEntry = sortedEntries[1]
   const secondary = secondaryEntry[1] >= 30 ? secondaryEntry[0] : null
   const secondaryScore = secondaryEntry[1]
-  const shadow = ARCHETYPES[primary]?.shadowOf ?? 'keeper'
+  // Shadow = the least-developed archetype (lowest score), excluding primary and secondary.
+  // This aligns with Jung: the shadow is what you most suppress, not a fixed thematic opposite.
+  const shadow = sortedEntries
+    .filter(([id]) => id !== primary && id !== (secondary ?? ""))
+    .at(-1)?.[0] ?? "keeper"
   const shadowScore = scores[shadow] ?? 0
 
   return {

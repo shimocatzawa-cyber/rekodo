@@ -106,7 +106,7 @@ export default function ArchetypeHero({
   const secondaryDef = secondary ? ARCHETYPES[secondary] : null;
 
   return (
-    <div style={{ display: "flex", gap: 32, alignItems: "flex-start", marginBottom: 48 }}>
+    <div style={{ display: "flex", gap: 32, alignItems: "center", marginBottom: 48 }}>
 
       {/* Left — image */}
       <div
@@ -210,7 +210,19 @@ export default function ArchetypeHero({
           )}
         </div>
 
-        {/* Sub-section B — Archetypal sentence */}
+        {/* Sub-section B — Short description */}
+        {primaryDef && (
+          <div style={{ borderBottom: `1px solid ${RULE}`, paddingBottom: 20, marginBottom: 20 }}>
+            <div style={{ fontFamily: MONO, fontSize: 9, textTransform: "uppercase", letterSpacing: "0.12em", color: ORANGE, marginBottom: 6 }}>
+              {primaryDef.name} Archetype
+            </div>
+            <div style={{ fontFamily: MONO, fontSize: 12, color: MUTED, lineHeight: 1.6 }}>
+              {primaryDef.shortDescription}
+            </div>
+          </div>
+        )}
+
+        {/* Sub-section C — Archetypal sentence */}
         <div style={{ borderBottom: `1px solid ${RULE}`, paddingBottom: 20, marginBottom: 20 }}>
           <blockquote style={{
             fontFamily: SERIF,
@@ -224,7 +236,7 @@ export default function ArchetypeHero({
           </blockquote>
         </div>
 
-        {/* Sub-section C — Named pairing block */}
+        {/* Sub-section D — Named pairing block */}
         {namedPairing && secondary && (
           <div>
             <div style={{ fontFamily: MONO, fontSize: 9, textTransform: "uppercase", letterSpacing: "0.12em", color: ORANGE, marginBottom: 6 }}>
@@ -232,23 +244,6 @@ export default function ArchetypeHero({
             </div>
             <div style={{ fontFamily: SERIF, fontSize: "1.1rem", fontWeight: 700, color: INK, marginBottom: 4 }}>
               {namedPairing}
-            </div>
-            <div style={{ fontFamily: MONO, fontSize: 9, textTransform: "uppercase", letterSpacing: "0.12em", color: ORANGE, marginBottom: 6, marginTop: 8 }}>
-              ARCHETYPE
-            </div>
-            <div style={{ fontFamily: MONO, fontSize: 10, color: MUTED }}>
-              {primaryDef?.shortDescription ?? ""}
-            </div>
-          </div>
-        )}
-
-        {!namedPairing && primaryDef && (
-          <div>
-            <div style={{ fontFamily: MONO, fontSize: 9, textTransform: "uppercase", letterSpacing: "0.12em", color: ORANGE, marginBottom: 6 }}>
-              ARCHETYPE
-            </div>
-            <div style={{ fontFamily: MONO, fontSize: 10, color: MUTED, lineHeight: 1.6 }}>
-              {primaryDef.shortDescription}
             </div>
           </div>
         )}
