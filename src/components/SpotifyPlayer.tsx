@@ -8,6 +8,38 @@ const RULE          = "#e0e0da";
 const INK           = "#0a0a0a";
 const SPOTIFY_GREEN = "#1DB954";
 
+// ─── Fresh token helper ───────────────────────────────────────────────────────
+// Always fetches a live token so play commands never fail with an expired credential.
+async function getFreshSpotifyToken(): Promise<string | null> {
+  try {
+    const res  = await fetch("/api/spotify/token");
+    const data = await res.json() as { access_token?: string };
+    return data.access_token ?? null;
+  } catch {
+    return null;
+  }
+}
+
+// Send a play command and retry on 404 (device not yet registered server-side).
+async function sendSpotifyPlay(token: string, deviceId: string, body: object): Promise<void> {
+  const url  = `https://api.spotify.com/v1/me/player/play?device_id=${deviceId}`;
+  const opts = {
+    method:  "PUT",
+    headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+    body:    JSON.stringify(body),
+  };
+  for (let attempt = 0; attempt < 3; attempt++) {
+    let res: Response | null = null;
+    try { res = await fetch(url, opts); } catch { return; }
+    if (res.status === 204 || res.ok) return;
+    if (res.status === 404 && attempt < 2) {
+      await new Promise(r => setTimeout(r, 600 + attempt * 500));
+      continue;
+    }
+    return;
+  }
+}
+
 // ─── SDK singleton ────────────────────────────────────────────────────────────
 
 let _sdkLoaded = false;
@@ -283,47 +315,48 @@ export default function SpotifyPlayer({
   // `playing` (from player_state_changed) is the truth: if true we're already
   // playing so we pause; if false we always send an explicit play command for the
   // current URI — no guessing about which album the SDK has loaded.
+  // Always fetches a fresh token so a cached/expired token never blocks playback.
   const handlePlayPause = useCallback(async () => {
     if (useSDK && playerRef.current) {
       if (playing) {
         await playerRef.current.togglePlay().catch(() => {});
       } else {
-        if (!deviceId || !tokenData?.access_token) return;
+        if (!deviceId) return;
         const body = mode === "collection" && spotifyUri
           ? { context_uri: spotifyUri }
           : spotifyTrackUri
             ? { uris: [spotifyTrackUri] }
             : null;
         if (!body) return;
-        await fetch(`https://api.spotify.com/v1/me/player/play?device_id=${deviceId}`, {
-          method:  "PUT",
-          headers: { Authorization: `Bearer ${tokenData.access_token}`, "Content-Type": "application/json" },
-          body:    JSON.stringify(body),
-        }).catch(() => {});
+        const token = await getFreshSpotifyToken();
+        if (!token) return;
+        await sendSpotifyPlay(token, deviceId, body);
       }
     } else if (audioRef.current) {
       if (playing) audioRef.current.pause();
       else audioRef.current.play().catch(() => {});
     }
-  }, [useSDK, playing, mode, spotifyUri, spotifyTrackUri, deviceId, tokenData?.access_token]);
+  }, [useSDK, playing, mode, spotifyUri, spotifyTrackUri, deviceId]);
 
   // ── Seek ──────────────────────────────────────────────────────────────────
-  const handleSeek = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
+  const handleSeek = useCallback(async (e: React.MouseEvent<HTMLDivElement>) => {
     if (!duration) return;
     const rect = e.currentTarget.getBoundingClientRect();
     const pct  = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
-    if (useSDK && tokenData?.access_token) {
-      const ms = Math.round(pct * duration);
+    if (useSDK) {
+      const ms    = Math.round(pct * duration);
+      const token = await getFreshSpotifyToken();
+      if (!token) return;
       setPosition(ms);
       fetch(`https://api.spotify.com/v1/me/player/seek?position_ms=${ms}${deviceId ? `&device_id=${deviceId}` : ""}`, {
         method:  "PUT",
-        headers: { Authorization: `Bearer ${tokenData.access_token}` },
+        headers: { Authorization: `Bearer ${token}` },
       }).catch(() => {});
     } else if (audioRef.current) {
       audioRef.current.currentTime = (pct * duration) / 1000;
       setPosition(pct * duration);
     }
-  }, [useSDK, duration, tokenData?.access_token, deviceId]);
+  }, [useSDK, duration, deviceId]);
 
   // ── Volume (vertical — click top=loud, bottom=quiet) ─────────────────────
   const handleVolume = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
