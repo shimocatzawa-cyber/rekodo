@@ -220,8 +220,8 @@ export default function ProfileClient({
   // ── Bandcamp sync ─────────────────────────────────────────────────────────
   const [bcSyncing,    setBcSyncing]    = useState(false);
   const [bcError,      setBcError]      = useState<string | null>(null);
-  const [bcResult,     setBcResult]     = useState<{ total: number; duplicates: number; date: string } | null>(
-    bcSyncDate ? { total: bcSyncTotal, duplicates: bcSyncDuplicates, date: bcSyncDate } : null
+  const [bcResult,     setBcResult]     = useState<{ total: number; duplicates: number; date: string | null } | null>(
+    bcSyncTotal > 0 ? { total: bcSyncTotal, duplicates: bcSyncDuplicates, date: bcSyncDate ?? null } : null
   );
 
   async function runBandcampSync() {
@@ -237,7 +237,7 @@ export default function ProfileClient({
       if (!res.ok || json.error) {
         setBcError(json.error ?? "Sync failed. Please try again.");
       } else {
-        setBcResult({ total: json.total ?? 0, duplicates: json.duplicates ?? 0, date: new Date().toISOString() });
+        setBcResult({ total: json.total ?? 0, duplicates: json.duplicates ?? 0, date: new Date().toISOString() as string | null });
       }
     } catch {
       setBcError("Network error. Please try again.");
@@ -640,9 +640,11 @@ export default function ProfileClient({
                               <p style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.04em", color: "#0a0a0a", margin: "0 0 1px 0" }}>
                                 ✓ {bcResult.total.toLocaleString()} albums · {bcResult.duplicates.toLocaleString()} already in your physical collection
                               </p>
-                              <p style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.04em", color: MUTED, margin: "0 0 8px 0" }}>
-                                Last synced: {formatSyncDate(bcResult.date)}
-                              </p>
+                              {bcResult.date && (
+                                <p style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.04em", color: MUTED, margin: "0 0 8px 0" }}>
+                                  Last synced: {formatSyncDate(bcResult.date)}
+                                </p>
+                              )}
                             </>
                           )}
                           <div style={{ marginTop: bcResult ? 0 : "10px" }}>
