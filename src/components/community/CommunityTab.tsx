@@ -215,7 +215,8 @@ export default function CommunityTab({ profileOwnerId }: { profileOwnerId: strin
   const [listsState, setListsState] = useState<"idle" | "loading" | "done">("idle");
 
   // Follow state
-  const [followState, setFollowState] = useState<Record<string, boolean>>({});
+  const [followState,  setFollowState]  = useState<Record<string, boolean>>({});
+  const [followError,  setFollowError]  = useState<string | null>(null);
 
   // Get viewer + load followers on mount
   useEffect(() => {
@@ -349,12 +350,12 @@ export default function CommunityTab({ profileOwnerId }: { profileOwnerId: strin
 
   async function toggleFollow(targetId: string, targetProfile?: Follower) {
     if (!viewerUserId || targetId === viewerUserId) return;
-    // Ignore double-clicks while an API call is in flight for this ID
     if (pendingTogglesRef.current.has(targetId)) return;
 
     const prev = followState[targetId] ?? false;
     pendingTogglesRef.current.add(targetId);
     setFollowState(s => ({ ...s, [targetId]: !prev }));
+    setFollowError(null);
     try {
       const res = await fetch("/api/collectors/follow", {
         method: "POST",
@@ -364,18 +365,19 @@ export default function CommunityTab({ profileOwnerId }: { profileOwnerId: strin
       const data = await res.json() as { isFollowing?: boolean; error?: string };
       if (!res.ok || typeof data.isFollowing !== "boolean") {
         setFollowState(s => ({ ...s, [targetId]: prev }));
+        setFollowError(`Follow failed (${res.status}): ${data.error ?? "unknown error"}`);
         return;
       }
       setFollowState(s => ({ ...s, [targetId]: data.isFollowing! }));
 
-      // Keep the Following list in sync without a full reload
       if (data.isFollowing && targetProfile) {
         setFollowing(p => p.some(f => f.id === targetId) ? p : [targetProfile, ...p]);
       } else if (!data.isFollowing) {
         setFollowing(p => p.filter(f => f.id !== targetId));
       }
-    } catch {
+    } catch (err) {
       setFollowState(s => ({ ...s, [targetId]: prev }));
+      setFollowError(`Network error: ${err instanceof Error ? err.message : "unknown"}`);
     } finally {
       pendingTogglesRef.current.delete(targetId);
     }
@@ -437,6 +439,13 @@ export default function CommunityTab({ profileOwnerId }: { profileOwnerId: strin
                 </div>
               )}
             </div>
+          </div>
+        )}
+
+        {/* Follow error banner — only visible when a follow action fails */}
+        {followError && (
+          <div style={{ fontFamily: MONO, fontSize: "0.58rem", color: "#c00", background: "#fff5f5", border: "1px solid #fcc", padding: "8px 12px", marginBottom: "16px", letterSpacing: "0.04em" }}>
+            {followError}
           </div>
         )}
 
