@@ -95,20 +95,33 @@ export default async function DeepDivePage() {
 
   const wantlistCountMap = new Map<string, number>();
   const wantlistCaseMap = new Map<string, string>();
+  type WlRecord = { album: string; year: number | null; cover_url: string | null };
+  const wantlistRecordsMap = new Map<string, WlRecord[]>();
 
-  function addWantlistArtist(name: string | null | undefined) {
+  function addWantlistItem(name: string | null | undefined, rec?: WlRecord) {
     const key = (name ?? "").toLowerCase().trim();
     if (!key) return;
     wantlistCountMap.set(key, (wantlistCountMap.get(key) ?? 0) + 1);
     if (!wantlistCaseMap.has(key)) wantlistCaseMap.set(key, name!);
+    if (rec) {
+      const list = wantlistRecordsMap.get(key) ?? [];
+      list.push(rec);
+      wantlistRecordsMap.set(key, list);
+    }
   }
 
   // Source 1: wantlist table (populated by Discogs OAuth sync)
   const { data: discogsWantlist } = await supabase
     .from("wantlist")
-    .select("artist")
+    .select("artist, title, released, cover_image_url")
     .eq("user_id", user.id);
-  for (const row of discogsWantlist ?? []) addWantlistArtist(row.artist);
+  for (const row of discogsWantlist ?? []) {
+    addWantlistItem(row.artist, {
+      album: row.title ?? "",
+      year: row.released ?? null,
+      cover_url: row.cover_image_url ?? null,
+    });
+  }
 
   // Source 2 & 3: lists/list_items (CSV import + Dig-added items)
   const { data: wantlistListRow } = await supabase
@@ -124,28 +137,36 @@ export default async function DeepDivePage() {
   if (wantlistListId) {
     const { data: listItems } = await supabase
       .from("list_items")
-      .select("song_artist, record_id")
+      .select("song_artist, song_album, song_year, song_cover_url, record_id")
       .eq("list_id", wantlistListId);
 
-    const recordIds: string[] = [];
+    const linkedRecordIds: string[] = [];
     for (const item of listItems ?? []) {
       if (item.song_artist) {
-        // CSV-imported: artist stored directly in song_artist
-        addWantlistArtist(item.song_artist as string);
+        addWantlistItem(item.song_artist as string, {
+          album: (item.song_album as string | null) ?? "",
+          year: (item.song_year as number | null) ?? null,
+          cover_url: (item.song_cover_url as string | null) ?? null,
+        });
       } else if (item.record_id) {
-        // Dig-added: artist stored in records table via record_id
-        recordIds.push(item.record_id as string);
+        linkedRecordIds.push(item.record_id as string);
       }
     }
 
-    if (recordIds.length > 0) {
+    if (linkedRecordIds.length > 0) {
       const WL_BATCH = 400;
-      for (let i = 0; i < recordIds.length; i += WL_BATCH) {
+      for (let i = 0; i < linkedRecordIds.length; i += WL_BATCH) {
         const { data: recs } = await supabase
           .from("records")
-          .select("artist")
-          .in("id", recordIds.slice(i, i + WL_BATCH));
-        for (const r of recs ?? []) addWantlistArtist(r.artist);
+          .select("artist, album, year, cover_url")
+          .in("id", linkedRecordIds.slice(i, i + WL_BATCH));
+        for (const r of recs ?? []) {
+          addWantlistItem(r.artist, {
+            album: r.album ?? "",
+            year: r.year ?? null,
+            cover_url: r.cover_url ?? null,
+          });
+        }
       }
     }
   }
@@ -153,13 +174,17 @@ export default async function DeepDivePage() {
   // Collection artists (physical + Bandcamp)
   const collectionArtists: ArtistData[] = [...artistMap.entries()]
     .filter(([name]) => !/^various/i.test(name.trim()))
-    .map(([name, { count, records }]) => ({
-      name,
-      count,
-      wantlistCount: wantlistCountMap.get(name.toLowerCase().trim()) ?? 0,
-      fromBandcamp: bcArtists.has(name.toLowerCase().trim()),
-      records: records.sort((a, b) => (a.year ?? 9999) - (b.year ?? 9999)),
-    }));
+    .map(([name, { count, records }]) => {
+      const key = name.toLowerCase().trim();
+      return {
+        name,
+        count,
+        wantlistCount: wantlistCountMap.get(key) ?? 0,
+        wantlistRecords: wantlistRecordsMap.get(key) ?? [],
+        fromBandcamp: bcArtists.has(key),
+        records: records.sort((a, b) => (a.year ?? 9999) - (b.year ?? 9999)),
+      };
+    });
 
   // Wantlist-only artists (not in physical or Bandcamp collection)
   const collectionNames = new Set(collectionArtists.map((a) => a.name.toLowerCase().trim()));
@@ -173,6 +198,7 @@ export default async function DeepDivePage() {
       name: wantlistCaseMap.get(key)!,
       count: 0,
       wantlistCount: count,
+      wantlistRecords: wantlistRecordsMap.get(key) ?? [],
       fromBandcamp: false,
       records: [] as ArtistData["records"],
     }));
