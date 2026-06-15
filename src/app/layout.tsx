@@ -81,6 +81,9 @@ export const metadata: Metadata = {
   alternates: {
     canonical: "https://rekodo.co",
   },
+  verification: {
+    google: "kMpeXcCUB13vm-WVWPIU7SJpQqYfPTyXqcNYNZ_ii94",
+  },
 };
 
 export default function RootLayout({
