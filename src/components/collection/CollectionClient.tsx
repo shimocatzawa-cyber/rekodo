@@ -7,7 +7,7 @@ import type { CollectionRecord, CollectionInsights } from "@/app/collection/page
 import { persistRecordPrice } from "@/app/collection/actions";
 import { createClient } from "@/lib/supabase/client";
 import { getDesirabilityTier, type DesirabilityTier } from "@/lib/desirability";
-import SpotifyPlayer from "@/components/SpotifyPlayer";
+import SpotifyPlayer, { getFreshSpotifyToken } from "@/components/SpotifyPlayer";
 
 const SERIF  = "var(--font-editorial)";
 const MONO   = "var(--font-mono)";
@@ -1965,7 +1965,6 @@ function TracklistPanel({ tracks, loading, bandcamp, record }: {
   }, [record?.id, record?.open_to_offers]);
 
   // ── Spotify ───────────────────────────────────────────────────────────────
-  const [spotifyToken,    setSpotifyToken]    = useState<string | null>(null);
   const [spotifyPremium,  setSpotifyPremium]  = useState(false);
   // undefined = searching (loading), null = no match found, string = match
   const [currentSpotifyUri, setCurrentSpotifyUri] = useState<string | null | undefined>(undefined);
@@ -1976,7 +1975,6 @@ function TracklistPanel({ tracks, loading, bandcamp, record }: {
       .then(r => r.json() as Promise<{ connected: boolean; access_token?: string; product?: string }>)
       .then(data => {
         if (data.connected && data.access_token && data.product === "premium") {
-          setSpotifyToken(data.access_token);
           setSpotifyPremium(true);
         }
       })
@@ -1987,7 +1985,7 @@ function TracklistPanel({ tracks, loading, bandcamp, record }: {
     // Reset immediately so SpotifyPlayer's reset effect fires for the new album.
     // undefined keeps the player mounted (SDK stays alive) but clears the old URI.
     setCurrentSpotifyUri(undefined);
-    if (!spotifyPremium || !spotifyToken || !record) {
+    if (!spotifyPremium || !record) {
       setCurrentSpotifyUri(null);
       return;
     }
@@ -1998,10 +1996,13 @@ function TracklistPanel({ tracks, loading, bandcamp, record }: {
     }
     const artist = record.artist;
     const album  = record.album;
-    const token  = spotifyToken;
     let cancelled = false;
     (async () => {
       try {
+        // Always fetch a fresh token — stale state tokens expire after 1 hour
+        const token = await getFreshSpotifyToken();
+        if (!token || cancelled) { setCurrentSpotifyUri(null); return; }
+
         // Quoted field-filter search — precise match
         const q1 = encodeURIComponent(`album:"${album}" artist:"${artist}"`);
         const r1 = await fetch(`https://api.spotify.com/v1/search?q=${q1}&type=album&limit=1`, {
@@ -2030,7 +2031,7 @@ function TracklistPanel({ tracks, loading, bandcamp, record }: {
       }
     })();
     return () => { cancelled = true; };
-  }, [record?.id, spotifyPremium, spotifyToken]);
+  }, [record?.id, spotifyPremium]);
 
   async function handleOpenToOffers() {
     if (!record?.id || offersLoading) return;

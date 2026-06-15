@@ -16,7 +16,7 @@ const SPOTIFY_GREEN = "#1DB954";
 let _spotifyToken: string | null = null;
 let _spotifyTokenExpiry           = 0;
 
-async function getFreshSpotifyToken(): Promise<string | null> {
+export async function getFreshSpotifyToken(): Promise<string | null> {
   if (_spotifyToken && Date.now() < _spotifyTokenExpiry) return _spotifyToken;
   try {
     const res  = await fetch("/api/spotify/token");
@@ -248,8 +248,10 @@ export default function SpotifyPlayer({
       });
     });
 
-    // Reconnect if the browser kills the SDK connection (e.g. tab throttling)
+    // Clear the stale deviceId so play is disabled while reconnecting,
+    // preventing silent 404s sent to a dead device.
     player.addListener("not_ready", () => {
+      setDeviceId(null);
       setTimeout(() => { player.connect().catch(() => {}); }, 1000);
     });
 
@@ -394,11 +396,15 @@ export default function SpotifyPlayer({
   }
 
   // Now Playing strip text
-  const isPreviewMode = !useSDK && usePreview;
-  const eyebrow       = isPreviewMode ? "Preview" : "Now Playing";
+  const isPreviewMode  = !useSDK && usePreview;
+  const sdkConnecting  = useSDK && !deviceId; // SDK recognised as Premium but not yet registered
+  const playDisabled   = sdkConnecting || (useSDK && !deviceId);
+  const eyebrow        = sdkConnecting ? "Connecting" : isPreviewMode ? "Preview" : "Now Playing";
 
   let nowPlayingText = "";
-  if (useSDK && currentTrack) {
+  if (sdkConnecting) {
+    nowPlayingText = "Connecting to Spotify…";
+  } else if (useSDK && currentTrack) {
     nowPlayingText = `${currentTrack.artist} — ${currentTrack.name}`;
   } else if (isPreviewMode && artist && albumTitle) {
     nowPlayingText = `${artist} — ${albumTitle} (30s)`;
@@ -419,13 +425,13 @@ export default function SpotifyPlayer({
       }}>
         <span style={{
           fontFamily: MONO, fontSize: "0.48rem", letterSpacing: "0.12em",
-          textTransform: "uppercase", color: ORANGE,
+          textTransform: "uppercase", color: sdkConnecting ? "#aaaaaa" : ORANGE,
         }}>
           {eyebrow}
         </span>
         {nowPlayingText && (
           <span style={{
-            fontFamily: MONO, fontSize: "0.58rem", color: INK,
+            fontFamily: MONO, fontSize: "0.58rem", color: sdkConnecting ? "#aaaaaa" : INK,
             overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
           }}>
             {nowPlayingText}
@@ -445,15 +451,19 @@ export default function SpotifyPlayer({
           </CtrlBtn>
 
           <button
-            onClick={handlePlayPause}
+            onClick={playDisabled ? undefined : handlePlayPause}
             aria-label={playing ? "Pause" : "Play"}
+            disabled={playDisabled}
             style={{
               width: "44px", height: "44px", flexShrink: 0,
-              background: INK, color: "#ffffff", border: "none", cursor: "pointer",
+              background: playDisabled ? "#cccccc" : INK,
+              color: "#ffffff", border: "none",
+              cursor: playDisabled ? "default" : "pointer",
               display: "flex", alignItems: "center", justifyContent: "center",
+              opacity: playDisabled ? 0.5 : 1,
             }}
-            onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background = ORANGE; }}
-            onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = INK; }}
+            onMouseEnter={e => { if (!playDisabled) (e.currentTarget as HTMLButtonElement).style.background = ORANGE; }}
+            onMouseLeave={e => { if (!playDisabled) (e.currentTarget as HTMLButtonElement).style.background = INK; }}
           >
             {playing ? <IconPause /> : <IconPlay />}
           </button>
