@@ -30,12 +30,14 @@ export async function GET() {
     ? new Date(profile.spotify_token_expiry).getTime()
     : 0;
 
-  // Token still valid (60s buffer)
+  // Token still valid (60s buffer) — include expiry so the client can set its
+  // cache to the actual remaining lifetime instead of a fixed 50-minute window.
   if (Date.now() + 60_000 < expiry) {
     return NextResponse.json({
       connected:    true,
       access_token: profile.spotify_access_token,
       product:      profile.spotify_product,
+      expires_at:   expiry,
     });
   }
 
@@ -60,17 +62,19 @@ export async function GET() {
     if (!res.ok) return NextResponse.json({ connected: false });
 
     const data = await res.json() as { access_token: string; expires_in: number };
+    const newExpiry = Date.now() + data.expires_in * 1000;
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     await (supabase as any).from("profiles").update({
       spotify_access_token: data.access_token,
-      spotify_token_expiry: new Date(Date.now() + data.expires_in * 1000).toISOString(),
+      spotify_token_expiry: new Date(newExpiry).toISOString(),
     }).eq("id", user.id);
 
     return NextResponse.json({
       connected:    true,
       access_token: data.access_token,
       product:      profile.spotify_product,
+      expires_at:   newExpiry,
     });
   } catch {
     return NextResponse.json({ connected: false });

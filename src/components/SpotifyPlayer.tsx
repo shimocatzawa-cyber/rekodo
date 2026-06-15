@@ -20,9 +20,13 @@ export async function getFreshSpotifyToken(): Promise<string | null> {
   if (_spotifyToken && Date.now() < _spotifyTokenExpiry) return _spotifyToken;
   try {
     const res  = await fetch("/api/spotify/token");
-    const data = await res.json() as { connected: boolean; access_token?: string };
-    _spotifyToken       = data.access_token ?? null;
-    _spotifyTokenExpiry = Date.now() + 50 * 60 * 1000; // 50 min
+    const data = await res.json() as { connected: boolean; access_token?: string; expires_at?: number };
+    _spotifyToken = data.access_token ?? null;
+    // Use the actual server-side expiry (minus 60s buffer) so we never cache
+    // a token past its real lifetime. Fall back to 50 min if not provided.
+    _spotifyTokenExpiry = data.expires_at
+      ? data.expires_at - 60_000
+      : Date.now() + 50 * 60 * 1000;
     return _spotifyToken;
   } catch {
     return null;
@@ -396,9 +400,9 @@ export default function SpotifyPlayer({
   }
 
   // Now Playing strip text
-  const isPreviewMode  = !useSDK && usePreview;
-  const sdkConnecting  = useSDK && !deviceId; // SDK recognised as Premium but not yet registered
-  const playDisabled   = sdkConnecting || (useSDK && !deviceId);
+  const isPreviewMode = !useSDK && usePreview;
+  const sdkConnecting = useSDK && !deviceId; // SDK recognised as Premium but not yet registered
+  const playDisabled  = sdkConnecting;
   const eyebrow        = sdkConnecting ? "Connecting" : isPreviewMode ? "Preview" : "Now Playing";
 
   let nowPlayingText = "";
