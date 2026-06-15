@@ -305,14 +305,20 @@ export async function POST(request: NextRequest) {
       .delete()
       .eq("user_id", userId)
       .eq("source", "bandcamp");
-    if (delError) throw new Error(`Failed to clear previous import: ${delError.message}`);
+    if (delError) {
+      console.error("digital_imports delete error:", delError);
+      return NextResponse.json({ error: `DB delete failed: ${delError.message}` }, { status: 500 });
+    }
 
     const INSERT_BATCH = 100;
     for (let i = 0; i < upsertRows.length; i += INSERT_BATCH) {
       const { error: insError } = await supabase
         .from("digital_imports")
         .insert(upsertRows.slice(i, i + INSERT_BATCH));
-      if (insError) throw new Error(`Failed to save import batch: ${insError.message}`);
+      if (insError) {
+        console.error("digital_imports insert error:", insError);
+        return NextResponse.json({ error: `DB insert failed: ${insError.message}` }, { status: 500 });
+      }
     }
 
     const total    = collection.length;
@@ -326,7 +332,8 @@ export async function POST(request: NextRequest) {
       message:    `${total} albums imported from Bandcamp. ${duplicateCount} already in your physical collection.`,
     });
   } catch (error) {
-    console.error("Bandcamp import error:", error);
-    return NextResponse.json({ error: "Import failed. Please try again." }, { status: 500 });
+    const msg = error instanceof Error ? error.message : String(error);
+    console.error("Bandcamp import error:", msg);
+    return NextResponse.json({ error: `Import error: ${msg}` }, { status: 500 });
   }
 }
