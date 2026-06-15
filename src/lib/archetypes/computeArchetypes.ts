@@ -1,0 +1,644 @@
+import type { SupabaseClient } from '@supabase/supabase-js'
+import { ARCHETYPES, getNamedPairing } from './archetypeConfig'
+
+export interface SignalResult {
+  score: number
+  label: string
+  subtext?: string
+  unavailable?: boolean
+  [key: string]: unknown
+}
+
+export interface ComputedSignals {
+  labelLoyalty: SignalResult & { top3Pct: number }
+  conditionStandard: SignalResult
+  formatFidelity: SignalResult
+  sonicCoherence: SignalResult
+  geographicRange: SignalResult
+  pressingOriginDiversity: SignalResult & { topCountry: string | null; uniqueCountries: number }
+  trophyRatio: SignalResult
+  historicalDepth: SignalResult & { modalDecade: number | null }
+  acquisitionRhythm: SignalResult & { rhythmType: string; stdDev: number }
+  styleRange: SignalResult & { uniqueStyles: number }
+  transgressiveIndex: SignalResult
+  aspirationRatio: SignalResult & { ratio: number }
+  curatorialReach: SignalResult
+  digitalDivergence: SignalResult & { digitalOnlyArtists: string[] }
+}
+
+export interface ArchetypeResult {
+  scores: Record<string, number>
+  primary: string
+  primaryScore: number
+  secondary: string | null
+  secondaryScore: number
+  shadow: string
+  shadowScore: number
+  namedPairing: string | null
+  signals: ComputedSignals
+  recordCount: number
+  generatedAt: string
+}
+
+function clamp(n: number): number {
+  return Math.min(100, Math.max(0, Math.round(n)))
+}
+
+function stdDev(values: number[]): number {
+  if (values.length === 0) return 0
+  const mean = values.reduce((a, b) => a + b, 0) / values.length
+  const variance = values.reduce((sum, v) => sum + (v - mean) ** 2, 0) / values.length
+  return Math.sqrt(variance)
+}
+
+export async function computeArchetypes(
+  userId: string,
+  supabase: SupabaseClient
+): Promise<ArchetypeResult> {
+  // ── A: user_records with joined record data ─────────────────────────────────
+  const { data: userRecordsRaw } = await supabase
+    .from('user_records')
+    .select(`
+      media_condition,
+      price_median,
+      created_at,
+      records (
+        artist, album, year, genre, styles, label, country, format,
+        community_have, community_want
+      )
+    `)
+    .eq('user_id', userId)
+
+  type RecordJoin = {
+    artist: string | null
+    album: string | null
+    year: number | null
+    genre: string | null
+    styles: string[] | null
+    label: string | null
+    country: string | null
+    format: string | null
+    community_have: number | null
+    community_want: number | null
+  }
+
+  type UserRecordRow = {
+    media_condition: string | null
+    price_median: number | null
+    created_at: string | null
+    records: RecordJoin | RecordJoin[] | null
+  }
+
+  const userRecords: UserRecordRow[] = (userRecordsRaw ?? []) as UserRecordRow[]
+  const totalRecords = userRecords.length
+
+  // Flatten nested record (supabase returns object or array depending on join cardinality)
+  function getRecord(row: UserRecordRow): RecordJoin | null {
+    if (!row.records) return null
+    return Array.isArray(row.records) ? (row.records[0] ?? null) : row.records
+  }
+
+  // ── B: Wantlist count ────────────────────────────────────────────────────────
+  // Use list_items joined to lists with slug='wantlist'
+  let wantlistCount = 0
+  const { data: wantlistRows } = await supabase
+    .from('list_items')
+    .select('id, lists!inner(user_id, slug)')
+    .eq('lists.user_id', userId)
+    .eq('lists.slug', 'wantlist')
+  wantlistCount = wantlistRows?.length ?? 0
+
+  // ── C: Digital imports ───────────────────────────────────────────────────────
+  const { data: digitalImportsRaw } = await supabase
+    .from('digital_imports')
+    .select('artist, album')
+    .eq('user_id', userId)
+  const digitalImports = digitalImportsRaw ?? []
+
+  // ── D: Lists and list_items ──────────────────────────────────────────────────
+  const { data: listsRaw } = await supabase
+    .from('lists')
+    .select('id, title')
+    .eq('user_id', userId)
+  const lists = listsRaw ?? []
+
+  const listIds = lists.map((l: { id: string }) => l.id)
+  let listItems: Array<{ list_id: string; record_id: string | null; records: { genre: string | null; year: number | null; country: string | null } | null }> = []
+  if (listIds.length > 0) {
+    const { data: listItemsRaw } = await supabase
+      .from('list_items')
+      .select('list_id, record_id, records(genre, year, country)')
+      .in('list_id', listIds)
+      .eq('item_type', 'record')
+    listItems = (listItemsRaw ?? []) as unknown as typeof listItems
+  }
+
+  // ── SIGNAL COMPUTATIONS ─────────────────────────────────────────────────────
+
+  // 1. labelLoyalty
+  const labelCounts = new Map<string, number>()
+  for (const row of userRecords) {
+    const r = getRecord(row)
+    if (r?.label) labelCounts.set(r.label, (labelCounts.get(r.label) ?? 0) + 1)
+  }
+  const labelsSorted = [...labelCounts.values()].sort((a, b) => b - a)
+  const top3Sum = labelsSorted.slice(0, 3).reduce((a, b) => a + b, 0)
+  const top3Pct = totalRecords > 0 ? (top3Sum / totalRecords) * 100 : 0
+  const labelLoyalty: ComputedSignals['labelLoyalty'] = {
+    score: clamp(top3Pct),
+    top3Pct,
+    label: top3Pct > 70 ? 'Devoted' : top3Pct >= 50 ? 'Loyal' : top3Pct >= 30 ? 'Selective' : 'Eclectic',
+    subtext: `Top 3 labels = ${Math.round(top3Pct)}% of collection`,
+  }
+
+  // 2. conditionStandard
+  const GRADE_MAP: Record<string, number> = {
+    'M': 100, 'Mint (M)': 100,
+    'NM': 100, 'Near Mint (NM or M-)': 100, 'Near Mint (NM)': 100,
+    'VG+': 80, 'Very Good Plus (VG+)': 80,
+    'VG': 50, 'Very Good (VG)': 50,
+    'G+': 25, 'Good Plus (G+)': 25,
+    'G': 10, 'Good (G)': 10,
+    'Fair': 10, 'Poor': 10,
+  }
+  const gradedScores: number[] = []
+  for (const row of userRecords) {
+    if (row.media_condition) {
+      const score = GRADE_MAP[row.media_condition] ?? null
+      if (score != null) gradedScores.push(score)
+    }
+  }
+  const avgCondition = gradedScores.length > 0
+    ? gradedScores.reduce((a, b) => a + b, 0) / gradedScores.length
+    : 50
+  const conditionStandard: ComputedSignals['conditionStandard'] = {
+    score: clamp(avgCondition),
+    label: avgCondition > 80 ? 'Fastidious' : avgCondition >= 60 ? 'Listener' : 'Content-first',
+    subtext: gradedScores.length > 0
+      ? `${gradedScores.length} records with condition data`
+      : 'No condition data',
+    unavailable: gradedScores.length === 0,
+  }
+
+  // 3. formatFidelity
+  let lpCount = 0
+  for (const row of userRecords) {
+    const r = getRecord(row)
+    if (r?.format) {
+      const f = r.format.toLowerCase()
+      if (f.includes('lp') || f.includes('album') || f.includes('12"')) lpCount++
+    }
+  }
+  const lpPct = totalRecords > 0 ? (lpCount / totalRecords) * 100 : 0
+  const formatFidelity: ComputedSignals['formatFidelity'] = {
+    score: clamp(lpPct),
+    label: lpPct > 90 ? 'LP Purist' : lpPct >= 70 ? 'Album-focused' : 'Format-agnostic',
+    subtext: `${Math.round(lpPct)}% LP / Album`,
+  }
+
+  // 4. sonicCoherence
+  // Build genre, decade, country indexes for sampled records
+  const genres = new Set<string>()
+  const countries = new Set<string>()
+  for (const row of userRecords) {
+    const r = getRecord(row)
+    if (r?.genre) genres.add(r.genre)
+    if (r?.country) countries.add(r.country)
+  }
+  const genreList = [...genres].sort()
+  const countryList = [...countries].sort()
+
+  const sampleSize = Math.min(totalRecords, 150)
+  const sampled = totalRecords > 150
+    ? userRecords.sort(() => Math.random() - 0.5).slice(0, sampleSize)
+    : userRecords
+
+  type Vec = [number, number, number]
+  const vectors: Vec[] = []
+  for (const row of sampled) {
+    const r = getRecord(row)
+    if (!r) continue
+    const gi = r.genre ? genreList.indexOf(r.genre) / Math.max(genreList.length - 1, 1) : 0.5
+    const decade = r.year ? Math.floor(r.year / 10) - 195 : 5
+    const di = Math.max(0, Math.min(decade, 10)) / 10
+    const ci = r.country ? countryList.indexOf(r.country) / Math.max(countryList.length - 1, 1) : 0.5
+    vectors.push([gi, di, ci])
+  }
+
+  let avgDist = 0
+  if (vectors.length > 1) {
+    let totalDist = 0
+    let pairs = 0
+    for (let i = 0; i < vectors.length; i++) {
+      for (let j = i + 1; j < vectors.length; j++) {
+        totalDist += Math.abs(vectors[i][0] - vectors[j][0])
+          + Math.abs(vectors[i][1] - vectors[j][1])
+          + Math.abs(vectors[i][2] - vectors[j][2])
+        pairs++
+        if (pairs > 5000) break
+      }
+      if (pairs > 5000) break
+    }
+    avgDist = pairs > 0 ? totalDist / pairs : 0
+  }
+  const coherenceScore = clamp(100 - (avgDist / 3) * 100)
+  const sonicCoherence: ComputedSignals['sonicCoherence'] = {
+    score: coherenceScore,
+    label: coherenceScore > 70 ? 'Curated World' : coherenceScore >= 45 ? 'Themed' : 'Eclectic',
+    subtext: 'Based on genre, era, and country spread',
+  }
+
+  // 5. geographicRange
+  const COUNTRY_WEIGHTS: Record<string, number> = {
+    Japan: 2.0, Germany: 1.8, Jamaica: 1.8, Brazil: 1.7, Nigeria: 1.9,
+    France: 1.5, Norway: 1.6, Sweden: 1.6, Denmark: 1.6, Finland: 1.6,
+    UK: 0.8, USA: 0.6, US: 0.6, Australia: 1.0,
+  }
+  let geoWeightedSum = 0
+  const countryCounts = new Map<string, number>()
+  for (const row of userRecords) {
+    const r = getRecord(row)
+    if (r?.country) {
+      countryCounts.set(r.country, (countryCounts.get(r.country) ?? 0) + 1)
+    }
+  }
+  for (const [country, count] of countryCounts) {
+    const weight = COUNTRY_WEIGHTS[country] ?? 1.2
+    geoWeightedSum += weight * count
+  }
+  const geoScore = clamp(totalRecords > 0 ? (geoWeightedSum / totalRecords) * 50 : 0)
+  const geographicRange: ComputedSignals['geographicRange'] = {
+    score: geoScore,
+    label: geoScore > 65 ? 'Counter-canonical' : geoScore >= 40 ? 'Mixed' : 'Mainstream',
+    subtext: `${countryCounts.size} pressing countries`,
+  }
+
+  // 6. pressingOriginDiversity
+  const uniqueCountries = countryCounts.size
+  const diversityScore1 = Math.min(uniqueCountries * 5, 100)
+  const angloCount = (countryCounts.get('UK') ?? 0) + (countryCounts.get('USA') ?? 0) + (countryCounts.get('US') ?? 0) + (countryCounts.get('Australia') ?? 0)
+  const nonAngloScore = totalRecords > 0 ? ((totalRecords - angloCount) / totalRecords) * 100 : 0
+  const pressingScore = clamp((diversityScore1 + nonAngloScore) / 2)
+  const topCountryEntry = [...countryCounts.entries()].sort((a, b) => b[1] - a[1])[0]
+  const pressingOriginDiversity: ComputedSignals['pressingOriginDiversity'] = {
+    score: pressingScore,
+    label: `${uniqueCountries} countries`,
+    topCountry: topCountryEntry?.[0] ?? null,
+    uniqueCountries,
+    subtext: topCountryEntry ? `Top: ${topCountryEntry[0]} (${topCountryEntry[1]})` : 'No pressing data',
+  }
+
+  // 7. trophyRatio — uses community_want/have ratio as proxy
+  // (desirability_tag column doesn't exist; derive from community demand signal)
+  let trophyPoints = 0
+  let trophyTotal = 0
+  for (const row of userRecords) {
+    const r = getRecord(row)
+    if (r?.community_want != null && r?.community_have != null && r.community_have > 0) {
+      const ratio = r.community_want / r.community_have
+      if (ratio > 2) trophyPoints += 3
+      else if (ratio > 1) trophyPoints += 2
+      else if (ratio > 0.5) trophyPoints += 1
+      trophyTotal += 3
+    }
+  }
+  const hasDesirabilityData = trophyTotal > 0
+  const trophyScore = hasDesirabilityData ? clamp((trophyPoints / trophyTotal) * 100) : 0
+  const trophyRatio: ComputedSignals['trophyRatio'] = {
+    score: trophyScore,
+    label: !hasDesirabilityData ? 'No data' : trophyScore > 40 ? 'Obsessive Hunter' : trophyScore >= 20 ? 'Rarity-aware' : 'Music-first',
+    subtext: hasDesirabilityData ? `Based on community demand signals` : 'Sync collection to unlock',
+    unavailable: !hasDesirabilityData,
+  }
+
+  // 8. historicalDepth
+  const recordsWithYear = userRecords.filter(row => {
+    const r = getRecord(row)
+    return r?.year && r.year > 1900
+  })
+  const historicCount = recordsWithYear.filter(row => {
+    const r = getRecord(row)
+    return r?.year && r.year < 1975
+  }).length
+  const historicPct = recordsWithYear.length > 0 ? (historicCount / recordsWithYear.length) * 100 : 0
+
+  const decadeCounts = new Map<number, number>()
+  for (const row of recordsWithYear) {
+    const r = getRecord(row)
+    if (r?.year) {
+      const decade = Math.floor(r.year / 10) * 10
+      decadeCounts.set(decade, (decadeCounts.get(decade) ?? 0) + 1)
+    }
+  }
+  const modalDecadeEntry = [...decadeCounts.entries()].sort((a, b) => b[1] - a[1])[0]
+  const modalDecade = modalDecadeEntry?.[0] ?? null
+
+  const historicalDepth: ComputedSignals['historicalDepth'] = {
+    score: clamp(historicPct),
+    label: historicPct > 60 ? 'Historian' : historicPct >= 30 ? 'Bridge' : 'Contemporary',
+    modalDecade,
+    subtext: modalDecade ? `Modal decade: ${modalDecade}s` : 'No year data',
+  }
+
+  // 9. acquisitionRhythm — using created_at as proxy for date_added
+  const datedRecords = userRecords
+    .filter(row => row.created_at)
+    .map(row => new Date(row.created_at!))
+
+  let rhythmResult: ComputedSignals['acquisitionRhythm']
+  if (datedRecords.length < 10) {
+    rhythmResult = {
+      score: 0,
+      label: 'Insufficient data',
+      rhythmType: 'insufficient_data',
+      stdDev: 0,
+      subtext: 'Not enough dated records',
+      unavailable: true,
+    }
+  } else {
+    // Group by ISO week
+    const weekCounts = new Map<string, number>()
+    for (const d of datedRecords) {
+      const year = d.getFullYear()
+      const startOfYear = new Date(year, 0, 1)
+      const week = Math.ceil(((d.getTime() - startOfYear.getTime()) / 86400000 + startOfYear.getDay() + 1) / 7)
+      const key = `${year}-W${String(week).padStart(2, '0')}`
+      weekCounts.set(key, (weekCounts.get(key) ?? 0) + 1)
+    }
+    const weeklyValues = [...weekCounts.values()]
+    const sd = stdDev(weeklyValues)
+    const rhythmType = sd < 0.8 ? 'Ritualist' : sd < 2.5 ? 'Measured' : 'Binge'
+    rhythmResult = {
+      score: clamp(sd * 15),
+      label: rhythmType,
+      rhythmType,
+      stdDev: sd,
+      subtext: `Buying pattern: ${rhythmType.toLowerCase()}`,
+    }
+  }
+  const acquisitionRhythm = rhythmResult
+
+  // 10. styleRange
+  const allStyles = new Set<string>()
+  for (const row of userRecords) {
+    const r = getRecord(row)
+    if (r?.styles) {
+      for (const s of r.styles) if (s) allStyles.add(s)
+    }
+  }
+  const uniqueStyles = allStyles.size
+  const hasStyleData = uniqueStyles > 0
+  const styleRange: ComputedSignals['styleRange'] = {
+    score: hasStyleData ? clamp(uniqueStyles * 3) : 0,
+    label: !hasStyleData ? 'No style data' : uniqueStyles > 20 ? 'Omnivore' : uniqueStyles >= 10 ? 'Broad' : 'Focused',
+    uniqueStyles,
+    subtext: hasStyleData ? `${uniqueStyles} unique style tags` : 'No style data available',
+    unavailable: !hasStyleData,
+  }
+
+  // 11. transgressiveIndex
+  const NOISE = ['Noise', 'Power Electronics', 'Harsh Noise Wall', 'Japanoise', 'Death Industrial', 'Brutal Noise']
+  const EXPERIMENTAL = ['Musique Concrète', 'Electroacoustic', 'Acousmatic', 'Lowercase', 'Drone', 'Sound Art', 'Experimental']
+  const PSYCHEDELIC_FRINGE = ['Acid Rock', 'Proto-Punk', 'Cosmic', 'Psych']
+  const FREE_JAZZ = ['Free Jazz', 'Free Improvisation', 'Avant-garde Jazz', 'No Wave']
+  const FRINGE_FOLK = ['Anti-Folk', 'Freak Folk', 'New Weird America', 'Free Folk']
+  const ELECTRONIC_MARGINS = ['Harsh EBM', 'Dark Ambient', 'Martial Industrial', 'Neofolk', 'Power Noise']
+  const ALL_CLUSTERS = [NOISE, EXPERIMENTAL, PSYCHEDELIC_FRINGE, FREE_JAZZ, FRINGE_FOLK, ELECTRONIC_MARGINS]
+  const ALL_TRANSGRESSIVE = ALL_CLUSTERS.flat()
+
+  let transgressiveCount = 0
+  let clustersHit = 0
+  if (hasStyleData) {
+    for (const row of userRecords) {
+      const r = getRecord(row)
+      if (r?.styles) {
+        const styleSet = new Set(r.styles)
+        if (ALL_TRANSGRESSIVE.some(t => styleSet.has(t))) transgressiveCount++
+      }
+    }
+    for (const cluster of ALL_CLUSTERS) {
+      if ([...allStyles].some(s => cluster.includes(s))) clustersHit++
+    }
+  }
+
+  const transgressivePct = totalRecords > 0 && hasStyleData ? (transgressiveCount / totalRecords) * 100 : 0
+  const transgressiveScore = hasStyleData
+    ? clamp((transgressivePct * 0.6) + ((clustersHit / 6) * 100 * 0.4))
+    : 0
+  const transgressiveIndex: ComputedSignals['transgressiveIndex'] = {
+    score: transgressiveScore,
+    label: !hasStyleData ? 'No style data' : transgressiveScore > 50 ? 'Anti-canonical' : transgressiveScore >= 25 ? 'Adventurous' : 'Conventional',
+    subtext: hasStyleData ? `${transgressiveCount} experimental records` : 'No style data available',
+    unavailable: !hasStyleData,
+  }
+
+  // 12. aspirationRatio
+  const aspirationRatioVal = totalRecords > 0 ? wantlistCount / totalRecords : 0
+  const aspirationScore = clamp(aspirationRatioVal * 100)
+  const aspirationRatio: ComputedSignals['aspirationRatio'] = {
+    score: aspirationScore,
+    label: wantlistCount === 0 ? 'Not measured' : aspirationRatioVal > 0.5 ? 'Active Seeker' : aspirationRatioVal >= 0.2 ? 'Selective' : 'Content',
+    ratio: aspirationRatioVal,
+    subtext: `${wantlistCount} on wantlist vs ${totalRecords} owned`,
+    unavailable: wantlistCount === 0,
+  }
+
+  // 13. curatorialReach
+  let curatorialReach: ComputedSignals['curatorialReach']
+  if (lists.length === 0) {
+    curatorialReach = {
+      score: 0,
+      label: 'No lists yet',
+      subtext: 'Create lists to unlock',
+      unavailable: true,
+    }
+  } else {
+    const genreDist = new Map<string, number>()
+    for (const row of userRecords) {
+      const r = getRecord(row)
+      if (r?.genre) genreDist.set(r.genre, (genreDist.get(r.genre) ?? 0) + 1)
+    }
+    const listGenreDist = new Map<string, number>()
+    for (const item of listItems) {
+      const r = item.records
+      if (r?.genre) listGenreDist.set(r.genre, (listGenreDist.get(r.genre) ?? 0) + 1)
+    }
+
+    const topCollectionGenre = [...genreDist.entries()].sort((a, b) => b[1] - a[1])[0]?.[0] ?? null
+    const topListGenre = [...listGenreDist.entries()].sort((a, b) => b[1] - a[1])[0]?.[0] ?? null
+
+    const editorial = topCollectionGenre !== topListGenre
+      ? Math.min(70 + lists.length * 5, 100)
+      : Math.min(30 + lists.length * 3, 60)
+    const listsPerRecord = totalRecords > 0 ? lists.length / (totalRecords / 50) : 0
+    const cScore = clamp((editorial * 0.7) + (Math.min(listsPerRecord * 20, 30)))
+
+    curatorialReach = {
+      score: cScore,
+      label: cScore > 60 ? 'Edge Curator' : cScore >= 30 ? 'Centre Curator' : 'Non-curator',
+      subtext: `${lists.length} list${lists.length === 1 ? '' : 's'} created`,
+    }
+  }
+
+  // 14. digitalDivergence
+  let digitalDivergence: ComputedSignals['digitalDivergence']
+  if (digitalImports.length === 0) {
+    digitalDivergence = {
+      score: 0,
+      label: 'No Bandcamp data',
+      digitalOnlyArtists: [],
+      subtext: 'Import Bandcamp to unlock',
+      unavailable: true,
+    }
+  } else {
+    const vinylArtists = new Set(
+      userRecords.map(row => getRecord(row)?.artist).filter(Boolean) as string[]
+    )
+    const digitalArtists = new Set(
+      digitalImports.map((d: { artist: string }) => d.artist).filter(Boolean)
+    )
+    const overlap = [...digitalArtists].filter(a => vinylArtists.has(a))
+    const convergence = digitalArtists.size > 0 ? (overlap.length / digitalArtists.size) * 100 : 0
+    const divergence = 100 - convergence
+
+    const digitalOnlyArtists = [...digitalArtists]
+      .filter(a => !vinylArtists.has(a))
+      .slice(0, 3)
+
+    digitalDivergence = {
+      score: clamp(divergence),
+      label: divergence > 60 ? 'Two Worlds' : divergence >= 30 ? 'Overlapping' : 'Aligned',
+      digitalOnlyArtists,
+      subtext: digitalOnlyArtists.length > 0
+        ? `Digital only: ${digitalOnlyArtists.join(', ')}`
+        : `${Math.round(convergence)}% overlap with vinyl`,
+    }
+  }
+
+  // ── ASSEMBLE SIGNALS ────────────────────────────────────────────────────────
+  const signals: ComputedSignals = {
+    labelLoyalty,
+    conditionStandard,
+    formatFidelity,
+    sonicCoherence,
+    geographicRange,
+    pressingOriginDiversity,
+    trophyRatio,
+    historicalDepth,
+    acquisitionRhythm,
+    styleRange,
+    transgressiveIndex,
+    aspirationRatio,
+    curatorialReach,
+    digitalDivergence,
+  }
+
+  // ── ARCHETYPE SCORING ────────────────────────────────────────────────────────
+  const s = signals
+  const scores: Record<string, number> = {
+    keeper: clamp(
+      s.labelLoyalty.score * 0.22 +
+      s.conditionStandard.score * 0.20 +
+      s.sonicCoherence.score * 0.18 +
+      s.historicalDepth.score * 0.15 +
+      s.formatFidelity.score * 0.10 +
+      (100 - s.acquisitionRhythm.score) * 0.15
+    ),
+    seeker: clamp(
+      s.aspirationRatio.score * 0.25 +
+      s.geographicRange.score * 0.20 +
+      s.digitalDivergence.score * 0.20 +
+      s.styleRange.score * 0.15 +
+      (100 - s.labelLoyalty.score) * 0.10 +
+      s.pressingOriginDiversity.score * 0.10
+    ),
+    scholar: clamp(
+      s.styleRange.score * 0.25 +
+      s.historicalDepth.score * 0.20 +
+      s.sonicCoherence.score * 0.15 +
+      s.geographicRange.score * 0.15 +
+      s.conditionStandard.score * 0.10 +
+      s.pressingOriginDiversity.score * 0.15
+    ),
+    ritualist: clamp(
+      s.formatFidelity.score * 0.25 +
+      s.conditionStandard.score * 0.20 +
+      (100 - s.acquisitionRhythm.score) * 0.20 +
+      s.sonicCoherence.score * 0.20 +
+      (100 - s.aspirationRatio.score) * 0.15
+    ),
+    hunter: clamp(
+      s.trophyRatio.score * 0.35 +
+      s.conditionStandard.score * 0.15 +
+      s.acquisitionRhythm.score * 0.15 +
+      s.aspirationRatio.score * 0.20 +
+      s.pressingOriginDiversity.score * 0.15
+    ),
+    lover: clamp(
+      s.acquisitionRhythm.score * 0.30 +
+      (100 - s.sonicCoherence.score) * 0.25 +
+      s.aspirationRatio.score * 0.20 +
+      (100 - s.labelLoyalty.score) * 0.15 +
+      s.styleRange.score * 0.10
+    ),
+    alchemist: clamp(
+      s.curatorialReach.score * 0.35 +
+      s.styleRange.score * 0.20 +
+      s.digitalDivergence.score * 0.15 +
+      s.geographicRange.score * 0.15 +
+      (100 - s.sonicCoherence.score) * 0.15
+    ),
+    pilgrim: clamp(
+      s.pressingOriginDiversity.score * 0.35 +
+      s.geographicRange.score * 0.25 +
+      s.transgressiveIndex.score * 0.15 +
+      s.historicalDepth.score * 0.15 +
+      (100 - s.labelLoyalty.score) * 0.10
+    ),
+    ruler: clamp(
+      s.labelLoyalty.score * 0.30 +
+      (100 - s.styleRange.score) * 0.20 +
+      s.conditionStandard.score * 0.15 +
+      s.historicalDepth.score * 0.15 +
+      s.sonicCoherence.score * 0.20
+    ),
+    outlaw: clamp(
+      s.transgressiveIndex.score * 0.40 +
+      (100 - s.trophyRatio.score) * 0.20 +
+      (100 - s.labelLoyalty.score) * 0.15 +
+      s.styleRange.score * 0.15 +
+      s.geographicRange.score * 0.10
+    ),
+    caregiver: clamp(
+      s.curatorialReach.score * 0.30 +
+      s.styleRange.score * 0.20 +
+      s.digitalDivergence.score * 0.15 +
+      (100 - s.digitalDivergence.score) * 0.15 +
+      s.geographicRange.score * 0.10 +
+      (100 - s.sonicCoherence.score) * 0.10
+    ),
+  }
+
+  const sortedEntries = Object.entries(scores).sort((a, b) => b[1] - a[1])
+  const primary = sortedEntries[0][0]
+  const primaryScore = sortedEntries[0][1]
+  const secondaryEntry = sortedEntries[1]
+  const secondary = secondaryEntry[1] >= 30 ? secondaryEntry[0] : null
+  const secondaryScore = secondaryEntry[1]
+  const shadow = ARCHETYPES[primary]?.shadowOf ?? 'keeper'
+  const shadowScore = scores[shadow] ?? 0
+
+  return {
+    scores,
+    primary,
+    primaryScore,
+    secondary,
+    secondaryScore,
+    shadow,
+    shadowScore,
+    namedPairing: secondary ? getNamedPairing(primary, secondary) : null,
+    signals,
+    recordCount: totalRecords,
+    generatedAt: new Date().toISOString(),
+  }
+}

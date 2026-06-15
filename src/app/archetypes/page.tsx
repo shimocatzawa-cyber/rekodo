@@ -1,0 +1,30 @@
+import { redirect } from "next/navigation";
+import { createClient } from "@/lib/supabase/server";
+import ArchetypesClient from "@/components/archetypes/ArchetypesClient";
+
+export const dynamic = "force-dynamic";
+
+export default async function ArchetypesPage() {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) redirect("/login");
+
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("username, display_name, avatar_url")
+    .eq("id", user.id)
+    .maybeSingle();
+
+  const username = profile?.username ?? user.email?.split("@")[0] ?? "user";
+  const displayLabel = profile?.display_name?.trim() || username;
+  const avatarUrl = profile?.avatar_url ?? null;
+
+  return (
+    <ArchetypesClient
+      userId={user.id}
+      username={username}
+      displayLabel={displayLabel}
+      avatarUrl={avatarUrl}
+    />
+  );
+}
