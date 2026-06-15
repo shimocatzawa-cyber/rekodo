@@ -806,6 +806,7 @@ const HISTORY_KEY = "dig-history";
 const SEVEN_DAYS  = 7 * 24 * 60 * 60 * 1000;
 
 function saveToHistory(mode: DigMode, recs: Recommendation[]) {
+  if (mode === "explore") return;
   try {
     const session: HistorySession = { id: Date.now().toString(), date: new Date().toISOString(), mode, recs };
     const existing = (() => { try { return JSON.parse(localStorage.getItem(HISTORY_KEY) ?? "[]") as HistorySession[]; } catch { return [] as HistorySession[]; } })();
