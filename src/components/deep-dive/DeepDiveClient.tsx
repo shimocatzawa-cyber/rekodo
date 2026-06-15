@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
+import { createClient } from "@/lib/supabase/client";
 
 const SERIF  = "var(--font-editorial)";
 const MONO   = "var(--font-mono)";
@@ -583,7 +584,10 @@ function ArtistRow({
           {artist.fromBandcamp && <BandcampIcon size={12} />}
         </div>
         <p style={{ fontFamily: MONO, fontSize: "0.6rem", letterSpacing: "0.08em", color: INK, margin: 0 }}>
-          {artist.count} {artist.count === 1 ? "item" : "items"}
+          {[
+            artist.count > 0 ? `${artist.count} ${artist.count === 1 ? "item" : "items"} in your collection` : "",
+            (artist.wantlistCount ?? 0) > 0 ? `${artist.wantlistCount} ${artist.wantlistCount === 1 ? "item" : "items"} in your wantlist` : "",
+          ].filter(Boolean).join(" · ")}
         </p>
       </div>
     </div>
@@ -606,8 +610,10 @@ function EmptyPanel() {
 
 export default function DeepDiveClient({
   artists,
+  userId,
 }: {
   artists: ArtistData[];
+  userId: string;
 }) {
   const [query, setQuery] = useState("");
   const [selectedArtist, setSelectedArtist] = useState<string | null>(null);
@@ -620,14 +626,72 @@ export default function DeepDiveClient({
   // Track which artist:section combos have been requested to prevent duplicates
   const startedRef = useRef(new Set<string>());
 
+  // Live wantlist counts (null = use server-provided counts from props)
+  const [liveWantlistCounts, setLiveWantlistCounts] = useState<Record<string, number> | null>(null);
+  const [liveExtraArtists, setLiveExtraArtists] = useState<ArtistData[]>([]);
+
+  // Merge server artists with live wantlist data
+  const mergedArtists = useMemo((): ArtistData[] => {
+    if (liveWantlistCounts === null) return artists;
+    const collectionNames = new Set(artists.map((a) => a.name.toLowerCase().trim()));
+    const withLive = artists
+      .map((a) => ({ ...a, wantlistCount: liveWantlistCounts[a.name.toLowerCase().trim()] ?? 0 }))
+      .filter((a) => a.count > 0 || (liveWantlistCounts[a.name.toLowerCase().trim()] ?? 0) > 0);
+    const extras = liveExtraArtists.filter((a) => !collectionNames.has(a.name.toLowerCase().trim()));
+    return [...withLive, ...extras].sort((a, b) => b.count - a.count || a.name.localeCompare(b.name));
+  }, [artists, liveWantlistCounts, liveExtraArtists]);
+
+  // Real-time wantlist subscription
+  useEffect(() => {
+    const supabase = createClient();
+
+    async function refetch() {
+      const { data } = await supabase.from("wantlist").select("artist").eq("user_id", userId);
+      if (!data) return;
+      const counts: Record<string, number> = {};
+      const caseMap: Record<string, string> = {};
+      for (const row of data) {
+        const key = ((row.artist as string | null) ?? "").toLowerCase().trim();
+        if (!key) continue;
+        counts[key] = (counts[key] ?? 0) + 1;
+        if (!caseMap[key]) caseMap[key] = (row.artist as string) ?? "";
+      }
+      setLiveWantlistCounts(counts);
+      const collNames = new Set(artists.map((a) => a.name.toLowerCase().trim()));
+      setLiveExtraArtists(
+        Object.entries(counts)
+          .filter(([key, c]) => !collNames.has(key) && c > 0)
+          .map(([key, c]) => ({
+            name: caseMap[key] ?? key,
+            count: 0,
+            wantlistCount: c,
+            fromBandcamp: false,
+            records: [],
+          }))
+      );
+    }
+
+    const channel = supabase
+      .channel("wantlist-live")
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "wantlist", filter: `user_id=eq.${userId}` },
+        () => { void refetch(); }
+      )
+      .subscribe();
+
+    return () => { void supabase.removeChannel(channel); };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [userId]);
+
   const filtered = query.trim()
-    ? artists.filter((a) => a.name.toLowerCase().includes(query.trim().toLowerCase()))
-    : artists;
+    ? mergedArtists.filter((a) => a.name.toLowerCase().includes(query.trim().toLowerCase()))
+    : mergedArtists;
 
   // Auto-select a random artist on first load
   useEffect(() => {
     if (artists.length > 0) {
-      const pick = artists[Math.floor(Math.random() * artists.length)];
+      const pick = artists[Math.floor(Math.random() * Math.min(artists.length, 20))];
       setSelectedArtist(pick.name);
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -764,7 +828,7 @@ export default function DeepDiveClient({
     return null;
   }
 
-  const selectedData = artists.find((a) => a.name === selectedArtist);
+  const selectedData = mergedArtists.find((a) => a.name === selectedArtist);
 
   function RightPanelContent() {
     if (!selectedArtist || !selectedData) return <EmptyPanel />;
@@ -862,13 +926,13 @@ export default function DeepDiveClient({
           alignSelf: "flex-start",
         }}>
           {/* Randomiser */}
-          {artists.length > 0 && (
+          {mergedArtists.length > 0 && (
             <div style={{ padding: "8px 1rem", borderBottom: `1px solid ${RULE}` }}>
               <button
                 type="button"
                 onClick={() => {
-                  const idx = Math.floor(Math.random() * artists.length);
-                  selectArtist(artists[idx].name);
+                  const idx = Math.floor(Math.random() * mergedArtists.length);
+                  selectArtist(mergedArtists[idx].name);
                 }}
                 style={{
                   fontFamily: MONO, fontSize: "10px", letterSpacing: "0.06em",
@@ -914,7 +978,7 @@ export default function DeepDiveClient({
               No artists match &ldquo;{query}&rdquo;
             </p>
           )}
-          {artists.length === 0 && (
+          {mergedArtists.length === 0 && (
             <div style={{ padding: "1.5rem 1rem" }}>
               <p style={{ fontFamily: MONO, fontSize: "0.68rem", letterSpacing: "0.06em", color: INK, lineHeight: 1.6, margin: 0 }}>
                 Sync your Discogs collection first to unlock Deep Dive.
@@ -932,7 +996,7 @@ export default function DeepDiveClient({
       {/* ── Mobile layout ──────────────────────────────────────────────────── */}
       <div className="md:hidden">
         {/* Horizontal pill strip */}
-        {artists.length > 0 && (
+        {mergedArtists.length > 0 && (
           <div style={{
             display: "flex",
             gap: 8,
@@ -941,7 +1005,7 @@ export default function DeepDiveClient({
             overflowX: "auto",
             WebkitOverflowScrolling: "touch",
           }}>
-            {artists.map((a) => {
+            {mergedArtists.map((a) => {
               const isSel = selectedArtist === a.name;
               return (
                 <button
@@ -967,7 +1031,7 @@ export default function DeepDiveClient({
           </div>
         )}
 
-        {artists.length === 0 && (
+        {mergedArtists.length === 0 && (
           <div style={{ padding: "2rem 1rem" }}>
             <p style={{ fontFamily: MONO, fontSize: "0.72rem", letterSpacing: "0.06em", color: INK, lineHeight: 1.6 }}>
               Sync your Discogs collection first to unlock Deep Dive.

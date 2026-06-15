@@ -93,19 +93,23 @@ export default async function DeepDivePage() {
     }
   }
 
-  // Fetch wantlist and build per-artist count map
+  // Fetch wantlist and build per-artist count + case maps
   const { data: wantlistRows } = await supabase
     .from("wantlist")
     .select("artist")
     .eq("user_id", user.id);
 
   const wantlistCountMap = new Map<string, number>();
+  const wantlistCaseMap = new Map<string, string>();
   for (const row of wantlistRows ?? []) {
     const key = (row.artist ?? "").toLowerCase().trim();
+    if (!key) continue;
     wantlistCountMap.set(key, (wantlistCountMap.get(key) ?? 0) + 1);
+    if (!wantlistCaseMap.has(key)) wantlistCaseMap.set(key, row.artist ?? "");
   }
 
-  const artists: ArtistData[] = [...artistMap.entries()]
+  // Collection artists (physical + Bandcamp)
+  const collectionArtists: ArtistData[] = [...artistMap.entries()]
     .filter(([name]) => !/^various/i.test(name.trim()))
     .map(([name, { count, records }]) => ({
       name,
@@ -113,14 +117,35 @@ export default async function DeepDivePage() {
       wantlistCount: wantlistCountMap.get(name.toLowerCase().trim()) ?? 0,
       fromBandcamp: bcArtists.has(name.toLowerCase().trim()),
       records: records.sort((a, b) => (a.year ?? 9999) - (b.year ?? 9999)),
-    }))
-    .sort((a, b) => b.count - a.count || a.name.localeCompare(b.name));
+    }));
+
+  // Wantlist-only artists (not in physical or Bandcamp collection)
+  const collectionNames = new Set(collectionArtists.map((a) => a.name.toLowerCase().trim()));
+  const wantlistOnlyArtists: ArtistData[] = [...wantlistCountMap.entries()]
+    .filter(([key]) => {
+      if (collectionNames.has(key)) return false;
+      const name = wantlistCaseMap.get(key) ?? "";
+      return name.length > 0 && !/^various/i.test(name.trim());
+    })
+    .map(([key, count]) => ({
+      name: wantlistCaseMap.get(key)!,
+      count: 0,
+      wantlistCount: count,
+      fromBandcamp: false,
+      records: [] as ArtistData["records"],
+    }));
+
+  const artists: ArtistData[] = [
+    ...collectionArtists,
+    ...wantlistOnlyArtists,
+  ].sort((a, b) => b.count - a.count || a.name.localeCompare(b.name));
 
   return (
     <>
       <AppNav username={username} displayLabel={displayLabel} avatarUrl={avatarUrl} />
       <DeepDiveClient
         artists={artists}
+        userId={user.id}
       />
     </>
   );
