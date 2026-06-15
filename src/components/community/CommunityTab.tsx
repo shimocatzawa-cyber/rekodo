@@ -359,7 +359,7 @@ export default function CommunityTab({ profileOwnerId }: { profileOwnerId: strin
       const res = await fetch("/api/collectors/follow", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ followingId: targetId }),
+        body: JSON.stringify({ followingId: targetId, action: prev ? "unfollow" : "follow" }),
       });
       const data = await res.json() as { isFollowing?: boolean; error?: string };
       if (!res.ok || typeof data.isFollowing !== "boolean") {

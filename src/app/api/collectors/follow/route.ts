@@ -7,38 +7,43 @@ export async function POST(request: Request) {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return Response.json({ error: "Not authenticated" }, { status: 401 });
 
-  const { followingId } = await request.json().catch(() => ({}));
+  const body = await request.json().catch(() => ({})) as { followingId?: string; action?: string };
+  const { followingId, action } = body;
+
   if (!followingId || typeof followingId !== "string") {
     return Response.json({ error: "Missing followingId" }, { status: 400 });
+  }
+  if (action !== "follow" && action !== "unfollow") {
+    return Response.json({ error: "action must be 'follow' or 'unfollow'" }, { status: 400 });
   }
   if (followingId === user.id) {
     return Response.json({ error: "Cannot follow yourself" }, { status: 400 });
   }
 
-  // Check if already following
-  const { data: existing, error: selectError } = await supabase
-    .from("follows")
-    .select("id")
-    .eq("follower_id", user.id)
-    .eq("following_id", followingId)
-    .maybeSingle();
-
-  if (selectError) {
-    return Response.json({ error: selectError.message }, { status: 500 });
-  }
-
-  if (existing) {
-    const { error: delError } = await supabase
+  if (action === "follow") {
+    // Upsert — safe to call even if the row already exists
+    const { error } = await supabase
+      .from("follows")
+      .upsert(
+        { follower_id: user.id, following_id: followingId },
+        { onConflict: "follower_id,following_id", ignoreDuplicates: true }
+      );
+    if (error) {
+      console.error("Follow insert error:", error);
+      return Response.json({ error: error.message }, { status: 500 });
+    }
+    return Response.json({ isFollowing: true });
+  } else {
+    // Delete — safe to call even if the row doesn't exist
+    const { error } = await supabase
       .from("follows")
       .delete()
-      .eq("id", existing.id);
-    if (delError) return Response.json({ error: delError.message }, { status: 500 });
+      .eq("follower_id", user.id)
+      .eq("following_id", followingId);
+    if (error) {
+      console.error("Unfollow delete error:", error);
+      return Response.json({ error: error.message }, { status: 500 });
+    }
     return Response.json({ isFollowing: false });
-  } else {
-    const { error: insError } = await supabase
-      .from("follows")
-      .insert({ follower_id: user.id, following_id: followingId });
-    if (insError) return Response.json({ error: insError.message }, { status: 500 });
-    return Response.json({ isFollowing: true });
   }
 }
