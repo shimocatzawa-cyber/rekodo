@@ -299,6 +299,15 @@ export async function POST(request: NextRequest) {
       };
     });
 
+    // Deduplicate by artist+album — Bandcamp sometimes returns the same item twice
+    const seen = new Set<string>();
+    const dedupedRows = upsertRows.filter(r => {
+      const key = `${r.artist.toLowerCase()}||${r.album.toLowerCase()}`;
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+
     // Replace previous sync data — user is authenticated above, RLS scopes to their rows.
     const { error: delError } = await supabase
       .from("digital_imports")
@@ -311,17 +320,17 @@ export async function POST(request: NextRequest) {
     }
 
     const INSERT_BATCH = 100;
-    for (let i = 0; i < upsertRows.length; i += INSERT_BATCH) {
+    for (let i = 0; i < dedupedRows.length; i += INSERT_BATCH) {
       const { error: insError } = await supabase
         .from("digital_imports")
-        .insert(upsertRows.slice(i, i + INSERT_BATCH));
+        .insert(dedupedRows.slice(i, i + INSERT_BATCH));
       if (insError) {
         console.error("digital_imports insert error:", insError);
         return NextResponse.json({ error: `DB insert failed: ${insError.message}` }, { status: 500 });
       }
     }
 
-    const total    = collection.length;
+    const total    = dedupedRows.length;
     const newCount = total - duplicateCount;
 
     return NextResponse.json({
