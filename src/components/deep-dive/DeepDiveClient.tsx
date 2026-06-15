@@ -610,10 +610,10 @@ function EmptyPanel() {
 
 export default function DeepDiveClient({
   artists,
-  userId,
+  wantlistListId,
 }: {
   artists: ArtistData[];
-  userId: string;
+  wantlistListId: string | null;
 }) {
   const [query, setQuery] = useState("");
   const [selectedArtist, setSelectedArtist] = useState<string | null>(null);
@@ -643,18 +643,22 @@ export default function DeepDiveClient({
 
   // Real-time wantlist subscription
   useEffect(() => {
+    if (!wantlistListId) return;
     const supabase = createClient();
 
     async function refetch() {
-      const { data } = await supabase.from("wantlist").select("artist").eq("user_id", userId);
+      const { data } = await supabase
+        .from("list_items")
+        .select("song_artist")
+        .eq("list_id", wantlistListId!);
       if (!data) return;
       const counts: Record<string, number> = {};
       const caseMap: Record<string, string> = {};
       for (const row of data) {
-        const key = ((row.artist as string | null) ?? "").toLowerCase().trim();
+        const key = ((row.song_artist as string | null) ?? "").toLowerCase().trim();
         if (!key) continue;
         counts[key] = (counts[key] ?? 0) + 1;
-        if (!caseMap[key]) caseMap[key] = (row.artist as string) ?? "";
+        if (!caseMap[key]) caseMap[key] = (row.song_artist as string) ?? "";
       }
       setLiveWantlistCounts(counts);
       const collNames = new Set(artists.map((a) => a.name.toLowerCase().trim()));
@@ -675,14 +679,14 @@ export default function DeepDiveClient({
       .channel("wantlist-live")
       .on(
         "postgres_changes",
-        { event: "*", schema: "public", table: "wantlist", filter: `user_id=eq.${userId}` },
+        { event: "*", schema: "public", table: "list_items", filter: `list_id=eq.${wantlistListId}` },
         () => { void refetch(); }
       )
       .subscribe();
 
     return () => { void supabase.removeChannel(channel); };
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [userId]);
+  }, [wantlistListId]);
 
   const filtered = query.trim()
     ? mergedArtists.filter((a) => a.name.toLowerCase().includes(query.trim().toLowerCase()))

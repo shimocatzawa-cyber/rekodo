@@ -93,19 +93,39 @@ export default async function DeepDivePage() {
     }
   }
 
-  // Fetch wantlist and build per-artist count + case maps
-  const { data: wantlistRows } = await supabase
-    .from("wantlist")
-    .select("artist")
-    .eq("user_id", user.id);
+  // Fetch wantlist from lists/list_items (written by WantlistClient CSV import)
+  const { data: wantlistList } = await supabase
+    .from("lists")
+    .select("id")
+    .eq("user_id", user.id)
+    .in("slug", ["wantlist", "want-to-buy"])
+    .maybeSingle();
+
+  const wantlistListId = wantlistList?.id ?? null;
+
+  type WantlistItem = { song_artist: string | null };
+  const wantlistItems: WantlistItem[] = [];
+  if (wantlistListId) {
+    const WL_PAGE = 1000;
+    for (let from = 0; ; from += WL_PAGE) {
+      const { data, error } = await supabase
+        .from("list_items")
+        .select("song_artist")
+        .eq("list_id", wantlistListId)
+        .range(from, from + WL_PAGE - 1);
+      if (error || !data || data.length === 0) break;
+      wantlistItems.push(...(data as WantlistItem[]));
+      if (data.length < WL_PAGE) break;
+    }
+  }
 
   const wantlistCountMap = new Map<string, number>();
   const wantlistCaseMap = new Map<string, string>();
-  for (const row of wantlistRows ?? []) {
-    const key = (row.artist ?? "").toLowerCase().trim();
+  for (const item of wantlistItems) {
+    const key = (item.song_artist ?? "").toLowerCase().trim();
     if (!key) continue;
     wantlistCountMap.set(key, (wantlistCountMap.get(key) ?? 0) + 1);
-    if (!wantlistCaseMap.has(key)) wantlistCaseMap.set(key, row.artist ?? "");
+    if (!wantlistCaseMap.has(key)) wantlistCaseMap.set(key, item.song_artist ?? "");
   }
 
   // Collection artists (physical + Bandcamp)
@@ -145,7 +165,7 @@ export default async function DeepDivePage() {
       <AppNav username={username} displayLabel={displayLabel} avatarUrl={avatarUrl} />
       <DeepDiveClient
         artists={artists}
-        userId={user.id}
+        wantlistListId={wantlistListId}
       />
     </>
   );
