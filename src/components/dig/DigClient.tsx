@@ -374,12 +374,13 @@ async function sendPlay(token: string, deviceId: string, body: object): Promise<
   return false;
 }
 
-function DigCompactPlayer({ previewUrl, albumUri, trackUri, artist, album }: {
+function DigCompactPlayer({ previewUrl, albumUri, trackUri, artist, album, recIdx }: {
   previewUrl: string | null;
   albumUri:   string | null;
   trackUri:   string | null;
   artist:     string;
   album:      string;
+  recIdx:     number;
 }) {
   const [isPremium,    setIsPremium]    = useState(false);
   const [deviceId,     setDeviceId]     = useState<string | null>(null);
@@ -433,6 +434,9 @@ function DigCompactPlayer({ previewUrl, albumUri, trackUri, artist, album }: {
     });
     player.addListener("player_state_changed", (s) => {
       if (!s) return;
+      // Ignore events for tracks we haven't intentionally started — prevents
+      // stale SDK events from the previous rec overriding the reset state.
+      if (!sdkStartedRef.current) return;
       const state = s as DigPlaybackState;
       setPlaying(!state.paused);
       setPosition(state.position);
@@ -470,7 +474,23 @@ function DigCompactPlayer({ previewUrl, albumUri, trackUri, artist, album }: {
     return () => { if (pollRef.current) clearInterval(pollRef.current); };
   }, [playing]);
 
-  // Reset playback state when the track changes — SDK stays alive
+  // Stop playback immediately when the user navigates to a new rec. This fires
+  // before new preview data arrives so the player never plays the old rec's audio
+  // while the new card is visible. audioRef is nulled here so handlePlayPause
+  // won't restart old audio; the previewUrl cleanup effect destroys the element.
+  useEffect(() => {
+    if (audioRef.current) audioRef.current.pause();
+    audioRef.current = null;
+    setPlaying(false);
+    setPosition(0);
+    setNowTrack(null);
+    setPlayPending(false);
+    sdkStartedRef.current = false;
+    pendingPlayRef.current = null;
+  }, [recIdx]);
+
+  // Also reset when the preview/URI data itself changes (e.g. new data arriving
+  // for this rec) — keeps state in sync with whatever the player props say.
   useEffect(() => {
     setPlaying(false);
     setPosition(0);
@@ -964,8 +984,9 @@ export default function DigClient({ username, displayLabel, avatarUrl, collectio
   // "dig again" without changing mode; swapping `mode` handles mode changes.
   const [fetchKey, setFetchKey] = useState<{ mode: DigMode; n: number }>({ mode: "discover", n: 0 });
 
-  // Clear the compact player whenever we navigate to a new rec or reload
-  useEffect(() => { setDigSpotify(null); }, [idx, mode, fetchKey]);
+  // Clear the compact player only on mode/fetch changes, not rec navigation.
+  // Navigation is handled by recIdx prop so the player stays visible between recs.
+  useEffect(() => { setDigSpotify(null); }, [mode, fetchKey]);
 
   // All setState calls inside the effect are in async callbacks, never synchronously
   // in the effect body — satisfies react-hooks/set-state-in-effect.
@@ -1212,6 +1233,7 @@ export default function DigClient({ username, displayLabel, avatarUrl, collectio
           {/* Always mounted outside the loading gate so the SDK never disconnects
               between "Dig Again" fetches. Renders null internally when nothing is playable. */}
           <DigCompactPlayer
+            recIdx={idx}
             previewUrl={digSpotify?.previewUrl ?? null}
             albumUri={digSpotify?.albumUri ?? null}
             trackUri={digSpotify?.trackUri ?? null}
