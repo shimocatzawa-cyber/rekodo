@@ -54,7 +54,7 @@ export default function CollectorsLikeYou({ userId, currentUserId }: Props) {
       const res = await fetch("/api/collectors/follow", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ followingId: targetId }),
+        body: JSON.stringify({ followingId: targetId, action: prev ? "unfollow" : "follow" }),
       });
       if (!res.ok) setFollowState(s => ({ ...s, [targetId]: prev }));
     } catch {

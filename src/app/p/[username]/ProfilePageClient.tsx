@@ -21,7 +21,7 @@ export function FollowButton({ profileId, initialIsFollowing }: { profileId: str
       const res = await fetch("/api/collectors/follow", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ followingId: profileId }),
+        body: JSON.stringify({ followingId: profileId, action: prev ? "unfollow" : "follow" }),
       });
       if (!res.ok) setIsFollowing(prev);
     } catch {
