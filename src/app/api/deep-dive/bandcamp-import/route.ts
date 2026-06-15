@@ -1,6 +1,5 @@
 import { type NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
-import { createClient as createSupabaseClient } from "@supabase/supabase-js";
 
 export const dynamic   = "force-dynamic";
 export const maxDuration = 300;
@@ -173,11 +172,12 @@ async function fetchCollection(fanId: number): Promise<CollectionItem[]> {
 
     if (!res.ok) break;
 
-    const data = (await res.json()) as {
-      items?: { band_name?: string; album_title?: string }[];
-      more_available?: boolean;
-      last_token?: string;
-    };
+    let data: { items?: { band_name?: string; album_title?: string }[]; more_available?: boolean; last_token?: string };
+    try {
+      data = (await res.json()) as typeof data;
+    } catch {
+      break; // non-JSON response (rate limit page etc.) — return what we have
+    }
 
     for (const item of data.items ?? []) {
       if (item.band_name && item.album_title) {
@@ -207,13 +207,6 @@ export async function POST(request: NextRequest) {
     if (!user || user.id !== userId) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
-
-    // Use service-role client for DB writes so RLS never blocks them.
-    // Auth is already verified above — the service role is safe here.
-    const admin = createSupabaseClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.SUPABASE_SERVICE_ROLE_KEY!
-    );
 
     const { data: profile } = await supabase
       .from("profiles")
@@ -306,8 +299,8 @@ export async function POST(request: NextRequest) {
       };
     });
 
-    // Replace previous sync data — delete then insert via service role (bypasses RLS).
-    const { error: delError } = await admin
+    // Replace previous sync data — user is authenticated above, RLS scopes to their rows.
+    const { error: delError } = await supabase
       .from("digital_imports")
       .delete()
       .eq("user_id", userId)
@@ -316,7 +309,7 @@ export async function POST(request: NextRequest) {
 
     const INSERT_BATCH = 100;
     for (let i = 0; i < upsertRows.length; i += INSERT_BATCH) {
-      const { error: insError } = await admin
+      const { error: insError } = await supabase
         .from("digital_imports")
         .insert(upsertRows.slice(i, i + INSERT_BATCH));
       if (insError) throw new Error(`Failed to save import batch: ${insError.message}`);
