@@ -65,7 +65,7 @@ export default async function DeepDivePage() {
   );
 
   // Group records by artist (physical collection)
-  const artistMap = new Map<string, { count: number; records: { album: string; year: number | null; cover_url: string | null }[] }>();
+  const artistMap = new Map<string, { count: number; records: { album: string; year: number | null; cover_url: string | null; source?: string }[] }>();
   for (const link of allLinks) {
     const r = recordsMap.get(link.record_id);
     if (!r?.artist) continue;
@@ -88,7 +88,7 @@ export default async function DeepDivePage() {
     if (!artistMap.has(artist)) {
       artistMap.set(artist, {
         count: albums.length,
-        records: albums.map(album => ({ album, year: null, cover_url: null })),
+        records: albums.map(album => ({ album, year: null, cover_url: null, source: "bandcamp" as const })),
       });
     }
   }

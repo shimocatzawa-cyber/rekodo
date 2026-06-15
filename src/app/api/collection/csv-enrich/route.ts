@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { createClient as createDirectClient } from "@supabase/supabase-js";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 300;
@@ -68,7 +69,16 @@ export async function POST(request: NextRequest) {
   const userId = body.userId;
   if (!userId) return NextResponse.json({ error: "userId required" }, { status: 400 });
 
-  const supabase = await createClient();
+  // Prefer an authenticated client using the JWT forwarded by enrich-all
+  const authHeader = request.headers.get("Authorization");
+  const jwt = authHeader?.startsWith("Bearer ") ? authHeader.slice(7) : null;
+  const supabase = jwt
+    ? createDirectClient(
+        process.env.NEXT_PUBLIC_SUPABASE_URL!,
+        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+        { global: { headers: { Authorization: `Bearer ${jwt}` } } }
+      )
+    : await createClient();
 
   const key    = process.env.DISCOGS_CONSUMER_KEY;
   const secret = process.env.DISCOGS_CONSUMER_SECRET;
@@ -146,20 +156,28 @@ export async function POST(request: NextRequest) {
         ?? null;
 
       // Update records table with enriched data
-      await (supabase as any)
+      const { error: updateErr } = await (supabase as any)
         .from("records")
         .update({
           cover_url:    coverUrl,
-          master_id:    data.master_id ?? null,
           country:      data.country ?? null,
           genre:        data.genres?.[0] ?? null,
-          genres:       data.genres ?? null,
           styles:       data.styles ?? null,
           format:       extractFormat(data.formats),
-          vinyl_colour: extractVinylColour(data.formats) ?? "",
+          vinyl_colour: extractVinylColour(data.formats) ?? null,
           producers:    extractProducers(data.extraartists),
         })
         .eq("id", link.record_id);
+
+      if (updateErr) {
+        console.error("[csv-enrich] records update error:", updateErr);
+        await (supabase as any)
+          .from("user_records")
+          .update({ enrichment_status: "failed", enrichment_attempted_at: now })
+          .eq("id", link.id);
+        failedCount++;
+        continue;
+      }
 
       // Mark user_records as enriched
       await (supabase as any)
@@ -191,6 +209,7 @@ export async function POST(request: NextRequest) {
       headers: {
         "Content-Type": "application/json",
         "x-rekodo-internal": "true",
+        ...(jwt ? { Authorization: `Bearer ${jwt}` } : {}),
       },
       body: JSON.stringify({ userId }),
     }).catch(() => {});

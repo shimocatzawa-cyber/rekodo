@@ -17,20 +17,20 @@ export type ArtistData = {
   name: string;
   count: number;
   wantlistCount?: number;
-  wantlistRecords?: { album: string; year: number | null; cover_url: string | null }[];
+  wantlistRecords?: { album: string; year: number | null; cover_url: string | null; source?: string }[];
   fromBandcamp?: boolean;
-  records: { album: string; year: number | null; cover_url: string | null }[];
+  records: { album: string; year: number | null; cover_url: string | null; source?: string }[];
 };
 
 function BandcampIcon({ size = 13 }: { size?: number }) {
   return (
     <svg
-      width={size} height={size} viewBox="0 0 16 16"
+      width={size} height={size} viewBox="0 0 24 24"
       aria-label="Imported from Bandcamp" role="img"
+      fill="#1DA0C3"
       style={{ display: "inline-block", verticalAlign: "middle", flexShrink: 0 }}
     >
-      <rect width="16" height="16" rx="3" fill="#1DA0C3" />
-      <text x="8" y="12.5" textAnchor="middle" fontSize="11" fontWeight="700" fill="white" fontFamily="sans-serif" fontStyle="italic">b</text>
+      <path d="M0 18.75l7.4373-13.5H24l-7.4373 13.5z" />
     </svg>
   );
 }
@@ -423,6 +423,11 @@ function CollectionStrip({ records, wantlistRecords = [], artist, tileSize = 80 
               <p style={{ fontFamily: MONO, fontSize: "0.55rem", letterSpacing: "0.04em", color: "#aaaaaa", margin: 0 }}>
                 {r.year}
               </p>
+            )}
+            {r.source === "bandcamp" && (
+              <div style={{ marginTop: 3 }}>
+                <BandcampIcon size={10} />
+              </div>
             )}
           </div>
         ))}

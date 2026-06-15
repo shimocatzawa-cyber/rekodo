@@ -31,6 +31,9 @@ export async function POST(request: NextRequest) {
   const queued = count ?? 0;
 
   if (queued > 0) {
+    // Forward the user's JWT so csv-enrich runs as authenticated (not anon)
+    const { data: { session } } = await supabase.auth.getSession();
+
     // Fire enrichment worker — best-effort, no await
     const enrichUrl = new URL("/api/collection/csv-enrich", request.url).toString();
     fetch(enrichUrl, {
@@ -38,6 +41,7 @@ export async function POST(request: NextRequest) {
       headers: {
         "Content-Type": "application/json",
         "x-rekodo-internal": "true",
+        ...(session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {}),
       },
       body: JSON.stringify({ userId: user.id }),
     }).catch(() => {});
