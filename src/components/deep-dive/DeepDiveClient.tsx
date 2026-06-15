@@ -426,20 +426,12 @@ function CollectionStrip({ records, wantlistCount = 0, artist, tileSize = 80 }: 
         ))}
 
         {wantlistCount > 0 && records.length > 0 && (
-          <div style={{ flexShrink: 0, display: "flex", alignItems: "center", height: tileSize, padding: "0 2px" }}>
-            <span style={{ fontFamily: MONO, fontSize: "0.65rem", color: "#aaaaaa" }}>·</span>
-          </div>
+          <div style={{ flexShrink: 0, width: 1, background: "#d0cdc8", alignSelf: "stretch", margin: "0 4px" }} />
         )}
 
         {wantlistCount > 0 && Array.from({ length: wantlistCount }).map((_, i) => (
-          <div key={`wl-${i}`} style={{ flexShrink: 0, width: tileSize, opacity: 0.5 }}>
+          <div key={`wl-${i}`} style={{ flexShrink: 0, width: tileSize, opacity: 0.4 }}>
             <VinylFallback size={tileSize} />
-            <p style={{
-              fontFamily: MONO, fontSize: "0.55rem", letterSpacing: "0.04em", color: "#aaaaaa",
-              margin: "3px 0 1px", lineHeight: 1.3,
-            }}>
-              wantlist
-            </p>
           </div>
         ))}
       </div>
