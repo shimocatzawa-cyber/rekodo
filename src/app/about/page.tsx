@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import AppNav from "@/components/AppNav";
+import SupporterContent from "@/components/profile/SupporterContent";
 
 const SERIF  = "var(--font-editorial)";
 const MONO   = "var(--font-mono)";
@@ -19,12 +20,13 @@ export default async function AboutPage() {
   let username: string | null = null;
   let displayLabel: string | null = null;
   let avatarUrl: string | null = null;
+  let isSupporter = false;
 
   if (user) {
     const emailPrefix = (user.email ?? "").split("@")[0] || "user";
     const { data: profile } = await supabase
       .from("profiles")
-      .select("username, display_name, avatar_url")
+      .select("username, display_name, avatar_url, is_donor")
       .eq("id", user.id)
       .maybeSingle();
 
@@ -33,6 +35,7 @@ export default async function AboutPage() {
     username     = (raw && raw !== autoGen) ? raw : (profile?.display_name?.trim() || emailPrefix);
     displayLabel = profile?.display_name?.trim() || username;
     avatarUrl    = profile?.avatar_url ?? null;
+    isSupporter  = !!(profile as { is_donor?: boolean } | null)?.is_donor;
   }
 
   return (
@@ -99,8 +102,13 @@ export default async function AboutPage() {
           ))}
         </div>
 
-
       </main>
+
+      {/* Supporter section — sits below the About Us copy */}
+      <div style={{ borderTop: "1px solid #e0e0da", maxWidth: 680, margin: "0 auto 80px", padding: "0 40px" }}>
+        <SupporterContent isOwner={!!user} isSupporter={isSupporter} />
+      </div>
+
     </div>
   );
 }

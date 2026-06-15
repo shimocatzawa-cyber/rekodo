@@ -14,7 +14,6 @@ import CollectionPhotos from "@/app/p/[username]/CollectionPhotos";
 import Top5Editor, { type EditorSlot } from "@/components/profile/Top5Editor";
 import { createList, deleteList } from "@/app/lists/actions";
 import WantlistClient from "@/components/wantlist/WantlistClient";
-import SupporterContent from "@/components/profile/SupporterContent";
 import CommunityTab from "@/components/community/CommunityTab";
 import LunarListeningRitual from "@/components/LunarListeningRitual";
 import type { UserList, DiscoverList } from "@/app/lists/types";
@@ -107,7 +106,7 @@ interface Props {
   bcSyncDate?: string | null;
 }
 
-type ProfileTab = "profile" | "lists" | "community" | "supporter";
+type ProfileTab = "profile" | "lists" | "community";
 
 // ─── Main component ───────────────────────────────────────────────────────────
 
@@ -414,7 +413,6 @@ export default function ProfileClient({
     { key: "profile",   label: "Profile" },
     ...(isOwner ? [{ key: "lists" as ProfileTab, label: "Wantlist" }] : []),
     { key: "community", label: "Community" },
-    { key: "supporter", label: "Supporter" },
   ];
 
   return (
@@ -958,14 +956,6 @@ export default function ProfileClient({
             />
           )}
         </>
-      )}
-
-      {/* ─────────────── SUPPORTER TAB ───────────────────────────────────────── */}
-      {profileTab === "supporter" && (
-        <SupporterContent
-          isOwner={isOwner}
-          isSupporter={!!profile.is_donor}
-        />
       )}
 
       {/* ─────────────── COMMUNITY TAB ───────────────────────────────────────── */}
