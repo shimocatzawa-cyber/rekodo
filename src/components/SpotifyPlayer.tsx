@@ -22,8 +22,6 @@ export async function getFreshSpotifyToken(): Promise<string | null> {
     const res  = await fetch("/api/spotify/token");
     const data = await res.json() as { connected: boolean; access_token?: string; expires_at?: number };
     _spotifyToken = data.access_token ?? null;
-    // Use the actual server-side expiry (minus 60s buffer) so we never cache
-    // a token past its real lifetime. Fall back to 50 min if not provided.
     _spotifyTokenExpiry = data.expires_at
       ? data.expires_at - 60_000
       : Date.now() + 50 * 60 * 1000;
@@ -33,18 +31,32 @@ export async function getFreshSpotifyToken(): Promise<string | null> {
   }
 }
 
-// Send a play command and retry on 404 (device not yet registered server-side).
-async function sendSpotifyPlay(token: string, deviceId: string, body: object): Promise<void> {
-  const url  = `https://api.spotify.com/v1/me/player/play?device_id=${deviceId}`;
-  const opts = {
-    method:  "PUT",
-    headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
-    body:    JSON.stringify(body),
-  };
+export function bustSpotifyTokenCache() {
+  _spotifyToken       = null;
+  _spotifyTokenExpiry = 0;
+}
+
+// Send a play command. Fetches a fresh token each attempt so an expiry mid-session
+// never silently kills playback. Busts the cache and retries on 401. Retries on 404.
+async function sendSpotifyPlay(deviceId: string, body: object): Promise<void> {
+  const url = `https://api.spotify.com/v1/me/player/play?device_id=${deviceId}`;
   for (let attempt = 0; attempt < 3; attempt++) {
+    const token = await getFreshSpotifyToken();
+    if (!token) return;
     let res: Response | null = null;
-    try { res = await fetch(url, opts); } catch { return; }
+    try {
+      res = await fetch(url, {
+        method:  "PUT",
+        headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+        body:    JSON.stringify(body),
+      });
+    } catch { return; }
     if (res.status === 204 || res.ok) return;
+    if (res.status === 401) {
+      // Token was rejected — bust the cache so the next attempt forces a refresh
+      bustSpotifyTokenCache();
+      continue;
+    }
     if (res.status === 404 && attempt < 2) {
       await new Promise(r => setTimeout(r, 600 + attempt * 500));
       continue;
@@ -201,12 +213,14 @@ export default function SpotifyPlayer({
   // The token itself lives in the module-level cache (getFreshSpotifyToken).
   useEffect(() => {
     fetch("/api/spotify/token")
-      .then(r => r.json() as Promise<{ connected: boolean; access_token?: string; product?: string }>)
+      .then(r => r.json() as Promise<{ connected: boolean; access_token?: string; product?: string; expires_at?: number }>)
       .then(data => {
-        // Seed the module cache while we have the token in hand
+        // Seed the module-level cache using the real server-side expiry
         if (data.access_token) {
           _spotifyToken       = data.access_token;
-          _spotifyTokenExpiry = Date.now() + 50 * 60 * 1000;
+          _spotifyTokenExpiry = data.expires_at
+            ? data.expires_at - 60_000
+            : Date.now() + 50 * 60 * 1000;
         }
         setTokenData({ connected: data.connected, product: data.product });
       })
@@ -225,12 +239,17 @@ export default function SpotifyPlayer({
     if (!sdkReady || !isPremium || playerRef.current) return;
 
     const player = new window.Spotify.Player({
-      name:          "rekōdo",
-      // SDK calls this whenever it needs a token — always use the cached helper
-      // so it gets a fresh credential without going through React state.
+      name: "rekōdo",
+      // SDK calls this whenever it needs a token. Retry up to 3 times so a
+      // transient network hiccup doesn't permanently break the player.
       getOAuthToken: async (cb) => {
-        const token = await getFreshSpotifyToken();
-        cb(token ?? "");
+        for (let i = 0; i < 3; i++) {
+          const token = await getFreshSpotifyToken();
+          if (token) { cb(token); return; }
+          bustSpotifyTokenCache();
+          await new Promise(r => setTimeout(r, 500));
+        }
+        cb("");
       },
       volume: 0.8,
     });
@@ -252,11 +271,19 @@ export default function SpotifyPlayer({
       });
     });
 
-    // Clear the stale deviceId so play is disabled while reconnecting,
-    // preventing silent 404s sent to a dead device.
+    // Clear the stale deviceId so play is disabled while reconnecting.
+    // Retry connect up to 4 times with back-off — a single attempt often
+    // fails if the token fetch is still in flight.
     player.addListener("not_ready", () => {
       setDeviceId(null);
-      setTimeout(() => { player.connect().catch(() => {}); }, 1000);
+      let attempts = 0;
+      const tryConnect = () => {
+        if (attempts >= 4) return;
+        attempts++;
+        player.connect().catch(() => {});
+        setTimeout(tryConnect, 1500 * attempts);
+      };
+      setTimeout(tryConnect, 1000);
     });
 
     player.connect();
@@ -348,9 +375,7 @@ export default function SpotifyPlayer({
             ? { uris: [spotifyTrackUri] }
             : null;
         if (!body) return;
-        const token = await getFreshSpotifyToken();
-        if (!token) return;
-        await sendSpotifyPlay(token, deviceId, body);
+        await sendSpotifyPlay(deviceId, body);
       }
     } else if (audioRef.current) {
       if (playing) audioRef.current.pause();
