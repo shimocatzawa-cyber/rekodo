@@ -13,9 +13,16 @@ const BODY_PARAGRAPHS = [
   "rekōdo is independent, ad-free, and built by people who own too many records. If rekōdo has given you something — a recommendation that changed your week, a list that made you think, a Dig that found the record you didn't know you needed — consider buying us one back.",
 ];
 
-export default async function AboutPage() {
+export default async function AboutPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ success?: string }>;
+}) {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
+  const { success } = await searchParams;
+  const paymentSuccess =
+    success === "subscription" || success === "donation" ? success : null;
 
   let username: string | null = null;
   let displayLabel: string | null = null;
@@ -106,7 +113,12 @@ export default async function AboutPage() {
 
       {/* Supporter section — sits below the About Us copy */}
       <div style={{ borderTop: "1px solid #e0e0da", maxWidth: 960, margin: "0 auto 80px", padding: "0 32px" }}>
-        <SupporterContent isOwner={!!user} isSupporter={isSupporter} />
+        <SupporterContent
+          isOwner={!!user}
+          isSupporter={isSupporter}
+          userId={user?.id}
+          success={paymentSuccess}
+        />
       </div>
 
     </div>

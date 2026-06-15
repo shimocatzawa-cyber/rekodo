@@ -1,40 +1,137 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 
-const SERIF     = "var(--font-editorial)";
-const MONO      = "var(--font-mono)";
-const ORANGE    = "#CC5500";
+const SERIF      = "var(--font-editorial)";
+const MONO       = "var(--font-mono)";
+const ORANGE     = "#CC5500";
 const BADGE_GOLD = "#D4A800";
-const RULE      = "#e0e0da";
-const INK       = "#0a0a0a";
+const RULE       = "#e0e0da";
+const INK        = "#0a0a0a";
 
 const SUBSCRIPTION_PERKS = [
-  { category: "Identity",     description: "Golden ō badge" },
-  { category: "Intelligence", description: "Deep Dive full access" },
-  { category: "Insights",     description: "Taste Insights dashboard" },
-  { category: "Discovery",    description: "Dig unlimited regeneration" },
-  { category: "Collection",   description: "Wantlist upload" },
+  { category: "Identity",   description: "Golden ō badge" },
+  { category: "Deep Dive",  description: "Access to Deep Dive Artist feature" },
+  { category: "Insights",   description: "Taste Profile" },
+  { category: "Archetypes", description: "What your collection says about you" },
+  { category: "Discovery",  description: "Dig unlimited regeneration" },
+  { category: "Wantlist",   description: "Wantlist Upload feature" },
 ];
+
+const PRESET_AMOUNTS = [5, 10, 20];
 
 interface Props {
   isOwner:     boolean;
   isSupporter: boolean;
+  userId?:     string;
+  success?:    "subscription" | "donation" | null;
 }
 
-export default function SupporterContent({ isOwner, isSupporter }: Props) {
-  const [donationAmount, setDonationAmount] = useState("");
+interface LocalPrice {
+  unit_amount: number;
+  currency: string;
+}
+
+function formatLocalPrice({ unit_amount, currency }: LocalPrice): string {
+  const major = unit_amount / 100;
+  const isWhole = major === Math.floor(major);
+  const formatted = new Intl.NumberFormat("en", {
+    style: "currency",
+    currency: currency.toUpperCase(),
+    minimumFractionDigits: isWhole ? 0 : 2,
+    maximumFractionDigits: isWhole ? 0 : 2,
+    currencyDisplay: "narrowSymbol",
+  }).format(major);
+  return currency.toLowerCase() === "usd"
+    ? formatted
+    : `${formatted} ${currency.toUpperCase()}`;
+}
+
+export default function SupporterContent({ isOwner, isSupporter, userId, success }: Props) {
+  const [preset, setPreset]               = useState<number | null>(null);
+  const [customAmount, setCustomAmount]   = useState("");
+  const [loading, setLoading]             = useState<"subscription" | "donation" | null>(null);
+  const [localPrice, setLocalPrice]       = useState<LocalPrice | null>(null);
+  const router = useRouter();
+
+  useEffect(() => {
+    fetch("/api/stripe/price")
+      .then(r => r.json())
+      .then((d: LocalPrice) => setLocalPrice(d))
+      .catch(() => {});
+  }, []);
+
+  const donationValue = preset !== null ? preset : (customAmount ? Number(customAmount) : 0);
+  const donationValid = donationValue >= 1 && Number.isInteger(donationValue);
+
+  function selectPreset(amount: number) {
+    setPreset(amount);
+    setCustomAmount("");
+  }
+
+  function handleCustomInput(val: string) {
+    setPreset(null);
+    setCustomAmount(val.replace(/[^0-9]/g, ""));
+  }
+
+  async function handleCheckout(type: "subscription" | "donation") {
+    if (!userId) return;
+    setLoading(type);
+    try {
+      const res = await fetch("/api/stripe/checkout", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(
+          type === "donation"
+            ? { type, amount: donationValue }
+            : { type }
+        ),
+      });
+      const data = (await res.json()) as { url?: string; error?: string };
+      if (data.url) {
+        router.push(data.url);
+      } else {
+        alert(data.error ?? "Something went wrong");
+        setLoading(null);
+      }
+    } catch {
+      alert("Something went wrong");
+      setLoading(null);
+    }
+  }
 
   return (
     <div style={{ padding: "3rem 0 5rem" }}>
 
-      {/* Section label */}
-      <p style={{
-        fontFamily: MONO, fontSize: "0.55rem", letterSpacing: "0.16em",
-        textTransform: "uppercase", color: "#aaaaaa", margin: "0 0 28px",
+      {/* Payment success banner */}
+      {success && (
+        <div style={{
+          display: "flex", alignItems: "center", gap: 12,
+          background: "#F0FAF0", border: "1px solid #6abf6a",
+          padding: "14px 20px", marginBottom: 32,
+        }}>
+          <span style={{ fontFamily: SERIF, fontSize: "1.2rem", color: "#3a7a3a" }}>✓</span>
+          <p style={{ fontFamily: MONO, fontSize: "0.65rem", letterSpacing: "0.06em", color: "#3a7a3a", margin: 0 }}>
+            {success === "subscription"
+              ? "Welcome to the collective — your badge will appear shortly."
+              : "Donation received — your golden ō badge will appear shortly. Thank you."}
+          </p>
+        </div>
+      )}
+
+      {/* Section header */}
+      <h2 style={{
+        fontFamily: SERIF,
+        fontSize: "clamp(2rem, 5vw, 3.2rem)",
+        fontWeight: 400,
+        color: INK,
+        lineHeight: 1,
+        letterSpacing: "-0.01em",
+        margin: "0 0 40px",
       }}>
-        Support rekōdo
-      </p>
+        Support rek<span style={{ color: ORANGE }}>ō</span>do
+      </h2>
 
       {/* Already supporting */}
       {isOwner && isSupporter && (
@@ -53,25 +150,26 @@ export default function SupporterContent({ isOwner, isSupporter }: Props) {
       )}
 
       {/* Two-option grid */}
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1px", background: RULE, marginBottom: 48 }}>
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1px", background: RULE }}>
 
         {/* ── Option 1: Regular commitment ─────────────────────────────── */}
         <div style={{ background: "#ffffff", padding: "28px 24px", display: "flex", flexDirection: "column" }}>
           <p style={{
-            fontFamily: MONO, fontSize: "0.5rem", letterSpacing: "0.16em",
+            fontFamily: MONO, fontSize: "0.7rem", letterSpacing: "0.16em",
             textTransform: "uppercase", color: ORANGE, margin: "0 0 20px",
           }}>
             Regular Commitment
           </p>
 
-          <div style={{ display: "flex", alignItems: "baseline", gap: 10, marginBottom: 28 }}>
+          <div style={{ display: "flex", alignItems: "baseline", gap: 10, marginBottom: 6 }}>
             <span style={{ fontFamily: SERIF, fontSize: "clamp(2rem, 4vw, 2.8rem)", fontWeight: 400, color: INK, lineHeight: 1 }}>
-              $5
+              {localPrice ? formatLocalPrice(localPrice) : "—"}
             </span>
             <span style={{ fontFamily: MONO, fontSize: "0.6rem", letterSpacing: "0.1em", textTransform: "uppercase", color: "#888" }}>
-              USD / month
+              / month
             </span>
           </div>
+          <div style={{ marginBottom: 28 }} />
 
           <p style={{
             fontFamily: MONO, fontSize: "0.5rem", letterSpacing: "0.12em",
@@ -85,7 +183,7 @@ export default function SupporterContent({ isOwner, isSupporter }: Props) {
               <div key={perk.category} style={{ display: "flex", gap: 12, alignItems: "baseline" }}>
                 <span style={{
                   fontFamily: MONO, fontSize: "0.48rem", letterSpacing: "0.1em",
-                  textTransform: "uppercase", color: ORANGE, flexShrink: 0, minWidth: 80,
+                  textTransform: "uppercase", color: ORANGE, flexShrink: 0, minWidth: 88,
                 }}>
                   {perk.category}
                 </span>
@@ -99,16 +197,17 @@ export default function SupporterContent({ isOwner, isSupporter }: Props) {
           {isOwner && !isSupporter && (
             <div>
               <button
-                disabled
-                title="Payment setup coming soon"
+                onClick={() => handleCheckout("subscription")}
+                disabled={loading !== null}
                 style={{
                   fontFamily: MONO, fontSize: "0.65rem", letterSpacing: "0.12em",
                   textTransform: "uppercase", color: "#FDF6F0", background: INK,
-                  border: "none", padding: "13px 0", cursor: "not-allowed",
-                  opacity: 0.7, width: "100%",
+                  border: "none", padding: "13px 0",
+                  cursor: loading !== null ? "not-allowed" : "pointer",
+                  opacity: loading !== null ? 0.6 : 1, width: "100%",
                 }}
               >
-                Become a Supporter →
+                {loading === "subscription" ? "Redirecting…" : "Become a Supporter →"}
               </button>
               <p style={{ fontFamily: MONO, fontSize: "0.5rem", letterSpacing: "0.06em", color: "#aaaaaa", margin: "8px 0 0" }}>
                 Cancel anytime · Stripe-secured
@@ -120,37 +219,61 @@ export default function SupporterContent({ isOwner, isSupporter }: Props) {
         {/* ── Option 2: One-off donation ────────────────────────────────── */}
         <div style={{ background: "#ffffff", padding: "28px 24px", display: "flex", flexDirection: "column" }}>
           <p style={{
-            fontFamily: MONO, fontSize: "0.5rem", letterSpacing: "0.16em",
-            textTransform: "uppercase", color: ORANGE, margin: "0 0 20px",
+            fontFamily: MONO, fontSize: "0.7rem", letterSpacing: "0.16em",
+            textTransform: "uppercase", color: ORANGE, margin: "0 0 16px",
           }}>
             One-off Donation
           </p>
 
-          <p style={{ fontFamily: MONO, fontSize: "0.6rem", letterSpacing: "0.04em", color: "#888", margin: "0 0 14px" }}>
-            You choose the amount.
+          <p style={{ fontFamily: SERIF, fontSize: "clamp(1.4rem, 3vw, 1.9rem)", color: INK, lineHeight: 1.1, margin: "0 0 12px" }}>
+            Buy me a record.
           </p>
 
-          {/* Amount input */}
-          <div style={{
-            display: "inline-flex", alignItems: "center",
-            border: `1px solid ${RULE}`, marginBottom: 28, maxWidth: 160,
-          }}>
-            <span style={{ fontFamily: MONO, fontSize: "0.85rem", color: "#aaaaaa", padding: "10px 8px 10px 14px" }}>
-              $
-            </span>
-            <input
-              type="number"
-              min="1"
-              step="1"
-              placeholder="0"
-              value={donationAmount}
-              onChange={e => setDonationAmount(e.target.value)}
-              style={{
-                fontFamily: SERIF, fontSize: "1.4rem", color: INK,
-                border: "none", outline: "none", width: "100%",
-                padding: "8px 12px 8px 0", background: "transparent",
-              }}
-            />
+          <p style={{ fontFamily: MONO, fontSize: "0.58rem", letterSpacing: "0.04em", color: "#888", lineHeight: 1.7, margin: "0 0 28px" }}>
+            No subscription. Just a one-time contribution if rekōdo has been useful to you.
+          </p>
+
+          {/* Preset + custom amount */}
+          <div style={{ marginBottom: 28 }}>
+            <div style={{ display: "flex", gap: 8, marginBottom: 12 }}>
+              {PRESET_AMOUNTS.map(amount => (
+                <button
+                  key={amount}
+                  onClick={() => selectPreset(amount)}
+                  style={{
+                    fontFamily: MONO, fontSize: "0.65rem", letterSpacing: "0.08em",
+                    padding: "9px 16px", border: `1px solid ${preset === amount ? INK : RULE}`,
+                    background: preset === amount ? INK : "#fff",
+                    color: preset === amount ? "#FDF6F0" : INK,
+                    cursor: "pointer",
+                  }}
+                >
+                  ${amount}
+                </button>
+              ))}
+            </div>
+
+            <div style={{
+              display: "inline-flex", alignItems: "center",
+              border: `1px solid ${preset === null && customAmount ? INK : RULE}`,
+              maxWidth: 160,
+            }}>
+              <span style={{ fontFamily: MONO, fontSize: "0.85rem", color: "#aaaaaa", padding: "9px 6px 9px 12px" }}>
+                $
+              </span>
+              <input
+                type="text"
+                inputMode="numeric"
+                placeholder="Other"
+                value={customAmount}
+                onChange={e => handleCustomInput(e.target.value)}
+                style={{
+                  fontFamily: MONO, fontSize: "0.85rem", color: INK,
+                  border: "none", outline: "none", width: "100%",
+                  padding: "9px 12px 9px 4px", background: "transparent",
+                }}
+              />
+            </div>
           </div>
 
           <p style={{
@@ -163,7 +286,7 @@ export default function SupporterContent({ isOwner, isSupporter }: Props) {
           <div style={{ display: "flex", gap: 12, alignItems: "baseline", marginBottom: 32, flex: 1 }}>
             <span style={{
               fontFamily: MONO, fontSize: "0.48rem", letterSpacing: "0.1em",
-              textTransform: "uppercase", color: BADGE_GOLD, flexShrink: 0, minWidth: 80,
+              textTransform: "uppercase", color: BADGE_GOLD, flexShrink: 0, minWidth: 88,
             }}>
               Identity
             </span>
@@ -175,16 +298,18 @@ export default function SupporterContent({ isOwner, isSupporter }: Props) {
           {isOwner && (
             <div>
               <button
-                disabled
-                title="Payment setup coming soon"
+                onClick={() => handleCheckout("donation")}
+                disabled={loading !== null || !donationValid}
                 style={{
                   fontFamily: MONO, fontSize: "0.65rem", letterSpacing: "0.12em",
                   textTransform: "uppercase", color: "#FDF6F0", background: INK,
-                  border: "none", padding: "13px 0", cursor: "not-allowed",
-                  opacity: 0.7, width: "100%",
+                  border: "none", padding: "13px 0",
+                  cursor: (loading !== null || !donationValid) ? "not-allowed" : "pointer",
+                  opacity: (loading !== null || !donationValid) ? 0.5 : 1,
+                  width: "100%",
                 }}
               >
-                Donate →
+                {loading === "donation" ? "Redirecting…" : "Donate →"}
               </button>
               <p style={{ fontFamily: MONO, fontSize: "0.5rem", letterSpacing: "0.06em", color: "#aaaaaa", margin: "8px 0 0" }}>
                 Stripe-secured
@@ -193,15 +318,6 @@ export default function SupporterContent({ isOwner, isSupporter }: Props) {
           )}
         </div>
 
-      </div>
-
-      {/* Bottom note */}
-      <div style={{ background: "#f0ebe4", borderLeft: `3px solid ${RULE}`, padding: "20px 24px" }}>
-        <p style={{ fontFamily: MONO, fontSize: "0.65rem", letterSpacing: "0.04em", color: "#666", lineHeight: 1.8, margin: 0 }}>
-          rekōdo is ad-free and independent. There is no investor, no growth team, no
-          algorithm optimising for your attention. A Supporter subscription is the direct
-          line between this product existing and continuing to exist.
-        </p>
       </div>
 
     </div>
