@@ -188,7 +188,9 @@ export default function SupporterContent({ isOwner, isSupporter, userId, success
                   {perk.category}
                 </span>
                 <span style={{ fontFamily: SERIF, fontSize: "0.9rem", color: INK }}>
-                  {perk.description}
+                  {perk.category === "Identity"
+                    ? <>Golden <span style={{ color: BADGE_GOLD }}>ō</span> badge</>
+                    : perk.description}
                 </span>
               </div>
             ))}
