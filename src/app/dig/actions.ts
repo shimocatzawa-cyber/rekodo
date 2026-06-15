@@ -56,17 +56,21 @@ export async function addToWantlist(
     }
   }
 
-  // ── 2. Find next position ───────────────────────────────────────────────────
+  // ── 2. Find next position (and check for duplicate) ────────────────────────
 
   const { data: existing } = await supabase
     .from("list_items")
-    .select("position")
+    .select("position, song_artist, song_album")
     .eq("list_id", wantlistId)
-    .order("position", { ascending: false })
-    .limit(1);
+    .order("position", { ascending: false });
+
+  const alreadyAdded = (existing ?? []).some(
+    i => i.song_artist?.toLowerCase() === artist.toLowerCase() &&
+         i.song_album?.toLowerCase()  === album.toLowerCase()
+  );
+  if (alreadyAdded) return { success: true };
 
   const nextPos = (existing?.[0]?.position ?? 0) + 1;
-  if (nextPos > 20) return { error: "Wantlist is full (20 items maximum)" };
 
   // ── 3. Insert directly as a song item — no records table insert needed ──────
 

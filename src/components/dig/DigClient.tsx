@@ -982,6 +982,7 @@ export default function DigClient({ username, displayLabel, avatarUrl, collectio
   const [idx,           setIdx]           = useState(0);
   const [activeTab,     setActiveTab]     = useState<DigTab>("discover");
   const [wantlistAdded, setWantlistAdded] = useState<Set<string>>(new Set());
+  const [wantlistError, setWantlistError] = useState<string | null>(null);
   const [digSpotify,    setDigSpotify]    = useState<{
     previewUrl: string | null; trackUri: string | null; albumUri: string | null; artist: string; album: string;
   } | null>(null);
@@ -1070,10 +1071,12 @@ export default function DigClient({ username, displayLabel, avatarUrl, collectio
   async function handleAddToWantlist(rec: Recommendation) {
     const key = `${rec.artist}||${rec.album}`;
     setWantlistAdded(prev => new Set(prev).add(key));
+    setWantlistError(null);
     const result = await addToWantlist(rec.artist, rec.album, rec.year);
     if (result?.error) {
-      console.error(result.error);
       setWantlistAdded(prev => { const s = new Set(prev); s.delete(key); return s; });
+      setWantlistError(result.error);
+      setTimeout(() => setWantlistError(null), 4000);
     }
   }
 
@@ -1238,6 +1241,11 @@ export default function DigClient({ username, displayLabel, avatarUrl, collectio
                     wantlistAdded={wantlistAdded.has(`${recs[idx].artist}||${recs[idx].album}`)}
                     onPreviewReady={setDigSpotify}
                   />
+                  {wantlistError && (
+                    <p style={{ fontFamily: "var(--font-mono)", fontSize: "10px", color: "#cc3300", textAlign: "center", margin: "0 16px 4px", letterSpacing: "0.04em" }}>
+                      {wantlistError}
+                    </p>
+                  )}
                   <NavBar idx={idx} total={recs.length} onNav={navigate} onDigAgain={handleDigAgain} />
                 </>
               )}
