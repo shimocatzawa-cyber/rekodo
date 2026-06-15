@@ -56,7 +56,7 @@ export default async function AboutPage() {
         </nav>
       )}
 
-      <main style={{ maxWidth: 680, margin: "0 auto", padding: "80px 40px 120px" }}>
+      <main style={{ maxWidth: 960, margin: "0 auto", padding: "48px 32px 80px" }}>
 
         {/* Headline */}
         <h1 style={{
@@ -68,7 +68,7 @@ export default async function AboutPage() {
           margin: "0 0 24px 0",
           letterSpacing: "-0.01em",
         }}>
-          rekōdo
+          rek<span style={{ color: ORANGE }}>ō</span>do
         </h1>
 
         {/* Subhead */}
@@ -105,7 +105,7 @@ export default async function AboutPage() {
       </main>
 
       {/* Supporter section — sits below the About Us copy */}
-      <div style={{ borderTop: "1px solid #e0e0da", maxWidth: 680, margin: "0 auto 80px", padding: "0 40px" }}>
+      <div style={{ borderTop: "1px solid #e0e0da", maxWidth: 960, margin: "0 auto 80px", padding: "0 32px" }}>
         <SupporterContent isOwner={!!user} isSupporter={isSupporter} />
       </div>
 
