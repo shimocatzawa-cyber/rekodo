@@ -16,8 +16,8 @@ const NAV_ITEMS = [
   { href: "/collection", label: "Collection", jp: "コレクション" },
   { href: "/dig",        label: "Dig",        jp: "発掘" },
   { href: "/deep-dive",  label: "Deep Dive",  jp: "ディープダイブ" },
-  { href: "/gigs",       label: "Live",       jp: "ライブ" },
-  { href: "/insights",   label: "Insights",   jp: "インサイト" },
+  { href: "/insights",    label: "Insights",    jp: "インサイト" },
+  { href: "/archetypes", label: "Archetypes", jp: "アーキタイプ" },
 ] as const;
 
 export default function AppNav({ username, displayLabel, avatarUrl }: { username: string; displayLabel?: string; avatarUrl?: string | null }) {

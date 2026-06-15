@@ -30,12 +30,13 @@ type LabelFeedItem = {
 
 // ─── Selects tabs ─────────────────────────────────────────────────────────────
 
-type SelectsTab = "new_releases" | "artist" | "label";
+type SelectsTab = "new_releases" | "artist" | "label" | "live";
 
 const TABS: { key: SelectsTab; label: string }[] = [
   { key: "new_releases", label: "New Releases" },
   { key: "artist",       label: "Artist"       },
   { key: "label",        label: "Label"        },
+  { key: "live",         label: "Live"         },
 ];
 
 // ─── Release row ─────────────────────────────────────────────────────────────
@@ -166,6 +167,182 @@ function NewReleasesSection() {
       <div style={{ borderTop: `1px solid ${RULE}` }}>
         {items.map(item => <ReleaseRow key={item.id} item={item} />)}
       </div>
+    </section>
+  );
+}
+
+// ─── Live / Gigs section ─────────────────────────────────────────────────────
+
+type TmVenue = { name: string; city?: { name: string } };
+type GigEvent = {
+  id: string;
+  name: string;
+  url: string;
+  dates: { start: { localDate?: string; localTime?: string } };
+  _embedded?: { venues?: TmVenue[] };
+  _artistName: string;
+};
+type GigsApiResponse = {
+  events: GigEvent[];
+  city: string | null;
+  artistCount: number;
+  totalArtists: number;
+};
+
+function formatGigDate(localDate?: string): string {
+  if (!localDate) return "Date TBC";
+  const [y, m, d] = localDate.split("-").map(Number);
+  return new Date(y, m - 1, d).toLocaleDateString("en-AU", {
+    day: "numeric", month: "short", year: "numeric",
+  });
+}
+
+function gigMonthKey(localDate?: string): string {
+  if (!localDate) return "Date TBC";
+  const [y, m] = localDate.split("-").map(Number);
+  return new Date(y, m - 1, 1)
+    .toLocaleDateString("en-AU", { month: "long", year: "numeric" })
+    .toUpperCase();
+}
+
+function groupByMonth(events: GigEvent[]): [string, GigEvent[]][] {
+  const map = new Map<string, GigEvent[]>();
+  for (const ev of events) {
+    const key = gigMonthKey(ev.dates?.start?.localDate);
+    if (!map.has(key)) map.set(key, []);
+    map.get(key)!.push(ev);
+  }
+  return [...map.entries()];
+}
+
+function LiveSection() {
+  const [data, setData]           = useState<GigsApiResponse | null>(null);
+  const [loading, setLoading]     = useState(true);
+  const [fetchError, setFetchError] = useState(false);
+
+  useEffect(() => {
+    fetch("/api/gigs")
+      .then((r) => r.json())
+      .then(setData)
+      .catch(() => setFetchError(true))
+      .finally(() => setLoading(false));
+  }, []);
+
+  const grouped  = data ? groupByMonth(data.events) : [];
+  const hasEvents = (data?.events.length ?? 0) > 0;
+
+  return (
+    <section>
+      {/* Hero heading */}
+      <div style={{ marginBottom: 48 }}>
+        {loading ? (
+          <div style={{ fontFamily: SERIF, fontSize: "clamp(28px, 4vw, 44px)", lineHeight: 1.15, color: "#d0d0d0", fontWeight: 600 }}>
+            Finding gigs near you…
+          </div>
+        ) : fetchError ? (
+          <div style={{ fontFamily: SERIF, fontSize: "clamp(22px, 3vw, 36px)", lineHeight: 1.2, color: INK, fontWeight: 600 }}>
+            Could not load gigs right now.
+          </div>
+        ) : !data?.city ? (
+          <div style={{ fontFamily: SERIF, fontSize: "clamp(22px, 3vw, 38px)", lineHeight: 1.2, color: INK, fontWeight: 600 }}>
+            Add your city in{" "}
+            <a href="/settings/profile" style={{ color: ORANGE, textDecoration: "none", borderBottom: `1.5px solid ${ORANGE}` }}>
+              profile settings
+            </a>
+            {" "}to see local gigs.
+          </div>
+        ) : data.artistCount > 0 ? (
+          <div style={{ fontFamily: SERIF, fontSize: "clamp(28px, 4vw, 44px)", lineHeight: 1.15, color: INK, fontWeight: 600 }}>
+            <span style={{ color: ORANGE }}>{data.artistCount}</span>
+            {" upcoming gig"}{data.artistCount !== 1 ? "s" : ""}
+            <br />near <span style={{ color: ORANGE }}>{data.city}</span>
+          </div>
+        ) : (
+          <div style={{ fontFamily: SERIF, fontSize: "clamp(22px, 3vw, 38px)", lineHeight: 1.2, color: INK, fontWeight: 600 }}>
+            No upcoming gigs<br />near <span style={{ color: ORANGE }}>{data.city}</span>
+          </div>
+        )}
+      </div>
+
+      {/* Loading skeletons */}
+      {loading && (
+        <div>
+          <div style={{ display: "flex", alignItems: "center", gap: 16, marginBottom: 24 }}>
+            <div style={{ height: 9, background: "#f0f0f0", width: 120 }} />
+            <div style={{ flex: 1, height: 1, background: "#f0f0f0" }} />
+          </div>
+          {[1, 2, 3, 4].map((i) => (
+            <div key={i} style={{ display: "flex", alignItems: "center", gap: 16, padding: "18px 0", borderBottom: `1px solid ${RULE}` }}>
+              <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: 8 }}>
+                <div className="nr-shimmer" style={{ height: 18, background: "#f0ede8", width: "55%" }} />
+                <div className="nr-shimmer" style={{ height: 11, background: "#f0ede8", width: "38%" }} />
+              </div>
+              <div className="nr-shimmer" style={{ height: 11, background: "#f0ede8", width: 80 }} />
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Empty state */}
+      {!loading && data?.city && !hasEvents && (
+        <p style={{ fontFamily: MONO, fontSize: "0.72rem", color: "#aaaaaa", lineHeight: 1.9, letterSpacing: "0.03em" }}>
+          No upcoming music events found near {data.city} right now.
+        </p>
+      )}
+
+      {/* Events grouped by month */}
+      {!loading && hasEvents && (
+        <div style={{ display: "flex", flexDirection: "column", gap: 52 }}>
+          {grouped.map(([month, events]) => (
+            <div key={month}>
+              <div style={{ display: "flex", alignItems: "center", gap: 16, marginBottom: 8 }}>
+                <span style={{ fontFamily: MONO, fontSize: 9, letterSpacing: "0.18em", color: "#aaaaaa", whiteSpace: "nowrap", flexShrink: 0 }}>
+                  {month}
+                </span>
+                <div style={{ flex: 1, height: 1, background: "#e8e8e8" }} />
+              </div>
+              <div>
+                {events.map((ev, idx) => {
+                  const venue       = ev._embedded?.venues?.[0];
+                  const locationStr = [venue?.name, venue?.city?.name].filter(Boolean).join(" · ");
+                  return (
+                    <div
+                      key={ev.id}
+                      style={{
+                        display: "flex", alignItems: "center", gap: 16,
+                        padding: "18px 0",
+                        borderBottom: idx < events.length - 1 ? `1px solid ${RULE}` : "none",
+                      }}
+                    >
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ fontFamily: SERIF, fontSize: 19, fontWeight: 600, color: INK, lineHeight: 1.2, marginBottom: 4, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                          {ev._artistName}
+                        </div>
+                        {locationStr && (
+                          <div style={{ fontFamily: MONO, fontSize: 11, color: "#888888", letterSpacing: "0.04em", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                            {locationStr}
+                          </div>
+                        )}
+                        <div style={{ fontFamily: MONO, fontSize: 11, color: "#bbbbbb", letterSpacing: "0.04em", marginTop: 2 }}>
+                          {formatGigDate(ev.dates?.start?.localDate)}
+                        </div>
+                      </div>
+                      <a
+                        href={ev.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        style={{ fontFamily: MONO, fontSize: 10, letterSpacing: "0.1em", textTransform: "uppercase", color: ORANGE, textDecoration: "none", whiteSpace: "nowrap", flexShrink: 0, borderBottom: `1px solid ${ORANGE}`, paddingBottom: 1 }}
+                      >
+                        Get tickets ↗
+                      </a>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
     </section>
   );
 }
@@ -409,6 +586,8 @@ export default function SelectsClient({ username, displayLabel, avatarUrl }: Pro
       <main style={{ padding: "36px 40px 80px", maxWidth: 1200, margin: "0 auto" }}>
         {activeTab === "new_releases" ? (
           <NewReleasesSection />
+        ) : activeTab === "live" ? (
+          <LiveSection />
         ) : (
           <>
             <SpotlightCard data={SPOTLIGHT[activeTab]} tab={activeTab} />
