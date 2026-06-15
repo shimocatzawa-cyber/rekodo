@@ -228,6 +228,12 @@ export type Database = {
         Update: never;
         Relationships: [];
       };
+      saved_lists: {
+        Row: { id: string; user_id: string; list_id: string; saved_at: string };
+        Insert: { id?: string; user_id: string; list_id: string; saved_at?: string };
+        Update: never;
+        Relationships: [];
+      };
       gig_cache: {
         Row: { id: string; cache_key: string; results: Json; cached_at: string };
         Insert: { id?: string; cache_key: string; results?: Json; cached_at?: string };

@@ -4,11 +4,16 @@ export type DiscoverList = {
   id: string;
   title: string;
   slug: string;
+  userId?: string;
   username: string;
   displayName: string | null;
   covers: (string | null)[];
   itemCount: number;
   saveCount: number;
+  recordCount?: number;
+  isSaved?: boolean;
+  matchScore?: number;
+  matchLabel?: string;
 };
 
 export type SlotItem = {

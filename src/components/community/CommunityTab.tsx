@@ -12,7 +12,7 @@ const INK    = "#0a0a0a";
 const MUTED  = "#aaaaaa";
 const GOLD   = "#C9A84C";
 
-type SubTab = "matches" | "collectors" | "lists";
+type SubTab = "matches" | "collectors" | "lists" | "saved";
 
 type Follower = {
   id: string;
@@ -50,10 +50,15 @@ type ListEntry = {
   id: string;
   title: string;
   slug: string;
+  userId: string;
   username: string;
   displayName: string | null;
   covers: (string | null)[];
   itemCount: number;
+  recordCount: number;
+  isSaved: boolean;
+  matchScore?: number;
+  matchLabel?: string;
 };
 
 function initials(name: string | null, username: string): string {
@@ -159,7 +164,12 @@ function CollectorRow({ collector, isLast, isFollowing, canFollow, onFollow }: {
   );
 }
 
-function ListCard({ list }: { list: ListEntry }) {
+function ListCard({ list, isSaved, canSave, onSave }: {
+  list: ListEntry;
+  isSaved: boolean;
+  canSave: boolean;
+  onSave: () => void;
+}) {
   const hasCover = list.covers.some(Boolean);
   return (
     <div style={{ borderBottom: `1px solid ${RULE}`, padding: "16px 0" }}>
@@ -175,15 +185,38 @@ function ListCard({ list }: { list: ListEntry }) {
           </div>
         )}
         <div style={{ flex: 1, minWidth: 0 }}>
-          <Link href={`/@${list.username}/lists/${list.slug}`} style={{ textDecoration: "none" }}>
-            <p style={{ fontFamily: SERIF, fontSize: "0.95rem", fontWeight: 600, color: INK, margin: "0 0 4px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+          <Link href={`/@${list.username}/${list.slug}`} style={{ textDecoration: "none" }}>
+            <p style={{ fontFamily: SERIF, fontSize: "0.95rem", fontWeight: 600, color: INK, margin: "0 0 6px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
               {list.title}
             </p>
           </Link>
-          <p style={{ fontFamily: MONO, fontSize: "0.55rem", color: MUTED, letterSpacing: "0.05em", margin: 0 }}>
-            @{list.username} · {list.itemCount} record{list.itemCount !== 1 ? "s" : ""}
-          </p>
+          <div style={{ display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap" }}>
+            <Link href={`/@${list.username}`} style={{ textDecoration: "none" }}>
+              <span style={{ fontFamily: MONO, fontSize: "0.55rem", letterSpacing: "0.05em", color: ORANGE }}>@{list.username}</span>
+            </Link>
+            <span style={{ fontFamily: MONO, fontSize: "0.55rem", color: MUTED }}>·</span>
+            <span style={{ fontFamily: MONO, fontSize: "0.55rem", color: MUTED, letterSpacing: "0.04em" }}>
+              {list.recordCount.toLocaleString()} records
+            </span>
+          </div>
+          {list.matchScore !== undefined && (
+            <p style={{ fontFamily: MONO, fontSize: "0.5rem", letterSpacing: "0.06em", color: ORANGE, margin: "4px 0 0", textTransform: "uppercase" }}>
+              {list.matchScore}% collection similarity — {list.matchLabel}
+            </p>
+          )}
         </div>
+        {canSave && (
+          <button
+            onClick={onSave}
+            style={{
+              fontFamily: MONO, fontSize: "0.5rem", letterSpacing: "0.08em", textTransform: "uppercase",
+              background: "none", border: `1px solid ${isSaved ? RULE : ORANGE}`,
+              color: isSaved ? MUTED : ORANGE, cursor: "pointer", padding: "3px 10px", flexShrink: 0,
+            }}
+          >
+            {isSaved ? "Saved" : "Save"}
+          </button>
+        )}
       </div>
     </div>
   );
@@ -215,6 +248,13 @@ export default function CommunityTab({ profileOwnerId }: { profileOwnerId: strin
   // Lists from network
   const [lists,      setLists]      = useState<ListEntry[]>([]);
   const [listsState, setListsState] = useState<"idle" | "loading" | "done">("idle");
+
+  // Saved lists
+  const [savedLists,      setSavedLists]      = useState<ListEntry[]>([]);
+  const [savedListsState, setSavedListsState] = useState<"idle" | "loading" | "done">("idle");
+
+  // Save state (list id → saved bool)
+  const [saveState, setSaveState] = useState<Record<string, boolean>>({});
 
   // Follow state
   const [followState,  setFollowState]  = useState<Record<string, boolean>>({});
@@ -293,9 +333,51 @@ export default function CommunityTab({ profileOwnerId }: { profileOwnerId: strin
     setListsState("loading");
     fetch("/api/lists/following")
       .then(r => r.ok ? r.json() : { lists: [] })
-      .then(d => { setLists(d.lists ?? []); setListsState("done"); })
+      .then(d => {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const entries: ListEntry[] = (d.lists ?? []).map((l: any) => ({
+          id: l.id, title: l.title, slug: l.slug,
+          userId: l.userId ?? "",
+          username: l.username, displayName: l.displayName ?? null,
+          covers: l.covers ?? [], itemCount: l.itemCount ?? 0,
+          recordCount: l.recordCount ?? 0,
+          isSaved: l.isSaved ?? false,
+          matchScore: l.matchScore, matchLabel: l.matchLabel,
+        }));
+        setLists(entries);
+        const ss: Record<string, boolean> = {};
+        for (const l of entries) ss[l.id] = l.isSaved;
+        setSaveState(prev => ({ ...prev, ...ss }));
+        setListsState("done");
+      })
       .catch(() => setListsState("done"));
   }, [subTab, listsState]);
+
+  // Load saved lists when tab is active (lazy)
+  useEffect(() => {
+    if (subTab !== "saved" || savedListsState !== "idle") return;
+    setSavedListsState("loading");
+    fetch("/api/lists/saved")
+      .then(r => r.ok ? r.json() : { lists: [] })
+      .then(d => {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const entries: ListEntry[] = (d.lists ?? []).map((l: any) => ({
+          id: l.id, title: l.title, slug: l.slug,
+          userId: l.userId ?? "",
+          username: l.username, displayName: l.displayName ?? null,
+          covers: l.covers ?? [], itemCount: l.itemCount ?? 0,
+          recordCount: l.recordCount ?? 0,
+          isSaved: true,
+          matchScore: l.matchScore, matchLabel: l.matchLabel,
+        }));
+        setSavedLists(entries);
+        const ss: Record<string, boolean> = {};
+        for (const l of entries) ss[l.id] = true;
+        setSaveState(prev => ({ ...prev, ...ss }));
+        setSavedListsState("done");
+      })
+      .catch(() => setSavedListsState("done"));
+  }, [subTab, savedListsState]);
 
   // Load collectors with debounced search, pre-populating follow state from DB.
   // Uses refs (not state) for viewerUserId and pendingToggles so this callback
@@ -385,10 +467,34 @@ export default function CommunityTab({ profileOwnerId }: { profileOwnerId: strin
     }
   }
 
+  async function toggleSaveList(listId: string) {
+    if (!viewerUserId) return;
+    const prev = saveState[listId] ?? false;
+    setSaveState(s => ({ ...s, [listId]: !prev }));
+    try {
+      const res = await fetch("/api/lists/save", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ listId }),
+      });
+      const data = await res.json() as { saved?: boolean };
+      if (typeof data.saved === "boolean") {
+        setSaveState(s => ({ ...s, [listId]: data.saved! }));
+        // Refresh saved tab if it was already loaded
+        if (savedListsState === "done") setSavedListsState("idle");
+      } else {
+        setSaveState(s => ({ ...s, [listId]: prev }));
+      }
+    } catch {
+      setSaveState(s => ({ ...s, [listId]: prev }));
+    }
+  }
+
   const TABS: Array<{ key: SubTab; label: string }> = [
     { key: "matches",    label: "Top Matches" },
     { key: "collectors", label: "All Collectors" },
     { key: "lists",      label: "Lists" },
+    { key: "saved",      label: "Saved Lists" },
   ];
 
   return (
@@ -564,7 +670,45 @@ export default function CommunityTab({ profileOwnerId }: { profileOwnerId: strin
             )}
             {listsState === "done" && lists.length > 0 && (
               <div>
-                {lists.map(list => <ListCard key={list.id} list={list} />)}
+                {lists.map(list => (
+                  <ListCard
+                    key={list.id}
+                    list={list}
+                    isSaved={saveState[list.id] ?? list.isSaved}
+                    canSave={!!viewerUserId}
+                    onSave={() => toggleSaveList(list.id)}
+                  />
+                ))}
+              </div>
+            )}
+          </>
+        )}
+
+        {/* ── Saved Lists ─────────────────────────────────────────────────────── */}
+        {subTab === "saved" && (
+          <>
+            {savedListsState === "loading" && (
+              <p style={{ fontFamily: MONO, fontSize: "0.55rem", color: MUTED, letterSpacing: "0.08em" }}>Loading…</p>
+            )}
+            {savedListsState === "done" && savedLists.length === 0 && (
+              <div style={{ paddingTop: "16px" }}>
+                <p style={{ fontFamily: SERIF, fontSize: "1.1rem", color: INK, marginBottom: "8px" }}>No saved lists yet.</p>
+                <p style={{ fontFamily: MONO, fontSize: "0.65rem", color: MUTED, lineHeight: 1.7 }}>
+                  Browse Lists to find Top 5s worth saving. Hit Save on any list to pin it here.
+                </p>
+              </div>
+            )}
+            {savedListsState === "done" && savedLists.length > 0 && (
+              <div>
+                {savedLists.map(list => (
+                  <ListCard
+                    key={list.id}
+                    list={list}
+                    isSaved={saveState[list.id] ?? true}
+                    canSave={!!viewerUserId}
+                    onSave={() => toggleSaveList(list.id)}
+                  />
+                ))}
               </div>
             )}
           </>
