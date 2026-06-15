@@ -7,7 +7,7 @@ function getLunarPhase() {
   const daysSince = (now.getTime() - knownNewMoon.getTime()) / (1000 * 60 * 60 * 24);
   const phase = ((daysSince % lunarCycle) + lunarCycle) % lunarCycle;
 
-  if (phase < 1.85)  return "new";
+  if (phase < 1.85 || phase > lunarCycle - 1.85) return "new";
   if (phase < 9.22)  return "first_quarter";
   if (phase < 16.61) return "full";
   return "waning";
