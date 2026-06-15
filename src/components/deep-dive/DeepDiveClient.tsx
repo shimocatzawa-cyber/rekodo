@@ -390,13 +390,13 @@ function VinylFallback({ size = 80 }: { size?: number }) {
   );
 }
 
-function CollectionStrip({ records, artist, tileSize = 80 }: { records: ArtistData["records"]; artist: string; tileSize?: number }) {
+function CollectionStrip({ records, wantlistCount = 0, artist, tileSize = 80 }: { records: ArtistData["records"]; wantlistCount?: number; artist: string; tileSize?: number }) {
   return (
     <div>
       <style>{`.dd-strip::-webkit-scrollbar { display: none; }`}</style>
       <div
         className="dd-strip"
-        style={{ display: "flex", overflowX: "auto", gap: "0.5rem", paddingBottom: "0.25rem", scrollbarWidth: "none" as const }}
+        style={{ display: "flex", overflowX: "auto", gap: "0.5rem", paddingBottom: "0.25rem", scrollbarWidth: "none" as const, alignItems: "flex-start" }}
       >
         {records.map((r, i) => (
           <div key={i} style={{ flexShrink: 0, width: tileSize }}>
@@ -422,6 +422,24 @@ function CollectionStrip({ records, artist, tileSize = 80 }: { records: ArtistDa
                 {r.year}
               </p>
             )}
+          </div>
+        ))}
+
+        {wantlistCount > 0 && records.length > 0 && (
+          <div style={{ flexShrink: 0, display: "flex", alignItems: "center", height: tileSize, padding: "0 2px" }}>
+            <span style={{ fontFamily: MONO, fontSize: "0.65rem", color: "#aaaaaa" }}>·</span>
+          </div>
+        )}
+
+        {wantlistCount > 0 && Array.from({ length: wantlistCount }).map((_, i) => (
+          <div key={`wl-${i}`} style={{ flexShrink: 0, width: tileSize, opacity: 0.5 }}>
+            <VinylFallback size={tileSize} />
+            <p style={{
+              fontFamily: MONO, fontSize: "0.55rem", letterSpacing: "0.04em", color: "#aaaaaa",
+              margin: "3px 0 1px", lineHeight: 1.3,
+            }}>
+              wantlist
+            </p>
           </div>
         ))}
       </div>
@@ -584,10 +602,10 @@ function ArtistRow({
           {artist.fromBandcamp && <BandcampIcon size={12} />}
         </div>
         <p style={{ fontFamily: MONO, fontSize: "0.6rem", letterSpacing: "0.08em", color: INK, margin: 0 }}>
-          {[
-            artist.count > 0 ? `${artist.count} ${artist.count === 1 ? "item" : "items"} in your collection` : "",
-            (artist.wantlistCount ?? 0) > 0 ? `${artist.wantlistCount} ${artist.wantlistCount === 1 ? "item" : "items"} in your wantlist` : "",
-          ].filter(Boolean).join(" · ")}
+          {(() => {
+            const total = (artist.count ?? 0) + (artist.wantlistCount ?? 0);
+            return total > 0 ? `${total} ${total === 1 ? "item" : "items"}` : "";
+          })()}
         </p>
       </div>
     </div>
@@ -879,12 +897,12 @@ export default function DeepDiveClient({
               {selectedData?.fromBandcamp && <BandcampIcon size={16} />}
             </div>
             <p style={{ fontFamily: MONO, fontSize: "0.7rem", letterSpacing: "0.06em", color: INK, margin: "0 0 12px" }}>
-              {[
-                selectedData.count > 0 ? `${selectedData.count} ${selectedData.count === 1 ? "item" : "items"} in your collection` : "",
-                (selectedData.wantlistCount ?? 0) > 0 ? `${selectedData.wantlistCount} ${selectedData.wantlistCount === 1 ? "item" : "items"} in your wantlist` : "",
-              ].filter(Boolean).join(" · ")}
+              {(() => {
+                const total = (selectedData.count ?? 0) + (selectedData.wantlistCount ?? 0);
+                return total > 0 ? `${total} ${total === 1 ? "item" : "items"}` : "";
+              })()}
             </p>
-            <CollectionStrip records={selectedData.records} artist={selectedArtist} tileSize={36} />
+            <CollectionStrip records={selectedData.records} wantlistCount={selectedData.wantlistCount ?? 0} artist={selectedArtist} tileSize={36} />
           </div>
         </div>
 
