@@ -87,7 +87,7 @@ function MatchCard({ match, isFollowing, canFollow, onFollow }: {
   const init = (match.displayName || match.username).charAt(0).toUpperCase();
   return (
     <div style={{ border: `1px solid ${RULE}`, padding: "20px 18px 16px", display: "flex", flexDirection: "column", gap: "10px" }}>
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+      <div style={{ display: "flex", alignItems: "center" }}>
         <Link href={`/@${match.username}`} style={{ display: "flex", alignItems: "center", gap: "9px", textDecoration: "none" }}>
           <span style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", width: 28, height: 28, borderRadius: "50%", background: ORANGE, color: "#fff", fontFamily: MONO, fontSize: "10px", fontWeight: 600, flexShrink: 0 }}>
             {init}
@@ -97,12 +97,14 @@ function MatchCard({ match, isFollowing, canFollow, onFollow }: {
             {match.isDonor && <span style={{ fontFamily: SERIF, fontSize: "0.75rem", color: GOLD }} title="rekōdo supporter">ō</span>}
           </span>
         </Link>
-        <span style={{ fontFamily: MONO, fontSize: "0.58rem", color: ORANGE, flexShrink: 0, letterSpacing: "0.04em" }}>{match.score}% Collection Similarity</span>
       </div>
 
-      <p style={{ fontFamily: SERIF, fontStyle: "italic", fontSize: "0.85rem", color: "#505050", lineHeight: 1.4, margin: 0 }}>
-        {match.label}
-      </p>
+      <div>
+        <span style={{ fontFamily: MONO, fontSize: "0.5rem", letterSpacing: "0.08em", textTransform: "uppercase", color: ORANGE }}>{match.score}% Collection Similarity</span>
+        <p style={{ fontFamily: SERIF, fontStyle: "italic", fontSize: "0.85rem", color: "#505050", lineHeight: 1.4, margin: "4px 0 0" }}>
+          {match.label}
+        </p>
+      </div>
 
       {match.sharedTags.length > 0 && (
         <div style={{ display: "flex", flexWrap: "wrap", gap: "4px" }}>
