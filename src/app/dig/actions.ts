@@ -1,6 +1,5 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 
 // Both slugs accepted so existing "Want to Buy" lists work without a migration.
@@ -89,6 +88,5 @@ export async function addToWantlist(
 
   if (linkErr) return { error: linkErr.message };
 
-  revalidatePath("/lists");
   return { success: true };
 }
