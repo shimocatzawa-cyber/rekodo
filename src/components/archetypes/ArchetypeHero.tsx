@@ -88,11 +88,6 @@ function ArchetypeColumn({
         );
       })()}
 
-      {isShadow && archetype && (
-        <div style={{ fontFamily: MONO, fontSize: 9, fontStyle: "italic", color: MUTED, lineHeight: 1.5, marginTop: 6 }}>
-          {SHADOW_PROMPTS[archetypeId ?? ""] ?? ""}
-        </div>
-      )}
     </div>
   );
 }
@@ -238,6 +233,9 @@ export default function ArchetypeHero({
             <div style={{ fontFamily: SERIF, fontSize: "1.1rem", fontWeight: 700, color: INK, marginBottom: 4 }}>
               {namedPairing}
             </div>
+            <div style={{ fontFamily: MONO, fontSize: 9, textTransform: "uppercase", letterSpacing: "0.12em", color: ORANGE, marginBottom: 6, marginTop: 8 }}>
+              ARCHETYPE
+            </div>
             <div style={{ fontFamily: MONO, fontSize: 10, color: MUTED }}>
               {primaryDef?.shortDescription ?? ""}
             </div>
@@ -246,6 +244,9 @@ export default function ArchetypeHero({
 
         {!namedPairing && primaryDef && (
           <div>
+            <div style={{ fontFamily: MONO, fontSize: 9, textTransform: "uppercase", letterSpacing: "0.12em", color: ORANGE, marginBottom: 6 }}>
+              ARCHETYPE
+            </div>
             <div style={{ fontFamily: MONO, fontSize: 10, color: MUTED, lineHeight: 1.6 }}>
               {primaryDef.shortDescription}
             </div>
