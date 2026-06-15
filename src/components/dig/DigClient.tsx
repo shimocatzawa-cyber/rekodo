@@ -760,22 +760,155 @@ function NavBar({ idx, total, onNav, onDigAgain }: {
 }
 
 
+// ─── Dig History ─────────────────────────────────────────────────────────────
+
+type HistorySession = {
+  id:   string;
+  date: string; // ISO
+  mode: DigMode;
+  recs: Recommendation[];
+};
+
+const HISTORY_KEY = "dig-history";
+const SEVEN_DAYS  = 7 * 24 * 60 * 60 * 1000;
+
+function saveToHistory(mode: DigMode, recs: Recommendation[]) {
+  try {
+    const session: HistorySession = { id: Date.now().toString(), date: new Date().toISOString(), mode, recs };
+    const existing = (() => { try { return JSON.parse(localStorage.getItem(HISTORY_KEY) ?? "[]") as HistorySession[]; } catch { return [] as HistorySession[]; } })();
+    const cutoff   = Date.now() - SEVEN_DAYS;
+    const fresh    = existing.filter(s => new Date(s.date).getTime() > cutoff);
+    fresh.unshift(session);
+    localStorage.setItem(HISTORY_KEY, JSON.stringify(fresh.slice(0, 50)));
+  } catch {}
+}
+
+function loadHistory(): HistorySession[] {
+  try {
+    const all    = JSON.parse(localStorage.getItem(HISTORY_KEY) ?? "[]") as HistorySession[];
+    const cutoff = Date.now() - SEVEN_DAYS;
+    return all.filter(s => new Date(s.date).getTime() > cutoff);
+  } catch { return []; }
+}
+
+function fmtSessionDate(iso: string): string {
+  const d    = new Date(iso);
+  const now  = new Date();
+  const time = d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+  if (d.toDateString() === now.toDateString()) return `Today · ${time}`;
+  const yest = new Date(now); yest.setDate(now.getDate() - 1);
+  if (d.toDateString() === yest.toDateString()) return `Yesterday · ${time}`;
+  return d.toLocaleDateString([], { weekday: "short", day: "numeric", month: "short" }) + ` · ${time}`;
+}
+
+const MODE_LABEL: Record<DigMode, string> = {
+  discover:       "Discover",
+  explore:        "Explore",
+  hallucinations: "Hallucinations",
+};
+
+function DigHistoryView({ onAddToWantlist, wantlistAdded }: {
+  onAddToWantlist: (rec: Recommendation) => void;
+  wantlistAdded:   Set<string>;
+}) {
+  const [sessions, setSessions] = useState<HistorySession[]>([]);
+  useEffect(() => { setSessions(loadHistory()); }, []);
+
+  if (sessions.length === 0) {
+    return (
+      <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center" }}>
+        <p style={{ fontFamily: SERIF, fontSize: "15px", fontStyle: "italic", color: "#888888", margin: 0 }}>
+          No digs in the last 7 days. Start a dig to build your history.
+        </p>
+      </div>
+    );
+  }
+
+  return (
+    <div style={{ flex: 1, overflowY: "auto", paddingBottom: "40px", marginTop: "16px" }}>
+      {sessions.map(session => (
+        <div key={session.id} style={{ marginBottom: "24px" }}>
+          <div style={{
+            display: "flex", alignItems: "center", gap: "10px",
+            marginBottom: "10px", paddingBottom: "8px",
+            borderBottom: "1px solid #e8e8e2",
+          }}>
+            <span style={{ fontFamily: MONO, fontSize: "8px", letterSpacing: "0.14em", textTransform: "uppercase", color: "#aaaaaa" }}>
+              {fmtSessionDate(session.date)}
+            </span>
+            <span style={{ width: "3px", height: "3px", borderRadius: "50%", background: "#d0d0d0", flexShrink: 0 }} />
+            <span style={{ fontFamily: MONO, fontSize: "8px", letterSpacing: "0.12em", textTransform: "uppercase", color: session.mode === "hallucinations" ? "#b30042" : ORANGE }}>
+              {MODE_LABEL[session.mode]}
+            </span>
+          </div>
+          <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
+            {session.recs.map((rec, i) => {
+              const key   = `${rec.artist}||${rec.album}`;
+              const added = wantlistAdded.has(key);
+              return (
+                <div
+                  key={i}
+                  style={{
+                    display: "grid", gridTemplateColumns: "1fr auto",
+                    alignItems: "start", gap: "14px",
+                    padding: "11px 14px",
+                    border: "1px solid #f0f0eb", background: "#fafaf8",
+                  }}
+                >
+                  <div>
+                    <p style={{ fontFamily: SERIF, fontSize: "14px", fontWeight: 400, color: "#0d0d0d", margin: "0 0 2px" }}>
+                      {rec.album}
+                    </p>
+                    <p style={{ fontFamily: MONO, fontSize: "9px", color: "#888888", margin: "0 0 6px", letterSpacing: "0.04em" }}>
+                      {rec.artist}{rec.year ? ` · ${rec.year}` : ""}
+                    </p>
+                    <p style={{ fontFamily: SERIF, fontSize: "11px", fontStyle: "italic", color: "#666666", margin: 0, lineHeight: 1.55 }}>
+                      {rec.reason.length > 180 ? rec.reason.slice(0, 180) + "…" : rec.reason}
+                    </p>
+                  </div>
+                  <button
+                    onClick={() => { if (!added) onAddToWantlist(rec); }}
+                    disabled={added}
+                    style={{
+                      fontFamily: MONO, fontSize: "8px", letterSpacing: "0.1em", textTransform: "uppercase",
+                      color: added ? "#aaaaaa" : ORANGE,
+                      background: "none",
+                      border: `1px ${added ? "solid" : "dashed"} ${added ? "#aaaaaa" : ORANGE}`,
+                      cursor: added ? "default" : "pointer",
+                      padding: "4px 8px", flexShrink: 0, whiteSpace: "nowrap",
+                      transition: "all 0.2s",
+                    }}
+                  >
+                    {added ? "Added ✓" : "+ Wantlist"}
+                  </button>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 // ─── Mode toggle ─────────────────────────────────────────────────────────────
 
 type DigMode = "discover" | "explore" | "hallucinations";
+type DigTab  = DigMode | "history";
 
 function ModeToggle({ mode, onChange, disabled }: {
-  mode:     DigMode;
-  onChange: (m: DigMode) => void;
+  mode:     DigTab;
+  onChange: (m: DigTab) => void;
   disabled: boolean;
 }) {
-  const item = (m: DigMode, label: string) => {
+  const item = (m: DigTab, label: string) => {
     const active = mode === m;
+    // History tab is always clickable even while a dig is loading
+    const clickable = !active && (m === "history" || !disabled);
     return (
       <button
         key={m}
-        onClick={() => { if (!disabled && mode !== m) onChange(m); }}
-        disabled={disabled}
+        onClick={() => { if (clickable) onChange(m); }}
         className="dig-mode-btn"
         style={{
           fontFamily: MONO,
@@ -784,9 +917,9 @@ function ModeToggle({ mode, onChange, disabled }: {
           textTransform: "uppercase",
           background: "none",
           border: "none",
-          borderBottom: `1.5px solid ${active ? ORANGE : "transparent"}`,
+          borderBottom: `1.5px solid ${active ? (m === "history" ? "#0d0d0d" : ORANGE) : "transparent"}`,
           padding: "6px 0",
-          cursor: disabled || active ? "default" : "pointer",
+          cursor: clickable ? "pointer" : "default",
           color: active ? "#0d0d0d" : "#bbbbbb",
           transition: "color 0.15s, border-color 0.15s",
         }}
@@ -801,6 +934,7 @@ function ModeToggle({ mode, onChange, disabled }: {
       {item("discover",      "Discover · Outside Collection")}
       {item("explore",       "Explore · Inside Collection")}
       {item("hallucinations","Hallucinations · Take the Trip")}
+      {item("history",       "Dig History · Last 7 Days")}
     </div>
   );
 }
@@ -812,11 +946,14 @@ export default function DigClient({ username, displayLabel, avatarUrl, collectio
   const [loading,       setLoading]       = useState(true);
   const [error,         setError]         = useState<string | null>(null);
   const [idx,           setIdx]           = useState(0);
-  const [mode,          setMode]          = useState<DigMode>("discover");
+  const [activeTab,     setActiveTab]     = useState<DigTab>("discover");
   const [wantlistAdded, setWantlistAdded] = useState<Set<string>>(new Set());
   const [digSpotify,    setDigSpotify]    = useState<{
     previewUrl: string | null; trackUri: string | null; albumUri: string | null; artist: string; album: string;
   } | null>(null);
+
+  // Derived — the active dig mode (history tab has no mode)
+  const mode: DigMode = activeTab === "history" ? "discover" : activeTab;
 
   // Accumulates artists and full recs shown this session so the API can avoid
   // repeating the same artists, genres, and stylistic territory
@@ -854,6 +991,7 @@ export default function DigClient({ username, displayLabel, avatarUrl, collectio
             shownRecs.current.push({ artist: r.artist, album: r.album });
           }
         }
+        saveToHistory(fetchKey.mode, newRecs);
         setRecs(newRecs);
         setIdx(0);
         setError(null);
@@ -866,14 +1004,20 @@ export default function DigClient({ username, displayLabel, avatarUrl, collectio
     return () => { cancelled = true; };
   }, [fetchKey]);
 
-  function handleModeChange(newMode: DigMode) {
+  function handleTabChange(tab: DigTab) {
+    if (tab === activeTab) return;
+    if (tab === "history") {
+      setActiveTab("history");
+      return;
+    }
+    // Switching to a dig mode — reset and fetch
     shownArtists.current = [];
     shownRecs.current    = [];
-    setMode(newMode);
+    setActiveTab(tab);
     setLoading(true);
     setError(null);
     setRecs(null);
-    setFetchKey({ mode: newMode, n: 0 });
+    setFetchKey({ mode: tab, n: 0 });
   }
 
   function handleDigAgain() {
@@ -1031,31 +1175,37 @@ export default function DigClient({ username, displayLabel, avatarUrl, collectio
       <main className="dig-main" style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden" }}>
         <div className="dig-main-inner" style={{ maxWidth: 1200, width: "100%", margin: "0 auto", flex: 1, display: "flex", flexDirection: "column", padding: "0 40px 72px", overflow: "hidden" }}>
 
-          <ModeToggle mode={mode} onChange={handleModeChange} disabled={loading} />
+          <ModeToggle mode={activeTab} onChange={handleTabChange} disabled={loading} />
 
-          {loading && <RecordSpinner />}
-
-          {error && !loading && (
-            <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", flex: 1, gap: "16px" }}>
-              <p style={{ fontFamily: MONO, fontSize: "11px", color: "#cc3300", margin: 0 }}>{error}</p>
-              <button onClick={handleDigAgain} style={{ fontFamily: MONO, fontSize: "10px", letterSpacing: "0.1em", textTransform: "uppercase", color: ORANGE, background: "none", border: `1px solid ${ORANGE}`, cursor: "pointer", padding: "8px 16px" }}>
-                Try again
-              </button>
-            </div>
-          )}
-
-          {recs && !loading && (
+          {activeTab === "history" ? (
+            <DigHistoryView onAddToWantlist={handleAddToWantlist} wantlistAdded={wantlistAdded} />
+          ) : (
             <>
-              <PositionIndicator idx={idx} total={recs.length} onNav={setIdx} />
-              <SleeveCard
-                key={`${idx}-${mode}`}
-                rec={recs[idx]}
-                mode={mode}
-                onAddToWantlist={() => handleAddToWantlist(recs[idx])}
-                wantlistAdded={wantlistAdded.has(`${recs[idx].artist}||${recs[idx].album}`)}
-                onPreviewReady={setDigSpotify}
-              />
-              <NavBar idx={idx} total={recs.length} onNav={navigate} onDigAgain={handleDigAgain} />
+              {loading && <RecordSpinner />}
+
+              {error && !loading && (
+                <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", flex: 1, gap: "16px" }}>
+                  <p style={{ fontFamily: MONO, fontSize: "11px", color: "#cc3300", margin: 0 }}>{error}</p>
+                  <button onClick={handleDigAgain} style={{ fontFamily: MONO, fontSize: "10px", letterSpacing: "0.1em", textTransform: "uppercase", color: ORANGE, background: "none", border: `1px solid ${ORANGE}`, cursor: "pointer", padding: "8px 16px" }}>
+                    Try again
+                  </button>
+                </div>
+              )}
+
+              {recs && !loading && (
+                <>
+                  <PositionIndicator idx={idx} total={recs.length} onNav={setIdx} />
+                  <SleeveCard
+                    key={`${idx}-${mode}`}
+                    rec={recs[idx]}
+                    mode={mode}
+                    onAddToWantlist={() => handleAddToWantlist(recs[idx])}
+                    wantlistAdded={wantlistAdded.has(`${recs[idx].artist}||${recs[idx].album}`)}
+                    onPreviewReady={setDigSpotify}
+                  />
+                  <NavBar idx={idx} total={recs.length} onNav={navigate} onDigAgain={handleDigAgain} />
+                </>
+              )}
             </>
           )}
 
