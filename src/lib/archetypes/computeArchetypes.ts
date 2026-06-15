@@ -55,19 +55,29 @@ export async function computeArchetypes(
   userId: string,
   supabase: SupabaseClient
 ): Promise<ArchetypeResult> {
-  // ── A: user_records with joined record data ─────────────────────────────────
-  const { data: userRecordsRaw } = await supabase
-    .from('user_records')
-    .select(`
-      media_condition,
-      price_median,
-      created_at,
-      records (
-        artist, album, year, genre, styles, label, country, format,
-        community_have, community_want
-      )
-    `)
-    .eq('user_id', userId)
+  // ── A: user_records with joined record data (paginated past Supabase 1000-row default) ─
+  const PAGE_SIZE = 1000
+  let userRecordsRaw: unknown[] = []
+  let page = 0
+  while (true) {
+    const { data: batch } = await supabase
+      .from('user_records')
+      .select(`
+        media_condition,
+        price_median,
+        created_at,
+        records (
+          artist, album, year, genre, styles, label, country, format,
+          community_have, community_want
+        )
+      `)
+      .eq('user_id', userId)
+      .range(page * PAGE_SIZE, (page + 1) * PAGE_SIZE - 1)
+    if (!batch || batch.length === 0) break
+    userRecordsRaw = userRecordsRaw.concat(batch)
+    if (batch.length < PAGE_SIZE) break
+    page++
+  }
 
   type RecordJoin = {
     artist: string | null

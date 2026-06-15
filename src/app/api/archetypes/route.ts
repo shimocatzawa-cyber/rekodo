@@ -60,7 +60,9 @@ export async function GET() {
       shadow: cache.shadow_archetype,
       primaryScore: cache.primary_score,
       secondaryScore: cache.secondary_score,
+      namedPairing: cache.named_pairing ?? null,
       recordCount: cache.record_count_at_generation,
+      currentCount: currentCount ?? 0,
       cached: true,
     });
   }
@@ -92,6 +94,7 @@ export async function GET() {
       secondaryScore: result.secondaryScore,
       namedPairing: result.namedPairing,
       recordCount: result.recordCount,
+      currentCount: currentCount ?? result.recordCount,
       cached: false,
     });
   } catch (err) {
@@ -106,6 +109,11 @@ export async function POST() {
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const db = supabase as any;
+
+  const { count: currentCount } = await supabase
+    .from("user_records")
+    .select("id", { count: "exact", head: true })
+    .eq("user_id", user.id);
 
   try {
     const result = await computeArchetypes(user.id, supabase);
@@ -136,6 +144,7 @@ export async function POST() {
       secondaryScore: result.secondaryScore,
       namedPairing: result.namedPairing,
       recordCount: result.recordCount,
+      currentCount: currentCount ?? result.recordCount,
       cached: false,
     });
   } catch (err) {

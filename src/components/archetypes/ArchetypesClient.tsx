@@ -25,6 +25,7 @@ interface ArchetypeData {
   secondaryScore: number;
   namedPairing?: string | null;
   recordCount: number;
+  currentCount?: number;
   cached: boolean;
 }
 
@@ -119,24 +120,14 @@ export default function ArchetypesClient({ userId, username, displayLabel, avata
         <div style={{ marginBottom: 32 }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
             <div>
-              <div style={{
-                fontFamily: MONO,
-                fontSize: 10,
-                textTransform: "uppercase",
-                letterSpacing: "0.14em",
-                color: ORANGE,
-                marginBottom: 8,
-              }}>
-                アーキタイプ · ARCHETYPES
-              </div>
-              <h1 style={{ fontFamily: SERIF, fontSize: "1.8rem", fontWeight: 700, color: INK, margin: 0 }}>
+              <h1 style={{ fontFamily: SERIF, fontSize: "1.8rem", fontWeight: 400, color: INK, margin: 0 }}>
                 What your collection says about you.
               </h1>
             </div>
             {data && (
               <div style={{ textAlign: "right", flexShrink: 0, paddingLeft: 24 }}>
                 <div style={{ fontFamily: MONO, fontSize: 10, color: MUTED, marginBottom: 6 }}>
-                  {data.recordCount} records analysed
+                  {data.currentCount ?? data.recordCount} records analysed
                 </div>
                 <button
                   onClick={handleRegenerate}
@@ -192,8 +183,6 @@ export default function ArchetypesClient({ userId, username, displayLabel, avata
               namedPairing={data.namedPairing ?? null}
             />
 
-            <SignalGrid signals={data.data} />
-
             <EssayBlock
               primary={data.primary}
               primaryScore={data.primaryScore}
@@ -202,6 +191,8 @@ export default function ArchetypesClient({ userId, username, displayLabel, avata
               signals={data.data}
               recordCount={data.recordCount}
             />
+
+            <SignalGrid signals={data.data} />
           </>
         )}
       </main>

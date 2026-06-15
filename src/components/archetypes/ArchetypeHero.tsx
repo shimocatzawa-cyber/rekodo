@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { ARCHETYPES, SHADOW_PROMPTS } from "@/lib/archetypes/archetypeConfig";
+import { ARCHETYPES, SHADOW_PROMPTS, JUNG_CORE_DESIRES } from "@/lib/archetypes/archetypeConfig";
 import type { ComputedSignals } from "@/lib/archetypes/computeArchetypes";
 
 const SERIF = "var(--font-editorial)";
@@ -39,7 +39,7 @@ function ArchetypeColumn({
   score: number;
 }) {
   const archetype = archetypeId ? ARCHETYPES[archetypeId] : null;
-  const roleLabel = role === "primary" ? "PRIMARY" : role === "secondary" ? "SECONDARY" : "SHADOW  影";
+  const roleLabel = role === "primary" ? "PRIMARY" : role === "secondary" ? "SECONDARY" : "SHADOW";
   const isShadow  = role === "shadow";
   const isWeak    = role === "secondary" && score < 30;
   const barColor  = isShadow
@@ -71,12 +71,25 @@ function ArchetypeColumn({
       <div style={{ fontFamily: MONO, fontSize: 10, fontWeight: 700, color: INK, marginBottom: 4 }}>
         {isWeak ? "— / 100" : `${score} / 100`}
       </div>
-      <div style={{ fontFamily: MONO, fontSize: 9, color: MUTED, marginBottom: isShadow ? 10 : 0 }}>
-        {archetype?.jungianRoot ?? ""}
-      </div>
+      {archetype?.jungianRoot && (() => {
+        const primaryJung = archetype.jungianRoot.split("·")[0].trim();
+        const desire = JUNG_CORE_DESIRES[primaryJung];
+        return (
+          <div style={{ marginBottom: isShadow ? 10 : 0 }}>
+            <div style={{ fontFamily: MONO, fontSize: 9, color: MUTED, marginBottom: desire ? 4 : 0 }}>
+              Jung: {primaryJung}
+            </div>
+            {desire && (
+              <div style={{ fontFamily: MONO, fontSize: 9, fontStyle: "italic", color: MUTED, lineHeight: 1.5 }}>
+                &ldquo;{desire}&rdquo;
+              </div>
+            )}
+          </div>
+        );
+      })()}
 
       {isShadow && archetype && (
-        <div style={{ fontFamily: MONO, fontSize: 9, fontStyle: "italic", color: MUTED, lineHeight: 1.5 }}>
+        <div style={{ fontFamily: MONO, fontSize: 9, fontStyle: "italic", color: MUTED, lineHeight: 1.5, marginTop: 6 }}>
           {SHADOW_PROMPTS[archetypeId ?? ""] ?? ""}
         </div>
       )}

@@ -66,11 +66,11 @@ export default function EssayBlock({ primary, primaryScore, secondary, shadow, s
     <div>
       <div style={{ borderTop: `1px solid ${RULE}`, borderBottom: `1px solid ${RULE}`, padding: "10px 0", marginBottom: 24 }}>
         <div style={{ fontFamily: MONO, fontSize: 9, textTransform: "uppercase", letterSpacing: "0.12em", color: ORANGE }}>
-          アーキタイプの物語 · ARCHETYPE NARRATIVE
+          ARCHETYPE NARRATIVE
         </div>
       </div>
 
-      <div style={{ fontFamily: SERIF, fontSize: "1rem", fontWeight: 700, color: INK, marginBottom: 16 }}>
+      <div style={{ fontFamily: SERIF, fontSize: "1rem", fontWeight: 400, color: INK, marginBottom: 16 }}>
         {primaryDef?.name ?? primary}
       </div>
 

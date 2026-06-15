@@ -30,7 +30,7 @@ function SignalCell({ signal, result }: { signal: typeof SIGNALS[number]; result
         color: ORANGE,
         marginBottom: 6,
       }}>
-        {signal.label} · {signal.japaneseLabel}
+        {signal.label}
       </div>
 
       <div style={{
@@ -71,42 +71,36 @@ export default function SignalGrid({ signals }: Props) {
           letterSpacing: "0.12em",
           color: ORANGE,
         }}>
-          {SIGNALS.length} Taste Signals · テイストシグナル
+          {SIGNALS.length} Signs
         </div>
       </div>
 
-      {/* Grid */}
+      {/* Grid — gap-as-border: container background = RULE, gap = 1px, cells white */}
       <style>{`
         .signal-grid {
           display: grid;
           grid-template-columns: 1fr;
-          border-bottom: 1px solid ${RULE};
+          gap: 1px;
+          background: ${RULE};
         }
         @media (min-width: 640px) {
           .signal-grid { grid-template-columns: repeat(2, 1fr); }
-          .signal-grid .signal-cell:nth-child(odd) { border-left: none; }
-          .signal-grid .signal-cell:nth-child(even) { border-left: 1px solid ${RULE}; }
         }
         @media (min-width: 900px) {
           .signal-grid { grid-template-columns: repeat(3, 1fr); }
-          .signal-grid .signal-cell { border-left: none; }
-          .signal-grid .signal-cell:nth-child(3n+2),
-          .signal-grid .signal-cell:nth-child(3n+3) { border-left: 1px solid ${RULE}; }
         }
       `}</style>
-      <div className="signal-grid">
-        {SIGNALS.map((signal) => {
-          const result = signals[signal.id as keyof ComputedSignals] as SignalResult;
-          return (
-            <div
-              key={signal.id}
-              className="signal-cell"
-              style={{ borderTop: `1px solid ${RULE}` }}
-            >
-              <SignalCell signal={signal} result={result} />
-            </div>
-          );
-        })}
+      <div style={{ border: `1px solid ${RULE}` }}>
+        <div className="signal-grid">
+          {SIGNALS.map((signal) => {
+            const result = signals[signal.id as keyof ComputedSignals] as SignalResult;
+            return (
+              <div key={signal.id} style={{ background: "#fff" }}>
+                <SignalCell signal={signal} result={result} />
+              </div>
+            );
+          })}
+        </div>
       </div>
     </div>
   );

@@ -134,6 +134,23 @@ export const ARCHETYPES: Record<string, ArchetypeDefinition> = {
   },
 }
 
+// Core desire for each primary Jungian archetype (shown in italic under Jung label)
+export const JUNG_CORE_DESIRES: Record<string, string> = {
+  "The Explorer":  "Freedom to discover who you are through exploration of the unknown",
+  "The Sage":      "To use knowledge and intelligence to understand the world and share that truth",
+  "The Innocent":  "To be happy, safe, and experience the world without complication",
+  "The Hero":      "To prove your worth through courageous acts and the mastery of difficulty",
+  "The Lover":     "To be in a relationship with the people, work, and surroundings you love",
+  "The Magician":  "To understand the fundamental laws of the universe and use them to transform",
+  "The Creator":   "To create things of enduring value and give them lasting form",
+  "The Caregiver": "To protect and care for others, placing their needs at the centre",
+  "The Ruler":     "To have power and resources — and use them to build a lasting order",
+  "The Outlaw":    "Revolution — to overturn what isn't working and imagine what comes next",
+  "The Child":     "To experience wonder and joy without the weight of expectation",
+  "The Self":      "Wholeness — to integrate all parts of yourself into a coherent whole",
+  "Logos":         "To structure the world through reason and bring order to complexity",
+}
+
 export const NAMED_PAIRINGS: Record<string, string> = {
   'keeper+scholar': 'The Conservator',
   'keeper+pilgrim': 'The Purist',
