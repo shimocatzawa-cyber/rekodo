@@ -93,39 +93,61 @@ export default async function DeepDivePage() {
     }
   }
 
-  // Fetch wantlist from lists/list_items (written by WantlistClient CSV import)
-  const { data: wantlistList } = await supabase
+  const wantlistCountMap = new Map<string, number>();
+  const wantlistCaseMap = new Map<string, string>();
+
+  function addWantlistArtist(name: string | null | undefined) {
+    const key = (name ?? "").toLowerCase().trim();
+    if (!key) return;
+    wantlistCountMap.set(key, (wantlistCountMap.get(key) ?? 0) + 1);
+    if (!wantlistCaseMap.has(key)) wantlistCaseMap.set(key, name!);
+  }
+
+  // Source 1: wantlist table (populated by Discogs OAuth sync)
+  const { data: discogsWantlist } = await supabase
+    .from("wantlist")
+    .select("artist")
+    .eq("user_id", user.id);
+  for (const row of discogsWantlist ?? []) addWantlistArtist(row.artist);
+
+  // Source 2 & 3: lists/list_items (CSV import + Dig-added items)
+  const { data: wantlistListRow } = await supabase
     .from("lists")
     .select("id")
     .eq("user_id", user.id)
     .in("slug", ["wantlist", "want-to-buy"])
+    .limit(1)
     .maybeSingle();
 
-  const wantlistListId = wantlistList?.id ?? null;
+  const wantlistListId = wantlistListRow?.id ?? null;
 
-  type WantlistItem = { song_artist: string | null };
-  const wantlistItems: WantlistItem[] = [];
   if (wantlistListId) {
-    const WL_PAGE = 1000;
-    for (let from = 0; ; from += WL_PAGE) {
-      const { data, error } = await supabase
-        .from("list_items")
-        .select("song_artist")
-        .eq("list_id", wantlistListId)
-        .range(from, from + WL_PAGE - 1);
-      if (error || !data || data.length === 0) break;
-      wantlistItems.push(...(data as WantlistItem[]));
-      if (data.length < WL_PAGE) break;
-    }
-  }
+    const { data: listItems } = await supabase
+      .from("list_items")
+      .select("song_artist, record_id")
+      .eq("list_id", wantlistListId);
 
-  const wantlistCountMap = new Map<string, number>();
-  const wantlistCaseMap = new Map<string, string>();
-  for (const item of wantlistItems) {
-    const key = (item.song_artist ?? "").toLowerCase().trim();
-    if (!key) continue;
-    wantlistCountMap.set(key, (wantlistCountMap.get(key) ?? 0) + 1);
-    if (!wantlistCaseMap.has(key)) wantlistCaseMap.set(key, item.song_artist ?? "");
+    const recordIds: string[] = [];
+    for (const item of listItems ?? []) {
+      if (item.song_artist) {
+        // CSV-imported: artist stored directly in song_artist
+        addWantlistArtist(item.song_artist as string);
+      } else if (item.record_id) {
+        // Dig-added: artist stored in records table via record_id
+        recordIds.push(item.record_id as string);
+      }
+    }
+
+    if (recordIds.length > 0) {
+      const WL_BATCH = 400;
+      for (let i = 0; i < recordIds.length; i += WL_BATCH) {
+        const { data: recs } = await supabase
+          .from("records")
+          .select("artist")
+          .in("id", recordIds.slice(i, i + WL_BATCH));
+        for (const r of recs ?? []) addWantlistArtist(r.artist);
+      }
+    }
   }
 
   // Collection artists (physical + Bandcamp)
@@ -165,6 +187,7 @@ export default async function DeepDivePage() {
       <AppNav username={username} displayLabel={displayLabel} avatarUrl={avatarUrl} />
       <DeepDiveClient
         artists={artists}
+        userId={user.id}
         wantlistListId={wantlistListId}
       />
     </>

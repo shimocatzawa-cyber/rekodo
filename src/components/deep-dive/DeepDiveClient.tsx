@@ -610,9 +610,11 @@ function EmptyPanel() {
 
 export default function DeepDiveClient({
   artists,
+  userId,
   wantlistListId,
 }: {
   artists: ArtistData[];
+  userId: string;
   wantlistListId: string | null;
 }) {
   const [query, setQuery] = useState("");
@@ -641,25 +643,45 @@ export default function DeepDiveClient({
     return [...withLive, ...extras].sort((a, b) => b.count - a.count || a.name.localeCompare(b.name));
   }, [artists, liveWantlistCounts, liveExtraArtists]);
 
-  // Real-time wantlist subscription
+  // Real-time wantlist subscription — re-reads all three wantlist sources on any change
   useEffect(() => {
     if (!wantlistListId) return;
     const supabase = createClient();
 
     async function refetch() {
-      const { data } = await supabase
-        .from("list_items")
-        .select("song_artist")
-        .eq("list_id", wantlistListId!);
-      if (!data) return;
       const counts: Record<string, number> = {};
       const caseMap: Record<string, string> = {};
-      for (const row of data) {
-        const key = ((row.song_artist as string | null) ?? "").toLowerCase().trim();
-        if (!key) continue;
+
+      function add(name: string | null | undefined) {
+        const key = (name ?? "").toLowerCase().trim();
+        if (!key) return;
         counts[key] = (counts[key] ?? 0) + 1;
-        if (!caseMap[key]) caseMap[key] = (row.song_artist as string) ?? "";
+        if (!caseMap[key]) caseMap[key] = name!;
       }
+
+      // Source 1: wantlist table (Discogs OAuth sync)
+      const { data: dw } = await supabase.from("wantlist").select("artist").eq("user_id", userId);
+      for (const r of dw ?? []) add(r.artist as string);
+
+      // Source 2 & 3: list_items
+      const { data: li } = await supabase
+        .from("list_items")
+        .select("song_artist, record_id")
+        .eq("list_id", wantlistListId!);
+
+      const recordIds: string[] = [];
+      for (const item of li ?? []) {
+        if ((item as { song_artist: string | null }).song_artist) {
+          add((item as { song_artist: string }).song_artist);
+        } else if ((item as { record_id: string | null }).record_id) {
+          recordIds.push((item as { record_id: string }).record_id);
+        }
+      }
+      if (recordIds.length > 0) {
+        const { data: recs } = await supabase.from("records").select("artist").in("id", recordIds);
+        for (const r of recs ?? []) add(r.artist as string);
+      }
+
       setLiveWantlistCounts(counts);
       const collNames = new Set(artists.map((a) => a.name.toLowerCase().trim()));
       setLiveExtraArtists(
@@ -686,7 +708,7 @@ export default function DeepDiveClient({
 
     return () => { void supabase.removeChannel(channel); };
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [wantlistListId]);
+  }, [userId, wantlistListId]);
 
   const filtered = query.trim()
     ? mergedArtists.filter((a) => a.name.toLowerCase().includes(query.trim().toLowerCase()))
