@@ -56,19 +56,7 @@ export async function addToWantlist(
     }
   }
 
-  // ── 2. Insert the record ────────────────────────────────────────────────────
-
-  const { data: inserted, error: insertErr } = await supabase
-    .from("records")
-    .insert({ artist, album, year, genre: null, cover_url: null, label: null })
-    .select("id")
-    .single();
-
-  if (insertErr || !inserted) {
-    return { error: insertErr?.message ?? "Record insert failed" };
-  }
-
-  // ── 3. Find next position ───────────────────────────────────────────────────
+  // ── 2. Find next position ───────────────────────────────────────────────────
 
   const { data: existing } = await supabase
     .from("list_items")
@@ -80,9 +68,20 @@ export async function addToWantlist(
   const nextPos = (existing?.[0]?.position ?? 0) + 1;
   if (nextPos > 20) return { error: "Wantlist is full (20 items maximum)" };
 
+  // ── 3. Insert directly as a song item — no records table insert needed ──────
+
   const { error: linkErr } = await supabase
     .from("list_items")
-    .insert({ list_id: wantlistId, record_id: inserted.id, position: nextPos });
+    .insert({
+      list_id: wantlistId,
+      position: nextPos,
+      item_type: "song",
+      song_title: album,
+      song_artist: artist,
+      song_album: album,
+      song_year: year ?? null,
+      source: "dig",
+    });
 
   if (linkErr) return { error: linkErr.message };
 

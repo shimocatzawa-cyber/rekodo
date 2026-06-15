@@ -122,7 +122,8 @@ export default function CommunitySidebar({ profileOwnerId, isOwner }: Props) {
 
     async function load() {
       const { data: { user } } = await supabase.auth.getUser();
-      if (!cancelled) setCurrentUserId(user?.id ?? null);
+      const uid = user?.id ?? null;
+      if (!cancelled) setCurrentUserId(uid);
 
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const sb = supabase as any;
@@ -131,11 +132,26 @@ export default function CommunitySidebar({ profileOwnerId, isOwner }: Props) {
         sb.rpc("get_suggested_collectors", { profile_owner_id: profileOwnerId, limit_count: 4 }),
       ]);
 
-      if (!cancelled) {
-        setFollowers((fData as unknown as FollowerRow[]) ?? []);
-        setSuggested((sData as unknown as SuggestedRow[]) ?? []);
-        setLoading(false);
+      if (cancelled) return;
+
+      const suggestedRows: SuggestedRow[] = (sData as unknown as SuggestedRow[]) ?? [];
+      setFollowers((fData as unknown as FollowerRow[]) ?? []);
+      setSuggested(suggestedRows);
+
+      // Pre-populate which suggested users the current user already follows
+      if (uid && suggestedRows.length > 0) {
+        const ids = suggestedRows.map(r => r.user_id);
+        const { data: existingFollows } = await supabase
+          .from("follows")
+          .select("following_id")
+          .eq("follower_id", uid)
+          .in("following_id", ids);
+        if (!cancelled && existingFollows) {
+          setFollowed(new Set(existingFollows.map((r: { following_id: string }) => r.following_id)));
+        }
       }
+
+      if (!cancelled) setLoading(false);
     }
 
     load();
@@ -144,15 +160,26 @@ export default function CommunitySidebar({ profileOwnerId, isOwner }: Props) {
 
   async function handleFollow(targetUserId: string) {
     if (!currentUserId) return;
+    const isCurrentlyFollowed = followed.has(targetUserId);
+    const action = isCurrentlyFollowed ? "unfollow" : "follow";
+
     setFollowing(prev => new Set(prev).add(targetUserId));
-    const supabase = createClient();
-    const { error } = await supabase.from("follows").insert({
-      follower_id:  currentUserId,
-      following_id: targetUserId,
+
+    const res = await fetch("/api/collectors/follow", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ followingId: targetUserId, action }),
     });
-    if (!error) {
-      setFollowed(prev => new Set(prev).add(targetUserId));
+
+    if (res.ok) {
+      const data = await res.json() as { isFollowing: boolean };
+      setFollowed(prev => {
+        const s = new Set(prev);
+        if (data.isFollowing) s.add(targetUserId); else s.delete(targetUserId);
+        return s;
+      });
     }
+
     setFollowing(prev => { const s = new Set(prev); s.delete(targetUserId); return s; });
   }
 
@@ -296,28 +323,22 @@ export default function CommunitySidebar({ profileOwnerId, isOwner }: Props) {
                       </div>
                     )}
                     {showFollowButton && (
-                      isFollowed ? (
-                        <span style={{
+                      <button
+                        onClick={() => handleFollow(s.user_id)}
+                        disabled={isFollowing}
+                        style={{
                           fontFamily: MONO, fontSize: "0.48rem", letterSpacing: "0.08em",
-                          color: MUTED,
-                        }}>
-                          Following
-                        </span>
-                      ) : (
-                        <button
-                          onClick={() => handleFollow(s.user_id)}
-                          disabled={isFollowing}
-                          style={{
-                            fontFamily: MONO, fontSize: "0.48rem", letterSpacing: "0.08em",
-                            color: ORANGE, background: "none",
-                            border: `0.5px solid ${ORANGE}`,
-                            borderRadius: 0, cursor: "pointer", padding: "2px 8px",
-                            opacity: isFollowing ? 0.5 : 1,
-                          }}
-                        >
-                          {isFollowing ? "Following…" : "Follow"}
-                        </button>
-                      )
+                          color: isFollowed ? MUTED : ORANGE,
+                          background: "none",
+                          border: `0.5px solid ${isFollowed ? MUTED : ORANGE}`,
+                          borderRadius: 0, cursor: isFollowing ? "default" : "pointer",
+                          padding: "2px 8px",
+                          opacity: isFollowing ? 0.5 : 1,
+                          transition: "color 0.15s, border-color 0.15s",
+                        }}
+                      >
+                        {isFollowing ? "…" : isFollowed ? "Following" : "Follow"}
+                      </button>
                     )}
                     {!showFollowButton && (
                       <Link
