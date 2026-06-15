@@ -9,12 +9,21 @@ const INK           = "#0a0a0a";
 const SPOTIFY_GREEN = "#1DB954";
 
 // ─── Fresh token helper ───────────────────────────────────────────────────────
-// Always fetches a live token so play commands never fail with an expired credential.
+// Module-level cache: avoids a round-trip on every button click while ensuring
+// we never hand a stale token to the Spotify API.
+// The server already refreshes automatically when the token is within 60s of
+// expiry, so caching for 50 minutes is always safe.
+let _spotifyToken: string | null = null;
+let _spotifyTokenExpiry           = 0;
+
 async function getFreshSpotifyToken(): Promise<string | null> {
+  if (_spotifyToken && Date.now() < _spotifyTokenExpiry) return _spotifyToken;
   try {
     const res  = await fetch("/api/spotify/token");
-    const data = await res.json() as { access_token?: string };
-    return data.access_token ?? null;
+    const data = await res.json() as { connected: boolean; access_token?: string };
+    _spotifyToken       = data.access_token ?? null;
+    _spotifyTokenExpiry = Date.now() + 50 * 60 * 1000; // 50 min
+    return _spotifyToken;
   } catch {
     return null;
   }
@@ -105,10 +114,11 @@ interface SpotifyPlaybackState {
   };
 }
 
+// access_token is intentionally excluded — never stored in React state to
+// prevent stale closures. All callers use getFreshSpotifyToken() instead.
 interface TokenData {
-  connected:     boolean;
-  access_token?: string;
-  product?:      string;
+  connected: boolean;
+  product?:  string;
 }
 
 // ─── SVG icons ────────────────────────────────────────────────────────────────
@@ -182,11 +192,20 @@ export default function SpotifyPlayer({
   const useSDK     = isPremium && (mode === "collection" ? !!spotifyUri : !!spotifyTrackUri);
   const usePreview = !useSDK && !!previewUrl;
 
-  // ── Fetch token on mount ───────────────────────────────────────────────────
+  // ── Determine Premium status on mount ────────────────────────────────────
+  // Only stores connected + product — no access_token in state.
+  // The token itself lives in the module-level cache (getFreshSpotifyToken).
   useEffect(() => {
     fetch("/api/spotify/token")
-      .then(r => r.json() as Promise<TokenData>)
-      .then(setTokenData)
+      .then(r => r.json() as Promise<{ connected: boolean; access_token?: string; product?: string }>)
+      .then(data => {
+        // Seed the module cache while we have the token in hand
+        if (data.access_token) {
+          _spotifyToken       = data.access_token;
+          _spotifyTokenExpiry = Date.now() + 50 * 60 * 1000;
+        }
+        setTokenData({ connected: data.connected, product: data.product });
+      })
       .catch(() => setTokenData({ connected: false }));
   }, []);
 
@@ -199,20 +218,15 @@ export default function SpotifyPlayer({
 
   // ── Initialize SDK player ─────────────────────────────────────────────────
   useEffect(() => {
-    if (!sdkReady || !tokenData?.access_token || playerRef.current) return;
+    if (!sdkReady || !isPremium || playerRef.current) return;
 
     const player = new window.Spotify.Player({
       name:          "rekōdo",
+      // SDK calls this whenever it needs a token — always use the cached helper
+      // so it gets a fresh credential without going through React state.
       getOAuthToken: async (cb) => {
-        try {
-          const res  = await fetch("/api/spotify/token");
-          const data = await res.json() as TokenData;
-          // Always call cb — passing empty string tells the SDK the token is
-          // unavailable, which causes a graceful disconnect rather than hanging.
-          cb(data.access_token ?? "");
-        } catch {
-          cb("");
-        }
+        const token = await getFreshSpotifyToken();
+        cb(token ?? "");
       },
       volume: 0.8,
     });
@@ -246,7 +260,7 @@ export default function SpotifyPlayer({
       player.disconnect();
       playerRef.current = null;
     };
-  }, [sdkReady, tokenData?.access_token]);
+  }, [sdkReady, isPremium]);
 
   // ── Reset UI state when the album changes (SpotifyPlayer stays mounted) ──
   useEffect(() => {

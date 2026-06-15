@@ -341,12 +341,19 @@ function ensureDigSDK(cb: () => void) {
   }
 }
 
-// Always fetch a fresh token so play commands never use an expired credential.
+// Module-level cache mirrors the one in SpotifyPlayer — 50 min TTL so the
+// server's auto-refresh has plenty of room without a round-trip every click.
+let _digToken: string | null = null;
+let _digTokenExpiry           = 0;
+
 async function getFreshToken(): Promise<string | null> {
+  if (_digToken && Date.now() < _digTokenExpiry) return _digToken;
   try {
     const res  = await fetch("/api/spotify/token");
     const data = await res.json() as DigTokenData;
-    return data.access_token ?? null;
+    _digToken       = data.access_token ?? null;
+    _digTokenExpiry = Date.now() + 50 * 60 * 1000;
+    return _digToken;
   } catch {
     return null;
   }
@@ -401,11 +408,17 @@ function DigCompactPlayer({ previewUrl, albumUri, trackUri, artist, album, recId
   const useSDK  = isPremium && !!(albumUri || trackUri);
   const sdkLive = useSDK && !!deviceId;
 
-  // Fetch token once to determine Premium status. Play commands always re-fetch fresh.
+  // Determine Premium status and seed the module cache while we have the token.
   useEffect(() => {
     fetch("/api/spotify/token")
       .then(r => r.json() as Promise<DigTokenData>)
-      .then(d => { if (d.connected && d.product === "premium") setIsPremium(true); })
+      .then(d => {
+        if (d.access_token) {
+          _digToken       = d.access_token;
+          _digTokenExpiry = Date.now() + 50 * 60 * 1000;
+        }
+        if (d.connected && d.product === "premium") setIsPremium(true);
+      })
       .catch(() => {});
   }, []);
 
