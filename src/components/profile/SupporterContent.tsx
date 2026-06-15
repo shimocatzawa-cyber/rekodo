@@ -227,8 +227,8 @@ export default function SupporterContent({ isOwner, isSupporter, userId, success
             One-off Donation
           </p>
 
-          <p style={{ fontFamily: SERIF, fontSize: "clamp(1.4rem, 3vw, 1.9rem)", color: INK, lineHeight: 1.1, margin: "0 0 12px" }}>
-            Buy me a record.
+          <p style={{ fontFamily: SERIF, fontSize: "clamp(2rem, 4vw, 2.8rem)", fontWeight: 400, color: INK, lineHeight: 1, margin: "0 0 12px" }}>
+            Buy me a record
           </p>
 
           <p style={{ fontFamily: MONO, fontSize: "0.58rem", letterSpacing: "0.04em", color: "#888", lineHeight: 1.7, margin: "0 0 28px" }}>
