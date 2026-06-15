@@ -97,7 +97,7 @@ function MatchCard({ match, isFollowing, canFollow, onFollow }: {
             {match.isDonor && <span style={{ fontFamily: SERIF, fontSize: "0.75rem", color: GOLD }} title="rekōdo supporter">ō</span>}
           </span>
         </Link>
-        <span style={{ fontFamily: MONO, fontSize: "0.7rem", color: ORANGE, flexShrink: 0 }}>{match.score}%</span>
+        <span style={{ fontFamily: MONO, fontSize: "0.58rem", color: ORANGE, flexShrink: 0, letterSpacing: "0.04em" }}>{match.score}% Collection Similarity</span>
       </div>
 
       <p style={{ fontFamily: SERIF, fontStyle: "italic", fontSize: "0.85rem", color: "#505050", lineHeight: 1.4, margin: 0 }}>
