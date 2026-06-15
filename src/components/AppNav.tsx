@@ -11,10 +11,10 @@ const JP = "var(--font-noto-jp), sans-serif";
 const ORANGE = "#CC5500";
 
 const NAV_ITEMS = [
-  { href: "/selects",    label: "Selects",    jp: "選集" },
   { href: "/collection", label: "Collection", jp: "コレクション" },
   { href: "/dig",        label: "Dig",        jp: "発掘" },
   { href: "/deep-dive",  label: "Deep Dive",  jp: "ディープダイブ" },
+  { href: "/selects",    label: "Selects",    jp: "選集" },
   { href: "/insights",   label: "Insights",   jp: "インサイト" },
   { href: "/archetypes", label: "Archetypes", jp: "アーキタイプ" },
   { href: "/about",      label: "Support",    jp: "サポート" },
