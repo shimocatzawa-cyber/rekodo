@@ -1,6 +1,13 @@
+import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import SelectsClient from "@/components/selects/SelectsClient";
+
+export const metadata: Metadata = {
+  title: "Selects",
+  description: "Your most considered records, curated and shared.",
+  robots: { index: false, follow: false },
+};
 
 export const dynamic = "force-dynamic";
 

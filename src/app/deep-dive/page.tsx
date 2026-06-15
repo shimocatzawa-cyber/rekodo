@@ -1,7 +1,14 @@
+import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import AppNav from "@/components/AppNav";
 import DeepDiveClient, { type ArtistData } from "@/components/deep-dive/DeepDiveClient";
+
+export const metadata: Metadata = {
+  title: "Deep Dive",
+  description: "Explore artist discographies through your collection.",
+  robots: { index: false, follow: false },
+};
 
 export const dynamic = "force-dynamic";
 

@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
@@ -8,6 +9,44 @@ const SERIF  = "var(--font-editorial)";
 const ORANGE = "#CC5500";
 
 type Params = Promise<{ username: string }>;
+
+export async function generateMetadata({ params }: { params: Params }): Promise<Metadata> {
+  const { username } = await params;
+  const supabase = await createClient();
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("display_name, bio, avatar_url, city, country")
+    .eq("username", username)
+    .maybeSingle();
+
+  if (!profile) return { title: "Profile not found" };
+
+  const name = profile.display_name?.trim() || username;
+  const location = [profile.city, profile.country].filter(Boolean).join(", ");
+  const description = profile.bio?.trim()
+    || `Explore ${name}'s vinyl collection on rekōdo${location ? ` — based in ${location}` : ""}.`;
+
+  return {
+    title: `${name} (@${username})`,
+    description,
+    alternates: { canonical: `https://rekodo.co/@${username}` },
+    openGraph: {
+      title: `${name} on rekōdo`,
+      description,
+      url: `https://rekodo.co/@${username}`,
+      type: "profile",
+      ...(profile.avatar_url
+        ? { images: [{ url: profile.avatar_url, alt: `${name}'s avatar` }] }
+        : {}),
+    },
+    twitter: {
+      card: "summary",
+      title: `${name} on rekōdo`,
+      description,
+      ...(profile.avatar_url ? { images: [profile.avatar_url] } : {}),
+    },
+  };
+}
 
 // Production: Vercel rewrites /@username → /p/username before routing.
 // This page is what actually serves public profiles.

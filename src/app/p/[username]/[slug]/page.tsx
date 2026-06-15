@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import type { SlotItem, ListSlot } from "@/app/lists/types";
@@ -6,6 +7,47 @@ const SERIF = "var(--font-editorial)";
 const MONO  = "var(--font-mono)";
 
 type Params = Promise<{ username: string; slug: string }>;
+
+export async function generateMetadata({ params }: { params: Params }): Promise<Metadata> {
+  const { username: rawUsername, slug } = await params;
+  const username = rawUsername.startsWith("@") ? rawUsername.slice(1) : rawUsername;
+  const supabase = await createClient();
+
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("id, display_name")
+    .eq("username", username)
+    .maybeSingle();
+  if (!profile) return { title: "List not found" };
+
+  const { data: list } = await supabase
+    .from("lists")
+    .select("title, is_public")
+    .eq("user_id", profile.id)
+    .eq("slug", slug)
+    .maybeSingle();
+  if (!list || !list.is_public) return { robots: { index: false } };
+
+  const name = profile.display_name?.trim() || username;
+  const description = `A curated list by ${name} on rekōdo.`;
+
+  return {
+    title: list.title,
+    description,
+    alternates: { canonical: `https://rekodo.co/@${username}/${slug}` },
+    openGraph: {
+      title: `${list.title} — ${name} on rekōdo`,
+      description,
+      url: `https://rekodo.co/@${username}/${slug}`,
+      type: "article",
+    },
+    twitter: {
+      card: "summary",
+      title: `${list.title} — ${name} on rekōdo`,
+      description,
+    },
+  };
+}
 
 export default async function PublicListPage({ params }: { params: Params }) {
   const { username: rawUsername, slug } = await params;

@@ -165,6 +165,7 @@ async function processSync(supabase: SB, jobId: string, userId: string) {
 
     interface DiscogsRelease {
       id: number;
+      date_added?: string;
       basic_information: {
         id: number; title: string; year: number;
         artists: Array<{ id: number; name: string }>;
@@ -182,7 +183,7 @@ async function processSync(supabase: SB, jobId: string, userId: string) {
       genre: string | null; styles: string[]; cover_url: string | null; label: string | null;
       format: string | null; country: string | null; vinyl_colour: string | null;
       media_condition: string | null; sleeve_condition: string | null;
-      discogs_artist_id: number | null;
+      discogs_artist_id: number | null; date_added: string | null;
     }
 
     let totalPages   = 1;
@@ -241,6 +242,7 @@ async function processSync(supabase: SB, jobId: string, userId: string) {
         media_condition:  notes.find((n) => n.field_id === mediaFieldId)?.value?.trim()  || null,
         sleeve_condition: notes.find((n) => n.field_id === sleeveFieldId)?.value?.trim() || null,
         discogs_artist_id: info.artists?.[0]?.id ?? null,
+        date_added: item.date_added ?? null,
       };
     });
 
@@ -389,9 +391,15 @@ async function processSync(supabase: SB, jobId: string, userId: string) {
       for (const l of data ?? []) alreadyLinked.add(l.record_id);
     }
 
+    const dateAddedByRecordId = new Map<string, string | null>();
+    for (const item of collectionItems) {
+      const recordId = existingMap.get(item.discogs_id);
+      if (recordId) dateAddedByRecordId.set(recordId, item.date_added);
+    }
+
     const newLinks = savedRecordIds
       .filter((id) => !alreadyLinked.has(id))
-      .map((id) => ({ user_id: userId, record_id: id }));
+      .map((id) => ({ user_id: userId, record_id: id, date_added: dateAddedByRecordId.get(id) ?? null }));
 
     for (let i = 0; i < newLinks.length; i += BATCH) {
       const { error: linkErr } = await supabase.from("user_records").insert(newLinks.slice(i, i + BATCH));
@@ -402,12 +410,13 @@ async function processSync(supabase: SB, jobId: string, userId: string) {
     await updateJob(supabase, jobId, { phase: "conditions" });
 
     const conditionUpserts = collectionItems
-      .filter((item) => item.media_condition || item.sleeve_condition)
+      .filter((item) => item.media_condition || item.sleeve_condition || item.date_added)
       .map((item) => ({
         user_id:          userId,
         record_id:        existingMap.get(item.discogs_id)!,
         media_condition:  item.media_condition,
         sleeve_condition: item.sleeve_condition,
+        date_added:       item.date_added,
       }))
       .filter((u) => u.record_id);
 
@@ -462,12 +471,14 @@ async function processSync(supabase: SB, jobId: string, userId: string) {
       for (let i = 0; i < savedRecordIds.length; i += BATCH) {
         const { data } = await supabase
           .from("records")
-          .select("id, discogs_id")
+          .select("id, discogs_id, format, country, vinyl_colour, producers")
           .in("id", savedRecordIds.slice(i, i + BATCH))
-          .not("discogs_id", "is", null)
-          .or("format.is.null,country.is.null,vinyl_colour.is.null,producers.is.null");
+          .not("discogs_id", "is", null);
         for (const r of data ?? []) {
-          if (r.discogs_id) needingBackfill.push({ id: r.id, discogs_id: r.discogs_id as string });
+          if (!r.discogs_id) continue;
+          if (r.format === null || r.country === null || r.vinyl_colour === null || r.producers === null) {
+            needingBackfill.push({ id: r.id, discogs_id: r.discogs_id as string });
+          }
         }
       }
 
@@ -496,10 +507,10 @@ async function processSync(supabase: SB, jobId: string, userId: string) {
               })
               .eq("id", record.id);
           }
-        } catch { /* skip */ }
+        } catch (e) { console.warn(`backfill skip ${record.discogs_id}:`, e); }
         if (bi < toBackfill.length - 1) await new Promise((r) => setTimeout(r, RATE_MS));
       }
-    } catch { /* non-fatal */ }
+    } catch (e) { console.error("Phase 5 backfill failed:", e); }
 
     // ── Phase 6: Set last_synced_at + fetch collection value ─────────────────
     const syncedAt = new Date().toISOString();

@@ -1,6 +1,13 @@
+import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import DigClient from "@/components/dig/DigClient";
+
+export const metadata: Metadata = {
+  title: "Dig",
+  description: "AI-powered record recommendations based on your collection and taste profile.",
+  robots: { index: false, follow: false },
+};
 
 export default async function DigPage() {
   const supabase = await createClient();

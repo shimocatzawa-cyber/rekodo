@@ -1,7 +1,14 @@
+import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import CollectionClient from "@/components/collection/CollectionClient";
 import { getDesirabilityTier } from "@/lib/desirability";
+
+export const metadata: Metadata = {
+  title: "Collection",
+  description: "Your vinyl collection.",
+  robots: { index: false, follow: false },
+};
 
 export const dynamic = "force-dynamic";
 

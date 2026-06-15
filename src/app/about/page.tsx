@@ -1,7 +1,21 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import AppNav from "@/components/AppNav";
 import SupporterContent from "@/components/profile/SupporterContent";
+
+export const metadata: Metadata = {
+  title: "Support rekōdo",
+  description:
+    "rekōdo is independent, ad-free, and built by people who own too many records. Support the project with a monthly subscription or a one-off donation.",
+  alternates: { canonical: "https://rekodo.co/about" },
+  openGraph: {
+    title: "Support rekōdo",
+    description:
+      "rekōdo is independent, ad-free, and built by people who own too many records. Support the project and unlock perks for serious collectors.",
+    url: "https://rekodo.co/about",
+  },
+};
 
 const SERIF  = "var(--font-editorial)";
 const MONO   = "var(--font-mono)";

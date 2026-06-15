@@ -21,10 +21,21 @@ const caveat = Caveat({
 });
 
 export const metadata: Metadata = {
-  title: "rekōdo — Your records say everything about you",
-  description:
-    "The music identity app for serious vinyl collectors. Catalogue your collection, build your lists, and let your records speak.",
   metadataBase: new URL("https://rekodo.co"),
+  title: {
+    default: "rekōdo — Your records say everything about you",
+    template: "%s — rekōdo",
+  },
+  description:
+    "The music identity platform for serious vinyl collectors. Catalogue your collection, discover your taste archetype, explore artist deep dives, and share curated lists.",
+  applicationName: "rekōdo",
+  authors: [{ name: "rekōdo", url: "https://rekodo.co" }],
+  creator: "rekōdo",
+  keywords: [
+    "vinyl collection app", "record collector", "music identity", "vinyl tracking",
+    "Discogs alternative", "record collection manager", "music taste profile",
+    "vinyl archetype", "record recommendations", "collector community",
+  ],
   icons: {
     icon: [
       { url: "/favicon-16x16.png", sizes: "16x16", type: "image/png" },
@@ -34,10 +45,41 @@ export const metadata: Metadata = {
     apple: [{ url: "/apple-touch-icon.png", sizes: "180x180", type: "image/png" }],
   },
   openGraph: {
-    title: "rekōdo",
-    description: "Your records say everything about you",
+    type: "website",
+    locale: "en_US",
+    title: "rekōdo — Your records say everything about you",
+    description:
+      "The music identity platform for serious vinyl collectors. Catalogue your collection, discover your taste archetype, and share curated lists.",
     url: "https://rekodo.co",
     siteName: "rekōdo",
+    images: [
+      {
+        url: "/rekodo-record-spinner.png",
+        width: 800,
+        height: 800,
+        alt: "rekōdo — vinyl collection app",
+      },
+    ],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "rekōdo — Your records say everything about you",
+    description:
+      "The music identity platform for serious vinyl collectors. Catalogue your collection, discover your taste archetype, and share curated lists.",
+    images: ["/rekodo-record-spinner.png"],
+  },
+  robots: {
+    index: true,
+    follow: true,
+    googleBot: {
+      index: true,
+      follow: true,
+      "max-snippet": -1,
+      "max-image-preview": "large",
+    },
+  },
+  alternates: {
+    canonical: "https://rekodo.co",
   },
 };
 

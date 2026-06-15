@@ -1,6 +1,13 @@
+import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import ArchetypesClient from "@/components/archetypes/ArchetypesClient";
+
+export const metadata: Metadata = {
+  title: "Archetypes",
+  description: "Discover what your vinyl collection says about you.",
+  robots: { index: false, follow: false },
+};
 
 export const dynamic = "force-dynamic";
 

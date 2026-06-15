@@ -1,7 +1,14 @@
+import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import InsightsClient, { type InsightsProps } from "@/components/insights/InsightsClient";
 import { getDesirabilityTier, type DesirabilityTier } from "@/lib/desirability";
+
+export const metadata: Metadata = {
+  title: "Taste Profile",
+  description: "Your music taste mapped across genres, decades, labels, and pressing origins.",
+  robots: { index: false, follow: false },
+};
 
 export const dynamic = "force-dynamic";
 
