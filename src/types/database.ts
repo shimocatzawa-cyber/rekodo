@@ -107,6 +107,8 @@ export type Database = {
           price_fetched_at: string | null;
           media_condition:  string | null;
           sleeve_condition: string | null;
+          open_to_offers:    boolean;
+          open_to_offers_at: string | null;
         };
         Insert: {
           id?: string;
@@ -123,6 +125,8 @@ export type Database = {
           price_fetched_at?: string | null;
           media_condition?:  string | null;
           sleeve_condition?: string | null;
+          open_to_offers?:    boolean;
+          open_to_offers_at?: string | null;
         };
         Update: {
           value?: number | null;
@@ -135,6 +139,8 @@ export type Database = {
           price_fetched_at?: string | null;
           media_condition?:  string | null;
           sleeve_condition?: string | null;
+          open_to_offers?:    boolean;
+          open_to_offers_at?: string | null;
         };
         Relationships: [];
       };
