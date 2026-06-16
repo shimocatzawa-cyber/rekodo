@@ -18,12 +18,56 @@ export interface SpectrumData {
 }
 
 interface TasteProfileProps {
-  styleBreakdown: { style: string; count: number; pct: number }[];
-  hasStyles:      boolean;
-  spectrum:       SpectrumData;
+  styleBreakdown:       { style: string; count: number; pct: number }[];
+  hasStyles:            boolean;
+  vinylColourBreakdown: { colour: string; count: number; pct: number }[];
+  spectrum:             SpectrumData;
+}
+
+// Colour-name keyword → badge palette, used to render vinyl colours as labels.
+const COLOUR_BADGE_RULES: { kw: string; bg: string; color: string }[] = [
+  { kw: "black",         bg: "#2b2b2b", color: "#ffffff" },
+  { kw: "white",         bg: "#f2f2ec", color: "#0a0a0a" },
+  { kw: "picture disc",  bg: "#1a1a1a", color: "#ffffff" },
+  { kw: "clear",         bg: "#eef0ee", color: "#3a3a34" },
+  { kw: "transparent",   bg: "#eef0ee", color: "#3a3a34" },
+  { kw: "translucent",   bg: "#eef0ee", color: "#3a3a34" },
+  { kw: "red",           bg: "#F0997B", color: "#712B13" },
+  { kw: "blue",          bg: "#AFCBEB", color: "#1B3A66" },
+  { kw: "green",         bg: "#C0DD97", color: "#27500A" },
+  { kw: "yellow",        bg: "#FAC775", color: "#633806" },
+  { kw: "gold",          bg: "#FAC775", color: "#633806" },
+  { kw: "orange",        bg: "#F7B978", color: "#6B3A05" },
+  { kw: "purple",        bg: "#CECBF6", color: "#3C3489" },
+  { kw: "violet",        bg: "#CECBF6", color: "#3C3489" },
+  { kw: "pink",          bg: "#F3C9D9", color: "#7A1F44" },
+  { kw: "marbled",       bg: "#DCD5C4", color: "#4A4030" },
+  { kw: "splatter",      bg: "#DCD5C4", color: "#4A4030" },
+  { kw: "silver",        bg: "#E2E2DC", color: "#3a3a3a" },
+  { kw: "grey",          bg: "#cfcfc8", color: "#2b2b2b" },
+  { kw: "gray",          bg: "#cfcfc8", color: "#2b2b2b" },
+  { kw: "brown",         bg: "#C9A876", color: "#4A2E0A" },
+];
+const DEFAULT_BADGE = { bg: "#EDEDE8", color: "#3a3a34" };
+
+function colourBadge(value: string): { bg: string; color: string } {
+  const v = value.toLowerCase();
+  return COLOUR_BADGE_RULES.find((r) => v.includes(r.kw)) ?? DEFAULT_BADGE;
 }
 
 // ── Sub-components ─────────────────────────────────────────────────────────────
+
+function SubLabel({ children }: { children: React.ReactNode }) {
+  return (
+    <p style={{
+      fontFamily: MONO, fontSize: "9px", letterSpacing: "0.14em",
+      textTransform: "uppercase", color: INK, fontWeight: 700,
+      margin: "0 0 14px",
+    }}>
+      {children}
+    </p>
+  );
+}
 
 function TasteSectionHeader({ eyebrow, title }: { eyebrow: string; title: string }) {
   return (
@@ -93,7 +137,7 @@ function SpectrumRow({ left, right, value }: SpectrumAxis) {
 
 // ── Main component ─────────────────────────────────────────────────────────────
 
-export default function TasteProfile({ styleBreakdown, hasStyles, spectrum }: TasteProfileProps) {
+export default function TasteProfile({ styleBreakdown, hasStyles, vinylColourBreakdown, spectrum }: TasteProfileProps) {
   const maxStylePct = styleBreakdown[0]?.pct ?? 100;
 
   const axes: SpectrumAxis[] = [
@@ -119,31 +163,87 @@ export default function TasteProfile({ styleBreakdown, hasStyles, spectrum }: Ta
 
       <div style={{ borderTop: `1px solid ${RULE}`, margin: "40px 0" }} />
 
-      {/* ── Style ─────────────────────────────────────────────────────────── */}
+      {/* ── Style + Pressing Colours ─────────────────────────────────────── */}
       <TasteSectionHeader eyebrow="Style" title="What you reach for." />
 
-      {!hasStyles ? (
-        <p style={{ fontFamily: MONO, fontSize: "11px", letterSpacing: "0.04em", color: INK, margin: 0 }}>
-          Style data available after a full resync of your collection.
-        </p>
-      ) : (
-        <div style={{ display: "flex", flexDirection: "column", gap: "14px" }}>
-          {styleBreakdown.map(({ style, count, pct }) => (
-            <div key={style}>
-              <div style={{
-                display: "flex", justifyContent: "space-between",
-                alignItems: "baseline", marginBottom: "6px",
-              }}>
-                <span style={{ fontFamily: MONO, fontSize: "11px", color: INK }}>{style}</span>
-                <span style={{ fontFamily: MONO, fontSize: "11px", color: INK }}>
-                  {count} items · <span style={{ color: ORANGE }}>{pct}%</span>
-                </span>
-              </div>
-              <PercentBar pct={pct} maxPct={maxStylePct} />
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "48px" }}>
+        <div>
+          <SubLabel>Style</SubLabel>
+          {!hasStyles ? (
+            <p style={{ fontFamily: MONO, fontSize: "11px", letterSpacing: "0.04em", color: INK, margin: 0 }}>
+              Style data available after a full resync of your collection.
+            </p>
+          ) : (
+            <div style={{ display: "flex", flexDirection: "column", gap: "14px" }}>
+              {styleBreakdown.map(({ style, count, pct }) => (
+                <div key={style}>
+                  <div style={{
+                    display: "flex", justifyContent: "space-between",
+                    alignItems: "baseline", marginBottom: "6px",
+                  }}>
+                    <span style={{ fontFamily: MONO, fontSize: "11px", color: INK }}>{style}</span>
+                    <span style={{ fontFamily: MONO, fontSize: "11px", color: INK }}>
+                      {count} items · <span style={{ color: ORANGE }}>{pct}%</span>
+                    </span>
+                  </div>
+                  <PercentBar pct={pct} maxPct={maxStylePct} />
+                </div>
+              ))}
             </div>
-          ))}
+          )}
         </div>
-      )}
+
+        <div>
+          <SubLabel>Pressing Colours</SubLabel>
+          {vinylColourBreakdown.length === 0 ? (
+            <p style={{ fontFamily: MONO, fontSize: "11px", letterSpacing: "0.04em", color: INK, margin: 0 }}>
+              Colour data will appear here after your next Discogs sync.
+            </p>
+          ) : (
+            <div style={{ borderTop: `0.5px solid ${RULE}` }}>
+              <div style={{
+                display: "grid", gridTemplateColumns: "1fr 56px 64px",
+                gap: "12px", padding: "10px 0", borderBottom: `0.5px solid ${RULE}`,
+              }}>
+                {["Colour", "Items", "Share"].map((h) => (
+                  <span key={h} style={{
+                    fontFamily: MONO, fontSize: "9px", fontWeight: 700,
+                    letterSpacing: "0.12em", textTransform: "uppercase", color: INK,
+                  }}>
+                    {h}
+                  </span>
+                ))}
+              </div>
+              {vinylColourBreakdown.map(({ colour, count, pct }) => {
+                const badge = colourBadge(colour);
+                return (
+                  <div key={colour} style={{
+                    display: "grid", gridTemplateColumns: "1fr 56px 64px",
+                    gap: "12px", padding: "12px 0", borderBottom: `0.5px solid ${RULE}`,
+                    alignItems: "center",
+                  }}>
+                    <span style={{
+                      display: "inline-block", width: "fit-content",
+                      fontFamily: MONO, fontSize: "10px", letterSpacing: "0.06em",
+                      background: badge.bg, color: badge.color,
+                      padding: "3px 8px", borderRadius: "3px",
+                      whiteSpace: "nowrap",
+                    }}>
+                      {colour}
+                    </span>
+                    <span style={{ fontFamily: MONO, fontSize: "11px", color: INK }}>
+                      {count}
+                    </span>
+                    <span style={{ fontFamily: MONO, fontSize: "11px", color: ORANGE }}>
+                      {pct}%
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      </div>
     </>
   );
 }
