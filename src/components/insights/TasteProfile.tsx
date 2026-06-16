@@ -1,9 +1,9 @@
-const SERIF  = "var(--font-editorial)";
-const MONO   = "var(--font-mono)";
-const ORANGE = "#CC5500";
-const INK    = "#0a0a0a";
-const RULE   = "#e0e0da";
-const MUTED  = "#aaaaaa"; // text-secondary token used throughout Insights
+const SERIF     = "var(--font-editorial)";
+const MONO      = "var(--font-mono)";
+const ORANGE    = "#CC5500";
+const INK       = "#0a0a0a";
+const RULE      = "#e0e0da";
+const DARK_BLUE = "#1B3A66";
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
@@ -25,31 +25,15 @@ interface TasteProfileProps {
 
 // ── Sub-components ─────────────────────────────────────────────────────────────
 
-function PlusBadge() {
-  return (
-    <span style={{
-      fontFamily: MONO, fontSize: "9px", letterSpacing: "0.08em",
-      textTransform: "uppercase", color: ORANGE,
-      border: `1px solid ${ORANGE}`, padding: "2px 7px",
-      flexShrink: 0, marginTop: "1px",
-    }}>
-      Plus
-    </span>
-  );
-}
-
-function TasteSectionHeader({ eyebrow, title, badge }: { eyebrow: string; title: string; badge?: boolean }) {
+function TasteSectionHeader({ eyebrow, title }: { eyebrow: string; title: string }) {
   return (
     <div style={{ marginBottom: "28px" }}>
-      <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: "12px", marginBottom: "8px" }}>
-        <p style={{
-          fontFamily: MONO, fontSize: "11px", letterSpacing: "0.12em",
-          textTransform: "uppercase", color: ORANGE, margin: 0,
-        }}>
-          {eyebrow}
-        </p>
-        {badge && <PlusBadge />}
-      </div>
+      <p style={{
+        fontFamily: MONO, fontSize: "11px", letterSpacing: "0.12em",
+        textTransform: "uppercase", color: ORANGE, margin: "0 0 8px",
+      }}>
+        {eyebrow}
+      </p>
       <h2 style={{
         fontFamily: SERIF, fontSize: "16px", fontWeight: 600,
         color: INK, lineHeight: 1.3, margin: "0 0 16px",
@@ -80,14 +64,14 @@ function SpectrumRow({ left, right, value }: SpectrumAxis) {
   const hasData = value != null;
   const pos = hasData ? Math.max(5, Math.min(95, value)) : 50;
   return (
-    <div style={{ display: "flex", alignItems: "center", gap: "14px", padding: "13px 0", borderBottom: `1px solid ${RULE}` }}>
+    <div style={{ display: "flex", alignItems: "center", gap: "14px", padding: "13px 0", borderBottom: `1px solid ${DARK_BLUE}` }}>
       <span style={{
         width: "56px", flexShrink: 0, textAlign: "right",
-        fontFamily: MONO, fontSize: "10px", color: MUTED,
+        fontFamily: MONO, fontSize: "10px", color: DARK_BLUE,
       }}>
         {left}
       </span>
-      <div style={{ flex: 1, height: "3px", background: RULE, position: "relative" }}>
+      <div style={{ flex: 1, height: "3px", background: DARK_BLUE, position: "relative" }}>
         <div style={{
           position: "absolute", top: "50%", left: `${pos}%`,
           transform: "translate(-50%, -50%)",
@@ -99,7 +83,7 @@ function SpectrumRow({ left, right, value }: SpectrumAxis) {
       </div>
       <span style={{
         width: "56px", flexShrink: 0, textAlign: "left",
-        fontFamily: MONO, fontSize: "10px", color: MUTED,
+        fontFamily: MONO, fontSize: "10px", color: DARK_BLUE,
       }}>
         {right}
       </span>
@@ -125,7 +109,7 @@ export default function TasteProfile({ styleBreakdown, hasStyles, spectrum }: Ta
   return (
     <>
       {/* ── Spectrum Dimensions ───────────────────────────────────────────── */}
-      <TasteSectionHeader eyebrow="SPECTRUM DIMENSIONS" title="Where you sit on each axis." badge />
+      <TasteSectionHeader eyebrow="SPECTRUM DIMENSIONS" title="Where you sit on each axis." />
 
       <div>
         {axes.map((axis) => (
