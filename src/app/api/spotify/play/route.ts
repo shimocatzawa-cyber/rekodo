@@ -85,20 +85,31 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "No Spotify token", spotifyStatus: tokenStatus }, { status: 401 });
   }
 
-  // Retry up to 3 times — 404 means device not yet registered server-side
-  for (let attempt = 0; attempt < 3; attempt++) {
+  const headers = {
+    Authorization:  `Bearer ${token}`,
+    "Content-Type": "application/json",
+  };
+
+  // Step 1: Transfer playback to the Web Playback SDK device.
+  // This forces Spotify's backend to register the device before we play.
+  try {
+    await fetch("https://api.spotify.com/v1/me/player", {
+      method:  "PUT",
+      headers,
+      body:    JSON.stringify({ device_ids: [deviceId], play: false }),
+    });
+  } catch { /* non-fatal — continue to play attempt */ }
+
+  // Give Spotify's backend a moment to register the device transfer.
+  await new Promise(r => setTimeout(r, 500));
+
+  // Step 2: Send the play command, retrying on 404 with back-off.
+  for (let attempt = 0; attempt < 5; attempt++) {
     let spotifyRes: Response;
     try {
       spotifyRes = await fetch(
         `https://api.spotify.com/v1/me/player/play?device_id=${deviceId}`,
-        {
-          method:  "PUT",
-          headers: {
-            Authorization:  `Bearer ${token}`,
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify(body),
-        }
+        { method: "PUT", headers, body: JSON.stringify(body) }
       );
     } catch (err) {
       return NextResponse.json({ error: "Network error", detail: String(err) }, { status: 502 });
@@ -108,8 +119,8 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ ok: true });
     }
 
-    if (spotifyRes.status === 404 && attempt < 2) {
-      await new Promise(r => setTimeout(r, 600 + attempt * 500));
+    if (spotifyRes.status === 404 && attempt < 4) {
+      await new Promise(r => setTimeout(r, 500 + attempt * 500));
       continue;
     }
 
