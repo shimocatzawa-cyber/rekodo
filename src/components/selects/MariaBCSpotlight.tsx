@@ -11,7 +11,7 @@ const RULE   = "#e0e0da";
 const DISCOGS_ARTIST_ID = "8722522";
 
 const BIO =
-  "Maria BC (Maria Bobbitt-Chertock) grew up singing mezzo-soprano in an Ohio church — a classical training that still shapes every record, present not as technique but as a discipline of space and restraint. Early recordings were built carefully, around roommates, in apartments. The debut EP Devil's Rain (2021) was recorded so as not to disturb the neighbours. That constraint became aesthetic. By Hyaline (2022, Father/Daughter Records), limitation had become language — phone recordings woven into folk arrangements, Pitchfork's album of the week. Sacred Bones signed them for Spike Field (2023): an out-of-tune baby Steinway, choral arrangements with childhood friends, nuclear-waste conceptualism beneath some of the most tender music of the year. Marathon (2026) strips production back further — foley recordings of nature and creaking West Coast homes — and finds the same sense of urgency under a deliberately quieter surface.";
+  "Maria BC grew up singing mezzo-soprano in an Ohio church — a classical training that still shapes every record, present not as technique but as a discipline of space and restraint. Early recordings were built carefully, around roommates, in apartments. The debut EP Devil's Rain (2021) was recorded so as not to disturb the neighbours. That constraint became aesthetic. By Hyaline (2022, Father/Daughter Records), limitation had become language — phone recordings woven into folk arrangements, Pitchfork's album of the week. Sacred Bones signed them for Spike Field (2023): an out-of-tune baby Steinway, choral arrangements with childhood friends, nuclear-waste conceptualism beneath some of the most tender music of the year. Marathon (2026) strips production back further — foley recordings of nature and creaking West Coast homes — and finds the same sense of urgency under a deliberately quieter surface.";
 
 type DiscRow = {
   year: string;
@@ -158,7 +158,7 @@ export default function MariaBCSpotlight() {
 
         {/* 1. Header */}
         <div style={{ borderBottom: `1px solid ${RULE}`, paddingBottom: 32, marginBottom: 32 }}>
-          <SectionEyebrow>Artist Spotlight</SectionEyebrow>
+          <SectionEyebrow>Artist Spotlight - June 2026</SectionEyebrow>
           <h1 style={{
             fontFamily: SERIF, fontSize: "48px", fontWeight: 600,
             letterSpacing: "-0.03em", color: INK, margin: "0 0 16px", lineHeight: 1.05,
@@ -194,8 +194,16 @@ export default function MariaBCSpotlight() {
                   {row.year}
                 </div>
                 <div style={{ flex: 1, minWidth: 0 }}>
-                  <p style={{ fontFamily: SERIF, fontSize: "15px", fontWeight: 600, color: INK, margin: "0 0 3px" }}>
+                  <p style={{ fontFamily: SERIF, fontSize: "15px", fontWeight: 600, color: INK, margin: "0 0 3px", display: "flex", alignItems: "center", gap: 8 }}>
                     {row.title}
+                    {row.title === "Marathon" && (
+                      <span style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
+                        <span style={{ fontFamily: SERIF, fontSize: "16px", color: "#B8860B", lineHeight: 1 }}>ō</span>
+                        <span style={{ fontFamily: MONO, fontSize: "10px", letterSpacing: "0.06em", textTransform: "uppercase", color: "#B8860B", fontWeight: 400 }}>
+                          Rekōdo&rsquo;s Pick
+                        </span>
+                      </span>
+                    )}
                   </p>
                   <p style={{ fontFamily: MONO, fontSize: "11px", color: "#888888", margin: "0 0 6px", fontWeight: 400 }}>
                     {row.label}
