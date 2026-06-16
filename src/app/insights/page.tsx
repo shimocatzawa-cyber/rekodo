@@ -5,7 +5,7 @@ import InsightsClient, { type InsightsProps } from "@/components/insights/Insigh
 import { getDesirabilityTier, type DesirabilityTier } from "@/lib/desirability";
 
 export const metadata: Metadata = {
-  title: "Taste Profile",
+  title: "Insights",
   description: "Your music taste mapped across genres, decades, labels, and pressing origins.",
   robots: { index: false, follow: false },
 };

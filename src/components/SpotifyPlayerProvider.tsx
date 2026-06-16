@@ -239,10 +239,14 @@ export function SpotifyPlayerProvider({ children }: { children: React.ReactNode 
       // The access token backing the SDK's connection expired mid-session.
       // The refresh token is still good — bust the cache so the next
       // getOAuthToken call is forced to fetch (and server-refresh) a brand
-      // new token, then reconnect.
+      // new token, then reconnect. This is usually transient (e.g. the tab
+      // was backgrounded), so clear the banner once reconnect succeeds —
+      // "ready" won't fire again for an already-registered device.
       bustSpotifyTokenCache();
       setPlayError(401);
-      setTimeout(() => player.connect().catch(() => {}), 800);
+      setTimeout(() => {
+        player.connect().then(success => { if (success) setPlayError(null); }).catch(() => {});
+      }, 800);
     });
 
     player.addListener("account_error", (data) => {
@@ -256,6 +260,9 @@ export function SpotifyPlayerProvider({ children }: { children: React.ReactNode 
 
     player.addListener("player_state_changed", (state) => {
       if (!state) return;
+      // A real state update proves the connection is alive and authenticated —
+      // clear any stale error banner from an earlier disconnect/auth hiccup.
+      setPlayError(null);
       const s = state as SpotifyPlaybackState;
       setPlaying(!s.paused);
       setPosition(s.position);
@@ -426,6 +433,41 @@ export function SpotifyPlayerProvider({ children }: { children: React.ReactNode 
   const setActiveSource = useCallback((next: ActiveSource) => {
     setSource(next);
   }, []);
+
+  // ── Media Session: lets the OS (lock screen, media keys, etc.) control
+  // playback and treats this tab as active background media, which helps
+  // browsers avoid throttling it while it's not in the foreground.
+  useEffect(() => {
+    if (typeof navigator === "undefined" || !("mediaSession" in navigator)) return;
+    navigator.mediaSession.setActionHandler("play",  () => { void handlePlayPause(); });
+    navigator.mediaSession.setActionHandler("pause", () => { void handlePlayPause(); });
+    navigator.mediaSession.setActionHandler("previoustrack", () => previousTrack());
+    navigator.mediaSession.setActionHandler("nexttrack",     () => nextTrack());
+    navigator.mediaSession.setActionHandler("seekto", (details) => {
+      if (duration > 0 && details.seekTime != null) handleSeek((details.seekTime * 1000) / duration);
+    });
+    return () => {
+      navigator.mediaSession.setActionHandler("play",  null);
+      navigator.mediaSession.setActionHandler("pause", null);
+      navigator.mediaSession.setActionHandler("previoustrack", null);
+      navigator.mediaSession.setActionHandler("nexttrack",     null);
+      navigator.mediaSession.setActionHandler("seekto", null);
+    };
+  }, [handlePlayPause, previousTrack, nextTrack, handleSeek, duration]);
+
+  useEffect(() => {
+    if (typeof navigator === "undefined" || !("mediaSession" in navigator)) return;
+    navigator.mediaSession.playbackState = playing ? "playing" : "paused";
+  }, [playing]);
+
+  useEffect(() => {
+    if (typeof navigator === "undefined" || !("mediaSession" in navigator)) return;
+    const title  = currentTrack?.name   ?? source?.albumTitle ?? "";
+    const artist = currentTrack?.artist ?? source?.artist     ?? "";
+    navigator.mediaSession.metadata = (title || artist)
+      ? new MediaMetadata({ title, artist, album: "rekōdo" })
+      : null;
+  }, [currentTrack, source]);
 
   return (
     <SpotifyPlaybackContext.Provider value={{
