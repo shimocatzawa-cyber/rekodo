@@ -364,29 +364,17 @@ function bustDigTokenCache() {
   _digTokenExpiry = 0;
 }
 
-// Fetches its own token per attempt, busts cache on 401, retries on 404.
 async function sendPlay(deviceId: string, body: object): Promise<boolean> {
-  const url = `https://api.spotify.com/v1/me/player/play?device_id=${deviceId}`;
-  for (let attempt = 0; attempt < 3; attempt++) {
-    const token = await getFreshToken();
-    if (!token) return false;
-    let res: Response | null = null;
-    try {
-      res = await fetch(url, {
-        method:  "PUT",
-        headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
-        body:    JSON.stringify(body),
-      });
-    } catch { return false; }
-    if (res.status === 204 || res.ok) return true;
-    if (res.status === 401) { bustDigTokenCache(); continue; }
-    if (res.status === 404 && attempt < 2) {
-      await new Promise(r => setTimeout(r, 600 + attempt * 500));
-      continue;
-    }
+  try {
+    const res = await fetch("/api/spotify/play", {
+      method:  "POST",
+      headers: { "Content-Type": "application/json" },
+      body:    JSON.stringify({ deviceId, body }),
+    });
+    return res.ok;
+  } catch {
     return false;
   }
-  return false;
 }
 
 function DigCompactPlayer({ previewUrl, albumUri, trackUri, artist, album, recIdx }: {

@@ -36,32 +36,21 @@ export function bustSpotifyTokenCache() {
   _spotifyTokenExpiry = 0;
 }
 
+// Proxies through our server so the Spotify token never touches the browser.
 // Returns null on success, error status code on failure.
 async function sendSpotifyPlay(deviceId: string, body: object): Promise<number | null> {
-  const url = `https://api.spotify.com/v1/me/player/play?device_id=${deviceId}`;
-  for (let attempt = 0; attempt < 3; attempt++) {
-    const token = await getFreshSpotifyToken();
-    if (!token) return -1;
-    let res: Response | null = null;
-    try {
-      res = await fetch(url, {
-        method:  "PUT",
-        headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
-        body:    JSON.stringify(body),
-      });
-    } catch { return 0; }
-    if (res.status === 204 || res.ok) return null;
-    if (res.status === 401) {
-      bustSpotifyTokenCache();
-      continue;
-    }
-    if (res.status === 404 && attempt < 2) {
-      await new Promise(r => setTimeout(r, 600 + attempt * 500));
-      continue;
-    }
-    return res.status;
+  try {
+    const res = await fetch("/api/spotify/play", {
+      method:  "POST",
+      headers: { "Content-Type": "application/json" },
+      body:    JSON.stringify({ deviceId, body }),
+    });
+    if (res.ok) return null;
+    const data = await res.json() as { spotifyStatus?: number };
+    return data.spotifyStatus ?? res.status;
+  } catch {
+    return 0;
   }
-  return -1;
 }
 
 // ─── SDK singleton ────────────────────────────────────────────────────────────
