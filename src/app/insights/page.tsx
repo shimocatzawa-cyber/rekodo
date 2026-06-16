@@ -290,6 +290,23 @@ export default async function InsightsPage() {
     .sort((a, b) => a.sortKey - b.sortKey)
     .map(({ period, count }) => ({ period, Added: count }));
 
+  // ── Collection by month (rolling last 12 months) ────────────────────────────
+  const now = new Date();
+  const rolling12MonthCounts = new Map<string, number>();
+  for (const d of addedDates) {
+    const key = `${d.getFullYear()}-${d.getMonth()}`;
+    rolling12MonthCounts.set(key, (rolling12MonthCounts.get(key) ?? 0) + 1);
+  }
+  const collectionByMonth: { period: string; Added: number }[] = [];
+  for (let i = 11; i >= 0; i--) {
+    const d   = new Date(now.getFullYear(), now.getMonth() - i, 1);
+    const key = `${d.getFullYear()}-${d.getMonth()}`;
+    collectionByMonth.push({
+      period: `${MONTH_NAMES[d.getMonth()]} ${d.getFullYear()}`,
+      Added:  rolling12MonthCounts.get(key) ?? 0,
+    });
+  }
+
   // ── Genre analysis ─────────────────────────────────────────────────────────
   const genreCounts = new Map<string, { count: number; valueSum: number }>();
   for (const link of allLinks) {
@@ -533,6 +550,7 @@ export default async function InsightsPage() {
       mostPopularYear={mostPopularYear}
       vinylColourBreakdown={vinylColourBreakdown}
       collectionLifespan={collectionLifespan}
+      collectionByMonth={collectionByMonth}
     />
   );
 }

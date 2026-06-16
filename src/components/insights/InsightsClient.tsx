@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, type ReactNode } from "react";
-import { AreaChart, BarChart } from "@tremor/react";
+import { AreaChart, BarChart, type CustomTooltipProps } from "@tremor/react";
 import AppNav from "@/components/AppNav";
 import type { DesirabilityTier } from "@/lib/desirability";
 
@@ -40,6 +40,7 @@ export interface InsightsProps {
   mostPopularYear: number | null;
   vinylColourBreakdown: { colour: string; count: number; pct: number }[];
   collectionLifespan: { period: string; Added: number }[];
+  collectionByMonth: { period: string; Added: number }[];
 }
 
 // ── Tier metadata ──────────────────────────────────────────────────────────────
@@ -149,6 +150,24 @@ function SectionHeader({ eyebrow, title }: { eyebrow: string; title: string }) {
   );
 }
 
+function AddedTooltip({ payload, active, label }: CustomTooltipProps) {
+  if (!active || !payload?.length) return null;
+  const count = Number(payload[0]?.value ?? 0);
+  return (
+    <div style={{
+      background: "#ffffff", border: `1px solid ${RULE}`, borderRadius: "3px",
+      padding: "8px 12px", boxShadow: "0 2px 8px rgba(0,0,0,0.08)",
+    }}>
+      <p style={{ fontFamily: MONO, fontSize: "10px", fontWeight: 700, color: INK, margin: "0 0 2px" }}>
+        {label}
+      </p>
+      <p style={{ fontFamily: MONO, fontSize: "11px", color: ORANGE, margin: 0 }}>
+        {count} item{count !== 1 ? "s" : ""} added
+      </p>
+    </div>
+  );
+}
+
 function SubLabel({ children }: { children: ReactNode }) {
   return (
     <p style={{
@@ -226,7 +245,7 @@ export default function InsightsClient({
   countryBreakdown, topLabels, topArtists, topProducers,
   formatBreakdown, desirabilityBreakdown,
   topFormat, yearRange, mostPopularYear, vinylColourBreakdown,
-  collectionLifespan,
+  collectionLifespan, collectionByMonth,
 }: InsightsProps) {
 
   const [oneLiner, setOneLiner] = useState<string | null>(null);
@@ -332,10 +351,26 @@ export default function InsightsClient({
               colors={["orange"]}
               showLegend={false}
               showGridLines={false}
+              customTooltip={AddedTooltip}
               className="h-48"
             />
           </div>
         )}
+
+        {/* Collection by month — rolling last 12 months */}
+        <div style={{ marginBottom: "40px" }}>
+          <SubLabel>Collection by month (last 12 months)</SubLabel>
+          <BarChart
+            data={collectionByMonth}
+            index="period"
+            categories={["Added"]}
+            colors={["orange"]}
+            showLegend={false}
+            showGridLines={false}
+            customTooltip={AddedTooltip}
+            className="h-48"
+          />
+        </div>
 
         <SectionDivider />
 
