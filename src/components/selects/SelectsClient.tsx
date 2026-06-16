@@ -55,9 +55,6 @@ function ReleaseRow({ item }: { item: LabelFeedItem }) {
         background: hovered ? "#f7f5f0" : "transparent",
       }}
     >
-      {/* Artwork placeholder */}
-      <div style={{ width: 80, height: 80, background: "#f0ede8", flexShrink: 0 }} />
-
       {/* Release info */}
       <div style={{ flex: 1, minWidth: 0 }}>
         <p style={{ fontFamily: SERIF, fontSize: "0.95rem", fontWeight: 600, color: INK, margin: "0 0 2px 0", lineHeight: 1.2 }}>
@@ -98,7 +95,6 @@ function ReleaseRow({ item }: { item: LabelFeedItem }) {
 function SkeletonRow() {
   return (
     <div style={{ display: "flex", alignItems: "center", gap: "16px", padding: "14px 0", borderBottom: `1px solid ${RULE}` }}>
-      <div style={{ width: 80, height: 80, background: "#f0ede8", flexShrink: 0 }} />
       <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: "7px" }}>
         <div className="nr-shimmer" style={{ height: "0.95rem", width: "32%", background: "#e8e3dc" }} />
         <div className="nr-shimmer" style={{ height: "0.85rem", width: "48%", background: "#e8e3dc" }} />
@@ -585,7 +581,7 @@ export default function SelectsClient({ username, displayLabel, avatarUrl }: Pro
 
       <main style={{ padding: "36px 40px 80px", maxWidth: 1200, margin: "0 auto" }}>
         {activeTab === "new_releases" ? (
-          <NewReleasesSection />
+          <div style={{ maxWidth: 600 }}><NewReleasesSection /></div>
         ) : activeTab === "live" ? (
           <LiveSection />
         ) : (

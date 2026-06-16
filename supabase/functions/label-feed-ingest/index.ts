@@ -169,24 +169,28 @@ async function parseWithClaude(
   subject: string,
   sender: string,
   body: string,
-): Promise<ParsedRelease> {
-  const prompt = `You are parsing a record label newsletter email to extract release information.
+): Promise<ParsedRelease[]> {
+  const prompt = `You are parsing a record label or record shop newsletter email to extract release information.
 
 Email subject: ${subject}
 From: ${sender}
-Body (first 3000 chars):
-${body.slice(0, 3000)}
+Body (first 4000 chars):
+${body.slice(0, 4000)}
 
-Extract the primary release mentioned and return a JSON object with these fields:
+Extract ALL individual releases mentioned (new releases, represses, preorders, etc).
+Many newsletters list multiple records — include every one you can identify.
+
+Return a JSON array where each element has:
 - artist: string or null
 - album: string or null
 - release_type: one of "new_release", "repress", "preorder", "announcement", "unknown"
-- format: e.g. "LP", "12\"", "7\"", "CD", "Digital", or null
+- format: e.g. "LP", "12\\"", "7\\"", "CD", "Digital", or null
 - label: record label name or null
-- description: one or two sentence description of the release or null
-- tags: array of relevant tags (genre, mood, style — max 6)
+- description: one sentence about this specific release or null
+- tags: array of relevant tags (genre, mood, style — max 5)
 
-Return ONLY valid JSON, no markdown, no explanation.`;
+If no releases can be identified return an empty array [].
+Return ONLY a valid JSON array, no markdown, no explanation.`;
 
   const res = await fetch("https://api.anthropic.com/v1/messages", {
     method: "POST",
@@ -197,14 +201,14 @@ Return ONLY valid JSON, no markdown, no explanation.`;
     },
     body: JSON.stringify({
       model: "claude-haiku-4-5-20251001",
-      max_tokens: 512,
+      max_tokens: 2048,
       messages: [{ role: "user", content: prompt }],
     }),
   });
 
   if (!res.ok) {
     console.error("Claude API error:", res.status, await res.text());
-    return FALLBACK;
+    return [FALLBACK];
   }
 
   const data = await res.json();
@@ -212,10 +216,12 @@ Return ONLY valid JSON, no markdown, no explanation.`;
 
   try {
     const cleaned = text.replace(/```json?\n?/g, "").replace(/```/g, "").trim();
-    return JSON.parse(cleaned) as ParsedRelease;
+    const parsed = JSON.parse(cleaned);
+    if (Array.isArray(parsed) && parsed.length > 0) return parsed as ParsedRelease[];
+    return [];
   } catch {
     console.error("Failed to parse Claude response:", text);
-    return FALLBACK;
+    return [FALLBACK];
   }
 }
 
@@ -268,26 +274,38 @@ Deno.serve(async (_req) => {
           ? new Date(Number(msg.internalDate)).toISOString()
           : new Date().toISOString();
 
-        const parsed = await parseWithClaude(subject, sender, body);
+        const releases = await parseWithClaude(subject, sender, body);
 
-        const { error: insertErr } = await supabase.from("label_feed").insert({
-          gmail_message_id: id,
-          sender,
-          subject,
-          received_at: receivedAt,
-          artist: parsed.artist,
-          album: parsed.album,
-          release_type: parsed.release_type,
-          format: parsed.format,
-          label: parsed.label,
-          description: parsed.description,
-          tags: parsed.tags,
-        });
+        if (releases.length === 0) {
+          console.log(`No releases found in message ${id} (${subject})`);
+          // Insert a placeholder row so we don't reprocess this email
+          await supabase.from("label_feed").insert({
+            gmail_message_id: id, sender, subject, received_at: receivedAt,
+            artist: null, album: null, release_type: "unknown",
+            format: null, label: null, description: null, tags: [],
+          });
+          continue;
+        }
 
-        if (insertErr) {
-          errors.push(`${id}: ${insertErr.message}`);
-        } else {
-          processed++;
+        for (const parsed of releases) {
+          const { error: insertErr } = await supabase.from("label_feed").insert({
+            gmail_message_id: id,
+            sender,
+            subject,
+            received_at: receivedAt,
+            artist: parsed.artist,
+            album: parsed.album,
+            release_type: parsed.release_type,
+            format: parsed.format,
+            label: parsed.label,
+            description: parsed.description,
+            tags: parsed.tags,
+          });
+          if (insertErr) {
+            errors.push(`${id}/${parsed.artist}: ${insertErr.message}`);
+          } else {
+            processed++;
+          }
         }
       } catch (err) {
         errors.push(`${id}: ${err instanceof Error ? err.message : String(err)}`);
