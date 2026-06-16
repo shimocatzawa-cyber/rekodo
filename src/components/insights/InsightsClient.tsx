@@ -40,6 +40,7 @@ export interface InsightsProps {
   yearRange:       { oldest: number; newest: number } | null;
   mostPopularYear: number | null;
   vinylColourBreakdown: { colour: string; count: number; pct: number }[];
+  pressingAttributeBreakdown: { attribute: string; count: number; pct: number }[];
 }
 
 // ── Tier metadata ──────────────────────────────────────────────────────────────
@@ -51,6 +52,38 @@ const TIER_META: Record<DesirabilityTier, { label: string; bg: string; color: st
   "widely-loved": { label: "Widely Loved",  bg: "#C0DD97", color: "#27500A" },
   "in-demand":    { label: "In Demand",     bg: "#9FE1CB", color: "#085041" },
 };
+
+// Colour-name keyword → badge palette, used to render vinyl colours as labels
+// in the same style as the desirability tier pills above.
+const COLOUR_BADGE_RULES: { kw: string; bg: string; color: string }[] = [
+  { kw: "black",         bg: "#2b2b2b", color: "#ffffff" },
+  { kw: "white",         bg: "#f2f2ec", color: "#0a0a0a" },
+  { kw: "picture disc",  bg: "#1a1a1a", color: "#ffffff" },
+  { kw: "clear",         bg: "#eef0ee", color: "#3a3a34" },
+  { kw: "transparent",   bg: "#eef0ee", color: "#3a3a34" },
+  { kw: "translucent",   bg: "#eef0ee", color: "#3a3a34" },
+  { kw: "red",           bg: "#F0997B", color: "#712B13" },
+  { kw: "blue",          bg: "#AFCBEB", color: "#1B3A66" },
+  { kw: "green",         bg: "#C0DD97", color: "#27500A" },
+  { kw: "yellow",        bg: "#FAC775", color: "#633806" },
+  { kw: "gold",          bg: "#FAC775", color: "#633806" },
+  { kw: "orange",        bg: "#F7B978", color: "#6B3A05" },
+  { kw: "purple",        bg: "#CECBF6", color: "#3C3489" },
+  { kw: "violet",        bg: "#CECBF6", color: "#3C3489" },
+  { kw: "pink",          bg: "#F3C9D9", color: "#7A1F44" },
+  { kw: "marbled",       bg: "#DCD5C4", color: "#4A4030" },
+  { kw: "splatter",      bg: "#DCD5C4", color: "#4A4030" },
+  { kw: "silver",        bg: "#E2E2DC", color: "#3a3a3a" },
+  { kw: "grey",          bg: "#cfcfc8", color: "#2b2b2b" },
+  { kw: "gray",          bg: "#cfcfc8", color: "#2b2b2b" },
+  { kw: "brown",         bg: "#C9A876", color: "#4A2E0A" },
+];
+const DEFAULT_BADGE = { bg: "#EDEDE8", color: "#3a3a34" };
+
+function colourBadge(value: string): { bg: string; color: string } {
+  const v = value.toLowerCase();
+  return COLOUR_BADGE_RULES.find((r) => v.includes(r.kw)) ?? DEFAULT_BADGE;
+}
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
 
@@ -194,6 +227,7 @@ export default function InsightsClient({
   countryBreakdown, topLabels, topArtists, topProducers,
   formatBreakdown, desirabilityBreakdown,
   topFormat, yearRange, mostPopularYear, vinylColourBreakdown,
+  pressingAttributeBreakdown,
 }: InsightsProps) {
 
   const [oneLiner, setOneLiner] = useState<string | null>(null);
@@ -590,7 +624,7 @@ export default function InsightsClient({
         {/* ── Section 5: Label Obsession ────────────────────────────────────── */}
         <SectionHeader eyebrow="Most Collected" title="Who you keep going back to." />
 
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "48px" }}>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "40px" }}>
           {/* Labels */}
           <div>
             <SubLabel>Top 10 Labels</SubLabel>
@@ -660,41 +694,41 @@ export default function InsightsClient({
               </div>
             )}
           </div>
-        </div>
 
-        {/* Producers */}
-        <div style={{ marginTop: "40px" }}>
-          <SubLabel>Top 10 Producers</SubLabel>
-          {topProducers.length === 0 ? (
-            <p style={{ fontFamily: MONO, fontSize: "11px", letterSpacing: "0.04em", color: INK, margin: 0 }}>
-              Producer data will appear here after your next Discogs sync.
-            </p>
-          ) : (
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "14px 48px" }}>
-              {topProducers.map(({ producer, count, valueSum }, i) => (
-                <div key={producer} style={{ display: "flex", alignItems: "flex-start", gap: "12px" }}>
-                  <span style={{
-                    fontFamily: SERIF, fontSize: "18px", fontWeight: 700,
-                    color: ORANGE, lineHeight: 1, minWidth: "28px",
-                  }}>
-                    {String(i + 1).padStart(2, "0")}
-                  </span>
-                  <div style={{ flex: 1, paddingTop: "2px" }}>
-                    <div style={{
-                      fontFamily: MONO, fontSize: "11px", letterSpacing: "0.04em",
-                      color: INK, marginBottom: "2px",
+          {/* Producers */}
+          <div>
+            <SubLabel>Top 10 Producers</SubLabel>
+            {topProducers.length === 0 ? (
+              <p style={{ fontFamily: MONO, fontSize: "11px", letterSpacing: "0.04em", color: INK, margin: 0 }}>
+                Producer data will appear here after your next Discogs sync.
+              </p>
+            ) : (
+              <div style={{ display: "flex", flexDirection: "column", gap: "14px" }}>
+                {topProducers.map(({ producer, count, valueSum }, i) => (
+                  <div key={producer} style={{ display: "flex", alignItems: "flex-start", gap: "12px" }}>
+                    <span style={{
+                      fontFamily: SERIF, fontSize: "18px", fontWeight: 700,
+                      color: ORANGE, lineHeight: 1, minWidth: "28px",
                     }}>
-                      {producer}
-                    </div>
-                    <div style={{ fontFamily: MONO, fontSize: "10px", color: INK }}>
-                      {count} item{count !== 1 ? "s" : ""}
-                      {valueSum > 0 && <> · <span style={{ color: ORANGE }}>{fmtCurrency(valueSum, currency)}</span></>}
+                      {String(i + 1).padStart(2, "0")}
+                    </span>
+                    <div style={{ flex: 1, paddingTop: "2px" }}>
+                      <div style={{
+                        fontFamily: MONO, fontSize: "11px", letterSpacing: "0.04em",
+                        color: INK, marginBottom: "2px",
+                      }}>
+                        {producer}
+                      </div>
+                      <div style={{ fontFamily: MONO, fontSize: "10px", color: INK }}>
+                        {count} item{count !== 1 ? "s" : ""}
+                        {valueSum > 0 && <> · <span style={{ color: ORANGE }}>{fmtCurrency(valueSum, currency)}</span></>}
+                      </div>
                     </div>
                   </div>
-                </div>
-              ))}
-            </div>
-          )}
+                ))}
+              </div>
+            )}
+          </div>
         </div>
 
         <SectionDivider />
@@ -707,39 +741,90 @@ export default function InsightsClient({
             Colour data will appear here after your next Discogs sync.
           </p>
         ) : (
-          <>
-            {/* Colour swatch grid */}
-            <div style={{ display: "flex", flexWrap: "wrap", gap: "8px", marginBottom: "32px" }}>
-              {vinylColourBreakdown.map(({ colour, count }) => (
-                <div key={colour} style={{
-                  display: "inline-flex", alignItems: "center", gap: "6px",
-                  border: `1px solid ${RULE}`,
-                  padding: "6px 12px",
-                }}>
-                  <span style={{ fontFamily: MONO, fontSize: "11px", color: INK }}>{colour}</span>
-                  <span style={{ fontFamily: MONO, fontSize: "10px", color: ORANGE }}>{count}</span>
-                </div>
-              ))}
-            </div>
-
-            {/* Breakdown bars */}
-            <div style={{ display: "flex", flexDirection: "column", gap: "14px" }}>
-              {vinylColourBreakdown.map(({ colour, count, pct }) => (
-                <div key={colour}>
-                  <div style={{
-                    display: "flex", justifyContent: "space-between",
-                    alignItems: "baseline", marginBottom: "6px", gap: "12px",
+          <div style={{ marginBottom: "40px" }}>
+            <SubLabel>Top 10 Colours</SubLabel>
+            <div style={{ borderTop: `0.5px solid ${RULE}` }}>
+              <div style={{
+                display: "grid", gridTemplateColumns: "1fr 80px 100px",
+                gap: "16px", padding: "10px 0", borderBottom: `0.5px solid ${RULE}`,
+              }}>
+                {["Colour", "Items", "Share"].map((h) => (
+                  <span key={h} style={{
+                    fontFamily: MONO, fontSize: "9px", fontWeight: 700,
+                    letterSpacing: "0.12em", textTransform: "uppercase", color: INK,
                   }}>
-                    <span style={{ fontFamily: MONO, fontSize: "11px", color: INK }}>{colour}</span>
-                    <span style={{ fontFamily: MONO, fontSize: "11px", color: INK, whiteSpace: "nowrap" }}>
-                      {count} item{count !== 1 ? "s" : ""} · <span style={{ color: ORANGE }}>{pct}%</span>
+                    {h}
+                  </span>
+                ))}
+              </div>
+              {vinylColourBreakdown.map(({ colour, count, pct }) => {
+                const badge = colourBadge(colour);
+                return (
+                  <div key={colour} style={{
+                    display: "grid", gridTemplateColumns: "1fr 80px 100px",
+                    gap: "16px", padding: "12px 0", borderBottom: `0.5px solid ${RULE}`,
+                    alignItems: "center",
+                  }}>
+                    <span style={{
+                      display: "inline-block", width: "fit-content",
+                      fontFamily: MONO, fontSize: "10px", letterSpacing: "0.06em",
+                      background: badge.bg, color: badge.color,
+                      padding: "3px 8px", borderRadius: "3px",
+                      whiteSpace: "nowrap",
+                    }}>
+                      {colour}
+                    </span>
+                    <span style={{ fontFamily: MONO, fontSize: "11px", color: INK }}>
+                      {count}
+                    </span>
+                    <span style={{ fontFamily: MONO, fontSize: "11px", color: ORANGE }}>
+                      {pct}%
                     </span>
                   </div>
-                  <PercentBar pct={pct} maxPct={vinylColourBreakdown[0].pct} />
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        {/* Pressing attributes — non-colour descriptors found in the same field
+            (e.g. "Remastered", "180g") */}
+        {pressingAttributeBreakdown.length > 0 && (
+          <div>
+            <SubLabel>Top 10 Pressing Attributes</SubLabel>
+            <div style={{ borderTop: `0.5px solid ${RULE}` }}>
+              <div style={{
+                display: "grid", gridTemplateColumns: "1fr 80px 100px",
+                gap: "16px", padding: "10px 0", borderBottom: `0.5px solid ${RULE}`,
+              }}>
+                {["Attribute", "Items", "Share"].map((h) => (
+                  <span key={h} style={{
+                    fontFamily: MONO, fontSize: "9px", fontWeight: 700,
+                    letterSpacing: "0.12em", textTransform: "uppercase", color: INK,
+                  }}>
+                    {h}
+                  </span>
+                ))}
+              </div>
+              {pressingAttributeBreakdown.map(({ attribute, count, pct }) => (
+                <div key={attribute} style={{
+                  display: "grid", gridTemplateColumns: "1fr 80px 100px",
+                  gap: "16px", padding: "12px 0", borderBottom: `0.5px solid ${RULE}`,
+                  alignItems: "center",
+                }}>
+                  <span style={{ fontFamily: MONO, fontSize: "11px", letterSpacing: "0.04em", color: INK }}>
+                    {attribute}
+                  </span>
+                  <span style={{ fontFamily: MONO, fontSize: "11px", color: INK }}>
+                    {count}
+                  </span>
+                  <span style={{ fontFamily: MONO, fontSize: "11px", color: ORANGE }}>
+                    {pct}%
+                  </span>
                 </div>
               ))}
             </div>
-          </>
+          </div>
         )}
 
       </main>

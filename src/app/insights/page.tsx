@@ -368,18 +368,46 @@ export default async function InsightsPage() {
     : null;
 
   // ── Vinyl colour breakdown ────────────────────────────────────────────────
-  const colourCounts = new Map<string, number>();
+  // The vinyl_colour field is sourced from Discogs' free-text format notes, so it
+  // mixes true colours ("Red", "Marbled") with pressing/mastering attributes
+  // ("Remastered", "180g"). Split on the same colour keyword list the sync
+  // function uses to detect a colour in the first place.
+  const COLOUR_KW = [
+    "Black", "White", "Red", "Blue", "Green", "Yellow", "Orange", "Purple",
+    "Pink", "Silver", "Gold", "Grey", "Gray", "Brown", "Clear", "Colored",
+    "Coloured", "Marbled", "Splatter", "Opaque", "Translucent", "Transparent",
+    "Picture Disc", "Etched",
+  ];
+  const isColourValue = (value: string) =>
+    COLOUR_KW.some((kw) => value.toLowerCase().includes(kw.toLowerCase()));
+
+  const colourCounts    = new Map<string, number>();
+  const attributeCounts = new Map<string, number>();
   for (const link of allLinks) {
-    const colour = recordsMap.get(link.record_id)?.vinyl_colour?.trim();
-    if (colour) colourCounts.set(colour, (colourCounts.get(colour) ?? 0) + 1);
+    const value = recordsMap.get(link.record_id)?.vinyl_colour?.trim();
+    if (!value) continue;
+    const bucket = isColourValue(value) ? colourCounts : attributeCounts;
+    bucket.set(value, (bucket.get(value) ?? 0) + 1);
   }
+
   const colourTotal = [...colourCounts.values()].reduce((a, b) => a + b, 0);
   const vinylColourBreakdown = [...colourCounts.entries()]
     .sort((a, b) => b[1] - a[1])
+    .slice(0, 10)
     .map(([colour, count]) => ({
       colour,
       count,
       pct: colourTotal > 0 ? Math.round((count / colourTotal) * 100) : 0,
+    }));
+
+  const attributeTotal = [...attributeCounts.values()].reduce((a, b) => a + b, 0);
+  const pressingAttributeBreakdown = [...attributeCounts.entries()]
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 10)
+    .map(([attribute, count]) => ({
+      attribute,
+      count,
+      pct: attributeTotal > 0 ? Math.round((count / attributeTotal) * 100) : 0,
     }));
 
   const allYears = [...recordsMap.values()]
@@ -422,6 +450,7 @@ export default async function InsightsPage() {
       yearRange={yearRange}
       mostPopularYear={mostPopularYear}
       vinylColourBreakdown={vinylColourBreakdown}
+      pressingAttributeBreakdown={pressingAttributeBreakdown}
     />
   );
 }
