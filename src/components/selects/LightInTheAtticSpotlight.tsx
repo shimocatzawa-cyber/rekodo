@@ -204,8 +204,16 @@ export default function LightInTheAtticSpotlight() {
                   {row.year}
                 </div>
                 <div style={{ flex: 1, minWidth: 0 }}>
-                  <p style={{ fontFamily: SERIF, fontSize: "15px", fontWeight: 600, color: INK, margin: "0 0 3px" }}>
+                  <p style={{ fontFamily: SERIF, fontSize: "15px", fontWeight: 600, color: INK, margin: "0 0 3px", display: "flex", alignItems: "center", gap: 8 }}>
                     {row.title}
+                    {row.title === "In My Own Time" && (
+                      <span style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
+                        <span style={{ fontFamily: SERIF, fontSize: "16px", color: "#B8860B", lineHeight: 1 }}>ō</span>
+                        <span style={{ fontFamily: MONO, fontSize: "10px", letterSpacing: "0.06em", textTransform: "uppercase", color: "#B8860B", fontWeight: 400 }}>
+                          Rekōdo&rsquo;s Pick
+                        </span>
+                      </span>
+                    )}
                   </p>
                   <p style={{ fontFamily: MONO, fontSize: "11px", color: "#888888", margin: "0 0 6px", fontWeight: 400 }}>
                     {row.artist}
