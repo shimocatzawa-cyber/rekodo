@@ -22,6 +22,55 @@ export interface AdminUser {
   last_synced_at: string | null;
   banned_until: string | null;
   record_count: number;
+  city: string | null;
+  country: string | null;
+  is_donor: boolean;
+  archetype: string | null;
+  connections: {
+    collection: boolean;
+    wantlist: boolean;
+    discogs: boolean;
+    spotify: boolean;
+    bandcamp: boolean;
+  };
+}
+
+function formatLocation(city: string | null, country: string | null): string {
+  if (city && country) return `${city}, ${country}`;
+  return city ?? country ?? "—";
+}
+
+function ConnectionBadges({ connections }: { connections: AdminUser["connections"] }) {
+  const items: { key: keyof AdminUser["connections"]; label: string }[] = [
+    { key: "discogs",    label: "Discogs" },
+    { key: "collection", label: "Collection" },
+    { key: "wantlist",   label: "Wantlist" },
+    { key: "spotify",    label: "Spotify" },
+    { key: "bandcamp",   label: "Bandcamp" },
+  ];
+  return (
+    <div style={{ display: "flex", gap: "4px", flexWrap: "wrap" }}>
+      {items.map(({ key, label }) => {
+        const on = connections[key];
+        return (
+          <span
+            key={key}
+            title={`${label}: ${on ? "connected" : "not connected"}`}
+            style={{
+              fontFamily: MONO, fontSize: "8px", letterSpacing: "0.06em",
+              textTransform: "uppercase", padding: "2px 6px",
+              border: `1px solid ${on ? ORANGE : RULE}`,
+              color: on ? ORANGE : MUTED,
+              background: "transparent",
+              whiteSpace: "nowrap",
+            }}
+          >
+            {label}
+          </span>
+        );
+      })}
+    </div>
+  );
 }
 
 function TierPill({ tier }: { tier: string | null }) {
@@ -125,12 +174,25 @@ export default function UserRow({ user }: { user: AdminUser }) {
               admin
             </span>
           )}
+          {user.is_donor && (
+            <span style={{ fontFamily: MONO, fontSize: "8px", letterSpacing: "0.1em", color: ORANGE, marginLeft: "8px", textTransform: "uppercase" }}>
+              donor
+            </span>
+          )}
         </td>
 
         <td style={{ ...cellSt, color: MUTED }}>{user.email || "—"}</td>
 
+        <td style={{ ...cellSt, color: MUTED }}>{formatLocation(user.city, user.country)}</td>
+
+        <td style={{ ...cellSt, color: user.archetype ? INK : MUTED }}>{user.archetype ?? "—"}</td>
+
         <td style={{ ...cellSt, color: MUTED, textAlign: "right" as const }}>
           {user.record_count > 0 ? user.record_count.toLocaleString() : "—"}
+        </td>
+
+        <td style={cellSt}>
+          <ConnectionBadges connections={user.connections} />
         </td>
 
         <td style={cellSt}>
@@ -169,7 +231,7 @@ export default function UserRow({ user }: { user: AdminUser }) {
 
       {open && (
         <tr>
-          <td colSpan={7} style={{ padding: "16px 16px 20px", borderBottom: `1px solid ${RULE}`, background: "#fafaf8" }}>
+          <td colSpan={10} style={{ padding: "16px 16px 20px", borderBottom: `1px solid ${RULE}`, background: "#fafaf8" }}>
             <div style={{ display: "flex", alignItems: "flex-end", gap: "24px", flexWrap: "wrap" }}>
 
               <div>
