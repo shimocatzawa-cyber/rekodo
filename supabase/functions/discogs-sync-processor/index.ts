@@ -458,13 +458,20 @@ async function processSync(supabase: SB, jobId: string, userId: string) {
       }
     }
 
-    // ── Phase 5: Backfill missing format / country ───────────────────────────
+    // ── Phase 5: Backfill missing format / country / colour / producers ──────
     // Individual release lookups fill in fields the collection listing API omits.
-    // Capped at 30 per sync so large collections fill progressively.
+    // Bounded by BOTH a record cap and a wall-clock time budget — Supabase Edge
+    // Functions have a hard execution time limit, and a sequential, rate-limited
+    // loop (1.1s/record) can silently exceed it with no chance to write a
+    // "failed" status, leaving the job stuck in "processing" forever. The time
+    // budget guarantees this phase always exits cleanly well inside that limit;
+    // any records left over are picked up on the next sync.
     await updateJob(supabase, jobId, { phase: "backfill" });
 
     try {
-      const BACKFILL_CAP = 100;
+      const BACKFILL_CAP        = 60;
+      const PHASE5_BUDGET_MS    = 80_000;
+      const phase5Start         = Date.now();
       type RecordStub = { id: string; discogs_id: string };
       const needingBackfill: RecordStub[] = [];
 
@@ -483,8 +490,11 @@ async function processSync(supabase: SB, jobId: string, userId: string) {
       }
 
       const toBackfill = needingBackfill.slice(0, BACKFILL_CAP);
+      await updateJob(supabase, jobId, { phase: "backfill", progress_done: 0, total_records: toBackfill.length });
 
       for (let bi = 0; bi < toBackfill.length; bi++) {
+        if (Date.now() - phase5Start > PHASE5_BUDGET_MS) break;
+
         const record = toBackfill[bi];
         try {
           const releaseUrl = `https://api.discogs.com/releases/${encodeURIComponent(record.discogs_id)}?key=${DISCOGS_CONSUMER_KEY}&secret=${DISCOGS_CONSUMER_SECRET}`;
@@ -508,8 +518,14 @@ async function processSync(supabase: SB, jobId: string, userId: string) {
               .eq("id", record.id);
           }
         } catch (e) { console.warn(`backfill skip ${record.discogs_id}:`, e); }
+
+        await updateJob(supabase, jobId, { progress_done: bi + 1 });
         if (bi < toBackfill.length - 1) await new Promise((r) => setTimeout(r, RATE_MS));
       }
+
+      // Restore total_records to the overall collection count for the final
+      // "completed" update — Phase 5 temporarily repurposed it for progress display.
+      await updateJob(supabase, jobId, { total_records: total });
     } catch (e) { console.error("Phase 5 backfill failed:", e); }
 
     // ── Phase 6: Set last_synced_at + fetch collection value ─────────────────

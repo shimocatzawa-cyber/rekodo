@@ -52,8 +52,9 @@ export async function GET(request: NextRequest) {
       }).catch(err => console.error("[sync] Edge Function fire error:", err));
 
       // ── Poll sync_queue and translate progress → SSE events ────────────────
-      let lastPhase = "";
-      let lastPage  = 0;
+      let lastPhase        = "";
+      let lastPage         = 0;
+      let lastBackfillDone = -1;
       let completedData: {
         total_records: number; new_added: number; records_updated: number;
         completed_at: string | null;
@@ -83,9 +84,19 @@ export async function GET(request: NextRequest) {
         if (job.phase === "fetching" && (job.current_page ?? 0) > lastPage) {
           lastPage = job.current_page ?? 0;
           send({ type: "fetch_page", page: job.current_page, totalPages: job.total_pages, fetched: job.progress_done });
+        } else if (job.phase === "backfill" && (job.progress_done ?? 0) !== lastBackfillDone) {
+          // Backfill reports live per-record progress (job.total_records is
+          // temporarily repurposed to the backfill batch size during this phase).
+          lastPhase        = "backfill";
+          lastBackfillDone = job.progress_done ?? 0;
+          send({
+            type: "processing", done: job.progress_done ?? 0, total: job.total_records ?? 0,
+            phase: "backfill",
+            message: `Finalising sync... ${job.progress_done ?? 0} of ${job.total_records ?? 0}`,
+          });
         } else if (
           (job.phase === "inserting" || job.phase === "linking" || job.phase === "conditions" ||
-           job.phase === "updating" || job.phase === "cleanup" || job.phase === "backfill") &&
+           job.phase === "updating" || job.phase === "cleanup") &&
           job.phase !== lastPhase
         ) {
           lastPhase = job.phase ?? "";
@@ -95,7 +106,6 @@ export async function GET(request: NextRequest) {
             conditions: "Saving grades",
             updating:   "Updating metadata",
             cleanup:    "Cleaning up",
-            backfill:   "Finalising sync",
           };
           send({
             type: "processing", done: job.progress_done ?? 0, total: job.total_records ?? 0,
