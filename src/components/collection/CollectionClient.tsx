@@ -427,6 +427,15 @@ const [filterFormat,       setFilterFormat]       = useState("");
     runSync();
   }, [startSync]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Auto-dismiss the "Sync complete" banner — it's a transient confirmation,
+  // not a persistent status. The "Last sync" line under the button (driven by
+  // syncResult/lastSyncedAt, untouched here) already covers the lasting record.
+  useEffect(() => {
+    if (syncState !== "complete") return;
+    const t = setTimeout(() => setSyncState("idle"), 8000);
+    return () => clearTimeout(t);
+  }, [syncState]);
+
   // Poll enrichment status when collection has records
   useEffect(() => {
     if (collection.length === 0) return;
