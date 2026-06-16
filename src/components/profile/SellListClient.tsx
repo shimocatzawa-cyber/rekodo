@@ -25,6 +25,18 @@ type SellItem = {
   price_currency: string;
 };
 
+function sym(code: string): string {
+  const map: Record<string, string> = {
+    USD: "$", EUR: "€", GBP: "£", JPY: "¥", CAD: "CA$", AUD: "A$",
+  };
+  return map[code] ?? `${code} `;
+}
+
+function formatPrice(value: number | null | undefined, currency: string): string | null {
+  if (value == null || value <= 0) return null;
+  return `${sym(currency)}${value.toFixed(2)}`;
+}
+
 function ConditionBadge({ label }: { label: string }) {
   return (
     <span style={{
@@ -61,7 +73,7 @@ export default function SellListClient({
   }, [profileOwnerId]);
 
   return (
-    <div style={{ maxWidth: 680, margin: "0 auto", padding: "2rem 1.5rem 4rem" }}>
+    <div style={{ maxWidth: 760, margin: "0 auto", padding: "2rem 1.5rem 4rem" }}>
 
       {/* Header */}
       <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", marginBottom: "24px" }}>
@@ -129,13 +141,13 @@ export default function SellListClient({
         <div style={{ borderTop: `1px solid ${RULE}` }}>
           {items.map(item => {
             const discogs = `https://www.discogs.com/search/?q=${encodeURIComponent(`${item.artist} ${item.album}`)}&type=release`;
-            const price = item.price_median ?? item.value;
             const currency = item.price_currency ?? "USD";
+            const priceLabel = formatPrice(item.price_median ?? item.value, currency);
 
             return (
               <div
                 key={item.id}
-                style={{ display: "flex", alignItems: "center", gap: "14px", padding: "14px 0", borderBottom: `1px solid ${RULE}` }}
+                style={{ display: "flex", alignItems: "center", gap: "18px", padding: "16px 0", borderBottom: `1px solid ${RULE}` }}
               >
                 {/* Cover */}
                 <div style={{ width: 48, height: 48, flexShrink: 0, background: "#f0ede8", overflow: "hidden" }}>
@@ -165,10 +177,10 @@ export default function SellListClient({
                 </div>
 
                 {/* Price + CTA */}
-                <div style={{ textAlign: "right", flexShrink: 0 }}>
-                  {price != null && (
-                    <p style={{ fontFamily: MONO, fontSize: "0.65rem", color: INK, margin: "0 0 6px", letterSpacing: "0.04em" }}>
-                      {currency} {price.toFixed(2)}
+                <div style={{ textAlign: "right", flexShrink: 0, minWidth: 88 }}>
+                  {priceLabel != null && (
+                    <p style={{ fontFamily: MONO, fontSize: "0.7rem", color: INK, margin: "0 0 6px", letterSpacing: "0.04em" }}>
+                      {priceLabel}
                     </p>
                   )}
                   <a
