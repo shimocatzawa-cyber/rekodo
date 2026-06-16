@@ -15,6 +15,7 @@ import Top5Editor, { type EditorSlot } from "@/components/profile/Top5Editor";
 import { createList, deleteList } from "@/app/lists/actions";
 import WantlistClient from "@/components/wantlist/WantlistClient";
 import CommunityTab from "@/components/community/CommunityTab";
+import SellListClient from "@/components/profile/SellListClient";
 import LunarListeningRitual from "@/components/LunarListeningRitual";
 import type { UserList, DiscoverList } from "@/app/lists/types";
 
@@ -106,7 +107,7 @@ interface Props {
   bcSyncDate?: string | null;
 }
 
-type ProfileTab = "profile" | "lists" | "community";
+type ProfileTab = "profile" | "lists" | "sell" | "community";
 
 // ─── Main component ───────────────────────────────────────────────────────────
 
@@ -123,6 +124,7 @@ export default function ProfileClient({
   const [profileTab, setProfileTab] = useState<ProfileTab>(() => {
     const p = searchParams.get("tab");
     if (p === "lists" && isOwner) return "lists";
+    if (p === "sell") return "sell";
     if (p === "community") return "community";
     return "profile";
   });
@@ -412,6 +414,7 @@ export default function ProfileClient({
   const tabItems: Array<{ key: ProfileTab; label: string }> = [
     { key: "profile",   label: "Profile" },
     ...(isOwner ? [{ key: "lists" as ProfileTab, label: "Wantlist" }] : []),
+    { key: "sell",      label: "Sell List" },
     { key: "community", label: "Community" },
   ];
 
@@ -958,6 +961,11 @@ export default function ProfileClient({
             />
           )}
         </>
+      )}
+
+      {/* ─────────────── SELL LIST TAB ───────────────────────────────────────── */}
+      {profileTab === "sell" && (
+        <SellListClient profileOwnerId={profile.id} isOwner={isOwner} />
       )}
 
       {/* ─────────────── COMMUNITY TAB ───────────────────────────────────────── */}
