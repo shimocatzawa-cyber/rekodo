@@ -453,7 +453,9 @@ function DigCompactPlayer({ previewUrl, albumUri, trackUri, artist, album, recId
       // instead of leaving playback dead.
       bustDigTokenCache();
       setAuthError(true);
-      setTimeout(() => player.connect().catch(() => {}), 800);
+      setTimeout(() => {
+        player.connect().then(success => { if (success) setAuthError(false); }).catch(() => {});
+      }, 800);
     });
     player.addListener("account_error", (d) => {
       console.error("[rekōdo] Dig Spotify account error:", d);
@@ -463,6 +465,9 @@ function DigCompactPlayer({ previewUrl, albumUri, trackUri, artist, album, recId
     });
     player.addListener("player_state_changed", (s) => {
       if (!s) return;
+      // A real state update proves the connection is alive — clear any
+      // stale error banner left over from an earlier disconnect/auth hiccup.
+      setAuthError(false);
       // Ignore events for tracks we haven't intentionally started — prevents
       // stale SDK events from the previous rec overriding the reset state.
       if (!sdkStartedRef.current) return;
@@ -611,9 +616,19 @@ function DigCompactPlayer({ previewUrl, albumUri, trackUri, artist, album, recId
         await playerRef.current.togglePlay().catch(() => {});
       }
     } else if (useSDK && !sdkLive && (albumUri || trackUri)) {
-      // SDK still connecting — queue play; fires the moment deviceId arrives
+      // SDK still connecting — queue play; fires the moment deviceId arrives.
+      // If the device never shows up (e.g. it dropped while the tab was
+      // backgrounded and exhausted its reconnect attempts), don't leave the
+      // button stuck spinning forever — fall back to the preview clip if we
+      // have one, otherwise just release the pending state so play can be retried.
       pendingPlayRef.current = { albumUri, trackUri };
       setPlayPending(true);
+      setTimeout(() => {
+        if (!pendingPlayRef.current) return;
+        pendingPlayRef.current = null;
+        setPlayPending(false);
+        if (audioRef.current) audioRef.current.play().catch(() => {});
+      }, 8000);
     } else if (audioRef.current) {
       if (playing) {
         audioRef.current.pause();
