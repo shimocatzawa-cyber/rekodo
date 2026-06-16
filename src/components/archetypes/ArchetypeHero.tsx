@@ -180,34 +180,12 @@ export default function ArchetypeHero({
       <div style={{ flex: 1, minWidth: 0 }}>
 
         {/* Sub-section A — Three archetype columns */}
-        <div style={{ display: "flex", borderBottom: `1px solid ${RULE}`, paddingBottom: 20, marginBottom: 20, position: "relative" }}>
+        <div style={{ display: "flex", borderBottom: `1px solid ${RULE}`, paddingBottom: 20, marginBottom: 20 }}>
           <ArchetypeColumn role="primary" archetypeId={primary} score={primaryScore} />
           <div style={{ width: 1, background: RULE, alignSelf: "stretch" }} />
           <ArchetypeColumn role="secondary" archetypeId={secondary} score={secondaryScore} />
           <div style={{ width: 1, background: RULE, alignSelf: "stretch" }} />
           <ArchetypeColumn role="shadow" archetypeId={shadow} score={shadowScore} />
-
-          {/* Named pairing badge */}
-          {namedPairing && (
-            <div style={{
-              position: "absolute",
-              top: "50%",
-              left: "calc(33.33% - 2px)",
-              transform: "translate(-50%, -50%)",
-              background: "#fff",
-              padding: "2px 8px",
-              fontFamily: MONO,
-              fontSize: 8,
-              letterSpacing: "0.1em",
-              textTransform: "uppercase",
-              color: ORANGE,
-              border: `1px solid ${RULE}`,
-              whiteSpace: "nowrap",
-              zIndex: 1,
-            }}>
-              {namedPairing.toUpperCase()}
-            </div>
-          )}
         </div>
 
         {/* Sub-section B — Short description */}
