@@ -33,10 +33,10 @@ type LabelFeedItem = {
 type SelectsTab = "new_releases" | "artist" | "label" | "live";
 
 const TABS: { key: SelectsTab; label: string }[] = [
-  { key: "new_releases", label: "New Releases" },
-  { key: "artist",       label: "Artist"       },
-  { key: "label",        label: "Label"        },
-  { key: "live",         label: "Live"         },
+  { key: "artist",       label: "Artist Spotlight" },
+  { key: "label",        label: "Label Spotlight"  },
+  { key: "new_releases", label: "New Releases"      },
+  { key: "live",         label: "Live"              },
 ];
 
 // ─── Release row ─────────────────────────────────────────────────────────────
@@ -525,7 +525,7 @@ interface Props {
 // ─── Main component ───────────────────────────────────────────────────────────
 
 export default function SelectsClient({ username, displayLabel, avatarUrl }: Props) {
-  const [activeTab, setActiveTab] = useState<SelectsTab>("new_releases");
+  const [activeTab, setActiveTab] = useState<SelectsTab>("artist");
 
   return (
     <div style={{ minHeight: "100vh", background: "#ffffff" }}>
