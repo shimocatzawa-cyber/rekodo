@@ -395,6 +395,7 @@ function DigCompactPlayer({ previewUrl, albumUri, trackUri, artist, album, recId
   const [volume,       setVolume]       = useState(0.8);
   const [nowTrack,     setNowTrack]     = useState<{ artist: string; name: string } | null>(null);
   const [playPending,  setPlayPending]  = useState(false);
+  const [authError,    setAuthError]    = useState(false);
 
   const playerRef      = useRef<DigSdkPlayer | null>(null);
   const audioRef       = useRef<HTMLAudioElement | null>(null);
@@ -448,9 +449,16 @@ function DigCompactPlayer({ previewUrl, albumUri, trackUri, artist, album, recId
 
     player.addListener("ready", (d) => {
       setDeviceId((d as { device_id: string }).device_id);
+      setAuthError(false);
     });
     player.addListener("authentication_error", (d) => {
       console.error("[rekōdo] Dig Spotify auth error:", d);
+      // Same recovery as the collection player: the access token expired
+      // mid-session, not the refresh token. Bust the cache and reconnect
+      // instead of leaving playback dead.
+      bustDigTokenCache();
+      setAuthError(true);
+      setTimeout(() => player.connect().catch(() => {}), 800);
     });
     player.addListener("account_error", (d) => {
       console.error("[rekōdo] Dig Spotify account error:", d);
@@ -648,10 +656,12 @@ function DigCompactPlayer({ previewUrl, albumUri, trackUri, artist, album, recId
   // Invisible until there's something to play
   if (!useSDK && !previewUrl) return null;
 
-  const eyebrow        = sdkLive ? "Now Playing" : "Preview";
-  const nowPlayingText = sdkLive && nowTrack
-    ? `${nowTrack.artist} — ${nowTrack.name}`
-    : `${artist} — ${album}${!sdkLive ? " (30s)" : ""}`;
+  const eyebrow        = authError ? "Reconnecting" : sdkLive ? "Now Playing" : "Preview";
+  const nowPlayingText = authError
+    ? "Spotify session expired — reconnecting…"
+    : sdkLive && nowTrack
+      ? `${nowTrack.artist} — ${nowTrack.name}`
+      : `${artist} — ${album}${!sdkLive ? " (30s)" : ""}`;
 
   const iconBtn: React.CSSProperties = {
     background: "none", border: "none", cursor: "pointer", padding: "4px",
@@ -674,7 +684,7 @@ function DigCompactPlayer({ previewUrl, albumUri, trackUri, artist, album, recId
       <div style={{ display: "flex", alignItems: "center", gap: "8px", minWidth: 0, flex: "0 1 36%" }}>
         <span style={{
           fontFamily: MONO, fontSize: "8px", letterSpacing: "0.16em",
-          textTransform: "uppercase", color: ORANGE, flexShrink: 0,
+          textTransform: "uppercase", color: authError ? "#aaaaaa" : ORANGE, flexShrink: 0,
         }}>
           {eyebrow}
         </span>

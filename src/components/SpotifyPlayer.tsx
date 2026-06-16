@@ -247,11 +247,19 @@ export default function SpotifyPlayer({
 
     player.addListener("ready", (data) => {
       setDeviceId((data as { device_id: string }).device_id);
+      setPlayError(null);
     });
 
     player.addListener("authentication_error", (data) => {
       console.error("[rekōdo] Spotify auth error:", data);
+      // The access token backing the SDK's connection expired mid-session.
+      // The refresh token is still good — bust the cache so the next
+      // getOAuthToken call is forced to fetch (and server-refresh) a brand
+      // new token, then reconnect. Without this the player died permanently
+      // and told users to reconnect even though nothing was actually wrong.
+      bustSpotifyTokenCache();
       setPlayError(401);
+      setTimeout(() => player.connect().catch(() => {}), 800);
     });
 
     player.addListener("account_error", (data) => {
