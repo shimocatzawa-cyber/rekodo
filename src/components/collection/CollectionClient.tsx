@@ -1954,6 +1954,7 @@ function TracklistPanel({ tracks, loading, bandcamp, record }: {
 
   const [openToOffers, setOpenToOffers] = useState<boolean>(record?.open_to_offers ?? false);
   const [offersLoading, setOffersLoading] = useState(false);
+  const [offersError, setOffersError] = useState<string | null>(null);
 
   // Sync when selected record changes
   useEffect(() => {
@@ -2038,15 +2039,21 @@ function TracklistPanel({ tracks, loading, bandcamp, record }: {
     const next = !openToOffers;
     setOpenToOffers(next);
     setOffersLoading(true);
+    setOffersError(null);
     try {
       const res = await fetch("/api/collection/offers", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ recordId: record.id, open_to_offers: next }),
       });
-      if (!res.ok) setOpenToOffers(!next);
+      if (!res.ok) {
+        setOpenToOffers(!next);
+        const json = await res.json().catch(() => null) as { error?: string } | null;
+        setOffersError(json?.error ?? "Could not save. Please try again.");
+      }
     } catch {
       setOpenToOffers(!next);
+      setOffersError("Network error. Please try again.");
     } finally {
       setOffersLoading(false);
     }
@@ -2116,16 +2123,21 @@ function TracklistPanel({ tracks, loading, bandcamp, record }: {
               style={{
                 fontFamily: MONO, fontSize: "9px", letterSpacing: "0.12em",
                 textTransform: "uppercase",
-                color: offersLoading ? "#aaaaaa" : ORANGE,
-                background: "transparent",
+                color: offersLoading ? "#aaaaaa" : openToOffers ? "#ffffff" : ORANGE,
+                background: openToOffers && !offersLoading ? ORANGE : "transparent",
                 border: `1px solid ${offersLoading ? "#dddddd" : ORANGE}`,
                 padding: "5px 12px", cursor: offersLoading ? "default" : "pointer",
                 display: "inline-block",
               }}
             >
-              {offersLoading ? "Saving…" : "Open to Offers"}
+              {offersLoading ? "Saving…" : openToOffers ? "Open to Offers ✓" : "Open to Offers"}
             </button>
           </div>
+          {offersError && (
+            <p style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.04em", color: "#cc3300", margin: "6px 0 0" }}>
+              {offersError}
+            </p>
+          )}
           {lastPlayed && (
             <p style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.08em", color: "#aaaaaa", margin: "6px 0 0" }}>
               Last played: {formatLastPlayed(lastPlayed)}
