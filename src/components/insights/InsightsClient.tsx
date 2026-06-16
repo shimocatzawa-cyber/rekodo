@@ -355,7 +355,7 @@ export default function InsightsClient({
               showGridLines={false}
               customTooltip={AddedTooltip}
               tickGap={0}
-              className="h-48 rekodo-chart"
+              className="h-48 rekodo-chart rekodo-chart--compact"
             />
           </div>
         )}

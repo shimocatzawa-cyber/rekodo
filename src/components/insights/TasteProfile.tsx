@@ -124,6 +124,17 @@ export default function TasteProfile({ styleBreakdown, hasStyles, spectrum }: Ta
 
   return (
     <>
+      {/* ── Spectrum Dimensions ───────────────────────────────────────────── */}
+      <TasteSectionHeader eyebrow="SPECTRUM DIMENSIONS" title="Where you sit on each axis." badge />
+
+      <div>
+        {axes.map((axis) => (
+          <SpectrumRow key={`${axis.left}-${axis.right}`} {...axis} />
+        ))}
+      </div>
+
+      <div style={{ borderTop: `1px solid ${RULE}`, margin: "40px 0" }} />
+
       {/* ── Style ─────────────────────────────────────────────────────────── */}
       <TasteSectionHeader eyebrow="Style" title="What you reach for." />
 
@@ -149,17 +160,6 @@ export default function TasteProfile({ styleBreakdown, hasStyles, spectrum }: Ta
           ))}
         </div>
       )}
-
-      <div style={{ borderTop: `1px solid ${RULE}`, margin: "40px 0" }} />
-
-      {/* ── Spectrum Dimensions ───────────────────────────────────────────── */}
-      <TasteSectionHeader eyebrow="SPECTRUM DIMENSIONS" title="Where you sit on each axis." badge />
-
-      <div>
-        {axes.map((axis) => (
-          <SpectrumRow key={`${axis.left}-${axis.right}`} {...axis} />
-        ))}
-      </div>
     </>
   );
 }
