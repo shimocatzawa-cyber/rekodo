@@ -21,10 +21,8 @@ For the search URLs, encode "artist album" as the query (URL-encode spaces and s
 
 export async function POST(request: Request) {
   const body = await request.json().catch(() => ({}));
-  const mode: "discover" | "explore" | "hallucinations" =
-    body.mode === "explore" ? "explore" :
-    body.mode === "hallucinations" ? "hallucinations" :
-    "discover";
+  const mode: "discover" | "explore" =
+    body.mode === "explore" ? "explore" : "discover";
 
   // Artists and full recs shown in earlier digs this session — hard-exclude to prevent repetition
   const previousArtists: string[] = Array.isArray(body.previousArtists) ? body.previousArtists : [];
@@ -217,54 +215,6 @@ Rules:
 - Each recommendation must have a reason written in plain English that reveals the aesthetic logic — not genre tags, but the texture, atmosphere, and emotional territory. Write it as if pointing at two records already on their shelf and saying "this is where those two shelves collide." Maximum 2 sentences.
 - The picks should feel genuinely surprising but inevitable in hindsight — the kind of record they will wonder how they missed.
 - Prioritise records obtainable on vinyl (original pressings, reissues, or easily available secondhand).
-
-Return ONLY a valid JSON array with exactly 3 objects. No markdown, no explanation outside the JSON.
-
-Schema:
-${JSON_SCHEMA}`;
-  } else if (mode === "hallucinations") {
-    const ownedArtists = [...new Set(collection.map((r) => r.artist))].sort();
-    const artistsBlock = ownedArtists.length > 0
-      ? `\nOWNED ARTISTS — do not recommend any record by any of these artists:\n${ownedArtists.join(" · ")}\n`
-      : "";
-
-    const prevBlock = previousArtists.length > 0
-      ? `\nALREADY RECOMMENDED THIS SESSION — do not repeat any of these artists:\n${previousArtists.join(" · ")}\n`
-      : "";
-
-    const prevRecsBlockH = previousRecommendations.length > 0
-      ? `\nALREADY RECOMMENDED THIS SESSION (avoid the same genre, region, or sonic territory as these):\n${previousRecommendations.map(r => `- ${r.artist} — ${r.album}`).join("\n")}\n`
-      : "";
-
-    const digDecadeClassicH = pick([
-      "1950s", "1960s", "early 1970s", "late 1970s",
-      "1980s", "early 1990s", "late 1990s", "2000s",
-    ]);
-    const digDecadeModernH = pick(["2010s", "2020s"]);
-
-    prompt = `You are a fearless crate-digging oracle with encyclopaedic knowledge of the entire recorded music universe — mainstream and deeply obscure. Your mission: take this collector somewhere they have never been.
-
-Below is a collector's vinyl collection and their curated Top 5 lists. Study their taste carefully — so you can transcend it.
-
-COLLECTION (${collection.length} records):
-${collectionLines || "(Empty collection)"}
-
-TOP 5 LISTS:
-${listsLines}
-${artistsBlock}${prevBlock}${wantlistBlock}${prevRecsBlockH}
-MODE: HALLUCINATIONS · TAKE THE TRIP — surface 3 records that push into territory this collector has never explored.
-
-Rules:
-- STRONG BIAS toward perception-altering music: acid folk, kosmische, psych rock, free jazz, raga, tropicália, Afrobeat, spiritual jazz, noise, drone, outer limits electronic, ritual music, sacred minimalism, and any tradition where sound itself becomes a technology for shifting consciousness. Dig deep — not the famous touchstones, but the genuinely obscure pressings and lost masterpieces.
-- STRICT: Do not repeat a genre, regional scene, or sonic territory already covered in the ALREADY RECOMMENDED list — every session must map genuinely different territory.
-- STRICT: One pick MUST come from the ${digDecadeModernH} — consciousness-expanding music exists in every era, including today.
-- STRICT: One pick MUST come from the ${digDecadeClassicH} — dig its obscure corners, not the famous touchstones.
-- STRICT: Resist the default toward 1960s–1970s psychedelia and classic Afrobeat — the timeline of perception-altering music runs through today.
-- Each pick should come from a different part of the world or a different musical lineage — three picks from the same region or tradition is a failure.
-- At least one pick must be from a non-Western musical tradition the collector shows no sign of owning.
-- Recommend artists NOT in the OWNED ARTISTS list.
-- Each reason must do two things: (1) describe the sonic and spiritual territory of the record — what it feels like to hear it, the world it opens; (2) acknowledge the leap from their current taste and make it feel like an invitation rather than a challenge. Maximum 2 sentences. Write with conviction.
-- Real albums only. Must be obtainable on vinyl (original pressing or reissue).
 
 Return ONLY a valid JSON array with exactly 3 objects. No markdown, no explanation outside the JSON.
 

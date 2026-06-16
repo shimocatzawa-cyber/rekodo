@@ -219,11 +219,6 @@ function SleeveCard({ rec, mode, onAddToWantlist, wantlistAdded, onPreviewReady 
                 In your collection
               </p>
             )}
-            {mode === "hallucinations" && (
-              <p style={{ fontFamily: MONO, fontSize: "8px", letterSpacing: "0.16em", textTransform: "uppercase", color: "#b30042", margin: 0 }}>
-                ⚡ Way outside your taste
-              </p>
-            )}
           </div>
           <button
             onClick={onAddToWantlist}
@@ -866,9 +861,8 @@ function fmtSessionDate(iso: string): string {
 }
 
 const MODE_LABEL: Record<DigMode, string> = {
-  discover:       "Discover",
-  explore:        "Explore",
-  hallucinations: "Hallucinations",
+  discover: "Discover",
+  explore:  "Explore",
 };
 
 function DigHistoryView({ onAddToWantlist, wantlistAdded }: {
@@ -901,7 +895,7 @@ function DigHistoryView({ onAddToWantlist, wantlistAdded }: {
               {fmtSessionDate(session.date)}
             </span>
             <span style={{ width: "3px", height: "3px", borderRadius: "50%", background: "#d0d0d0", flexShrink: 0 }} />
-            <span style={{ fontFamily: MONO, fontSize: "8px", letterSpacing: "0.12em", textTransform: "uppercase", color: session.mode === "hallucinations" ? "#b30042" : ORANGE }}>
+            <span style={{ fontFamily: MONO, fontSize: "8px", letterSpacing: "0.12em", textTransform: "uppercase", color: ORANGE }}>
               {MODE_LABEL[session.mode]}
             </span>
           </div>
@@ -957,7 +951,7 @@ function DigHistoryView({ onAddToWantlist, wantlistAdded }: {
 
 // ─── Mode toggle ─────────────────────────────────────────────────────────────
 
-type DigMode = "discover" | "explore" | "hallucinations";
+type DigMode = "discover" | "explore";
 type DigTab  = DigMode | "history";
 
 function ModeToggle({ mode, onChange, disabled }: {
@@ -995,10 +989,9 @@ function ModeToggle({ mode, onChange, disabled }: {
 
   return (
     <div className="dig-mode-toggle" style={{ display: "flex", justifyContent: "center", gap: "24px", paddingTop: "14px" }}>
-      {item("discover",      "Discover · Outside Collection")}
-      {item("explore",       "Explore · Inside Collection")}
-      {item("hallucinations","Hallucinations · Take the Trip")}
-      {item("history",       "Dig History · Last 7 Days")}
+      {item("discover", "Outside Collection")}
+      {item("explore",  "Inside Collection")}
+      {item("history",  "Dig History · Last 7 Days")}
     </div>
   );
 }
