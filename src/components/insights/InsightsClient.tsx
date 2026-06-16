@@ -3,6 +3,7 @@
 import { useState, useEffect, type ReactNode } from "react";
 import { AreaChart, BarChart, type CustomTooltipProps } from "@tremor/react";
 import AppNav from "@/components/AppNav";
+import TasteProfile, { type SpectrumData } from "@/components/insights/TasteProfile";
 import type { DesirabilityTier } from "@/lib/desirability";
 
 const SERIF  = "var(--font-editorial)";
@@ -41,6 +42,7 @@ export interface InsightsProps {
   vinylColourBreakdown: { colour: string; count: number; pct: number }[];
   collectionLifespan: { period: string; Added: number }[];
   collectionByMonth: { period: string; Added: number }[];
+  spectrum:           SpectrumData;
 }
 
 // ── Tier metadata ──────────────────────────────────────────────────────────────
@@ -245,7 +247,7 @@ export default function InsightsClient({
   countryBreakdown, topLabels, topArtists, topProducers,
   formatBreakdown, desirabilityBreakdown,
   topFormat, yearRange, mostPopularYear, vinylColourBreakdown,
-  collectionLifespan, collectionByMonth,
+  collectionLifespan, collectionByMonth, spectrum,
 }: InsightsProps) {
 
   const [oneLiner, setOneLiner] = useState<string | null>(null);
@@ -262,7 +264,6 @@ export default function InsightsClient({
   const hasSparkline    = snapshots.length >= 1;
   const maxGenrePct     = genreBreakdown[0]?.pct      ?? 100;
   const maxCountryCount = countryBreakdown[0]?.count  ?? 1;
-  const maxStylePct     = styleBreakdown[0]?.pct      ?? 100;
 
   // Derive stats bar tiles from available data
   const holyGrailCount  = desirabilityBreakdown.find((d) => d.tier === "holy-grail")?.count ?? 0;
@@ -591,16 +592,15 @@ export default function InsightsClient({
 
         <SectionDivider />
 
-        {/* ── Section 3: Genre & Style ──────────────────────────────────────── */}
-        <SectionHeader eyebrow="Genre & Style" title="What you reach for." />
+        {/* ── Section 3: Genre ──────────────────────────────────────────────── */}
+        <SectionHeader eyebrow="Genre" title="What you reach for." />
 
-        <SubLabel>By genre</SubLabel>
         {genreBreakdown.length === 0 ? (
-          <p style={{ fontFamily: MONO, fontSize: "11px", color: INK, margin: "0 0 40px" }}>
+          <p style={{ fontFamily: MONO, fontSize: "11px", color: INK, margin: 0 }}>
             No genre data available.
           </p>
         ) : (
-          <div style={{ display: "flex", flexDirection: "column", gap: "14px", marginBottom: "48px" }}>
+          <div style={{ display: "flex", flexDirection: "column", gap: "14px" }}>
             {genreBreakdown.map(({ genre, count, pct }) => (
               <div key={genre}>
                 <div style={{
@@ -613,30 +613,6 @@ export default function InsightsClient({
                   </span>
                 </div>
                 <PercentBar pct={pct} maxPct={maxGenrePct} />
-              </div>
-            ))}
-          </div>
-        )}
-
-        <SubLabel>By style</SubLabel>
-        {!hasStyles ? (
-          <p style={{ fontFamily: MONO, fontSize: "11px", letterSpacing: "0.04em", color: INK, margin: 0 }}>
-            Style data available after a full resync of your collection.
-          </p>
-        ) : (
-          <div style={{ display: "flex", flexDirection: "column", gap: "14px" }}>
-            {styleBreakdown.map(({ style, count, pct }) => (
-              <div key={style}>
-                <div style={{
-                  display: "flex", justifyContent: "space-between",
-                  alignItems: "baseline", marginBottom: "6px",
-                }}>
-                  <span style={{ fontFamily: MONO, fontSize: "11px", color: INK }}>{style}</span>
-                  <span style={{ fontFamily: MONO, fontSize: "11px", color: INK }}>
-                    {count} items · <span style={{ color: ORANGE }}>{pct}%</span>
-                  </span>
-                </div>
-                <PercentBar pct={pct} maxPct={maxStylePct} />
               </div>
             ))}
           </div>
@@ -851,7 +827,9 @@ export default function InsightsClient({
       )}
 
       {insightsTab === "taste-profile" && (
-        <main style={{ padding: "48px 32px 80px", maxWidth: "960px", margin: "0 auto" }} />
+        <main style={{ padding: "48px 32px 80px", maxWidth: "960px", margin: "0 auto" }}>
+          <TasteProfile styleBreakdown={styleBreakdown} hasStyles={hasStyles} spectrum={spectrum} />
+        </main>
       )}
     </div>
   );

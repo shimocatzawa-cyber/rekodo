@@ -522,6 +522,107 @@ export default async function InsightsPage() {
     return [...yCounts.entries()].sort((a, b) => b[1] - a[1])[0][0];
   })();
 
+  // ── Spectrum Dimensions (Taste Profile) ────────────────────────────────────
+
+  // 1. Ambient ↔ Abrasive — % of style (or, lacking style data, genre) entries
+  // that read as punk/metal/noise. Position is the pct itself (high → right).
+  const ABRASIVE_RE = /punk|metal|noise/i;
+  let abrasivePosition: number | null = null;
+  if (hasStyles && totalStyleEntries > 0) {
+    let abrasiveCount = 0;
+    for (const [style, count] of styleCounts) if (ABRASIVE_RE.test(style)) abrasiveCount += count;
+    abrasivePosition = Math.round((abrasiveCount / totalStyleEntries) * 100);
+  } else if (totalRecords > 0) {
+    let abrasiveCount = 0;
+    for (const [genre, { count }] of genreCounts) if (ABRASIVE_RE.test(genre)) abrasiveCount += count;
+    abrasivePosition = Math.round((abrasiveCount / totalRecords) * 100);
+  }
+
+  // 2. Canon ↔ Obscure — average Discogs have/want ratio, normalised so a high
+  // ratio (commonly owned, canon) sits left and a low ratio (obscure) sits right.
+  const rarityRatios: number[] = [];
+  for (const link of allLinks) {
+    const rec = recordsMap.get(link.record_id);
+    if (rec?.community_have != null && rec.community_want != null && rec.community_want > 0) {
+      rarityRatios.push(rec.community_have / rec.community_want);
+    }
+  }
+  let rarityPosition: number | null = null;
+  if (rarityRatios.length > 0) {
+    const avgRatio   = rarityRatios.reduce((a, b) => a + b, 0) / rarityRatios.length;
+    const normalised = Math.min(avgRatio, 8) / 8 * 100;
+    rarityPosition = Math.round(100 - normalised);
+  }
+
+  // 3. Nostalgic ↔ Contemporary — % of collection pressed pre-1980. High
+  // pre-1980 share sits left (nostalgic), so the position inverts the pct.
+  const recordYears = allLinks
+    .map((l) => recordsMap.get(l.record_id)?.year)
+    .filter((y): y is number => y != null && y > 0);
+  let nostalgicPosition: number | null = null;
+  if (recordYears.length > 0) {
+    const pre1980Pct = (recordYears.filter((y) => y < 1980).length / recordYears.length) * 100;
+    nostalgicPosition = Math.round(100 - pre1980Pct);
+  }
+
+  // 4. Broad ↔ Completist — % of distinct artists with 3+ records owned.
+  let completistPosition: number | null = null;
+  if (artistCounts.size > 0) {
+    const completistArtists = [...artistCounts.values()].filter((v) => v.count >= 3).length;
+    completistPosition = Math.round((completistArtists / artistCounts.size) * 100);
+  }
+
+  // 5. Western ↔ Non-western — % of collection pressed in a non-Western country.
+  const NON_WESTERN_COUNTRIES = ["Japan", "JP", "Korea", "Brazil", "Nigeria", "South Africa", "India", "Argentina", "Colombia"];
+  let nonWesternPosition: number | null = null;
+  if (countryTotal > 0) {
+    let nonWesternCount = 0;
+    for (const [country, { count }] of countryCounts) {
+      if (NON_WESTERN_COUNTRIES.some((nw) => country.toLowerCase().includes(nw.toLowerCase()))) {
+        nonWesternCount += count;
+      }
+    }
+    nonWesternPosition = Math.round((nonWesternCount / countryTotal) * 100);
+  }
+
+  // 6. Accumulator ↔ Curator — public, non-wantlist lists per 10% of collection.
+  const { count: curationListCountRaw } = await supabase
+    .from("lists")
+    .select("*", { count: "exact", head: true })
+    .eq("user_id", user.id)
+    .neq("slug", "wantlist");
+  const curationListCount = curationListCountRaw ?? 0;
+  const curatorPosition = totalRecords > 0
+    ? Math.min(100, Math.round(((curationListCount * 10) / totalRecords) * 100))
+    : null;
+
+  // 7. Vinyl pure ↔ Format agnostic — vinyl share of (vinyl + digital imports).
+  const VINYL_FORMATS = new Set(["LP", "VINYL", "7\"", "10\"", "12\"", "EP"]);
+  let vinylCount = 0;
+  for (const link of allLinks) {
+    const fmt = recordsMap.get(link.record_id)?.format?.toUpperCase().trim();
+    if (!fmt || VINYL_FORMATS.has(fmt)) vinylCount++;
+  }
+  const { count: digitalImportsCountRaw } = await supabase
+    .from("digital_imports")
+    .select("*", { count: "exact", head: true })
+    .eq("user_id", user.id)
+    .eq("is_duplicate", false);
+  const digitalImportsCount = digitalImportsCountRaw ?? 0;
+  const formatAgnosticPosition = (vinylCount + digitalImportsCount) > 0
+    ? Math.round(100 - (vinylCount / (vinylCount + digitalImportsCount)) * 100)
+    : null;
+
+  const spectrum: InsightsProps["spectrum"] = {
+    abrasivePosition,
+    rarityPosition,
+    nostalgicPosition,
+    completistPosition,
+    nonWesternPosition,
+    curatorPosition,
+    formatAgnosticPosition,
+  };
+
   return (
     <InsightsClient
       username={username}
@@ -551,6 +652,7 @@ export default async function InsightsPage() {
       vinylColourBreakdown={vinylColourBreakdown}
       collectionLifespan={collectionLifespan}
       collectionByMonth={collectionByMonth}
+      spectrum={spectrum}
     />
   );
 }
