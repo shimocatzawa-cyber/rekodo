@@ -40,7 +40,6 @@ export interface InsightsProps {
   yearRange:       { oldest: number; newest: number } | null;
   mostPopularYear: number | null;
   vinylColourBreakdown: { colour: string; count: number; pct: number }[];
-  pressingAttributeBreakdown: { attribute: string; count: number; pct: number }[];
 }
 
 // ── Tier metadata ──────────────────────────────────────────────────────────────
@@ -227,7 +226,6 @@ export default function InsightsClient({
   countryBreakdown, topLabels, topArtists, topProducers,
   formatBreakdown, desirabilityBreakdown,
   topFormat, yearRange, mostPopularYear, vinylColourBreakdown,
-  pressingAttributeBreakdown,
 }: InsightsProps) {
 
   const [oneLiner, setOneLiner] = useState<string | null>(null);
@@ -741,7 +739,7 @@ export default function InsightsClient({
             Colour data will appear here after your next Discogs sync.
           </p>
         ) : (
-          <div style={{ marginBottom: "40px" }}>
+          <div>
             <SubLabel>Top 10 Colours</SubLabel>
             <div style={{ borderTop: `0.5px solid ${RULE}` }}>
               <div style={{
@@ -783,46 +781,6 @@ export default function InsightsClient({
                   </div>
                 );
               })}
-            </div>
-          </div>
-        )}
-
-        {/* Pressing attributes — non-colour descriptors found in the same field
-            (e.g. "Remastered", "180g") */}
-        {pressingAttributeBreakdown.length > 0 && (
-          <div>
-            <SubLabel>Top 10 Pressing Attributes</SubLabel>
-            <div style={{ borderTop: `0.5px solid ${RULE}` }}>
-              <div style={{
-                display: "grid", gridTemplateColumns: "1fr 80px 100px",
-                gap: "16px", padding: "10px 0", borderBottom: `0.5px solid ${RULE}`,
-              }}>
-                {["Attribute", "Items", "Share"].map((h) => (
-                  <span key={h} style={{
-                    fontFamily: MONO, fontSize: "9px", fontWeight: 700,
-                    letterSpacing: "0.12em", textTransform: "uppercase", color: INK,
-                  }}>
-                    {h}
-                  </span>
-                ))}
-              </div>
-              {pressingAttributeBreakdown.map(({ attribute, count, pct }) => (
-                <div key={attribute} style={{
-                  display: "grid", gridTemplateColumns: "1fr 80px 100px",
-                  gap: "16px", padding: "12px 0", borderBottom: `0.5px solid ${RULE}`,
-                  alignItems: "center",
-                }}>
-                  <span style={{ fontFamily: MONO, fontSize: "11px", letterSpacing: "0.04em", color: INK }}>
-                    {attribute}
-                  </span>
-                  <span style={{ fontFamily: MONO, fontSize: "11px", color: INK }}>
-                    {count}
-                  </span>
-                  <span style={{ fontFamily: MONO, fontSize: "11px", color: ORANGE }}>
-                    {pct}%
-                  </span>
-                </div>
-              ))}
             </div>
           </div>
         )}
