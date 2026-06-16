@@ -36,13 +36,12 @@ export function bustSpotifyTokenCache() {
   _spotifyTokenExpiry = 0;
 }
 
-// Send a play command. Fetches a fresh token each attempt so an expiry mid-session
-// never silently kills playback. Busts the cache and retries on 401. Retries on 404.
-async function sendSpotifyPlay(deviceId: string, body: object): Promise<void> {
+// Returns null on success, error status code on failure.
+async function sendSpotifyPlay(deviceId: string, body: object): Promise<number | null> {
   const url = `https://api.spotify.com/v1/me/player/play?device_id=${deviceId}`;
   for (let attempt = 0; attempt < 3; attempt++) {
     const token = await getFreshSpotifyToken();
-    if (!token) return;
+    if (!token) return -1;
     let res: Response | null = null;
     try {
       res = await fetch(url, {
@@ -50,10 +49,9 @@ async function sendSpotifyPlay(deviceId: string, body: object): Promise<void> {
         headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
         body:    JSON.stringify(body),
       });
-    } catch { return; }
-    if (res.status === 204 || res.ok) return;
+    } catch { return 0; }
+    if (res.status === 204 || res.ok) return null;
     if (res.status === 401) {
-      // Token was rejected — bust the cache so the next attempt forces a refresh
       bustSpotifyTokenCache();
       continue;
     }
@@ -61,8 +59,9 @@ async function sendSpotifyPlay(deviceId: string, body: object): Promise<void> {
       await new Promise(r => setTimeout(r, 600 + attempt * 500));
       continue;
     }
-    return;
+    return res.status;
   }
+  return -1;
 }
 
 // ─── SDK singleton ────────────────────────────────────────────────────────────
@@ -199,6 +198,7 @@ export default function SpotifyPlayer({
   const [volume,       setVolume]       = useState(0.8);
   const [sdkReady,     setSdkReady]     = useState(false);
   const [currentTrack, setCurrentTrack] = useState<{ artist: string; name: string } | null>(null);
+  const [playError,    setPlayError]    = useState<number | null>(null);
 
   const playerRef = useRef<SpotifySDKPlayer | null>(null);
   const audioRef  = useRef<HTMLAudioElement | null>(null);
@@ -300,6 +300,7 @@ export default function SpotifyPlayer({
     setCurrentTrack(null);
     setPosition(0);
     setPlaying(false);
+    setPlayError(null);
   }, [spotifyUri]);
 
   // ── Keep SDK alive across tab switches ────────────────────────────────────
@@ -375,7 +376,9 @@ export default function SpotifyPlayer({
             ? { uris: [spotifyTrackUri] }
             : null;
         if (!body) return;
-        await sendSpotifyPlay(deviceId, body);
+        setPlayError(null);
+        const err = await sendSpotifyPlay(deviceId, body);
+        if (err !== null) setPlayError(err);
       }
     } else if (audioRef.current) {
       if (playing) audioRef.current.pause();
@@ -443,6 +446,14 @@ export default function SpotifyPlayer({
 
   const sourceLabel = useSDK ? "Streaming via" : "30s preview via";
 
+  const errorLabel = playError === null ? null
+    : playError === 403 ? "Spotify: Premium required or not available in your region (403)"
+    : playError === 401 ? "Spotify: Auth failed — try reconnecting Spotify in Settings (401)"
+    : playError === 429 ? "Spotify: Rate limited — wait a moment and try again (429)"
+    : playError ===   0 ? "Network error — check your connection"
+    : playError ===  -1 ? "Could not get Spotify token — try reconnecting in Settings"
+    : `Spotify error ${playError}`;
+
   return (
     <div style={{ borderBottom: `1px solid ${RULE}` }}>
 
@@ -467,6 +478,31 @@ export default function SpotifyPlayer({
           </span>
         )}
       </div>
+
+      {/* ── Error / reconnect strip ── */}
+      {(errorLabel || sdkConnecting) && (
+        <div style={{
+          padding: "6px 12px", background: "#fff8f5",
+          borderBottom: `1px solid ${RULE}`,
+          display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8,
+        }}>
+          <span style={{ fontFamily: MONO, fontSize: "0.48rem", color: "#cc3300", letterSpacing: "0.04em" }}>
+            {errorLabel ?? "Connecting to Spotify…"}
+          </span>
+          {sdkConnecting && playerRef.current && (
+            <button
+              onClick={() => playerRef.current?.connect().catch(() => {})}
+              style={{
+                fontFamily: MONO, fontSize: "0.48rem", letterSpacing: "0.08em",
+                textTransform: "uppercase", background: "none", border: `1px solid ${RULE}`,
+                padding: "3px 8px", cursor: "pointer", color: INK, flexShrink: 0,
+              }}
+            >
+              Reconnect
+            </button>
+          )}
+        </div>
+      )}
 
       {/* ── Controls + vertical volume ── */}
       <div style={{ padding: "0.75rem 0.9rem", display: "flex", alignItems: "center" }}>
