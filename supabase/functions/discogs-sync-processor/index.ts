@@ -559,18 +559,11 @@ async function processSync(supabase: SB, jobId: string, userId: string) {
             collection_value_currency: valCurr,
           })
           .eq("id", userId);
-
-        if (valMed != null) {
-          await supabase.from("collection_value_snapshots").insert({
-            user_id:      userId,
-            snapshot_at:  syncedAt,
-            value_low:    valLow,
-            value_med:    valMed,
-            value_high:   valHigh,
-            currency:     valCurr,
-            record_count: savedRecordIds.length,
-          });
-        }
+        // Snapshotting for the Insights "median value over time" chart now
+        // happens in the Insights page itself (one per day, using whichever
+        // of these profile values or the user_records fallback it actually
+        // displays) — not here, since this call has no daily dedup and would
+        // insert a fresh row on every sync.
       }
     } catch { /* non-fatal — sync still completes */ }
 

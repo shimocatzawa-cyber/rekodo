@@ -130,14 +130,14 @@ export default async function InsightsPage() {
     .eq("user_id", user.id)
     .order("snapshot_at", { ascending: true });
 
-  const snapshots: InsightsProps["snapshots"] = (snapshotsRaw ?? []).map((s) => {
+  const toSnapshotPoint = (s: { snapshot_at: string; value_med: number | null; currency: string | null }) => {
     const raw = s.value_med ?? 0;
     const converted = raw > 0 ? (convertPrice(raw, s.currency) ?? raw) : 0;
     return {
       date: new Date(s.snapshot_at).toLocaleDateString("en-AU", { month: "short", day: "numeric" }),
       "Total Value": Math.round(converted),
     };
-  });
+  };
 
   // ── Collection value totals ────────────────────────────────────────────────
   // Prefer official Discogs values (stored in profiles after each sync).
@@ -167,6 +167,41 @@ export default async function InsightsPage() {
     totalMed  = aggMed;
     totalHigh = 0;
   }
+
+  // ── Record today's snapshot ─────────────────────────────────────────────────
+  // The Edge Function used to write snapshots straight from Discogs'
+  // collection/value response, but that call has never once succeeded — the
+  // table is empty for every user. Snapshot the same totalLow/totalMed/totalHigh
+  // figures shown above instead, since they already encode the right fallback
+  // (profile values when synced, otherwise the user_records aggregate). One
+  // snapshot per calendar day — skip if today's has already been recorded.
+  const todayKey = new Date().toISOString().slice(0, 10);
+  const lastSnapshotKey = snapshotsRaw?.length
+    ? new Date(snapshotsRaw[snapshotsRaw.length - 1].snapshot_at).toISOString().slice(0, 10)
+    : null;
+
+  let latestSnapshotRow: { snapshot_at: string; value_med: number | null; currency: string | null } | null = null;
+  if (totalMed > 0 && lastSnapshotKey !== todayKey) {
+    const { data: inserted } = await supabase
+      .from("collection_value_snapshots")
+      .insert({
+        user_id:      user.id,
+        snapshot_at:  new Date().toISOString(),
+        value_low:    totalLow,
+        value_med:    totalMed,
+        value_high:   totalHigh,
+        currency:     userCurrency,
+        record_count: allLinks.length,
+      })
+      .select("snapshot_at, value_med, currency")
+      .single();
+    latestSnapshotRow = inserted ?? null;
+  }
+
+  const snapshots: InsightsProps["snapshots"] = [
+    ...(snapshotsRaw ?? []).map(toSnapshotPoint),
+    ...(latestSnapshotRow ? [toSnapshotPoint(latestSnapshotRow)] : []),
+  ];
 
   // ── Top 5 records by price_median ─────────────────────────────────────────
   const topRecordsByValue: InsightsProps["topRecordsByValue"] = allLinks

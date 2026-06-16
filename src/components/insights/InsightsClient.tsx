@@ -241,7 +241,7 @@ export default function InsightsClient({
       .catch(() => {});
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const hasSparkline    = snapshots.length >= 2;
+  const hasSparkline    = snapshots.length >= 1;
   const maxGenrePct     = genreBreakdown[0]?.pct      ?? 100;
   const maxCountryCount = countryBreakdown[0]?.count  ?? 1;
   const maxStylePct     = styleBreakdown[0]?.pct      ?? 100;
