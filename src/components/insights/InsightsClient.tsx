@@ -1,10 +1,9 @@
 "use client";
 
 import { useState, useEffect, type ReactNode } from "react";
-import { AreaChart } from "@tremor/react";
+import { AreaChart, BarChart } from "@tremor/react";
 import AppNav from "@/components/AppNav";
 import type { DesirabilityTier } from "@/lib/desirability";
-import TasteProfile from "@/components/insights/TasteProfile";
 
 const SERIF  = "var(--font-editorial)";
 const MONO   = "var(--font-mono)";
@@ -40,6 +39,7 @@ export interface InsightsProps {
   yearRange:       { oldest: number; newest: number } | null;
   mostPopularYear: number | null;
   vinylColourBreakdown: { colour: string; count: number; pct: number }[];
+  collectionLifespan: { period: string; Added: number }[];
 }
 
 // ── Tier metadata ──────────────────────────────────────────────────────────────
@@ -226,6 +226,7 @@ export default function InsightsClient({
   countryBreakdown, topLabels, topArtists, topProducers,
   formatBreakdown, desirabilityBreakdown,
   topFormat, yearRange, mostPopularYear, vinylColourBreakdown,
+  collectionLifespan,
 }: InsightsProps) {
 
   const [oneLiner, setOneLiner] = useState<string | null>(null);
@@ -314,6 +315,29 @@ export default function InsightsClient({
             </p>
           </div>
         )}
+
+        {/* ── Section 0: Collection Lifespan ─────────────────────────────────── */}
+        <SectionHeader eyebrow="Collection Lifespan" title="When you added to it." />
+
+        {collectionLifespan.length === 0 ? (
+          <p style={{ fontFamily: MONO, fontSize: "11px", letterSpacing: "0.04em", color: INK, margin: 0 }}>
+            Lifespan data will appear here after your next Discogs sync.
+          </p>
+        ) : (
+          <div style={{ marginBottom: "40px" }}>
+            <BarChart
+              data={collectionLifespan}
+              index="period"
+              categories={["Added"]}
+              colors={["orange"]}
+              showLegend={false}
+              showGridLines={false}
+              className="h-48"
+            />
+          </div>
+        )}
+
+        <SectionDivider />
 
         {/* ── Section 1: Collection Value ──────────────────────────────────── */}
         <SectionHeader eyebrow="Collection Value" title="What it's worth." />
@@ -789,9 +813,7 @@ export default function InsightsClient({
       )}
 
       {insightsTab === "taste-profile" && (
-        <main style={{ padding: "48px 32px 80px", maxWidth: "960px", margin: "0 auto" }}>
-          <TasteProfile />
-        </main>
+        <main style={{ padding: "48px 32px 80px", maxWidth: "960px", margin: "0 auto" }} />
       )}
     </div>
   );

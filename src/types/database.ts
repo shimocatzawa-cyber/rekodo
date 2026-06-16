@@ -109,6 +109,7 @@ export type Database = {
           sleeve_condition: string | null;
           open_to_offers:    boolean;
           open_to_offers_at: string | null;
+          date_added:        string | null;
         };
         Insert: {
           id?: string;
@@ -127,6 +128,7 @@ export type Database = {
           sleeve_condition?: string | null;
           open_to_offers?:    boolean;
           open_to_offers_at?: string | null;
+          date_added?:        string | null;
         };
         Update: {
           value?: number | null;
@@ -141,6 +143,7 @@ export type Database = {
           sleeve_condition?: string | null;
           open_to_offers?:    boolean;
           open_to_offers_at?: string | null;
+          date_added?:        string | null;
         };
         Relationships: [];
       };

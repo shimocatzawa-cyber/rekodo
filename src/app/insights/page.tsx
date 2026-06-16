@@ -85,13 +85,14 @@ export default async function InsightsPage() {
     price_currency:   string | null;
     media_condition:  string | null;
     sleeve_condition: string | null;
+    date_added:       string | null;
   };
   const allLinks: LinkRow[] = [];
   const PAGE = 1000;
   for (let from = 0; ; from += PAGE) {
     const { data, error } = await supabase
       .from("user_records")
-      .select("record_id, price_low, price_median, price_high, price_currency, media_condition, sleeve_condition")
+      .select("record_id, price_low, price_median, price_high, price_currency, media_condition, sleeve_condition, date_added")
       .eq("user_id", user.id)
       .range(from, from + PAGE - 1);
     if (error || !data || data.length === 0) break;
@@ -251,6 +252,43 @@ export default async function InsightsPage() {
   }
   const mediaConditionBreakdown  = buildConditionBreakdown(mediaCounts);
   const sleeveConditionBreakdown = buildConditionBreakdown(sleeveCounts);
+
+  // ── Collection lifespan (date added) ────────────────────────────────────────
+  // Bucket by calendar month when the collection spans a few years (so the
+  // monthly bar count stays readable); fall back to yearly buckets once the
+  // span gets too wide for monthly bars to be legible.
+  const MONTH_NAMES = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+  const addedDates = allLinks
+    .map((l) => l.date_added)
+    .filter((d): d is string => !!d)
+    .map((d) => new Date(d))
+    .filter((d) => !isNaN(d.getTime()));
+
+  const addedYears     = addedDates.map((d) => d.getFullYear());
+  const lifespanByYear = addedYears.length > 0
+    ? Math.max(...addedYears) - Math.min(...addedYears) + 1 > 3
+    : false;
+
+  const lifespanCounts = new Map<string, number>();
+  for (const d of addedDates) {
+    const key = lifespanByYear
+      ? String(d.getFullYear())
+      : `${MONTH_NAMES[d.getMonth()]} ${d.getFullYear()}`;
+    lifespanCounts.set(key, (lifespanCounts.get(key) ?? 0) + 1);
+  }
+  const collectionLifespan = [...lifespanCounts.entries()]
+    .map(([period, count]) => ({
+      period,
+      count,
+      sortKey: lifespanByYear
+        ? Number(period)
+        : (() => {
+            const [mon, yr] = period.split(" ");
+            return Number(yr) * 12 + MONTH_NAMES.indexOf(mon);
+          })(),
+    }))
+    .sort((a, b) => a.sortKey - b.sortKey)
+    .map(({ period, count }) => ({ period, Added: count }));
 
   // ── Genre analysis ─────────────────────────────────────────────────────────
   const genreCounts = new Map<string, { count: number; valueSum: number }>();
@@ -494,6 +532,7 @@ export default async function InsightsPage() {
       yearRange={yearRange}
       mostPopularYear={mostPopularYear}
       vinylColourBreakdown={vinylColourBreakdown}
+      collectionLifespan={collectionLifespan}
     />
   );
 }
