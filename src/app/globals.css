@@ -55,6 +55,17 @@ h1, h2, h3, h4, h5, h6 {
   }
 }
 
+/* Insights bar charts — use the site's mono font for axis/tooltip text,
+   and shrink it on the rolling 12-month chart so all 12 month labels fit
+   without recharts skipping any for space. */
+.rekodo-chart .recharts-text {
+  font-family: var(--font-mono);
+}
+
+.rekodo-chart--compact .recharts-text {
+  font-size: 9px;
+}
+
 /* Community tab two-column layout */
 .community-layout {
   display: grid;

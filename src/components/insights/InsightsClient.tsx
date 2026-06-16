@@ -344,6 +344,7 @@ export default function InsightsClient({
           </p>
         ) : (
           <div style={{ marginBottom: "40px" }}>
+            <SubLabel>Collection by year</SubLabel>
             <BarChart
               data={collectionLifespan}
               index="period"
@@ -352,7 +353,8 @@ export default function InsightsClient({
               showLegend={false}
               showGridLines={false}
               customTooltip={AddedTooltip}
-              className="h-48"
+              tickGap={0}
+              className="h-48 rekodo-chart"
             />
           </div>
         )}
@@ -368,7 +370,8 @@ export default function InsightsClient({
             showLegend={false}
             showGridLines={false}
             customTooltip={AddedTooltip}
-            className="h-48"
+            tickGap={0}
+            className="h-48 rekodo-chart rekodo-chart--compact"
           />
         </div>
 
