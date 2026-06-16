@@ -1,131 +1,19 @@
 "use client";
 
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useEffect } from "react";
+import {
+  useSpotifyPlayback,
+  getFreshSpotifyToken,
+  bustSpotifyTokenCache,
+} from "@/components/SpotifyPlayerProvider";
+
+export { getFreshSpotifyToken, bustSpotifyTokenCache };
 
 const MONO          = "var(--font-mono)";
 const ORANGE        = "#CC5500";
 const RULE          = "#e0e0da";
 const INK           = "#0a0a0a";
 const SPOTIFY_GREEN = "#1DB954";
-
-// ─── Fresh token helper ───────────────────────────────────────────────────────
-// Module-level cache: avoids a round-trip on every button click while ensuring
-// we never hand a stale token to the Spotify API.
-// The server already refreshes automatically when the token is within 60s of
-// expiry, so caching for 50 minutes is always safe.
-let _spotifyToken: string | null = null;
-let _spotifyTokenExpiry           = 0;
-
-export async function getFreshSpotifyToken(): Promise<string | null> {
-  if (_spotifyToken && Date.now() < _spotifyTokenExpiry) return _spotifyToken;
-  try {
-    const res  = await fetch("/api/spotify/token");
-    const data = await res.json() as { connected: boolean; access_token?: string; expires_at?: number };
-    _spotifyToken = data.access_token ?? null;
-    _spotifyTokenExpiry = data.expires_at
-      ? data.expires_at - 60_000
-      : Date.now() + 50 * 60 * 1000;
-    return _spotifyToken;
-  } catch {
-    return null;
-  }
-}
-
-export function bustSpotifyTokenCache() {
-  _spotifyToken       = null;
-  _spotifyTokenExpiry = 0;
-}
-
-// Proxies through our server so the Spotify token never touches the browser.
-// Returns null on success, error status code on failure.
-async function sendSpotifyPlay(deviceId: string, body: object): Promise<number | null> {
-  try {
-    const res = await fetch("/api/spotify/play", {
-      method:  "POST",
-      headers: { "Content-Type": "application/json" },
-      body:    JSON.stringify({ deviceId, body }),
-    });
-    if (res.ok) return null;
-    const data = await res.json() as { spotifyStatus?: number };
-    return data.spotifyStatus ?? res.status;
-  } catch {
-    return 0;
-  }
-}
-
-// ─── SDK singleton ────────────────────────────────────────────────────────────
-
-let _sdkLoaded = false;
-const _sdkCallbacks: Array<() => void> = [];
-
-function ensureSDK(onReady: () => void) {
-  if (_sdkLoaded) { onReady(); return; }
-  _sdkCallbacks.push(onReady);
-  if (typeof window === "undefined") return;
-  // The SDK script may have been injected by DigCompactPlayer on a previous
-  // page — in that case window.Spotify already exists but _sdkLoaded is false.
-  if (window.Spotify) {
-    _sdkLoaded = true;
-    _sdkCallbacks.splice(0).forEach(cb => cb());
-    return;
-  }
-  if (!document.querySelector('script[src="https://sdk.scdn.co/spotify-player.js"]')) {
-    window.onSpotifyWebPlaybackSDKReady = () => {
-      _sdkLoaded = true;
-      _sdkCallbacks.splice(0).forEach(cb => cb());
-    };
-    const s = document.createElement("script");
-    s.src   = "https://sdk.scdn.co/spotify-player.js";
-    document.body.appendChild(s);
-  }
-}
-
-// ─── Types ────────────────────────────────────────────────────────────────────
-
-declare global {
-  interface Window {
-    onSpotifyWebPlaybackSDKReady: () => void;
-    Spotify: {
-      Player: new (opts: {
-        name: string;
-        getOAuthToken: (cb: (token: string) => void) => void;
-        volume: number;
-      }) => SpotifySDKPlayer;
-    };
-  }
-}
-
-interface SpotifySDKPlayer {
-  connect(): Promise<boolean>;
-  disconnect(): void;
-  addListener(event: string, cb: (data: unknown) => void): boolean;
-  togglePlay(): Promise<void>;
-  previousTrack(): Promise<void>;
-  nextTrack(): Promise<void>;
-  setVolume(v: number): Promise<void>;
-  getCurrentState(): Promise<SpotifyPlaybackState | null>;
-  // Resumes the internal AudioContext — must be called within a user gesture.
-  activateElement(): void;
-}
-
-interface SpotifyPlaybackState {
-  paused:       boolean;
-  position:     number;
-  duration:     number;
-  track_window: {
-    current_track: {
-      name:    string;
-      artists: Array<{ name: string }>;
-    };
-  };
-}
-
-// access_token is intentionally excluded — never stored in React state to
-// prevent stale closures. All callers use getFreshSpotifyToken() instead.
-interface TokenData {
-  connected: boolean;
-  product?:  string;
-}
 
 // ─── SVG icons ────────────────────────────────────────────────────────────────
 
@@ -177,261 +65,23 @@ interface SpotifyPlayerProps {
 }
 
 // ─── Component ────────────────────────────────────────────────────────────────
+// Presentational only — the actual SDK player/connection lives in
+// SpotifyPlayerProvider (mounted at the root layout) so playback survives
+// navigating away from this page. This component just tells the provider
+// which album/track is currently selected and renders its state.
 
 export default function SpotifyPlayer({
   mode, spotifyUri, previewUrl, spotifyTrackUri, artist, albumTitle,
 }: SpotifyPlayerProps) {
-  const [tokenData,    setTokenData]    = useState<TokenData | null>(null);
-  const [deviceId,     setDeviceId]     = useState<string | null>(null);
-  const [playing,      setPlaying]      = useState(false);
-  const [position,     setPosition]     = useState(0);
-  const [duration,     setDuration]     = useState(0);
-  const [volume,       setVolume]       = useState(0.8);
-  const [sdkReady,     setSdkReady]     = useState(false);
-  const [currentTrack, setCurrentTrack] = useState<{ artist: string; name: string } | null>(null);
-  const [playError,    setPlayError]    = useState<number | null>(null);
+  const {
+    tokenData, deviceId, playing, position, duration, volume, currentTrack, playError,
+    useSDK, usePreview, setActiveSource, handlePlayPause, handleSeek, handleVolume,
+    previousTrack, nextTrack, reconnect,
+  } = useSpotifyPlayback();
 
-  const playerRef = useRef<SpotifySDKPlayer | null>(null);
-  const audioRef  = useRef<HTMLAudioElement | null>(null);
-  const pollRef   = useRef<ReturnType<typeof setInterval> | null>(null);
-
-  const isPremium  = !!(tokenData?.connected && tokenData.product === "premium");
-  const useSDK     = isPremium && (mode === "collection" ? !!spotifyUri : !!spotifyTrackUri);
-  const usePreview = !useSDK && !!previewUrl;
-
-  // ── Determine Premium status on mount ────────────────────────────────────
-  // Only stores connected + product — no access_token in state.
-  // The token itself lives in the module-level cache (getFreshSpotifyToken).
   useEffect(() => {
-    fetch("/api/spotify/token")
-      .then(r => r.json() as Promise<{ connected: boolean; access_token?: string; product?: string; expires_at?: number }>)
-      .then(data => {
-        // Seed the module-level cache using the real server-side expiry
-        if (data.access_token) {
-          _spotifyToken       = data.access_token;
-          _spotifyTokenExpiry = data.expires_at
-            ? data.expires_at - 60_000
-            : Date.now() + 50 * 60 * 1000;
-        }
-        setTokenData({ connected: data.connected, product: data.product });
-      })
-      .catch(() => setTokenData({ connected: false }));
-  }, []);
-
-  // ── Load SDK when Premium ──────────────────────────────────────────────────
-  useEffect(() => {
-    if (!isPremium) return;
-    if (_sdkLoaded) { setSdkReady(true); return; }
-    ensureSDK(() => setSdkReady(true));
-  }, [isPremium]);
-
-  // ── Initialize SDK player ─────────────────────────────────────────────────
-  useEffect(() => {
-    if (!sdkReady || !isPremium || playerRef.current) return;
-
-    const player = new window.Spotify.Player({
-      name: "rekōdo",
-      // SDK calls this whenever it needs a token. Retry up to 3 times so a
-      // transient network hiccup doesn't permanently break the player.
-      getOAuthToken: async (cb) => {
-        for (let i = 0; i < 3; i++) {
-          const token = await getFreshSpotifyToken();
-          if (token) { cb(token); return; }
-          bustSpotifyTokenCache();
-          await new Promise(r => setTimeout(r, 500));
-        }
-        cb("");
-      },
-      volume: 0.8,
-    });
-
-    player.addListener("ready", (data) => {
-      setDeviceId((data as { device_id: string }).device_id);
-      setPlayError(null);
-    });
-
-    player.addListener("authentication_error", (data) => {
-      console.error("[rekōdo] Spotify auth error:", data);
-      // The access token backing the SDK's connection expired mid-session.
-      // The refresh token is still good — bust the cache so the next
-      // getOAuthToken call is forced to fetch (and server-refresh) a brand
-      // new token, then reconnect. Without this the player died permanently
-      // and told users to reconnect even though nothing was actually wrong.
-      bustSpotifyTokenCache();
-      setPlayError(401);
-      setTimeout(() => player.connect().catch(() => {}), 800);
-    });
-
-    player.addListener("account_error", (data) => {
-      console.error("[rekōdo] Spotify account error:", data);
-      setPlayError(403);
-    });
-
-    player.addListener("playback_error", (data) => {
-      console.error("[rekōdo] Spotify playback error:", data);
-    });
-
-    player.addListener("player_state_changed", (state) => {
-      if (!state) return;
-      const s = state as SpotifyPlaybackState;
-      setPlaying(!s.paused);
-      setPosition(s.position);
-      setDuration(s.duration);
-      const t = s.track_window?.current_track;
-      if (t) setCurrentTrack({
-        artist: t.artists?.[0]?.name ?? "",
-        name:   t.name ?? "",
-      });
-    });
-
-    // Clear the stale deviceId so play is disabled while reconnecting.
-    // Retry connect up to 4 times with back-off — a single attempt often
-    // fails if the token fetch is still in flight.
-    player.addListener("not_ready", () => {
-      setDeviceId(null);
-      let attempts = 0;
-      const tryConnect = () => {
-        if (attempts >= 4) return;
-        attempts++;
-        player.connect().catch(() => {});
-        setTimeout(tryConnect, 1500 * attempts);
-      };
-      setTimeout(tryConnect, 1000);
-    });
-
-    player.connect();
-    playerRef.current = player;
-
-    return () => {
-      player.disconnect();
-      playerRef.current = null;
-    };
-  }, [sdkReady, isPremium]);
-
-  // ── Reset UI state when the album changes (SpotifyPlayer stays mounted) ──
-  useEffect(() => {
-    setCurrentTrack(null);
-    setPosition(0);
-    setPlaying(false);
-    setPlayError(null);
-  }, [spotifyUri]);
-
-  // ── Keep SDK alive across tab switches ────────────────────────────────────
-  useEffect(() => {
-    if (!sdkReady) return;
-    const onVisible = () => {
-      if (!document.hidden && playerRef.current) {
-        playerRef.current.connect().catch(() => {});
-      }
-    };
-    document.addEventListener("visibilitychange", onVisible);
-    return () => document.removeEventListener("visibilitychange", onVisible);
-  }, [sdkReady]);
-
-  // ── Poll position while SDK playing ───────────────────────────────────────
-  useEffect(() => {
-    if (!playing || !playerRef.current) return;
-    pollRef.current = setInterval(async () => {
-      const s = await playerRef.current?.getCurrentState();
-      if (s) { setPosition(s.position); setDuration(s.duration); }
-    }, 500);
-    return () => { if (pollRef.current) clearInterval(pollRef.current); };
-  }, [playing]);
-
-  // ── Preview audio element ─────────────────────────────────────────────────
-  // Dep array uses only previewUrl (not usePreview) so the audio element is not
-  // destroyed when the SDK becomes live — avoids a silent kill of in-progress audio.
-  // State is driven by element events rather than the play() promise to avoid the
-  // "press play twice" bug caused by buffering or silent promise rejection.
-  useEffect(() => {
-    if (!previewUrl) return;
-    const audio = new Audio(previewUrl);
-    audio.preload = "auto";
-    audio.volume  = volume;
-    audioRef.current = audio;
-    const onPlaying = () => setPlaying(true);
-    const onPause   = () => setPlaying(false);
-    const onEnd     = () => { setPlaying(false); setPosition(0); };
-    const onTime    = () => {
-      setPosition(audio.currentTime * 1000);
-      setDuration(isFinite(audio.duration) ? audio.duration * 1000 : 30_000);
-    };
-    audio.addEventListener("playing",    onPlaying);
-    audio.addEventListener("pause",      onPause);
-    audio.addEventListener("ended",      onEnd);
-    audio.addEventListener("timeupdate", onTime);
-    return () => {
-      audio.pause();
-      audio.removeEventListener("playing",    onPlaying);
-      audio.removeEventListener("pause",      onPause);
-      audio.removeEventListener("ended",      onEnd);
-      audio.removeEventListener("timeupdate", onTime);
-      audioRef.current = null;
-      setPlaying(false);
-    };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [previewUrl]);
-
-  // ── Play / pause ──────────────────────────────────────────────────────────
-  // `playing` (from player_state_changed) is the truth: if true we're already
-  // playing so we pause; if false we always send an explicit play command for the
-  // current URI — no guessing about which album the SDK has loaded.
-  // Always fetches a fresh token so a cached/expired token never blocks playback.
-  const handlePlayPause = useCallback(async () => {
-    if (useSDK && playerRef.current) {
-      if (playing) {
-        await playerRef.current.togglePlay().catch(() => {});
-      } else {
-        if (!deviceId) return;
-        // Unlock the SDK's internal AudioContext while still in the user-gesture
-        // call stack. Browsers suspend AudioContext created outside a gesture
-        // (i.e. on connect()), so without this the play command arrives but no
-        // audio comes out.
-        try { playerRef.current.activateElement(); } catch { /* SDK < activateElement */ }
-        const body = mode === "collection" && spotifyUri
-          ? { context_uri: spotifyUri }
-          : spotifyTrackUri
-            ? { uris: [spotifyTrackUri] }
-            : null;
-        if (!body) return;
-        setPlayError(null);
-        const err = await sendSpotifyPlay(deviceId, body);
-        if (err !== null) setPlayError(err);
-      }
-    } else if (audioRef.current) {
-      if (playing) audioRef.current.pause();
-      else audioRef.current.play().catch(() => {});
-    }
-  }, [useSDK, playing, mode, spotifyUri, spotifyTrackUri, deviceId]);
-
-  // ── Seek ──────────────────────────────────────────────────────────────────
-  const handleSeek = useCallback(async (e: React.MouseEvent<HTMLDivElement>) => {
-    if (!duration) return;
-    const rect = e.currentTarget.getBoundingClientRect();
-    const pct  = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
-    if (useSDK) {
-      const ms    = Math.round(pct * duration);
-      const token = await getFreshSpotifyToken();
-      if (!token) return;
-      setPosition(ms);
-      fetch(`https://api.spotify.com/v1/me/player/seek?position_ms=${ms}${deviceId ? `&device_id=${deviceId}` : ""}`, {
-        method:  "PUT",
-        headers: { Authorization: `Bearer ${token}` },
-      }).catch(() => {});
-    } else if (audioRef.current) {
-      audioRef.current.currentTime = (pct * duration) / 1000;
-      setPosition(pct * duration);
-    }
-  }, [useSDK, duration, deviceId]);
-
-  // ── Volume (vertical — click top=loud, bottom=quiet) ─────────────────────
-  const handleVolume = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
-    const rect   = e.currentTarget.getBoundingClientRect();
-    const newVol = Math.max(0, Math.min(1, 1 - (e.clientY - rect.top) / rect.height));
-    setVolume(newVol);
-    if (useSDK && playerRef.current) playerRef.current.setVolume(newVol).catch(() => {});
-    else if (audioRef.current)       audioRef.current.volume = newVol;
-  }, [useSDK]);
+    setActiveSource({ mode, spotifyUri, spotifyTrackUri, previewUrl, artist, albumTitle });
+  }, [mode, spotifyUri, spotifyTrackUri, previewUrl, artist, albumTitle, setActiveSource]);
 
   // ── Guard renders ─────────────────────────────────────────────────────────
   if (tokenData === null) return null;
@@ -472,6 +122,19 @@ export default function SpotifyPlayer({
     : playError ===  -1 ? "Could not get Spotify token — try reconnecting in Settings"
     : `Spotify error ${playError}`;
 
+  const onSeek = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (!duration) return;
+    const rect = e.currentTarget.getBoundingClientRect();
+    const pct  = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
+    handleSeek(pct);
+  };
+
+  const onVolumeClick = (e: React.MouseEvent<HTMLDivElement>) => {
+    const rect   = e.currentTarget.getBoundingClientRect();
+    const newVol = Math.max(0, Math.min(1, 1 - (e.clientY - rect.top) / rect.height));
+    handleVolume(newVol);
+  };
+
   return (
     <div style={{ borderBottom: `1px solid ${RULE}` }}>
 
@@ -507,9 +170,9 @@ export default function SpotifyPlayer({
           <span style={{ fontFamily: MONO, fontSize: "0.48rem", color: "#cc3300", letterSpacing: "0.04em" }}>
             {errorLabel ?? "Connecting to Spotify…"}
           </span>
-          {sdkConnecting && playerRef.current && (
+          {sdkConnecting && (
             <button
-              onClick={() => playerRef.current?.connect().catch(() => {})}
+              onClick={reconnect}
               style={{
                 fontFamily: MONO, fontSize: "0.48rem", letterSpacing: "0.08em",
                 textTransform: "uppercase", background: "none", border: `1px solid ${RULE}`,
@@ -529,7 +192,7 @@ export default function SpotifyPlayer({
         <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", gap: "16px" }}>
           <CtrlBtn disabled aria-label="Shuffle"><IconShuffle /></CtrlBtn>
 
-          <CtrlBtn disabled={!currentTrack} onClick={() => playerRef.current?.previousTrack().catch(() => {})} aria-label="Previous">
+          <CtrlBtn disabled={!currentTrack} onClick={previousTrack} aria-label="Previous">
             <IconPrev />
           </CtrlBtn>
 
@@ -551,7 +214,7 @@ export default function SpotifyPlayer({
             {playing ? <IconPause /> : <IconPlay />}
           </button>
 
-          <CtrlBtn disabled={!currentTrack} onClick={() => playerRef.current?.nextTrack().catch(() => {})} aria-label="Next">
+          <CtrlBtn disabled={!currentTrack} onClick={nextTrack} aria-label="Next">
             <IconNext />
           </CtrlBtn>
 
@@ -562,7 +225,7 @@ export default function SpotifyPlayer({
         <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "6px", paddingLeft: "14px" }}>
           <span style={{ color: "#555", display: "flex" }}><IconVolume /></span>
           <div
-            onClick={handleVolume}
+            onClick={onVolumeClick}
             style={{ width: "2px", height: "52px", background: RULE, position: "relative", cursor: "pointer" }}
           >
             <div style={{
@@ -577,7 +240,7 @@ export default function SpotifyPlayer({
       {/* ── Progress (bottom) ── */}
       <div style={{ padding: "0.5rem 0.9rem 0.6rem" }}>
         <div
-          onClick={handleSeek}
+          onClick={onSeek}
           style={{
             position: "relative", height: "2px", background: RULE,
             cursor: "pointer", marginBottom: "5px",
