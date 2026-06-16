@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import AppNav from "@/components/AppNav";
 import { createClient } from "@/lib/supabase/client";
+import MariaBCSpotlight from "./MariaBCSpotlight";
 
 const SERIF  = "var(--font-editorial)";
 const MONO   = "var(--font-mono)";
@@ -380,21 +381,7 @@ type SpotlightData = {
   imageUrl: string | null;
 };
 
-const SPOTLIGHT: Record<"artist" | "label", SpotlightData> = {
-  artist: {
-    eyebrow:  "ARTIST SELECT - JUNE",
-    name:     "Alice Coltrane",
-    meta:     ["Jazz · Spiritual · Avant-Garde", "1937 – 2007 · Detroit"],
-    body: [
-      "Few artists reshaped the grammar of the instrument as radically as Alice Coltrane. Moving from hard bop to free jazz to a transcendent spiritual music all her own, her recordings for Impulse! in the early 1970s — Ptah, the El Daoud; Journey in Satchidananda; A Monastic Trio — remain among the most singular documents in the American catalogue.",
-      "Her later work, produced privately for her Sai Anantam Ashram in California and distributed almost by hand, has become one of the great rediscoveries of recent years. The archival compilations Astral Meditations and World Spirituality Classics 1: The Ecstatic Music of Alice Coltrane Turiyasangitananda introduced these recordings to a new generation.",
-    ],
-    links: [
-      { label: "Discogs ↗",    href: "https://www.discogs.com/artist/266049-Alice-Coltrane" },
-      { label: "Wikipedia ↗",  href: "https://en.wikipedia.org/wiki/Alice_Coltrane" },
-    ],
-    imageUrl: null,
-  },
+const SPOTLIGHT: Record<"label", SpotlightData> = {
   label: {
     eyebrow:  "LABEL SELECT - JUNE",
     name:     "Blue Note Records",
@@ -413,7 +400,7 @@ const SPOTLIGHT: Record<"artist" | "label", SpotlightData> = {
 
 // ─── Main spotlight card ──────────────────────────────────────────────────────
 
-function SpotlightCard({ data, tab }: { data: SpotlightData; tab: "artist" | "label" }) {
+function SpotlightCard({ data }: { data: SpotlightData }) {
   return (
     <div
       className="selects-card"
@@ -586,7 +573,11 @@ export default function SelectsClient({ username, displayLabel, avatarUrl }: Pro
           <LiveSection />
         ) : (
           <>
-            <SpotlightCard data={SPOTLIGHT[activeTab]} tab={activeTab} />
+            {activeTab === "artist" ? (
+              <MariaBCSpotlight />
+            ) : (
+              <SpotlightCard data={SPOTLIGHT.label} />
+            )}
 
             {/* Coming next */}
             <div style={{
