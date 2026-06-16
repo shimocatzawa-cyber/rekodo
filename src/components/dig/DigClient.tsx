@@ -341,8 +341,6 @@ function ensureDigSDK(cb: () => void) {
   }
 }
 
-// Module-level cache mirrors the one in SpotifyPlayer — 50 min TTL so the
-// server's auto-refresh has plenty of room without a round-trip every click.
 let _digToken: string | null = null;
 let _digTokenExpiry           = 0;
 
@@ -350,28 +348,38 @@ async function getFreshToken(): Promise<string | null> {
   if (_digToken && Date.now() < _digTokenExpiry) return _digToken;
   try {
     const res  = await fetch("/api/spotify/token");
-    const data = await res.json() as DigTokenData;
+    const data = await res.json() as DigTokenData & { expires_at?: number };
     _digToken       = data.access_token ?? null;
-    _digTokenExpiry = Date.now() + 50 * 60 * 1000;
+    _digTokenExpiry = data.expires_at
+      ? data.expires_at - 60_000
+      : Date.now() + 50 * 60 * 1000;
     return _digToken;
   } catch {
     return null;
   }
 }
 
-// Send a play command and retry on 404 (device not yet registered server-side).
-async function sendPlay(token: string, deviceId: string, body: object): Promise<boolean> {
-  const url  = `https://api.spotify.com/v1/me/player/play?device_id=${deviceId}`;
-  const opts = {
-    method:  "PUT",
-    headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
-    body:    JSON.stringify(body),
-  };
+function bustDigTokenCache() {
+  _digToken       = null;
+  _digTokenExpiry = 0;
+}
+
+// Fetches its own token per attempt, busts cache on 401, retries on 404.
+async function sendPlay(deviceId: string, body: object): Promise<boolean> {
+  const url = `https://api.spotify.com/v1/me/player/play?device_id=${deviceId}`;
   for (let attempt = 0; attempt < 3; attempt++) {
+    const token = await getFreshToken();
+    if (!token) return false;
     let res: Response | null = null;
-    try { res = await fetch(url, opts); } catch { return false; }
+    try {
+      res = await fetch(url, {
+        method:  "PUT",
+        headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+        body:    JSON.stringify(body),
+      });
+    } catch { return false; }
     if (res.status === 204 || res.ok) return true;
-    // 404 = device not yet registered on Spotify's backend — retry with backoff
+    if (res.status === 401) { bustDigTokenCache(); continue; }
     if (res.status === 404 && attempt < 2) {
       await new Promise(r => setTimeout(r, 600 + attempt * 500));
       continue;
@@ -411,11 +419,13 @@ function DigCompactPlayer({ previewUrl, albumUri, trackUri, artist, album, recId
   // Determine Premium status and seed the module cache while we have the token.
   useEffect(() => {
     fetch("/api/spotify/token")
-      .then(r => r.json() as Promise<DigTokenData>)
+      .then(r => r.json() as Promise<DigTokenData & { expires_at?: number }>)
       .then(d => {
         if (d.access_token) {
           _digToken       = d.access_token;
-          _digTokenExpiry = Date.now() + 50 * 60 * 1000;
+          _digTokenExpiry = d.expires_at
+            ? d.expires_at - 60_000
+            : Date.now() + 50 * 60 * 1000;
         }
         if (d.connected && d.product === "premium") setIsPremium(true);
       })
@@ -436,8 +446,13 @@ function DigCompactPlayer({ previewUrl, albumUri, trackUri, artist, album, recId
       name: "rekōdo",
       // The SDK calls this whenever it needs a token for its own requests
       getOAuthToken: async (cb) => {
-        const token = await getFreshToken();
-        cb(token ?? "");
+        for (let i = 0; i < 3; i++) {
+          const token = await getFreshToken();
+          if (token) { cb(token); return; }
+          bustDigTokenCache();
+          await new Promise(r => setTimeout(r, 500));
+        }
+        cb("");
       },
       volume: 0.8,
     }) as unknown as DigSdkPlayer;
@@ -459,7 +474,14 @@ function DigCompactPlayer({ previewUrl, albumUri, trackUri, artist, album, recId
     });
     player.addListener("not_ready", () => {
       setDeviceId(null);
-      setTimeout(() => player.connect().catch(() => {}), 1000);
+      let attempts = 0;
+      const tryConnect = () => {
+        if (attempts >= 4) return;
+        attempts++;
+        player.connect().catch(() => {});
+        setTimeout(tryConnect, 1500 * attempts);
+      };
+      setTimeout(tryConnect, 1000);
     });
 
     player.connect();
@@ -557,10 +579,8 @@ function DigCompactPlayer({ previewUrl, albumUri, trackUri, artist, album, recId
     if (!pending) return;
     pendingPlayRef.current = null;
     const body = pending.albumUri ? { context_uri: pending.albumUri } : { uris: [pending.trackUri!] };
-    getFreshToken().then(async token => {
-      if (!token) { setPlayPending(false); return; }
-      const ok = await sendPlay(token, deviceId, body);
-      if (ok) { sdkStartedRef.current = true; }
+    sendPlay(deviceId, body).then(ok => {
+      if (ok) sdkStartedRef.current = true;
       setPlayPending(false);
     });
   }, [deviceId]);
@@ -577,10 +597,9 @@ function DigCompactPlayer({ previewUrl, albumUri, trackUri, artist, album, recId
     if (sdkLive && playerRef.current) {
       if (!sdkStartedRef.current) {
         setPlayPending(true);
-        const token = await getFreshToken();
-        if (token && deviceId) {
+        if (deviceId) {
           const body = albumUri ? { context_uri: albumUri } : { uris: [trackUri!] };
-          const ok   = await sendPlay(token, deviceId, body);
+          const ok   = await sendPlay(deviceId, body);
           if (ok) sdkStartedRef.current = true;
         }
         setPlayPending(false);
