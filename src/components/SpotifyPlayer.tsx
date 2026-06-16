@@ -104,6 +104,8 @@ interface SpotifySDKPlayer {
   nextTrack(): Promise<void>;
   setVolume(v: number): Promise<void>;
   getCurrentState(): Promise<SpotifyPlaybackState | null>;
+  // Resumes the internal AudioContext — must be called within a user gesture.
+  activateElement(): void;
 }
 
 interface SpotifyPlaybackState {
@@ -247,6 +249,20 @@ export default function SpotifyPlayer({
       setDeviceId((data as { device_id: string }).device_id);
     });
 
+    player.addListener("authentication_error", (data) => {
+      console.error("[rekōdo] Spotify auth error:", data);
+      setPlayError(401);
+    });
+
+    player.addListener("account_error", (data) => {
+      console.error("[rekōdo] Spotify account error:", data);
+      setPlayError(403);
+    });
+
+    player.addListener("playback_error", (data) => {
+      console.error("[rekōdo] Spotify playback error:", data);
+    });
+
     player.addListener("player_state_changed", (state) => {
       if (!state) return;
       const s = state as SpotifyPlaybackState;
@@ -359,6 +375,11 @@ export default function SpotifyPlayer({
         await playerRef.current.togglePlay().catch(() => {});
       } else {
         if (!deviceId) return;
+        // Unlock the SDK's internal AudioContext while still in the user-gesture
+        // call stack. Browsers suspend AudioContext created outside a gesture
+        // (i.e. on connect()), so without this the play command arrives but no
+        // audio comes out.
+        try { playerRef.current.activateElement(); } catch { /* SDK < activateElement */ }
         const body = mode === "collection" && spotifyUri
           ? { context_uri: spotifyUri }
           : spotifyTrackUri

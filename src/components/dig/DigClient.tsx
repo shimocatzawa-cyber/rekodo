@@ -320,6 +320,7 @@ type DigSdkPlayer = {
   togglePlay(): Promise<void>; previousTrack(): Promise<void>; nextTrack(): Promise<void>;
   setVolume(v: number): Promise<void>;
   getCurrentState(): Promise<DigPlaybackState | null>;
+  activateElement(): void;
 };
 
 let _digSdkLoaded = false;
@@ -447,6 +448,15 @@ function DigCompactPlayer({ previewUrl, albumUri, trackUri, artist, album, recId
 
     player.addListener("ready", (d) => {
       setDeviceId((d as { device_id: string }).device_id);
+    });
+    player.addListener("authentication_error", (d) => {
+      console.error("[rekōdo] Dig Spotify auth error:", d);
+    });
+    player.addListener("account_error", (d) => {
+      console.error("[rekōdo] Dig Spotify account error:", d);
+    });
+    player.addListener("playback_error", (d) => {
+      console.error("[rekōdo] Dig Spotify playback error:", d);
     });
     player.addListener("player_state_changed", (s) => {
       if (!s) return;
@@ -583,6 +593,9 @@ function DigCompactPlayer({ previewUrl, albumUri, trackUri, artist, album, recId
     if (playPending) return;
 
     if (sdkLive && playerRef.current) {
+      // Unlock the SDK's internal AudioContext while still in the user-gesture
+      // call stack — browsers suspend AudioContext created on mount (no gesture).
+      try { playerRef.current.activateElement(); } catch { /* SDK < activateElement */ }
       if (!sdkStartedRef.current) {
         setPlayPending(true);
         if (deviceId) {
