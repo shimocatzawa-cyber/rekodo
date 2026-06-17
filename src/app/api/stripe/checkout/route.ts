@@ -14,6 +14,7 @@ export async function POST(request: NextRequest) {
   const body = (await request.json()) as {
     type: "subscription" | "donation";
     amount?: number;
+    currency?: string;
   };
 
   const origin = new URL(request.url).origin;
@@ -32,9 +33,10 @@ export async function POST(request: NextRequest) {
   if (body.type === "donation") {
     const dollars = Number(body.amount ?? 0);
     const cents = Math.round(dollars * 100);
+    const currency = (body.currency ?? "usd").toLowerCase();
     if (cents < 100) {
       return NextResponse.json(
-        { error: "Minimum donation is $1" },
+        { error: "Minimum donation is 1 unit of your local currency" },
         { status: 400 }
       );
     }
@@ -44,7 +46,7 @@ export async function POST(request: NextRequest) {
       line_items: [
         {
           price_data: {
-            currency: "usd",
+            currency,
             unit_amount: cents,
             product_data: {
               name: "rekōdo Donation",

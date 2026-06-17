@@ -84,7 +84,7 @@ export default function SupporterContent({ isOwner, isSupporter, userId, success
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(
           type === "donation"
-            ? { type, amount: donationValue }
+            ? { type, amount: donationValue, currency: localPrice?.currency ?? "usd" }
             : { type }
         ),
       });
@@ -250,7 +250,9 @@ export default function SupporterContent({ isOwner, isSupporter, userId, success
                     cursor: "pointer",
                   }}
                 >
-                  ${amount}
+                  {localPrice
+                    ? formatLocalPrice({ unit_amount: amount * 100, currency: localPrice.currency })
+                    : `$${amount}`}
                 </button>
               ))}
             </div>
@@ -261,7 +263,7 @@ export default function SupporterContent({ isOwner, isSupporter, userId, success
               maxWidth: 160,
             }}>
               <span style={{ fontFamily: MONO, fontSize: "0.85rem", color: "#aaaaaa", padding: "9px 6px 9px 12px" }}>
-                $
+                {localPrice ? new Intl.NumberFormat("en", { style: "currency", currency: localPrice.currency.toUpperCase(), maximumFractionDigits: 0 }).format(0).replace(/[\d.,\s]/g, "").trim() : "$"}
               </span>
               <input
                 type="text"
