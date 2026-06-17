@@ -1,14 +1,8 @@
 -- Reschedule label-feed-ingest cron with correct project ref and anon key.
--- pg_cron and pg_net are already enabled by Supabase — no CREATE EXTENSION needed.
--- The DO block swallows errors if the job name doesn't exist yet.
+-- Direct DELETE on cron.job avoids the cron.unschedule function which triggers
+-- a 2BP01 dependent-privileges error in Supabase's managed pg_cron environment.
 
-do $$
-begin
-  perform cron.unschedule('label-feed-ingest-daily');
-exception when others then
-  null; -- job didn't exist, that's fine
-end;
-$$;
+delete from cron.job where jobname = 'label-feed-ingest-daily';
 
 select cron.schedule(
   'label-feed-ingest-daily',
