@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, type ReactNode } from "react";
-import { AreaChart, BarChart, type CustomTooltipProps } from "@tremor/react";
+import { BarChart, type CustomTooltipProps } from "@tremor/react";
 import AppNav from "@/components/AppNav";
 import TasteProfile, { type SpectrumData } from "@/components/insights/TasteProfile";
 import type { DesirabilityTier } from "@/lib/desirability";
@@ -23,7 +23,6 @@ export interface InsightsProps {
   totalMed:       number;
   totalHigh:      number;
   totalRecords:   number;
-  snapshots:      { date: string; "Total Value": number }[];
   topRecordsByValue: { artist: string; album: string; coverUrl: string | null; price_median: number; price_low: number; price_high: number }[];
   mediaConditionBreakdown:  { grade: string; count: number; pct: number }[];
   sleeveConditionBreakdown: { grade: string; count: number; pct: number }[];
@@ -209,7 +208,7 @@ function StatBar({ tiles }: { tiles: StatTile[] }) {
 
 export default function InsightsClient({
   username, displayLabel, avatarUrl, currency,
-  totalMed, totalRecords, snapshots, topRecordsByValue,
+  totalMed, totalRecords, topRecordsByValue,
   mediaConditionBreakdown, sleeveConditionBreakdown,
   genreBreakdown, styleBreakdown, hasStyles,
   countryBreakdown, topLabels, topArtists, topProducers,
@@ -229,7 +228,6 @@ export default function InsightsClient({
       .catch(() => {});
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const hasSparkline    = snapshots.length >= 1;
   const maxGenrePct     = genreBreakdown[0]?.pct      ?? 100;
   const maxCountryCount = countryBreakdown[0]?.count  ?? 1;
 
@@ -348,27 +346,6 @@ export default function InsightsClient({
 
         {/* ── Section 1: Collection Value ──────────────────────────────────── */}
         <SectionHeader eyebrow="Collection Value" title="What it's worth." />
-
-        {/* Sparkline */}
-        <div style={{ marginBottom: "40px" }}>
-          <SubLabel>Median value over time</SubLabel>
-          {hasSparkline ? (
-            <AreaChart
-              data={snapshots}
-              index="date"
-              categories={["Total Value"]}
-              colors={["orange"]}
-              showLegend={false}
-              showYAxis={false}
-              showGridLines={false}
-              className="h-32"
-            />
-          ) : (
-            <p style={{ fontFamily: MONO, fontSize: "11px", letterSpacing: "0.04em", color: INK, margin: 0 }}>
-              Trend available after your next sync.
-            </p>
-          )}
-        </div>
 
         {/* Format breakdown */}
         {formatBreakdown.length > 0 && (

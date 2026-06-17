@@ -124,22 +124,6 @@ export default async function InsightsPage() {
     if (!error) for (const r of data ?? []) recordsMap.set(r.id, r as RecordRow);
   }
 
-  // ── Fetch collection_value_snapshots ───────────────────────────────────────
-  const { data: snapshotsRaw } = await supabase
-    .from("collection_value_snapshots")
-    .select("snapshot_at, value_med, currency")
-    .eq("user_id", user.id)
-    .order("snapshot_at", { ascending: true });
-
-  const toSnapshotPoint = (s: { snapshot_at: string; value_med: number | null; currency: string | null }) => {
-    const raw = s.value_med ?? 0;
-    const converted = raw > 0 ? (convertPrice(raw, s.currency) ?? raw) : 0;
-    return {
-      date: new Date(s.snapshot_at).toLocaleDateString("en-AU", { month: "short", day: "numeric" }),
-      "Total Value": Math.round(converted),
-    };
-  };
-
   // ── Collection value totals ────────────────────────────────────────────────
   // Prefer official Discogs values (stored in profiles after each sync).
   // Fall back to aggregating from user_records if profile values are not yet set.
@@ -168,42 +152,6 @@ export default async function InsightsPage() {
     totalMed  = aggMed;
     totalHigh = 0;
   }
-
-  // ── Record today's snapshot ─────────────────────────────────────────────────
-  // The Edge Function used to write snapshots straight from Discogs'
-  // collection/value response, but that call has never once succeeded — the
-  // table is empty for every user. Snapshot the same totalLow/totalMed/totalHigh
-  // figures shown above instead, since they already encode the right fallback
-  // (profile values when synced, otherwise the user_records aggregate). One
-  // snapshot per calendar day — skip if today's has already been recorded.
-  const todayKey = new Date().toISOString().slice(0, 10);
-  const lastSnapshotKey = snapshotsRaw?.length
-    ? new Date(snapshotsRaw[snapshotsRaw.length - 1].snapshot_at).toISOString().slice(0, 10)
-    : null;
-
-  let latestSnapshotRow: { snapshot_at: string; value_med: number | null; currency: string | null } | null = null;
-  if (allLinks.length > 0 && lastSnapshotKey !== todayKey) {
-    const { data: inserted, error: snapErr } = await supabase
-      .from("collection_value_snapshots")
-      .insert({
-        user_id:      user.id,
-        snapshot_at:  new Date().toISOString(),
-        value_low:    totalLow,
-        value_med:    totalMed,
-        value_high:   totalHigh,
-        currency:     userCurrency,
-        record_count: allLinks.length,
-      })
-      .select("snapshot_at, value_med, currency")
-      .single();
-    if (snapErr) console.error("[insights] snapshot insert failed:", snapErr.message, snapErr.code);
-    latestSnapshotRow = inserted ?? null;
-  }
-
-  const snapshots: InsightsProps["snapshots"] = [
-    ...(snapshotsRaw ?? []).map(toSnapshotPoint),
-    ...(latestSnapshotRow ? [toSnapshotPoint(latestSnapshotRow)] : []),
-  ];
 
   // ── Top 5 records by price_median ─────────────────────────────────────────
   const topRecordsByValue: InsightsProps["topRecordsByValue"] = allLinks
@@ -634,7 +582,6 @@ export default async function InsightsPage() {
       totalMed={totalMed}
       totalHigh={totalHigh}
       totalRecords={allLinks.length}
-      snapshots={snapshots}
       topRecordsByValue={topRecordsByValue}
       mediaConditionBreakdown={mediaConditionBreakdown}
       sleeveConditionBreakdown={sleeveConditionBreakdown}
