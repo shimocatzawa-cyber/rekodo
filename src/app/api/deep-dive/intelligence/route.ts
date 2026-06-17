@@ -6,13 +6,22 @@ export const maxDuration = 120;
 
 const client = new Anthropic();
 
-const CACHE_TTL_DAYS = 30;
+// Per-section cache TTL in days. "related" uses 365 days (effectively indefinite —
+// artist relationships don't change). 0 = no expiry check (cache forever).
+const CACHE_TTL_DAYS: Record<string, number> = {
+  rankings:   30,
+  podcasts:   30,
+  books:      30,
+  interviews: 30,
+  related:    365,
+};
+
 // Hard timeout on every Supabase operation — a hanging DB call (slow connection,
 // missing table, cold pool) would otherwise consume the entire Vercel budget
 // before Claude is ever called.
 const DB_TIMEOUT_MS = 3000;
 
-const CACHED_SECTIONS = new Set(["rankings", "podcasts", "books", "interviews"]);
+const CACHED_SECTIONS = new Set(["rankings", "podcasts", "books", "interviews", "related"]);
 
 const SONNET_SECTIONS = new Set(["rankings", "podcasts", "books", "interviews"]);
 
@@ -46,7 +55,8 @@ async function readCache(artist: string, section: string): Promise<unknown | nul
   try {
     const supabase = getSupabase();
     if (!supabase) return null;
-    const staleAfter = new Date(Date.now() - CACHE_TTL_DAYS * 24 * 60 * 60 * 1000).toISOString();
+    const ttlDays = CACHE_TTL_DAYS[section] ?? 30;
+    const staleAfter = new Date(Date.now() - ttlDays * 24 * 60 * 60 * 1000).toISOString();
     const result = await withDbTimeout(() =>
       supabase
         .from("deep_dive_cache")
@@ -154,28 +164,26 @@ Return ONLY valid JSON, no markdown, no backticks, no preamble:
 type must be one of: "biography", "memoir", "criticism", "history", "fiction", "reference". Do not fabricate titles.`,
 
   interviews: (artist) =>
-    `You are a music research assistant. List print interviews given by ${artist}.
+    `You are a music research assistant. Use web search to find print interviews given by ${artist} and their direct URLs.
 
 SCOPE — print and text only:
 - Magazine features: Pitchfork, The Wire, The Guardian, NME, MOJO, Rolling Stone, The Face, Uncut, Q, Loud And Quiet, etc.
 - Online publications: Bandcamp Daily, Fact Magazine, Resident Advisor, XLR8R, The Quietus, Stereogum, etc.
-- Substack newsletters — search for artist interviews published on Substack
-- Label or artist website features and press materials
-- Any documented print/text interview that reveals something about creative process or influences
+- Substack newsletters
+- Label or artist website features
+DO NOT include: YouTube, podcast appearances, radio, or any audio/video content.
 
-DO NOT include: YouTube videos, podcast appearances, radio sessions, or any audio/video content. Print text only.
-
-URL FIELD RULES — read carefully:
-- For each interview, include a "url" field with the direct article URL.
-- Only include a URL if you are certain it is correct and live. A real URL looks like: https://pitchfork.com/features/interview/... or https://artistname.substack.com/p/post-slug
-- If you cannot recall the exact URL, omit the field entirely — do not guess or construct a plausible-looking URL. A missing URL is far better than a wrong one.
-- The "domain" field should be just the bare domain (e.g. "pitchfork.com", "thewire.co.uk", "substack.com") — used as a fallback if URL is absent.
+INSTRUCTIONS:
+1. Search for "${artist} interview site:pitchfork.com" and similar queries for other publications.
+2. For each interview found, include the exact URL from the search result.
+3. Only include interviews with a confirmed direct URL — omit any you cannot find a URL for.
+4. The "domain" field is the bare domain (e.g. "pitchfork.com") as a fallback display label.
 
 Return up to 10 results, sorted by publication date descending (most recent first).
 Return ONLY valid JSON, no markdown, no backticks, no preamble:
-{"interviews":[{"publication":"Pitchfork","domain":"pitchfork.com","title":"Interview title or description","year":2019,"date":"2019-03","url":"https://pitchfork.com/features/interview/...","note":"What makes it worth reading"}]}
-"date" is optional — include it as YYYY-MM or YYYY-MM-DD when you know the month or day. "year" is always required.
-Only include interviews you are confident exist. Return an empty array if you genuinely cannot identify any — do not fabricate.`,
+{"interviews":[{"publication":"Pitchfork","domain":"pitchfork.com","title":"Interview title or description","year":2019,"date":"2019-03","url":"https://pitchfork.com/features/interview/artist-name/","note":"What makes it worth reading"}]}
+"date" is optional — YYYY-MM or YYYY-MM-DD when known. "year" is always required.
+Do not fabricate URLs. Only include what you find via search.`,
 
   related: (artist) =>
     `You are a music expert guiding a vinyl collector. Based on ${artist}'s style, sound, and era, suggest 8 related artists worth exploring. Cover both the obvious (close contemporaries, same scene) and the less obvious (stylistic connections, cross-genre links).
@@ -237,11 +245,20 @@ export async function POST(request: NextRequest) {
 
     console.log(`[deep-dive] calling ${model} — ${artist}/${section} max_tokens=${maxTokens}`);
 
-    const message = await client.messages.create({
+    // Interviews use Anthropic's built-in web search tool so Claude can look up
+    // real article URLs rather than relying on training-data recall.
+    // The search runs server-side within the single API call — no loop needed.
+    // Interviews use Anthropic's built-in web search tool (server-side, no extra API key).
+    // The `as any` casts are needed because the SDK typings may not yet include this tool type.
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const message = (await (client.messages.create as any)({
       model,
       max_tokens: maxTokens,
       messages: [{ role: "user", content: PROMPTS[section](artist, promptAlbums) }],
-    });
+      ...(section === "interviews" && {
+        tools: [{ type: "web_search_20250305", name: "web_search" }],
+      }),
+    })) as Anthropic.Message;
 
     console.log(`[deep-dive] done — ${artist}/${section} stop_reason=${message.stop_reason} tokens=${message.usage.output_tokens}`);
 
