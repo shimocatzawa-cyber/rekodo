@@ -402,7 +402,8 @@ function InterviewsContent({ data, artist }: { data: { interviews?: InterviewIte
   const sorted = [...items].sort((a, b) => {
     const aHasUrl = a.url && a.url.startsWith("https://") ? 0 : 1;
     const bHasUrl = b.url && b.url.startsWith("https://") ? 0 : 1;
-    return aHasUrl - bHasUrl;
+    if (aHasUrl !== bHasUrl) return aHasUrl - bHasUrl;
+    return (b.year ?? 0) - (a.year ?? 0);
   });
 
   return (
