@@ -980,6 +980,8 @@ function DigHistoryView({ onAddToWantlist, wantlistAdded }: {
 // ─── Style picker ─────────────────────────────────────────────────────────────
 
 function StylePicker({ styles, onSelect }: { styles: string[]; onSelect: (style: string) => void }) {
+  const [query, setQuery] = useState("");
+
   if (styles.length === 0) {
     return (
       <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center" }}>
@@ -990,27 +992,68 @@ function StylePicker({ styles, onSelect }: { styles: string[]; onSelect: (style:
     );
   }
 
+  const filtered = query.trim()
+    ? styles.filter(s => s.toLowerCase().includes(query.toLowerCase()))
+    : styles;
+
+  // Group alphabetically
+  const groups: { letter: string; items: string[] }[] = [];
+  for (const s of filtered) {
+    const letter = s[0]?.toUpperCase() ?? "#";
+    const last = groups[groups.length - 1];
+    if (last?.letter === letter) last.items.push(s);
+    else groups.push({ letter, items: [s] });
+  }
+
   return (
-    <div style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: "20px", padding: "20px 0" }}>
-      <p style={{ fontFamily: MONO, fontSize: "10px", letterSpacing: "0.12em", textTransform: "uppercase", color: "#888888", margin: 0 }}>
-        Pick a style to dig into
-      </p>
-      <div style={{ display: "flex", flexWrap: "wrap", gap: "10px", justifyContent: "center", maxWidth: 720 }}>
-        {styles.map(s => (
-          <button
-            key={s}
-            onClick={() => onSelect(s)}
-            style={{
-              fontFamily: MONO, fontSize: "11px", letterSpacing: "0.04em",
-              color: "#0d0d0d", background: "none",
-              border: "1px solid #d8d8d2", padding: "8px 14px",
-              cursor: "pointer", transition: "border-color 0.15s, color 0.15s",
-            }}
-            onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = ORANGE; (e.currentTarget as HTMLButtonElement).style.color = ORANGE; }}
-            onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = "#d8d8d2"; (e.currentTarget as HTMLButtonElement).style.color = "#0d0d0d"; }}
-          >
-            {s}
-          </button>
+    <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden", paddingTop: "12px" }}>
+      {/* Filter input */}
+      <div style={{ paddingBottom: "12px", marginBottom: "4px", borderBottom: "1px solid #f0f0ea", flexShrink: 0 }}>
+        <input
+          type="text"
+          placeholder="Filter styles…"
+          value={query}
+          onChange={e => setQuery(e.target.value)}
+          style={{
+            width: "100%", boxSizing: "border-box",
+            fontFamily: MONO, fontSize: "11px", letterSpacing: "0.04em",
+            color: "#0d0d0d", background: "none",
+            border: "none", borderBottom: "1px solid #d8d8d2",
+            padding: "4px 0", outline: "none",
+          }}
+        />
+      </div>
+
+      {/* Scrollable grouped list */}
+      <div style={{ flex: 1, overflowY: "auto", paddingBottom: "48px" }}>
+        {groups.length === 0 ? (
+          <p style={{ fontFamily: MONO, fontSize: "11px", color: "#aaaaaa", textAlign: "center", marginTop: "32px" }}>
+            No styles match &ldquo;{query}&rdquo;
+          </p>
+        ) : groups.map(({ letter, items }) => (
+          <div key={letter} style={{ marginTop: "20px" }}>
+            <p style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.14em", textTransform: "uppercase", color: "#cccccc", margin: "0 0 8px", paddingBottom: "4px", borderBottom: "1px solid #f4f4f0" }}>
+              {letter}
+            </p>
+            <div style={{ display: "flex", flexWrap: "wrap", gap: "6px" }}>
+              {items.map(s => (
+                <button
+                  key={s}
+                  onClick={() => onSelect(s)}
+                  style={{
+                    fontFamily: MONO, fontSize: "10px", letterSpacing: "0.03em",
+                    color: "#333333", background: "none",
+                    border: "1px solid #e4e4de", padding: "5px 11px",
+                    cursor: "pointer", transition: "border-color 0.12s, color 0.12s",
+                  }}
+                  onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = ORANGE; (e.currentTarget as HTMLButtonElement).style.color = ORANGE; }}
+                  onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = "#e4e4de"; (e.currentTarget as HTMLButtonElement).style.color = "#333333"; }}
+                >
+                  {s}
+                </button>
+              ))}
+            </div>
+          </div>
         ))}
       </div>
     </div>
