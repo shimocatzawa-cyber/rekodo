@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef } from "react";
 import AppNav from "@/components/AppNav";
+import { addToWantlist } from "@/app/dig/actions";
 import RecordSpinner from "@/components/RecordSpinner";
 import { isAppleMusicUrl, openAppleMusicLink } from "@/lib/openAppleMusic";
 
@@ -121,8 +122,9 @@ function PositionIndicator({ idx, total, onNav }: { idx: number; total: number; 
 
 // ─── Sleeve card ──────────────────────────────────────────────────────────────
 
-function SleeveCard({ rec, mode, onPreviewReady }: {
+function SleeveCard({ rec, mode, onAddToWantlist, wantlistAdded, onPreviewReady }: {
   rec: Recommendation; mode: DigMode;
+  onAddToWantlist: () => void; wantlistAdded: boolean;
   onPreviewReady: (data: { previewUrl: string | null; trackUri: string | null; albumUri: string | null; artist: string; album: string } | null) => void;
 }) {
   // Component remounts on every rec change (key prop), so useState resets naturally.
@@ -211,12 +213,33 @@ function SleeveCard({ rec, mode, onPreviewReady }: {
       {/* ── Right: text ── */}
       <div className="dig-sleeve-text" style={{ padding: "18px 22px", display: "flex", flexDirection: "column" }}>
 
-        {/* Mode tag */}
-        {mode === "explore" && (
-          <p style={{ fontFamily: MONO, fontSize: "8px", letterSpacing: "0.16em", textTransform: "uppercase", color: ORANGE, margin: "0 0 12px" }}>
-            In your collection
-          </p>
-        )}
+        {/* Top row: mode tag (left) + Wantlist button (right, hidden for Inside Collection) */}
+        <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: "12px", minHeight: "20px" }}>
+          <div>
+            {mode === "explore" && (
+              <p style={{ fontFamily: MONO, fontSize: "8px", letterSpacing: "0.16em", textTransform: "uppercase", color: ORANGE, margin: 0 }}>
+                In your collection
+              </p>
+            )}
+          </div>
+          {mode !== "explore" && (
+            <button
+              onClick={onAddToWantlist}
+              disabled={wantlistAdded}
+              style={{
+                fontFamily: MONO, fontSize: "9px", letterSpacing: "0.1em", textTransform: "uppercase",
+                color: wantlistAdded ? "#aaaaaa" : ORANGE,
+                background: "none",
+                border: `1px ${wantlistAdded ? "solid" : "dashed"} ${wantlistAdded ? "#aaaaaa" : ORANGE}`,
+                cursor: wantlistAdded ? "default" : "pointer",
+                padding: "5px 10px", flexShrink: 0,
+                transition: "all 0.2s",
+              }}
+            >
+              {wantlistAdded ? "Added ✓" : "+ Wantlist"}
+            </button>
+          )}
+        </div>
 
         {/* Title */}
         <h2 style={{ fontFamily: SERIF, fontSize: "20px", fontWeight: 400, color: "#0d0d0d", lineHeight: 1.25, margin: "0 0 6px 0" }}>
@@ -885,7 +908,10 @@ const MODE_LABEL: Record<DigMode, string> = {
   style:    "Style Dig",
 };
 
-function DigHistoryView() {
+function DigHistoryView({ onAddToWantlist, wantlistAdded }: {
+  onAddToWantlist: (rec: Recommendation) => void;
+  wantlistAdded:   Set<string>;
+}) {
   const [sessions, setSessions] = useState<HistorySession[]>([]);
   useEffect(() => { setSessions(loadHistory()); }, []);
 
@@ -917,25 +943,48 @@ function DigHistoryView() {
             </span>
           </div>
           <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
-            {session.recs.map((rec, i) => (
-              <div
-                key={i}
-                style={{
-                  padding: "11px 14px",
-                  border: "1px solid #f0f0eb", background: "#fafaf8",
-                }}
-              >
-                <p style={{ fontFamily: SERIF, fontSize: "14px", fontWeight: 400, color: "#0d0d0d", margin: "0 0 2px" }}>
-                  {rec.album}
-                </p>
-                <p style={{ fontFamily: MONO, fontSize: "9px", color: "#888888", margin: "0 0 6px", letterSpacing: "0.04em" }}>
-                  {rec.artist}{rec.year ? ` · ${rec.year}` : ""}
-                </p>
-                <p style={{ fontFamily: SERIF, fontSize: "11px", fontStyle: "italic", color: "#666666", margin: 0, lineHeight: 1.55 }}>
-                  {rec.reason.length > 180 ? rec.reason.slice(0, 180) + "…" : rec.reason}
-                </p>
-              </div>
-            ))}
+            {session.recs.map((rec, i) => {
+              const key   = `${rec.artist}||${rec.album}`;
+              const added = wantlistAdded.has(key);
+              return (
+                <div
+                  key={i}
+                  style={{
+                    display: "grid", gridTemplateColumns: "1fr auto",
+                    alignItems: "start", gap: "14px",
+                    padding: "11px 14px",
+                    border: "1px solid #f0f0eb", background: "#fafaf8",
+                  }}
+                >
+                  <div>
+                    <p style={{ fontFamily: SERIF, fontSize: "14px", fontWeight: 400, color: "#0d0d0d", margin: "0 0 2px" }}>
+                      {rec.album}
+                    </p>
+                    <p style={{ fontFamily: MONO, fontSize: "9px", color: "#888888", margin: "0 0 6px", letterSpacing: "0.04em" }}>
+                      {rec.artist}{rec.year ? ` · ${rec.year}` : ""}
+                    </p>
+                    <p style={{ fontFamily: SERIF, fontSize: "11px", fontStyle: "italic", color: "#666666", margin: 0, lineHeight: 1.55 }}>
+                      {rec.reason.length > 180 ? rec.reason.slice(0, 180) + "…" : rec.reason}
+                    </p>
+                  </div>
+                  <button
+                    onClick={() => { if (!added) onAddToWantlist(rec); }}
+                    disabled={added}
+                    style={{
+                      fontFamily: MONO, fontSize: "8px", letterSpacing: "0.1em", textTransform: "uppercase",
+                      color: added ? "#aaaaaa" : ORANGE,
+                      background: "none",
+                      border: `1px ${added ? "solid" : "dashed"} ${added ? "#aaaaaa" : ORANGE}`,
+                      cursor: added ? "default" : "pointer",
+                      padding: "4px 8px", flexShrink: 0, whiteSpace: "nowrap",
+                      transition: "all 0.2s",
+                    }}
+                  >
+                    {added ? "Added ✓" : "+ Wantlist"}
+                  </button>
+                </div>
+              );
+            })}
           </div>
         </div>
       ))}
@@ -1083,6 +1132,8 @@ export default function DigClient({ username, displayLabel, avatarUrl, collectio
   const [idx,           setIdx]           = useState(0);
   const [activeTab,     setActiveTab]     = useState<DigTab>("discover");
   const [selectedStyle, setSelectedStyle] = useState<string | null>(null);
+  const [wantlistAdded, setWantlistAdded] = useState<Set<string>>(new Set());
+  const [wantlistError, setWantlistError] = useState<string | null>(null);
   const [digSpotify,    setDigSpotify]    = useState<{
     previewUrl: string | null; trackUri: string | null; albumUri: string | null; artist: string; album: string;
   } | null>(null);
@@ -1186,6 +1237,18 @@ export default function DigClient({ username, displayLabel, avatarUrl, collectio
     setError(null);
     setRecs(null);
     setFetchKey(prev => ({ ...prev, n: prev.n + 1 }));
+  }
+
+  async function handleAddToWantlist(rec: Recommendation) {
+    const key = `${rec.artist}||${rec.album}`;
+    setWantlistAdded(prev => new Set(prev).add(key));
+    setWantlistError(null);
+    const result = await addToWantlist(rec.artist, rec.album, rec.year);
+    if (result?.error) {
+      setWantlistAdded(prev => { const s = new Set(prev); s.delete(key); return s; });
+      setWantlistError(result.error);
+      setTimeout(() => setWantlistError(null), 4000);
+    }
   }
 
   function navigate(dir: -1 | 1) {
@@ -1329,7 +1392,7 @@ export default function DigClient({ username, displayLabel, avatarUrl, collectio
           <ModeToggle mode={activeTab} onChange={handleTabChange} disabled={loading} />
 
           {activeTab === "history" ? (
-            <DigHistoryView />
+            <DigHistoryView onAddToWantlist={handleAddToWantlist} wantlistAdded={wantlistAdded} />
           ) : activeTab === "style" && !selectedStyle ? (
             <StylePicker styles={availableStyles} onSelect={handleStyleSelect} />
           ) : (
@@ -1366,8 +1429,15 @@ export default function DigClient({ username, displayLabel, avatarUrl, collectio
                     key={`${idx}-${mode}`}
                     rec={recs[idx]}
                     mode={mode}
+                    onAddToWantlist={() => handleAddToWantlist(recs[idx])}
+                    wantlistAdded={wantlistAdded.has(`${recs[idx].artist}||${recs[idx].album}`)}
                     onPreviewReady={setDigSpotify}
                   />
+                  {wantlistError && (
+                    <p style={{ fontFamily: "var(--font-mono)", fontSize: "10px", color: "#cc3300", textAlign: "center", margin: "0 16px 4px", letterSpacing: "0.04em" }}>
+                      {wantlistError}
+                    </p>
+                  )}
                   <NavBar idx={idx} total={recs.length} onNav={navigate} onDigAgain={handleDigAgain} />
                 </>
               )}
