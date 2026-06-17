@@ -931,11 +931,16 @@ export default function DeepDiveClient({
         {/* Tabs */}
         <style>{`
           .dd-tabbar::-webkit-scrollbar { display: none; }
+          .dd-tab-select { display: none; }
           @media (max-width: 767px) {
             .dd-panel-content { padding: 1.25rem 1rem !important; }
             .dd-artist-name   { font-size: 1.4rem !important; }
+            .dd-tabbar        { display: none !important; }
+            .dd-tab-select    { display: block !important; }
           }
         `}</style>
+
+        {/* Desktop tab bar */}
         <div
           className="dd-tabbar"
           style={{
@@ -970,6 +975,33 @@ export default function DeepDiveClient({
             </button>
           ))}
         </div>
+
+        {/* Mobile section picker */}
+        <select
+          className="dd-tab-select"
+          value={activeTab}
+          onChange={(e) => setActiveTab(e.target.value as Section)}
+          style={{
+            width: "100%",
+            fontFamily: MONO,
+            fontSize: "0.75rem",
+            letterSpacing: "0.06em",
+            color: INK,
+            background: "#ffffff",
+            border: "none",
+            borderBottom: `2px solid ${ORANGE}`,
+            padding: "0.75rem 0",
+            outline: "none",
+            cursor: "pointer",
+            appearance: "none",
+            WebkitAppearance: "none",
+            marginBottom: "1rem",
+          }}
+        >
+          {TABS.map((tab) => (
+            <option key={tab.id} value={tab.id}>{tab.label}</option>
+          ))}
+        </select>
 
         {/* Tab content */}
         <div style={{ marginTop: 24 }}>
@@ -1065,39 +1097,33 @@ export default function DeepDiveClient({
 
       {/* ── Mobile layout ──────────────────────────────────────────────────── */}
       <div className="md:hidden">
-        {/* Horizontal pill strip */}
+        {/* Artist picker */}
         {mergedArtists.length > 0 && (
-          <div style={{
-            display: "flex",
-            gap: 8,
-            padding: "0.75rem 1rem",
-            borderBottom: `1px solid ${RULE}`,
-            overflowX: "auto",
-            WebkitOverflowScrolling: "touch",
-          }}>
-            {mergedArtists.map((a) => {
-              const isSel = selectedArtist === a.name;
-              return (
-                <button
-                  key={a.name}
-                  onClick={() => selectArtist(a.name)}
-                  style={{
-                    fontFamily: MONO,
-                    fontSize: "0.68rem",
-                    letterSpacing: "0.08em",
-                    color: isSel ? ORANGE : INK,
-                    background: isSel ? WARM : "#ffffff",
-                    border: `1px solid ${isSel ? ORANGE : RULE}`,
-                    padding: "0.3rem 0.75rem",
-                    cursor: "pointer",
-                    whiteSpace: "nowrap",
-                    flexShrink: 0,
-                  }}
-                >
-                  {a.name}
-                </button>
-              );
-            })}
+          <div style={{ padding: "0.75rem 1rem", borderBottom: `1px solid ${RULE}` }}>
+            <select
+              value={selectedArtist ?? ""}
+              onChange={(e) => selectArtist(e.target.value)}
+              style={{
+                width: "100%",
+                fontFamily: MONO,
+                fontSize: "0.75rem",
+                letterSpacing: "0.06em",
+                color: selectedArtist ? ORANGE : INK,
+                background: "#ffffff",
+                border: "none",
+                borderBottom: `2px solid ${ORANGE}`,
+                padding: "0.5rem 0",
+                outline: "none",
+                cursor: "pointer",
+                appearance: "none",
+                WebkitAppearance: "none",
+              }}
+            >
+              <option value="" disabled>Select artist…</option>
+              {mergedArtists.map((a) => (
+                <option key={a.name} value={a.name}>{a.name}</option>
+              ))}
+            </select>
           </div>
         )}
 
