@@ -7,7 +7,10 @@ import type { CollectionRecord, CollectionInsights } from "@/app/collection/page
 import { persistRecordPrice } from "@/app/collection/actions";
 import { createClient } from "@/lib/supabase/client";
 import { getDesirabilityTier, type DesirabilityTier } from "@/lib/desirability";
-import SpotifyPlayer, { getFreshSpotifyToken } from "@/components/SpotifyPlayer";
+import { openAppleMusicLink } from "@/lib/openAppleMusic";
+// import SpotifyPlayer from "@/components/SpotifyPlayer"; // custom player — uncomment to switch back
+import { getFreshSpotifyToken } from "@/components/SpotifyPlayer";
+import SpotifyNativeEmbed from "@/components/SpotifyNativeEmbed";
 
 const SERIF  = "var(--font-editorial)";
 const MONO   = "var(--font-mono)";
@@ -2097,11 +2100,9 @@ function TracklistPanel({ tracks, loading, bandcamp, record }: {
   return (
     <div>
       {/* ── Spotify Player ── */}
-      {/* SpotifyPlayer stays mounted while Premium + a record is selected so the SDK
-          player never disconnects between album switches. spotifyUri=undefined when
-          searching so the player renders nothing but keeps the SDK connection alive. */}
+      {/* Native Spotify embed — swap back to SpotifyPlayer above to restore the custom build */}
       {spotifyPremium && record && (
-        <SpotifyPlayer mode="collection" spotifyUri={currentSpotifyUri ?? undefined} />
+        <SpotifyNativeEmbed uri={currentSpotifyUri ?? undefined} height={152} />
       )}
       {spotifyPremium && record && currentSpotifyUri === null && (
         <div style={{ padding: "10px 28px", borderBottom: "1px solid #e0e0da", fontFamily: "var(--font-mono)", fontSize: "9px", letterSpacing: "0.04em", color: "#aaaaaa" }}>
@@ -2218,7 +2219,13 @@ function TracklistPanel({ tracks, loading, bandcamp, record }: {
 
             {/* Links */}
             <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
-              <a href={amSearch} target="_blank" rel="noopener noreferrer" style={secondaryLinkStyle}>
+              <a
+                href={amSearch}
+                target="_blank"
+                rel="noopener noreferrer"
+                style={secondaryLinkStyle}
+                onClick={(e) => { e.preventDefault(); openAppleMusicLink(amSearch); }}
+              >
                 Open in Apple Music ↗
               </a>
               <a href={tidalSearch} target="_blank" rel="noopener noreferrer" style={secondaryLinkStyle}>
