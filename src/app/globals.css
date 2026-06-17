@@ -199,6 +199,62 @@ h1, h2, h3, h4, h5, h6 {
   .rk-onboard-form {
     gap: 20px !important;
   }
+
+  /* ── Archetype hero: stack image above content on mobile ─────────────── */
+  .rk-arch-hero {
+    flex-direction: column !important;
+    align-items: stretch !important;
+    gap: 0 !important;
+  }
+
+  /* ── Artist / Label spotlight outer layout ───────────────────────────── */
+  .rk-spotlight-outer {
+    flex-direction: column !important;
+  }
+  /* Photo/logo panel: full width, not sticky */
+  .rk-spotlight-panel {
+    width: 100% !important;
+    position: static !important;
+    align-self: auto !important;
+    margin-bottom: 24px !important;
+  }
+  /* Square image → landscape banner */
+  .rk-spotlight-img {
+    aspect-ratio: 16 / 9 !important;
+    max-height: 200px;
+  }
+  /* Pressing / collector 2-col grid → single column */
+  .rk-pressing-grid {
+    grid-template-columns: 1fr !important;
+  }
+  .rk-pressing-grid > * {
+    border-right: none !important;
+    border-bottom: 1px solid #e0e0da !important;
+  }
+  /* Neighbor recommendations: horizontal strip → stacked */
+  .rk-neighbors-flex {
+    flex-direction: column !important;
+  }
+  .rk-neighbors-flex > * {
+    border-left: none !important;
+    border-top: 1px solid #e0e0da !important;
+  }
+  .rk-neighbors-flex > *:first-child {
+    border-top: none !important;
+  }
+
+  /* ── Support page ────────────────────────────────────────────────────── */
+  /* Sub-nav tabs: wrap to avoid "Support rekōdo" overflow */
+  .rk-about-tabs {
+    flex-wrap: wrap !important;
+    justify-content: flex-start !important;
+    gap: 4px 12px !important;
+    padding: 10px 16px 0 !important;
+  }
+  /* Payment options: side-by-side → stacked */
+  .rk-supporter-grid {
+    grid-template-columns: 1fr !important;
+  }
 }
 
 /* ── Safe-area insets (notch / home-bar aware, viewport-fit=cover) ──────────

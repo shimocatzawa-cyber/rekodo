@@ -122,8 +122,8 @@ function LabelLogoPanel() {
   }, []);
 
   return (
-    <div style={{ width: 260, flexShrink: 0, position: "sticky", top: 24, alignSelf: "flex-start" }}>
-      <div style={{ width: "100%", aspectRatio: "1 / 1", background: "#f7f7f5", overflow: "hidden" }}>
+    <div className="rk-spotlight-panel" style={{ width: 260, flexShrink: 0, position: "sticky", top: 24, alignSelf: "flex-start" }}>
+      <div className="rk-spotlight-img" style={{ width: "100%", aspectRatio: "1 / 1", background: "#f7f7f5", overflow: "hidden" }}>
         {imgUrl && !failed ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img
@@ -161,7 +161,7 @@ function LabelLogoPanel() {
 
 export default function LightInTheAtticSpotlight() {
   return (
-    <div style={{ display: "flex", gap: 40, alignItems: "flex-start" }}>
+    <div className="rk-spotlight-outer" style={{ display: "flex", gap: 40, alignItems: "flex-start" }}>
       <LabelLogoPanel />
 
       <div style={{ flex: 1, minWidth: 0 }}>
@@ -244,7 +244,7 @@ export default function LightInTheAtticSpotlight() {
           <p style={{ fontFamily: MONO, fontSize: "11px", color: "#888888", margin: "0 0 16px", fontWeight: 400 }}>
             What makes a LITA pressing worth owning
           </p>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", border: `1px solid ${RULE}` }}>
+          <div className="rk-pressing-grid" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", border: `1px solid ${RULE}` }}>
             {COLLECTOR_NOTES.map((cell, i) => (
               <div
                 key={cell.title}
@@ -271,7 +271,7 @@ export default function LightInTheAtticSpotlight() {
           <p style={{ fontFamily: MONO, fontSize: "11px", color: "#888888", margin: "0 0 16px", fontWeight: 400 }}>
             You might also explore
           </p>
-          <div style={{ display: "flex", border: `1px solid ${RULE}` }}>
+          <div className="rk-neighbors-flex" style={{ display: "flex", border: `1px solid ${RULE}` }}>
             {NEIGHBORS.map((n, i) => (
               <div
                 key={n.artist}

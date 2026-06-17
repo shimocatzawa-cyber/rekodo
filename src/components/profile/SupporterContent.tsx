@@ -150,7 +150,7 @@ export default function SupporterContent({ isOwner, isSupporter, userId, success
       )}
 
       {/* Two-option grid */}
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1px", background: RULE }}>
+      <div className="rk-supporter-grid" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1px", background: RULE }}>
 
         {/* ── Option 1: Regular commitment ─────────────────────────────── */}
         <div style={{ background: "#ffffff", padding: "28px 24px", display: "flex", flexDirection: "column" }}>

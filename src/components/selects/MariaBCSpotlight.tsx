@@ -117,8 +117,8 @@ function ArtistPhotoPanel() {
   }, []);
 
   return (
-    <div style={{ width: 260, flexShrink: 0, position: "sticky", top: 24, alignSelf: "flex-start" }}>
-      <div style={{ width: "100%", aspectRatio: "1 / 1", background: "#f7f7f5", overflow: "hidden" }}>
+    <div className="rk-spotlight-panel" style={{ width: 260, flexShrink: 0, position: "sticky", top: 24, alignSelf: "flex-start" }}>
+      <div className="rk-spotlight-img" style={{ width: "100%", aspectRatio: "1 / 1", background: "#f7f7f5", overflow: "hidden" }}>
         {imgUrl && !failed ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img
@@ -151,7 +151,7 @@ function ArtistPhotoPanel() {
 
 export default function MariaBCSpotlight() {
   return (
-    <div style={{ display: "flex", gap: 40, alignItems: "flex-start" }}>
+    <div className="rk-spotlight-outer" style={{ display: "flex", gap: 40, alignItems: "flex-start" }}>
       <ArtistPhotoPanel />
 
       <div style={{ flex: 1, minWidth: 0 }}>
@@ -231,7 +231,7 @@ export default function MariaBCSpotlight() {
         {/* 4. Pressing Intelligence */}
         <div style={{ borderBottom: `1px solid ${RULE}`, paddingBottom: 32, marginBottom: 32 }}>
           <SectionEyebrow>Pressing Intelligence</SectionEyebrow>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", border: `1px solid ${RULE}` }}>
+          <div className="rk-pressing-grid" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", border: `1px solid ${RULE}` }}>
             {PRESSING.map((cell, i) => (
               <div
                 key={cell.title}
@@ -258,7 +258,7 @@ export default function MariaBCSpotlight() {
           <p style={{ fontFamily: MONO, fontSize: "11px", color: "#888888", margin: "0 0 16px", fontWeight: 400 }}>
             You might also reach for
           </p>
-          <div style={{ display: "flex", border: `1px solid ${RULE}` }}>
+          <div className="rk-neighbors-flex" style={{ display: "flex", border: `1px solid ${RULE}` }}>
             {NEIGHBORS.map((n, i) => (
               <div
                 key={n.artist}

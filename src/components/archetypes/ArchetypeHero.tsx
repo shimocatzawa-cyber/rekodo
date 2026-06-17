@@ -106,7 +106,7 @@ export default function ArchetypeHero({
   const secondaryDef = secondary ? ARCHETYPES[secondary] : null;
 
   return (
-    <div style={{ display: "flex", gap: 32, alignItems: "center", marginBottom: 48 }}>
+    <div className="rk-arch-hero" style={{ display: "flex", gap: 32, alignItems: "center", marginBottom: 48 }}>
 
       {/* Left — image */}
       <div
