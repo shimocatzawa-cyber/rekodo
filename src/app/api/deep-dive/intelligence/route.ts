@@ -8,10 +8,72 @@ const client = new Anthropic();
 
 const CACHE_TTL_DAYS = 30;
 
+const CACHED_SECTIONS = new Set(["rankings", "podcasts", "books", "interviews"]);
+const SONNET_SECTIONS  = new Set(["rankings", "podcasts", "books", "interviews"]);
+
+// Token budget per section — generous to prevent max_tokens truncation.
+// Truncated JSON causes a parse error which surfaces as "No information available".
+const MAX_TOKENS: Record<string, number> = {
+  rankings:   2000,
+  podcasts:   2000,
+  books:      2000,
+  interviews: 2000,
+  blindspot:  2048,
+  related:    1500,
+};
+
+function getSupabase() {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!url || !key) return null;
+  return createClient(url, key);
+}
+
+// Cache read — never throws; returns null if anything goes wrong.
+async function readCache(artist: string, section: string): Promise<unknown | null> {
+  try {
+    const supabase = getSupabase();
+    if (!supabase) return null;
+    const staleAfter = new Date(Date.now() - CACHE_TTL_DAYS * 24 * 60 * 60 * 1000).toISOString();
+    const { data, error } = await supabase
+      .from("deep_dive_cache")
+      .select("data")
+      .eq("artist", artist)
+      .eq("section", section)
+      .gt("refreshed_at", staleAfter)
+      .maybeSingle();
+    if (error) {
+      console.warn("Deep Dive cache read skipped:", error.message);
+      return null;
+    }
+    return data?.data ?? null;
+  } catch (e) {
+    console.warn("Deep Dive cache read error:", e);
+    return null;
+  }
+}
+
+// Cache write — fire-and-forget; never throws.
+async function writeCache(artist: string, section: string, data: unknown): Promise<void> {
+  try {
+    const supabase = getSupabase();
+    if (!supabase) return;
+    const { error } = await supabase
+      .from("deep_dive_cache")
+      .upsert(
+        { artist, section, data, refreshed_at: new Date().toISOString() },
+        { onConflict: "artist,section" }
+      );
+    if (error) console.warn("Deep Dive cache write skipped:", error.message);
+  } catch (e) {
+    console.warn("Deep Dive cache write error:", e);
+  }
+}
+
 const PROMPTS: Record<string, (artist: string, ownedAlbums?: string[]) => string> = {
   rankings: (artist, ownedAlbums = []) => {
     const ownedBlock = ownedAlbums.length > 0
-      ? `\nALBUMS THIS COLLECTOR OWNS — you must include ALL of these in the ranking:\n${ownedAlbums.map(a => `- ${a}`).join("\n")}\n`
+      ? `\nALBUMS THIS COLLECTOR OWNS — include as many of these as possible in the ranking (they are confirmed to exist):\n${ownedAlbums.map(a => `- ${a}`).join("\n")}\n`
       : "";
     return `You are a music critic writing for serious vinyl collectors. Rank ${artist}'s most essential studio albums from best to worst.
 
@@ -130,34 +192,19 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Invalid request" }, { status: 400 });
     }
 
-    // ── Cache check for rankings + podcasts + books + interviews ─────────────
-    if (section === "rankings" || section === "podcasts" || section === "books" || section === "interviews") {
-      const supabase = createClient(
-        process.env.NEXT_PUBLIC_SUPABASE_URL!,
-        process.env.SUPABASE_SERVICE_ROLE_KEY!
-      );
-
-      const staleAfter = new Date(Date.now() - CACHE_TTL_DAYS * 24 * 60 * 60 * 1000).toISOString();
-      const { data: cached } = await supabase
-        .from("deep_dive_cache")
-        .select("data, refreshed_at")
-        .eq("artist", artist)
-        .eq("section", section)
-        .gt("refreshed_at", staleAfter)
-        .maybeSingle();
-
-      if (cached) {
-        return NextResponse.json({ data: cached.data, cached: true });
-      }
+    // ── Cache read (fault-tolerant — missing table or bad creds just skip cache) ─
+    if (CACHED_SECTIONS.has(section)) {
+      const cached = await readCache(artist, section);
+      if (cached) return NextResponse.json({ data: cached, cached: true });
     }
 
-    // ── Model selection ────────────────────────────────────────────────────────
-    // Rankings + podcasts + books + interviews use Sonnet; everything else uses Haiku for cost.
-    const model = (section === "rankings" || section === "podcasts" || section === "books" || section === "interviews") ? "claude-sonnet-4-6" : "claude-haiku-4-5";
-    const maxTokens = section === "blindspot" ? 2048 : 1500;
+    // ── Model + token budget ───────────────────────────────────────────────────
+    const model     = SONNET_SECTIONS.has(section) ? "claude-sonnet-4-6" : "claude-haiku-4-5";
+    const maxTokens = MAX_TOKENS[section] ?? 1500;
 
-    const promptAlbums = section === "rankings" && ownedAlbums && ownedAlbums.length > 8
-      ? ownedAlbums.slice(0, 8)
+    // For rankings/blindspot pass owned albums; cap at 5 to keep prompt concise.
+    const promptAlbums = (section === "rankings" || section === "blindspot") && ownedAlbums?.length
+      ? ownedAlbums.slice(0, 5)
       : ownedAlbums;
 
     const message = await client.messages.create({
@@ -166,40 +213,22 @@ export async function POST(request: NextRequest) {
       messages: [{ role: "user", content: PROMPTS[section](artist, promptAlbums) }],
     });
 
-    if (message.stop_reason === "max_tokens") {
-      return NextResponse.json({ error: "Response too long — try a more specific artist" }, { status: 500 });
-    }
-
-    const text =
-      message.content[0].type === "text" ? message.content[0].text : "";
-    const clean = text
-      .replace(/```json\n?/g, "")
-      .replace(/```\n?/g, "")
-      .trim();
+    // Treat max_tokens truncation as a parse error rather than a hard failure —
+    // the JSON may still be valid if Claude finished before the limit.
+    const text = message.content.find((b) => b.type === "text")?.text ?? "";
+    const clean = text.replace(/```json\n?/g, "").replace(/```\n?/g, "").trim();
 
     let data: unknown;
     try {
       data = JSON.parse(clean);
     } catch {
-      return NextResponse.json(
-        { error: "Parse error", raw: clean },
-        { status: 500 }
-      );
+      console.error("Deep Dive parse error for", artist, section, "stop_reason:", message.stop_reason, "\nraw:", clean.slice(0, 300));
+      return NextResponse.json({ error: "Parse error", raw: clean }, { status: 500 });
     }
 
-    // ── Cache write for rankings + podcasts + books + interviews ─────────────
-    if (section === "rankings" || section === "podcasts" || section === "books" || section === "interviews") {
-      const supabase = createClient(
-        process.env.NEXT_PUBLIC_SUPABASE_URL!,
-        process.env.SUPABASE_SERVICE_ROLE_KEY!
-      );
-
-      await supabase
-        .from("deep_dive_cache")
-        .upsert(
-          { artist, section, data, refreshed_at: new Date().toISOString() },
-          { onConflict: "artist,section" }
-        );
+    // ── Cache write (fault-tolerant — fire-and-forget) ─────────────────────────
+    if (CACHED_SECTIONS.has(section)) {
+      void writeCache(artist, section, data);
     }
 
     return NextResponse.json({ data });
