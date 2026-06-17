@@ -51,10 +51,11 @@ export default function AppNav({ username, displayLabel, avatarUrl }: { username
         style={{ borderBottom: "1px solid rgba(0,0,0,0.08)" }}
         className="flex items-center justify-between px-8 md:px-12 py-5 bg-white"
       >
-        {/* Left — ō wordmark */}
+        {/* Left — ō wordmark (desktop: Link to home; mobile: menu trigger) */}
         <Link
           href="/"
           aria-label="rekōdo home"
+          className="hidden md:block"
           style={{
             fontFamily: SERIF, fontWeight: 700, fontSize: "28px", color: ORANGE,
             textDecoration: "none", lineHeight: 1,
@@ -62,6 +63,20 @@ export default function AppNav({ username, displayLabel, avatarUrl }: { username
         >
           ō
         </Link>
+        <button
+          className="md:hidden"
+          onClick={() => setMenuOpen(!menuOpen)}
+          aria-label={menuOpen ? "Close menu" : "Open menu"}
+          style={{
+            fontFamily: SERIF, fontWeight: 700, fontSize: "28px",
+            color: menuOpen ? "#0d0d0d" : ORANGE,
+            background: "none", border: "none", cursor: "pointer",
+            padding: 0, lineHeight: 1,
+            transition: "color 0.2s",
+          }}
+        >
+          ō
+        </button>
 
         {/* Centre — desktop nav links */}
         <div className="hidden md:flex items-center gap-8">
@@ -104,46 +119,6 @@ export default function AppNav({ username, displayLabel, avatarUrl }: { username
             );
           })}
         </div>
-
-        {/* Centre — mobile hamburger */}
-        <button
-          className="md:hidden"
-          onClick={() => setMenuOpen(!menuOpen)}
-          aria-label={menuOpen ? "Close menu" : "Open menu"}
-          style={{
-            background: "none",
-            border: "none",
-            cursor: "pointer",
-            padding: "10px",
-            flexDirection: "column",
-            gap: "5px",
-          }}
-        >
-          <span style={{
-            display: "block",
-            width: "22px",
-            height: "1.5px",
-            background: "#0d0d0d",
-            transition: "transform 0.2s, opacity 0.2s",
-            transform: menuOpen ? "translateY(6.5px) rotate(45deg)" : "none",
-          }} />
-          <span style={{
-            display: "block",
-            width: "22px",
-            height: "1.5px",
-            background: "#0d0d0d",
-            transition: "opacity 0.2s",
-            opacity: menuOpen ? 0 : 1,
-          }} />
-          <span style={{
-            display: "block",
-            width: "22px",
-            height: "1.5px",
-            background: "#0d0d0d",
-            transition: "transform 0.2s, opacity 0.2s",
-            transform: menuOpen ? "translateY(-6.5px) rotate(-45deg)" : "none",
-          }} />
-        </button>
 
         {/* Right — avatar + @username → settings, sign out */}
         <div className="flex items-center gap-4">

@@ -10,8 +10,12 @@ const RULE   = "#e0e0da";
 
 const DISCOGS_LABEL_ID = "24105";
 
-const ABOUT_BODY =
-  "Light in the Attic was founded in 2001 by high school friends Matt Sullivan and Josh Wright in Seattle, Washington. Their mission was simple and remains unchanged: find great music, wherever it is, however it sounds, and put it out properly. What began with a handful of cult reissues became one of the most respected independent labels in the world — 200+ titles across soul, funk, folk, Japanese ambient, psychedelic rock, country, and beyond. Their early work with Sixto Rodriguez, the Detroit singer-songwriter whose music had become legendary in South Africa without his knowledge, culminated in the 2012 Academy Award-winning documentary Searching for Sugar Man, which brought the label and the artist global attention. But Rodriguez was one thread in a much larger tapestry. Karen Dalton's In My Own Time, Betty Davis's complete discography, Lee Hazlewood's LHI archives, Hiroshi Yoshimura's environmental music series, the Native North America compilation — each one a recovery operation. In 2024, Discogs named Light in the Attic Indie Label of the Year. They have also won A2IM's Label of the Year (Medium) twice: 2021 and 2024.";
+const ABOUT_BODY = [
+  "Light in the Attic was founded in 2001 by high school friends Matt Sullivan and Josh Wright in Seattle, Washington. Their mission was simple and remains unchanged: find great music, wherever it is, however it sounds, and put it out properly.",
+  "What began with a handful of cult reissues became one of the most respected independent labels in the world — 200+ titles across soul, funk, folk, Japanese ambient, psychedelic rock, country, and beyond.",
+  "Their early work with Sixto Rodriguez, the Detroit singer-songwriter whose music had become legendary in South Africa without his knowledge, culminated in the 2012 Academy Award-winning documentary Searching for Sugar Man, which brought the label and the artist global attention. But Rodriguez was one thread in a much larger tapestry.",
+  "Karen Dalton's In My Own Time, Betty Davis's complete discography, Lee Hazlewood's LHI archives, Hiroshi Yoshimura's environmental music series, the Native North America compilation — each one a recovery operation. In 2024, Discogs named Light in the Attic Indie Label of the Year. They have also won A2IM's Label of the Year (Medium) twice: 2021 and 2024.",
+];
 
 type LandmarkRow = {
   year: string;
@@ -183,9 +187,11 @@ export default function LightInTheAtticSpotlight() {
         {/* 2. About */}
         <div style={{ borderBottom: `1px solid ${RULE}`, paddingBottom: 32, marginBottom: 32 }}>
           <SectionEyebrow>About</SectionEyebrow>
-          <p style={{ fontFamily: MONO, fontSize: "12px", lineHeight: 1.75, color: INK, margin: 0, fontWeight: 400 }}>
-            {ABOUT_BODY}
-          </p>
+          {ABOUT_BODY.map((para, i) => (
+            <p key={i} style={{ fontFamily: MONO, fontSize: "12px", lineHeight: 1.75, color: INK, margin: i < ABOUT_BODY.length - 1 ? "0 0 14px" : 0, fontWeight: 400 }}>
+              {para}
+            </p>
+          ))}
         </div>
 
         {/* 3. Landmark Releases */}
@@ -223,7 +229,7 @@ export default function LightInTheAtticSpotlight() {
                   </p>
                 </div>
                 {row.badge && (
-                  <div style={{ flexShrink: 0 }}>
+                  <div className="rk-disc-badge" style={{ flexShrink: 0 }}>
                     <span style={{
                       fontFamily: MONO, fontSize: "10px", color: INK,
                       border: `1px solid ${RULE}`, padding: "2px 8px",

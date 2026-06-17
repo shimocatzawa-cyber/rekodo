@@ -10,8 +10,12 @@ const RULE   = "#e0e0da";
 
 const DISCOGS_ARTIST_ID = "8722522";
 
-const BIO =
-  "Maria BC grew up singing mezzo-soprano in an Ohio church — a classical training that still shapes every record, present not as technique but as a discipline of space and restraint. Early recordings were built carefully, around roommates, in apartments. The debut EP Devil's Rain (2021) was recorded so as not to disturb the neighbours. That constraint became aesthetic. By Hyaline (2022, Father/Daughter Records), limitation had become language — phone recordings woven into folk arrangements, Pitchfork's album of the week. Sacred Bones signed them for Spike Field (2023): an out-of-tune baby Steinway, choral arrangements with childhood friends, nuclear-waste conceptualism beneath some of the most tender music of the year. Marathon (2026) strips production back further — foley recordings of nature and creaking West Coast homes — and finds the same sense of urgency under a deliberately quieter surface.";
+const BIO = [
+  "Maria BC grew up singing mezzo-soprano in an Ohio church — a classical training that still shapes every record, present not as technique but as a discipline of space and restraint.",
+  "Early recordings were built carefully, around roommates, in apartments. The debut EP Devil's Rain (2021) was recorded so as not to disturb the neighbours. That constraint became aesthetic.",
+  "By Hyaline (2022, Father/Daughter Records), limitation had become language — phone recordings woven into folk arrangements, Pitchfork's album of the week. Sacred Bones signed them for Spike Field (2023): an out-of-tune baby Steinway, choral arrangements with childhood friends, nuclear-waste conceptualism beneath some of the most tender music of the year.",
+  "Marathon (2026) strips production back further — foley recordings of nature and creaking West Coast homes — and finds the same sense of urgency under a deliberately quieter surface.",
+];
 
 type DiscRow = {
   year: string;
@@ -173,9 +177,11 @@ export default function MariaBCSpotlight() {
         {/* 2. Bio */}
         <div style={{ borderBottom: `1px solid ${RULE}`, paddingBottom: 32, marginBottom: 32 }}>
           <SectionEyebrow>About</SectionEyebrow>
-          <p style={{ fontFamily: MONO, fontSize: "12px", lineHeight: 1.75, color: INK, margin: 0, fontWeight: 400 }}>
-            {BIO}
-          </p>
+          {BIO.map((para, i) => (
+            <p key={i} style={{ fontFamily: MONO, fontSize: "12px", lineHeight: 1.75, color: INK, margin: i < BIO.length - 1 ? "0 0 14px" : 0, fontWeight: 400 }}>
+              {para}
+            </p>
+          ))}
         </div>
 
         {/* 3. Discography */}
@@ -213,7 +219,7 @@ export default function MariaBCSpotlight() {
                   </p>
                 </div>
                 {row.badge && (
-                  <div style={{ flexShrink: 0 }}>
+                  <div className="rk-disc-badge" style={{ flexShrink: 0 }}>
                     <span style={{
                       fontFamily: MONO, fontSize: "10px", color: INK,
                       border: `1px solid ${RULE}`, padding: "2px 8px",

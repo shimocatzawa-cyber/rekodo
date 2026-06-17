@@ -200,6 +200,34 @@ h1, h2, h3, h4, h5, h6 {
     gap: 20px !important;
   }
 
+  /* ── Selects main content area ───────────────────────────────────────── */
+  .rk-selects-main {
+    padding: 24px 16px 60px !important;
+  }
+
+  /* ── Insights: format / desirability table → 2-col, no scroll ────────── */
+  /* Drop "Market Value" (3rd col) on narrow screens                        */
+  .rk-ins-fmt > * {
+    grid-template-columns: 1fr auto !important;
+  }
+  .rk-ins-fmt > * > *:nth-child(3) {
+    display: none !important;
+  }
+
+  /* ── Insights: top items table → cover + artist + value, no scroll ───── */
+  /* Drop "Album" (3rd col) — artist + value remain readable               */
+  .rk-ins-top > * {
+    grid-template-columns: 44px 1fr auto !important;
+  }
+  .rk-ins-top > * > *:nth-child(3) {
+    display: none !important;
+  }
+
+  /* ── Spotlight: hide press badge so it doesn't squeeze discography ────── */
+  .rk-disc-badge {
+    display: none !important;
+  }
+
   /* ── Archetype hero: stack image above content on mobile ─────────────── */
   .rk-arch-hero {
     flex-direction: column !important;

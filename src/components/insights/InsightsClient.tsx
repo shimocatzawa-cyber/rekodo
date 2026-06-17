@@ -374,7 +374,7 @@ export default function InsightsClient({
         {formatBreakdown.length > 0 && (
           <div style={{ marginBottom: "40px" }}>
             <SubLabel>Collection by format</SubLabel>
-            <div className="rk-scroll-x" style={{ borderTop: `0.5px solid ${RULE}` }}>
+            <div className="rk-ins-fmt" style={{ borderTop: `0.5px solid ${RULE}` }}>
               <div style={{
                 display: "grid", gridTemplateColumns: "1fr 80px 160px",
                 gap: "16px", padding: "10px 0", borderBottom: `0.5px solid ${RULE}`,
@@ -413,7 +413,7 @@ export default function InsightsClient({
         {desirabilityBreakdown.length > 0 && (
           <div style={{ marginBottom: "40px" }}>
             <SubLabel>Collection by desirability</SubLabel>
-            <div className="rk-scroll-x" style={{ borderTop: `0.5px solid ${RULE}` }}>
+            <div className="rk-ins-fmt" style={{ borderTop: `0.5px solid ${RULE}` }}>
               <div style={{
                 display: "grid", gridTemplateColumns: "1fr 80px 160px",
                 gap: "16px", padding: "10px 0", borderBottom: `0.5px solid ${RULE}`,
@@ -461,7 +461,7 @@ export default function InsightsClient({
         {topRecordsByValue.length > 0 && (
           <div>
             <SubLabel>Top items by value</SubLabel>
-            <div className="rk-scroll-x" style={{ borderTop: `0.5px solid ${RULE}` }}>
+            <div className="rk-ins-top" style={{ borderTop: `0.5px solid ${RULE}` }}>
               <div style={{
                 display: "grid", gridTemplateColumns: "44px 1fr 1fr 160px",
                 gap: "16px", padding: "10px 0", borderBottom: `0.5px solid ${RULE}`,
