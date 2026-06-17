@@ -216,6 +216,7 @@ function ContactTab() {
         Contact
       </p>
 
+      <div style={{ maxWidth: 600, margin: "0 auto" }}>
       <h1 style={{
         fontFamily: "var(--font-editorial)", fontSize: "clamp(28px, 4vw, 42px)",
         fontWeight: 400, color: INK, margin: "0 0 48px", lineHeight: 1.1,
@@ -223,7 +224,7 @@ function ContactTab() {
         Get in touch.
       </h1>
 
-      <form onSubmit={handleSubmit} style={{ maxWidth: 600 }} noValidate>
+      <form onSubmit={handleSubmit} noValidate>
         {/* Name + Email — two-col on desktop */}
         <div style={{
           display: "grid",
@@ -345,6 +346,7 @@ function ContactTab() {
           {status === "sending" ? "Sending…" : status === "success" ? "Sent" : "Send message"}
         </button>
       </form>
+      </div>
     </main>
   );
 }
