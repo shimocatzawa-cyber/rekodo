@@ -2,7 +2,7 @@ import { type NextRequest, NextResponse } from "next/server";
 import Anthropic from "@anthropic-ai/sdk";
 import { createClient } from "@supabase/supabase-js";
 
-export const maxDuration = 60;
+export const maxDuration = 120;
 
 const client = new Anthropic();
 
@@ -11,24 +11,24 @@ const CACHE_TTL_DAYS = 30;
 const PROMPTS: Record<string, (artist: string, ownedAlbums?: string[]) => string> = {
   rankings: (artist, ownedAlbums = []) => {
     const ownedBlock = ownedAlbums.length > 0
-      ? `\nALBUMS THIS COLLECTOR OWNS — include ALL of these in the ranking (they are confirmed to exist):\n${ownedAlbums.map(a => `- ${a}`).join("\n")}\nAlso include any other essential ${artist} albums you are confident about, up to 8 total.\n`
+      ? `\nALBUMS THIS COLLECTOR OWNS — you must include ALL of these in the ranking:\n${ownedAlbums.map(a => `- ${a}`).join("\n")}\n`
       : "";
     return `You are a music critic writing for serious vinyl collectors. Rank ${artist}'s most essential studio albums from best to worst.
 
-CRITICAL ACCURACY RULES — read before answering:
-- Only include albums you are certain exist. If you are not sure a title is correct, omit it.
-- Do not confuse ${artist} with any other artist. Double-check every album title and year.
-- "Studio albums" only — no compilations, live records, EPs, or demos unless they are widely regarded as major works.
-- Aim for 5–8 albums. Include all confirmed essential records — do not artificially cut the list short.
+CRITICAL ACCURACY RULES:
+- Only include albums you are certain exist. If unsure, omit it.
+- Do not confuse ${artist} with any other artist.
+- Studio albums only — no compilations, live records, or EPs unless universally regarded as a major work.
+- Return EXACTLY 6 albums maximum — choose the most essential, even for prolific artists. Do not exceed 6.
+- Keep each review to 2 sentences. Keep each collectorNote to 1 sentence.
 ${ownedBlock}
-COLLECTOR NOTE RULES — strictly follow these:
-- Never name a specific label, pressing plant, or distributor in collectorNote unless you are absolutely certain it released this exact album. Fabricated label claims are worse than no information.
-- Focus on observable, generalisable advice: original pressing vs reissue, country of pressing, decade of manufacture, or known sonic characteristics (e.g. heavy mastering on reissues, original cuts preferred for dynamics).
-- If you have no reliable pressing information, write a brief note about the album's sonic character instead. Do not guess at label details.
+COLLECTOR NOTE RULES:
+- Never name a specific label or pressing plant unless you are absolutely certain. Fabricated label claims are worse than no information.
+- Focus on: original vs reissue, country of pressing, decade, or known sonic characteristics.
+- If no reliable pressing info is known, note the album's sonic character instead.
 
-For each album: be specific and opinionated about what makes it succeed or fail, and include a collector note following the rules above.
 Return ONLY valid JSON, no markdown, no backticks, no preamble:
-{"albums":[{"rank":1,"title":"Album Title","year":1975,"review":"2-3 sentence critical review","collectorNote":"Pressing note for collectors"}]}`;
+{"albums":[{"rank":1,"title":"Album Title","year":1975,"review":"2 sentence critical review.","collectorNote":"1 sentence pressing note."}]}`;
   },
 
   podcasts: (artist) =>
@@ -154,7 +154,7 @@ export async function POST(request: NextRequest) {
     // ── Model selection ────────────────────────────────────────────────────────
     // Rankings + podcasts + books + interviews use Sonnet; everything else uses Haiku for cost.
     const model = (section === "rankings" || section === "podcasts" || section === "books" || section === "interviews") ? "claude-sonnet-4-6" : "claude-haiku-4-5";
-    const maxTokens = (section === "rankings" || section === "blindspot") ? 4096 : 1500;
+    const maxTokens = section === "blindspot" ? 2048 : 1500;
 
     const promptAlbums = section === "rankings" && ownedAlbums && ownedAlbums.length > 8
       ? ownedAlbums.slice(0, 8)
