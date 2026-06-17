@@ -839,15 +839,6 @@ export default function ProfileClient({
           {/* Divider */}
           <div style={{ height: 1, background: RULE, marginBottom: "32px" }} />
 
-          {/* ── Collection photo ── */}
-          <div style={{ marginBottom: "48px" }}>
-            <CollectionPhotos
-              initialPhoto={collectionPhoto}
-              userId={profile.id}
-              isOwner={isOwner}
-            />
-          </div>
-
           {/* ── Lists section ── */}
           <section style={{ marginBottom: "48px" }}>
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "20px" }}>
@@ -940,6 +931,15 @@ export default function ProfileClient({
               </p>
             ) : null}
           </section>
+
+          {/* ── Collection photo ── */}
+          <div style={{ marginBottom: "48px" }}>
+            <CollectionPhotos
+              initialPhoto={collectionPhoto}
+              userId={profile.id}
+              isOwner={isOwner}
+            />
+          </div>
 
         </main>
       )}

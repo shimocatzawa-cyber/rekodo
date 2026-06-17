@@ -16,9 +16,10 @@ interface Props {
 
 export default function CollectionPhotos({ initialPhoto, userId, isOwner }: Props) {
   const router = useRouter();
-  const [photo,      setPhoto]      = useState<string | null>(initialPhoto);
-  const [loading,    setLoading]    = useState(false);
-  const [hovering,   setHovering]   = useState(false);
+  const [photo,       setPhoto]       = useState<string | null>(initialPhoto);
+  const [loading,     setLoading]     = useState(false);
+  const [hovering,    setHovering]    = useState(false);
+  const [uploadError, setUploadError] = useState<string | null>(null);
   const [lightboxUrl, setLightboxUrl] = useState<string | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
 
@@ -29,9 +30,16 @@ export default function CollectionPhotos({ initialPhoto, userId, isOwner }: Prop
   }, []);
 
   async function handleUpload(file: File) {
-    if (!["image/jpeg", "image/png", "image/webp"].includes(file.type)) return;
-    if (file.size > 2 * 1024 * 1024) return;
+    if (!["image/jpeg", "image/png", "image/webp"].includes(file.type)) {
+      setUploadError("Only JPEG, PNG and WebP images are supported.");
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      setUploadError("Image must be under 5 MB.");
+      return;
+    }
     setLoading(true);
+    setUploadError(null);
     const supabase = createClient();
     const storagePath = `${userId}/1.jpg`;
     try {
@@ -56,6 +64,7 @@ export default function CollectionPhotos({ initialPhoto, userId, isOwner }: Prop
       router.refresh();
     } catch (err) {
       console.error("Photo upload failed:", err);
+      setUploadError("Upload failed — please try again.");
     } finally {
       setLoading(false);
     }
@@ -99,6 +108,11 @@ export default function CollectionPhotos({ initialPhoto, userId, isOwner }: Prop
             color: "#aaaaaa", margin: "0 0 16px 0",
           }}>
             Add a photo of your collection.
+          </p>
+        )}
+        {uploadError && (
+          <p style={{ fontFamily: MONO, fontSize: "0.6rem", letterSpacing: "0.04em", color: "#cc3300", margin: "0 0 10px 0" }}>
+            {uploadError}
           </p>
         )}
 
