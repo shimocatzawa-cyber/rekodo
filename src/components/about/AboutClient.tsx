@@ -107,7 +107,7 @@ export default function AboutClient({
               margin: "0 0 56px 0",
               fontStyle: "italic",
             }}>
-              Built for collectors.
+              Your records say everything about you.
             </p>
 
             <div style={{ display: "flex", flexDirection: "column", gap: 28 }}>
