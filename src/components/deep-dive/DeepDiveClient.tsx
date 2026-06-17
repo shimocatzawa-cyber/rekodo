@@ -331,14 +331,22 @@ function BooksContent({ data }: { data: { items?: BookItem[] } }) {
   const tag = process.env.NEXT_PUBLIC_AMAZON_AFFILIATE_TAG;
 
   function amazonHref(b: BookItem) {
-    // Use ISBN-13 for most targeted search; falls back to title + author
-    const q = b.isbn13 ? encodeURIComponent(b.isbn13) : encodeURIComponent(`${b.title} ${b.author}`);
-    return tag ? `https://www.amazon.com.au/s?k=${q}&tag=${tag}` : `https://www.amazon.com.au/s?k=${q}`;
+    // field-isbn targets Amazon's book ISBN index directly (much more reliable than k=ISBN).
+    // OneLink (loaded in layout) rewrites amazon.com links to each visitor's local store.
+    // PA API will replace this with a direct /dp/ASIN URL once credentials are available.
+    if (b.isbn13) {
+      const base = `https://www.amazon.com/s?field-isbn=${encodeURIComponent(b.isbn13)}&search-alias=books`;
+      return tag ? `${base}&tag=${tag}` : base;
+    }
+    const q = encodeURIComponent(`${b.title} ${b.author}`);
+    return tag ? `https://www.amazon.com/s?k=${q}&search-alias=books&tag=${tag}` : `https://www.amazon.com/s?k=${q}&search-alias=books`;
   }
 
   function audibleHref(b: BookItem) {
-    const q = b.isbn13 ? encodeURIComponent(b.isbn13) : encodeURIComponent(`${b.title} ${b.author}`);
-    return `https://www.audible.com.au/search?keywords=${q}`;
+    // Audible uses its own ASIN system — ISBN lookup doesn't map. Title+author is more reliable.
+    // OneLink handles regional routing (audible.co.uk, audible.com.au, etc.) via the layout script.
+    const q = encodeURIComponent(`${b.title} ${b.author}`);
+    return `https://www.audible.com/search?keywords=${q}`;
   }
 
   const hasAudiobook = (b: BookItem) => b.format === "audiobook" || b.format === "both";

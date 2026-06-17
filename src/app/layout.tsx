@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Shippori_Mincho, DM_Mono, Caveat } from "next/font/google";
+import Script from "next/script";
 import { SpotifyPlayerProvider } from "@/components/SpotifyPlayerProvider";
 import "./globals.css";
 
@@ -107,6 +108,12 @@ export default function RootLayout({
         <SpotifyPlayerProvider>
           {children}
         </SpotifyPlayerProvider>
+        {process.env.NEXT_PUBLIC_AMAZON_ONELINK_ID && (
+          <Script
+            src={`//z-na.amazon-adsystem.com/widgets/onejs?MarketPlace=US&adInstanceId=${process.env.NEXT_PUBLIC_AMAZON_ONELINK_ID}`}
+            strategy="afterInteractive"
+          />
+        )}
       </body>
     </html>
   );
