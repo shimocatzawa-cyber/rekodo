@@ -22,10 +22,11 @@ const SUBSCRIPTION_PERKS = [
 const PRESET_AMOUNTS = [5, 10, 20];
 
 interface Props {
-  isOwner:     boolean;
-  isSupporter: boolean;
-  userId?:     string;
-  success?:    "subscription" | "donation" | null;
+  isOwner:      boolean;
+  isSubscriber: boolean;
+  isDonor:      boolean;
+  userId?:      string;
+  success?:     "subscription" | "donation" | null;
 }
 
 interface LocalPrice {
@@ -48,10 +49,10 @@ function formatLocalPrice({ unit_amount, currency }: LocalPrice): string {
     : `${formatted} ${currency.toUpperCase()}`;
 }
 
-export default function SupporterContent({ isOwner, isSupporter, userId, success }: Props) {
+export default function SupporterContent({ isOwner, isSubscriber, isDonor, userId, success }: Props) {
   const [preset, setPreset]               = useState<number | null>(null);
   const [customAmount, setCustomAmount]   = useState("");
-  const [loading, setLoading]             = useState<"subscription" | "donation" | null>(null);
+  const [loading, setLoading]             = useState<"subscription" | "donation" | "portal" | null>(null);
   const [localPrice, setLocalPrice]       = useState<LocalPrice | null>(null);
   const router = useRouter();
 
@@ -101,6 +102,23 @@ export default function SupporterContent({ isOwner, isSupporter, userId, success
     }
   }
 
+  async function handleManageSubscription() {
+    setLoading("portal");
+    try {
+      const res = await fetch("/api/stripe/portal", { method: "POST" });
+      const data = (await res.json()) as { url?: string; error?: string };
+      if (data.url) {
+        router.push(data.url);
+      } else {
+        alert(data.error ?? "Something went wrong");
+        setLoading(null);
+      }
+    } catch {
+      alert("Something went wrong");
+      setLoading(null);
+    }
+  }
+
   return (
     <div style={{ padding: "3rem 0 5rem" }}>
 
@@ -133,26 +151,10 @@ export default function SupporterContent({ isOwner, isSupporter, userId, success
         Support rek<span style={{ color: ORANGE }}>ō</span>do
       </h2>
 
-      {/* Already supporting */}
-      {isOwner && isSupporter && (
-        <div style={{ marginBottom: 32 }}>
-          <div style={{
-            display: "inline-flex", alignItems: "center", gap: 10,
-            border: `1px solid ${BADGE_GOLD}`, background: "#FFF8E6",
-            padding: "12px 20px",
-          }}>
-            <span style={{ fontFamily: SERIF, fontSize: "1.4rem", color: BADGE_GOLD, lineHeight: 1 }}>ō</span>
-            <p style={{ fontFamily: MONO, fontSize: "0.65rem", letterSpacing: "0.08em", color: BADGE_GOLD, margin: 0 }}>
-              You&rsquo;re a Supporter — thank you.
-            </p>
-          </div>
-        </div>
-      )}
-
       {/* Two-option grid */}
       <div className="rk-supporter-grid" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1px", background: RULE }}>
 
-        {/* ── Option 1: Regular commitment ─────────────────────────────── */}
+        {/* ── Option 1: Regular commitment / Active subscription ────────── */}
         <div style={{ background: "#ffffff", padding: "28px 24px", display: "flex", flexDirection: "column" }}>
           <p style={{
             fontFamily: MONO, fontSize: "0.7rem", letterSpacing: "0.16em",
@@ -161,60 +163,128 @@ export default function SupporterContent({ isOwner, isSupporter, userId, success
             Regular Commitment
           </p>
 
-          <div style={{ display: "flex", alignItems: "baseline", gap: 10, marginBottom: 6 }}>
-            <span style={{ fontFamily: SERIF, fontSize: "clamp(2rem, 4vw, 2.8rem)", fontWeight: 400, color: INK, lineHeight: 1 }}>
-              {localPrice ? formatLocalPrice(localPrice) : "—"}
-            </span>
-            <span style={{ fontFamily: MONO, fontSize: "0.6rem", letterSpacing: "0.1em", textTransform: "uppercase", color: "#888" }}>
-              / month
-            </span>
-          </div>
-          <div style={{ marginBottom: 28 }} />
-
-          <p style={{
-            fontFamily: MONO, fontSize: "0.5rem", letterSpacing: "0.12em",
-            textTransform: "uppercase", color: "#aaaaaa", margin: "0 0 14px",
-          }}>
-            Unlocks
-          </p>
-
-          <div style={{ display: "flex", flexDirection: "column", gap: 10, marginBottom: 32, flex: 1 }}>
-            {SUBSCRIPTION_PERKS.map(perk => (
-              <div key={perk.category} style={{ display: "flex", gap: 12, alignItems: "baseline" }}>
+          {isOwner && isSubscriber ? (
+            /* ── Subscriber state ── */
+            <>
+              <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 24 }}>
                 <span style={{
-                  fontFamily: MONO, fontSize: "0.48rem", letterSpacing: "0.1em",
-                  textTransform: "uppercase", color: ORANGE, flexShrink: 0, minWidth: 88,
+                  fontFamily: SERIF, fontSize: "clamp(2rem, 4vw, 2.8rem)",
+                  fontWeight: 400, color: BADGE_GOLD, lineHeight: 1,
                 }}>
-                  {perk.category}
+                  ō
                 </span>
-                <span style={{ fontFamily: SERIF, fontSize: "0.9rem", color: INK }}>
-                  {perk.category === "Identity"
-                    ? <>Golden <span style={{ color: BADGE_GOLD }}>ō</span> badge</>
-                    : perk.description}
+                <div>
+                  <p style={{ fontFamily: MONO, fontSize: "0.65rem", letterSpacing: "0.08em", color: BADGE_GOLD, margin: "0 0 4px" }}>
+                    You&rsquo;re a Supporter
+                  </p>
+                  <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                    <span style={{
+                      display: "inline-block", width: 7, height: 7,
+                      borderRadius: "50%", background: "#4caf50", flexShrink: 0,
+                    }} />
+                    <span style={{ fontFamily: MONO, fontSize: "0.55rem", letterSpacing: "0.06em", color: "#4caf50" }}>
+                      Subscription active
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              <div style={{ display: "flex", flexDirection: "column", gap: 10, marginBottom: 32, flex: 1 }}>
+                {SUBSCRIPTION_PERKS.map(perk => (
+                  <div key={perk.category} style={{ display: "flex", gap: 12, alignItems: "baseline" }}>
+                    <span style={{
+                      fontFamily: MONO, fontSize: "0.48rem", letterSpacing: "0.1em",
+                      textTransform: "uppercase", color: ORANGE, flexShrink: 0, minWidth: 88,
+                    }}>
+                      {perk.category}
+                    </span>
+                    <span style={{ fontFamily: SERIF, fontSize: "0.9rem", color: INK }}>
+                      {perk.category === "Identity"
+                        ? <>Golden <span style={{ color: BADGE_GOLD }}>ō</span> badge</>
+                        : perk.description}
+                    </span>
+                  </div>
+                ))}
+              </div>
+
+              <div>
+                <button
+                  onClick={handleManageSubscription}
+                  disabled={loading !== null}
+                  style={{
+                    fontFamily: MONO, fontSize: "0.65rem", letterSpacing: "0.12em",
+                    textTransform: "uppercase", color: INK, background: "#fff",
+                    border: `1px solid ${RULE}`, padding: "13px 0",
+                    cursor: loading !== null ? "not-allowed" : "pointer",
+                    opacity: loading !== null ? 0.6 : 1, width: "100%",
+                  }}
+                >
+                  {loading === "portal" ? "Redirecting…" : "Manage subscription →"}
+                </button>
+                <p style={{ fontFamily: MONO, fontSize: "0.5rem", letterSpacing: "0.06em", color: "#aaaaaa", margin: "8px 0 0" }}>
+                  Update payment · Cancel anytime · Stripe-secured
+                </p>
+              </div>
+            </>
+          ) : (
+            /* ── Non-subscriber state ── */
+            <>
+              <div style={{ display: "flex", alignItems: "baseline", gap: 10, marginBottom: 6 }}>
+                <span style={{ fontFamily: SERIF, fontSize: "clamp(2rem, 4vw, 2.8rem)", fontWeight: 400, color: INK, lineHeight: 1 }}>
+                  {localPrice ? formatLocalPrice(localPrice) : "—"}
+                </span>
+                <span style={{ fontFamily: MONO, fontSize: "0.6rem", letterSpacing: "0.1em", textTransform: "uppercase", color: "#888" }}>
+                  / month
                 </span>
               </div>
-            ))}
-          </div>
+              <div style={{ marginBottom: 28 }} />
 
-          {isOwner && !isSupporter && (
-            <div>
-              <button
-                onClick={() => handleCheckout("subscription")}
-                disabled={loading !== null}
-                style={{
-                  fontFamily: MONO, fontSize: "0.65rem", letterSpacing: "0.12em",
-                  textTransform: "uppercase", color: "#FDF6F0", background: INK,
-                  border: "none", padding: "13px 0",
-                  cursor: loading !== null ? "not-allowed" : "pointer",
-                  opacity: loading !== null ? 0.6 : 1, width: "100%",
-                }}
-              >
-                {loading === "subscription" ? "Redirecting…" : "Become a Supporter →"}
-              </button>
-              <p style={{ fontFamily: MONO, fontSize: "0.5rem", letterSpacing: "0.06em", color: "#aaaaaa", margin: "8px 0 0" }}>
-                Cancel anytime · Stripe-secured
+              <p style={{
+                fontFamily: MONO, fontSize: "0.5rem", letterSpacing: "0.12em",
+                textTransform: "uppercase", color: "#aaaaaa", margin: "0 0 14px",
+              }}>
+                Unlocks
               </p>
-            </div>
+
+              <div style={{ display: "flex", flexDirection: "column", gap: 10, marginBottom: 32, flex: 1 }}>
+                {SUBSCRIPTION_PERKS.map(perk => (
+                  <div key={perk.category} style={{ display: "flex", gap: 12, alignItems: "baseline" }}>
+                    <span style={{
+                      fontFamily: MONO, fontSize: "0.48rem", letterSpacing: "0.1em",
+                      textTransform: "uppercase", color: ORANGE, flexShrink: 0, minWidth: 88,
+                    }}>
+                      {perk.category}
+                    </span>
+                    <span style={{ fontFamily: SERIF, fontSize: "0.9rem", color: INK }}>
+                      {perk.category === "Identity"
+                        ? <>Golden <span style={{ color: BADGE_GOLD }}>ō</span> badge</>
+                        : perk.description}
+                    </span>
+                  </div>
+                ))}
+              </div>
+
+              {isOwner && (
+                <div>
+                  <button
+                    onClick={() => handleCheckout("subscription")}
+                    disabled={loading !== null}
+                    style={{
+                      fontFamily: MONO, fontSize: "0.65rem", letterSpacing: "0.12em",
+                      textTransform: "uppercase", color: "#FDF6F0", background: INK,
+                      border: "none", padding: "13px 0",
+                      cursor: loading !== null ? "not-allowed" : "pointer",
+                      opacity: loading !== null ? 0.6 : 1, width: "100%",
+                    }}
+                  >
+                    {loading === "subscription" ? "Redirecting…" : "Become a Supporter →"}
+                  </button>
+                  <p style={{ fontFamily: MONO, fontSize: "0.5rem", letterSpacing: "0.06em", color: "#aaaaaa", margin: "8px 0 0" }}>
+                    Cancel anytime · Stripe-secured
+                  </p>
+                </div>
+              )}
+            </>
           )}
         </div>
 

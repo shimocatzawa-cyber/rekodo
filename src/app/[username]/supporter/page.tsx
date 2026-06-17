@@ -15,11 +15,15 @@ export default async function SupporterPage({ params }: { params: Params }) {
   const supabase = await createClient();
   const { data: { user: viewer } } = await supabase.auth.getUser();
 
-  const { data: profile } = await supabase
+  type ProfileRow = {
+    id: string; username: string | null; display_name: string | null;
+    avatar_url: string | null; is_donor: boolean | null; is_supporter: boolean | null;
+  };
+  const { data: profile } = await (supabase as any)
     .from("profiles")
-    .select("id, username, display_name, avatar_url, is_donor")
+    .select("id, username, display_name, avatar_url, is_donor, is_supporter")
     .eq("username", username)
-    .maybeSingle();
+    .maybeSingle() as { data: ProfileRow | null };
 
   if (!profile) notFound();
 
@@ -46,7 +50,8 @@ export default async function SupporterPage({ params }: { params: Params }) {
       )}
       <SupporterContent
         isOwner={isOwner}
-        isSupporter={!!profile.is_donor}
+        isSubscriber={!!profile.is_supporter}
+        isDonor={!!profile.is_donor}
       />
     </div>
   );

@@ -28,14 +28,15 @@ interface Props {
   displayLabel: string | null;
   avatarUrl:    string | null;
   isOwner:      boolean;
-  isSupporter:  boolean;
+  isSubscriber: boolean;
+  isDonor:      boolean;
   userId?:      string;
   success?:     "subscription" | "donation" | null;
 }
 
 export default function AboutClient({
   username, displayLabel, avatarUrl,
-  isOwner, isSupporter, userId, success,
+  isOwner, isSubscriber, isDonor, userId, success,
 }: Props) {
   const [activeTab, setActiveTab] = useState<SupportTab>("support");
 
@@ -128,7 +129,8 @@ export default function AboutClient({
           <div style={{ borderTop: "1px solid #e0e0da", maxWidth: 960, margin: "0 auto 80px", padding: "0 32px" }}>
             <SupporterContent
               isOwner={isOwner}
-              isSupporter={isSupporter}
+              isSubscriber={isSubscriber}
+              isDonor={isDonor}
               userId={userId}
               success={success}
             />

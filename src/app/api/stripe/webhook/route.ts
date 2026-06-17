@@ -33,7 +33,13 @@ export async function POST(request: NextRequest) {
     );
 
     if (type === "subscription" && userId) {
-      await supabase.from("profiles").update({ is_supporter: true }).eq("id", userId);
+      const customerId = typeof session.customer === "string"
+        ? session.customer
+        : (session.customer as { id: string } | null)?.id ?? null;
+      await supabase.from("profiles").update({
+        is_supporter: true,
+        stripe_customer_id: customerId,
+      }).eq("id", userId);
 
       if (customerEmail) {
         await resend.emails.send({
