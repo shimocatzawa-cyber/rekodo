@@ -215,13 +215,13 @@ export default function ArchetypeHero({
         </div>
 
         {/* Sub-section D — Named pairing block */}
-        {namedPairing && secondary && (
+        {secondary && (
           <div>
             <div style={{ fontFamily: MONO, fontSize: 9, textTransform: "uppercase", letterSpacing: "0.12em", color: ORANGE, marginBottom: 6 }}>
               PRIMARY + SECONDARY
             </div>
             <div style={{ fontFamily: SERIF, fontSize: "1.1rem", fontWeight: 700, color: INK, marginBottom: 4 }}>
-              {namedPairing}
+              {namedPairing ?? `${primaryDef?.name ?? primary} · ${secondaryDef?.name ?? secondary}`}
             </div>
           </div>
         )}
