@@ -64,7 +64,7 @@ function LoadingSkeleton() {
         </div>
       </div>
       {/* Signal grid skeleton — 3 columns × 5 rows */}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 1, background: RULE }}>
+      <div className="rk-signal-grid" style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 1, background: RULE }}>
         {Array.from({ length: 14 }).map((_, i) => (
           <div key={i} style={{ background: "#fff", padding: 16 }}>
             <SkeletonBlock height={64} />
@@ -114,11 +114,11 @@ export default function ArchetypesClient({ userId, username, displayLabel, avata
     <div style={{ minHeight: "100vh", background: "#ffffff" }}>
       <AppNav username={username} displayLabel={displayLabel} avatarUrl={avatarUrl} />
 
-      <main style={{ padding: "48px 32px 80px", maxWidth: "960px", margin: "0 auto" }}>
+      <main className="rk-arch-main" style={{ padding: "48px 32px 80px", maxWidth: "960px", margin: "0 auto" }}>
 
         {/* Page header */}
         <div style={{ marginBottom: 32 }}>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+          <div className="rk-arch-header" style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
             <div>
               <h1 style={{ fontFamily: SERIF, fontSize: "1.8rem", fontWeight: 400, color: INK, margin: 0 }}>
                 What your collection says about you.

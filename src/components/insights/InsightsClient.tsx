@@ -258,7 +258,7 @@ export default function InsightsClient({
       <AppNav username={username} displayLabel={displayLabel} avatarUrl={avatarUrl} />
 
       {/* ── Tab bar ── */}
-      <div style={{ display: "flex", justifyContent: "center", gap: "24px", paddingTop: "14px", paddingBottom: "2px", background: "#ffffff" }}>
+      <div className="rk-profile-tabs" style={{ display: "flex", justifyContent: "center", gap: "24px", paddingTop: "14px", paddingBottom: "2px", background: "#ffffff" }}>
         {(["collection", "taste-profile"] as const).map((tab) => {
           const label = tab === "collection" ? "Collection" : "Taste Profile";
           return (
@@ -281,7 +281,7 @@ export default function InsightsClient({
       </div>
 
       {insightsTab === "collection" && (
-      <main style={{ padding: "48px 32px 80px", maxWidth: "960px", margin: "0 auto" }}>
+      <main className="rk-arch-main" style={{ padding: "48px 32px 80px", maxWidth: "960px", margin: "0 auto" }}>
 
 
         {/* ── Stats Bar ───────────────────────────────────────────────────── */}
@@ -739,7 +739,7 @@ export default function InsightsClient({
       )}
 
       {insightsTab === "taste-profile" && (
-        <main style={{ padding: "48px 32px 80px", maxWidth: "960px", margin: "0 auto" }}>
+        <main className="rk-arch-main" style={{ padding: "48px 32px 80px", maxWidth: "960px", margin: "0 auto" }}>
           <TasteProfile
             styleBreakdown={styleBreakdown}
             hasStyles={hasStyles}

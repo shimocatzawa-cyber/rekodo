@@ -483,7 +483,7 @@ export default function LibraryClient({ username, displayLabel, avatarUrl }: Pro
       <AppNav username={username} displayLabel={displayLabel} avatarUrl={avatarUrl} />
 
       {/* Hero */}
-      <div style={{ maxWidth: 760, margin: "0 auto", padding: "48px 32px 0" }}>
+      <div className="rk-lib-hero" style={{ maxWidth: 760, margin: "0 auto", padding: "48px 32px 0" }}>
         <h1 style={{
           fontFamily: SERIF, fontSize: "clamp(32px, 5vw, 52px)", fontWeight: 400,
           color: "#0d0d0d", lineHeight: 1.1, margin: "0 0 12px",
@@ -499,7 +499,7 @@ export default function LibraryClient({ username, displayLabel, avatarUrl }: Pro
         </p>
 
         {/* Toolbar */}
-        <div style={{
+        <div className="rk-lib-toolbar" style={{
           display: "flex", alignItems: "flex-end", justifyContent: "space-between",
           borderBottom: "1px solid rgba(0,0,0,0.08)", marginBottom: 40,
         }}>
@@ -528,7 +528,7 @@ export default function LibraryClient({ username, displayLabel, avatarUrl }: Pro
           </div>
 
           {/* Right: My Stack + Generate */}
-          <div style={{ display: "flex", gap: 8, alignItems: "center", paddingBottom: 12 }}>
+          <div className="rk-lib-toolbar-right" style={{ display: "flex", gap: 8, alignItems: "center", paddingBottom: 12 }}>
             <button
               onClick={() => setShowStack((v) => !v)}
               style={{

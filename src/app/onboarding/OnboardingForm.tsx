@@ -80,7 +80,7 @@ export default function OnboardingForm({
           Who are you as a listener?
         </h1>
 
-        <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: "32px" }}>
+        <form onSubmit={handleSubmit} className="rk-onboard-form" style={{ display: "flex", flexDirection: "column", gap: "32px" }}>
 
           {/* Username */}
           <div>

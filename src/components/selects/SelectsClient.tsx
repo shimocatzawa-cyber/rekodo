@@ -386,7 +386,7 @@ export default function SelectsClient({ username, displayLabel, avatarUrl }: Pro
       <AppNav username={username} displayLabel={displayLabel} avatarUrl={avatarUrl} />
 
       {/* ── Sub-navigation ── */}
-      <div style={{
+      <div className="rk-selects-tabs" style={{
         display: "flex", justifyContent: "center", gap: "24px",
         paddingTop: "14px", paddingBottom: "2px",
         background: "#ffffff",

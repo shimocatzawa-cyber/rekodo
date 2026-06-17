@@ -129,6 +129,76 @@ h1, h2, h3, h4, h5, h6 {
     padding-left: 16px !important;
     padding-right: 16px !important;
   }
+
+  /* ── Profile page ────────────────────────────────────────────────────── */
+  /* Tab bar: wrap + smaller gap so 4+ tabs don't overflow                 */
+  .rk-profile-tabs {
+    flex-wrap: wrap !important;
+    justify-content: flex-start !important;
+    gap: 4px 14px !important;
+    padding: 10px 16px 0 !important;
+  }
+  /* Main content: shed the large desktop padding                          */
+  .rk-profile-main {
+    padding: 1.25rem 1rem !important;
+  }
+  /* Lists grid: 5-col → 3-col (covers still readable at ~100px)          */
+  .rk-profile-lists-grid {
+    grid-template-columns: repeat(3, 1fr) !important;
+    gap: 6px !important;
+  }
+
+  /* ── Public list page ─────────────────────────────────────────────────  */
+  /* rk-list-slots already handles this (repeat(2,1fr)) — just needs the  */
+  /* className added to the grid div in the server-rendered page.          */
+
+  /* ── Library page ────────────────────────────────────────────────────── */
+  .rk-lib-hero {
+    padding: 24px 16px 0 !important;
+  }
+  /* Toolbar: stack tabs above action buttons                              */
+  .rk-lib-toolbar {
+    flex-direction: column !important;
+    align-items: flex-start !important;
+    gap: 12px !important;
+    padding-bottom: 12px !important;
+  }
+  .rk-lib-toolbar-right {
+    padding-bottom: 0 !important;
+  }
+
+  /* ── Gigs page ───────────────────────────────────────────────────────── */
+  .rk-gigs-main {
+    padding: 32px 16px 64px !important;
+  }
+
+  /* ── Archetypes page ─────────────────────────────────────────────────── */
+  .rk-arch-main {
+    padding: 24px 16px 48px !important;
+  }
+  /* Header: title + Regenerate button stack vertically                    */
+  .rk-arch-header {
+    flex-direction: column !important;
+    align-items: flex-start !important;
+    gap: 8px !important;
+  }
+  /* Signal grid + skeleton: 3-col → 2-col                                */
+  .rk-signal-grid {
+    grid-template-columns: repeat(2, 1fr) !important;
+  }
+
+  /* ── Selects sub-nav tabs ────────────────────────────────────────────── */
+  .rk-selects-tabs {
+    flex-wrap: wrap !important;
+    justify-content: flex-start !important;
+    gap: 4px 16px !important;
+    padding: 10px 16px 0 !important;
+  }
+
+  /* ── Onboarding form ─────────────────────────────────────────────────── */
+  .rk-onboard-form {
+    gap: 20px !important;
+  }
 }
 
 /* ── Safe-area insets (notch / home-bar aware, viewport-fit=cover) ──────────

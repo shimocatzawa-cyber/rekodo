@@ -431,7 +431,7 @@ export default function ProfileClient({
       )}
 
       {/* ── Tab bar ── */}
-      <div style={{ display: "flex", justifyContent: "center", gap: "24px", paddingTop: "14px", paddingBottom: "2px", background: "#ffffff" }}>
+      <div className="rk-profile-tabs" style={{ display: "flex", justifyContent: "center", gap: "24px", paddingTop: "14px", paddingBottom: "2px", background: "#ffffff" }}>
         {tabItems.map(({ key, label }) => (
           <button
             key={key}
@@ -456,7 +456,7 @@ export default function ProfileClient({
 
       {/* ─────────────── PROFILE TAB ─────────────────────────────────────────── */}
       {profileTab === "profile" && (
-        <main style={{ padding: "3rem 3.5rem", maxWidth: 860, margin: "0 auto", minWidth: 0, width: "100%" }}>
+        <main className="rk-profile-main" style={{ padding: "3rem 3.5rem", maxWidth: 860, margin: "0 auto", minWidth: 0, width: "100%" }}>
 
           {/* Identity block */}
           <div style={{ marginBottom: "32px" }}>
@@ -892,7 +892,7 @@ export default function ProfileClient({
                           </div>
                         )}
                       </div>
-                      <div style={{ display: "grid", gridTemplateColumns: `repeat(${Math.min(maxSlots, 5)}, 1fr)`, gap: "10px" }}>
+                      <div className="rk-profile-lists-grid" style={{ display: "grid", gridTemplateColumns: `repeat(${Math.min(maxSlots, 5)}, 1fr)`, gap: "10px" }}>
                         {Array.from({ length: maxSlots }, (_, i) => {
                           const pos      = i + 1;
                           const item     = items.find(it => it.position === pos);

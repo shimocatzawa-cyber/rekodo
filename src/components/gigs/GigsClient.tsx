@@ -91,7 +91,7 @@ export default function GigsClient({
     <div style={{ minHeight: "100vh", background: "#ffffff" }}>
       <AppNav username={username} displayLabel={displayLabel} avatarUrl={avatarUrl} />
 
-      <main style={{ maxWidth: 760, margin: "0 auto", padding: "64px 32px 120px" }}>
+      <main className="rk-gigs-main" style={{ maxWidth: 760, margin: "0 auto", padding: "64px 32px 120px" }}>
 
 
         {/* Hero */}
