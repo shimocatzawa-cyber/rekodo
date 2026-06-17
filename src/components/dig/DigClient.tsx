@@ -885,7 +885,7 @@ const MODE_LABEL: Record<DigMode, string> = {
   style:    "Style Dig",
 };
 
-function DigHistoryView()) {
+function DigHistoryView() {
   const [sessions, setSessions] = useState<HistorySession[]>([]);
   useEffect(() => { setSessions(loadHistory()); }, []);
 
