@@ -4,6 +4,8 @@ import { useState, useEffect, useRef } from "react";
 import AppNav from "@/components/AppNav";
 import { addToWantlist } from "@/app/dig/actions";
 import RecordSpinner from "@/components/RecordSpinner";
+import { isAppleMusicUrl, openAppleMusicLink } from "@/lib/openAppleMusic";
+import SpotifyNativeEmbed from "@/components/SpotifyNativeEmbed";
 
 const SERIF  = "var(--font-editorial)";
 const MONO   = "var(--font-mono)";
@@ -25,6 +27,7 @@ interface Props {
   avatarUrl?:      string | null;
   collectionCount: number;
   listsCount:      number;
+  availableStyles: string[];
 }
 
 // ─── Vinyl disc SVG ───────────────────────────────────────────────────────────
@@ -283,7 +286,17 @@ function SleeveCard({ rec, mode, onAddToWantlist, wantlistAdded, onPreviewReady 
               <div>
                 <span style={sectionLabel}>Stream</span>
                 {STREAM.map(l => (
-                  <a key={l.label} href={l.href} target="_blank" rel="noopener noreferrer" className="dig-link-item" style={link}>{l.label}</a>
+                  <a
+                    key={l.label}
+                    href={l.href}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="dig-link-item"
+                    style={link}
+                    onClick={isAppleMusicUrl(l.href) ? (e) => { e.preventDefault(); openAppleMusicLink(l.href); } : undefined}
+                  >
+                    {l.label}
+                  </a>
                 ))}
               </div>
               <div>
@@ -878,6 +891,7 @@ function fmtSessionDate(iso: string): string {
 const MODE_LABEL: Record<DigMode, string> = {
   discover: "Discover",
   explore:  "Explore",
+  style:    "Style Dig",
 };
 
 function DigHistoryView({ onAddToWantlist, wantlistAdded }: {
@@ -964,9 +978,49 @@ function DigHistoryView({ onAddToWantlist, wantlistAdded }: {
   );
 }
 
+// ─── Style picker ─────────────────────────────────────────────────────────────
+
+function StylePicker({ styles, onSelect }: { styles: string[]; onSelect: (style: string) => void }) {
+  if (styles.length === 0) {
+    return (
+      <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center" }}>
+        <p style={{ fontFamily: SERIF, fontSize: "15px", fontStyle: "italic", color: "#888888", margin: 0, textAlign: "center", maxWidth: 360 }}>
+          No styles found in your collection yet. Sync more records with Discogs metadata to unlock Style Dig.
+        </p>
+      </div>
+    );
+  }
+
+  return (
+    <div style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: "20px", padding: "20px 0" }}>
+      <p style={{ fontFamily: MONO, fontSize: "10px", letterSpacing: "0.12em", textTransform: "uppercase", color: "#888888", margin: 0 }}>
+        Pick a style to dig into
+      </p>
+      <div style={{ display: "flex", flexWrap: "wrap", gap: "10px", justifyContent: "center", maxWidth: 720 }}>
+        {styles.map(s => (
+          <button
+            key={s}
+            onClick={() => onSelect(s)}
+            style={{
+              fontFamily: MONO, fontSize: "11px", letterSpacing: "0.04em",
+              color: "#0d0d0d", background: "none",
+              border: "1px solid #d8d8d2", padding: "8px 14px",
+              cursor: "pointer", transition: "border-color 0.15s, color 0.15s",
+            }}
+            onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = ORANGE; (e.currentTarget as HTMLButtonElement).style.color = ORANGE; }}
+            onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = "#d8d8d2"; (e.currentTarget as HTMLButtonElement).style.color = "#0d0d0d"; }}
+          >
+            {s}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 // ─── Mode toggle ─────────────────────────────────────────────────────────────
 
-type DigMode = "discover" | "explore";
+type DigMode = "discover" | "explore" | "style";
 type DigTab  = DigMode | "history";
 
 function ModeToggle({ mode, onChange, disabled }: {
@@ -1006,6 +1060,7 @@ function ModeToggle({ mode, onChange, disabled }: {
     <div className="dig-mode-toggle" style={{ display: "flex", justifyContent: "center", gap: "24px", paddingTop: "14px" }}>
       {item("discover", "Outside Collection")}
       {item("explore",  "Inside Collection")}
+      {item("style",    "Style Dig")}
       {item("history",  "Dig History · Last 7 Days")}
     </div>
   );
@@ -1013,12 +1068,13 @@ function ModeToggle({ mode, onChange, disabled }: {
 
 // ─── Main client ──────────────────────────────────────────────────────────────
 
-export default function DigClient({ username, displayLabel, avatarUrl, collectionCount, listsCount }: Props) {
+export default function DigClient({ username, displayLabel, avatarUrl, collectionCount, listsCount, availableStyles }: Props) {
   const [recs,          setRecs]          = useState<Recommendation[] | null>(null);
   const [loading,       setLoading]       = useState(true);
   const [error,         setError]         = useState<string | null>(null);
   const [idx,           setIdx]           = useState(0);
   const [activeTab,     setActiveTab]     = useState<DigTab>("discover");
+  const [selectedStyle, setSelectedStyle] = useState<string | null>(null);
   const [wantlistAdded, setWantlistAdded] = useState<Set<string>>(new Set());
   const [wantlistError, setWantlistError] = useState<string | null>(null);
   const [digSpotify,    setDigSpotify]    = useState<{
@@ -1035,7 +1091,8 @@ export default function DigClient({ username, displayLabel, avatarUrl, collectio
 
   // fetchKey drives all fetches. Incrementing `n` re-triggers the effect for
   // "dig again" without changing mode; swapping `mode` handles mode changes.
-  const [fetchKey, setFetchKey] = useState<{ mode: DigMode; n: number }>({ mode: "discover", n: 0 });
+  // `style` is only set when mode is "style" — the effect skips fetching until it is.
+  const [fetchKey, setFetchKey] = useState<{ mode: DigMode; n: number; style?: string }>({ mode: "discover", n: 0 });
 
   // Clear the compact player only on mode/fetch changes, not rec navigation.
   // Navigation is handled by recIdx prop so the player stays visible between recs.
@@ -1044,13 +1101,14 @@ export default function DigClient({ username, displayLabel, avatarUrl, collectio
   // All setState calls inside the effect are in async callbacks, never synchronously
   // in the effect body — satisfies react-hooks/set-state-in-effect.
   useEffect(() => {
+    if (fetchKey.mode === "style" && !fetchKey.style) return;
     let cancelled = false;
     (async () => {
       try {
         const res = await fetch("/api/dig", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ mode: fetchKey.mode, previousArtists: shownArtists.current, previousRecommendations: shownRecs.current }),
+          body: JSON.stringify({ mode: fetchKey.mode, style: fetchKey.style, previousArtists: shownArtists.current, previousRecommendations: shownRecs.current }),
         });
         const data = await res.json();
         if (cancelled) return;
@@ -1088,10 +1146,31 @@ export default function DigClient({ username, displayLabel, avatarUrl, collectio
     shownArtists.current = [];
     shownRecs.current    = [];
     setActiveTab(tab);
+    setError(null);
+    setRecs(null);
+    if (tab === "style" && !selectedStyle) {
+      // Wait for the user to pick a style before fetching anything
+      setLoading(false);
+      return;
+    }
+    setLoading(true);
+    setFetchKey({ mode: tab, n: 0, style: tab === "style" ? selectedStyle ?? undefined : undefined });
+  }
+
+  function handleStyleSelect(style: string) {
+    shownArtists.current = [];
+    shownRecs.current    = [];
+    setSelectedStyle(style);
     setLoading(true);
     setError(null);
     setRecs(null);
-    setFetchKey({ mode: tab, n: 0 });
+    setFetchKey({ mode: "style", n: 0, style });
+  }
+
+  function handleChangeStyle() {
+    setSelectedStyle(null);
+    setRecs(null);
+    setError(null);
   }
 
   function handleDigAgain() {
@@ -1255,8 +1334,24 @@ export default function DigClient({ username, displayLabel, avatarUrl, collectio
 
           {activeTab === "history" ? (
             <DigHistoryView onAddToWantlist={handleAddToWantlist} wantlistAdded={wantlistAdded} />
+          ) : activeTab === "style" && !selectedStyle ? (
+            <StylePicker styles={availableStyles} onSelect={handleStyleSelect} />
           ) : (
             <>
+              {activeTab === "style" && selectedStyle && (
+                <div style={{ display: "flex", alignItems: "center", gap: "10px", padding: "12px 0 4px" }}>
+                  <span style={{ fontFamily: MONO, fontSize: "10px", letterSpacing: "0.08em", textTransform: "uppercase", color: "#888888" }}>
+                    {selectedStyle}
+                  </span>
+                  <button
+                    onClick={handleChangeStyle}
+                    style={{ fontFamily: MONO, fontSize: "10px", letterSpacing: "0.08em", textTransform: "uppercase", color: ORANGE, background: "none", border: "none", cursor: "pointer", padding: 0 }}
+                  >
+                    Change
+                  </button>
+                </div>
+              )}
+
               {loading && <RecordSpinner />}
 
               {error && !loading && (
@@ -1290,15 +1385,10 @@ export default function DigClient({ username, displayLabel, avatarUrl, collectio
             </>
           )}
 
-          {/* Always mounted outside the loading gate so the SDK never disconnects
-              between "Dig Again" fetches. Renders null internally when nothing is playable. */}
-          <DigCompactPlayer
-            recIdx={idx}
-            previewUrl={digSpotify?.previewUrl ?? null}
-            albumUri={digSpotify?.albumUri ?? null}
-            trackUri={digSpotify?.trackUri ?? null}
-            artist={digSpotify?.artist ?? ""}
-            album={digSpotify?.album ?? ""}
+          {/* Native Spotify embed — swap back to <DigCompactPlayer> above to restore the custom build */}
+          <SpotifyNativeEmbed
+            uri={digSpotify?.trackUri ?? digSpotify?.albumUri ?? undefined}
+            height={152}
           />
 
         </div>

@@ -21,8 +21,13 @@ For the search URLs, encode "artist album" as the query (URL-encode spaces and s
 
 export async function POST(request: Request) {
   const body = await request.json().catch(() => ({}));
-  const mode: "discover" | "explore" =
-    body.mode === "explore" ? "explore" : "discover";
+  const mode: "discover" | "explore" | "style" =
+    body.mode === "explore" ? "explore" : body.mode === "style" ? "style" : "discover";
+
+  const style: string = typeof body.style === "string" ? body.style.trim().slice(0, 80) : "";
+  if (mode === "style" && !style) {
+    return Response.json({ error: "Style is required for Style Dig" }, { status: 400 });
+  }
 
   // Artists and full recs shown in earlier digs this session — hard-exclude to prevent repetition
   const previousArtists: string[] = Array.isArray(body.previousArtists) ? body.previousArtists : [];
@@ -213,6 +218,65 @@ Rules:
 - STRICT: Do not default to the 1960s–1970s classic canon for all three picks. Resist the training bias toward that period.
 - Follow the EXPLORATION ANGLE — do not default to the most obvious or well-known records that match this taste profile.
 - Each recommendation must have a reason written in plain English that reveals the aesthetic logic — not genre tags, but the texture, atmosphere, and emotional territory. Write it as if pointing at two records already on their shelf and saying "this is where those two shelves collide." Maximum 2 sentences.
+- The picks should feel genuinely surprising but inevitable in hindsight — the kind of record they will wonder how they missed.
+- Prioritise records obtainable on vinyl (original pressings, reissues, or easily available secondhand).
+
+Return ONLY a valid JSON array with exactly 3 objects. No markdown, no explanation outside the JSON.
+
+Schema:
+${JSON_SCHEMA}`;
+  } else if (mode === "style") {
+    const ownedArtists = [...new Set(collection.map((r) => r.artist))].sort();
+    const artistsBlock = ownedArtists.length > 0
+      ? `\nOWNED ARTISTS — you must not recommend any record by any of these artists:\n${ownedArtists.join(" · ")}\n`
+      : "";
+
+    const prevBlock = previousArtists.length > 0
+      ? `\nALREADY RECOMMENDED THIS SESSION — do not repeat any of these artists (user has already seen them):\n${previousArtists.join(" · ")}\n`
+      : "";
+
+    const prevRecsBlock = previousRecommendations.length > 0
+      ? `\nALREADY RECOMMENDED THIS SESSION (avoid repeating the same artists or sub-style as these):\n${previousRecommendations.map(r => `- ${r.artist} — ${r.album}`).join("\n")}\n`
+      : "";
+
+    const digDecadeClassic = pick([
+      "1950s", "1960s", "early 1970s", "late 1970s",
+      "1980s", "early 1990s", "late 1990s", "2000s",
+    ]);
+    const digDecadeModern = pick(["2010s", "2020s"]);
+    const digAngle = pick([
+      "deeply obscure and rarely discussed even among collectors",
+      "critically overlooked on release but reassessed since",
+      "a cult classic with a devoted underground following",
+      "a regional gem almost unknown outside its home country",
+      "a one-album wonder that was never followed up",
+      "a late-career revelation by an artist known for something else entirely",
+      "an influential record that shaped a genre without ever becoming famous itself",
+      "a collaborative or side-project record that outshines the artists' main work",
+      "a debut record that arrived fully-formed and changed everything for a small scene",
+      "a record so genre-defying it still has no accurate descriptor",
+    ]);
+
+    const angleBlock = `\nEXPLORATION ANGLE — you must satisfy both era constraints:\n- One pick MUST come from the ${digDecadeModern} — modern releases are just as valid on vinyl as classics\n- One pick MUST come from the ${digDecadeClassic} — dig into that era's obscure corners\n- The third pick can come from any era\n- At least one pick must be: ${digAngle}\n`;
+
+    prompt = `You are a vinyl crate-digging assistant with encyclopaedic knowledge of recorded music across all genres, eras, and territories.
+
+Below is a collector's vinyl collection and their curated Top 5 lists. Study the taste pattern carefully — it is your only brief.
+
+COLLECTION (${collection.length} records):
+${collectionLines || "(Empty collection)"}
+
+TOP 5 LISTS:
+${listsLines}
+${artistsBlock}${prevBlock}${wantlistBlock}${prevRecsBlock}${angleBlock}
+MODE: STYLE DIG — recommend artists/albums squarely within the style "${style}" that this collector does not own yet and has not already wishlisted.
+
+Rules:
+- STRICT: Every recommendation must be unambiguously within the "${style}" style, or a very close subgenre of it. Do not drift into adjacent but distinct styles.
+- STRICT: Every recommendation must be by an artist NOT in the OWNED ARTISTS list and NOT in the WANTLIST.
+- STRICT: Do not repeat artists from the ALREADY RECOMMENDED THIS SESSION list — every "Dig again" must surface a genuinely different corner of "${style}".
+- Follow the EXPLORATION ANGLE for era variety — do not default to the three most famous records in this style.
+- Each reason must explain specifically what makes this pick a great entry point into "${style}" for someone who already collects vinyl in this lane — speak to the texture, atmosphere, and lineage, not genre tags. Maximum 2 sentences.
 - The picks should feel genuinely surprising but inevitable in hindsight — the kind of record they will wonder how they missed.
 - Prioritise records obtainable on vinyl (original pressings, reissues, or easily available secondhand).
 

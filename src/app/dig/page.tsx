@@ -47,6 +47,26 @@ export default async function DigPage() {
     (l) => !l.list_type || l.list_type === "top5"
   ).length;
 
+  // Distinct styles across the collection — powers the Style Dig tab
+  const { data: styleLinks } = await supabase
+    .from("user_records")
+    .select("record_id")
+    .eq("user_id", user.id)
+    .limit(5000);
+
+  const styleRecordIds = (styleLinks ?? []).map((l) => l.record_id);
+  const styleSet = new Set<string>();
+  for (let i = 0; i < styleRecordIds.length; i += 400) {
+    const { data: styleRows } = await supabase
+      .from("records")
+      .select("styles")
+      .in("id", styleRecordIds.slice(i, i + 400));
+    for (const r of styleRows ?? []) {
+      for (const s of r.styles ?? []) if (s) styleSet.add(s);
+    }
+  }
+  const availableStyles = [...styleSet].sort();
+
   return (
     <DigClient
       username={username}
@@ -54,6 +74,7 @@ export default async function DigPage() {
       avatarUrl={avatarUrl}
       collectionCount={collectionCount ?? 0}
       listsCount={listsCount}
+      availableStyles={availableStyles}
     />
   );
 }
