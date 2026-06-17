@@ -5,7 +5,6 @@ import AppNav from "@/components/AppNav";
 import { addToWantlist } from "@/app/dig/actions";
 import RecordSpinner from "@/components/RecordSpinner";
 import { isAppleMusicUrl, openAppleMusicLink } from "@/lib/openAppleMusic";
-import SpotifyNativeEmbed from "@/components/SpotifyNativeEmbed";
 
 const SERIF  = "var(--font-editorial)";
 const MONO   = "var(--font-mono)";
@@ -1380,15 +1379,21 @@ export default function DigClient({ username, displayLabel, avatarUrl, collectio
                     </p>
                   )}
                   <NavBar idx={idx} total={recs.length} onNav={navigate} onDigAgain={handleDigAgain} />
-                  {/* Native Spotify embed — swap back to <DigCompactPlayer> below to restore the custom build */}
-                  <SpotifyNativeEmbed
-                    uri={digSpotify?.trackUri ?? digSpotify?.albumUri ?? undefined}
-                    height={80}
-                  />
                 </>
               )}
             </>
           )}
+
+          {/* Always mounted outside the loading gate so the SDK never disconnects
+              between "Dig Again" fetches. Renders null internally when nothing is playable. */}
+          <DigCompactPlayer
+            recIdx={idx}
+            previewUrl={digSpotify?.previewUrl ?? null}
+            albumUri={digSpotify?.albumUri ?? null}
+            trackUri={digSpotify?.trackUri ?? null}
+            artist={digSpotify?.artist ?? ""}
+            album={digSpotify?.album ?? ""}
+          />
 
         </div>
       </main>
