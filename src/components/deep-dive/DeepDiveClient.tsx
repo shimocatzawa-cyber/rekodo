@@ -164,6 +164,43 @@ type Episode = { show: string; episode: string; year: number; type: string; note
 
 function PodcastsContent({ data, artist }: { data: { episodes?: Episode[] }; artist: string }) {
   const eps = data.episodes ?? [];
+
+  // Look up direct Apple Podcasts show URLs via the free iTunes Search API.
+  // One request per unique show name; falls back to search URL if lookup fails.
+  const [showUrls, setShowUrls] = useState<Record<string, string>>({});
+  useEffect(() => {
+    const uniqueShows = [...new Set(eps.map((e) => e.show))];
+    if (uniqueShows.length === 0) return;
+    let cancelled = false;
+    Promise.all(
+      uniqueShows.map(async (show) => {
+        try {
+          const res = await fetch(
+            `https://itunes.apple.com/search?term=${encodeURIComponent(show)}&media=podcast&entity=podcast&limit=1`
+          );
+          if (!res.ok) return [show, null] as const;
+          const json = await res.json() as { results?: { collectionViewUrl?: string }[] };
+          const url = json.results?.[0]?.collectionViewUrl ?? null;
+          return [show, url] as const;
+        } catch {
+          return [show, null] as const;
+        }
+      })
+    ).then((results) => {
+      if (cancelled) return;
+      const map: Record<string, string> = {};
+      for (const [show, url] of results) {
+        if (url) map[show] = url;
+      }
+      setShowUrls(map);
+    });
+    return () => { cancelled = true; };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [eps.map((e) => e.show).join("|")]);
+
+  const podcastHref = (show: string) =>
+    showUrls[show] ?? `https://podcasts.apple.com/search?term=${encodeURIComponent(show)}`;
+
   return (
     <div>
       {eps.map((ep, i) => (
@@ -182,7 +219,7 @@ function PodcastsContent({ data, artist }: { data: { episodes?: Episode[] }; art
             {ep.note}
           </p>
           <a
-            href={`https://podcasts.apple.com/search?term=${encodeURIComponent(ep.show)}`}
+            href={podcastHref(ep.show)}
             target="_blank"
             rel="noopener noreferrer"
             style={{ fontFamily: MONO, fontSize: "0.65rem", letterSpacing: "0.08em", color: ORANGE, textDecoration: "none" }}
