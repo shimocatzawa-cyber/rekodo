@@ -37,7 +37,7 @@ type SelectsTab = "new_releases" | "artist" | "label" | "live";
 const TABS: { key: SelectsTab; label: string }[] = [
   { key: "artist",       label: "Artist Spotlight" },
   { key: "label",        label: "Label Spotlight"  },
-  { key: "new_releases", label: "New Releases"      },
+  // { key: "new_releases", label: "New Releases"      }, // hidden during beta — troubleshooting label feed
   { key: "live",         label: "Live"              },
 ];
 
