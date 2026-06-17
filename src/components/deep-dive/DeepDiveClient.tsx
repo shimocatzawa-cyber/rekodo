@@ -163,43 +163,77 @@ function RankingsContent({ data }: { data: { albums?: Album[] } }) {
 type Episode = { show: string; episode: string; year: number; type: string; note: string };
 
 function PodcastsContent({ data, artist }: { data: { episodes?: Episode[] }; artist: string }) {
-  const eps = data.episodes ?? [];
+  // Sort episodes by year descending, cap at 10
+  const eps = [...(data.episodes ?? [])].sort((a, b) => (b.year ?? 0) - (a.year ?? 0)).slice(0, 10);
 
-  // Look up direct Apple Podcasts show URLs via the free iTunes Search API.
-  // One request per unique show name; falls back to search URL if lookup fails.
-  const [showUrls, setShowUrls] = useState<Record<string, string>>({});
+  // Apple Podcasts: episode-level lookup via iTunes, falls back to show then search
+  const [appleUrls, setAppleUrls] = useState<Record<number, string>>({});
+  // Spotify: episode lookup via server route (client credentials, hides secret)
+  const [spotifyUrls, setSpotifyUrls] = useState<Record<number, string>>({});
+
+  const epsKey = eps.map((e, i) => `${i}:${e.show}:${e.episode}`).join("|");
+
   useEffect(() => {
-    const uniqueShows = [...new Set(eps.map((e) => e.show))];
-    if (uniqueShows.length === 0) return;
+    if (eps.length === 0) return;
     let cancelled = false;
+
+    // Apple Podcasts — client-side iTunes Search API (no auth required)
     Promise.all(
-      uniqueShows.map(async (show) => {
+      eps.map(async (ep, i) => {
         try {
-          const res = await fetch(
-            `https://itunes.apple.com/search?term=${encodeURIComponent(show)}&media=podcast&entity=podcast&limit=1`
+          const epRes = await fetch(
+            `https://itunes.apple.com/search?term=${encodeURIComponent(`${ep.show} ${ep.episode}`)}&media=podcast&entity=podcastEpisode&limit=3`
           );
-          if (!res.ok) return [show, null] as const;
-          const json = await res.json() as { results?: { collectionViewUrl?: string }[] };
-          const url = json.results?.[0]?.collectionViewUrl ?? null;
-          return [show, url] as const;
+          if (epRes.ok) {
+            const epJson = await epRes.json() as { results?: { trackViewUrl?: string; trackName?: string }[] };
+            const slug = ep.episode.toLowerCase().slice(0, 20);
+            const match = epJson.results?.find((r) => r.trackName?.toLowerCase().includes(slug));
+            const url = (match ?? epJson.results?.[0])?.trackViewUrl;
+            if (url) return [i, url] as const;
+          }
+          // Fallback: show-level
+          const showRes = await fetch(
+            `https://itunes.apple.com/search?term=${encodeURIComponent(ep.show)}&media=podcast&entity=podcast&limit=1`
+          );
+          if (showRes.ok) {
+            const showJson = await showRes.json() as { results?: { collectionViewUrl?: string }[] };
+            const url = showJson.results?.[0]?.collectionViewUrl;
+            if (url) return [i, url] as const;
+          }
+          return [i, null] as const;
         } catch {
-          return [show, null] as const;
+          return [i, null] as const;
         }
       })
     ).then((results) => {
       if (cancelled) return;
-      const map: Record<string, string> = {};
-      for (const [show, url] of results) {
-        if (url) map[show] = url;
-      }
-      setShowUrls(map);
+      const map: Record<number, string> = {};
+      for (const [i, url] of results) { if (url) map[i] = url; }
+      setAppleUrls(map);
     });
+
+    // Spotify — server-side route to keep client secret hidden
+    fetch("/api/deep-dive/podcast-links", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ episodes: eps.map((e) => ({ show: e.show, episode: e.episode })) }),
+    })
+      .then((r) => r.ok ? r.json() : null)
+      .then((d: { urls?: Record<number, string> } | null) => {
+        if (!cancelled && d?.urls) setSpotifyUrls(d.urls);
+      })
+      .catch(() => {});
+
     return () => { cancelled = true; };
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [eps.map((e) => e.show).join("|")]);
+  }, [epsKey]);
 
-  const podcastHref = (show: string) =>
-    showUrls[show] ?? `https://podcasts.apple.com/search?term=${encodeURIComponent(show)}`;
+  const appleHref = (i: number, ep: Episode) =>
+    appleUrls[i] ?? `https://podcasts.apple.com/search?term=${encodeURIComponent(`${ep.show} ${ep.episode}`)}`;
+
+  const linkStyle = { fontFamily: MONO, fontSize: "0.65rem", letterSpacing: "0.08em", color: ORANGE, textDecoration: "none" };
+  const hoverOn  = (e: React.MouseEvent<HTMLAnchorElement>) => { e.currentTarget.style.textDecoration = "underline"; };
+  const hoverOff = (e: React.MouseEvent<HTMLAnchorElement>) => { e.currentTarget.style.textDecoration = "none"; };
 
   return (
     <div>
@@ -218,16 +252,16 @@ function PodcastsContent({ data, artist }: { data: { episodes?: Episode[] }; art
           <p style={{ fontFamily: MONO, fontSize: "0.68rem", letterSpacing: "0.04em", color: INK, fontStyle: "italic", lineHeight: 1.5, margin: "0 0 8px" }}>
             {ep.note}
           </p>
-          <a
-            href={podcastHref(ep.show)}
-            target="_blank"
-            rel="noopener noreferrer"
-            style={{ fontFamily: MONO, fontSize: "0.65rem", letterSpacing: "0.08em", color: ORANGE, textDecoration: "none" }}
-            onMouseEnter={(e) => { (e.currentTarget as HTMLAnchorElement).style.textDecoration = "underline"; }}
-            onMouseLeave={(e) => { (e.currentTarget as HTMLAnchorElement).style.textDecoration = "none"; }}
-          >
-            Listen on Apple Podcasts →
-          </a>
+          <div style={{ display: "flex", gap: 16, flexWrap: "wrap" }}>
+            <a href={appleHref(i, ep)} target="_blank" rel="noopener noreferrer" style={linkStyle} onMouseEnter={hoverOn} onMouseLeave={hoverOff}>
+              Apple Podcasts →
+            </a>
+            {spotifyUrls[i] && (
+              <a href={spotifyUrls[i]} target="_blank" rel="noopener noreferrer" style={linkStyle} onMouseEnter={hoverOn} onMouseLeave={hoverOff}>
+                Spotify →
+              </a>
+            )}
+          </div>
         </div>
       ))}
       {eps.length === 0 && (
@@ -238,9 +272,7 @@ function PodcastsContent({ data, artist }: { data: { episodes?: Episode[] }; art
           <a
             href={`https://podcasts.apple.com/search?term=${encodeURIComponent(artist)}`}
             target="_blank" rel="noopener noreferrer"
-            style={{ fontFamily: MONO, fontSize: "0.65rem", letterSpacing: "0.08em", color: ORANGE, textDecoration: "none" }}
-            onMouseEnter={(e) => { (e.currentTarget as HTMLAnchorElement).style.textDecoration = "underline"; }}
-            onMouseLeave={(e) => { (e.currentTarget as HTMLAnchorElement).style.textDecoration = "none"; }}
+            style={linkStyle} onMouseEnter={hoverOn} onMouseLeave={hoverOff}
           >
             Search Apple Podcasts →
           </a>

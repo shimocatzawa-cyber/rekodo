@@ -32,17 +32,22 @@ Return ONLY valid JSON, no markdown, no backticks, no preamble:
   },
 
   podcasts: (artist) =>
-    `You are a music research assistant. Find podcast listening material for a fan of ${artist}.
+    `You are a music research assistant. Find specific podcast episodes for a fan of ${artist}.
 
-Priority order — include whichever you can confirm:
-1. Episodes where ${artist} is a main guest or subject
-2. Episodes that review or significantly discuss a specific ${artist} album
-3. Podcasts (any episode) that regularly cover the scene, genre, or era ${artist} belongs to — episodes a fan would genuinely enjoy
+Priority order:
+1. Dedicated podcast series about ${artist} or their albums — include the series itself as a named show with its best or most recent episode
+2. Specific episodes where ${artist} is a main guest or interview subject — include the exact episode title
+3. Specific episodes that do a deep review of a named ${artist} album — include the exact episode title and album name
 
-Do not fabricate specific episode titles or dates you are not certain of. For genre/scene shows it is fine to recommend the show generally without a specific episode.
+RULES:
+- Always provide a specific episode title. Never use "Various episodes" or vague placeholders — if you cannot name a specific episode, omit that show entirely.
+- Do not fabricate episode titles. If you know the show covers ${artist} but cannot recall a specific episode title, omit it.
+- Include the year of the specific episode, not the show's launch year.
+- Aim for 8–10 results maximum. Quality over quantity — only include episodes you are confident exist.
+
 Return ONLY valid JSON, no markdown, no backticks, no preamble:
-{"episodes":[{"show":"Show Name","episode":"Episode title, or 'Various episodes' for a recommended show","year":2021,"type":"interview","note":"One sentence on why worth listening"}]}
-Return an empty array only if you genuinely cannot identify any relevant podcast. Do not fabricate.`,
+{"episodes":[{"show":"Show Name","episode":"Exact episode title","year":2021,"type":"interview","note":"One sentence on why worth listening"}]}
+type must be one of: "interview", "review", "documentary", "discussion". Return an empty array only if you genuinely cannot identify any. Do not fabricate.`,
 
   books: (artist) =>
     `You are a music research assistant helping a vinyl collector. List books and audiobooks about or significantly featuring ${artist}. Include biographies, memoirs, critical studies, and essential books about the era or scene they defined.
@@ -103,8 +108,8 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Invalid request" }, { status: 400 });
     }
 
-    // ── Cache check for rankings ───────────────────────────────────────────────
-    if (section === "rankings") {
+    // ── Cache check for rankings + podcasts ───────────────────────────────────
+    if (section === "rankings" || section === "podcasts") {
       const supabase = createClient(
         process.env.NEXT_PUBLIC_SUPABASE_URL!,
         process.env.SUPABASE_SERVICE_ROLE_KEY!
@@ -115,7 +120,7 @@ export async function POST(request: NextRequest) {
         .from("deep_dive_cache")
         .select("data, refreshed_at")
         .eq("artist", artist)
-        .eq("section", "rankings")
+        .eq("section", section)
         .gt("refreshed_at", staleAfter)
         .maybeSingle();
 
@@ -125,8 +130,8 @@ export async function POST(request: NextRequest) {
     }
 
     // ── Model selection ────────────────────────────────────────────────────────
-    // Rankings uses Sonnet for accuracy; everything else uses Haiku for cost.
-    const model = section === "rankings" ? "claude-sonnet-4-6" : "claude-haiku-4-5";
+    // Rankings + podcasts use Sonnet for accuracy; everything else uses Haiku for cost.
+    const model = (section === "rankings" || section === "podcasts") ? "claude-sonnet-4-6" : "claude-haiku-4-5";
     const maxTokens = (section === "rankings" || section === "blindspot") ? 4096 : 1500;
 
     const promptAlbums = section === "rankings" && ownedAlbums && ownedAlbums.length > 8
@@ -160,8 +165,8 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // ── Cache write for rankings ───────────────────────────────────────────────
-    if (section === "rankings") {
+    // ── Cache write for rankings + podcasts ───────────────────────────────────
+    if (section === "rankings" || section === "podcasts") {
       const supabase = createClient(
         process.env.NEXT_PUBLIC_SUPABASE_URL!,
         process.env.SUPABASE_SERVICE_ROLE_KEY!
@@ -170,7 +175,7 @@ export async function POST(request: NextRequest) {
       await supabase
         .from("deep_dive_cache")
         .upsert(
-          { artist, section: "rankings", data, refreshed_at: new Date().toISOString() },
+          { artist, section, data, refreshed_at: new Date().toISOString() },
           { onConflict: "artist,section" }
         );
     }
