@@ -294,18 +294,39 @@ function BooksContent({ data }: { data: { items?: BookItem[] } }) {
             <p style={{ fontFamily: MONO, fontSize: "0.68rem", letterSpacing: "0.04em", color: INK, fontStyle: "italic", lineHeight: 1.5, margin: "0 0 8px" }}>
               {b.note}
             </p>
-            {b.format.toLowerCase().includes("audiobook") && (
-              <a
-                href={`https://www.audible.com/search?keywords=${encodeURIComponent(b.title)}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                style={{ fontFamily: MONO, fontSize: "0.65rem", letterSpacing: "0.08em", color: ORANGE, textDecoration: "none" }}
-                onMouseEnter={(e) => { (e.currentTarget as HTMLAnchorElement).style.textDecoration = "underline"; }}
-                onMouseLeave={(e) => { (e.currentTarget as HTMLAnchorElement).style.textDecoration = "none"; }}
-              >
-                Find on Audible →
-              </a>
-            )}
+            <div style={{ display: "flex", gap: "16px", flexWrap: "wrap" }}>
+              {(() => {
+                const tag = process.env.NEXT_PUBLIC_AMAZON_AFFILIATE_TAG;
+                const q   = encodeURIComponent(`${b.title} ${b.author}`);
+                const href = tag
+                  ? `https://www.amazon.com/s?k=${q}&tag=${tag}`
+                  : `https://www.amazon.com/s?k=${q}`;
+                return (
+                  <a
+                    href={href}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    style={{ fontFamily: MONO, fontSize: "0.65rem", letterSpacing: "0.08em", color: ORANGE, textDecoration: "none" }}
+                    onMouseEnter={(e) => { (e.currentTarget as HTMLAnchorElement).style.textDecoration = "underline"; }}
+                    onMouseLeave={(e) => { (e.currentTarget as HTMLAnchorElement).style.textDecoration = "none"; }}
+                  >
+                    Buy on Amazon →
+                  </a>
+                );
+              })()}
+              {b.format.toLowerCase().includes("audiobook") && (
+                <a
+                  href={`https://www.audible.com/search?keywords=${encodeURIComponent(b.title)}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  style={{ fontFamily: MONO, fontSize: "0.65rem", letterSpacing: "0.08em", color: ORANGE, textDecoration: "none" }}
+                  onMouseEnter={(e) => { (e.currentTarget as HTMLAnchorElement).style.textDecoration = "underline"; }}
+                  onMouseLeave={(e) => { (e.currentTarget as HTMLAnchorElement).style.textDecoration = "none"; }}
+                >
+                  Find on Audible →
+                </a>
+              )}
+            </div>
           </div>
         </div>
       ))}
