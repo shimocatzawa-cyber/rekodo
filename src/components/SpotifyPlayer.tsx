@@ -74,8 +74,8 @@ export default function SpotifyPlayer({
   mode, spotifyUri, previewUrl, spotifyTrackUri, artist, albumTitle,
 }: SpotifyPlayerProps) {
   const {
-    tokenData, deviceId, playing, position, duration, volume, currentTrack, playError,
-    useSDK, usePreview, setActiveSource, handlePlayPause, handleSeek, handleVolume,
+    tokenData, deviceId, playing, position, duration, currentTrack, playError,
+    useSDK, usePreview, setActiveSource, handlePlayPause, handleSeek,
     previousTrack, nextTrack, reconnect,
   } = useSpotifyPlayback();
 
@@ -129,12 +129,6 @@ export default function SpotifyPlayer({
     handleSeek(pct);
   };
 
-  const onVolumeClick = (e: React.MouseEvent<HTMLDivElement>) => {
-    const rect   = e.currentTarget.getBoundingClientRect();
-    const newVol = Math.max(0, Math.min(1, 1 - (e.clientY - rect.top) / rect.height));
-    handleVolume(newVol);
-  };
-
   return (
     <div style={{ borderBottom: `1px solid ${RULE}` }}>
 
@@ -161,16 +155,16 @@ export default function SpotifyPlayer({
       </div>
 
       {/* ── Error / reconnect strip ── */}
-      {(errorLabel || sdkConnecting) && (
+      {errorLabel && (
         <div style={{
           padding: "6px 12px", background: "#fff8f5",
           borderBottom: `1px solid ${RULE}`,
           display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8,
         }}>
           <span style={{ fontFamily: MONO, fontSize: "0.48rem", color: "#cc3300", letterSpacing: "0.04em" }}>
-            {errorLabel ?? "Connecting to Spotify…"}
+            {errorLabel}
           </span>
-          {(sdkConnecting || playError === 401) && (
+          {playError === 401 && (
             <button
               onClick={reconnect}
               style={{
@@ -221,20 +215,6 @@ export default function SpotifyPlayer({
           <CtrlBtn disabled aria-label="Repeat"><IconRepeat /></CtrlBtn>
         </div>
 
-        {/* Vertical volume on right */}
-        <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "6px", paddingLeft: "14px" }}>
-          <span style={{ color: "#555", display: "flex" }}><IconVolume /></span>
-          <div
-            onClick={onVolumeClick}
-            style={{ width: "2px", height: "52px", background: RULE, position: "relative", cursor: "pointer" }}
-          >
-            <div style={{
-              position: "absolute", bottom: 0, left: 0,
-              width: "100%", height: `${volume * 100}%`,
-              background: "#666",
-            }} />
-          </div>
-        </div>
       </div>
 
       {/* ── Progress (bottom) ── */}

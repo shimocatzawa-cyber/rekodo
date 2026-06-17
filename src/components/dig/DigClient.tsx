@@ -695,14 +695,6 @@ function DigCompactPlayer({ previewUrl, albumUri, trackUri, artist, album, recId
     }
   }
 
-  function handleVolume(e: React.MouseEvent<HTMLDivElement>) {
-    const rect   = e.currentTarget.getBoundingClientRect();
-    const newVol = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
-    setVolume(newVol);
-    if (sdkLive && playerRef.current) playerRef.current.setVolume(newVol).catch(() => {});
-    else if (audioRef.current)        audioRef.current.volume = newVol;
-  }
-
   // Invisible until there's something to play
   if (!useSDK && !previewUrl) return null;
 
@@ -823,20 +815,6 @@ function DigCompactPlayer({ previewUrl, albumUri, trackUri, artist, album, recId
         <span style={{ fontFamily: MONO, fontSize: "8px", color: "#aaaaaa", flexShrink: 0 }}>
           {fmt(duration)}
         </span>
-      </div>
-
-      {/* Volume */}
-      <div style={{ display: "flex", alignItems: "center", gap: "5px", flexShrink: 0, width: "68px" }}>
-        <svg width="11" height="11" viewBox="0 0 14 14" aria-hidden="true">
-          <polygon points="2,5 5,5 8,2 8,12 5,9 2,9" fill="#555"/>
-          <path d="M10,4 q2,3 0,6" stroke="#555" strokeWidth="1.3" fill="none" strokeLinecap="round"/>
-        </svg>
-        <div
-          onClick={handleVolume}
-          style={{ flex: 1, height: "2px", background: "#e0e0da", position: "relative", cursor: "pointer" }}
-        >
-          <div style={{ position: "absolute", left: 0, top: 0, height: "100%", width: `${volume * 100}%`, background: "#888" }} />
-        </div>
       </div>
 
       {/* Spotify badge */}
