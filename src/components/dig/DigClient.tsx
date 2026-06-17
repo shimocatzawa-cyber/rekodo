@@ -203,7 +203,7 @@ function SleeveCard({ rec, mode, onAddToWantlist, wantlistAdded, onPreviewReady 
           <img
             src={coverUrl}
             alt={`${rec.album} by ${rec.artist}`}
-            style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
+            style={{ width: "100%", height: "100%", objectFit: "contain", display: "block" }}
           />
         ) : (
           <VinylDisc />
@@ -403,24 +403,26 @@ function DigCompactPlayer({ previewUrl, albumUri, trackUri, artist, album, recId
   album:      string;
   recIdx:     number;
 }) {
-  const [isPremium,    setIsPremium]    = useState(false);
-  const [deviceId,     setDeviceId]     = useState<string | null>(null);
-  const [sdkReady,     setSdkReady]     = useState(false);
-  const [playing,      setPlaying]      = useState(false);
-  const [position,     setPosition]     = useState(0);
-  const [duration,     setDuration]     = useState(0);
-  const [volume,       setVolume]       = useState(0.8);
-  const [nowTrack,     setNowTrack]     = useState<{ artist: string; name: string } | null>(null);
-  const [playPending,  setPlayPending]  = useState(false);
-  const [authError,    setAuthError]    = useState(false);
-  const [playError,    setPlayError]    = useState<number | null>(null);
+  const [isPremium,       setIsPremium]       = useState(false);
+  const [deviceId,        setDeviceId]        = useState<string | null>(null);
+  const [sdkReady,        setSdkReady]        = useState(false);
+  const [playing,         setPlaying]         = useState(false);
+  const [position,        setPosition]        = useState(0);
+  const [duration,        setDuration]        = useState(0);
+  const [volume,          setVolume]          = useState(0.8);
+  const [nowTrack,        setNowTrack]        = useState<{ artist: string; name: string } | null>(null);
+  const [playPending,     setPlayPending]     = useState(false);
+  const [authError,       setAuthError]       = useState(false);
+  const [playError,       setPlayError]       = useState<number | null>(null);
+  const [connectTimedOut, setConnectTimedOut] = useState(false);
 
-  const playerRef      = useRef<DigSdkPlayer | null>(null);
-  const audioRef       = useRef<HTMLAudioElement | null>(null);
-  const pollRef        = useRef<ReturnType<typeof setInterval> | null>(null);
-  const sdkStartedRef  = useRef(false);
-  const pendingPlayRef = useRef<{ albumUri: string | null; trackUri: string | null; recIdx: number } | null>(null);
-  const recIdxRef      = useRef(recIdx);
+  const playerRef       = useRef<DigSdkPlayer | null>(null);
+  const audioRef        = useRef<HTMLAudioElement | null>(null);
+  const pollRef         = useRef<ReturnType<typeof setInterval> | null>(null);
+  const sdkStartedRef   = useRef(false);
+  const pendingPlayRef  = useRef<{ albumUri: string | null; trackUri: string | null; recIdx: number } | null>(null);
+  const recIdxRef       = useRef(recIdx);
+  const reconnectingRef = useRef(false);
 
   const useSDK  = isPremium && !!(albumUri || trackUri);
   const sdkLive = useSDK && !!deviceId;
@@ -481,9 +483,6 @@ function DigCompactPlayer({ previewUrl, albumUri, trackUri, artist, album, recId
           .catch(() => setAuthError(true));
       }, 800);
     });
-    player.addListener("not_ready", () => {
-      setDeviceId(null);
-    });
     player.addListener("account_error", (d) => {
       console.error("[rekōdo] Dig Spotify account error:", d);
     });
@@ -507,11 +506,15 @@ function DigCompactPlayer({ previewUrl, albumUri, trackUri, artist, album, recId
     });
     player.addListener("not_ready", () => {
       setDeviceId(null);
+      if (reconnectingRef.current) return;
+      reconnectingRef.current = true;
       let attempts = 0;
       const tryConnect = () => {
-        if (attempts >= 4) return;
+        if (attempts >= 4) { reconnectingRef.current = false; return; }
         attempts++;
-        player.connect().catch(() => {});
+        player.connect()
+          .then(ok => { if (ok) reconnectingRef.current = false; })
+          .catch(() => {});
         setTimeout(tryConnect, 1500 * attempts);
       };
       setTimeout(tryConnect, 1000);
@@ -531,6 +534,14 @@ function DigCompactPlayer({ previewUrl, albumUri, trackUri, artist, album, recId
     document.addEventListener("visibilitychange", onVisible);
     return () => document.removeEventListener("visibilitychange", onVisible);
   }, [sdkReady]);
+
+  // If SDK hasn't provided a deviceId within 12s, stop waiting and let the user retry.
+  useEffect(() => {
+    const connecting = isPremium && !!(albumUri || trackUri) && !deviceId;
+    if (!connecting) { setConnectTimedOut(false); return; }
+    const t = setTimeout(() => setConnectTimedOut(true), 12_000);
+    return () => clearTimeout(t);
+  }, [isPremium, albumUri, trackUri, deviceId]);
 
   // Poll position while SDK is playing
   useEffect(() => {
@@ -700,8 +711,8 @@ function DigCompactPlayer({ previewUrl, albumUri, trackUri, artist, album, recId
   // Invisible until there's something to play
   if (!useSDK && !previewUrl) return null;
 
-  const sdkConnecting  = useSDK && !deviceId;
-  const eyebrow        = authError ? "Reconnecting" : playError ? "Error" : sdkConnecting ? "Connecting" : sdkLive ? "Now Playing" : "Preview";
+  const sdkConnecting  = useSDK && !deviceId && !connectTimedOut;
+  const eyebrow        = authError ? "Reconnecting" : playError ? "Error" : connectTimedOut ? "Retry" : sdkConnecting ? "Connecting" : sdkLive ? "Now Playing" : "Preview";
   const nowPlayingText = authError
     ? "Spotify session expired — reconnecting…"
     : playError === 403 ? "Spotify: Premium required or unavailable in your region"
@@ -709,6 +720,7 @@ function DigCompactPlayer({ previewUrl, albumUri, trackUri, artist, album, recId
     : playError === 429 ? "Spotify: rate limited — wait a moment and try again"
     : playError === 0   ? "Network error — check your connection"
     : playError         ? `Spotify error ${playError}`
+    : connectTimedOut   ? "Spotify did not connect — click ▶ to retry"
     : sdkConnecting ? "Connecting to Spotify…"
     : sdkLive && nowTrack
       ? `${nowTrack.artist} — ${nowTrack.name}`
@@ -735,7 +747,7 @@ function DigCompactPlayer({ previewUrl, albumUri, trackUri, artist, album, recId
       <div style={{ display: "flex", alignItems: "center", gap: "8px", minWidth: 0, flex: "0 1 36%" }}>
         <span style={{
           fontFamily: MONO, fontSize: "8px", letterSpacing: "0.16em",
-          textTransform: "uppercase", color: (authError || sdkConnecting) ? "#aaaaaa" : ORANGE, flexShrink: 0,
+          textTransform: "uppercase", color: (authError || sdkConnecting || connectTimedOut) ? "#aaaaaa" : ORANGE, flexShrink: 0,
         }}>
           {eyebrow}
         </span>
