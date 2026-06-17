@@ -652,6 +652,13 @@ function DigCompactPlayer({ previewUrl, albumUri, trackUri, artist, album, recId
     if (playPending) return;
     setPlayError(null);
 
+    if (connectTimedOut) {
+      setConnectTimedOut(false);
+      reconnectingRef.current = false;
+      playerRef.current?.connect().catch(() => {});
+      return;
+    }
+
     // activateElement must be called synchronously within the user-gesture
     // call stack — do it before any await, and for both the live and pending paths.
     if (useSDK && playerRef.current) {
