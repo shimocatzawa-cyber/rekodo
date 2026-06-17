@@ -42,7 +42,7 @@ export interface InsightsProps {
   collectionLifespan: { period: string; Added: number }[];
   collectionByMonth: { period: string; Added: number }[];
   spectrum:           SpectrumData;
-  topPlayedRecords:   { artist: string; album: string; coverUrl: string | null; lastPlayedAt: string }[];
+  topPlayedRecords:   { artist: string; album: string; coverUrl: string | null; lastPlayedAt: string; playCount: number }[];
   playedStyleBreakdown: { style: string; count: number; pct: number }[];
 }
 

@@ -22,7 +22,7 @@ interface TasteProfileProps {
   hasStyles:            boolean;
   vinylColourBreakdown: { colour: string; count: number; pct: number }[];
   spectrum:             SpectrumData;
-  topPlayedRecords:     { artist: string; album: string; coverUrl: string | null; lastPlayedAt: string }[];
+  topPlayedRecords:     { artist: string; album: string; coverUrl: string | null; lastPlayedAt: string; playCount: number }[];
   playedStyleBreakdown: { style: string; count: number; pct: number }[];
 }
 
@@ -245,7 +245,7 @@ export default function TasteProfile({
 
             {/* Top 5 Played */}
             <div>
-              <SubLabel>Most recently played</SubLabel>
+              <SubLabel>Most played</SubLabel>
               <div style={{ borderTop: `0.5px solid ${RULE}` }}>
                 {topPlayedRecords.map((rec, i) => (
                   <div key={i} style={{
@@ -285,7 +285,9 @@ export default function TasteProfile({
                       </div>
                     </div>
                     <span style={{ fontFamily: MONO, fontSize: "10px", color: ORANGE, flexShrink: 0 }}>
-                      {relativeDate(rec.lastPlayedAt)}
+                      {rec.playCount > 0
+                        ? `${rec.playCount}×`
+                        : relativeDate(rec.lastPlayedAt)}
                     </span>
                   </div>
                 ))}

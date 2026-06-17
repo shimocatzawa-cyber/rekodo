@@ -87,13 +87,14 @@ export default async function InsightsPage() {
     sleeve_condition: string | null;
     date_added:       string | null;
     last_played_at:   string | null;
+    play_count:       number;
   };
   const allLinks: LinkRow[] = [];
   const PAGE = 1000;
   for (let from = 0; ; from += PAGE) {
     const { data, error } = await supabase
       .from("user_records")
-      .select("record_id, price_low, price_median, price_high, price_currency, media_condition, sleeve_condition, date_added, last_played_at")
+      .select("record_id, price_low, price_median, price_high, price_currency, media_condition, sleeve_condition, date_added, last_played_at, play_count")
       .eq("user_id", user.id)
       .range(from, from + PAGE - 1);
     if (error || !data || data.length === 0) break;
@@ -573,10 +574,10 @@ export default async function InsightsPage() {
     formatAgnosticPosition,
   };
 
-  // ── Listening History (last_played_at) ────────────────────────────────────
+  // ── Listening History (play_count + last_played_at) ──────────────────────
   const playedLinks = allLinks
-    .filter((l) => l.last_played_at != null)
-    .sort((a, b) => new Date(b.last_played_at!).getTime() - new Date(a.last_played_at!).getTime());
+    .filter((l) => l.play_count > 0 || l.last_played_at != null)
+    .sort((a, b) => b.play_count - a.play_count || new Date(b.last_played_at!).getTime() - new Date(a.last_played_at!).getTime());
 
   const topPlayedRecords: InsightsProps["topPlayedRecords"] = playedLinks
     .slice(0, 5)
@@ -587,7 +588,8 @@ export default async function InsightsPage() {
         artist:       rec.artist,
         album:        rec.album,
         coverUrl:     rec.cover_url ?? null,
-        lastPlayedAt: pl.last_played_at!,
+        lastPlayedAt: pl.last_played_at ?? "",
+        playCount:    pl.play_count,
       };
     })
     .filter((r): r is NonNullable<typeof r> => r !== null);

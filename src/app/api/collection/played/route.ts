@@ -9,16 +9,13 @@ export async function POST(request: NextRequest) {
   const { recordId } = (await request.json()) as { recordId?: string };
   if (!recordId) return NextResponse.json({ error: "Missing recordId" }, { status: 400 });
 
-  const now = new Date().toISOString();
-
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { error } = await (supabase as any)
-    .from("user_records")
-    .update({ last_played_at: now })
-    .eq("user_id", user.id)
-    .eq("record_id", recordId);
+  const { error } = await (supabase as any).rpc("increment_play_count", {
+    p_user_id:   user.id,
+    p_record_id: recordId,
+  });
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
-  return NextResponse.json({ last_played_at: now });
+  return NextResponse.json({ ok: true });
 }
