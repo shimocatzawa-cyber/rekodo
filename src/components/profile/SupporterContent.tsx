@@ -52,7 +52,8 @@ function formatLocalPrice({ unit_amount, currency }: LocalPrice): string {
 export default function SupporterContent({ isOwner, isSubscriber, isDonor, userId, success }: Props) {
   const [preset, setPreset]               = useState<number | null>(null);
   const [customAmount, setCustomAmount]   = useState("");
-  const [loading, setLoading]             = useState<"subscription" | "donation" | "portal" | null>(null);
+  const [loading, setLoading]             = useState<"subscription" | "donation" | null>(null);
+  const PORTAL_URL = "https://billing.stripe.com/p/login/5kQ28r0ekcFZdSZ8pS5c400";
   const [localPrice, setLocalPrice]       = useState<LocalPrice | null>(null);
   const router = useRouter();
 
@@ -89,23 +90,6 @@ export default function SupporterContent({ isOwner, isSubscriber, isDonor, userI
             : { type }
         ),
       });
-      const data = (await res.json()) as { url?: string; error?: string };
-      if (data.url) {
-        router.push(data.url);
-      } else {
-        alert(data.error ?? "Something went wrong");
-        setLoading(null);
-      }
-    } catch {
-      alert("Something went wrong");
-      setLoading(null);
-    }
-  }
-
-  async function handleManageSubscription() {
-    setLoading("portal");
-    try {
-      const res = await fetch("/api/stripe/portal", { method: "POST" });
       const data = (await res.json()) as { url?: string; error?: string };
       if (data.url) {
         router.push(data.url);
@@ -208,19 +192,20 @@ export default function SupporterContent({ isOwner, isSubscriber, isDonor, userI
               </div>
 
               <div>
-                <button
-                  onClick={handleManageSubscription}
-                  disabled={loading !== null}
+                <a
+                  href={PORTAL_URL}
+                  target="_blank"
+                  rel="noopener noreferrer"
                   style={{
+                    display: "block", textAlign: "center",
                     fontFamily: MONO, fontSize: "0.65rem", letterSpacing: "0.12em",
                     textTransform: "uppercase", color: INK, background: "#fff",
                     border: `1px solid ${RULE}`, padding: "13px 0",
-                    cursor: loading !== null ? "not-allowed" : "pointer",
-                    opacity: loading !== null ? 0.6 : 1, width: "100%",
+                    textDecoration: "none",
                   }}
                 >
-                  {loading === "portal" ? "Redirecting…" : "Manage subscription →"}
-                </button>
+                  Manage subscription →
+                </a>
                 <p style={{ fontFamily: MONO, fontSize: "0.5rem", letterSpacing: "0.06em", color: "#aaaaaa", margin: "8px 0 0" }}>
                   Update payment · Cancel anytime · Stripe-secured
                 </p>
