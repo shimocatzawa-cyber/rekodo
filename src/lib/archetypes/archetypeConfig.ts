@@ -164,6 +164,8 @@ export const NAMED_PAIRINGS: Record<string, string> = {
   'ritualist+lover': 'The Devotee',
   'ritualist+keeper': 'The Monk',
   'ritualist+scholar': 'The Contemplative',
+  'ritualist+outlaw': 'The Heretic',
+  'outlaw+ritualist': 'The Heretic',
   'hunter+ruler': 'The Sovereign',
   'hunter+scholar': 'The Authenticator',
   'hunter+pilgrim': 'The Expeditionist',
