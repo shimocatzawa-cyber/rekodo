@@ -18,7 +18,12 @@ CRITICAL ACCURACY RULES — read before answering:
 - "Studio albums" only — no compilations, live records, EPs, or demos unless they are widely regarded as major works.
 - Aim for 5–8 albums. Include all confirmed essential records — do not artificially cut the list short.
 ${ownedBlock}
-For each album: be specific and opinionated about what makes it succeed or fail, and include a collector note about pressings worth seeking.
+COLLECTOR NOTE RULES — strictly follow these:
+- Never name a specific label, pressing plant, or distributor in collectorNote unless you are absolutely certain it released this exact album. Fabricated label claims are worse than no information.
+- Focus on observable, generalisable advice: original pressing vs reissue, country of pressing, decade of manufacture, or known sonic characteristics (e.g. heavy mastering on reissues, original cuts preferred for dynamics).
+- If you have no reliable pressing information, write a brief note about the album's sonic character instead. Do not guess at label details.
+
+For each album: be specific and opinionated about what makes it succeed or fail, and include a collector note following the rules above.
 Return ONLY valid JSON, no markdown, no backticks, no preamble:
 {"albums":[{"rank":1,"title":"Album Title","year":1975,"review":"2-3 sentence critical review","collectorNote":"Pressing note for collectors"}]}`;
   },
