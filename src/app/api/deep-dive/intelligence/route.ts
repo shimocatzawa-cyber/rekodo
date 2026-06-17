@@ -69,19 +69,27 @@ Return ONLY valid JSON, no markdown, no backticks, no preamble:
 type must be one of: "biography", "memoir", "criticism", "history", "fiction", "reference". Do not fabricate titles.`,
 
   interviews: (artist) =>
-    `You are a music research assistant. List interviews given by ${artist} — any format, any outlet. Include major publications, smaller music blogs, YouTube sessions, Bandcamp features, label interviews, radio sessions, or any documented conversation that reveals something about their creative process or influences.
+    `You are a music research assistant. List print interviews given by ${artist}.
 
-For lesser-known or independent artists, smaller outlets (The Wire, Bandcamp Daily, local press, independent music blogs, YouTube live sessions) are entirely valid — include them.
+SCOPE — print and text only:
+- Magazine features: Pitchfork, The Wire, The Guardian, NME, MOJO, Rolling Stone, The Face, Uncut, Q, Loud And Quiet, etc.
+- Online publications: Bandcamp Daily, Fact Magazine, Resident Advisor, XLR8R, The Quietus, Stereogum, etc.
+- Substack newsletters — search for artist interviews published on Substack
+- Label or artist website features and press materials
+- Any documented print/text interview that reveals something about creative process or influences
 
-URL FIELD RULES:
-- Include a "url" field with the direct link to the interview if you are confident it is correct.
-- For YouTube videos, provide the full youtube.com/watch?v= URL if you know it.
-- For articles, provide the direct article URL if you are confident it is accurate.
-- If you are not certain of the exact URL, omit the field or return an empty string — do not guess. A missing URL is better than a wrong one.
+DO NOT include: YouTube videos, podcast appearances, radio sessions, or any audio/video content. Print text only.
 
+URL FIELD RULES — read carefully:
+- For each interview, include a "url" field with the direct article URL.
+- Only include a URL if you are certain it is correct and live. A real URL looks like: https://pitchfork.com/features/interview/... or https://artistname.substack.com/p/post-slug
+- If you cannot recall the exact URL, omit the field entirely — do not guess or construct a plausible-looking URL. A missing URL is far better than a wrong one.
+- The "domain" field should be just the bare domain (e.g. "pitchfork.com", "thewire.co.uk", "substack.com") — used as a fallback if URL is absent.
+
+Return up to 10 results, sorted by year descending (most recent first).
 Return ONLY valid JSON, no markdown, no backticks, no preamble:
-{"interviews":[{"publication":"Publication or platform","title":"Interview title or description","year":1982,"format":"print","url":"https://example.com/article","note":"What makes it worth reading or watching"}]}
-format must be one of: "print", "video", "audio". Only include interviews you are confident exist. Return an empty array if you genuinely cannot identify any — do not fabricate.`,
+{"interviews":[{"publication":"Pitchfork","domain":"pitchfork.com","title":"Interview title or description","year":2019,"url":"https://pitchfork.com/features/interview/...","note":"What makes it worth reading"}]}
+Only include interviews you are confident exist. Return an empty array if you genuinely cannot identify any — do not fabricate.`,
 
   related: (artist) =>
     `You are a music expert guiding a vinyl collector. Based on ${artist}'s style, sound, and era, suggest 8 related artists worth exploring. Cover both the obvious (close contemporaries, same scene) and the less obvious (stylistic connections, cross-genre links).
@@ -121,8 +129,8 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Invalid request" }, { status: 400 });
     }
 
-    // ── Cache check for rankings + podcasts + books ───────────────────────────
-    if (section === "rankings" || section === "podcasts" || section === "books") {
+    // ── Cache check for rankings + podcasts + books + interviews ─────────────
+    if (section === "rankings" || section === "podcasts" || section === "books" || section === "interviews") {
       const supabase = createClient(
         process.env.NEXT_PUBLIC_SUPABASE_URL!,
         process.env.SUPABASE_SERVICE_ROLE_KEY!
@@ -143,8 +151,8 @@ export async function POST(request: NextRequest) {
     }
 
     // ── Model selection ────────────────────────────────────────────────────────
-    // Rankings + podcasts + books use Sonnet for accuracy; everything else uses Haiku for cost.
-    const model = (section === "rankings" || section === "podcasts" || section === "books") ? "claude-sonnet-4-6" : "claude-haiku-4-5";
+    // Rankings + podcasts + books + interviews use Sonnet; everything else uses Haiku for cost.
+    const model = (section === "rankings" || section === "podcasts" || section === "books" || section === "interviews") ? "claude-sonnet-4-6" : "claude-haiku-4-5";
     const maxTokens = (section === "rankings" || section === "blindspot") ? 4096 : 1500;
 
     const promptAlbums = section === "rankings" && ownedAlbums && ownedAlbums.length > 8
@@ -178,8 +186,8 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // ── Cache write for rankings + podcasts + books ───────────────────────────
-    if (section === "rankings" || section === "podcasts" || section === "books") {
+    // ── Cache write for rankings + podcasts + books + interviews ─────────────
+    if (section === "rankings" || section === "podcasts" || section === "books" || section === "interviews") {
       const supabase = createClient(
         process.env.NEXT_PUBLIC_SUPABASE_URL!,
         process.env.SUPABASE_SERVICE_ROLE_KEY!

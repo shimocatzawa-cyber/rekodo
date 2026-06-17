@@ -370,44 +370,26 @@ function BooksContent({ data }: { data: { items?: BookItem[] } }) {
   );
 }
 
-type InterviewItem = { publication: string; domain: string; title: string; year: number; format: string; note: string; url?: string };
+type InterviewItem = { publication: string; domain?: string; title: string; year: number; note: string; url?: string };
 
-const KNOWN_DOMAINS = [
-  "pitchfork.com", "thewire.co.uk", "npr.org", "rollingstone.com",
-  "theguardian.com", "nytimes.com", "newyorker.com", "factmag.com",
-  "residentadvisor.net", "xlr8r.com", "mixmag.net", "djmag.com",
-  "fadermagazine.com", "stereogum.com", "tinymixtapes.com",
-];
-
-function getInterviewLink(
-  interview: { title: string; publication: string; domain: string; year: number; format: string; url?: string },
-  artist: string
-): { href: string; direct: boolean } {
-  if (interview.url && interview.url.startsWith("https://")) {
-    return { href: interview.url, direct: true };
+function interviewHref(iv: InterviewItem, artist: string): { href: string; direct: boolean } {
+  if (iv.url?.startsWith("https://")) return { href: iv.url, direct: true };
+  // Domain-scoped search is a better fallback than a generic query
+  if (iv.domain) {
+    const q = encodeURIComponent(`${artist} ${iv.title} site:${iv.domain}`);
+    return { href: `https://www.google.com/search?q=${q}`, direct: false };
   }
-
-  const query = encodeURIComponent(`${artist} ${interview.title} ${interview.year}`);
-
-  if (interview.format === "video" || interview.domain === "youtube.com") {
-    return { href: `https://www.youtube.com/results?search_query=${query}`, direct: false };
-  }
-
-  if (interview.domain && KNOWN_DOMAINS.includes(interview.domain)) {
-    const scopedQuery = encodeURIComponent(`"${interview.title}" ${interview.year} site:${interview.domain}`);
-    return { href: `https://www.google.com/search?q=${scopedQuery}`, direct: false };
-  }
-
-  if (interview.domain && interview.domain !== "") {
-    const scopedQuery = encodeURIComponent(`${artist} ${interview.title} site:${interview.domain}`);
-    return { href: `https://www.google.com/search?q=${scopedQuery}`, direct: false };
-  }
-
-  return { href: `https://www.google.com/search?q=${query}`, direct: false };
+  const q = encodeURIComponent(`"${artist}" "${iv.title}" interview`);
+  return { href: `https://www.google.com/search?q=${q}`, direct: false };
 }
 
 function InterviewsContent({ data, artist }: { data: { interviews?: InterviewItem[] }; artist: string }) {
-  const items = data.interviews ?? [];
+  const items = [...(data.interviews ?? [])].sort((a, b) => (b.year ?? 0) - (a.year ?? 0));
+
+  const linkStyle = { fontFamily: MONO, fontSize: "0.65rem", letterSpacing: "0.08em", color: ORANGE, textDecoration: "none" };
+  const hoverOn  = (e: React.MouseEvent<HTMLAnchorElement>) => { e.currentTarget.style.textDecoration = "underline"; };
+  const hoverOff = (e: React.MouseEvent<HTMLAnchorElement>) => { e.currentTarget.style.textDecoration = "none"; };
+
   if (items.length === 0) {
     return (
       <div style={{ padding: "2rem 0" }}>
@@ -415,40 +397,20 @@ function InterviewsContent({ data, artist }: { data: { interviews?: InterviewIte
           No documented interviews found.
         </p>
         <a
-          href={`https://www.youtube.com/results?search_query=${encodeURIComponent(`${artist} interview`)}`}
-          target="_blank" rel="noopener noreferrer"
-          style={{ fontFamily: MONO, fontSize: "0.65rem", letterSpacing: "0.08em", color: ORANGE, textDecoration: "none", display: "block", marginBottom: 6 }}
-          onMouseEnter={(e) => { (e.currentTarget as HTMLAnchorElement).style.textDecoration = "underline"; }}
-          onMouseLeave={(e) => { (e.currentTarget as HTMLAnchorElement).style.textDecoration = "none"; }}
-        >
-          Search YouTube →
-        </a>
-        <a
           href={`https://www.google.com/search?q=${encodeURIComponent(`"${artist}" interview`)}`}
           target="_blank" rel="noopener noreferrer"
-          style={{ fontFamily: MONO, fontSize: "0.65rem", letterSpacing: "0.08em", color: ORANGE, textDecoration: "none" }}
-          onMouseEnter={(e) => { (e.currentTarget as HTMLAnchorElement).style.textDecoration = "underline"; }}
-          onMouseLeave={(e) => { (e.currentTarget as HTMLAnchorElement).style.textDecoration = "none"; }}
+          style={linkStyle} onMouseEnter={hoverOn} onMouseLeave={hoverOff}
         >
           Search the web →
         </a>
       </div>
     );
   }
-  const sorted = [...items].sort((a, b) => {
-    const aHasUrl = a.url && a.url.startsWith("https://") ? 0 : 1;
-    const bHasUrl = b.url && b.url.startsWith("https://") ? 0 : 1;
-    if (aHasUrl !== bHasUrl) return aHasUrl - bHasUrl;
-    return (b.year ?? 0) - (a.year ?? 0);
-  });
 
   return (
     <div>
-      {sorted.map((iv, i) => {
-        const { href: linkHref, direct } = getInterviewLink(iv, artist);
-        const linkLabel = direct
-          ? (iv.format === "video" ? "Watch →" : iv.format === "audio" ? "Listen →" : "Read article →")
-          : (iv.format === "video" ? "Watch on YouTube →" : iv.format === "audio" ? "Find recording →" : "Find article →");
+      {items.map((iv, i) => {
+        const { href, direct } = interviewHref(iv, artist);
         return (
           <div key={i} style={{ padding: "1.5rem 0", borderBottom: `1px solid ${RULE}` }}>
             <p style={{ fontFamily: SERIF, fontSize: "0.9rem", fontWeight: 600, color: INK, margin: "0 0 6px" }}>
@@ -459,20 +421,12 @@ function InterviewsContent({ data, artist }: { data: { interviews?: InterviewIte
             </p>
             <div style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 8, flexWrap: "wrap" }}>
               <span style={{ fontFamily: MONO, fontSize: "0.65rem", letterSpacing: "0.06em", color: INK }}>{iv.year}</span>
-              <Badge label={iv.format} />
             </div>
             <p style={{ fontFamily: MONO, fontSize: "0.68rem", letterSpacing: "0.04em", color: INK, fontStyle: "italic", lineHeight: 1.5, margin: "0 0 8px" }}>
               {iv.note}
             </p>
-            <a
-              href={linkHref}
-              target="_blank"
-              rel="noopener noreferrer"
-              style={{ fontFamily: MONO, fontSize: "0.65rem", letterSpacing: "0.08em", color: ORANGE, textDecoration: "none" }}
-              onMouseEnter={(e) => { (e.currentTarget as HTMLAnchorElement).style.textDecoration = "underline"; }}
-              onMouseLeave={(e) => { (e.currentTarget as HTMLAnchorElement).style.textDecoration = "none"; }}
-            >
-              {linkLabel}
+            <a href={href} target="_blank" rel="noopener noreferrer" style={linkStyle} onMouseEnter={hoverOn} onMouseLeave={hoverOff}>
+              {direct ? "Read article →" : "Find article →"}
             </a>
           </div>
         );
