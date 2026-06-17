@@ -182,7 +182,7 @@ export default async function InsightsPage() {
     : null;
 
   let latestSnapshotRow: { snapshot_at: string; value_med: number | null; currency: string | null } | null = null;
-  if (totalMed > 0 && lastSnapshotKey !== todayKey) {
+  if (allLinks.length > 0 && lastSnapshotKey !== todayKey) {
     const { data: inserted, error: snapErr } = await supabase
       .from("collection_value_snapshots")
       .insert({

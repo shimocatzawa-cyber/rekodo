@@ -539,7 +539,10 @@ async function processSync(supabase: SB, jobId: string, userId: string) {
       const cvAuth = await buildAuthHeader("GET", cvUrl, accessToken, tokenSecret);
       const cvRes  = await rateFetch(cvUrl, cvAuth);
 
-      if (cvRes.ok) {
+      if (!cvRes.ok) {
+        const body = await cvRes.text().catch(() => "");
+        console.error(`[sync] collection/value API failed: ${cvRes.status} ${cvRes.statusText} — ${body.slice(0, 200)}`);
+      } else {
         type ColVal = {
           minimum?: { value?: number; currency?: string };
           median?:  { value?: number };
@@ -559,13 +562,10 @@ async function processSync(supabase: SB, jobId: string, userId: string) {
             collection_value_currency: valCurr,
           })
           .eq("id", userId);
-        // Snapshotting for the Insights "median value over time" chart now
-        // happens in the Insights page itself (one per day, using whichever
-        // of these profile values or the user_records fallback it actually
-        // displays) — not here, since this call has no daily dedup and would
-        // insert a fresh row on every sync.
       }
-    } catch { /* non-fatal — sync still completes */ }
+    } catch (cvErr) {
+      console.error("[sync] collection/value fetch threw:", cvErr);
+    }
 
     // ── Mark completed ────────────────────────────────────────────────────────
     await updateJob(supabase, jobId, {
