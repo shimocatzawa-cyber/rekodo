@@ -1,9 +1,12 @@
 import { type NextRequest, NextResponse } from "next/server";
 import Anthropic from "@anthropic-ai/sdk";
+import { createClient } from "@supabase/supabase-js";
 
 export const maxDuration = 60;
 
 const client = new Anthropic();
+
+const CACHE_TTL_DAYS = 30;
 
 const PROMPTS: Record<string, (artist: string, ownedAlbums?: string[]) => string> = {
   rankings: (artist, ownedAlbums = []) => {
@@ -93,13 +96,36 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Invalid request" }, { status: 400 });
     }
 
-    const model = "claude-haiku-4-5";
+    // ── Cache check for rankings ───────────────────────────────────────────────
+    if (section === "rankings") {
+      const supabase = createClient(
+        process.env.NEXT_PUBLIC_SUPABASE_URL!,
+        process.env.SUPABASE_SERVICE_ROLE_KEY!
+      );
+
+      const staleAfter = new Date(Date.now() - CACHE_TTL_DAYS * 24 * 60 * 60 * 1000).toISOString();
+      const { data: cached } = await supabase
+        .from("deep_dive_cache")
+        .select("data, refreshed_at")
+        .eq("artist", artist)
+        .eq("section", "rankings")
+        .gt("refreshed_at", staleAfter)
+        .maybeSingle();
+
+      if (cached) {
+        return NextResponse.json({ data: cached.data, cached: true });
+      }
+    }
+
+    // ── Model selection ────────────────────────────────────────────────────────
+    // Rankings uses Sonnet for accuracy; everything else uses Haiku for cost.
+    const model = section === "rankings" ? "claude-sonnet-4-6" : "claude-haiku-4-5";
     const maxTokens = (section === "rankings" || section === "blindspot") ? 4096 : 1500;
-    // For rankings, cap owned albums at 8 — enough to anchor factual accuracy
-    // without making the prompt so long it slows the model down.
+
     const promptAlbums = section === "rankings" && ownedAlbums && ownedAlbums.length > 8
       ? ownedAlbums.slice(0, 8)
       : ownedAlbums;
+
     const message = await client.messages.create({
       model,
       max_tokens: maxTokens,
@@ -125,6 +151,21 @@ export async function POST(request: NextRequest) {
         { error: "Parse error", raw: clean },
         { status: 500 }
       );
+    }
+
+    // ── Cache write for rankings ───────────────────────────────────────────────
+    if (section === "rankings") {
+      const supabase = createClient(
+        process.env.NEXT_PUBLIC_SUPABASE_URL!,
+        process.env.SUPABASE_SERVICE_ROLE_KEY!
+      );
+
+      await supabase
+        .from("deep_dive_cache")
+        .upsert(
+          { artist, section: "rankings", data, refreshed_at: new Date().toISOString() },
+          { onConflict: "artist,section" }
+        );
     }
 
     return NextResponse.json({ data });
