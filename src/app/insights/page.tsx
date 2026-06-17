@@ -86,13 +86,14 @@ export default async function InsightsPage() {
     media_condition:  string | null;
     sleeve_condition: string | null;
     date_added:       string | null;
+    last_played_at:   string | null;
   };
   const allLinks: LinkRow[] = [];
   const PAGE = 1000;
   for (let from = 0; ; from += PAGE) {
     const { data, error } = await supabase
       .from("user_records")
-      .select("record_id, price_low, price_median, price_high, price_currency, media_condition, sleeve_condition, date_added")
+      .select("record_id, price_low, price_median, price_high, price_currency, media_condition, sleeve_condition, date_added, last_played_at")
       .eq("user_id", user.id)
       .range(from, from + PAGE - 1);
     if (error || !data || data.length === 0) break;
@@ -572,6 +573,48 @@ export default async function InsightsPage() {
     formatAgnosticPosition,
   };
 
+  // ── Listening History (last_played_at) ────────────────────────────────────
+  const playedLinks = allLinks
+    .filter((l) => l.last_played_at != null)
+    .sort((a, b) => new Date(b.last_played_at!).getTime() - new Date(a.last_played_at!).getTime());
+
+  const topPlayedRecords: InsightsProps["topPlayedRecords"] = playedLinks
+    .slice(0, 5)
+    .map((pl) => {
+      const rec = recordsMap.get(pl.record_id);
+      if (!rec) return null;
+      return {
+        artist:       rec.artist,
+        album:        rec.album,
+        coverUrl:     rec.cover_url ?? null,
+        lastPlayedAt: pl.last_played_at!,
+      };
+    })
+    .filter((r): r is NonNullable<typeof r> => r !== null);
+
+  const playedStyleCounts = new Map<string, number>();
+  for (const pl of playedLinks) {
+    const rec = recordsMap.get(pl.record_id);
+    if (!rec) continue;
+    if (rec.styles?.length) {
+      for (const style of rec.styles) {
+        const s = style?.trim();
+        if (s) playedStyleCounts.set(s, (playedStyleCounts.get(s) ?? 0) + 1);
+      }
+    } else if (rec.genre) {
+      playedStyleCounts.set(rec.genre, (playedStyleCounts.get(rec.genre) ?? 0) + 1);
+    }
+  }
+  const playedStyleTotal = [...playedStyleCounts.values()].reduce((a, b) => a + b, 0);
+  const playedStyleBreakdown: InsightsProps["playedStyleBreakdown"] = [...playedStyleCounts.entries()]
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 7)
+    .map(([style, count]) => ({
+      style,
+      count,
+      pct: playedStyleTotal > 0 ? Math.round((count / playedStyleTotal) * 100) : 0,
+    }));
+
   return (
     <InsightsClient
       username={username}
@@ -601,6 +644,8 @@ export default async function InsightsPage() {
       collectionLifespan={collectionLifespan}
       collectionByMonth={collectionByMonth}
       spectrum={spectrum}
+      topPlayedRecords={topPlayedRecords}
+      playedStyleBreakdown={playedStyleBreakdown}
     />
   );
 }

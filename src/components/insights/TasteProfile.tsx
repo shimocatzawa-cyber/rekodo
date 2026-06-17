@@ -200,7 +200,7 @@ export default function TasteProfile({ styleBreakdown, hasStyles, vinylColourBre
               Colour data will appear here after your next Discogs sync.
             </p>
           ) : (
-            <div className="rk-scroll-x" style={{ borderTop: `0.5px solid ${RULE}` }}>
+            <div className="rk-ins-fmt" style={{ borderTop: `0.5px solid ${RULE}` }}>
               <div style={{
                 display: "grid", gridTemplateColumns: "1fr 56px 64px",
                 gap: "12px", padding: "10px 0", borderBottom: `0.5px solid ${RULE}`,

@@ -205,13 +205,10 @@ h1, h2, h3, h4, h5, h6 {
     padding: 24px 16px 60px !important;
   }
 
-  /* ── Insights: format / desirability table → 2-col, no scroll ────────── */
-  /* Drop "Market Value" (3rd col) on narrow screens                        */
+  /* ── Insights: format / desirability table → 3-col compressed, no scroll */
   .rk-ins-fmt > * {
-    grid-template-columns: 1fr auto !important;
-  }
-  .rk-ins-fmt > * > *:nth-child(3) {
-    display: none !important;
+    grid-template-columns: 1fr 36px auto !important;
+    gap: 8px !important;
   }
 
   /* ── Insights: top items table → cover + artist + value, no scroll ───── */
