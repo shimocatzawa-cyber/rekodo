@@ -399,9 +399,15 @@ function InterviewsContent({ data, artist }: { data: { interviews?: InterviewIte
       </div>
     );
   }
+  const sorted = [...items].sort((a, b) => {
+    const aHasUrl = a.url && a.url.startsWith("https://") ? 0 : 1;
+    const bHasUrl = b.url && b.url.startsWith("https://") ? 0 : 1;
+    return aHasUrl - bHasUrl;
+  });
+
   return (
     <div>
-      {items.map((iv, i) => {
+      {sorted.map((iv, i) => {
         const { href: linkHref, direct } = getInterviewLink(iv, artist);
         const linkLabel = direct
           ? (iv.format === "video" ? "Watch →" : iv.format === "audio" ? "Listen →" : "Read article →")
