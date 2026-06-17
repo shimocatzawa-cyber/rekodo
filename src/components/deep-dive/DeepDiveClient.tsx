@@ -282,10 +282,15 @@ function PodcastsContent({ data, artist }: { data: { episodes?: Episode[] }; art
   );
 }
 
-type BookItem = { title: string; author: string; year: number; type: string; format: string; note: string; written_by_artist?: boolean };
+type BookItem = { title: string; author: string; year: number; type: string; format: string; isbn13?: string; note: string; written_by_artist?: boolean };
 
 function BooksContent({ data }: { data: { items?: BookItem[] } }) {
-  const items = data.items ?? [];
+  // Sort by year ascending (oldest first), preserving written_by_artist grouping
+  const raw = data.items ?? [];
+  const byArtist = [...raw.filter(b => b.written_by_artist === true)].sort((a, b) => (a.year ?? 0) - (b.year ?? 0));
+  const about    = [...raw.filter(b => b.written_by_artist !== true)].sort((a, b) => (a.year ?? 0) - (b.year ?? 0));
+  const items = [...byArtist, ...about];
+
   if (items.length === 0) {
     return (
       <p style={{ fontFamily: MONO, fontSize: "0.72rem", letterSpacing: "0.04em", color: INK, padding: "2rem 0" }}>
@@ -293,8 +298,28 @@ function BooksContent({ data }: { data: { items?: BookItem[] } }) {
       </p>
     );
   }
-  const hasArtistWritten = items.some(b => b.written_by_artist === true);
-  const firstAboutIndex  = hasArtistWritten ? items.findIndex(b => b.written_by_artist !== true) : -1;
+
+  const firstAboutIndex = byArtist.length > 0 ? byArtist.length : -1;
+
+  const tag = process.env.NEXT_PUBLIC_AMAZON_AFFILIATE_TAG;
+
+  function amazonHref(b: BookItem) {
+    // Use ISBN-13 for most targeted search; falls back to title + author
+    const q = b.isbn13 ? encodeURIComponent(b.isbn13) : encodeURIComponent(`${b.title} ${b.author}`);
+    return tag ? `https://www.amazon.com.au/s?k=${q}&tag=${tag}` : `https://www.amazon.com.au/s?k=${q}`;
+  }
+
+  function audibleHref(b: BookItem) {
+    const q = b.isbn13 ? encodeURIComponent(b.isbn13) : encodeURIComponent(`${b.title} ${b.author}`);
+    return `https://www.audible.com.au/search?keywords=${q}`;
+  }
+
+  const hasAudiobook = (b: BookItem) => b.format === "audiobook" || b.format === "both";
+
+  const linkStyle = { fontFamily: MONO, fontSize: "0.65rem", letterSpacing: "0.08em", color: ORANGE, textDecoration: "none" };
+  const hoverOn  = (e: React.MouseEvent<HTMLAnchorElement>) => { e.currentTarget.style.textDecoration = "underline"; };
+  const hoverOff = (e: React.MouseEvent<HTMLAnchorElement>) => { e.currentTarget.style.textDecoration = "none"; };
+
   return (
     <div>
       {items.map((b, i) => (
@@ -327,35 +352,14 @@ function BooksContent({ data }: { data: { items?: BookItem[] } }) {
               {b.note}
             </p>
             <div style={{ display: "flex", gap: "16px", flexWrap: "wrap" }}>
-              {(() => {
-                const tag = process.env.NEXT_PUBLIC_AMAZON_AFFILIATE_TAG;
-                const q   = encodeURIComponent(`${b.title} ${b.author}`);
-                const href = tag
-                  ? `https://www.amazon.com/s?k=${q}&tag=${tag}`
-                  : `https://www.amazon.com/s?k=${q}`;
-                return (
-                  <a
-                    href={href}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    style={{ fontFamily: MONO, fontSize: "0.65rem", letterSpacing: "0.08em", color: ORANGE, textDecoration: "none" }}
-                    onMouseEnter={(e) => { (e.currentTarget as HTMLAnchorElement).style.textDecoration = "underline"; }}
-                    onMouseLeave={(e) => { (e.currentTarget as HTMLAnchorElement).style.textDecoration = "none"; }}
-                  >
-                    Buy on Amazon →
-                  </a>
-                );
-              })()}
-              {b.format.toLowerCase().includes("audiobook") && (
-                <a
-                  href={`https://www.audible.com/search?keywords=${encodeURIComponent(b.title)}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  style={{ fontFamily: MONO, fontSize: "0.65rem", letterSpacing: "0.08em", color: ORANGE, textDecoration: "none" }}
-                  onMouseEnter={(e) => { (e.currentTarget as HTMLAnchorElement).style.textDecoration = "underline"; }}
-                  onMouseLeave={(e) => { (e.currentTarget as HTMLAnchorElement).style.textDecoration = "none"; }}
-                >
-                  Find on Audible →
+              {b.format !== "audiobook" && (
+                <a href={amazonHref(b)} target="_blank" rel="noopener noreferrer" style={linkStyle} onMouseEnter={hoverOn} onMouseLeave={hoverOff}>
+                  Buy on Amazon →
+                </a>
+              )}
+              {hasAudiobook(b) && (
+                <a href={audibleHref(b)} target="_blank" rel="noopener noreferrer" style={linkStyle} onMouseEnter={hoverOn} onMouseLeave={hoverOff}>
+                  Listen on Audible →
                 </a>
               )}
             </div>

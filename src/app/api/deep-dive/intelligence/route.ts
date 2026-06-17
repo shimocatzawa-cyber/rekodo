@@ -50,10 +50,23 @@ Return ONLY valid JSON, no markdown, no backticks, no preamble:
 type must be one of: "interview", "review", "documentary", "discussion". Return an empty array only if you genuinely cannot identify any. Do not fabricate.`,
 
   books: (artist) =>
-    `You are a music research assistant helping a vinyl collector. List books and audiobooks about or significantly featuring ${artist}. Include biographies, memoirs, critical studies, and essential books about the era or scene they defined.
+    `You are a music research assistant helping a vinyl collector. List books and audiobooks by or about ${artist}.
+
+ORDER — strictly follow this:
+1. Books or audiobooks WRITTEN OR NARRATED BY ${artist} themselves (memoirs, essays, spoken word) — list these first
+2. Books significantly about ${artist} — biographies, critical studies, authorised accounts
+3. Essential books about the scene, era, or movement ${artist} defined — only include if genuinely illuminating for a fan
+
+RULES:
+- Only include titles you are confident exist. Do not fabricate.
+- Return up to 10 items total, sorted by year ascending within each group.
+- For the "format" field: use "audiobook" if only available as audio. Use "both" if it exists as both print and audiobook. Use "book" if no audiobook edition is known. This field controls which store links appear — be accurate.
+- For the "isbn13" field: include the ISBN-13 if you are confident (13 digits, starts with 978 or 979). Omit if uncertain — a wrong ISBN is worse than none.
+- For the "written_by_artist" field: set true if ${artist} is the author or primary narrator. Set false for all other items.
+
 Return ONLY valid JSON, no markdown, no backticks, no preamble:
-{"items":[{"title":"Book Title","author":"Author Name","year":2003,"type":"biography","format":"book","note":"One sentence on why essential"}]}
-format field must be one of: "book", "audiobook", "both". Do not fabricate titles.`,
+{"items":[{"title":"Book Title","author":"Author Name","year":2003,"type":"memoir","format":"both","isbn13":"9780571234567","written_by_artist":true,"note":"One sentence on why essential"}]}
+type must be one of: "biography", "memoir", "criticism", "history", "fiction", "reference". Do not fabricate titles.`,
 
   interviews: (artist) =>
     `You are a music research assistant. List interviews given by ${artist} — any format, any outlet. Include major publications, smaller music blogs, YouTube sessions, Bandcamp features, label interviews, radio sessions, or any documented conversation that reveals something about their creative process or influences.
@@ -108,8 +121,8 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Invalid request" }, { status: 400 });
     }
 
-    // ── Cache check for rankings + podcasts ───────────────────────────────────
-    if (section === "rankings" || section === "podcasts") {
+    // ── Cache check for rankings + podcasts + books ───────────────────────────
+    if (section === "rankings" || section === "podcasts" || section === "books") {
       const supabase = createClient(
         process.env.NEXT_PUBLIC_SUPABASE_URL!,
         process.env.SUPABASE_SERVICE_ROLE_KEY!
@@ -130,8 +143,8 @@ export async function POST(request: NextRequest) {
     }
 
     // ── Model selection ────────────────────────────────────────────────────────
-    // Rankings + podcasts use Sonnet for accuracy; everything else uses Haiku for cost.
-    const model = (section === "rankings" || section === "podcasts") ? "claude-sonnet-4-6" : "claude-haiku-4-5";
+    // Rankings + podcasts + books use Sonnet for accuracy; everything else uses Haiku for cost.
+    const model = (section === "rankings" || section === "podcasts" || section === "books") ? "claude-sonnet-4-6" : "claude-haiku-4-5";
     const maxTokens = (section === "rankings" || section === "blindspot") ? 4096 : 1500;
 
     const promptAlbums = section === "rankings" && ownedAlbums && ownedAlbums.length > 8
@@ -165,8 +178,8 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // ── Cache write for rankings + podcasts ───────────────────────────────────
-    if (section === "rankings" || section === "podcasts") {
+    // ── Cache write for rankings + podcasts + books ───────────────────────────
+    if (section === "rankings" || section === "podcasts" || section === "books") {
       const supabase = createClient(
         process.env.NEXT_PUBLIC_SUPABASE_URL!,
         process.env.SUPABASE_SERVICE_ROLE_KEY!
