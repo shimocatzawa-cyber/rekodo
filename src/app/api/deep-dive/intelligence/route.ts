@@ -7,12 +7,15 @@ export const maxDuration = 120;
 const client = new Anthropic();
 
 const CACHE_TTL_DAYS = 30;
+// Hard timeout on every Supabase operation — a hanging DB call (slow connection,
+// missing table, cold pool) would otherwise consume the entire Vercel budget
+// before Claude is ever called.
+const DB_TIMEOUT_MS = 3000;
 
 const CACHED_SECTIONS = new Set(["rankings", "podcasts", "books", "interviews"]);
-const SONNET_SECTIONS  = new Set(["rankings", "podcasts", "books", "interviews"]);
 
-// Token budget per section — generous to prevent max_tokens truncation.
-// Truncated JSON causes a parse error which surfaces as "No information available".
+const SONNET_SECTIONS = new Set(["rankings", "podcasts", "books", "interviews"]);
+
 const MAX_TOKENS: Record<string, number> = {
   rankings:   2000,
   podcasts:   2000,
@@ -22,6 +25,16 @@ const MAX_TOKENS: Record<string, number> = {
   related:    1500,
 };
 
+// Race an async callback against a timeout — returns null on timeout instead of hanging.
+// Accepts a callback (not a raw Promise) so callers can pass Supabase query builders,
+// which are thenable but not full Promises and confuse Promise.race's type inference.
+async function withDbTimeout<T>(fn: () => PromiseLike<T>): Promise<T | null> {
+  const timeout = new Promise<null>((resolve) =>
+    setTimeout(() => resolve(null), DB_TIMEOUT_MS)
+  );
+  return Promise.race([Promise.resolve(fn()), timeout]);
+}
+
 function getSupabase() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -29,44 +42,54 @@ function getSupabase() {
   return createClient(url, key);
 }
 
-// Cache read — never throws; returns null if anything goes wrong.
 async function readCache(artist: string, section: string): Promise<unknown | null> {
   try {
     const supabase = getSupabase();
     if (!supabase) return null;
     const staleAfter = new Date(Date.now() - CACHE_TTL_DAYS * 24 * 60 * 60 * 1000).toISOString();
-    const { data, error } = await supabase
-      .from("deep_dive_cache")
-      .select("data")
-      .eq("artist", artist)
-      .eq("section", section)
-      .gt("refreshed_at", staleAfter)
-      .maybeSingle();
-    if (error) {
-      console.warn("Deep Dive cache read skipped:", error.message);
+    const result = await withDbTimeout(() =>
+      supabase
+        .from("deep_dive_cache")
+        .select("data")
+        .eq("artist", artist)
+        .eq("section", section)
+        .gt("refreshed_at", staleAfter)
+        .maybeSingle()
+    );
+    if (result === null) {
+      console.warn(`[deep-dive] cache read timed out — ${artist}/${section}`);
       return null;
     }
-    return data?.data ?? null;
+    if (result.error) {
+      console.warn(`[deep-dive] cache read error — ${artist}/${section}:`, result.error.message);
+      return null;
+    }
+    return result.data?.data ?? null;
   } catch (e) {
-    console.warn("Deep Dive cache read error:", e);
+    console.warn(`[deep-dive] cache read threw — ${artist}/${section}:`, e);
     return null;
   }
 }
 
-// Cache write — fire-and-forget; never throws.
 async function writeCache(artist: string, section: string, data: unknown): Promise<void> {
   try {
     const supabase = getSupabase();
     if (!supabase) return;
-    const { error } = await supabase
-      .from("deep_dive_cache")
-      .upsert(
-        { artist, section, data, refreshed_at: new Date().toISOString() },
-        { onConflict: "artist,section" }
-      );
-    if (error) console.warn("Deep Dive cache write skipped:", error.message);
+    const result = await withDbTimeout(() =>
+      supabase
+        .from("deep_dive_cache")
+        .upsert(
+          { artist, section, data, refreshed_at: new Date().toISOString() },
+          { onConflict: "artist,section" }
+        )
+    );
+    if (result === null) {
+      console.warn(`[deep-dive] cache write timed out — ${artist}/${section}`);
+    } else if (result.error) {
+      console.warn(`[deep-dive] cache write error — ${artist}/${section}:`, result.error.message);
+    }
   } catch (e) {
-    console.warn("Deep Dive cache write error:", e);
+    console.warn(`[deep-dive] cache write threw — ${artist}/${section}:`, e);
   }
 }
 
@@ -181,31 +204,38 @@ List at most 6 albums.`;
 };
 
 export async function POST(request: NextRequest) {
+  let artist = "";
+  let section = "";
   try {
-    const { artist, section, ownedAlbums } = (await request.json()) as {
+    const body = (await request.json()) as {
       artist?: string;
       section?: string;
       ownedAlbums?: string[];
     };
+    artist  = body.artist  ?? "";
+    section = body.section ?? "";
+    const ownedAlbums = body.ownedAlbums;
 
     if (!artist || !section || !PROMPTS[section]) {
       return NextResponse.json({ error: "Invalid request" }, { status: 400 });
     }
 
-    // ── Cache read (fault-tolerant — missing table or bad creds just skip cache) ─
+    // ── Cache read (3 s hard timeout — hangs must not block Claude) ────────────
     if (CACHED_SECTIONS.has(section)) {
       const cached = await readCache(artist, section);
       if (cached) return NextResponse.json({ data: cached, cached: true });
     }
 
     // ── Model + token budget ───────────────────────────────────────────────────
-    const model     = SONNET_SECTIONS.has(section) ? "claude-sonnet-4-6" : "claude-haiku-4-5";
+    const model     = SONNET_SECTIONS.has(section) ? "claude-sonnet-4-6" : "claude-haiku-4-5-20251001";
     const maxTokens = MAX_TOKENS[section] ?? 1500;
 
-    // For rankings/blindspot pass owned albums; cap at 5 to keep prompt concise.
+    // Pass up to 5 owned albums for sections that use them; keeps prompt concise.
     const promptAlbums = (section === "rankings" || section === "blindspot") && ownedAlbums?.length
       ? ownedAlbums.slice(0, 5)
       : ownedAlbums;
+
+    console.log(`[deep-dive] calling ${model} — ${artist}/${section} max_tokens=${maxTokens}`);
 
     const message = await client.messages.create({
       model,
@@ -213,27 +243,27 @@ export async function POST(request: NextRequest) {
       messages: [{ role: "user", content: PROMPTS[section](artist, promptAlbums) }],
     });
 
-    // Treat max_tokens truncation as a parse error rather than a hard failure —
-    // the JSON may still be valid if Claude finished before the limit.
-    const text = message.content.find((b) => b.type === "text")?.text ?? "";
+    console.log(`[deep-dive] done — ${artist}/${section} stop_reason=${message.stop_reason} tokens=${message.usage.output_tokens}`);
+
+    const text  = message.content.find((b) => b.type === "text")?.text ?? "";
     const clean = text.replace(/```json\n?/g, "").replace(/```\n?/g, "").trim();
 
     let data: unknown;
     try {
       data = JSON.parse(clean);
     } catch {
-      console.error("Deep Dive parse error for", artist, section, "stop_reason:", message.stop_reason, "\nraw:", clean.slice(0, 300));
-      return NextResponse.json({ error: "Parse error", raw: clean }, { status: 500 });
+      console.error(`[deep-dive] parse error — ${artist}/${section} stop=${message.stop_reason} raw=${clean.slice(0, 400)}`);
+      return NextResponse.json({ error: "Parse error" }, { status: 500 });
     }
 
-    // ── Cache write (fault-tolerant — fire-and-forget) ─────────────────────────
+    // ── Cache write (fire-and-forget, 3 s hard timeout) ────────────────────────
     if (CACHED_SECTIONS.has(section)) {
       void writeCache(artist, section, data);
     }
 
     return NextResponse.json({ data });
   } catch (error) {
-    console.error("Deep Dive API error:", error);
+    console.error(`[deep-dive] unhandled error — ${artist}/${section}:`, error);
     return NextResponse.json({ error: "Claude API error" }, { status: 500 });
   }
 }
