@@ -749,7 +749,7 @@ const [filterFormat,       setFilterFormat]       = useState("");
   ];
 
   return (
-    <div style={{ height: "100vh", display: "flex", flexDirection: "column", background: "#ffffff", overflow: "hidden" }}>
+    <div className="rk-app-shell" style={{ height: "100vh", display: "flex", flexDirection: "column", background: "#ffffff", overflow: "hidden" }}>
       <AppNav username={username} displayLabel={displayLabel} avatarUrl={avatarUrl} />
 
       {/* ── Status banners ── */}

@@ -594,7 +594,7 @@ export default function ListsClient({
   // ── Render ──────────────────────────────────────────────────────────────────
 
   return (
-    <div style={{ height: "100vh", background: "#ffffff", display: "flex", flexDirection: "column", overflow: "hidden" }}>
+    <div className="rk-app-shell" style={{ height: "100vh", background: "#ffffff", display: "flex", flexDirection: "column", overflow: "hidden" }}>
       <style>{`.pill-strip::-webkit-scrollbar { display: none; }`}</style>
       <AppNav username={username} displayLabel={displayLabel} avatarUrl={avatarUrl} />
 

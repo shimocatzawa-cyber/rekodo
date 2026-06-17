@@ -86,7 +86,7 @@ export default function CollectorsLikeYou({ userId, currentUserId }: Props) {
         Collectors Like You
       </p>
 
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "20px" }}>
+      <div className="rk-collectors-grid" style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "20px" }}>
         {matches.map(match => (
           <CollectorCard
             key={match.userId}

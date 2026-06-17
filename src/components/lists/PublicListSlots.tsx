@@ -33,7 +33,7 @@ export default function PublicListSlots({ slots }: { slots: ListSlot[] }) {
   }
 
   return (
-    <div style={{ display: "grid", gridTemplateColumns: "repeat(5, 1fr)", gap: "16px" }}>
+    <div className="rk-list-slots" style={{ display: "grid", gridTemplateColumns: "repeat(5, 1fr)", gap: "16px" }}>
       {slots.map(({ position, item }) => (
         <div key={position} style={{ minWidth: 0 }}>
           <div style={{ position: "relative", overflow: "hidden", lineHeight: 0 }}>

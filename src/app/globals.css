@@ -55,6 +55,93 @@ h1, h2, h3, h4, h5, h6 {
   }
 }
 
+/* ── Mobile layout utilities (≤767px) ───────────────────────────────────────
+   All rules are additive — zero impact on desktop breakpoints.           */
+@media (max-width: 767px) {
+
+  /* Fixed-height app shells (Collection, Lists) → natural scroll on mobile.
+     100dvh is the dynamic viewport height (accounts for iOS browser chrome). */
+  .rk-app-shell {
+    height: auto !important;
+    min-height: 100vh;
+    min-height: 100dvh;
+    overflow-y: auto !important;
+    overflow-x: hidden !important;
+  }
+
+  /* Data tables that use fixed-column inline grids → horizontal scroll    */
+  .rk-scroll-x {
+    overflow-x: auto !important;
+    -webkit-overflow-scrolling: touch;
+  }
+  .rk-scroll-x > * {
+    min-width: 480px;
+  }
+
+  /* 2-col card grids → single column                                      */
+  .rk-grid-2 {
+    grid-template-columns: 1fr !important;
+    gap: 24px !important;
+  }
+
+  /* 3-col card grids → single column                                      */
+  .rk-grid-3 {
+    grid-template-columns: 1fr !important;
+    gap: 24px !important;
+  }
+
+  /* Collector cards: 3-col → 2-col (cards are compact enough)            */
+  .rk-collectors-grid {
+    grid-template-columns: repeat(2, 1fr) !important;
+    gap: 12px !important;
+  }
+
+  /* Public list slots: 5-col → 2-col                                     */
+  .rk-list-slots {
+    grid-template-columns: repeat(2, 1fr) !important;
+    gap: 20px !important;
+  }
+
+  /* Insights stat bar: 5-col → 3-col with last two wrapping              */
+  .rk-stat-bar {
+    grid-template-columns: repeat(3, 1fr) !important;
+  }
+  .rk-stat-bar > *:nth-child(4) {
+    border-top: 1px solid rgba(0,0,0,0.06);
+  }
+
+  /* Touch-target enlargement for small interactive icons                  */
+  .rk-touch-target {
+    min-width: 44px !important;
+    min-height: 44px !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+  }
+
+  /* Form inputs: font-size ≥16px prevents iOS Safari auto-zoom on focus  */
+  .rk-form-input {
+    font-size: 16px !important;
+  }
+
+  /* General page padding on narrow screens                                */
+  .rk-page-pad {
+    padding-left: 16px !important;
+    padding-right: 16px !important;
+  }
+}
+
+/* ── Safe-area insets (notch / home-bar aware, viewport-fit=cover) ──────────
+   Applied globally so fixed/sticky elements clear iPhone notch & home bar.  */
+@supports (padding: env(safe-area-inset-bottom)) {
+  .rk-safe-bottom {
+    padding-bottom: env(safe-area-inset-bottom) !important;
+  }
+  .rk-safe-top {
+    padding-top: env(safe-area-inset-top) !important;
+  }
+}
+
 /* Insights bar charts — use the site's mono font for axis/tooltip text,
    and shrink it on the rolling 12-month chart so all 12 month labels fit
    without recharts skipping any for space. */

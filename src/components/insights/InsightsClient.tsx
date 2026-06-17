@@ -167,7 +167,7 @@ type StatTile = {
 
 function StatBar({ tiles }: { tiles: StatTile[] }) {
   return (
-    <div style={{
+    <div className="rk-stat-bar" style={{
       display: "grid",
       gridTemplateColumns: "repeat(5, 1fr)",
       background: "#FEFBF8",
@@ -374,7 +374,7 @@ export default function InsightsClient({
         {formatBreakdown.length > 0 && (
           <div style={{ marginBottom: "40px" }}>
             <SubLabel>Collection by format</SubLabel>
-            <div style={{ borderTop: `0.5px solid ${RULE}` }}>
+            <div className="rk-scroll-x" style={{ borderTop: `0.5px solid ${RULE}` }}>
               <div style={{
                 display: "grid", gridTemplateColumns: "1fr 80px 160px",
                 gap: "16px", padding: "10px 0", borderBottom: `0.5px solid ${RULE}`,
@@ -461,7 +461,7 @@ export default function InsightsClient({
         {topRecordsByValue.length > 0 && (
           <div>
             <SubLabel>Top items by value</SubLabel>
-            <div style={{ borderTop: `0.5px solid ${RULE}` }}>
+            <div className="rk-scroll-x" style={{ borderTop: `0.5px solid ${RULE}` }}>
               <div style={{
                 display: "grid", gridTemplateColumns: "44px 1fr 1fr 160px",
                 gap: "16px", padding: "10px 0", borderBottom: `0.5px solid ${RULE}`,
@@ -525,7 +525,7 @@ export default function InsightsClient({
         {/* ── Section 2: Collection Condition ──────────────────────────────── */}
         <SectionHeader eyebrow="Collection Condition" title="How well you look after them." />
 
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "48px" }}>
+        <div className="rk-grid-2" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "48px" }}>
           {[
             { label: "Media Grade",  data: mediaConditionBreakdown  },
             { label: "Sleeve Grade", data: sleeveConditionBreakdown },
@@ -628,7 +628,7 @@ export default function InsightsClient({
         {/* ── Section 5: Label Obsession ────────────────────────────────────── */}
         <SectionHeader eyebrow="Most Collected" title="Who you keep going back to." />
 
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "40px" }}>
+        <div className="rk-grid-3" style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "40px" }}>
           {/* Labels */}
           <div>
             <SubLabel>Top 10 Labels</SubLabel>

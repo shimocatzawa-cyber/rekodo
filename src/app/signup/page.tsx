@@ -110,7 +110,7 @@ export default function SignupPage() {
                   maxLength={30}
                   pattern="[a-zA-Z0-9_]+"
                   title="Letters, numbers, and underscores only"
-                  className="border border-[#dddddd] focus:border-[#CC5500] outline-none transition-colors"
+                  className="rk-form-input border border-[#dddddd] focus:border-[#CC5500] outline-none transition-colors"
                   style={inputStyle}
                 />
                 <p
@@ -130,7 +130,7 @@ export default function SignupPage() {
                   type="email"
                   required
                   autoComplete="email"
-                  className="border border-[#dddddd] focus:border-[#CC5500] outline-none transition-colors"
+                  className="rk-form-input border border-[#dddddd] focus:border-[#CC5500] outline-none transition-colors"
                   style={inputStyle}
                 />
               </div>
@@ -144,7 +144,7 @@ export default function SignupPage() {
                   type="password"
                   required
                   autoComplete="new-password"
-                  className="border border-[#dddddd] focus:border-[#CC5500] outline-none transition-colors"
+                  className="rk-form-input border border-[#dddddd] focus:border-[#CC5500] outline-none transition-colors"
                   style={inputStyle}
                 />
                 <p

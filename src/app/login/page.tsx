@@ -76,7 +76,7 @@ export default function LoginPage() {
                 type="email"
                 required
                 autoComplete="email"
-                className="border border-[#dddddd] focus:border-[#CC5500] outline-none transition-colors"
+                className="rk-form-input border border-[#dddddd] focus:border-[#CC5500] outline-none transition-colors"
                 style={inputStyle}
               />
             </div>
@@ -90,7 +90,7 @@ export default function LoginPage() {
                 type="password"
                 required
                 autoComplete="current-password"
-                className="border border-[#dddddd] focus:border-[#CC5500] outline-none transition-colors"
+                className="rk-form-input border border-[#dddddd] focus:border-[#CC5500] outline-none transition-colors"
                 style={inputStyle}
               />
             </div>
