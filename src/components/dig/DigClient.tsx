@@ -479,6 +479,9 @@ function DigCompactPlayer({ previewUrl, albumUri, trackUri, artist, album, recId
         player.connect().then(success => { if (success) setAuthError(false); }).catch(() => {});
       }, 800);
     });
+    player.addListener("not_ready", () => {
+      setDeviceId(null);
+    });
     player.addListener("account_error", (d) => {
       console.error("[rekōdo] Dig Spotify account error:", d);
     });
@@ -703,7 +706,8 @@ function DigCompactPlayer({ previewUrl, albumUri, trackUri, artist, album, recId
   // Invisible until there's something to play
   if (!useSDK && !previewUrl) return null;
 
-  const eyebrow        = authError ? "Reconnecting" : playError ? "Error" : sdkLive ? "Now Playing" : "Preview";
+  const sdkConnecting  = useSDK && !deviceId;
+  const eyebrow        = authError ? "Reconnecting" : playError ? "Error" : sdkConnecting ? "Connecting" : sdkLive ? "Now Playing" : "Preview";
   const nowPlayingText = authError
     ? "Spotify session expired — reconnecting…"
     : playError === 403 ? "Spotify: Premium required or unavailable in your region"
@@ -711,6 +715,7 @@ function DigCompactPlayer({ previewUrl, albumUri, trackUri, artist, album, recId
     : playError === 429 ? "Spotify: rate limited — wait a moment and try again"
     : playError === 0   ? "Network error — check your connection"
     : playError         ? `Spotify error ${playError}`
+    : sdkConnecting ? "Connecting to Spotify…"
     : sdkLive && nowTrack
       ? `${nowTrack.artist} — ${nowTrack.name}`
       : `${artist} — ${album}${!sdkLive ? " (30s)" : ""}`;
@@ -736,7 +741,7 @@ function DigCompactPlayer({ previewUrl, albumUri, trackUri, artist, album, recId
       <div style={{ display: "flex", alignItems: "center", gap: "8px", minWidth: 0, flex: "0 1 36%" }}>
         <span style={{
           fontFamily: MONO, fontSize: "8px", letterSpacing: "0.16em",
-          textTransform: "uppercase", color: authError ? "#aaaaaa" : ORANGE, flexShrink: 0,
+          textTransform: "uppercase", color: (authError || sdkConnecting) ? "#aaaaaa" : ORANGE, flexShrink: 0,
         }}>
           {eyebrow}
         </span>
