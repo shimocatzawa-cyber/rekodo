@@ -900,7 +900,7 @@ export default function DeepDiveClient({
     const imgUrl = imageMap[selectedArtist];
 
     return (
-      <div style={{ padding: "2.5rem" }}>
+      <div className="dd-panel-content" style={{ padding: "2.5rem" }}>
         {/* Artist header */}
         <div style={{ display: "flex", gap: 20, alignItems: "flex-start", marginBottom: 24 }}>
           {imgUrl ? (
@@ -911,7 +911,7 @@ export default function DeepDiveClient({
           )}
           <div style={{ minWidth: 0, flex: 1 }}>
             <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
-              <h2 style={{ fontFamily: SERIF, fontSize: "2rem", fontWeight: 600, color: INK, letterSpacing: "-0.025em", lineHeight: 1.1, margin: 0 }}>
+              <h2 className="dd-artist-name" style={{ fontFamily: SERIF, fontSize: "2rem", fontWeight: 600, color: INK, letterSpacing: "-0.025em", lineHeight: 1.1, margin: 0 }}>
                 {selectedArtist}
               </h2>
               {selectedData?.fromBandcamp && <BandcampIcon size={16} />}
@@ -929,7 +929,13 @@ export default function DeepDiveClient({
         <div style={{ borderBottom: `1px solid ${RULE}` }} />
 
         {/* Tabs */}
-        <style>{`.dd-tabbar::-webkit-scrollbar { display: none; }`}</style>
+        <style>{`
+          .dd-tabbar::-webkit-scrollbar { display: none; }
+          @media (max-width: 767px) {
+            .dd-panel-content { padding: 1.25rem 1rem !important; }
+            .dd-artist-name   { font-size: 1.4rem !important; }
+          }
+        `}</style>
         <div
           className="dd-tabbar"
           style={{
