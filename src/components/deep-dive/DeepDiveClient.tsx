@@ -334,7 +334,7 @@ function BooksContent({ data }: { data: { items?: BookItem[] } }) {
   );
 }
 
-type InterviewItem = { publication: string; domain: string; title: string; year: number; format: string; note: string };
+type InterviewItem = { publication: string; domain: string; title: string; year: number; format: string; note: string; url?: string };
 
 const KNOWN_DOMAINS = [
   "pitchfork.com", "thewire.co.uk", "npr.org", "rollingstone.com",
@@ -343,27 +343,31 @@ const KNOWN_DOMAINS = [
   "fadermagazine.com", "stereogum.com", "tinymixtapes.com",
 ];
 
-function getInterviewSearchUrl(
-  interview: { title: string; publication: string; domain: string; year: number; format: string },
+function getInterviewLink(
+  interview: { title: string; publication: string; domain: string; year: number; format: string; url?: string },
   artist: string
-): string {
+): { href: string; direct: boolean } {
+  if (interview.url && interview.url.startsWith("https://")) {
+    return { href: interview.url, direct: true };
+  }
+
   const query = encodeURIComponent(`${artist} ${interview.title} ${interview.year}`);
 
   if (interview.format === "video" || interview.domain === "youtube.com") {
-    return `https://www.youtube.com/results?search_query=${query}`;
+    return { href: `https://www.youtube.com/results?search_query=${query}`, direct: false };
   }
 
   if (interview.domain && KNOWN_DOMAINS.includes(interview.domain)) {
     const scopedQuery = encodeURIComponent(`"${interview.title}" ${interview.year} site:${interview.domain}`);
-    return `https://www.google.com/search?q=${scopedQuery}`;
+    return { href: `https://www.google.com/search?q=${scopedQuery}`, direct: false };
   }
 
   if (interview.domain && interview.domain !== "") {
     const scopedQuery = encodeURIComponent(`${artist} ${interview.title} site:${interview.domain}`);
-    return `https://www.google.com/search?q=${scopedQuery}`;
+    return { href: `https://www.google.com/search?q=${scopedQuery}`, direct: false };
   }
 
-  return `https://www.google.com/search?q=${query}`;
+  return { href: `https://www.google.com/search?q=${query}`, direct: false };
 }
 
 function InterviewsContent({ data, artist }: { data: { interviews?: InterviewItem[] }; artist: string }) {
@@ -398,10 +402,10 @@ function InterviewsContent({ data, artist }: { data: { interviews?: InterviewIte
   return (
     <div>
       {items.map((iv, i) => {
-        const linkHref  = getInterviewSearchUrl(iv, artist);
-        const linkLabel = iv.format === "video" ? "Watch on YouTube →"
-                        : iv.format === "audio" ? "Find recording →"
-                        : "Find article →";
+        const { href: linkHref, direct } = getInterviewLink(iv, artist);
+        const linkLabel = direct
+          ? (iv.format === "video" ? "Watch →" : iv.format === "audio" ? "Listen →" : "Read article →")
+          : (iv.format === "video" ? "Watch on YouTube →" : iv.format === "audio" ? "Find recording →" : "Find article →");
         return (
           <div key={i} style={{ padding: "1.5rem 0", borderBottom: `1px solid ${RULE}` }}>
             <p style={{ fontFamily: SERIF, fontSize: "0.9rem", fontWeight: 600, color: INK, margin: "0 0 6px" }}>

@@ -54,8 +54,15 @@ format field must be one of: "book", "audiobook", "both". Do not fabricate title
     `You are a music research assistant. List interviews given by ${artist} — any format, any outlet. Include major publications, smaller music blogs, YouTube sessions, Bandcamp features, label interviews, radio sessions, or any documented conversation that reveals something about their creative process or influences.
 
 For lesser-known or independent artists, smaller outlets (The Wire, Bandcamp Daily, local press, independent music blogs, YouTube live sessions) are entirely valid — include them.
+
+URL FIELD RULES:
+- Include a "url" field with the direct link to the interview if you are confident it is correct.
+- For YouTube videos, provide the full youtube.com/watch?v= URL if you know it.
+- For articles, provide the direct article URL if you are confident it is accurate.
+- If you are not certain of the exact URL, omit the field or return an empty string — do not guess. A missing URL is better than a wrong one.
+
 Return ONLY valid JSON, no markdown, no backticks, no preamble:
-{"interviews":[{"publication":"Publication or platform","title":"Interview title or description","year":1982,"format":"print","note":"What makes it worth reading or watching"}]}
+{"interviews":[{"publication":"Publication or platform","title":"Interview title or description","year":1982,"format":"print","url":"https://example.com/article","note":"What makes it worth reading or watching"}]}
 format must be one of: "print", "video", "audio". Only include interviews you are confident exist. Return an empty array if you genuinely cannot identify any — do not fabricate.`,
 
   related: (artist) =>
