@@ -1,10 +1,14 @@
 -- Reschedule label-feed-ingest cron with correct project ref and anon key.
--- Safe to re-run: unschedule is a no-op if the job doesn't exist.
+-- pg_cron and pg_net are already enabled by Supabase — no CREATE EXTENSION needed.
+-- The DO block swallows errors if the job name doesn't exist yet.
 
-create extension if not exists pg_cron;
-create extension if not exists pg_net;
-
-select cron.unschedule('label-feed-ingest-daily');
+do $$
+begin
+  perform cron.unschedule('label-feed-ingest-daily');
+exception when others then
+  null; -- job didn't exist, that's fine
+end;
+$$;
 
 select cron.schedule(
   'label-feed-ingest-daily',
