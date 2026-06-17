@@ -183,7 +183,7 @@ export default async function InsightsPage() {
 
   let latestSnapshotRow: { snapshot_at: string; value_med: number | null; currency: string | null } | null = null;
   if (totalMed > 0 && lastSnapshotKey !== todayKey) {
-    const { data: inserted } = await supabase
+    const { data: inserted, error: snapErr } = await supabase
       .from("collection_value_snapshots")
       .insert({
         user_id:      user.id,
@@ -196,6 +196,7 @@ export default async function InsightsPage() {
       })
       .select("snapshot_at, value_med, currency")
       .single();
+    if (snapErr) console.error("[insights] snapshot insert failed:", snapErr.message, snapErr.code);
     latestSnapshotRow = inserted ?? null;
   }
 
