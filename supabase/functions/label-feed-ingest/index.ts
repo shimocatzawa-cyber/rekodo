@@ -126,10 +126,11 @@ function getHeader(msg: GmailMessage, name: string): string {
   )?.value ?? "";
 }
 
-async function listMessageIds(token: string, maxResults = 50): Promise<string[]> {
+async function listMessageIds(token: string, maxResults = 200): Promise<string[]> {
   const url = new URL("https://gmail.googleapis.com/gmail/v1/users/me/messages");
   url.searchParams.set("maxResults", String(maxResults));
-  url.searchParams.set("labelIds", "INBOX");
+  // newer_than:3d ensures we always catch overnight emails regardless of inbox size
+  url.searchParams.set("q", "newer_than:3d");
   const res = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
   const data = await res.json();
   return (data.messages ?? []).map((m: { id: string }) => m.id);
