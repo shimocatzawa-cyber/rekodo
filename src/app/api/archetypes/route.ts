@@ -80,6 +80,7 @@ export async function GET() {
       shadow_archetype: result.shadow,
       primary_score: result.primaryScore,
       secondary_score: result.secondaryScore,
+      named_pairing: result.namedPairing ?? null,
       record_count_at_generation: result.recordCount,
       generated_at: result.generatedAt,
     }, { onConflict: "user_id" });
@@ -127,6 +128,7 @@ export async function POST() {
       shadow_archetype: result.shadow,
       primary_score: result.primaryScore,
       secondary_score: result.secondaryScore,
+      named_pairing: result.namedPairing ?? null,
       record_count_at_generation: result.recordCount,
       generated_at: result.generatedAt,
       // Clear essay cache on regeneration
