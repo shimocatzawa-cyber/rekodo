@@ -241,16 +241,14 @@ export function SpotifyPlayerProvider({ children }: { children: React.ReactNode 
 
     player.addListener("authentication_error", (data) => {
       console.error("[rekōdo] Spotify auth error:", data);
-      // The access token backing the SDK's connection expired mid-session.
-      // The refresh token is still good — bust the cache so the next
-      // getOAuthToken call is forced to fetch (and server-refresh) a brand
-      // new token, then reconnect. This is usually transient (e.g. the tab
-      // was backgrounded), so clear the banner once reconnect succeeds —
-      // "ready" won't fire again for an already-registered device.
+      // Bust the cache so getOAuthToken forces a fresh server-side refresh,
+      // then reconnect silently. Only surface an error banner if the reconnect
+      // itself fails — most auth errors self-heal within a second.
       bustSpotifyTokenCache();
-      setPlayError(401);
       setTimeout(() => {
-        player.connect().then(success => { if (success) setPlayError(null); }).catch(() => {});
+        player.connect()
+          .then(success => { if (!success) setPlayError(401); })
+          .catch(() => setPlayError(401));
       }, 800);
     });
 

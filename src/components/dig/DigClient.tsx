@@ -470,13 +470,13 @@ function DigCompactPlayer({ previewUrl, albumUri, trackUri, artist, album, recId
     });
     player.addListener("authentication_error", (d) => {
       console.error("[rekōdo] Dig Spotify auth error:", d);
-      // Same recovery as the collection player: the access token expired
-      // mid-session, not the refresh token. Bust the cache and reconnect
-      // instead of leaving playback dead.
+      // Bust the cache so getOAuthToken forces a fresh server-side refresh,
+      // then reconnect silently. Only show the eyebrow error if it actually fails.
       bustDigTokenCache();
-      setAuthError(true);
       setTimeout(() => {
-        player.connect().then(success => { if (success) setAuthError(false); }).catch(() => {});
+        player.connect()
+          .then(success => { if (!success) setAuthError(true); })
+          .catch(() => setAuthError(true));
       }, 800);
     });
     player.addListener("not_ready", () => {
