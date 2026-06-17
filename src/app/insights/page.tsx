@@ -97,7 +97,7 @@ export default async function InsightsPage() {
       .eq("user_id", user.id)
       .range(from, from + PAGE - 1);
     if (error || !data || data.length === 0) break;
-    allLinks.push(...(data as LinkRow[]));
+    allLinks.push(...(data as unknown as LinkRow[]));
     if (data.length < PAGE) break;
   }
 

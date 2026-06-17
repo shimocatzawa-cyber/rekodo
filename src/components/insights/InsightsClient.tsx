@@ -42,6 +42,8 @@ export interface InsightsProps {
   collectionLifespan: { period: string; Added: number }[];
   collectionByMonth: { period: string; Added: number }[];
   spectrum:           SpectrumData;
+  topPlayedRecords:   { artist: string; album: string; coverUrl: string | null; lastPlayedAt: string }[];
+  playedStyleBreakdown: { style: string; count: number; pct: number }[];
 }
 
 // ── Tier metadata ──────────────────────────────────────────────────────────────
@@ -215,6 +217,7 @@ export default function InsightsClient({
   formatBreakdown, desirabilityBreakdown,
   topFormat, yearRange, mostPopularYear, vinylColourBreakdown,
   collectionLifespan, collectionByMonth, spectrum,
+  topPlayedRecords, playedStyleBreakdown,
 }: InsightsProps) {
 
   const [oneLiner, setOneLiner] = useState<string | null>(null);
@@ -722,6 +725,8 @@ export default function InsightsClient({
             hasStyles={hasStyles}
             vinylColourBreakdown={vinylColourBreakdown}
             spectrum={spectrum}
+            topPlayedRecords={topPlayedRecords}
+            playedStyleBreakdown={playedStyleBreakdown}
           />
         </main>
       )}

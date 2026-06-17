@@ -22,6 +22,8 @@ interface TasteProfileProps {
   hasStyles:            boolean;
   vinylColourBreakdown: { colour: string; count: number; pct: number }[];
   spectrum:             SpectrumData;
+  topPlayedRecords:     { artist: string; album: string; coverUrl: string | null; lastPlayedAt: string }[];
+  playedStyleBreakdown: { style: string; count: number; pct: number }[];
 }
 
 // Colour-name keyword → badge palette, used to render vinyl colours as labels.
@@ -53,6 +55,31 @@ const DEFAULT_BADGE = { bg: "#EDEDE8", color: "#3a3a34" };
 function colourBadge(value: string): { bg: string; color: string } {
   const v = value.toLowerCase();
   return COLOUR_BADGE_RULES.find((r) => v.includes(r.kw)) ?? DEFAULT_BADGE;
+}
+
+// ── Donut chart colours ─────────────────────────────────────────────────────────
+const DONUT_COLOURS = [
+  "#CC5500", // orange (brand)
+  "#1B3A66", // dark blue
+  "#9FE1CB", // teal
+  "#FAC775", // gold
+  "#CECBF6", // lavender
+  "#C0DD97", // green
+  "#F0997B", // salmon
+];
+
+// ── Helpers ─────────────────────────────────────────────────────────────────────
+
+function relativeDate(isoString: string): string {
+  const played = new Date(isoString);
+  const now = new Date();
+  const diffMs = now.getTime() - played.getTime();
+  const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+  if (diffDays === 0) return "Today";
+  if (diffDays === 1) return "Yesterday";
+  if (diffDays < 7)  return `${diffDays}d ago`;
+  if (diffDays < 30) return `${Math.floor(diffDays / 7)}w ago`;
+  return played.toLocaleDateString("en-AU", { day: "numeric", month: "short" });
 }
 
 // ── Sub-components ─────────────────────────────────────────────────────────────
@@ -135,9 +162,66 @@ function SpectrumRow({ left, right, value }: SpectrumAxis) {
   );
 }
 
+function DonutChart({ data }: { data: { style: string; count: number; pct: number }[] }) {
+  const r    = 56;
+  const cx   = 76;
+  const cy   = 76;
+  const circ = 2 * Math.PI * r;
+
+  let cumOffset = 0;
+  const segs = data.map((d, i) => {
+    const arc    = (d.pct / 100) * circ;
+    const offset = cumOffset;
+    cumOffset   += arc;
+    return { ...d, arc, offset, colour: DONUT_COLOURS[i % DONUT_COLOURS.length] };
+  });
+
+  return (
+    <div style={{ display: "flex", alignItems: "center", gap: "24px", flexWrap: "wrap" }}>
+      <svg viewBox="0 0 152 152" width="136" height="136" style={{ flexShrink: 0 }}>
+        {/* background ring fills any rounding gap */}
+        <circle cx={cx} cy={cy} r={r} fill="none" stroke={RULE} strokeWidth={20} />
+        {segs.map((seg) => (
+          <circle
+            key={seg.style}
+            cx={cx}
+            cy={cy}
+            r={r}
+            fill="none"
+            stroke={seg.colour}
+            strokeWidth={20}
+            strokeDasharray={`${seg.arc} ${circ - seg.arc}`}
+            strokeDashoffset={circ / 4 - seg.offset}
+          />
+        ))}
+      </svg>
+
+      <div style={{ display: "flex", flexDirection: "column", gap: "9px" }}>
+        {segs.map((seg) => (
+          <div key={seg.style} style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+            <div style={{
+              width: "8px", height: "8px", flexShrink: 0,
+              background: seg.colour,
+            }} />
+            <span style={{ fontFamily: MONO, fontSize: "10px", color: INK, lineHeight: 1.2 }}>
+              {seg.style}
+            </span>
+            <span style={{ fontFamily: MONO, fontSize: "10px", color: "#aaaaaa" }}>
+              {seg.pct}%
+            </span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 // ── Main component ─────────────────────────────────────────────────────────────
 
-export default function TasteProfile({ styleBreakdown, hasStyles, vinylColourBreakdown, spectrum }: TasteProfileProps) {
+export default function TasteProfile({
+  styleBreakdown, hasStyles, vinylColourBreakdown, spectrum,
+  topPlayedRecords, playedStyleBreakdown,
+}: TasteProfileProps) {
   const maxStylePct = styleBreakdown[0]?.pct ?? 100;
 
   const axes: SpectrumAxis[] = [
@@ -152,6 +236,80 @@ export default function TasteProfile({ styleBreakdown, hasStyles, vinylColourBre
 
   return (
     <>
+      {/* ── Listening History ─────────────────────────────────────────────── */}
+      {topPlayedRecords.length > 0 && (
+        <>
+          <TasteSectionHeader eyebrow="Listening History" title="What you've been reaching for." />
+
+          <div className="rk-grid-2" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "48px" }}>
+
+            {/* Top 5 Played */}
+            <div>
+              <SubLabel>Most recently played</SubLabel>
+              <div style={{ borderTop: `0.5px solid ${RULE}` }}>
+                {topPlayedRecords.map((rec, i) => (
+                  <div key={i} style={{
+                    display: "flex", alignItems: "center", gap: "12px",
+                    padding: "10px 0", borderBottom: `0.5px solid ${RULE}`,
+                  }}>
+                    {rec.coverUrl ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img
+                        src={rec.coverUrl}
+                        alt=""
+                        width={36}
+                        height={36}
+                        style={{ width: 36, height: 36, objectFit: "cover", flexShrink: 0 }}
+                      />
+                    ) : (
+                      <div style={{
+                        width: 36, height: 36, background: RULE, flexShrink: 0,
+                        display: "flex", alignItems: "center", justifyContent: "center",
+                      }}>
+                        <span style={{ fontFamily: MONO, fontSize: "8px", color: "#aaaaaa" }}>—</span>
+                      </div>
+                    )}
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{
+                        fontFamily: MONO, fontSize: "11px", color: INK,
+                        overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
+                      }}>
+                        {rec.artist}
+                      </div>
+                      <div style={{
+                        fontFamily: MONO, fontSize: "10px", color: "#888",
+                        overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
+                        marginTop: "2px",
+                      }}>
+                        {rec.album}
+                      </div>
+                    </div>
+                    <span style={{ fontFamily: MONO, fontSize: "10px", color: ORANGE, flexShrink: 0 }}>
+                      {relativeDate(rec.lastPlayedAt)}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Played by Style donut */}
+            <div>
+              <SubLabel>Played by style</SubLabel>
+              {playedStyleBreakdown.length === 0 ? (
+                <p style={{ fontFamily: MONO, fontSize: "11px", letterSpacing: "0.04em", color: "#aaaaaa", margin: 0 }}>
+                  Style data will appear once your played records have been enriched.
+                </p>
+              ) : (
+                <DonutChart data={playedStyleBreakdown} />
+              )}
+            </div>
+
+          </div>
+
+          <div style={{ borderTop: `1px solid ${RULE}`, margin: "40px 0" }} />
+        </>
+      )}
+
       {/* ── Spectrum Dimensions ───────────────────────────────────────────── */}
       <TasteSectionHeader eyebrow="SPECTRUM DIMENSIONS" title="Where you sit on each axis." />
 
