@@ -164,7 +164,7 @@ const FAQ_SECTIONS: { section: string; items: { q: string; a: string }[] }[] = [
       },
       {
         q: "How long does the first sync take?",
-        a: "It depends on collection size. A few hundred records takes under a minute. Collections of 1,000+ records can take several minutes as rekōdo fetches metadata, market prices, and community data for each release.",
+        a: "It depends on collection size. A few hundred records takes under a minute. Collections of 1,000+ records can take considerably longer — expect 10–15 minutes as rekōdo fetches metadata, market prices, and community data for each release.",
       },
     ],
   },
@@ -177,7 +177,7 @@ const FAQ_SECTIONS: { section: string; items: { q: string; a: string }[] }[] = [
       },
       {
         q: "What does the market value show?",
-        a: "Market value is sourced from Discogs sales data and shown as a low / median / high range. Median is the most reliable figure — it reflects the middle of recent completed sales. Values are converted to your local currency based on your country setting.",
+        a: "Market value reflects the lowest active listing price for each record on Discogs at the time of your last sync. It's a useful guide but not a precise valuation — prices shift constantly and the figure won't update until your next sync. Values are converted to your local currency based on your country setting.",
       },
       {
         q: "What are the desirability tiers?",
