@@ -1380,16 +1380,15 @@ export default function DigClient({ username, displayLabel, avatarUrl, collectio
                     </p>
                   )}
                   <NavBar idx={idx} total={recs.length} onNav={navigate} onDigAgain={handleDigAgain} />
+                  {/* Native Spotify embed — swap back to <DigCompactPlayer> below to restore the custom build */}
+                  <SpotifyNativeEmbed
+                    uri={digSpotify?.trackUri ?? digSpotify?.albumUri ?? undefined}
+                    height={80}
+                  />
                 </>
               )}
             </>
           )}
-
-          {/* Native Spotify embed — swap back to <DigCompactPlayer> above to restore the custom build */}
-          <SpotifyNativeEmbed
-            uri={digSpotify?.trackUri ?? digSpotify?.albumUri ?? undefined}
-            height={152}
-          />
 
         </div>
       </main>
