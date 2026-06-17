@@ -13,6 +13,7 @@ import {
 import type { UserList, ListSlot, SlotItem, DiscoverList } from "@/app/lists/types";
 import type { CollectionRecord } from "@/app/collection/page";
 import { generateShareCard, downloadCard, copyCardToClipboard } from "@/lib/shareCard";
+import { isAppleMusicUrl, openAppleMusicLink } from "@/lib/openAppleMusic";
 
 const SERIF  = "var(--font-editorial)";
 const MONO   = "var(--font-mono)";
@@ -1340,11 +1341,18 @@ function TracklistRow({ position, item, isSaving, isPickerOpen, onOpen, onRemove
                 { label: "Apple Music", href: `https://music.apple.com/search?term=${encodeURIComponent(`${item.artist} ${item.song_title ?? item.album}`)}` },
                 { label: "Tidal",       href: `https://tidal.com/search?q=${encodeURIComponent(`${item.artist} ${item.song_title ?? item.album}`)}` },
               ].map(({ label, href }) => (
-                <a key={label} href={href} target="_blank" rel="noopener noreferrer" style={{
-                  fontFamily: MONO, fontSize: "10px", letterSpacing: "0.05em",
-                  color: hovered ? "#a34400" : ORANGE, textDecoration: "none",
-                  transition: "color 0.15s", whiteSpace: "nowrap",
-                }}>
+                <a
+                  key={label}
+                  href={href}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  style={{
+                    fontFamily: MONO, fontSize: "10px", letterSpacing: "0.05em",
+                    color: hovered ? "#a34400" : ORANGE, textDecoration: "none",
+                    transition: "color 0.15s", whiteSpace: "nowrap",
+                  }}
+                  onClick={isAppleMusicUrl(href) ? (e) => { e.preventDefault(); openAppleMusicLink(href); } : undefined}
+                >
                   {label} ↗
                 </a>
               ))}
