@@ -209,13 +209,6 @@ function ContactTab() {
 
   return (
     <main style={{ maxWidth: 960, margin: "0 auto", padding: "48px 32px 80px" }}>
-      <p style={{
-        fontFamily: MONO, fontSize: "0.55rem", letterSpacing: "0.16em",
-        textTransform: "uppercase", color: "#aaaaaa", margin: "0 0 12px",
-      }}>
-        Contact
-      </p>
-
       <div style={{ maxWidth: 600, margin: "0 auto" }}>
       <h1 style={{
         fontFamily: "var(--font-editorial)", fontSize: "clamp(28px, 4vw, 42px)",
