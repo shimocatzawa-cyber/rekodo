@@ -3,29 +3,38 @@ import { NextRequest, NextResponse } from "next/server";
 export const dynamic = "force-dynamic";
 
 let _clientToken: { token: string; expiresAt: number } | null = null;
+let _clientTokenPromise: Promise<string | null> | null = null;
 
 async function getClientToken(): Promise<string | null> {
   if (_clientToken && Date.now() + 60_000 < _clientToken.expiresAt) {
     return _clientToken.token;
   }
-  try {
-    const res = await fetch("https://accounts.spotify.com/api/token", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/x-www-form-urlencoded",
-        Authorization: `Basic ${Buffer.from(
-          `${process.env.SPOTIFY_CLIENT_ID}:${process.env.SPOTIFY_CLIENT_SECRET}`
-        ).toString("base64")}`,
-      },
-      body: new URLSearchParams({ grant_type: "client_credentials" }),
-    });
-    if (!res.ok) return null;
-    const data = await res.json() as { access_token: string; expires_in: number };
-    _clientToken = { token: data.access_token, expiresAt: Date.now() + data.expires_in * 1000 };
-    return data.access_token;
-  } catch {
-    return null;
-  }
+  // Return the in-flight promise to all concurrent callers instead of
+  // stampeding Spotify's token endpoint with parallel client-credential fetches.
+  if (_clientTokenPromise) return _clientTokenPromise;
+  _clientTokenPromise = (async () => {
+    try {
+      const res = await fetch("https://accounts.spotify.com/api/token", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/x-www-form-urlencoded",
+          Authorization: `Basic ${Buffer.from(
+            `${process.env.SPOTIFY_CLIENT_ID}:${process.env.SPOTIFY_CLIENT_SECRET}`
+          ).toString("base64")}`,
+        },
+        body: new URLSearchParams({ grant_type: "client_credentials" }),
+      });
+      if (!res.ok) return null;
+      const data = await res.json() as { access_token: string; expires_in: number };
+      _clientToken = { token: data.access_token, expiresAt: Date.now() + data.expires_in * 1000 };
+      return data.access_token;
+    } catch {
+      return null;
+    } finally {
+      _clientTokenPromise = null;
+    }
+  })();
+  return _clientTokenPromise;
 }
 
 const empty = { preview_url: null, track_uri: null, album_uri: null };

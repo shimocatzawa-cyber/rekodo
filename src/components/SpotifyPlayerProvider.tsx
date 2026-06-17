@@ -63,14 +63,19 @@ function ensureSDK(onReady: () => void) {
     _sdkCallbacks.splice(0).forEach(cb => cb());
     return;
   }
+  // Chain onto any existing global callback (may be DigCompactPlayer's) so
+  // neither set of subscribers is silently dropped when both load on the same page.
+  const fire = () => { _sdkLoaded = true; _sdkCallbacks.splice(0).forEach(cb => cb()); };
+  const prev = window.onSpotifyWebPlaybackSDKReady;
+  const chained = prev ? () => { prev(); fire(); } : fire;
   if (!document.querySelector('script[src="https://sdk.scdn.co/spotify-player.js"]')) {
-    window.onSpotifyWebPlaybackSDKReady = () => {
-      _sdkLoaded = true;
-      _sdkCallbacks.splice(0).forEach(cb => cb());
-    };
+    window.onSpotifyWebPlaybackSDKReady = chained;
     const s = document.createElement("script");
     s.src   = "https://sdk.scdn.co/spotify-player.js";
     document.body.appendChild(s);
+  } else {
+    // Script already in DOM — just chain the callback.
+    window.onSpotifyWebPlaybackSDKReady = chained;
   }
 }
 
@@ -397,13 +402,12 @@ export function SpotifyPlayerProvider({ children }: { children: React.ReactNode 
   const handleSeek = useCallback(async (pct: number) => {
     if (!duration) return;
     if (useSDK) {
-      const ms    = Math.round(pct * duration);
-      const token = await getFreshSpotifyToken();
-      if (!token) return;
+      const ms = Math.round(pct * duration);
       setPosition(ms);
-      fetch(`https://api.spotify.com/v1/me/player/seek?position_ms=${ms}${deviceId ? `&device_id=${deviceId}` : ""}`, {
-        method:  "PUT",
-        headers: { Authorization: `Bearer ${token}` },
+      fetch("/api/spotify/seek", {
+        method:  "POST",
+        headers: { "Content-Type": "application/json" },
+        body:    JSON.stringify({ positionMs: ms, deviceId }),
       }).catch(() => {});
     } else if (audioRef.current) {
       audioRef.current.currentTime = (pct * duration) / 1000;

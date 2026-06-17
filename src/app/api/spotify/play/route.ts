@@ -51,17 +51,17 @@ async function getValidToken(
 
   if (!res.ok) return { token: null, status: 401 };
 
-  const data = await res.json() as { access_token: string; expires_in: number };
+  const data = await res.json() as { access_token: string; expires_in: number; refresh_token?: string };
   const newExpiry = Date.now() + data.expires_in * 1000;
 
+  const patch: Record<string, string> = {
+    spotify_access_token: data.access_token,
+    spotify_token_expiry: new Date(newExpiry).toISOString(),
+  };
+  if (data.refresh_token) patch.spotify_refresh_token = data.refresh_token;
+
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  await (supabase as any)
-    .from("profiles")
-    .update({
-      spotify_access_token: data.access_token,
-      spotify_token_expiry: new Date(newExpiry).toISOString(),
-    })
-    .eq("id", userId);
+  await (supabase as any).from("profiles").update(patch).eq("id", userId);
 
   return { token: data.access_token, status: 200 };
 }

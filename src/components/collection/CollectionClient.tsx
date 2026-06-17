@@ -2000,7 +2000,7 @@ function TracklistPanel({ tracks, loading, bandcamp, record }: {
       setCurrentSpotifyUri(null);
       return;
     }
-    const key = record.id;
+    const key = `${record.artist}||${record.album}`;
     if (spotifyUriCache.current.has(key)) {
       setCurrentSpotifyUri(spotifyUriCache.current.get(key) ?? null);
       return;

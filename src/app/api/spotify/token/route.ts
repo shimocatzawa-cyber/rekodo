@@ -61,14 +61,17 @@ export async function GET() {
 
     if (!res.ok) return NextResponse.json({ connected: false });
 
-    const data = await res.json() as { access_token: string; expires_in: number };
+    const data = await res.json() as { access_token: string; expires_in: number; refresh_token?: string };
     const newExpiry = Date.now() + data.expires_in * 1000;
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    await (supabase as any).from("profiles").update({
+    const patch: Record<string, string> = {
       spotify_access_token: data.access_token,
       spotify_token_expiry: new Date(newExpiry).toISOString(),
-    }).eq("id", user.id);
+    };
+    if (data.refresh_token) patch.spotify_refresh_token = data.refresh_token;
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    await (supabase as any).from("profiles").update(patch).eq("id", user.id);
 
     return NextResponse.json({
       connected:    true,

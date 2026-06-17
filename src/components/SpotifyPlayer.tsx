@@ -170,7 +170,7 @@ export default function SpotifyPlayer({
           <span style={{ fontFamily: MONO, fontSize: "0.48rem", color: "#cc3300", letterSpacing: "0.04em" }}>
             {errorLabel ?? "Connecting to Spotify…"}
           </span>
-          {sdkConnecting && (
+          {(sdkConnecting || playError === 401) && (
             <button
               onClick={reconnect}
               style={{
