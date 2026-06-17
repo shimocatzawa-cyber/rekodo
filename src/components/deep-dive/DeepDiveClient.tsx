@@ -370,7 +370,7 @@ function BooksContent({ data }: { data: { items?: BookItem[] } }) {
   );
 }
 
-type InterviewItem = { publication: string; domain?: string; title: string; year: number; note: string; url?: string };
+type InterviewItem = { publication: string; domain?: string; title: string; year: number; date?: string; note: string; url?: string };
 
 function interviewHref(iv: InterviewItem, artist: string): { href: string; direct: boolean } {
   if (iv.url?.startsWith("https://")) return { href: iv.url, direct: true };
@@ -384,7 +384,14 @@ function interviewHref(iv: InterviewItem, artist: string): { href: string; direc
 }
 
 function InterviewsContent({ data, artist }: { data: { interviews?: InterviewItem[] }; artist: string }) {
-  const items = [...(data.interviews ?? [])].sort((a, b) => (b.year ?? 0) - (a.year ?? 0));
+  // Sort by date desc (YYYY-MM or YYYY-MM-DD) when available, fall back to year
+  const items = [...(data.interviews ?? [])]
+    .sort((a, b) => {
+      const aKey = a.date ?? String(a.year ?? 0);
+      const bKey = b.date ?? String(b.year ?? 0);
+      return bKey.localeCompare(aKey);
+    })
+    .slice(0, 10);
 
   const linkStyle = { fontFamily: MONO, fontSize: "0.65rem", letterSpacing: "0.08em", color: ORANGE, textDecoration: "none" };
   const hoverOn  = (e: React.MouseEvent<HTMLAnchorElement>) => { e.currentTarget.style.textDecoration = "underline"; };

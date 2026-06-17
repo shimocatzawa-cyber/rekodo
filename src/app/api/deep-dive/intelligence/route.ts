@@ -86,9 +86,10 @@ URL FIELD RULES — read carefully:
 - If you cannot recall the exact URL, omit the field entirely — do not guess or construct a plausible-looking URL. A missing URL is far better than a wrong one.
 - The "domain" field should be just the bare domain (e.g. "pitchfork.com", "thewire.co.uk", "substack.com") — used as a fallback if URL is absent.
 
-Return up to 10 results, sorted by year descending (most recent first).
+Return up to 10 results, sorted by publication date descending (most recent first).
 Return ONLY valid JSON, no markdown, no backticks, no preamble:
-{"interviews":[{"publication":"Pitchfork","domain":"pitchfork.com","title":"Interview title or description","year":2019,"url":"https://pitchfork.com/features/interview/...","note":"What makes it worth reading"}]}
+{"interviews":[{"publication":"Pitchfork","domain":"pitchfork.com","title":"Interview title or description","year":2019,"date":"2019-03","url":"https://pitchfork.com/features/interview/...","note":"What makes it worth reading"}]}
+"date" is optional — include it as YYYY-MM or YYYY-MM-DD when you know the month or day. "year" is always required.
 Only include interviews you are confident exist. Return an empty array if you genuinely cannot identify any — do not fabricate.`,
 
   related: (artist) =>
