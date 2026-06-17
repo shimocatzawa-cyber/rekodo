@@ -177,40 +177,67 @@ function PodcastsContent({ data, artist }: { data: { episodes?: Episode[] }; art
     if (eps.length === 0) return;
     let cancelled = false;
 
-    // Apple Podcasts — client-side iTunes Search API (no auth required)
-    Promise.all(
-      eps.map(async (ep, i) => {
-        try {
-          const epRes = await fetch(
-            `https://itunes.apple.com/search?term=${encodeURIComponent(`${ep.show} ${ep.episode}`)}&media=podcast&entity=podcastEpisode&limit=3`
-          );
-          if (epRes.ok) {
-            const epJson = await epRes.json() as { results?: { trackViewUrl?: string; trackName?: string }[] };
-            const slug = ep.episode.toLowerCase().slice(0, 20);
-            const match = epJson.results?.find((r) => r.trackName?.toLowerCase().includes(slug));
-            const url = (match ?? epJson.results?.[0])?.trackViewUrl;
-            if (url) return [i, url] as const;
-          }
-          // Fallback: show-level
-          const showRes = await fetch(
-            `https://itunes.apple.com/search?term=${encodeURIComponent(ep.show)}&media=podcast&entity=podcast&limit=1`
-          );
-          if (showRes.ok) {
-            const showJson = await showRes.json() as { results?: { collectionViewUrl?: string }[] };
-            const url = showJson.results?.[0]?.collectionViewUrl;
-            if (url) return [i, url] as const;
-          }
-          return [i, null] as const;
-        } catch {
-          return [i, null] as const;
-        }
-      })
-    ).then((results) => {
-      if (cancelled) return;
-      const map: Record<number, string> = {};
-      for (const [i, url] of results) { if (url) map[i] = url; }
-      setAppleUrls(map);
-    });
+    // Apple Podcasts — two-step iTunes lookup:
+    // 1. Resolve each unique show name → collectionId + show URL (batched, one req per show)
+    // 2. Fetch up to 200 episodes for each show via /lookup, fuzzy-match episode title
+    // Falls back to the show page when no episode match is found.
+    (async () => {
+      try {
+        // Step 1: resolve unique shows
+        const uniqueShows = [...new Set(eps.map((e) => e.show))];
+        type ShowMeta = { collectionId: number; showUrl: string };
+        const showMeta: Record<string, ShowMeta> = {};
+        await Promise.all(
+          uniqueShows.map(async (show) => {
+            try {
+              const res = await fetch(
+                `https://itunes.apple.com/search?term=${encodeURIComponent(show)}&media=podcast&entity=podcast&limit=1`
+              );
+              if (!res.ok) return;
+              const json = await res.json() as { results?: { collectionId?: number; collectionViewUrl?: string }[] };
+              const r = json.results?.[0];
+              if (r?.collectionId && r.collectionViewUrl) {
+                showMeta[show] = { collectionId: r.collectionId, showUrl: r.collectionViewUrl };
+              }
+            } catch { /* skip */ }
+          })
+        );
+
+        // Step 2: fetch episodes for each resolved show
+        type EpMeta = { trackName?: string; trackViewUrl?: string };
+        const showEps: Record<string, EpMeta[]> = {};
+        await Promise.all(
+          Object.entries(showMeta).map(async ([show, { collectionId }]) => {
+            try {
+              const res = await fetch(
+                `https://itunes.apple.com/lookup?id=${collectionId}&entity=podcastEpisode&limit=200`
+              );
+              if (!res.ok) return;
+              const json = await res.json() as { results?: EpMeta[] };
+              // first result is the show itself — skip it
+              showEps[show] = json.results?.slice(1) ?? [];
+            } catch { /* skip */ }
+          })
+        );
+
+        if (cancelled) return;
+
+        // Step 3: match each episode by title (fuzzy — handles slight wording differences)
+        const map: Record<number, string> = {};
+        eps.forEach((ep, i) => {
+          const candidates = showEps[ep.show] ?? [];
+          const target = ep.episode.toLowerCase();
+          const slug = target.slice(0, 40);
+          const matched = candidates.find((c) => {
+            const name = (c.trackName ?? "").toLowerCase();
+            return name.includes(slug) || target.includes(name.slice(0, 40));
+          });
+          const url = matched?.trackViewUrl ?? showMeta[ep.show]?.showUrl;
+          if (url) map[i] = url;
+        });
+        setAppleUrls(map);
+      } catch { /* silent */ }
+    })();
 
     // Spotify — server-side route to keep client secret hidden
     fetch("/api/deep-dive/podcast-links", {
