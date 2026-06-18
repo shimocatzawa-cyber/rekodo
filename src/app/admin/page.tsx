@@ -43,7 +43,7 @@ export default async function AdminPage() {
   const adminDb = getAdminDb();
 
   // Fetch profiles and auth users — explicit limit avoids Supabase's default 1000-row cap
-  const [profilesResult, usersResult, wantlistRows, bandcampRows, discogsRows, archetypeRows] = await Promise.all([
+  const [profilesResult, usersResult, wantlistRows, bandcampRows, discogsRows, archetypeRows, paymentRows] = await Promise.all([
     adminDb
       .from("profiles")
       .select("id, username, display_name, subscription_tier, role, created_at, last_synced_at, city, country, is_donor, spotify_connected")
@@ -53,6 +53,7 @@ export default async function AdminPage() {
     fetchPaged(adminDb, "digital_imports", "user_id", { column: "source", value: "bandcamp" }),
     fetchPaged(adminDb, "discogs_tokens", "user_id"),
     fetchPaged(adminDb, "archetype_cache", "user_id, primary_archetype"),
+    fetchPaged(adminDb, "payments", "user_id, type, amount_cents, currency"),
   ]);
 
   if (profilesResult.error) {
@@ -68,6 +69,22 @@ export default async function AdminPage() {
   const bandcampIds  = new Set(bandcampRows.map(r => r.user_id as string));
   const discogsIds   = new Set(discogsRows.map(r => r.user_id as string));
   const archetypeMap = new Map(archetypeRows.map(r => [r.user_id as string, r.primary_archetype as string | null]));
+
+  // Aggregate payments per user
+  const subSpendMap  = new Map<string, { cents: number; currency: string }>();
+  const donationMap  = new Map<string, { cents: number; currency: string }>();
+  for (const row of paymentRows) {
+    const uid  = row.user_id as string;
+    const cents = row.amount_cents as number;
+    const cur   = (row.currency as string) ?? "usd";
+    if (row.type === "subscription") {
+      const prev = subSpendMap.get(uid) ?? { cents: 0, currency: cur };
+      subSpendMap.set(uid, { cents: prev.cents + cents, currency: cur });
+    } else if (row.type === "donation") {
+      const prev = donationMap.get(uid) ?? { cents: 0, currency: cur };
+      donationMap.set(uid, { cents: prev.cents + cents, currency: cur });
+    }
+  }
 
   // Paginate user_records — batch must be ≤ 1000 to match PostgREST's hard cap
   const recordCountMap = new Map<string, number>();
@@ -89,6 +106,8 @@ export default async function AdminPage() {
     const p = profileById.get(u.id);
     const recordCount  = recordCountMap.get(u.id) ?? 0;
     const archetypeId  = archetypeMap.get(u.id) ?? null;
+    const subSpend     = subSpendMap.get(u.id) ?? null;
+    const donation     = donationMap.get(u.id) ?? null;
     return {
       id:                u.id,
       username:          p?.username ?? null,
@@ -105,6 +124,8 @@ export default async function AdminPage() {
       country:           p?.country ?? null,
       is_donor:          p?.is_donor ?? false,
       archetype:         archetypeId ? (ARCHETYPES[archetypeId]?.name ?? null) : null,
+      subscription_spend: subSpend,
+      donation_total:     donation,
       connections: {
         collection: recordCount > 0,
         wantlist:   wantlistIds.has(u.id),

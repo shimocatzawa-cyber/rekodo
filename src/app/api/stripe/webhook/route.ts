@@ -35,10 +35,22 @@ export async function POST(request: NextRequest) {
       const customerId = typeof session.customer === "string"
         ? session.customer
         : (session.customer as { id: string } | null)?.id ?? null;
-      await supabase.from("profiles").update({
-        is_supporter: true,
-        stripe_customer_id: customerId,
-      }).eq("id", userId);
+
+      await Promise.all([
+        supabase.from("profiles").update({
+          is_supporter: true,
+          stripe_customer_id: customerId,
+        }).eq("id", userId),
+        session.amount_total != null && session.id
+          ? supabase.from("payments").insert({
+              user_id: userId,
+              stripe_session_id: session.id,
+              type: "subscription",
+              amount_cents: session.amount_total,
+              currency: session.currency ?? "usd",
+            })
+          : Promise.resolve(),
+      ]);
 
       if (customerEmail) {
         await resend.emails.send({
@@ -57,7 +69,18 @@ rekōdo is built for people who take records seriously. Thank you for taking rek
     }
 
     if (type === "donation" && userId) {
-      await supabase.from("profiles").update({ is_donor: true }).eq("id", userId);
+      await Promise.all([
+        supabase.from("profiles").update({ is_donor: true }).eq("id", userId),
+        session.amount_total != null && session.id
+          ? supabase.from("payments").insert({
+              user_id: userId,
+              stripe_session_id: session.id,
+              type: "donation",
+              amount_cents: session.amount_total,
+              currency: session.currency ?? "usd",
+            })
+          : Promise.resolve(),
+      ]);
 
       if (customerEmail) {
         await resend.emails.send({

@@ -42,6 +42,37 @@ export async function updateUserAdmin(
   return { success: true };
 }
 
+export async function updateUserIdentity(
+  userId: string,
+  username: string,
+  email: string
+): Promise<{ success: boolean; error?: string }> {
+  if (!await verifyAdmin()) return { success: false, error: "Forbidden" };
+
+  const adminDb = getAdminDb();
+  const errors: string[] = [];
+
+  if (username.trim()) {
+    const { error } = await adminDb
+      .from("profiles")
+      .update({ username: username.trim() })
+      .eq("id", userId);
+    if (error) errors.push(`Username: ${error.message}`);
+  }
+
+  if (email.trim()) {
+    const { error } = await adminDb.auth.admin.updateUserById(userId, {
+      email: email.trim(),
+    });
+    if (error) errors.push(`Email: ${error.message}`);
+  }
+
+  if (errors.length) return { success: false, error: errors.join(" · ") };
+
+  revalidatePath("/admin");
+  return { success: true };
+}
+
 export async function blockUser(
   userId: string,
   block: boolean

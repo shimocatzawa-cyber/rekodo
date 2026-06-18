@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { updateUserAdmin, blockUser } from "./actions";
+import { updateUserAdmin, updateUserIdentity, blockUser } from "./actions";
 
 const MONO   = "var(--font-mono)";
 const ORANGE = "#CC5500";
@@ -26,6 +26,8 @@ export interface AdminUser {
   country: string | null;
   is_donor: boolean;
   archetype: string | null;
+  subscription_spend: { cents: number; currency: string } | null;
+  donation_total: { cents: number; currency: string } | null;
   connections: {
     collection: boolean;
     wantlist: boolean;
@@ -33,6 +35,11 @@ export interface AdminUser {
     spotify: boolean;
     bandcamp: boolean;
   };
+}
+
+function formatAmount(cents: number, currency: string): string {
+  const sym = currency === "gbp" ? "£" : currency === "eur" ? "€" : currency === "aud" ? "A$" : "$";
+  return `${sym}${(cents / 100).toFixed(2)}`;
 }
 
 function formatLocation(city: string | null, country: string | null): string {
@@ -106,8 +113,11 @@ export default function UserRow({ user }: { user: AdminUser }) {
   const initialTier = ["plus", "premium", "supporter"].includes(user.subscription_tier ?? "") ? "supporter" : "free";
   const [tier,        setTier]       = useState(initialTier);
   const [role,        setRole]       = useState(user.role ?? "user");
+  const [newUsername, setNewUsername] = useState(user.username ?? "");
+  const [newEmail,    setNewEmail]   = useState(user.email ?? "");
   const [error,       setError]      = useState<string | null>(null);
   const [savePending, startSave]     = useTransition();
+  const [idPending,   startId]       = useTransition();
   const [blockPend,   startBlock]    = useTransition();
 
   const blocked = isBlocked(user.banned_until);
@@ -115,6 +125,8 @@ export default function UserRow({ user }: { user: AdminUser }) {
   function handleCancel() {
     setTier(initialTier);
     setRole(user.role ?? "user");
+    setNewUsername(user.username ?? "");
+    setNewEmail(user.email ?? "");
     setError(null);
     setOpen(false);
   }
@@ -125,6 +137,14 @@ export default function UserRow({ user }: { user: AdminUser }) {
       const result = await updateUserAdmin(user.id, tier, role);
       if (result.success) setOpen(false);
       else setError(result.error ?? "Save failed");
+    });
+  }
+
+  function handleSaveIdentity() {
+    setError(null);
+    startId(async () => {
+      const result = await updateUserIdentity(user.id, newUsername, newEmail);
+      if (!result.success) setError(result.error ?? "Save failed");
     });
   }
 
@@ -146,6 +166,12 @@ export default function UserRow({ user }: { user: AdminUser }) {
     fontFamily: MONO, fontSize: "11px", color: INK,
     background: "transparent", border: `1px solid ${RULE}`,
     padding: "4px 8px", cursor: "pointer", outline: "none",
+  };
+
+  const inputSt: React.CSSProperties = {
+    fontFamily: MONO, fontSize: "11px", color: INK,
+    background: "transparent", border: `1px solid ${RULE}`,
+    padding: "4px 8px", outline: "none", width: "180px",
   };
 
   return (
@@ -191,6 +217,20 @@ export default function UserRow({ user }: { user: AdminUser }) {
           {user.record_count > 0 ? user.record_count.toLocaleString() : "—"}
         </td>
 
+        {/* Subscription spend */}
+        <td style={{ ...cellSt, color: user.subscription_spend ? INK : MUTED, textAlign: "right" as const }}>
+          {user.subscription_spend
+            ? formatAmount(user.subscription_spend.cents, user.subscription_spend.currency)
+            : "—"}
+        </td>
+
+        {/* Donation total */}
+        <td style={{ ...cellSt, color: user.donation_total ? INK : MUTED, textAlign: "right" as const }}>
+          {user.donation_total
+            ? formatAmount(user.donation_total.cents, user.donation_total.currency)
+            : "—"}
+        </td>
+
         <td style={cellSt}>
           <ConnectionBadges connections={user.connections} />
         </td>
@@ -231,80 +271,125 @@ export default function UserRow({ user }: { user: AdminUser }) {
 
       {open && (
         <tr>
-          <td colSpan={10} style={{ padding: "16px 16px 20px", borderBottom: `1px solid ${RULE}`, background: "#fafaf8" }}>
-            <div style={{ display: "flex", alignItems: "flex-end", gap: "24px", flexWrap: "wrap" }}>
+          <td colSpan={12} style={{ padding: "16px 16px 20px", borderBottom: `1px solid ${RULE}`, background: "#fafaf8" }}>
+            <div style={{ display: "flex", flexDirection: "column", gap: "20px" }}>
 
-              <div>
-                <label style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.1em", textTransform: "uppercase", color: MUTED, display: "block", marginBottom: "6px" }}>
-                  Subscription tier
-                </label>
-                <select value={tier} onChange={e => setTier(e.target.value)} style={selectSt}>
-                  <option value="free">Free</option>
-                  <option value="supporter">Supporter</option>
-                </select>
+              {/* Row 1: tier + role + save */}
+              <div style={{ display: "flex", alignItems: "flex-end", gap: "24px", flexWrap: "wrap" }}>
+                <div>
+                  <label style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.1em", textTransform: "uppercase", color: MUTED, display: "block", marginBottom: "6px" }}>
+                    Subscription tier
+                  </label>
+                  <select value={tier} onChange={e => setTier(e.target.value)} style={selectSt}>
+                    <option value="free">Free</option>
+                    <option value="supporter">Supporter</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.1em", textTransform: "uppercase", color: MUTED, display: "block", marginBottom: "6px" }}>
+                    Role
+                  </label>
+                  <select value={role} onChange={e => setRole(e.target.value)} style={selectSt}>
+                    <option value="user">User</option>
+                    <option value="admin">Admin</option>
+                  </select>
+                </div>
+
+                <div style={{ display: "flex", gap: "12px", alignItems: "center" }}>
+                  <button
+                    onClick={handleSave}
+                    disabled={savePending}
+                    style={{
+                      fontFamily: MONO, fontSize: "9px", letterSpacing: "0.1em",
+                      textTransform: "uppercase", color: "#fff",
+                      background: savePending ? "rgba(204,85,0,0.5)" : ORANGE,
+                      border: "none", cursor: savePending ? "default" : "pointer",
+                      padding: "8px 16px",
+                    }}
+                  >
+                    {savePending ? "Saving…" : "Save tier"}
+                  </button>
+                  <button
+                    onClick={handleCancel}
+                    style={{
+                      fontFamily: MONO, fontSize: "9px", letterSpacing: "0.1em",
+                      textTransform: "uppercase", color: MUTED,
+                      background: "none", border: "none", cursor: "pointer", padding: 0,
+                    }}
+                  >
+                    Cancel
+                  </button>
+                </div>
+
+                {/* Block / unblock */}
+                <div style={{ marginLeft: "auto" }}>
+                  <label style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.1em", textTransform: "uppercase", color: MUTED, display: "block", marginBottom: "6px" }}>
+                    Account
+                  </label>
+                  <button
+                    onClick={handleBlock}
+                    disabled={blockPend}
+                    style={{
+                      fontFamily: MONO, fontSize: "9px", letterSpacing: "0.1em",
+                      textTransform: "uppercase",
+                      color: blocked ? ORANGE : "#fff",
+                      background: blocked ? "none" : RED,
+                      border: blocked ? `1px solid ${ORANGE}` : "none",
+                      cursor: blockPend ? "default" : "pointer",
+                      opacity: blockPend ? 0.5 : 1,
+                      padding: "8px 16px",
+                    }}
+                  >
+                    {blockPend ? "…" : blocked ? "Unblock" : "Block"}
+                  </button>
+                </div>
               </div>
 
-              <div>
-                <label style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.1em", textTransform: "uppercase", color: MUTED, display: "block", marginBottom: "6px" }}>
-                  Role
-                </label>
-                <select value={role} onChange={e => setRole(e.target.value)} style={selectSt}>
-                  <option value="user">User</option>
-                  <option value="admin">Admin</option>
-                </select>
-              </div>
+              {/* Row 2: username + email edit */}
+              <div style={{ display: "flex", alignItems: "flex-end", gap: "24px", flexWrap: "wrap", paddingTop: "4px", borderTop: `1px solid ${RULE}` }}>
+                <div>
+                  <label style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.1em", textTransform: "uppercase", color: MUTED, display: "block", marginBottom: "6px" }}>
+                    Username
+                  </label>
+                  <input
+                    type="text"
+                    value={newUsername}
+                    onChange={e => setNewUsername(e.target.value.replace(/[^a-zA-Z0-9_]/g, ""))}
+                    maxLength={30}
+                    style={inputSt}
+                  />
+                </div>
 
-              <div style={{ display: "flex", gap: "12px", alignItems: "center" }}>
+                <div>
+                  <label style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.1em", textTransform: "uppercase", color: MUTED, display: "block", marginBottom: "6px" }}>
+                    Email
+                  </label>
+                  <input
+                    type="email"
+                    value={newEmail}
+                    onChange={e => setNewEmail(e.target.value)}
+                    style={inputSt}
+                  />
+                </div>
+
                 <button
-                  onClick={handleSave}
-                  disabled={savePending}
+                  onClick={handleSaveIdentity}
+                  disabled={idPending}
                   style={{
                     fontFamily: MONO, fontSize: "9px", letterSpacing: "0.1em",
                     textTransform: "uppercase", color: "#fff",
-                    background: savePending ? "rgba(204,85,0,0.5)" : ORANGE,
-                    border: "none", cursor: savePending ? "default" : "pointer",
+                    background: idPending ? "rgba(204,85,0,0.5)" : ORANGE,
+                    border: "none", cursor: idPending ? "default" : "pointer",
                     padding: "8px 16px",
                   }}
                 >
-                  {savePending ? "Saving…" : "Save"}
-                </button>
-                <button
-                  onClick={handleCancel}
-                  style={{
-                    fontFamily: MONO, fontSize: "9px", letterSpacing: "0.1em",
-                    textTransform: "uppercase", color: MUTED,
-                    background: "none", border: "none", cursor: "pointer", padding: 0,
-                  }}
-                >
-                  Cancel
-                </button>
-              </div>
-
-              {/* Block / unblock — separated visually */}
-              <div style={{ marginLeft: "auto" }}>
-                <label style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.1em", textTransform: "uppercase", color: MUTED, display: "block", marginBottom: "6px" }}>
-                  Account
-                </label>
-                <button
-                  onClick={handleBlock}
-                  disabled={blockPend}
-                  style={{
-                    fontFamily: MONO, fontSize: "9px", letterSpacing: "0.1em",
-                    textTransform: "uppercase",
-                    color: blocked ? ORANGE : "#fff",
-                    background: blocked ? "none" : RED,
-                    border: blocked ? `1px solid ${ORANGE}` : "none",
-                    cursor: blockPend ? "default" : "pointer",
-                    opacity: blockPend ? 0.5 : 1,
-                    padding: "8px 16px",
-                  }}
-                >
-                  {blockPend ? "…" : blocked ? "Unblock" : "Block"}
+                  {idPending ? "Saving…" : "Save identity"}
                 </button>
               </div>
 
               {error && (
-                <p style={{ fontFamily: MONO, fontSize: "10px", color: RED, margin: 0, width: "100%" }}>
+                <p style={{ fontFamily: MONO, fontSize: "10px", color: RED, margin: 0 }}>
                   {error}
                 </p>
               )}
