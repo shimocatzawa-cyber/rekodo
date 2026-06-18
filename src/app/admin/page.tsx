@@ -43,14 +43,13 @@ export default async function AdminPage() {
   const adminDb = getAdminDb();
 
   // Fetch profiles and auth users — explicit limit avoids Supabase's default 1000-row cap
-  const [profilesResult, usersResult, wantlistRows, bandcampRows, discogsRows, archetypeRows, paymentRows] = await Promise.all([
+  const [profilesResult, usersResult, wantlistRows, discogsRows, archetypeRows, paymentRows] = await Promise.all([
     adminDb
       .from("profiles")
-      .select("id, username, display_name, subscription_tier, role, created_at, last_synced_at, city, country, is_donor, spotify_connected")
+      .select("id, username, display_name, subscription_tier, role, created_at, last_synced_at, city, country, is_donor, spotify_connected, bandcamp_username")
       .range(0, 999),
     adminDb.auth.admin.listUsers({ perPage: 1000 }),
     fetchPaged(adminDb, "wantlist", "user_id"),
-    fetchPaged(adminDb, "digital_imports", "user_id", { column: "source", value: "bandcamp" }),
     fetchPaged(adminDb, "discogs_tokens", "user_id"),
     fetchPaged(adminDb, "archetype_cache", "user_id, primary_archetype"),
     fetchPaged(adminDb, "payments", "user_id, type, amount_cents, currency"),
@@ -66,7 +65,6 @@ export default async function AdminPage() {
   const profileById = new Map(profiles.map(p => [p.id, p]));
 
   const wantlistIds  = new Set(wantlistRows.map(r => r.user_id as string));
-  const bandcampIds  = new Set(bandcampRows.map(r => r.user_id as string));
   const discogsIds   = new Set(discogsRows.map(r => r.user_id as string));
   const archetypeMap = new Map(archetypeRows.map(r => [r.user_id as string, r.primary_archetype as string | null]));
 
@@ -131,7 +129,7 @@ export default async function AdminPage() {
         wantlist:   wantlistIds.has(u.id),
         discogs:    discogsIds.has(u.id),
         spotify:    p?.spotify_connected ?? false,
-        bandcamp:   bandcampIds.has(u.id),
+        bandcamp:   !!(p?.bandcamp_username),
       },
     };
   }).sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
