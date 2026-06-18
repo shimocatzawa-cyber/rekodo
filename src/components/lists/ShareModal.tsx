@@ -4,22 +4,26 @@ import { useState, useRef, useEffect } from "react";
 import { toPng } from "html-to-image";
 import type { ListSlot } from "@/app/lists/types";
 
-// Direct font family strings on every card element so html-to-image captures them
+// Inline font strings — NOT CSS variables — so html-to-image embeds them
 const SERIF   = '"Shippori Mincho", Georgia, serif';
 const MONO    = '"DM Mono", "Courier New", monospace';
-
-// CSS-variable versions for the modal shell UI only (not the card)
 const UI_MONO = "var(--font-mono)";
 
 const BG     = "#FDF6F0";
 const ORANGE = "#CC5500";
 const INK    = "#0d0d0d";
 const MUTED  = "#888888";
-const RULE   = "#e0e0da";
+const RULE   = "#e0e0da";   // used only for the vertical separator in landscape
 
-type Format = "portrait" | "landscape";
+type Format  = "portrait" | "landscape";
+type Covers  = Record<number, string | null>; // position → base64 data URL or null
 
-interface CardProps { title: string; slots: ListSlot[]; username: string }
+interface CardProps {
+  title:    string;
+  slots:    ListSlot[];
+  username: string;
+  covers:   Covers;
+}
 interface Props {
   onClose:  () => void;
   title:    string;
@@ -28,80 +32,98 @@ interface Props {
   listUrl:  string;
 }
 
-function proxyUrl(raw: string | null | undefined): string | null {
-  return raw ? `/api/image-proxy?url=${encodeURIComponent(raw)}` : null;
+// Pre-fetch cover art as base64 data URLs so html-to-image doesn't need
+// to make any network requests during capture (avoids cross-origin failures).
+async function blobToDataUrl(blob: Blob): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const r   = new FileReader();
+    r.onload  = () => resolve(r.result as string);
+    r.onerror = reject;
+    r.readAsDataURL(blob);
+  });
 }
 
-// ── Portrait card: rendered at 540×675, exported at 1080×1350 (scale ×2) ──
+async function loadCovers(slots: ListSlot[]): Promise<Covers> {
+  const entries = await Promise.all(
+    [1, 2, 3, 4, 5].map(async (pos): Promise<[number, string | null]> => {
+      const url = slots.find(s => s.position === pos)?.item?.cover_url;
+      if (!url) return [pos, null];
+      try {
+        const r = await fetch(`/api/image-proxy?url=${encodeURIComponent(url)}`);
+        if (!r.ok) return [pos, null];
+        const dataUrl = await blobToDataUrl(await r.blob());
+        return [pos, dataUrl];
+      } catch {
+        return [pos, null];
+      }
+    }),
+  );
+  return Object.fromEntries(entries);
+}
 
-function PortraitCard({ title, slots, username }: CardProps) {
-  const HEADER = 40;
-  const TITLE  = 38;
-  const FOOTER = 36;
-  // 1px rule after header, 1px rule after title, 1px rule before footer
-  const ROWS_H = 675 - HEADER - 1 - TITLE - 1 - 1 - FOOTER; // 558
-  // 5 rows, 4 × 1px dividers between them
-  const ROW_H  = Math.floor((ROWS_H - 4) / 5);               // 110
-  const ART    = ROW_H - 16;                                  // 94
+// ── Portrait card ─────────────────────────────────────────────────────────
+// DOM: 540×675  →  export: 1080×1350 (pixelRatio 2)
+
+function PortraitCard({ title, slots, username, covers }: CardProps) {
+  const ART = 80;
 
   return (
-    <div style={{ width: 540, height: 675, background: BG, display: "flex", flexDirection: "column", overflow: "hidden" }}>
+    <div style={{
+      width: 540, height: 675, background: BG,
+      boxSizing: "border-box", padding: "20px 26px",
+      display: "flex", flexDirection: "column",
+      overflow: "hidden",
+    }}>
 
       {/* Header */}
-      <div style={{ height: HEADER, display: "flex", alignItems: "center", justifyContent: "space-between", padding: "0 18px", flexShrink: 0 }}>
-        <span style={{ fontFamily: SERIF, fontSize: 18, fontWeight: 600, color: INK, letterSpacing: "-0.01em" }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16, flexShrink: 0 }}>
+        <span style={{ fontFamily: SERIF, fontSize: 20, fontWeight: 600, color: INK, letterSpacing: "-0.01em" }}>
           rek<span style={{ color: ORANGE }}>ō</span>do
         </span>
         <span style={{ fontFamily: MONO, fontSize: 9, color: MUTED, letterSpacing: "0.08em" }}>rekodo.co</span>
       </div>
-      <div style={{ height: 1, background: RULE, flexShrink: 0 }} />
 
       {/* List title */}
-      <div style={{ height: TITLE, display: "flex", alignItems: "center", padding: "0 18px", flexShrink: 0 }}>
-        <span style={{ fontFamily: SERIF, fontSize: 20, fontWeight: 600, color: INK, lineHeight: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+      <div style={{ marginBottom: 20, flexShrink: 0 }}>
+        <span style={{ fontFamily: SERIF, fontSize: 21, fontWeight: 600, color: INK, lineHeight: 1.1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", display: "block" }}>
           {title}
         </span>
       </div>
-      <div style={{ height: 1, background: RULE, flexShrink: 0 }} />
 
-      {/* 5 rows */}
-      <div style={{ flex: 1, display: "flex", flexDirection: "column" }}>
-        {[1, 2, 3, 4, 5].map((pos, i) => {
-          const item  = slots.find(s => s.position === pos)?.item ?? null;
-          const cover = proxyUrl(item?.cover_url);
+      {/* 5 rows — no dividers, space-around for even breathing room */}
+      <div style={{ flex: 1, display: "flex", flexDirection: "column", justifyContent: "space-around" }}>
+        {[1, 2, 3, 4, 5].map(pos => {
+          const item = slots.find(s => s.position === pos)?.item ?? null;
+          const src  = covers[pos] ?? null;
           return (
-            <div key={pos} style={{ flex: 1, display: "flex", flexDirection: "column" }}>
-              {i > 0 && <div style={{ height: 1, background: RULE, flexShrink: 0 }} />}
-              <div style={{ flex: 1, display: "flex", alignItems: "center", padding: "0 18px", gap: 10, minHeight: 0 }}>
-                <span style={{ fontFamily: MONO, fontSize: 9, color: ORANGE, width: 18, flexShrink: 0, lineHeight: 1 }}>
-                  {String(pos).padStart(2, "0")}
-                </span>
-                {cover
-                  // eslint-disable-next-line @next/next/no-img-element
-                  ? <img src={cover} alt="" style={{ width: ART, height: ART, objectFit: "cover", flexShrink: 0, display: "block" }} />
-                  : <div style={{ width: ART, height: ART, background: "#e5e2dc", flexShrink: 0 }} />
-                }
-                {item ? (
-                  <div style={{ minWidth: 0, flex: 1 }}>
-                    <div style={{ fontFamily: MONO, fontSize: 8, letterSpacing: "0.1em", textTransform: "uppercase", color: MUTED, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", marginBottom: 3 }}>
-                      {item.artist}
-                    </div>
-                    <div style={{ fontFamily: SERIF, fontSize: 13, fontWeight: 600, color: INK, lineHeight: 1.25, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                      {item.song_title ?? item.album}
-                    </div>
+            <div key={pos} style={{ display: "flex", alignItems: "center", gap: 16 }}>
+              <span style={{ fontFamily: MONO, fontSize: 15, fontWeight: 400, color: ORANGE, width: 22, flexShrink: 0, lineHeight: 1 }}>
+                {pos}
+              </span>
+              {src
+                // eslint-disable-next-line @next/next/no-img-element
+                ? <img src={src} alt="" style={{ width: ART, height: ART, objectFit: "cover", flexShrink: 0, display: "block" }} />
+                : <div style={{ width: ART, height: ART, background: "#e5e2dc", flexShrink: 0 }} />
+              }
+              {item ? (
+                <div style={{ minWidth: 0, flex: 1 }}>
+                  <div style={{ fontFamily: MONO, fontSize: 11, letterSpacing: "0.1em", textTransform: "uppercase", color: MUTED, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", marginBottom: 5 }}>
+                    {item.artist}
                   </div>
-                ) : (
-                  <span style={{ fontFamily: MONO, fontSize: 8, color: "#ccc", letterSpacing: "0.06em" }}>—</span>
-                )}
-              </div>
+                  <div style={{ fontFamily: SERIF, fontSize: 14, fontWeight: 600, color: INK, lineHeight: 1.2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                    {item.song_title ?? item.album}
+                  </div>
+                </div>
+              ) : (
+                <span style={{ fontFamily: MONO, fontSize: 9, color: "#ccc", letterSpacing: "0.06em" }}>—</span>
+              )}
             </div>
           );
         })}
       </div>
 
       {/* Footer */}
-      <div style={{ height: 1, background: RULE, flexShrink: 0 }} />
-      <div style={{ height: FOOTER, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+      <div style={{ marginTop: 18, textAlign: "center", flexShrink: 0 }}>
         <span style={{ fontFamily: MONO, fontSize: 10, color: MUTED, letterSpacing: "0.1em" }}>@{username}</span>
       </div>
 
@@ -109,81 +131,76 @@ function PortraitCard({ title, slots, username }: CardProps) {
   );
 }
 
-// ── Landscape card: rendered at 600×314, exported at 1200×628 (scale ×2) ──
+// ── Landscape card ────────────────────────────────────────────────────────
+// DOM: 600×314  →  export: 1200×628 (pixelRatio 2)
 
-function LandscapeCard({ title, slots, username }: CardProps) {
-  const LEFT_W  = 162;
-  const HEADER  = 28;
-  const MAIN_H  = 314 - HEADER;                    // 286
-  const ROW_H   = Math.floor((MAIN_H - 4) / 5);   // 56
-  const ART     = ROW_H - 12;                       // 44
+function LandscapeCard({ title, slots, username, covers }: CardProps) {
+  const LEFT_W = 172;
+  const ART    = 42;
 
-  const m       = title.match(/^Top\s+5\s+(.*)/i);
+  const m        = title.match(/^Top\s+5\s+(.*)/i);
   const subTitle = m ? m[1] : title;
 
   return (
-    <div style={{ width: 600, height: 314, background: BG, display: "flex", flexDirection: "column", overflow: "hidden" }}>
+    <div style={{
+      width: 600, height: 314, background: BG,
+      display: "flex", overflow: "hidden",
+    }}>
 
-      {/* Top bar: rekodo.co right */}
-      <div style={{ height: HEADER, display: "flex", alignItems: "center", justifyContent: "flex-end", padding: "0 14px", borderBottom: `1px solid ${RULE}`, flexShrink: 0 }}>
-        <span style={{ fontFamily: MONO, fontSize: 9, color: MUTED, letterSpacing: "0.08em" }}>rekodo.co</span>
-      </div>
-
-      {/* Two columns */}
-      <div style={{ flex: 1, display: "flex", minHeight: 0 }}>
-
-        {/* Left: branding + title + username */}
-        <div style={{ width: LEFT_W, display: "flex", flexDirection: "column", justifyContent: "space-between", padding: 14, borderRight: `1px solid ${RULE}`, flexShrink: 0, overflow: "hidden" }}>
-          <div>
-            <div style={{ fontFamily: SERIF, fontSize: 16, fontWeight: 600, color: INK, marginBottom: 10, lineHeight: 1 }}>
-              rek<span style={{ color: ORANGE }}>ō</span>do
-            </div>
-            <div style={{ fontFamily: MONO, fontSize: 8, letterSpacing: "0.1em", textTransform: "uppercase", color: MUTED, marginBottom: 3 }}>
-              Top 5
-            </div>
-            <div style={{ fontFamily: SERIF, fontSize: 13, fontWeight: 600, color: INK, lineHeight: 1.3, overflow: "hidden" }}>
-              {subTitle}
-            </div>
+      {/* Left column: branding + title stacked + username */}
+      <div style={{
+        width: LEFT_W, display: "flex", flexDirection: "column",
+        justifyContent: "space-between", padding: "20px 18px",
+        borderRight: `1px solid ${RULE}`, flexShrink: 0, overflow: "hidden",
+        boxSizing: "border-box",
+      }}>
+        <div>
+          <div style={{ fontFamily: SERIF, fontSize: 17, fontWeight: 600, color: INK, marginBottom: 14, lineHeight: 1 }}>
+            rek<span style={{ color: ORANGE }}>ō</span>do
           </div>
-          <div style={{ fontFamily: MONO, fontSize: 9, color: MUTED, letterSpacing: "0.07em" }}>
-            @{username}
+          <div style={{ fontFamily: MONO, fontSize: 8, letterSpacing: "0.1em", textTransform: "uppercase", color: MUTED, marginBottom: 4 }}>
+            Top 5
+          </div>
+          <div style={{ fontFamily: SERIF, fontSize: 13, fontWeight: 600, color: INK, lineHeight: 1.3, overflow: "hidden" }}>
+            {subTitle}
           </div>
         </div>
+        <div>
+          <div style={{ fontFamily: MONO, fontSize: 9, color: MUTED, letterSpacing: "0.07em", marginBottom: 3 }}>@{username}</div>
+          <div style={{ fontFamily: MONO, fontSize: 8, color: "#bbb", letterSpacing: "0.07em" }}>rekodo.co</div>
+        </div>
+      </div>
 
-        {/* Right: 5 rows */}
-        <div style={{ flex: 1, display: "flex", flexDirection: "column", minWidth: 0 }}>
-          {[1, 2, 3, 4, 5].map((pos, i) => {
-            const item  = slots.find(s => s.position === pos)?.item ?? null;
-            const cover = proxyUrl(item?.cover_url);
-            return (
-              <div key={pos} style={{ flex: 1, display: "flex", flexDirection: "column", minHeight: 0 }}>
-                {i > 0 && <div style={{ height: 1, background: RULE, flexShrink: 0 }} />}
-                <div style={{ flex: 1, display: "flex", alignItems: "center", padding: "0 12px", gap: 8, minHeight: 0 }}>
-                  <span style={{ fontFamily: MONO, fontSize: 8, color: ORANGE, width: 16, flexShrink: 0, lineHeight: 1 }}>
-                    {String(pos).padStart(2, "0")}
-                  </span>
-                  {cover
-                    // eslint-disable-next-line @next/next/no-img-element
-                    ? <img src={cover} alt="" style={{ width: ART, height: ART, objectFit: "cover", flexShrink: 0, display: "block" }} />
-                    : <div style={{ width: ART, height: ART, background: "#e5e2dc", flexShrink: 0 }} />
-                  }
-                  {item && (
-                    <div style={{ minWidth: 0, flex: 1 }}>
-                      <div style={{ fontFamily: MONO, fontSize: 7, letterSpacing: "0.08em", textTransform: "uppercase", color: MUTED, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                        {item.artist}
-                      </div>
-                      <div style={{ fontFamily: SERIF, fontSize: 11, fontWeight: 600, color: INK, lineHeight: 1.2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                        {item.song_title ?? item.album}
-                      </div>
-                    </div>
-                  )}
+      {/* Right column: 5 rows, no horizontal rules */}
+      <div style={{ flex: 1, display: "flex", flexDirection: "column", justifyContent: "space-around", padding: "16px 0" }}>
+        {[1, 2, 3, 4, 5].map(pos => {
+          const item = slots.find(s => s.position === pos)?.item ?? null;
+          const src  = covers[pos] ?? null;
+          return (
+            <div key={pos} style={{ display: "flex", alignItems: "center", padding: "0 16px", gap: 10 }}>
+              <span style={{ fontFamily: MONO, fontSize: 11, color: ORANGE, width: 18, flexShrink: 0, lineHeight: 1 }}>
+                {pos}
+              </span>
+              {src
+                // eslint-disable-next-line @next/next/no-img-element
+                ? <img src={src} alt="" style={{ width: ART, height: ART, objectFit: "cover", flexShrink: 0, display: "block" }} />
+                : <div style={{ width: ART, height: ART, background: "#e5e2dc", flexShrink: 0 }} />
+              }
+              {item && (
+                <div style={{ minWidth: 0, flex: 1 }}>
+                  <div style={{ fontFamily: MONO, fontSize: 8, letterSpacing: "0.09em", textTransform: "uppercase", color: MUTED, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", marginBottom: 3 }}>
+                    {item.artist}
+                  </div>
+                  <div style={{ fontFamily: SERIF, fontSize: 12, fontWeight: 600, color: INK, lineHeight: 1.2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                    {item.song_title ?? item.album}
+                  </div>
                 </div>
-              </div>
-            );
-          })}
-        </div>
-
+              )}
+            </div>
+          );
+        })}
       </div>
+
     </div>
   );
 }
@@ -192,6 +209,8 @@ function LandscapeCard({ title, slots, username }: CardProps) {
 
 export default function ShareModal({ onClose, title, slots, username, listUrl }: Props) {
   const [format,        setFormat]        = useState<Format>("portrait");
+  const [covers,        setCovers]        = useState<Covers>({});
+  const [coversLoaded,  setCoversLoaded]  = useState(false);
   const [exporting,     setExporting]     = useState(false);
   const [copyImgState,  setCopyImgState]  = useState<"idle" | "copied" | "failed">("idle");
   const [copyLinkState, setCopyLinkState] = useState<"idle" | "copied">("idle");
@@ -200,12 +219,13 @@ export default function ShareModal({ onClose, title, slots, username, listUrl }:
 
   useEffect(() => {
     setCanWebShare(typeof navigator !== "undefined" && !!navigator.share);
-  }, []);
+    loadCovers(slots).then(c => { setCovers(c); setCoversLoaded(true); });
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   async function capturePng(): Promise<string | null> {
     if (!cardRef.current) return null;
     await document.fonts.ready;
-    return toPng(cardRef.current, { pixelRatio: 2, cacheBust: true });
+    return toPng(cardRef.current, { pixelRatio: 2 });
   }
 
   async function handleDownload() {
@@ -264,10 +284,14 @@ export default function ShareModal({ onClose, title, slots, username, listUrl }:
   const text = enc(`"${title}" — rekōdo`);
   const url  = enc(listUrl);
 
-  // Preview: scale card down to fit modal (max preview width ~500px)
-  const SCALE  = format === "portrait" ? 500 / 540 : 500 / 600;
-  const PRV_W  = Math.round((format === "portrait" ? 540 : 600) * SCALE);
-  const PRV_H  = Math.round((format === "portrait" ? 675 : 314) * SCALE);
+  // Scale preview to fit modal without horizontal scroll
+  const CARD_W = format === "portrait" ? 540 : 600;
+  const CARD_H = format === "portrait" ? 675 : 314;
+  const SCALE  = Math.min(1, 508 / CARD_W);
+  const PRV_W  = Math.round(CARD_W * SCALE);
+  const PRV_H  = Math.round(CARD_H * SCALE);
+
+  const busy = exporting || !coversLoaded;
 
   return (
     <div
@@ -300,47 +324,49 @@ export default function ShareModal({ onClose, title, slots, username, listUrl }:
           ))}
         </div>
 
-        {/* Preview — clipping wrapper scales card down visually; cardRef is on the natural-size element */}
+        {/* Preview */}
         <div style={{ flex: 1, overflowY: "auto", padding: "16px", display: "flex", justifyContent: "center" }}>
-          <div style={{ width: PRV_W, height: PRV_H, overflow: "hidden", flexShrink: 0, border: "1px solid rgba(0,0,0,0.08)" }}>
-            <div style={{ transform: `scale(${SCALE})`, transformOrigin: "top left", display: "inline-block" }}>
-              <div ref={cardRef}>
-                {format === "portrait"
-                  ? <PortraitCard  title={title} slots={slots} username={username} />
-                  : <LandscapeCard title={title} slots={slots} username={username} />
-                }
+          {!coversLoaded ? (
+            <p style={{ fontFamily: UI_MONO, fontSize: "10px", color: "#aaa", letterSpacing: "0.06em", alignSelf: "center" }}>Loading artwork…</p>
+          ) : (
+            <div style={{ width: PRV_W, height: PRV_H, overflow: "hidden", flexShrink: 0, border: "1px solid rgba(0,0,0,0.08)" }}>
+              <div style={{ transform: `scale(${SCALE})`, transformOrigin: "top left", display: "inline-block" }}>
+                <div ref={cardRef}>
+                  {format === "portrait"
+                    ? <PortraitCard  title={title} slots={slots} username={username} covers={covers} />
+                    : <LandscapeCard title={title} slots={slots} username={username} covers={covers} />
+                  }
+                </div>
               </div>
             </div>
-          </div>
+          )}
         </div>
 
         {/* Actions */}
         <div style={{ padding: "12px 16px 16px", borderTop: "1px solid rgba(0,0,0,0.08)", flexShrink: 0 }}>
 
-          {/* Export buttons */}
           <div style={{ display: "flex", gap: "8px", marginBottom: "14px" }}>
             <button
               onClick={handleDownload}
-              disabled={exporting}
-              style={{ flex: 1, fontFamily: UI_MONO, fontSize: "9px", letterSpacing: "0.1em", textTransform: "uppercase", background: INK, color: "#fff", border: "none", cursor: exporting ? "wait" : "pointer", padding: "10px 0", opacity: exporting ? 0.6 : 1 }}
+              disabled={busy}
+              style={{ flex: 1, fontFamily: UI_MONO, fontSize: "9px", letterSpacing: "0.1em", textTransform: "uppercase", background: INK, color: "#fff", border: "none", cursor: busy ? "wait" : "pointer", padding: "10px 0", opacity: busy ? 0.5 : 1 }}
             >
-              {exporting ? "Exporting…" : "Download PNG"}
+              {exporting ? "Exporting…" : !coversLoaded ? "Loading…" : "Download PNG"}
             </button>
             <button
               onClick={handleCopyImage}
-              disabled={exporting}
-              style={{ flex: 1, fontFamily: UI_MONO, fontSize: "9px", letterSpacing: "0.1em", textTransform: "uppercase", background: "none", border: "1px solid rgba(0,0,0,0.18)", cursor: exporting ? "wait" : "pointer", padding: "10px 0", color: copyImgState === "copied" ? "#22c55e" : copyImgState === "failed" ? "#ef4444" : INK, opacity: exporting ? 0.6 : 1 }}
+              disabled={busy}
+              style={{ flex: 1, fontFamily: UI_MONO, fontSize: "9px", letterSpacing: "0.1em", textTransform: "uppercase", background: "none", border: "1px solid rgba(0,0,0,0.18)", cursor: busy ? "wait" : "pointer", padding: "10px 0", color: copyImgState === "copied" ? "#22c55e" : copyImgState === "failed" ? "#ef4444" : INK, opacity: busy ? 0.5 : 1 }}
             >
               {copyImgState === "copied" ? "Copied ✓" : copyImgState === "failed" ? "Failed" : "Copy Image"}
             </button>
           </div>
 
-          {/* Social links */}
           <div style={{ display: "flex", flexWrap: "wrap", gap: "6px 18px", alignItems: "center" }}>
             {canWebShare && (
               <button
                 onClick={handleWebShare}
-                disabled={exporting}
+                disabled={busy}
                 style={{ fontFamily: UI_MONO, fontSize: "9px", letterSpacing: "0.1em", textTransform: "uppercase", color: INK, background: "none", border: "none", cursor: "pointer", padding: 0 }}
               >
                 Share to apps ↗
