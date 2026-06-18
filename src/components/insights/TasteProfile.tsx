@@ -158,52 +158,20 @@ function SpectrumRow({ left, right, value }: SpectrumAxis) {
   );
 }
 
-function DonutChart({ data }: { data: { style: string; count: number; pct: number }[] }) {
-  const r    = 56;
-  const cx   = 76;
-  const cy   = 76;
-  const circ = 2 * Math.PI * r;
-
-  let cumOffset = 0;
-  const segs = data.map((d, i) => {
-    const arc    = (d.pct / 100) * circ;
-    const offset = cumOffset;
-    cumOffset   += arc;
-    return { ...d, arc, offset, colour: DONUT_COLOURS[i % DONUT_COLOURS.length] };
-  });
-
+function StyleLegend({ data }: { data: { style: string; count: number; pct: number }[] }) {
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: "20px" }}>
-      <svg viewBox="0 0 152 152" style={{ width: "100%", maxWidth: "160px" }}>
-        <circle cx={cx} cy={cy} r={r} fill="none" stroke={RULE} strokeWidth={20} />
-        {segs.map((seg) => (
-          <circle
-            key={seg.style}
-            cx={cx}
-            cy={cy}
-            r={r}
-            fill="none"
-            stroke={seg.colour}
-            strokeWidth={20}
-            strokeDasharray={`${seg.arc} ${circ - seg.arc}`}
-            strokeDashoffset={circ / 4 - seg.offset}
-          />
-        ))}
-      </svg>
-
-      <div style={{ display: "flex", flexDirection: "column", gap: "9px" }}>
-        {segs.map((seg) => (
-          <div key={seg.style} style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-            <div style={{ width: "8px", height: "8px", flexShrink: 0, background: seg.colour }} />
-            <span style={{ fontFamily: MONO, fontSize: "10px", color: INK, lineHeight: 1.2, flex: 1 }}>
-              {seg.style}
-            </span>
-            <span style={{ fontFamily: MONO, fontSize: "10px", color: "#aaaaaa" }}>
-              {seg.pct}%
-            </span>
-          </div>
-        ))}
-      </div>
+    <div style={{ display: "flex", flexDirection: "column", gap: "9px" }}>
+      {data.map((d, i) => (
+        <div key={d.style} style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+          <div style={{ width: "8px", height: "8px", flexShrink: 0, background: DONUT_COLOURS[i % DONUT_COLOURS.length] }} />
+          <span style={{ fontFamily: MONO, fontSize: "10px", color: INK, lineHeight: 1.2, flex: 1 }}>
+            {d.style}
+          </span>
+          <span style={{ fontFamily: MONO, fontSize: "10px", color: "#aaaaaa" }}>
+            {d.pct}%
+          </span>
+        </div>
+      ))}
     </div>
   );
 }
@@ -292,7 +260,7 @@ export default function TasteProfile({
                   Style data will appear once your played records have been enriched.
                 </p>
               ) : (
-                <DonutChart data={playedStyleBreakdown} />
+                <StyleLegend data={playedStyleBreakdown} />
               )}
             </div>
 
