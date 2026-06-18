@@ -77,11 +77,11 @@ function PortraitCard({ title, slots, username, covers, forExport }: CardProps) 
 
       {/* Top row: title left | rekōdo wordmark + rekodo.co stacked right */}
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 22, flexShrink: 0 }}>
-        <span style={{ fontFamily: SERIF, fontSize: 26, fontWeight: 600, color: INK, lineHeight: 1.1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", flex: 1, minWidth: 0 }}>
+        <div style={{ fontFamily: SERIF, fontSize: 26, fontWeight: 600, color: INK, lineHeight: 1.3, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", flex: 1, minWidth: 0, paddingBottom: 4 }}>
           {title}
-        </span>
+        </div>
         <div style={{ flexShrink: 0, marginLeft: 12, textAlign: "right", paddingTop: 3 }}>
-          <div style={{ fontFamily: SERIF, fontSize: 16, fontWeight: 600, color: INK, lineHeight: 1, marginBottom: 5 }}>
+          <div style={{ fontFamily: SERIF, fontSize: 21, fontWeight: 600, color: INK, lineHeight: 1, marginBottom: 5 }}>
             rek<span style={{ color: ORANGE }}>ō</span>do
           </div>
           <div style={{ fontFamily: MONO, fontSize: 10, color: MUTED, letterSpacing: "0.08em" }}>
@@ -170,7 +170,7 @@ function LandscapeCard({ title, slots, username, covers, forExport }: CardProps)
         </div>
         <div>
           <div style={{ fontFamily: MONO, fontSize: 9, color: MUTED, letterSpacing: "0.07em", marginBottom: 3 }}>@{username}</div>
-          <div style={{ fontFamily: MONO, fontSize: 9, color: "#bbb", letterSpacing: "0.07em" }}>rekodo.co</div>
+          <div style={{ fontFamily: MONO, fontSize: 10, color: "#bbb", letterSpacing: "0.07em" }}>rekodo.co</div>
         </div>
       </div>
 
@@ -232,7 +232,7 @@ export default function ShareModal({ onClose, title, slots, username, listUrl }:
     loadCovers(slots).then(c => { setCovers(c); setCoversLoaded(true); });
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  async function capturePng(): Promise<string | null> {
+  async function buildCanvas(): Promise<HTMLCanvasElement | null> {
     if (!exportRef.current) return null;
     await document.fonts.ready;
 
@@ -284,18 +284,18 @@ export default function ShareModal({ onClose, title, slots, username, listUrl }:
       });
     }));
 
-    return canvas.toDataURL("image/png");
+    return canvas;
   }
 
   async function handleDownload() {
     setExporting(true);
     try {
-      const dataUrl = await capturePng();
-      if (!dataUrl) return;
-      const slug    = title.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 40);
-      const link    = document.createElement("a");
+      const canvas = await buildCanvas();
+      if (!canvas) return;
+      const slug = title.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 40);
+      const link = document.createElement("a");
       link.download = `rekodo-${slug}-${format === "portrait" ? "portrait" : "landscape"}.png`;
-      link.href     = dataUrl;
+      link.href = canvas.toDataURL("image/png");
       link.click();
     } finally {
       setExporting(false);
@@ -305,9 +305,11 @@ export default function ShareModal({ onClose, title, slots, username, listUrl }:
   async function handleCopyImage() {
     setExporting(true);
     try {
-      const dataUrl = await capturePng();
-      if (!dataUrl) { setCopyImgState("failed"); return; }
-      const blob = await (await fetch(dataUrl)).blob();
+      const canvas = await buildCanvas();
+      if (!canvas) { setCopyImgState("failed"); return; }
+      // Use canvas.toBlob() directly — more reliable than fetch(dataUrl).blob()
+      const blob = await new Promise<Blob | null>(resolve => canvas.toBlob(resolve, "image/png"));
+      if (!blob) { setCopyImgState("failed"); return; }
       await navigator.clipboard.write([new ClipboardItem({ "image/png": blob })]);
       setCopyImgState("copied");
     } catch {
