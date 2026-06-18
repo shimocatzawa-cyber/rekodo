@@ -455,3 +455,19 @@ export async function deleteList(listId: string) {
   revalidatePath("/lists");
   return { success: true };
 }
+
+export async function updateListTitle(listId: string, newTitle: string) {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { error: "Not authenticated" };
+
+  const trimmed = newTitle.trim();
+  if (!trimmed || trimmed.length > 80) return { error: "Invalid title" };
+
+  const { error } = await supabase
+    .from("lists").update({ title: trimmed }).eq("id", listId).eq("user_id", user.id);
+  if (error) return { error: error.message };
+
+  revalidatePath(`/lists`);
+  return { success: true, title: trimmed };
+}

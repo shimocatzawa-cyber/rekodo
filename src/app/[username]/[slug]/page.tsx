@@ -1,7 +1,7 @@
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import type { SlotItem, ListSlot } from "@/app/lists/types";
-import PublicListSlots from "@/components/lists/PublicListSlots";
+import PublicListClient, { type PublicComment } from "@/components/lists/PublicListClient";
 
 const SERIF = "var(--font-editorial)";
 const MONO  = "var(--font-mono)";
@@ -34,11 +34,10 @@ export default async function PublicListPage({ params }: { params: Params }) {
     : { data: [] };
 
   const recordById = new Map((recordsData ?? []).map(r => [r.id, r]));
-
-  const maxSlots = (list.list_type ?? "top5") === "top5" ? 5 : (itemsData?.length ?? 0);
+  const maxSlots   = (list.list_type ?? "top5") === "top5" ? 5 : (itemsData?.length ?? 0);
 
   const slots: ListSlot[] = Array.from({ length: maxSlots }, (_, idx) => {
-    const pos = idx + 1;
+    const pos     = idx + 1;
     const itemRow = (itemsData ?? []).find(i => i.position === pos);
     if (!itemRow) return { position: pos, item: null };
 
@@ -67,6 +66,34 @@ export default async function PublicListPage({ params }: { params: Params }) {
     };
   });
 
+  // ── Viewer identity ────────────────────────────────────────────────────────
+  const { data: { user: viewer } } = await supabase.auth.getUser();
+  const viewerUserId = viewer?.id ?? null;
+  const isOwner      = viewerUserId === profile.id;
+
+  // ── Likes ──────────────────────────────────────────────────────────────────
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { count: likeCount } = await (supabase as any)
+    .from("list_likes").select("*", { count: "exact", head: true }).eq("list_id", list.id);
+
+  let initialLiked = false;
+  if (viewerUserId) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data: likeRow } = await (supabase as any)
+      .from("list_likes").select("id").eq("list_id", list.id).eq("user_id", viewerUserId).maybeSingle();
+    initialLiked = Boolean(likeRow);
+  }
+
+  // ── Comments ───────────────────────────────────────────────────────────────
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: commentsRaw } = await (supabase as any)
+    .from("list_comments")
+    .select("id, user_id, body, created_at, profiles(username, avatar_url)")
+    .eq("list_id", list.id)
+    .order("created_at", { ascending: false });
+
+  const initialComments: PublicComment[] = (commentsRaw ?? []) as PublicComment[];
+
   return (
     <div className="min-h-screen bg-white">
       <nav
@@ -76,16 +103,27 @@ export default async function PublicListPage({ params }: { params: Params }) {
         <a href="/" aria-label="rekōdo home" style={{ fontFamily: SERIF, fontWeight: 700, fontSize: "24px", color: "#CC5500", textDecoration: "none" }}>
           ō
         </a>
+        <a href={`/@${profile.username}`} style={{ fontFamily: MONO, fontSize: "10px", letterSpacing: "0.08em", color: "#aaa", textDecoration: "none" }}>
+          @{profile.username}
+        </a>
       </nav>
 
       <main className="px-8 md:px-12 py-12 w-full max-w-6xl mx-auto">
         <p style={{ fontFamily: MONO, fontSize: "10px", letterSpacing: "0.1em", textTransform: "uppercase", color: "#aaaaaa", marginBottom: "12px" }}>
           @{profile.username}
         </p>
-        <h1 className="mb-12" style={{ fontFamily: SERIF, fontSize: "clamp(28px, 4vw, 48px)", color: "#0d0d0d", lineHeight: 1 }}>
-          {list.title}
-        </h1>
-        <PublicListSlots slots={slots} />
+        <PublicListClient
+          listId={list.id}
+          ownerId={profile.id}
+          listTitle={list.title}
+          username={profile.username}
+          slots={slots}
+          initialLikeCount={likeCount ?? 0}
+          initialLiked={initialLiked}
+          initialComments={initialComments}
+          viewerUserId={viewerUserId}
+          isOwner={isOwner}
+        />
       </main>
     </div>
   );

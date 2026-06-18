@@ -603,6 +603,12 @@ export default function ProfileListsTab({ initialLists, username }: Props) {
                       />
                     )}
                   </>
+                ) : selectedList.list_type === "top5" ? (
+                  <Top5Grid
+                    slots={selectedList.slots}
+                    onEdit={pos => openPicker({ listId: selectedList.id, position: pos, strategy: "replace" })}
+                    onRemove={pos => handleRemoveItem(selectedList.id, pos)}
+                  />
                 ) : (
                   <>
                     {selectedList.slots.map(slot => (
@@ -869,6 +875,82 @@ function TracklistRow({ position, item, isSaving, isPickerOpen, onOpen, onRemove
           + Add a record
         </span>
       )}
+    </div>
+  );
+}
+
+// ─── Top5Grid ─────────────────────────────────────────────────────────────────
+
+function Top5Grid({ slots, onEdit, onRemove }: {
+  slots: ListSlot[];
+  onEdit:   (position: number) => void;
+  onRemove: (position: number) => void;
+}) {
+  const [hoveredPos, setHoveredPos] = useState<number | null>(null);
+  return (
+    <div style={{ display: "grid", gridTemplateColumns: "repeat(5, 1fr)", gap: "12px", marginBottom: "8px" }}>
+      {[1, 2, 3, 4, 5].map(pos => {
+        const slot = slots.find(s => s.position === pos);
+        const item = slot?.item ?? null;
+        const hovered = hoveredPos === pos;
+        return (
+          <div key={pos} style={{ minWidth: 0 }}
+            onMouseEnter={() => setHoveredPos(pos)}
+            onMouseLeave={() => setHoveredPos(null)}
+          >
+            {/* Cover art */}
+            <div
+              onClick={() => onEdit(pos)}
+              style={{ position: "relative", overflow: "hidden", lineHeight: 0, cursor: "pointer", aspectRatio: "1/1" }}
+            >
+              {item?.cover_url ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={item.cover_url} alt="" style={{ display: "block", width: "100%", height: "100%", objectFit: "cover" }} />
+              ) : (
+                <div style={{ width: "100%", height: "100%", background: "#f4f4f4", border: "1px dashed rgba(0,0,0,0.14)", display: "flex", alignItems: "center", justifyContent: "center", flexDirection: "column", gap: "4px" }}>
+                  <span style={{ fontFamily: MONO, fontSize: "18px", color: "#ddd" }}>+</span>
+                </div>
+              )}
+              {/* Position badge */}
+              <span style={{ position: "absolute", top: "6px", left: "6px", fontFamily: MONO, fontSize: "9px", letterSpacing: "0.08em", color: item ? "rgba(255,255,255,0.85)" : "#c0c0c0", textShadow: item ? "0 1px 2px rgba(0,0,0,0.5)" : "none", lineHeight: 1 }}>
+                {pos}
+              </span>
+              {/* Hover overlay */}
+              {hovered && item && (
+                <div style={{ position: "absolute", inset: 0, background: "rgba(0,0,0,0.45)", display: "flex", alignItems: "center", justifyContent: "center", gap: "10px" }}>
+                  <span style={{ fontFamily: MONO, fontSize: "8px", letterSpacing: "0.1em", textTransform: "uppercase", color: "#fff" }}>Change</span>
+                  <button
+                    onClick={e => { e.stopPropagation(); onRemove(pos); }}
+                    style={{ fontFamily: MONO, fontSize: "16px", color: "rgba(255,255,255,0.7)", background: "none", border: "none", cursor: "pointer", padding: 0, lineHeight: 1 }}
+                  >
+                    ×
+                  </button>
+                </div>
+              )}
+              {hovered && !item && (
+                <div style={{ position: "absolute", inset: 0, background: "rgba(204,85,0,0.06)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                  <span style={{ fontFamily: MONO, fontSize: "8px", letterSpacing: "0.1em", textTransform: "uppercase", color: ORANGE }}>Add</span>
+                </div>
+              )}
+            </div>
+            {/* Text */}
+            <div style={{ marginTop: "8px" }}>
+              {item ? (
+                <>
+                  <p style={{ fontFamily: MONO, fontSize: "8px", letterSpacing: "0.07em", textTransform: "uppercase", color: "#aaa", marginBottom: "2px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                    {item.artist}
+                  </p>
+                  <p style={{ fontFamily: SERIF, fontSize: "12px", color: "#0d0d0d", lineHeight: 1.3, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}>
+                    {item.song_title ?? item.album}
+                  </p>
+                </>
+              ) : (
+                <p style={{ fontFamily: MONO, fontSize: "8px", letterSpacing: "0.07em", textTransform: "uppercase", color: "#ddd" }}>Empty</p>
+              )}
+            </div>
+          </div>
+        );
+      })}
     </div>
   );
 }
