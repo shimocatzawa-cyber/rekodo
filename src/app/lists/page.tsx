@@ -11,9 +11,9 @@ export default async function ListsPage() {
 
   const { data: profile } = await (supabase as any)
     .from("profiles")
-    .select("id, username, display_name, avatar_url, is_supporter, is_donor")
+    .select("id, username, display_name, avatar_url, is_supporter, is_donor, role")
     .eq("id", user.id)
-    .maybeSingle() as unknown as { data: { id: string; username: string; display_name: string | null; avatar_url: string | null; is_supporter: boolean | null; is_donor: boolean | null } | null };
+    .maybeSingle() as unknown as { data: { id: string; username: string; display_name: string | null; avatar_url: string | null; is_supporter: boolean | null; is_donor: boolean | null; role: string | null } | null };
 
   if (!profile) redirect("/login");
 
@@ -23,7 +23,7 @@ export default async function ListsPage() {
       username={profile.username}
       displayLabel={profile.display_name ?? undefined}
       avatarUrl={profile.avatar_url}
-      isSupporter={!!(profile.is_supporter || profile.is_donor)}
+      isSupporter={!!(profile.is_supporter || profile.is_donor || profile.role === "admin")}
     />
   );
 }
