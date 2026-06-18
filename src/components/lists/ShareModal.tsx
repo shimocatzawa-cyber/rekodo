@@ -13,10 +13,10 @@ const BG     = "#FDF6F0";
 const ORANGE = "#CC5500";
 const INK    = "#0d0d0d";
 const MUTED  = "#888888";
-const RULE   = "#e0e0da";   // used only for the vertical separator in landscape
+const RULE   = "#e0e0da";
 
 type Format  = "portrait" | "landscape";
-type Covers  = Record<number, string | null>; // position → base64 data URL or null
+type Covers  = Record<number, string | null>;
 
 interface CardProps {
   title:    string;
@@ -32,8 +32,6 @@ interface Props {
   listUrl:  string;
 }
 
-// Pre-fetch cover art as base64 data URLs so html-to-image doesn't need
-// to make any network requests during capture (avoids cross-origin failures).
 async function blobToDataUrl(blob: Blob): Promise<string> {
   return new Promise((resolve, reject) => {
     const r   = new FileReader();
@@ -61,6 +59,35 @@ async function loadCovers(slots: ListSlot[]): Promise<Covers> {
   return Object.fromEntries(entries);
 }
 
+// Cover art rendered as a <canvas> — html-to-image captures canvas via toDataURL(),
+// bypassing its CSS background-image parser which can drop long data URLs.
+function CoverCanvas({ src, size }: { src: string | null; size: number }) {
+  const ref = useRef<HTMLCanvasElement>(null);
+
+  useEffect(() => {
+    const canvas = ref.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+    ctx.fillStyle = "#e5e2dc";
+    ctx.fillRect(0, 0, size, size);
+    if (src) {
+      const img = new Image();
+      img.onload = () => ctx.drawImage(img, 0, 0, size, size);
+      img.src = src;
+    }
+  }, [src, size]);
+
+  return (
+    <canvas
+      ref={ref}
+      width={size}
+      height={size}
+      style={{ display: "block", flexShrink: 0 }}
+    />
+  );
+}
+
 // ── Portrait card ─────────────────────────────────────────────────────────
 // DOM: 540×675  →  export: 1080×1350 (pixelRatio 2)
 
@@ -75,25 +102,31 @@ function PortraitCard({ title, slots, username, covers }: CardProps) {
       overflow: "hidden",
     }}>
 
-      {/* Top row: title left, rekodo.co right */}
+      {/* Top row: title left | rekōdo wordmark + rekodo.co stacked right */}
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 22, flexShrink: 0 }}>
         <span style={{ fontFamily: SERIF, fontSize: 26, fontWeight: 600, color: INK, lineHeight: 1.1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", flex: 1, minWidth: 0 }}>
           {title}
         </span>
-        <span style={{ fontFamily: MONO, fontSize: 9, color: MUTED, letterSpacing: "0.08em", flexShrink: 0, marginLeft: 12, paddingTop: 4 }}>rekodo.co</span>
+        <div style={{ flexShrink: 0, marginLeft: 12, textAlign: "right", paddingTop: 3 }}>
+          <div style={{ fontFamily: SERIF, fontSize: 13, fontWeight: 600, color: INK, lineHeight: 1, marginBottom: 4 }}>
+            rek<span style={{ color: ORANGE }}>ō</span>do
+          </div>
+          <div style={{ fontFamily: MONO, fontSize: 8, color: MUTED, letterSpacing: "0.08em" }}>
+            rekodo.co
+          </div>
+        </div>
       </div>
 
-      {/* 5 rows — no dividers, space-around for even breathing room */}
+      {/* 5 rows — space-around for even breathing room */}
       <div style={{ flex: 1, display: "flex", flexDirection: "column", justifyContent: "space-around" }}>
         {[1, 2, 3, 4, 5].map(pos => {
           const item = slots.find(s => s.position === pos)?.item ?? null;
-          const src  = covers[pos] ?? null;
           return (
             <div key={pos} style={{ display: "flex", alignItems: "center", gap: 16 }}>
               <span style={{ fontFamily: MONO, fontSize: 15, fontWeight: 400, color: ORANGE, width: 22, flexShrink: 0, lineHeight: 1 }}>
                 {pos}
               </span>
-              <div style={{ width: ART, height: ART, flexShrink: 0, backgroundImage: src ? `url(${src})` : "none", backgroundSize: "cover", backgroundPosition: "center", backgroundColor: "#e5e2dc" }} />
+              <CoverCanvas src={covers[pos] ?? null} size={ART} />
               {item ? (
                 <div style={{ minWidth: 0, flex: 1 }}>
                   <div style={{ fontFamily: MONO, fontSize: 11, letterSpacing: "0.1em", textTransform: "uppercase", color: MUTED, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", marginBottom: 5 }}>
@@ -111,12 +144,9 @@ function PortraitCard({ title, slots, username, covers }: CardProps) {
         })}
       </div>
 
-      {/* Footer */}
+      {/* Footer: @username only */}
       <div style={{ marginTop: 16, textAlign: "center", flexShrink: 0 }}>
-        <div style={{ fontFamily: MONO, fontSize: 10, color: MUTED, letterSpacing: "0.1em", marginBottom: 6 }}>@{username}</div>
-        <span style={{ fontFamily: SERIF, fontSize: 15, fontWeight: 600, color: INK, letterSpacing: "-0.01em" }}>
-          rek<span style={{ color: ORANGE }}>ō</span>do
-        </span>
+        <div style={{ fontFamily: MONO, fontSize: 10, color: MUTED, letterSpacing: "0.1em" }}>@{username}</div>
       </div>
 
     </div>
@@ -136,7 +166,7 @@ function LandscapeCard({ title, slots, username, covers }: CardProps) {
       display: "flex", overflow: "hidden",
     }}>
 
-      {/* Left column: branding + title stacked + username */}
+      {/* Left column: branding + title + username/rekodo.co */}
       <div style={{
         width: LEFT_W, display: "flex", flexDirection: "column",
         justifyContent: "space-between", padding: "20px 18px",
@@ -157,17 +187,16 @@ function LandscapeCard({ title, slots, username, covers }: CardProps) {
         </div>
       </div>
 
-      {/* Right column: 5 rows, no horizontal rules */}
+      {/* Right column: 5 rows */}
       <div style={{ flex: 1, display: "flex", flexDirection: "column", justifyContent: "space-around", padding: "16px 0" }}>
         {[1, 2, 3, 4, 5].map(pos => {
           const item = slots.find(s => s.position === pos)?.item ?? null;
-          const src  = covers[pos] ?? null;
           return (
             <div key={pos} style={{ display: "flex", alignItems: "center", padding: "0 16px", gap: 10 }}>
               <span style={{ fontFamily: MONO, fontSize: 11, color: ORANGE, width: 18, flexShrink: 0, lineHeight: 1 }}>
                 {pos}
               </span>
-              <div style={{ width: ART, height: ART, flexShrink: 0, backgroundImage: src ? `url(${src})` : "none", backgroundSize: "cover", backgroundPosition: "center", backgroundColor: "#e5e2dc" }} />
+              <CoverCanvas src={covers[pos] ?? null} size={ART} />
               {item && (
                 <div style={{ minWidth: 0, flex: 1 }}>
                   <div style={{ fontFamily: MONO, fontSize: 8, letterSpacing: "0.09em", textTransform: "uppercase", color: MUTED, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", marginBottom: 3 }}>
@@ -204,6 +233,8 @@ export default function ShareModal({ onClose, title, slots, username, listUrl }:
   async function capturePng(): Promise<string | null> {
     if (!cardRef.current) return null;
     await document.fonts.ready;
+    // Allow canvas elements to finish drawing (data URL img.onload is async)
+    await new Promise<void>(resolve => setTimeout(resolve, 150));
     return toPng(cardRef.current, { pixelRatio: 2 });
   }
 
@@ -238,8 +269,6 @@ export default function ShareModal({ onClose, title, slots, username, listUrl }:
     }
   }
 
-
-  // Scale preview to fit modal without horizontal scroll
   const CARD_W = format === "portrait" ? 540 : 600;
   const CARD_H = format === "portrait" ? 675 : 314;
   const SCALE  = Math.min(1, 508 / CARD_W);
@@ -299,8 +328,7 @@ export default function ShareModal({ onClose, title, slots, username, listUrl }:
 
         {/* Actions */}
         <div style={{ padding: "12px 16px 16px", borderTop: "1px solid rgba(0,0,0,0.08)", flexShrink: 0 }}>
-
-          <div style={{ display: "flex", gap: "8px", marginBottom: "14px" }}>
+          <div style={{ display: "flex", gap: "8px" }}>
             <button
               onClick={handleDownload}
               disabled={busy}
@@ -316,9 +344,8 @@ export default function ShareModal({ onClose, title, slots, username, listUrl }:
               {copyImgState === "copied" ? "Copied ✓" : copyImgState === "failed" ? "Failed" : "Copy Image"}
             </button>
           </div>
-
-
         </div>
+
       </div>
     </div>
   );
