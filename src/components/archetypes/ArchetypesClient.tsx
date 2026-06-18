@@ -6,6 +6,7 @@ import AppNav from "@/components/AppNav";
 import ArchetypeHero from "./ArchetypeHero";
 import SignalGrid from "./SignalGrid";
 import EssayBlock from "./EssayBlock";
+import ArchetypeShareModal from "./ArchetypeShareModal";
 import type { ComputedSignals } from "@/lib/archetypes/computeArchetypes";
 
 const SERIF  = "var(--font-editorial)";
@@ -80,6 +81,7 @@ export default function ArchetypesClient({ userId, username, displayLabel, avata
   const [loading, setLoading] = useState(true);
   const [regenerating, setRegenerating] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [showShare, setShowShare] = useState(false);
 
   const fetchData = useCallback(async (force = false) => {
     try {
@@ -126,6 +128,12 @@ export default function ArchetypesClient({ userId, username, displayLabel, avata
             </div>
             {data && (
               <div style={{ textAlign: "right", flexShrink: 0, paddingLeft: 24 }}>
+                <button
+                  onClick={() => setShowShare(true)}
+                  style={{ fontFamily: MONO, fontSize: 10, color: ORANGE, background: "none", border: "none", cursor: "pointer", padding: 0, letterSpacing: "0.06em", display: "block", marginLeft: "auto", marginBottom: 8 }}
+                >
+                  Share ↗
+                </button>
                 <div style={{ fontFamily: MONO, fontSize: 10, color: MUTED, marginBottom: 6 }}>
                   {data.currentCount ?? data.recordCount} records analysed
                 </div>
@@ -169,6 +177,15 @@ export default function ArchetypesClient({ userId, username, displayLabel, avata
               </Link>
             </p>
           </div>
+        )}
+
+        {showShare && data && (
+          <ArchetypeShareModal
+            onClose={() => setShowShare(false)}
+            archetypeId={data.primary}
+            score={data.primaryScore}
+            username={username}
+          />
         )}
 
         {!loading && data && data.recordCount >= MIN_RECORDS && (
