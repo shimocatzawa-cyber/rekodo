@@ -173,8 +173,12 @@ function SleeveCard({ rec, mode, onAddToWantlist, wantlistAdded, onPreviewReady 
     { label: "Open in Spotify ↗",     href: `https://open.spotify.com/search/${q}` },
   ];
   const BUY = [
-    { label: "Buy on Discogs ↗",     href: `https://www.discogs.com/search/?q=${q}&type=release` },
-    { label: "Search Bandcamp ↗",    href: `https://bandcamp.com/search?q=${q}` },
+    { label: "Buy on Discogs ↗",      href: `https://www.discogs.com/search/?q=${q}&type=release` },
+    { label: "Buy on eBay ↗",         href: `https://www.ebay.com/sch/i.html?_nkw=${q}&_sacat=306` },
+    { label: "Search Boomkat ↗",      href: `https://boomkat.com/search?q=${q}` },
+    { label: "Search Juno ↗",         href: `https://www.juno.co.uk/search/?q=${q}` },
+    { label: "Search Rough Trade ↗",  href: `https://www.roughtrade.com/search?q=${q}` },
+    { label: "Search Bandcamp ↗",     href: `https://bandcamp.com/search?q=${q}` },
   ];
 
   const sectionLabel: React.CSSProperties = {
