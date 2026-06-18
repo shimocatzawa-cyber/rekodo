@@ -75,11 +75,12 @@ function PortraitCard({ title, slots, username, covers }: CardProps) {
       overflow: "hidden",
     }}>
 
-      {/* Title — prominent, top left */}
-      <div style={{ marginBottom: 22, flexShrink: 0 }}>
-        <span style={{ fontFamily: SERIF, fontSize: 26, fontWeight: 600, color: INK, lineHeight: 1.1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", display: "block" }}>
+      {/* Top row: title left, rekodo.co right */}
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 22, flexShrink: 0 }}>
+        <span style={{ fontFamily: SERIF, fontSize: 26, fontWeight: 600, color: INK, lineHeight: 1.1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", flex: 1, minWidth: 0 }}>
           {title}
         </span>
+        <span style={{ fontFamily: MONO, fontSize: 9, color: MUTED, letterSpacing: "0.08em", flexShrink: 0, marginLeft: 12, paddingTop: 4 }}>rekodo.co</span>
       </div>
 
       {/* 5 rows — no dividers, space-around for even breathing room */}
@@ -113,12 +114,9 @@ function PortraitCard({ title, slots, username, covers }: CardProps) {
       {/* Footer */}
       <div style={{ marginTop: 16, textAlign: "center", flexShrink: 0 }}>
         <div style={{ fontFamily: MONO, fontSize: 10, color: MUTED, letterSpacing: "0.1em", marginBottom: 6 }}>@{username}</div>
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}>
-          <span style={{ fontFamily: SERIF, fontSize: 15, fontWeight: 600, color: INK, letterSpacing: "-0.01em" }}>
-            rek<span style={{ color: ORANGE }}>ō</span>do
-          </span>
-          <span style={{ fontFamily: MONO, fontSize: 8, color: MUTED, letterSpacing: "0.08em" }}>rekodo.co</span>
-        </div>
+        <span style={{ fontFamily: SERIF, fontSize: 15, fontWeight: 600, color: INK, letterSpacing: "-0.01em" }}>
+          rek<span style={{ color: ORANGE }}>ō</span>do
+        </span>
       </div>
 
     </div>
