@@ -155,6 +155,16 @@ export default function ProfileListsTab({ initialLists, username }: Props) {
   const [dragFromPos, setDragFromPos] = useState<number | null>(null);
   const [dragOverPos, setDragOverPos] = useState<number | null>(null);
 
+  const [isMobile,     setIsMobile]     = useState(false);
+  const [activeDrawer, setActiveDrawer] = useState<{ artist: string; album: string } | null>(null);
+
+  useEffect(() => {
+    const check = () => setIsMobile(window.innerWidth < 900);
+    check();
+    window.addEventListener("resize", check);
+    return () => window.removeEventListener("resize", check);
+  }, []);
+
   useEffect(() => { setLists(initialLists); }, [initialLists]);
 
   // If the server didn't provide lists, fetch them client-side
@@ -460,7 +470,7 @@ export default function ProfileListsTab({ initialLists, username }: Props) {
       <style>{`.pill-strip::-webkit-scrollbar { display: none; }`}</style>
 
       {/* ── Wantlist ── */}
-      <div style={{ maxWidth: 680, margin: "0 auto", padding: "2rem 1.5rem 3rem" }}>
+      <div style={{ maxWidth: activeDrawer && !isMobile ? 960 : 680, margin: "0 auto", padding: "2rem 1.5rem 3rem", transition: "max-width 0.2s ease" }}>
         {!selectedList && lists.length === 0 ? (
           <p style={{ fontFamily: "var(--font-mono)", fontSize: "11px", letterSpacing: "0.06em", color: "#aaaaaa" }}>
             Loading your lists…
@@ -526,40 +536,71 @@ export default function ProfileListsTab({ initialLists, username }: Props) {
                       </div>
                     </div>
 
-                    {wantlistSlots.map(slot => {
-                      const monthsOld = slot.created_at
-                        ? Math.floor((Date.now() - new Date(slot.created_at).getTime()) / (1000 * 60 * 60 * 24 * 30))
-                        : null;
-                      const showSomedayPrompt =
-                        slot.priority === "someday" &&
-                        monthsOld !== null && monthsOld >= 6 &&
-                        !keptSomeday.has(slot.position);
-                      return (
-                        <WantlistCard
-                          key={slot.position}
-                          slot={slot}
-                          monthsOld={monthsOld}
-                          showSomedayPrompt={showSomedayPrompt}
-                          onRemove={() => handleRemoveItem(selectedList.id, slot.position)}
-                          onKeepSomeday={() => setKeptSomeday(prev => new Set([...prev, slot.position]))}
-                          onUpdateMeta={updates => handleUpdateWantlistItemMeta(selectedList.id, slot.position, updates)}
-                        />
-                      );
-                    })}
+                    <div style={activeDrawer && !isMobile
+                      ? { display: "grid", gridTemplateColumns: "1fr 280px", gap: "20px", alignItems: "start" }
+                      : {}
+                    }>
+                      <div>
+                        {wantlistSlots.map(slot => {
+                          const monthsOld = slot.created_at
+                            ? Math.floor((Date.now() - new Date(slot.created_at).getTime()) / (1000 * 60 * 60 * 24 * 30))
+                            : null;
+                          const showSomedayPrompt =
+                            slot.priority === "someday" &&
+                            monthsOld !== null && monthsOld >= 6 &&
+                            !keptSomeday.has(slot.position);
+                          return (
+                            <WantlistCard
+                              key={slot.position}
+                              slot={slot}
+                              monthsOld={monthsOld}
+                              showSomedayPrompt={showSomedayPrompt}
+                              onRemove={() => handleRemoveItem(selectedList.id, slot.position)}
+                              onKeepSomeday={() => setKeptSomeday(prev => new Set([...prev, slot.position]))}
+                              onUpdateMeta={updates => handleUpdateWantlistItemMeta(selectedList.id, slot.position, updates)}
+                              onOpenDrawer={() => setActiveDrawer({ artist: slot.item!.artist, album: slot.item!.song_title ?? slot.item!.album })}
+                            />
+                          );
+                        })}
 
-                    {selectedList.slots.filter(s => s.item).length === 0 && (
-                      <div style={{ margin: "32px 0 24px" }}>
-                        <p style={{ fontFamily: SERIF, fontSize: "14px", color: "#aaaaaa", lineHeight: 1.7, marginBottom: "10px" }}>
-                          Your Wantlist is empty. Every record you&apos;ve almost bought, nearly found, or need to own belongs here.
-                        </p>
-                        <a href="/dig" style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.1em", textTransform: "uppercase", color: ORANGE, textDecoration: "none" }}>
-                          Dig for records →
-                        </a>
+                        {selectedList.slots.filter(s => s.item).length === 0 && (
+                          <div style={{ margin: "32px 0 24px" }}>
+                            <p style={{ fontFamily: SERIF, fontSize: "14px", color: "#aaaaaa", lineHeight: 1.7, marginBottom: "10px" }}>
+                              Your Wantlist is empty. Every record you&apos;ve almost bought, nearly found, or need to own belongs here.
+                            </p>
+                            <a href="/dig" style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.1em", textTransform: "uppercase", color: ORANGE, textDecoration: "none" }}>
+                              Dig for records →
+                            </a>
+                          </div>
+                        )}
+
+                        {selectedList.slots.length < 20 && (
+                          <AddRecordButton onClick={() => openPicker({ listId: selectedList.id, strategy: "append" })} />
+                        )}
                       </div>
-                    )}
 
-                    {selectedList.slots.length < 20 && (
-                      <AddRecordButton onClick={() => openPicker({ listId: selectedList.id, strategy: "append" })} />
+                      {/* Desktop inline drawer column */}
+                      {activeDrawer && !isMobile && (
+                        <div style={{ position: "sticky", top: "80px" }}>
+                          <MarketplaceDrawer
+                            inline
+                            isOpen={true}
+                            onClose={() => setActiveDrawer(null)}
+                            artist={activeDrawer.artist}
+                            album={activeDrawer.album}
+                          />
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Mobile bottom sheet */}
+                    {activeDrawer && isMobile && (
+                      <MarketplaceDrawer
+                        isOpen={true}
+                        onClose={() => setActiveDrawer(null)}
+                        artist={activeDrawer.artist}
+                        album={activeDrawer.album}
+                      />
                     )}
                   </>
                 ) : (
@@ -946,25 +987,27 @@ function AddRecordButton({ onClick }: { onClick: () => void }) {
 type MemberRow = { username: string; avatar_url: string | null };
 
 function MarketplaceDrawer({
-  isOpen, onClose, artist, album,
+  isOpen, onClose, artist, album, inline = false,
 }: {
   isOpen: boolean;
   onClose: () => void;
   artist: string;
   album: string;
+  inline?: boolean;
 }) {
-  const [isMobile,     setIsMobile]     = useState(false);
-  const [members,      setMembers]      = useState<MemberRow[]>([]);
-  const [membersPhase, setMembersPhase] = useState<"idle" | "loading" | "done">("idle");
-  const [confirming,   setConfirming]   = useState(false);
-  const [interestSent, setInterestSent] = useState(false);
+  const [isMobileSheet, setIsMobileSheet] = useState(false);
+  const [members,        setMembers]      = useState<MemberRow[]>([]);
+  const [membersPhase,   setMembersPhase] = useState<"idle" | "loading" | "done">("idle");
+  const [confirming,     setConfirming]   = useState(false);
+  const [interestSent,   setInterestSent] = useState(false);
 
   useEffect(() => {
-    const check = () => setIsMobile(window.innerWidth < 768);
+    if (inline) return;
+    const check = () => setIsMobileSheet(window.innerWidth < 768);
     check();
     window.addEventListener("resize", check);
     return () => window.removeEventListener("resize", check);
-  }, []);
+  }, [inline]);
 
   useEffect(() => {
     if (!isOpen) {
@@ -1039,13 +1082,18 @@ function MarketplaceDrawer({
     fontFamily: MONO, fontSize: "0.6rem", letterSpacing: "0.14em",
     textTransform: "uppercase", color: ORANGE, margin: "0 0 10px",
   };
-  const drawerStyle: React.CSSProperties = isMobile
+
+  const inlineStyle: React.CSSProperties = {
+    background: "#FDF6F0", border: "1px solid #e0e0da", overflowY: "auto",
+  };
+  const sheetStyle: React.CSSProperties = isMobileSheet
     ? { position: "fixed", bottom: 0, left: 0, right: 0, maxHeight: "72vh", overflowY: "auto", background: "#FDF6F0", borderTop: "1px solid #e0e0da", zIndex: 200 }
     : { position: "fixed", right: 0, top: 0, bottom: 0, width: "380px", overflowY: "auto", background: "#FDF6F0", borderLeft: "1px solid #e0e0da", zIndex: 200 };
+  const drawerStyle = inline ? inlineStyle : sheetStyle;
 
   return (
     <>
-      {isMobile && (
+      {!inline && isMobileSheet && (
         <div onClick={onClose} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.3)", zIndex: 199 }} />
       )}
       <div style={drawerStyle}>
@@ -1136,22 +1184,22 @@ type WantlistMeta = {
   found?: boolean | null;
 };
 
-function WantlistCard({ slot, monthsOld, showSomedayPrompt, onRemove, onKeepSomeday, onUpdateMeta }: {
+function WantlistCard({ slot, monthsOld, showSomedayPrompt, onRemove, onKeepSomeday, onUpdateMeta, onOpenDrawer }: {
   slot: ListSlot;
   monthsOld: number | null;
   showSomedayPrompt: boolean;
   onRemove: () => void;
   onKeepSomeday: () => void;
   onUpdateMeta: (updates: WantlistMeta) => void;
+  onOpenDrawer: () => void;
 }) {
   const { item } = slot;
   if (!item) return null;
 
-  const [hovered,    setHovered]    = useState(false);
-  const [coverUrl,   setCoverUrl]   = useState<string | null>(item.cover_url ?? null);
-  const [noteOpen,   setNoteOpen]   = useState(false);
-  const [noteDraft,  setNoteDraft]  = useState(slot.note ?? "");
-  const [drawerOpen, setDrawerOpen] = useState(false);
+  const [hovered,   setHovered]   = useState(false);
+  const [coverUrl,  setCoverUrl]  = useState<string | null>(item.cover_url ?? null);
+  const [noteOpen,  setNoteOpen]  = useState(false);
+  const [noteDraft, setNoteDraft] = useState(slot.note ?? "");
 
   useEffect(() => {
     if (coverUrl) return;
@@ -1178,7 +1226,6 @@ function WantlistCard({ slot, monthsOld, showSomedayPrompt, onRemove, onKeepSome
     : null;
 
   return (
-    <>
     <div
       style={{
         border: "1px solid rgba(0,0,0,0.07)", padding: "10px 12px",
@@ -1243,7 +1290,7 @@ function WantlistCard({ slot, monthsOld, showSomedayPrompt, onRemove, onKeepSome
           </p>
           {/* Find It button — opens marketplace drawer */}
           <button
-            onClick={() => setDrawerOpen(true)}
+            onClick={onOpenDrawer}
             style={{ fontFamily: MONO, fontSize: "10px", letterSpacing: "0.05em", color: hovered ? "#a34400" : ORANGE, background: "none", border: "none", cursor: "pointer", padding: 0, transition: "color 0.15s", textAlign: "left" }}
           >
             Find It ↗
@@ -1307,13 +1354,6 @@ function WantlistCard({ slot, monthsOld, showSomedayPrompt, onRemove, onKeepSome
         ) : null}
       </div>
     </div>
-    <MarketplaceDrawer
-      isOpen={drawerOpen}
-      onClose={() => setDrawerOpen(false)}
-      artist={item.artist}
-      album={item.song_title ?? item.album}
-    />
-    </>
   );
 }
 
