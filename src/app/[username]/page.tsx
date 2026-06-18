@@ -383,14 +383,9 @@ export default async function PublicProfilePage({ params }: { params: Params }) 
       topGenre={topGenre}
       topCountry={topCountry}
       topLabel={topLabel}
-      lists={lists}
-      listItems={allItems}
-      coverRecords={coverRecords ?? []}
       followerCount={followerCount}
       followingCount={followingCount}
       viewer={viewerNav}
-      fullLists={fullLists ?? undefined}
-      discoverLists={discoverLists}
       bcSyncTotal={bcSyncTotal}
       bcSyncDuplicates={bcSyncDuplicates}
       bcSyncDate={bcSyncDate}

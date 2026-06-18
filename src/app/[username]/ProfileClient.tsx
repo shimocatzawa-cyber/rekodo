@@ -2,22 +2,14 @@
 
 import { useRef, useState, useTransition, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 import { COUNTRIES } from "@/lib/countries";
 import { STAR_SIGNS } from "@/lib/starSigns";
 import { saveAvatarUrl, saveDisplayName, saveProfileSettings } from "@/app/settings/profile/actions";
 import { generateTasteSummary } from "./actions";
 import AppNav from "@/components/AppNav";
-import ProfileListsTab from "@/components/profile/ProfileListsTab";
 import CollectionPhotos from "@/app/p/[username]/CollectionPhotos";
-import Top5Editor, { type EditorSlot } from "@/components/profile/Top5Editor";
-import { createList, deleteList } from "@/app/lists/actions";
-import WantlistClient from "@/components/wantlist/WantlistClient";
-import CommunityTab from "@/components/community/CommunityTab";
-import SellListClient from "@/components/profile/SellListClient";
 import LunarListeningRitual from "@/components/LunarListeningRitual";
-import type { UserList, DiscoverList } from "@/app/lists/types";
 
 const SERIF  = "var(--font-editorial)";
 const MONO   = "var(--font-mono)";
@@ -62,30 +54,6 @@ export interface ProfileData {
   spotify_product: string | null;
 }
 
-export interface ListRow {
-  id: string;
-  title: string;
-  slug: string;
-  list_type: string;
-}
-
-export interface ListItemRow {
-  list_id: string;
-  position: number;
-  item_type: string;
-  record_id: string | null;
-  song_cover_url: string | null;
-  song_artist: string | null;
-  song_album: string | null;
-}
-
-export interface CoverRecord {
-  id: string;
-  cover_url: string | null;
-  artist: string | null;
-  album: string | null;
-}
-
 interface Props {
   profile:     ProfileData;
   isOwner:     boolean;
@@ -94,111 +62,25 @@ interface Props {
   topGenre: string | null;
   topCountry: string | null;
   topLabel: string | null;
-  lists: ListRow[];
-  listItems: ListItemRow[];
-  coverRecords: CoverRecord[];
   followerCount: number;
   followingCount: number;
   viewer?: { username: string; displayName: string | null; avatarUrl: string | null } | null;
-  fullLists?: UserList[];
-  discoverLists?: DiscoverList[];
   collectionPhoto?: string | null;
   bcSyncTotal?: number;
   bcSyncDuplicates?: number;
   bcSyncDate?: string | null;
 }
 
-type ProfileTab = "profile" | "lists" | "sell" | "community";
-
 // ─── Main component ───────────────────────────────────────────────────────────
 
 export default function ProfileClient({
   profile, isOwner, isSupporter, totalRecords, topGenre, topCountry, topLabel,
-  lists, listItems, coverRecords, followerCount, followingCount, viewer,
-  fullLists, collectionPhoto = null,
+  followerCount, followingCount, viewer,
+  collectionPhoto = null,
   bcSyncTotal = 0, bcSyncDuplicates = 0, bcSyncDate = null,
 }: Props) {
   const router       = useRouter();
   const searchParams = useSearchParams();
-
-  // ── Tab state ─────────────────────────────────────────────────────────────
-  const [profileTab, setProfileTab] = useState<ProfileTab>(() => {
-    const p = searchParams.get("tab");
-    if (p === "lists" && isOwner) return "lists";
-    if (p === "sell") return "sell";
-    if (p === "community") return "community";
-    return "profile";
-  });
-  // ── Top 5 editor ─────────────────────────────────────────────────────────
-  type EditorModal =
-    | null
-    | { step: "template"; customMode: boolean; customTitle: string }
-    | { step: "editor";   listId: string; listTitle: string; slots: EditorSlot[] };
-
-  const [editorModal,    setEditorModal]    = useState<EditorModal>(null);
-  const [creatingList,   startCreatingList] = useTransition();
-
-  const TOP5_TEMPLATES = [
-    "Top 5 All Time",
-    "Top 5 Desert Island Records",
-    "Top 5 Break Up Records",
-    "Top 5 Make Up Records",
-    "Top 5 Sunday Morning Records",
-    "Top 5 Saturday Night Records",
-    "Top 5 Records That Changed My Life",
-    "Top 5 Gateway Records",
-    "Top 5 Most Played",
-    "Top 5 Hidden Gems",
-  ] as const;
-
-  function openCreate() {
-    setEditorModal({ step: "template", customMode: false, customTitle: "" });
-  }
-
-  function handlePickTemplate(title: string) {
-    startCreatingList(async () => {
-      const res = await createList(title, "top5");
-      if (res && "success" in res && res.success && res.list) {
-        setEditorModal({ step: "editor", listId: res.list.id, listTitle: res.list.title, slots: [] });
-      }
-    });
-  }
-
-  function handleCustomCreate() {
-    if (editorModal?.step !== "template") return;
-    const raw = editorModal.customTitle.trim();
-    if (!raw) return;
-    const title = raw.replace(/^top\s+5\s+/i, "");
-    handlePickTemplate(`Top 5 ${title}`);
-  }
-
-  function openListEdit(listId: string, listTitle: string) {
-    const items = itemsByList.get(listId) ?? [];
-    const slots: EditorSlot[] = Array.from({ length: 5 }, (_, i) => {
-      const pos  = i + 1;
-      const item = items.find(it => it.position === pos);
-      const rec  = item?.record_id ? coverById.get(item.record_id) : undefined;
-      return {
-        position: pos,
-        recordId: item?.record_id ?? null,
-        coverUrl: item?.item_type === "song" ? item.song_cover_url : (rec?.cover_url ?? null),
-        artist:   item?.item_type === "song" ? item.song_artist   : (rec?.artist    ?? null),
-        album:    item?.item_type === "song" ? item.song_album    : (rec?.album     ?? null),
-      };
-    });
-    setEditorModal({ step: "editor", listId, listTitle, slots });
-  }
-
-  async function handleDeleteList(listId: string, listTitle: string) {
-    if (!confirm(`Delete "${listTitle}"? This cannot be undone.`)) return;
-    await deleteList(listId);
-    router.refresh();
-  }
-
-  function handleEditorClose() {
-    setEditorModal(null);
-    router.refresh();
-  }
 
   // ── Avatar ────────────────────────────────────────────────────────────────
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -293,9 +175,6 @@ export default function ProfileClient({
       .catch(() => {});
   }, [profile.taste_summary]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // ── Share ─────────────────────────────────────────────────────────────────
-  const [copied, setCopied] = useState(false);
-
   // ── Helpers ───────────────────────────────────────────────────────────────
   function openEdit() {
     setNameValue(profile.display_name     ?? "");
@@ -378,19 +257,6 @@ export default function ProfileClient({
     });
   }
 
-  function handleShare() {
-    try {
-      navigator.clipboard.writeText(`${window.location.origin}/@${profile.username}`);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
-    } catch { /* non-fatal */ }
-  }
-
-  // ── List data (for Profile tab cover grid) ────────────────────────────────
-  const coverById   = new Map(coverRecords.map(r => [r.id, r]));
-  const itemsByList = new Map<string, ListItemRow[]>(lists.map(l => [l.id, []]));
-  for (const item of listItems) itemsByList.get(item.list_id)?.push(item);
-
   const displayName    = nameValue || profile.username;
   const displayInitial = displayName.charAt(0).toUpperCase();
 
@@ -412,13 +278,6 @@ export default function ProfileClient({
     textTransform: "uppercase", color: ORANGE, margin: "0 0 20px 0",
   };
 
-  const tabItems: Array<{ key: ProfileTab; label: string }> = [
-    { key: "profile",   label: "Profile" },
-    ...(isOwner ? [{ key: "lists" as ProfileTab, label: "Want List" }] : []),
-    { key: "sell",      label: "Sell List" },
-    { key: "community", label: "Community" },
-  ];
-
   return (
     <div style={{ minHeight: "100vh", background: "#ffffff", display: "flex", flexDirection: "column" }}>
 
@@ -431,33 +290,9 @@ export default function ProfileClient({
         />
       )}
 
-      {/* ── Tab bar ── */}
-      <div className="rk-profile-tabs" style={{ display: "flex", justifyContent: "center", gap: "24px", paddingTop: "14px", paddingBottom: "2px", background: "#ffffff" }}>
-        {tabItems.map(({ key, label }) => (
-          <button
-            key={key}
-            onClick={() => {
-              setProfileTab(key);
-              const qs = key === "profile" ? "" : `?tab=${key}`;
-              router.replace(qs || window.location.pathname, { scroll: false });
-            }}
-            style={{
-              fontFamily: MONO, fontSize: "10px", letterSpacing: "0.1em",
-              textTransform: "uppercase", background: "none", border: "none",
-              borderBottom: `1.5px solid ${profileTab === key ? ORANGE : "transparent"}`,
-              padding: "6px 0",
-              color: profileTab === key ? INK : "#bbbbbb",
-              cursor: "pointer", display: "inline-block",
-            }}
-          >
-            {label}
-          </button>
-        ))}
-      </div>
 
-      {/* ─────────────── PROFILE TAB ─────────────────────────────────────────── */}
-      {profileTab === "profile" && (
-        <main className="rk-profile-main" style={{ padding: "3rem 3.5rem", maxWidth: 860, margin: "0 auto", minWidth: 0, width: "100%" }}>
+      {/* ─────────────── PROFILE ────────────────────────────────────────────── */}
+      <main className="rk-profile-main" style={{ padding: "3rem 3.5rem", maxWidth: 860, margin: "0 auto", minWidth: 0, width: "100%" }}>
 
           {/* Identity block */}
           <div style={{ marginBottom: "32px" }}>
@@ -501,14 +336,11 @@ export default function ProfileClient({
                 )
               )}
 
-              {/* Edit / Share — owner only, not while editing */}
+              {/* Edit — owner only, not while editing */}
               {isOwner && !editing && (
                 <div style={{ display: "flex", flexDirection: "column", gap: "8px", alignItems: "flex-end", flexShrink: 0 }}>
                   <button onClick={openEdit} style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.1em", textTransform: "uppercase", color: INK, background: "none", border: "none", cursor: "pointer", padding: 0 }}>
                     Edit profile
-                  </button>
-                  <button onClick={handleShare} style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.1em", textTransform: "uppercase", color: copied ? MUTED : ORANGE, background: "none", border: "none", cursor: "pointer", padding: 0 }}>
-                    {copied ? "Copied ✓" : "Share profile ↗"}
                   </button>
                 </div>
               )}
@@ -840,99 +672,6 @@ export default function ProfileClient({
           {/* Divider */}
           <div style={{ height: 1, background: RULE, marginBottom: "32px" }} />
 
-          {/* ── Lists section ── */}
-          <section style={{ marginBottom: "48px" }}>
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "20px" }}>
-              <p style={eyebrowSt}>Lists</p>
-              {isOwner && (
-                <button
-                  onClick={openCreate}
-                  style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.1em", textTransform: "uppercase", color: ORANGE, background: "none", border: `1px solid ${ORANGE}`, borderRadius: "3px", cursor: "pointer", padding: "4px 10px", whiteSpace: "nowrap" }}
-                >
-                  + New Top 5
-                </button>
-              )}
-            </div>
-
-            {lists.length > 0 ? (
-              <div style={{ display: "flex", flexDirection: "column", gap: "48px" }}>
-                {lists.map(list => {
-                  const items    = itemsByList.get(list.id) ?? [];
-                  const maxSlots = list.list_type === "top5" ? 5 : Math.max(items.length, 1);
-                  return (
-                    <div key={list.id}>
-                      <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", marginBottom: "16px" }}>
-                        <Link href={`/@${profile.username}/${list.slug}`} style={{ textDecoration: "none" }}>
-                          <h2 style={{ fontFamily: SERIF, fontSize: "20px", fontWeight: 400, color: INK, margin: 0, lineHeight: 1.2 }}>
-                            {list.title}
-                          </h2>
-                        </Link>
-                        {isOwner && (
-                          <div style={{ display: "flex", alignItems: "center", gap: "16px", flexShrink: 0, marginLeft: "16px" }}>
-                            <button
-                              onClick={() => openListEdit(list.id, list.title)}
-                              style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.1em", textTransform: "uppercase", color: ORANGE, background: "none", border: "none", cursor: "pointer", padding: 0 }}
-                            >
-                              Edit →
-                            </button>
-                            <button
-                              onClick={() => handleDeleteList(list.id, list.title)}
-                              style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.1em", textTransform: "uppercase", color: "#cccccc", background: "none", border: "none", cursor: "pointer", padding: 0 }}
-                            >
-                              Delete
-                            </button>
-                          </div>
-                        )}
-                      </div>
-                      <div className="rk-profile-lists-grid" style={{ display: "grid", gridTemplateColumns: `repeat(${Math.min(maxSlots, 5)}, 1fr)`, gap: "10px" }}>
-                        {Array.from({ length: maxSlots }, (_, i) => {
-                          const pos      = i + 1;
-                          const item     = items.find(it => it.position === pos);
-                          const rec      = item?.record_id ? coverById.get(item.record_id) : undefined;
-                          const coverUrl = item?.item_type === "song" ? item.song_cover_url : (rec?.cover_url ?? null);
-                          return (
-                            <div key={pos} style={{ minWidth: 0 }}>
-                              <div style={{ position: "relative", overflow: "hidden", lineHeight: 0 }}>
-                                {coverUrl ? (
-                                  // eslint-disable-next-line @next/next/no-img-element
-                                  <img src={coverUrl} alt={item?.song_album ?? rec?.album ?? ""} style={{ display: "block", width: "100%", aspectRatio: "1/1", objectFit: "cover", minWidth: 0 }} />
-                                ) : (
-                                  <div style={{ width: "100%", aspectRatio: "1/1", background: "#f4f4f4", border: "1px dashed rgba(0,0,0,0.10)", display: "flex", alignItems: "center", justifyContent: "center" }}>
-                                    <span style={{ fontFamily: SERIF, fontSize: "18px", color: "#d8d8d8", lineHeight: 1 }}>—</span>
-                                  </div>
-                                )}
-                                <span style={{ position: "absolute", top: "7px", left: "7px", fontFamily: MONO, fontSize: "9px", letterSpacing: "0.06em", color: coverUrl ? "rgba(255,255,255,0.75)" : "#cccccc", textShadow: coverUrl ? "0 1px 3px rgba(0,0,0,0.5)" : "none", lineHeight: 1 }}>
-                                  {pos}
-                                </span>
-                              </div>
-                              {item && (
-                                <div style={{ marginTop: "8px" }}>
-                                  <p style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.06em", textTransform: "uppercase", color: MUTED, margin: "0 0 3px 0", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                                    {item.item_type === "song" ? item.song_artist : rec?.artist}
-                                  </p>
-                                  <p style={{ fontFamily: SERIF, fontSize: "12px", color: INK, lineHeight: 1.3, margin: 0, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}>
-                                    {item.item_type === "song" ? item.song_album : rec?.album}
-                                  </p>
-                                </div>
-                              )}
-                            </div>
-                          );
-                        })}
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            ) : isOwner ? (
-              <p style={{ fontFamily: MONO, fontSize: "0.65rem", letterSpacing: "0.04em", color: MUTED, margin: 0 }}>
-                No public lists yet.{" "}
-                <button onClick={openCreate} style={{ fontFamily: MONO, fontSize: "0.65rem", letterSpacing: "0.04em", color: ORANGE, background: "none", border: "none", cursor: "pointer", padding: 0 }}>
-                  Create one →
-                </button>
-              </p>
-            ) : null}
-          </section>
-
           {/* ── Collection photo ── */}
           <div style={{ marginBottom: "48px" }}>
             <CollectionPhotos
@@ -943,114 +682,6 @@ export default function ProfileClient({
           </div>
 
         </main>
-      )}
-
-      {/* ─────────────── WANTLIST TAB ────────────────────────────────────────── */}
-      {profileTab === "lists" && (
-        <>
-          <div style={{ maxWidth: 680, margin: "0 auto", padding: "2rem 1.5rem 0" }}>
-            <WantlistClient
-              isOwner={isOwner}
-              isSupporter={isSupporter}
-              userId={isOwner ? profile.id : null}
-              embedded
-            />
-          </div>
-          {isOwner && (
-            <ProfileListsTab
-              initialLists={fullLists ?? []}
-              username={profile.username}
-            />
-          )}
-        </>
-      )}
-
-      {/* ─────────────── SELL LIST TAB ───────────────────────────────────────── */}
-      {profileTab === "sell" && (
-        <SellListClient profileOwnerId={profile.id} isOwner={isOwner} />
-      )}
-
-      {/* ─────────────── COMMUNITY TAB ───────────────────────────────────────── */}
-      {profileTab === "community" && (
-        <CommunityTab profileOwnerId={profile.id} />
-      )}
-
-      {/* ── Template picker modal ── */}
-      {editorModal?.step === "template" && (
-        <div
-          style={{ position: "fixed", inset: 0, zIndex: 100, background: "rgba(255,255,255,0.92)", backdropFilter: "blur(6px)", display: "flex", alignItems: "center", justifyContent: "center", padding: "24px" }}
-          onClick={e => { if (e.target === e.currentTarget) setEditorModal(null); }}
-        >
-          <div style={{ background: "#fff", border: "1px solid rgba(0,0,0,0.1)", width: "100%", maxWidth: "660px", padding: "40px" }}>
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "28px" }}>
-              <div>
-                <p style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.14em", textTransform: "uppercase", color: "#aaaaaa", marginBottom: "6px" }}>New list</p>
-                <p style={{ fontFamily: SERIF, fontSize: "18px", color: INK, margin: 0 }}>Top 5 list</p>
-              </div>
-              <button onClick={() => setEditorModal(null)} style={{ fontFamily: MONO, fontSize: "18px", color: "#aaaaaa", background: "none", border: "none", cursor: "pointer", lineHeight: 1 }}>×</button>
-            </div>
-
-            {!editorModal.customMode ? (
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(160px, 1fr))", gap: "10px" }}>
-                {TOP5_TEMPLATES.map(title => (
-                  <button key={title} disabled={creatingList}
-                    onClick={() => handlePickTemplate(title)}
-                    style={{ textAlign: "left", padding: "16px 14px", background: "#fff", border: "1px solid rgba(0,0,0,0.1)", cursor: creatingList ? "wait" : "pointer" }}
-                    onMouseEnter={e => { if (!creatingList) (e.currentTarget as HTMLButtonElement).style.borderColor = ORANGE; }}
-                    onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = "rgba(0,0,0,0.1)"; }}
-                  >
-                    <p style={{ fontFamily: SERIF, fontSize: "13px", color: INK, lineHeight: 1.35, margin: 0 }}>{title}</p>
-                  </button>
-                ))}
-                <button disabled={creatingList}
-                  onClick={() => setEditorModal({ ...editorModal, customMode: true })}
-                  style={{ textAlign: "left", padding: "16px 14px", background: "#fff", border: "1px solid rgba(0,0,0,0.1)", cursor: "pointer" }}
-                  onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = ORANGE; }}
-                  onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = "rgba(0,0,0,0.1)"; }}
-                >
-                  <p style={{ fontFamily: SERIF, fontSize: "13px", color: INK, lineHeight: 1.35, margin: 0 }}>+ Custom</p>
-                </button>
-              </div>
-            ) : (
-              <form onSubmit={e => { e.preventDefault(); handleCustomCreate(); }} style={{ display: "flex", alignItems: "center", gap: "16px" }}>
-                <div style={{ flex: 1, display: "flex", alignItems: "baseline", borderBottom: "1px solid rgba(0,0,0,0.2)", paddingBottom: "6px" }}>
-                  <span style={{ fontFamily: SERIF, fontSize: "20px", color: "#cccccc", whiteSpace: "nowrap", userSelect: "none" }}>Top 5 </span>
-                  <input
-                    autoFocus type="text"
-                    value={editorModal.customTitle}
-                    onChange={e => setEditorModal({ ...editorModal, customTitle: e.target.value })}
-                    placeholder="Rainy Day Records…"
-                    maxLength={60}
-                    style={{ flex: 1, outline: "none", fontFamily: SERIF, fontSize: "20px", color: INK, background: "transparent", border: "none" }}
-                  />
-                </div>
-                <button type="submit" disabled={!editorModal.customTitle.trim() || creatingList}
-                  style={{ fontFamily: MONO, fontSize: "10px", letterSpacing: "0.1em", textTransform: "uppercase", color: editorModal.customTitle.trim() ? ORANGE : "#cccccc", background: "none", border: "none", cursor: "pointer", padding: 0 }}>
-                  {creatingList ? "Creating…" : "Create →"}
-                </button>
-                <button type="button" onClick={() => setEditorModal({ ...editorModal, customMode: false })}
-                  style={{ fontFamily: MONO, fontSize: "10px", letterSpacing: "0.1em", textTransform: "uppercase", color: "#aaaaaa", background: "none", border: "none", cursor: "pointer", padding: 0 }}>
-                  ← Back
-                </button>
-              </form>
-            )}
-
-            {creatingList && (
-              <p style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.1em", textTransform: "uppercase", color: "#aaaaaa", marginTop: "20px" }}>Creating…</p>
-            )}
-          </div>
-        </div>
-      )}
-
-      {/* ── Top 5 editor overlay ── */}
-      {editorModal?.step === "editor" && (
-        <Top5Editor
-          listId={editorModal.listId}
-          listTitle={editorModal.listTitle}
-          initialSlots={editorModal.slots}
-          onClose={handleEditorClose}
-        />
-      )}
 
     </div>
   );

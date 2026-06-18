@@ -14,6 +14,7 @@ const NAV_ITEMS = [
   { href: "/collection", label: "Collection", jp: "コレクション" },
   { href: "/dig",        label: "Dig",        jp: "発掘" },
   { href: "/deep-dive",  label: "Deep Dive",  jp: "ディープダイブ" },
+  { href: "/lists",      label: "Lists",      jp: "リスト" },
   { href: "/selects",    label: "Selects",    jp: "選集" },
   { href: "/insights",   label: "Insights",   jp: "インサイト" },
   { href: "/archetypes", label: "Archetypes", jp: "アーキタイプ" },

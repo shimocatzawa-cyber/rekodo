@@ -201,9 +201,6 @@ export default async function PublicProfilePage({ params }: { params: Params }) 
       topGenre={topGenre}
       topCountry={topCountry}
       topLabel={topLabel}
-      lists={lists}
-      listItems={allItems}
-      coverRecords={coverRecords ?? []}
       followerCount={followerCount}
       followingCount={followingCount}
       viewer={viewerInfo}
