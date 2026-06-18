@@ -335,14 +335,23 @@ export function SpotifyPlayerProvider({ children }: { children: React.ReactNode 
 
   // ── Reset transient UI state only when the active album/track actually changes ──
   // (not on every SpotifyPlayer UI mount/unmount as pages are navigated to/from).
+  // Key must use "" (not null) as the "nothing loaded" sentinel so that two
+  // consecutive "no source" states don't collapse into the same null key and
+  // skip the reset — see setActiveSource which uses the same key formula.
   useEffect(() => {
-    const key = source?.mode === "collection" ? (source.spotifyUri ?? null) : (source?.albumUri ?? source?.spotifyTrackUri ?? null);
+    const key = source
+      ? (source.mode === "collection"
+          ? (source.spotifyUri ?? "")
+          : (source.albumUri ?? source.spotifyTrackUri ?? source.previewUrl ?? ""))
+      : "";
     if (key === sourceKeyRef.current) return;
     sourceKeyRef.current = key;
     setCurrentTrack(null);
     setPosition(0);
+    setDuration(0);
     setPlaying(false);
     setPlayError(null);
+    nearEndRef.current = false;
   }, [source]);
 
   // ── Keep SDK alive across tab switches ────────────────────────────────────
@@ -472,6 +481,31 @@ export function SpotifyPlayerProvider({ children }: { children: React.ReactNode 
   }, []);
 
   const setActiveSource = useCallback((next: ActiveSource) => {
+    // Compute the canonical key for the incoming source so we can detect a
+    // real album/track change vs. a metadata-only update.
+    const nextKey = next.mode === "collection"
+      ? (next.spotifyUri ?? "")
+      : (next.albumUri ?? next.spotifyTrackUri ?? next.previewUrl ?? "");
+
+    const prevKey = sourceKeyRef.current;
+
+    // Only stop active playback when the track/album actually changes.
+    // A key of "" means "nothing to play yet" — treat any "" → "" transition as
+    // a no-op so we don't thrash when the source object is re-created with the
+    // same empty values.
+    if (nextKey !== prevKey) {
+      // Stop the SDK player so Spotify doesn't keep queuing the old album.
+      if (playerRef.current) {
+        playerRef.current.getCurrentState()
+          .then(state => { if (state && !state.paused) playerRef.current?.togglePlay().catch(() => {}); })
+          .catch(() => {});
+      }
+      // Pause the preview audio element immediately.
+      if (audioRef.current) {
+        audioRef.current.pause();
+      }
+    }
+
     sourceRef.current = next;
     setSource(next);
   }, []);
