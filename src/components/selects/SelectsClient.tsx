@@ -28,6 +28,8 @@ type LabelFeedItem = {
   description: string | null;
   tags: string[] | null;
   buy_url: string | null;
+  price: string | null;
+  release_date: string | null;
   created_at: string | null;
 };
 
@@ -93,6 +95,14 @@ function ReleaseRow({ item }: { item: LabelFeedItem }) {
         {(item.label || item.format) && (
           <p style={{ fontFamily: MONO, fontSize: "0.6rem", letterSpacing: "0.08em", textTransform: "uppercase", color: INK, margin: "0 0 3px 0" }}>
             {[item.label, item.format].filter(Boolean).join(" · ")}
+          </p>
+        )}
+        {(item.release_date || item.price) && (
+          <p style={{ fontFamily: MONO, fontSize: "0.6rem", letterSpacing: "0.06em", color: "#888", margin: "0 0 3px 0" }}>
+            {[
+              item.release_date ? new Date(item.release_date).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" }) : null,
+              item.price,
+            ].filter(Boolean).join(" · ")}
           </p>
         )}
         {item.tags && item.tags.length > 0 && (
