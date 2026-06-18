@@ -23,6 +23,8 @@ interface CardProps {
   slots:    ListSlot[];
   username: string;
   covers:   Covers;
+  /** When true, renders cover slots as plain gray divs (for capture) */
+  forExport?: boolean;
 }
 interface Props {
   onClose:  () => void;
@@ -59,39 +61,10 @@ async function loadCovers(slots: ListSlot[]): Promise<Covers> {
   return Object.fromEntries(entries);
 }
 
-// Cover art rendered as a <canvas> — html-to-image captures canvas via toDataURL(),
-// bypassing its CSS background-image parser which can drop long data URLs.
-function CoverCanvas({ src, size }: { src: string | null; size: number }) {
-  const ref = useRef<HTMLCanvasElement>(null);
-
-  useEffect(() => {
-    const canvas = ref.current;
-    if (!canvas) return;
-    const ctx = canvas.getContext("2d");
-    if (!ctx) return;
-    ctx.fillStyle = "#e5e2dc";
-    ctx.fillRect(0, 0, size, size);
-    if (src) {
-      const img = new Image();
-      img.onload = () => ctx.drawImage(img, 0, 0, size, size);
-      img.src = src;
-    }
-  }, [src, size]);
-
-  return (
-    <canvas
-      ref={ref}
-      width={size}
-      height={size}
-      style={{ display: "block", flexShrink: 0 }}
-    />
-  );
-}
-
 // ── Portrait card ─────────────────────────────────────────────────────────
 // DOM: 540×675  →  export: 1080×1350 (pixelRatio 2)
 
-function PortraitCard({ title, slots, username, covers }: CardProps) {
+function PortraitCard({ title, slots, username, covers, forExport }: CardProps) {
   const ART = 80;
 
   return (
@@ -108,10 +81,10 @@ function PortraitCard({ title, slots, username, covers }: CardProps) {
           {title}
         </span>
         <div style={{ flexShrink: 0, marginLeft: 12, textAlign: "right", paddingTop: 3 }}>
-          <div style={{ fontFamily: SERIF, fontSize: 13, fontWeight: 600, color: INK, lineHeight: 1, marginBottom: 4 }}>
+          <div style={{ fontFamily: SERIF, fontSize: 16, fontWeight: 600, color: INK, lineHeight: 1, marginBottom: 5 }}>
             rek<span style={{ color: ORANGE }}>ō</span>do
           </div>
-          <div style={{ fontFamily: MONO, fontSize: 8, color: MUTED, letterSpacing: "0.08em" }}>
+          <div style={{ fontFamily: MONO, fontSize: 10, color: MUTED, letterSpacing: "0.08em" }}>
             rekodo.co
           </div>
         </div>
@@ -121,12 +94,26 @@ function PortraitCard({ title, slots, username, covers }: CardProps) {
       <div style={{ flex: 1, display: "flex", flexDirection: "column", justifyContent: "space-around" }}>
         {[1, 2, 3, 4, 5].map(pos => {
           const item = slots.find(s => s.position === pos)?.item ?? null;
+          const src  = covers[pos] ?? null;
           return (
             <div key={pos} style={{ display: "flex", alignItems: "center", gap: 16 }}>
               <span style={{ fontFamily: MONO, fontSize: 15, fontWeight: 400, color: ORANGE, width: 22, flexShrink: 0, lineHeight: 1 }}>
                 {pos}
               </span>
-              <CoverCanvas src={covers[pos] ?? null} size={ART} />
+              {/* Cover slot: plain div in preview (bg-image), data-attr div for export */}
+              {forExport ? (
+                <div
+                  data-cover-slot={pos}
+                  style={{ width: ART, height: ART, flexShrink: 0, backgroundColor: "#e5e2dc" }}
+                />
+              ) : (
+                <div style={{
+                  width: ART, height: ART, flexShrink: 0,
+                  backgroundImage: src ? `url(${src})` : "none",
+                  backgroundSize: "cover", backgroundPosition: "center",
+                  backgroundColor: "#e5e2dc",
+                }} />
+              )}
               {item ? (
                 <div style={{ minWidth: 0, flex: 1 }}>
                   <div style={{ fontFamily: MONO, fontSize: 11, letterSpacing: "0.1em", textTransform: "uppercase", color: MUTED, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", marginBottom: 5 }}>
@@ -156,7 +143,7 @@ function PortraitCard({ title, slots, username, covers }: CardProps) {
 // ── Landscape card ────────────────────────────────────────────────────────
 // DOM: 600×314  →  export: 1200×628 (pixelRatio 2)
 
-function LandscapeCard({ title, slots, username, covers }: CardProps) {
+function LandscapeCard({ title, slots, username, covers, forExport }: CardProps) {
   const LEFT_W = 172;
   const ART    = 42;
 
@@ -174,7 +161,7 @@ function LandscapeCard({ title, slots, username, covers }: CardProps) {
         boxSizing: "border-box",
       }}>
         <div>
-          <div style={{ fontFamily: SERIF, fontSize: 17, fontWeight: 600, color: INK, marginBottom: 14, lineHeight: 1 }}>
+          <div style={{ fontFamily: SERIF, fontSize: 21, fontWeight: 600, color: INK, marginBottom: 14, lineHeight: 1 }}>
             rek<span style={{ color: ORANGE }}>ō</span>do
           </div>
           <div style={{ fontFamily: SERIF, fontSize: 13, fontWeight: 600, color: INK, lineHeight: 1.3, overflow: "hidden" }}>
@@ -183,7 +170,7 @@ function LandscapeCard({ title, slots, username, covers }: CardProps) {
         </div>
         <div>
           <div style={{ fontFamily: MONO, fontSize: 9, color: MUTED, letterSpacing: "0.07em", marginBottom: 3 }}>@{username}</div>
-          <div style={{ fontFamily: MONO, fontSize: 8, color: "#bbb", letterSpacing: "0.07em" }}>rekodo.co</div>
+          <div style={{ fontFamily: MONO, fontSize: 9, color: "#bbb", letterSpacing: "0.07em" }}>rekodo.co</div>
         </div>
       </div>
 
@@ -191,12 +178,25 @@ function LandscapeCard({ title, slots, username, covers }: CardProps) {
       <div style={{ flex: 1, display: "flex", flexDirection: "column", justifyContent: "space-around", padding: "16px 0" }}>
         {[1, 2, 3, 4, 5].map(pos => {
           const item = slots.find(s => s.position === pos)?.item ?? null;
+          const src  = covers[pos] ?? null;
           return (
             <div key={pos} style={{ display: "flex", alignItems: "center", padding: "0 16px", gap: 10 }}>
               <span style={{ fontFamily: MONO, fontSize: 11, color: ORANGE, width: 18, flexShrink: 0, lineHeight: 1 }}>
                 {pos}
               </span>
-              <CoverCanvas src={covers[pos] ?? null} size={ART} />
+              {forExport ? (
+                <div
+                  data-cover-slot={pos}
+                  style={{ width: ART, height: ART, flexShrink: 0, backgroundColor: "#e5e2dc" }}
+                />
+              ) : (
+                <div style={{
+                  width: ART, height: ART, flexShrink: 0,
+                  backgroundImage: src ? `url(${src})` : "none",
+                  backgroundSize: "cover", backgroundPosition: "center",
+                  backgroundColor: "#e5e2dc",
+                }} />
+              )}
               {item && (
                 <div style={{ minWidth: 0, flex: 1 }}>
                   <div style={{ fontFamily: MONO, fontSize: 8, letterSpacing: "0.09em", textTransform: "uppercase", color: MUTED, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", marginBottom: 3 }}>
@@ -224,18 +224,67 @@ export default function ShareModal({ onClose, title, slots, username, listUrl }:
   const [coversLoaded,  setCoversLoaded]  = useState(false);
   const [exporting,     setExporting]     = useState(false);
   const [copyImgState,  setCopyImgState]  = useState<"idle" | "copied" | "failed">("idle");
-  const cardRef = useRef<HTMLDivElement>(null);
+
+  // Separate ref for the off-screen export card (natural size, no transform)
+  const exportRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     loadCovers(slots).then(c => { setCovers(c); setCoversLoaded(true); });
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   async function capturePng(): Promise<string | null> {
-    if (!cardRef.current) return null;
+    if (!exportRef.current) return null;
     await document.fonts.ready;
-    // Allow canvas elements to finish drawing (data URL img.onload is async)
-    await new Promise<void>(resolve => setTimeout(resolve, 150));
-    return toPng(cardRef.current, { pixelRatio: 2 });
+
+    const PR = 2;
+    const naturalW = exportRef.current.offsetWidth;
+    const naturalH = exportRef.current.offsetHeight;
+
+    // Step 1: capture layout — gray placeholder boxes where covers will go
+    const layoutDataUrl = await toPng(exportRef.current, { pixelRatio: PR });
+
+    // Step 2: measure each cover slot's position relative to the card via BCR
+    const cardBCR = exportRef.current.getBoundingClientRect();
+    const slotRects: { pos: number; x: number; y: number; w: number; h: number }[] = [];
+    exportRef.current.querySelectorAll<HTMLElement>("[data-cover-slot]").forEach(el => {
+      const pos = parseInt(el.dataset.coverSlot!);
+      const r = el.getBoundingClientRect();
+      slotRects.push({
+        pos,
+        x: r.left - cardBCR.left,
+        y: r.top  - cardBCR.top,
+        w: r.width,
+        h: r.height,
+      });
+    });
+
+    // Step 3: build composite canvas
+    const canvas = document.createElement("canvas");
+    canvas.width  = naturalW * PR;
+    canvas.height = naturalH * PR;
+    const ctx = canvas.getContext("2d")!;
+
+    // Step 4: draw the layout PNG
+    await new Promise<void>((resolve, reject) => {
+      const img = new Image();
+      img.onload  = () => { ctx.drawImage(img, 0, 0); resolve(); };
+      img.onerror = reject;
+      img.src = layoutDataUrl;
+    });
+
+    // Step 5: draw each cover image directly from data URL on top
+    await Promise.all(slotRects.map(({ pos, x, y, w, h }) => {
+      const dataUrl = covers[pos];
+      if (!dataUrl) return Promise.resolve();
+      return new Promise<void>(resolve => {
+        const img = new Image();
+        img.onload  = () => { ctx.drawImage(img, x * PR, y * PR, w * PR, h * PR); resolve(); };
+        img.onerror = () => resolve();
+        img.src = dataUrl;
+      });
+    }));
+
+    return canvas.toDataURL("image/png");
   }
 
   async function handleDownload() {
@@ -277,11 +326,23 @@ export default function ShareModal({ onClose, title, slots, username, listUrl }:
 
   const busy = exporting || !coversLoaded;
 
+  const cardProps = { title, slots, username, covers };
+
   return (
     <div
       onClick={e => { if (e.target === e.currentTarget) onClose(); }}
       style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", zIndex: 300, display: "flex", alignItems: "center", justifyContent: "center", padding: "24px" }}
     >
+      {/* Off-screen export card — natural size, no transforms, used by toPng */}
+      <div style={{ position: "fixed", left: -9999, top: -9999, zIndex: -1, overflow: "hidden" }}>
+        <div ref={exportRef}>
+          {format === "portrait"
+            ? <PortraitCard  {...cardProps} forExport />
+            : <LandscapeCard {...cardProps} forExport />
+          }
+        </div>
+      </div>
+
       <div style={{ background: "#fff", maxWidth: 560, width: "100%", maxHeight: "94vh", display: "flex", flexDirection: "column" }}>
 
         {/* Header */}
@@ -308,19 +369,17 @@ export default function ShareModal({ onClose, title, slots, username, listUrl }:
           ))}
         </div>
 
-        {/* Preview */}
+        {/* Preview — scaled for display only, not used for export */}
         <div style={{ flex: 1, overflowY: "auto", padding: "16px", display: "flex", justifyContent: "center" }}>
           {!coversLoaded ? (
             <p style={{ fontFamily: UI_MONO, fontSize: "10px", color: "#aaa", letterSpacing: "0.06em", alignSelf: "center" }}>Loading artwork…</p>
           ) : (
             <div style={{ width: PRV_W, height: PRV_H, overflow: "hidden", flexShrink: 0, border: "1px solid rgba(0,0,0,0.08)" }}>
               <div style={{ transform: `scale(${SCALE})`, transformOrigin: "top left", display: "inline-block" }}>
-                <div ref={cardRef}>
-                  {format === "portrait"
-                    ? <PortraitCard  title={title} slots={slots} username={username} covers={covers} />
-                    : <LandscapeCard title={title} slots={slots} username={username} covers={covers} />
-                  }
-                </div>
+                {format === "portrait"
+                  ? <PortraitCard  {...cardProps} />
+                  : <LandscapeCard {...cardProps} />
+                }
               </div>
             </div>
           )}
