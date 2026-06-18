@@ -325,13 +325,14 @@ function SleeveCard({ rec, mode, onAddToWantlist, wantlistAdded, onPreviewReady 
 // root SpotifyPlayerProvider — this component only drives what to play via
 // setActiveSource and reads playback state from context.
 
-function DigCompactPlayer({ previewUrl, albumUri, trackUri, artist, album, recIdx }: {
-  previewUrl: string | null;
-  albumUri:   string | null;
-  trackUri:   string | null;
-  artist:     string;
-  album:      string;
-  recIdx:     number;
+function DigCompactPlayer({ previewUrl, albumUri, trackUri, artist, album, recIdx, onTrackEnd }: {
+  previewUrl:   string | null;
+  albumUri:     string | null;
+  trackUri:     string | null;
+  artist:       string;
+  album:        string;
+  recIdx:       number;
+  onTrackEnd?:  () => void;
 }) {
   const {
     tokenData, deviceId, playing, position, duration,
@@ -342,18 +343,28 @@ function DigCompactPlayer({ previewUrl, albumUri, trackUri, artist, album, recId
 
   const isPremium = !!(tokenData?.connected && tokenData.product === "premium");
 
+  // Keep a stable ref to onTrackEnd so it can be included in ActiveSource
+  // without causing the setActiveSource effect to re-run on every render
+  // (the parent creates a new arrow function each render).
+  const onTrackEndRef = useRef(onTrackEnd);
+  useEffect(() => { onTrackEndRef.current = onTrackEnd; }, [onTrackEnd]);
+
   // Tell the Provider what source to manage whenever the current rec changes.
   // This is the single integration point — the Provider handles all SDK and audio state.
   useEffect(() => {
     setActiveSource({
       mode:            "dig",
+      albumUri:        albumUri ?? undefined,
       spotifyTrackUri: trackUri ?? undefined,
       previewUrl:      previewUrl ?? undefined,
       artist,
       albumTitle:      album,
+      // Wrap in a stable function so setActiveSource itself doesn't need to
+      // re-run when onTrackEnd identity changes — the ref is always fresh.
+      onEnded: () => onTrackEndRef.current?.(),
     });
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [recIdx, trackUri, previewUrl, artist, album]);
+  }, [recIdx, albumUri, trackUri, previewUrl, artist, album]);
 
   const sdkWanted  = isPremium && !!(albumUri || trackUri);
   const sdkLive    = sdkWanted && !!deviceId;
@@ -1127,6 +1138,7 @@ export default function DigClient({ username, displayLabel, avatarUrl, collectio
             trackUri={digSpotify?.trackUri ?? null}
             artist={digSpotify?.artist ?? ""}
             album={digSpotify?.album ?? ""}
+            onTrackEnd={() => navigate(1)}
           />
 
         </div>

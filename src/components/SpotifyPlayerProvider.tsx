@@ -130,9 +130,15 @@ export interface ActiveSource {
   mode:            "collection" | "dig";
   spotifyUri?:      string;
   spotifyTrackUri?: string;
+  /** Spotify album URI for dig mode — used as context_uri so Spotify queues
+   *  the full album, which is the same behaviour as the pre-refactor player. */
+  albumUri?:        string;
   previewUrl?:      string;
   artist?:          string;
   albumTitle?:      string;
+  /** Called by the Provider when the current track/preview finishes naturally
+   *  (not on user-initiated pause). Dig page uses this to advance to the next rec. */
+  onEnded?:         () => void;
 }
 
 interface SpotifyPlaybackContextValue {
@@ -185,9 +191,15 @@ export function SpotifyPlayerProvider({ children }: { children: React.ReactNode 
   const audioRef    = useRef<HTMLAudioElement | null>(null);
   const pollRef     = useRef<ReturnType<typeof setInterval> | null>(null);
   const sourceKeyRef = useRef<string | null>(null);
+  // Always-current reference to source so SDK event listeners (set up once on
+  // mount) can read the latest onEnded callback without stale closure issues.
+  const sourceRef    = useRef<ActiveSource | null>(null);
+  // Tracks whether the SDK was playing near the end of its track, so
+  // player_state_changed can distinguish a natural end from a user pause.
+  const nearEndRef   = useRef(false);
 
   const isPremium  = !!(tokenData?.connected && tokenData.product === "premium");
-  const useSDK     = isPremium && (source?.mode === "collection" ? !!source.spotifyUri : !!source?.spotifyTrackUri);
+  const useSDK     = isPremium && (source?.mode === "collection" ? !!source.spotifyUri : !!(source?.albumUri ?? source?.spotifyTrackUri));
   const usePreview = !useSDK && !!source?.previewUrl;
 
   // ── Determine Premium status once, for the lifetime of the app session ───
@@ -267,7 +279,8 @@ export function SpotifyPlayerProvider({ children }: { children: React.ReactNode 
       // clear any stale error banner from an earlier disconnect/auth hiccup.
       setPlayError(null);
       const s = state as SpotifyPlaybackState;
-      setPlaying(!s.paused);
+      const isPlaying = !s.paused;
+      setPlaying(isPlaying);
       setPosition(s.position);
       setDuration(s.duration);
       const t = s.track_window?.current_track;
@@ -275,6 +288,25 @@ export function SpotifyPlayerProvider({ children }: { children: React.ReactNode 
         artist: t.artists?.[0]?.name ?? "",
         name:   t.name ?? "",
       });
+      // Track whether we were near the end while playing, so we can detect
+      // a natural track end (paused at position 0 after being near-end) vs
+      // a user-initiated pause. Only fires for dig mode so collection playback
+      // (which has its own queue) isn't affected.
+      if (isPlaying && s.duration > 0 && (s.duration - s.position) < 2000) {
+        nearEndRef.current = true;
+      }
+      if (s.paused && s.position === 0 && nearEndRef.current) {
+        nearEndRef.current = false;
+        if (sourceRef.current?.mode === "dig") {
+          sourceRef.current.onEnded?.();
+        }
+      }
+      if (!s.paused) {
+        // Reset near-end flag when actively playing (e.g. user seeked back)
+        if (s.duration > 0 && (s.duration - s.position) >= 2000) {
+          nearEndRef.current = false;
+        }
+      }
     });
 
     // Clear the stale deviceId so play is disabled while reconnecting.
@@ -304,7 +336,7 @@ export function SpotifyPlayerProvider({ children }: { children: React.ReactNode 
   // ── Reset transient UI state only when the active album/track actually changes ──
   // (not on every SpotifyPlayer UI mount/unmount as pages are navigated to/from).
   useEffect(() => {
-    const key = source?.mode === "collection" ? (source.spotifyUri ?? null) : (source?.spotifyTrackUri ?? null);
+    const key = source?.mode === "collection" ? (source.spotifyUri ?? null) : (source?.albumUri ?? source?.spotifyTrackUri ?? null);
     if (key === sourceKeyRef.current) return;
     sourceKeyRef.current = key;
     setCurrentTrack(null);
@@ -347,7 +379,7 @@ export function SpotifyPlayerProvider({ children }: { children: React.ReactNode 
     audioRef.current = audio;
     const onPlaying = () => setPlaying(true);
     const onPause   = () => setPlaying(false);
-    const onEnd     = () => { setPlaying(false); setPosition(0); };
+    const onEnd     = () => { setPlaying(false); setPosition(0); sourceRef.current?.onEnded?.(); };
     const onTime    = () => {
       setPosition(audio.currentTime * 1000);
       setDuration(isFinite(audio.duration) ? audio.duration * 1000 : 30_000);
@@ -382,9 +414,11 @@ export function SpotifyPlayerProvider({ children }: { children: React.ReactNode 
         try { playerRef.current.activateElement(); } catch { /* SDK < activateElement */ }
         const body = source?.mode === "collection" && source.spotifyUri
           ? { context_uri: source.spotifyUri }
-          : source?.spotifyTrackUri
-            ? { uris: [source.spotifyTrackUri] }
-            : null;
+          : source?.albumUri
+            ? { context_uri: source.albumUri }
+            : source?.spotifyTrackUri
+              ? { uris: [source.spotifyTrackUri] }
+              : null;
         if (!body) return;
         setPlayError(null);
         const err = await sendSpotifyPlay(deviceId, body);
@@ -433,6 +467,7 @@ export function SpotifyPlayerProvider({ children }: { children: React.ReactNode 
   }, []);
 
   const setActiveSource = useCallback((next: ActiveSource) => {
+    sourceRef.current = next;
     setSource(next);
   }, []);
 
