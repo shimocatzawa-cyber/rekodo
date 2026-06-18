@@ -121,14 +121,14 @@ export default function ArchetypesClient({ userId, username, displayLabel, avata
         {/* Page header */}
         <div style={{ marginBottom: 32 }}>
           <div className="rk-arch-header" style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
-            <div>
-              <h1 style={{ fontFamily: SERIF, fontSize: "1.8rem", fontWeight: 400, color: INK, margin: "0 0 8px 0" }}>
+            <div style={{ display: "flex", alignItems: "baseline", gap: 16, flexWrap: "wrap" }}>
+              <h1 style={{ fontFamily: SERIF, fontSize: "1.8rem", fontWeight: 400, color: INK, margin: 0 }}>
                 What your collection says about you.
               </h1>
               {data && (
                 <button
                   onClick={() => setShowShare(true)}
-                  style={{ fontFamily: MONO, fontSize: 10, color: ORANGE, background: "none", border: "none", cursor: "pointer", padding: 0, letterSpacing: "0.06em" }}
+                  style={{ fontFamily: MONO, fontSize: 10, color: ORANGE, background: "none", border: "none", cursor: "pointer", padding: 0, letterSpacing: "0.06em", flexShrink: 0 }}
                 >
                   Share ↗
                 </button>
