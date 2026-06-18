@@ -100,11 +100,7 @@ function PortraitCard({ title, slots, username, covers }: CardProps) {
               <span style={{ fontFamily: MONO, fontSize: 15, fontWeight: 400, color: ORANGE, width: 22, flexShrink: 0, lineHeight: 1 }}>
                 {pos}
               </span>
-              {src
-                // eslint-disable-next-line @next/next/no-img-element
-                ? <img src={src} alt="" style={{ width: ART, height: ART, objectFit: "cover", flexShrink: 0, display: "block" }} />
-                : <div style={{ width: ART, height: ART, background: "#e5e2dc", flexShrink: 0 }} />
-              }
+              <div style={{ width: ART, height: ART, flexShrink: 0, backgroundImage: src ? `url(${src})` : "none", backgroundSize: "cover", backgroundPosition: "center", backgroundColor: "#e5e2dc" }} />
               {item ? (
                 <div style={{ minWidth: 0, flex: 1 }}>
                   <div style={{ fontFamily: MONO, fontSize: 11, letterSpacing: "0.1em", textTransform: "uppercase", color: MUTED, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", marginBottom: 5 }}>
@@ -175,11 +171,7 @@ function LandscapeCard({ title, slots, username, covers }: CardProps) {
               <span style={{ fontFamily: MONO, fontSize: 11, color: ORANGE, width: 18, flexShrink: 0, lineHeight: 1 }}>
                 {pos}
               </span>
-              {src
-                // eslint-disable-next-line @next/next/no-img-element
-                ? <img src={src} alt="" style={{ width: ART, height: ART, objectFit: "cover", flexShrink: 0, display: "block" }} />
-                : <div style={{ width: ART, height: ART, background: "#e5e2dc", flexShrink: 0 }} />
-              }
+              <div style={{ width: ART, height: ART, flexShrink: 0, backgroundImage: src ? `url(${src})` : "none", backgroundSize: "cover", backgroundPosition: "center", backgroundColor: "#e5e2dc" }} />
               {item && (
                 <div style={{ minWidth: 0, flex: 1 }}>
                   <div style={{ fontFamily: MONO, fontSize: 8, letterSpacing: "0.09em", textTransform: "uppercase", color: MUTED, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", marginBottom: 3 }}>
@@ -207,12 +199,9 @@ export default function ShareModal({ onClose, title, slots, username, listUrl }:
   const [coversLoaded,  setCoversLoaded]  = useState(false);
   const [exporting,     setExporting]     = useState(false);
   const [copyImgState,  setCopyImgState]  = useState<"idle" | "copied" | "failed">("idle");
-  const [copyLinkState, setCopyLinkState] = useState<"idle" | "copied">("idle");
-  const [canWebShare,   setCanWebShare]   = useState(false);
   const cardRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    setCanWebShare(typeof navigator !== "undefined" && !!navigator.share);
     loadCovers(slots).then(c => { setCovers(c); setCoversLoaded(true); });
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -253,30 +242,6 @@ export default function ShareModal({ onClose, title, slots, username, listUrl }:
     }
   }
 
-  async function handleWebShare() {
-    setExporting(true);
-    try {
-      const dataUrl = await capturePng();
-      if (!dataUrl) return;
-      const blob = await (await fetch(dataUrl)).blob();
-      const file  = new File([blob], "rekodo-list.png", { type: "image/png" });
-      await navigator.share({ files: [file], title: `${title} — rekōdo`, url: listUrl });
-    } catch { /* dismissed */ } finally {
-      setExporting(false);
-    }
-  }
-
-  async function handleCopyLink() {
-    try {
-      await navigator.clipboard.writeText(listUrl);
-      setCopyLinkState("copied");
-      setTimeout(() => setCopyLinkState("idle"), 2500);
-    } catch { /* ignore */ }
-  }
-
-  const enc  = encodeURIComponent;
-  const text = enc(`"${title}" — rekōdo`);
-  const url  = enc(listUrl);
 
   // Scale preview to fit modal without horizontal scroll
   const CARD_W = format === "portrait" ? 540 : 600;
@@ -356,35 +321,6 @@ export default function ShareModal({ onClose, title, slots, username, listUrl }:
             </button>
           </div>
 
-          <div style={{ display: "flex", flexWrap: "wrap", gap: "6px 18px", alignItems: "center" }}>
-            {canWebShare && (
-              <button
-                onClick={handleWebShare}
-                disabled={busy}
-                style={{ fontFamily: UI_MONO, fontSize: "9px", letterSpacing: "0.1em", textTransform: "uppercase", color: INK, background: "none", border: "none", cursor: "pointer", padding: 0 }}
-              >
-                Share to apps ↗
-              </button>
-            )}
-            <a href={`https://x.com/intent/tweet?text=${text}&url=${url}`} target="_blank" rel="noopener noreferrer"
-              style={{ fontFamily: UI_MONO, fontSize: "9px", letterSpacing: "0.1em", textTransform: "uppercase", color: MUTED, textDecoration: "none" }}>
-              X ↗
-            </a>
-            <a href={`https://bsky.app/intent/compose?text=${enc(`"${title}" — rekōdo\n${listUrl}`)}`} target="_blank" rel="noopener noreferrer"
-              style={{ fontFamily: UI_MONO, fontSize: "9px", letterSpacing: "0.1em", textTransform: "uppercase", color: MUTED, textDecoration: "none" }}>
-              Bluesky ↗
-            </a>
-            <a href={`https://www.reddit.com/submit?url=${url}&title=${text}`} target="_blank" rel="noopener noreferrer"
-              style={{ fontFamily: UI_MONO, fontSize: "9px", letterSpacing: "0.1em", textTransform: "uppercase", color: MUTED, textDecoration: "none" }}>
-              Reddit ↗
-            </a>
-            <button
-              onClick={handleCopyLink}
-              style={{ fontFamily: UI_MONO, fontSize: "9px", letterSpacing: "0.1em", textTransform: "uppercase", color: copyLinkState === "copied" ? "#22c55e" : MUTED, background: "none", border: "none", cursor: "pointer", padding: 0 }}
-            >
-              {copyLinkState === "copied" ? "Link Copied ✓" : "Copy Link"}
-            </button>
-          </div>
 
         </div>
       </div>
