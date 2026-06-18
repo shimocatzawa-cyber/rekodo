@@ -159,8 +159,7 @@ export default function Top5Tab({ username }: { username: string }) {
   return (
     <div style={{ padding: "3rem 3.5rem", maxWidth: 1100, margin: "0 auto" }}>
       {/* Header */}
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "32px" }}>
-        <p style={eyebrowSt}>My Lists</p>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "flex-end", marginBottom: "32px" }}>
         <button
           onClick={openCreate}
           style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.1em", textTransform: "uppercase", color: ORANGE, background: "none", border: `1px solid ${ORANGE}`, borderRadius: "3px", cursor: "pointer", padding: "4px 10px", whiteSpace: "nowrap" }}
