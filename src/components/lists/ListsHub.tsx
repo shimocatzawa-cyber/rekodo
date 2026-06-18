@@ -3,12 +3,13 @@
 import { useState } from "react";
 import { useSearchParams } from "next/navigation";
 import AppNav from "@/components/AppNav";
-import ProfileListsTab from "@/components/profile/ProfileListsTab";
+import Top5Tab from "@/components/lists/Top5Tab";
 import WantlistClient from "@/components/wantlist/WantlistClient";
+import ProfileListsTab from "@/components/profile/ProfileListsTab";
 import SellListClient from "@/components/profile/SellListClient";
 import CommunityTab from "@/components/community/CommunityTab";
 
-const MONO  = "var(--font-mono)";
+const MONO   = "var(--font-mono)";
 const ORANGE = "#CC5500";
 
 type SubTab = "top5" | "wantlist" | "selllist" | "community";
@@ -39,7 +40,7 @@ export default function ListsHub({ profileId, username, displayLabel, avatarUrl,
       <AppNav username={username} displayLabel={displayLabel ?? undefined} avatarUrl={avatarUrl} />
 
       {/* Sub-tab bar */}
-      <div style={{ display: "flex", justifyContent: "center", gap: "0", background: "#ffffff", flexShrink: 0 }}>
+      <div style={{ display: "flex", justifyContent: "center", background: "#ffffff", flexShrink: 0 }}>
         {TABS.map(t => (
           <button
             key={t.key}
@@ -68,16 +69,18 @@ export default function ListsHub({ profileId, username, displayLabel, avatarUrl,
       {/* Content */}
       <div style={{ flex: 1 }}>
         {activeTab === "top5" && (
-          <ProfileListsTab initialLists={[]} username={username} listTypeFilter="top5" />
+          <Top5Tab username={username} />
         )}
         {activeTab === "wantlist" && (
           <div>
-            <ProfileListsTab initialLists={[]} username={username} listTypeFilter="wantlist" />
-            <div style={{ display: "flex", justifyContent: "center", padding: "0 2rem 3rem" }}>
+            {/* CSV import at top, centered */}
+            <div style={{ display: "flex", justifyContent: "center", padding: "2rem 2rem 0" }}>
               <div style={{ width: "100%", maxWidth: 560 }}>
                 <WantlistClient isOwner={true} isSupporter={isSupporter} userId={profileId} embedded />
               </div>
             </div>
+            {/* Wantlist items below */}
+            <ProfileListsTab initialLists={[]} username={username} listTypeFilter="wantlist" />
           </div>
         )}
         {activeTab === "selllist" && (
