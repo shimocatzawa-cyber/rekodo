@@ -121,8 +121,8 @@ export default function AppNav({ username, displayLabel, avatarUrl }: { username
           })}
         </div>
 
-        {/* Right — avatar, settings, sign out */}
-        <div className="flex items-center gap-4">
+        {/* Right — avatar + stacked settings/sign out */}
+        <div className="flex items-center gap-3">
           <Link
             href={`/@${username}`}
             style={{ display: "flex", alignItems: "center", textDecoration: "none" }}
@@ -159,37 +159,41 @@ export default function AppNav({ username, displayLabel, avatarUrl }: { username
               </span>
             )}
           </Link>
-          <Link
-            href={`/@${username}`}
-            style={{
-              fontFamily: MONO,
-              fontSize: "10px",
-              letterSpacing: "0.1em",
-              textTransform: "uppercase",
-              color: "#cccccc",
-              textDecoration: "none",
-            }}
-            className="hover:text-black transition-colors"
-          >
-            Settings{isSupporter && <span style={{ fontFamily: SERIF, fontSize: "10px", color: "#B8860B", marginLeft: "3px" }} title="rekōdo supporter">ō</span>}
-          </Link>
-          <button
-            onClick={handleSignOut}
-            style={{
-              fontFamily: MONO,
-              fontSize: "10px",
-              letterSpacing: "0.1em",
-              textTransform: "uppercase",
-              color: "#cccccc",
-              background: "none",
-              border: "none",
-              cursor: "pointer",
-              padding: 0,
-            }}
-            className="hover:text-black transition-colors"
-          >
-            Sign out
-          </button>
+          <div style={{ display: "flex", flexDirection: "column", gap: "2px", alignItems: "flex-start" }}>
+            <Link
+              href={`/@${username}`}
+              style={{
+                fontFamily: MONO,
+                fontSize: "10px",
+                letterSpacing: "0.1em",
+                textTransform: "uppercase",
+                color: "#cccccc",
+                textDecoration: "none",
+                lineHeight: 1.2,
+              }}
+              className="hover:text-black transition-colors"
+            >
+              Settings
+            </Link>
+            <button
+              onClick={handleSignOut}
+              style={{
+                fontFamily: MONO,
+                fontSize: "10px",
+                letterSpacing: "0.1em",
+                textTransform: "uppercase",
+                color: "#cccccc",
+                background: "none",
+                border: "none",
+                cursor: "pointer",
+                padding: 0,
+                lineHeight: 1.2,
+              }}
+              className="hover:text-black transition-colors"
+            >
+              Sign out
+            </button>
+          </div>
         </div>
       </nav>
 
