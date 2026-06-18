@@ -1,11 +1,11 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef } from "react";
 import { createClient } from "@/lib/supabase/client";
 import type { ListSlot } from "@/app/lists/types";
 import { isAppleMusicUrl, openAppleMusicLink } from "@/lib/openAppleMusic";
-import { generateShareCard, downloadCard, copyCardToClipboard } from "@/lib/shareCard";
 import { updateListTitle } from "@/app/lists/actions";
+import ShareModal from "@/components/lists/ShareModal";
 
 const SERIF  = "var(--font-editorial)";
 const MONO   = "var(--font-mono)";
@@ -33,85 +33,6 @@ interface Props {
   initialComments:  PublicComment[];
   viewerUserId:     string | null;
   isOwner:          boolean;
-}
-
-// ─── Share modal ──────────────────────────────────────────────────────────────
-
-function ShareModal({
-  onClose, title, slots, username,
-}: {
-  onClose:  () => void;
-  title:    string;
-  slots:    ListSlot[];
-  username: string;
-}) {
-  const [canvas,    setCanvas]    = useState<HTMLCanvasElement | null>(null);
-  const [generating, setGenerating] = useState(true);
-  const [copyState,  setCopyState]  = useState<"idle" | "copied" | "failed">("idle");
-  const previewRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    generateShareCard({
-      title,
-      slots: slots.map(s => ({
-        position: s.position,
-        record: s.item ? { artist: s.item.artist, album: s.item.song_title ?? s.item.album, cover_url: s.item.cover_url } : null,
-      })),
-      username,
-    }).then(c => { setCanvas(c); setGenerating(false); }).catch(() => setGenerating(false));
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
-
-  useEffect(() => {
-    if (!canvas || !previewRef.current) return;
-    previewRef.current.innerHTML = "";
-    canvas.style.cssText = "width:100%;height:auto;display:block;";
-    previewRef.current.appendChild(canvas);
-  }, [canvas]);
-
-  return (
-    <div
-      onClick={e => { if (e.target === e.currentTarget) onClose(); }}
-      style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", zIndex: 300, display: "flex", alignItems: "center", justifyContent: "center", padding: "24px" }}
-    >
-      <div style={{ background: "#fff", maxWidth: 420, width: "100%", maxHeight: "90vh", display: "flex", flexDirection: "column" }}>
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "14px 16px", borderBottom: "1px solid rgba(0,0,0,0.08)" }}>
-          <p style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.12em", textTransform: "uppercase", margin: 0 }}>Share Card</p>
-          <button onClick={onClose} style={{ fontFamily: MONO, fontSize: "18px", color: "#aaa", background: "none", border: "none", cursor: "pointer", lineHeight: 1, padding: 0 }}>×</button>
-        </div>
-
-        <div style={{ flex: 1, overflowY: "auto", padding: "16px" }}>
-          {generating ? (
-            <p style={{ fontFamily: MONO, fontSize: "10px", color: "#aaa", letterSpacing: "0.06em", textAlign: "center", padding: "40px 0" }}>Generating…</p>
-          ) : canvas ? (
-            <div ref={previewRef} style={{ border: "1px solid rgba(0,0,0,0.08)" }} />
-          ) : (
-            <p style={{ fontFamily: MONO, fontSize: "10px", color: "#aaa", letterSpacing: "0.06em", textAlign: "center", padding: "40px 0" }}>Could not generate card.</p>
-          )}
-        </div>
-
-        {canvas && (
-          <div style={{ padding: "12px 16px", borderTop: "1px solid rgba(0,0,0,0.08)", display: "flex", gap: "10px" }}>
-            <button
-              onClick={() => downloadCard(canvas, title)}
-              style={{ flex: 1, fontFamily: MONO, fontSize: "9px", letterSpacing: "0.1em", textTransform: "uppercase", background: INK, color: "#fff", border: "none", cursor: "pointer", padding: "10px 0" }}
-            >
-              Download PNG
-            </button>
-            <button
-              onClick={async () => {
-                const ok = await copyCardToClipboard(canvas);
-                setCopyState(ok ? "copied" : "failed");
-                setTimeout(() => setCopyState("idle"), 2500);
-              }}
-              style={{ flex: 1, fontFamily: MONO, fontSize: "9px", letterSpacing: "0.1em", textTransform: "uppercase", background: "none", border: "1px solid rgba(0,0,0,0.2)", cursor: "pointer", padding: "10px 0", color: copyState === "copied" ? "#22c55e" : copyState === "failed" ? "#ef4444" : INK }}
-            >
-              {copyState === "copied" ? "Copied ✓" : copyState === "failed" ? "Failed" : "Copy to Clipboard"}
-            </button>
-          </div>
-        )}
-      </div>
-    </div>
-  );
 }
 
 // ─── Main component ───────────────────────────────────────────────────────────
@@ -243,6 +164,7 @@ export default function PublicListClient({
           title={title}
           slots={slots}
           username={username}
+          listUrl={typeof window !== "undefined" ? window.location.href : ""}
         />
       )}
 

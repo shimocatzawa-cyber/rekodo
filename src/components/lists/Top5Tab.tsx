@@ -7,6 +7,7 @@ import { createList, deleteList, toggleListPublic } from "@/app/lists/actions";
 import Top5Editor, { type EditorSlot } from "@/components/profile/Top5Editor";
 import { createClient } from "@/lib/supabase/client";
 import type { UserList } from "@/app/lists/types";
+import ShareModal from "@/components/lists/ShareModal";
 
 const SERIF  = "var(--font-editorial)";
 const MONO   = "var(--font-mono)";
@@ -43,7 +44,7 @@ export default function Top5Tab({ username }: { username: string }) {
   const [lists,      setLists]      = useState<UserList[]>([]);
   const [loading,    setLoading]    = useState(true);
   const [likeCounts, setLikeCounts] = useState<Record<string, number>>({});
-  const [copiedId,   setCopiedId]   = useState<string | null>(null);
+  const [shareList,  setShareList]  = useState<UserList | null>(null);
   const [togglingId, setTogglingId] = useState<string | null>(null);
   const [editorModal, setEditorModal] = useState<EditorModal>(null);
   const [creatingList, startCreatingList] = useTransition();
@@ -135,14 +136,6 @@ export default function Top5Tab({ username }: { username: string }) {
     setTogglingId(null);
   }
 
-  function handleShare(list: UserList) {
-    const url = `${window.location.origin}/@${username}/${list.slug}`;
-    navigator.clipboard.writeText(url).then(() => {
-      setCopiedId(list.id);
-      setTimeout(() => setCopiedId(null), 2000);
-    }).catch(() => {});
-  }
-
   function handleEditorClose() {
     setEditorModal(null);
     fetchLists().then(filtered => setLists(filtered)).catch(() => {});
@@ -172,17 +165,25 @@ export default function Top5Tab({ username }: { username: string }) {
       {lists.length > 0 ? (
         <div style={{ display: "flex", flexDirection: "column", gap: "48px" }}>
           {lists.map(list => {
-            const likes   = likeCounts[list.id] ?? 0;
-            const copied  = copiedId === list.id;
+            const likes    = likeCounts[list.id] ?? 0;
             const toggling = togglingId === list.id;
             return (
               <div key={list.id}>
                 <div className="rk-top5-list-header" style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "16px" }}>
-                  <Link href={`/@${username}/${list.slug}`} style={{ textDecoration: "none", minWidth: 0 }}>
-                    <h2 style={{ fontFamily: SERIF, fontSize: "20px", fontWeight: 400, color: INK, margin: 0, lineHeight: 1.2 }}>
-                      {list.title}
-                    </h2>
-                  </Link>
+                  <div style={{ display: "flex", alignItems: "center", gap: "10px", minWidth: 0 }}>
+                    <Link href={`/@${username}/${list.slug}`} style={{ textDecoration: "none", minWidth: 0 }}>
+                      <h2 style={{ fontFamily: SERIF, fontSize: "20px", fontWeight: 400, color: INK, margin: 0, lineHeight: 1.2 }}>
+                        {list.title}
+                      </h2>
+                    </Link>
+                    <button
+                      onClick={() => handleTogglePublic(list.id)}
+                      disabled={toggling}
+                      style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.1em", textTransform: "uppercase", color: list.is_public ? MUTED : ORANGE, background: "none", border: "none", cursor: toggling ? "wait" : "pointer", padding: 0, opacity: toggling ? 0.5 : 1, flexShrink: 0 }}
+                    >
+                      {list.is_public ? "Public" : "Private"}
+                    </button>
+                  </div>
                   <div className="rk-top5-list-actions" style={{ display: "flex", alignItems: "center", gap: "16px", flexShrink: 0, marginLeft: "16px" }}>
                     {/* Like count */}
                     {likes > 0 && (
@@ -192,18 +193,10 @@ export default function Top5Tab({ username }: { username: string }) {
                     )}
                     {/* Share */}
                     <button
-                      onClick={() => handleShare(list)}
-                      style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.1em", textTransform: "uppercase", color: copied ? "#22a559" : MUTED, background: "none", border: "none", cursor: "pointer", padding: 0 }}
+                      onClick={() => setShareList(list)}
+                      style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.1em", textTransform: "uppercase", color: MUTED, background: "none", border: "none", cursor: "pointer", padding: 0 }}
                     >
-                      {copied ? "Copied ✓" : "Share ↗"}
-                    </button>
-                    {/* Public/Private toggle */}
-                    <button
-                      onClick={() => handleTogglePublic(list.id)}
-                      disabled={toggling}
-                      style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.1em", textTransform: "uppercase", color: list.is_public ? MUTED : ORANGE, background: "none", border: "none", cursor: toggling ? "wait" : "pointer", padding: 0, opacity: toggling ? 0.5 : 1 }}
-                    >
-                      {list.is_public ? "Public" : "Private"}
+                      Share ↗
                     </button>
                     {/* Edit */}
                     <button
@@ -273,6 +266,17 @@ export default function Top5Tab({ username }: { username: string }) {
             Create one →
           </button>
         </p>
+      )}
+
+      {/* ── Share modal ── */}
+      {shareList && (
+        <ShareModal
+          onClose={() => setShareList(null)}
+          title={shareList.title}
+          slots={shareList.slots}
+          username={username}
+          listUrl={`${window.location.origin}/@${username}/${shareList.slug}`}
+        />
       )}
 
       {/* ── Template picker modal ── */}

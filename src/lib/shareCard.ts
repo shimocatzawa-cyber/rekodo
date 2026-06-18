@@ -1,7 +1,4 @@
-// Canvas-based Instagram Story card generator for rekōdo lists.
-// Confirmed font family names from next/font compiled output:
-//   Shippori Mincho → "Shippori Mincho"
-//   DM Mono        → "DM Mono"
+// Canvas share card generator — 1080×1350 (Instagram feed / 4:5 ratio)
 
 export interface ShareCardSlot {
   position: number;
@@ -9,35 +6,47 @@ export interface ShareCardSlot {
 }
 
 export interface ShareCardParams {
-  title: string;
-  slots: ShareCardSlot[];
+  title:    string;
+  slots:    ShareCardSlot[];
   username: string;
 }
 
-const W = 1080;
-const H = 1920;
-const M = 150; // safe zone — all content stays M px from every edge
-const CW = W - 2 * M; // 780 content width
+const W      = 1080;
+const H      = 1350;
+const MARGIN = 32;
+const CW     = W - 2 * MARGIN; // 1016
 
-const ORANGE = "#CC5500";
-const INK = "#0d0d0d";
-const GREY = "#888888";
-const RULE_C = "rgba(0,0,0,0.08)";
-const PALE_C = "#d4d4d4";
-const SEP_C = "rgba(0,0,0,0.05)";
-const ART_BG = "#eeeeee";
+// Palette
+const BG        = "#F6F3EB";          // warm ivory
+const INK       = "#222222";          // charcoal
+const OG_MARK   = "#C96A2B";          // burnt orange — "ō" only
+const MUTED     = "#888888";
+const PALE      = "#c0bcb4";          // empty-slot accents
+const ART_BG    = "#dddad2";          // empty slot fill
+const RULE_C    = "rgba(34,34,34,0.10)";
 
-// ─── Album art layout ──────────────────────────────────────────────────────
+// Layout
+const LOGO_Y      = 86;               // wordmark baseline
+const LOGO_RULE_Y = LOGO_Y + 20;      // 106
+const TITLE_Y     = LOGO_RULE_Y + 42; // 148  — title starts here
+const ARTWORK_Y   = 284;              // artwork grid top (room for 2-line titles)
 
-const IMG_S   = 120;  // square album cover size
-const NUM_W   = 30;   // column width for position number
-const NUM_GAP = 14;   // gap: number → art
-const ART_GAP = 18;   // gap: art → text
-const IMG_X   = M + NUM_W + NUM_GAP;          // left edge of album art
-const TXT_X   = IMG_X + IMG_S + ART_GAP;      // left edge of text
-const TXT_MAX = M + CW - TXT_X;               // max text width
-const ROW_H   = 148;                           // height per record row
-const ROW_PAD = (ROW_H - IMG_S) / 2;          // vertical padding around art (14)
+const GAP     = 6;                    // gap between covers
+
+// Row 1: positions 1–3 (3 equal squares)
+const R1      = 3;
+const R1_SIZE = Math.floor((CW - GAP * (R1 - 1)) / R1); // 334
+
+// Row 2: positions 4–5 (2 wider squares)
+const R2      = 2;
+const R2_SIZE = Math.floor((CW - GAP * (R2 - 1)) / R2); // 505
+
+const R2_Y = ARTWORK_Y + R1_SIZE + GAP; // 284+334+6 = 624
+
+// Footer
+const FOOTER_RULE_Y = 1165;
+const FOOTER_U_Y    = 1230; // @username baseline
+const FOOTER_D_Y    = 1258; // rekodo.co baseline
 
 // ─── Font helpers ──────────────────────────────────────────────────────────
 
@@ -51,14 +60,12 @@ function mono(size: number, weight = 400): string {
 
 async function loadFonts(): Promise<void> {
   const loads = [
-    document.fonts.load(serif(30, 600)),
-    document.fonts.load(serif(34, 600)),
-    document.fonts.load(serif(40, 600)),
-    document.fonts.load(serif(60, 700)),
-    document.fonts.load(serif(76, 700)),
-    document.fonts.load(serif(96, 700)),
-    document.fonts.load(serif(120, 700)),
-    document.fonts.load(mono(12)),
+    document.fonts.load(serif(28)),
+    document.fonts.load(serif(30)),
+    document.fonts.load(serif(36)),
+    document.fonts.load(serif(42)),
+    document.fonts.load(serif(48)),
+    document.fonts.load(mono(13)),
     document.fonts.load(mono(14)),
     document.fonts.load(mono(16)),
   ];
@@ -71,75 +78,62 @@ async function loadFonts(): Promise<void> {
 async function loadImage(url: string): Promise<HTMLImageElement | null> {
   try {
     const proxied = `/api/image-proxy?url=${encodeURIComponent(url)}`;
-    const resp = await fetch(proxied, { signal: AbortSignal.timeout(8000) });
+    const resp    = await fetch(proxied, { signal: AbortSignal.timeout(8000) });
     if (!resp.ok) return null;
-    const blob = await resp.blob();
+    const blob      = await resp.blob();
     const objectUrl = URL.createObjectURL(blob);
-    return new Promise((resolve) => {
-      const img = new Image();
-      img.onload  = () => { URL.revokeObjectURL(objectUrl); resolve(img); };
-      img.onerror = () => { URL.revokeObjectURL(objectUrl); resolve(null); };
-      img.src = objectUrl;
+    return new Promise(resolve => {
+      const img    = new Image();
+      img.onload   = () => { URL.revokeObjectURL(objectUrl); resolve(img); };
+      img.onerror  = () => { URL.revokeObjectURL(objectUrl); resolve(null); };
+      img.src      = objectUrl;
     });
   } catch {
     return null;
   }
 }
 
-// ─── Layout helpers ────────────────────────────────────────────────────────
+// ─── Helpers ───────────────────────────────────────────────────────────────
 
 function titleFontSize(title: string): number {
-  const len = title.length;
-  if (len <= 10) return 120;
-  if (len <= 18) return 96;
-  if (len <= 28) return 76;
-  return 60;
+  const n = title.length;
+  if (n <= 12) return 48;
+  if (n <= 22) return 42;
+  if (n <= 34) return 36;
+  return 30;
 }
 
 function wrapText(
   ctx: CanvasRenderingContext2D,
   text: string,
   maxWidth: number,
-  maxLines: number
+  maxLines: number,
 ): string[] {
   const words = text.split(" ");
   const lines: string[] = [];
   let line = "";
-
   for (const word of words) {
     const candidate = line ? `${line} ${word}` : word;
     if (ctx.measureText(candidate).width > maxWidth && line) {
       lines.push(line);
-      if (lines.length >= maxLines) { line = ""; break; }
+      if (lines.length >= maxLines) break;
       line = word;
     } else {
       line = candidate;
     }
   }
-  if (line) lines.push(line);
+  if (line && lines.length < maxLines) lines.push(line);
   return lines.length > 0 ? lines : [text];
-}
-
-function truncate(
-  ctx: CanvasRenderingContext2D,
-  text: string,
-  maxWidth: number
-): string {
-  if (ctx.measureText(text).width <= maxWidth) return text;
-  let t = text;
-  while (t.length > 1 && ctx.measureText(`${t}…`).width > maxWidth)
-    t = t.slice(0, -1);
-  return `${t}…`;
 }
 
 function hline(
   ctx: CanvasRenderingContext2D,
   x1: number, x2: number, y: number,
-  color = RULE_C, width = 1
+  color = RULE_C, lw = 1,
 ) {
   ctx.save();
   ctx.strokeStyle = color;
-  ctx.lineWidth = width;
+  ctx.lineWidth   = lw;
   ctx.beginPath();
   ctx.moveTo(x1, Math.round(y) + 0.5);
   ctx.lineTo(x2, Math.round(y) + 0.5);
@@ -147,169 +141,148 @@ function hline(
   ctx.restore();
 }
 
+function drawCover(
+  ctx: CanvasRenderingContext2D,
+  img: HTMLImageElement | null,
+  x: number, y: number, size: number,
+  position: number, hasRecord: boolean,
+) {
+  // Cover image or ivory placeholder
+  if (img) {
+    ctx.save();
+    ctx.beginPath();
+    ctx.rect(x, y, size, size);
+    ctx.clip();
+    ctx.drawImage(img, x, y, size, size);
+    ctx.restore();
+  } else {
+    ctx.fillStyle = ART_BG;
+    ctx.fillRect(x, y, size, size);
+  }
+
+  // Position number — scales proportionally with cover
+  const numSize = Math.max(14, Math.round(size * 0.042));
+  ctx.font = mono(numSize);
+  if (img) {
+    ctx.save();
+    ctx.shadowColor = "rgba(0,0,0,0.45)";
+    ctx.shadowBlur  = 6;
+    ctx.fillStyle   = "rgba(255,255,255,0.82)";
+    ctx.fillText(String(position), x + 10, y + numSize + 9);
+    ctx.restore();
+  } else {
+    ctx.fillStyle = hasRecord ? OG_MARK : PALE;
+    ctx.fillText(String(position), x + 10, y + numSize + 9);
+  }
+}
+
 // ─── Main generator ────────────────────────────────────────────────────────
 
 export async function generateShareCard(
-  params: ShareCardParams
+  params: ShareCardParams,
 ): Promise<HTMLCanvasElement> {
   const { title, slots, username } = params;
 
   await loadFonts();
 
-  // Load all cover images in parallel (fall back to null on error/CORS)
   const coverImages = await Promise.all(
-    [1, 2, 3, 4, 5].map(async (pos) => {
-      const slot = slots.find(s => s.position === pos);
-      const url  = slot?.record?.cover_url;
-      if (!url) return null;
-      return loadImage(url);
-    })
+    [1, 2, 3, 4, 5].map(async pos => {
+      const url = slots.find(s => s.position === pos)?.record?.cover_url;
+      return url ? loadImage(url) : null;
+    }),
   );
 
-  const canvas = document.createElement("canvas");
-  canvas.width  = W;
-  canvas.height = H;
-  const ctx = canvas.getContext("2d")!;
+  const canvas    = document.createElement("canvas");
+  canvas.width    = W;
+  canvas.height   = H;
+  const ctx       = canvas.getContext("2d")!;
 
-  // ── Background ──────────────────────────────────────────────────────
-  ctx.fillStyle = "#ffffff";
+  // Background
+  ctx.fillStyle = BG;
   ctx.fillRect(0, 0, W, H);
-
   ctx.textBaseline = "alphabetic";
-  ctx.textAlign    = "left";
 
-  // ── rekōdo wordmark ─────────────────────────────────────────────────
-  const WORDMARK_Y = M + 56;
-  ctx.font      = serif(30, 600);
-  ctx.fillStyle = ORANGE;
-  ctx.fillText("rekōdo", M, WORDMARK_Y);
-  hline(ctx, M, M + CW, WORDMARK_Y + 26);
+  // ── Bicolor wordmark: rek + ō + do ──────────────────────────────────────
+  ctx.font      = serif(28);
+  ctx.textAlign = "left";
+  const w_rek   = ctx.measureText("rek").width;
+  const w_o     = ctx.measureText("ō").width;
+  const w_do    = ctx.measureText("do").width;
+  const logoX   = (W - w_rek - w_o - w_do) / 2;
 
-  // ── List title ──────────────────────────────────────────────────────
-  const tSize      = titleFontSize(title);
-  ctx.font         = serif(tSize, 700);
-  ctx.fillStyle    = INK;
-  const TITLE_Y    = WORDMARK_Y + 26 + 80;
-  const titleLineH = tSize * 1.18;
-  const titleLines = wrapText(ctx, title, CW, 2);
+  ctx.fillStyle = INK;     ctx.fillText("rek", logoX,           LOGO_Y);
+  ctx.fillStyle = OG_MARK; ctx.fillText("ō",   logoX + w_rek,   LOGO_Y);
+  ctx.fillStyle = INK;     ctx.fillText("do",  logoX + w_rek + w_o, LOGO_Y);
 
-  titleLines.forEach((line, i) => {
-    ctx.fillText(line, M, TITLE_Y + i * titleLineH);
-  });
+  hline(ctx, MARGIN, MARGIN + CW, LOGO_RULE_Y);
 
-  const titleEndY = TITLE_Y + titleLines.length * titleLineH;
+  // ── List title (centered, max 2 lines) ──────────────────────────────────
+  const tSize  = titleFontSize(title);
+  ctx.font     = serif(tSize);
+  ctx.textAlign = "center";
+  ctx.fillStyle = INK;
 
-  // ── Rule before records ─────────────────────────────────────────────
-  const PRE_REC_RULE_Y = Math.max(titleEndY + 72, M + 440);
-  hline(ctx, M, M + CW, PRE_REC_RULE_Y);
+  const titleLines = wrapText(ctx, title, CW * 0.88, 2);
+  const lineH      = tSize * 1.28;
+  titleLines.forEach((line, i) => ctx.fillText(line, W / 2, TITLE_Y + i * lineH));
 
-  // ── Records ─────────────────────────────────────────────────────────
-  const REC_START_Y = PRE_REC_RULE_Y + 56;
+  ctx.textAlign = "left";
 
-  for (let i = 0; i < 5; i++) {
-    const slot      = slots.find(s => s.position === i + 1);
-    const coverImg  = coverImages[i];
-    const ry        = REC_START_Y + i * ROW_H;
-    const imgTop    = ry + ROW_PAD;
-    const num       = String(i + 1).padStart(2, "0");
-    const hasRecord = Boolean(slot?.record);
-
-    // ── Position number (vertically centered with art) ────────────────
-    ctx.font      = mono(14);
-    ctx.fillStyle = hasRecord ? ORANGE : PALE_C;
-    ctx.fillText(num, M, imgTop + IMG_S / 2 + 6);
-
-    // ── Album art or grey placeholder ─────────────────────────────────
-    if (coverImg) {
-      // Clip to a square to handle non-square source images cleanly
-      ctx.save();
-      ctx.beginPath();
-      ctx.rect(IMG_X, imgTop, IMG_S, IMG_S);
-      ctx.clip();
-      ctx.drawImage(coverImg, IMG_X, imgTop, IMG_S, IMG_S);
-      ctx.restore();
-    } else {
-      ctx.fillStyle = ART_BG;
-      ctx.fillRect(IMG_X, imgTop, IMG_S, IMG_S);
-      if (!hasRecord) {
-        // Empty slot marker inside placeholder
-        ctx.font      = mono(14);
-        ctx.fillStyle = PALE_C;
-        ctx.textAlign = "center";
-        ctx.fillText("—", IMG_X + IMG_S / 2, imgTop + IMG_S / 2 + 6);
-        ctx.textAlign = "left";
-      }
-    }
-
-    // ── Text ──────────────────────────────────────────────────────────
-    if (hasRecord && slot!.record) {
-      const albumText  = truncate(ctx, slot!.record.album, TXT_MAX);
-      const artistText = truncate(ctx, slot!.record.artist.toUpperCase(), TXT_MAX);
-
-      ctx.font      = serif(34, 600);
-      ctx.fillStyle = INK;
-      ctx.fillText(albumText, TXT_X, imgTop + 40);
-
-      ctx.font      = mono(12);
-      ctx.fillStyle = GREY;
-      ctx.fillText(artistText, TXT_X, imgTop + 66);
-    }
-
-    // ── Row separator (skip after last row) ───────────────────────────
-    if (i < 4) {
-      hline(ctx, IMG_X, M + CW, ry + ROW_H - 10, SEP_C);
-    }
+  // ── Artwork grid ─────────────────────────────────────────────────────────
+  // Row 1: positions 1, 2, 3
+  for (let i = 0; i < 3; i++) {
+    const pos   = i + 1;
+    const slot  = slots.find(s => s.position === pos);
+    const x     = MARGIN + i * (R1_SIZE + GAP);
+    drawCover(ctx, coverImages[i], x, ARTWORK_Y, R1_SIZE, pos, Boolean(slot?.record));
   }
 
-  // ── Bottom attribution ──────────────────────────────────────────────
-  const BOTTOM_RULE_Y = H - M - 82;
-  hline(ctx, M, M + CW, BOTTOM_RULE_Y);
+  // Row 2: positions 4, 5
+  for (let i = 0; i < 2; i++) {
+    const pos   = i + 4;
+    const slot  = slots.find(s => s.position === pos);
+    const x     = MARGIN + i * (R2_SIZE + GAP);
+    drawCover(ctx, coverImages[i + 3], x, R2_Y, R2_SIZE, pos, Boolean(slot?.record));
+  }
 
-  const ATTR_Y = BOTTOM_RULE_Y + 48;
+  // ── Footer ───────────────────────────────────────────────────────────────
+  hline(ctx, MARGIN, MARGIN + CW, FOOTER_RULE_Y);
+
+  ctx.textAlign = "center";
 
   ctx.font      = mono(16);
   ctx.fillStyle = INK;
-  ctx.textAlign = "left";
-  ctx.fillText(`@${username}`, M, ATTR_Y);
+  ctx.fillText(`@${username}`, W / 2, FOOTER_U_Y);
 
   ctx.font      = mono(13);
-  ctx.fillStyle = GREY;
-  ctx.textAlign = "right";
-  ctx.fillText("rekodo.co", M + CW, ATTR_Y);
+  ctx.fillStyle = MUTED;
+  ctx.fillText("rekodo.co", W / 2, FOOTER_D_Y);
 
   ctx.textAlign = "left";
   return canvas;
 }
 
-// ─── Export utilities ─────────────────────────────────────────────────────
+// ─── Export utilities ──────────────────────────────────────────────────────
 
 export function downloadCard(canvas: HTMLCanvasElement, listTitle: string) {
-  const slug = listTitle
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-|-$/g, "")
-    .slice(0, 40);
-  const link      = document.createElement("a");
-  link.download   = `rekodo-${slug}.png`;
-  link.href       = canvas.toDataURL("image/png");
+  const slug    = listTitle.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 40);
+  const link    = document.createElement("a");
+  link.download = `rekodo-${slug}.png`;
+  link.href     = canvas.toDataURL("image/png");
   link.click();
 }
 
-export async function copyCardToClipboard(
-  canvas: HTMLCanvasElement
-): Promise<boolean> {
+export async function copyCardToClipboard(canvas: HTMLCanvasElement): Promise<boolean> {
   try {
-    const blob = await new Promise<Blob>((resolve, reject) => {
-      canvas.toBlob(
-        (b) => (b ? resolve(b) : reject(new Error("toBlob failed"))),
-        "image/png"
-      );
-    });
-    await navigator.clipboard.write([
-      new ClipboardItem({ "image/png": blob }),
-    ]);
+    const blob = await getCardBlob(canvas);
+    if (!blob) return false;
+    await navigator.clipboard.write([new ClipboardItem({ "image/png": blob })]);
     return true;
   } catch {
     return false;
   }
+}
+
+export function getCardBlob(canvas: HTMLCanvasElement): Promise<Blob | null> {
+  return new Promise(resolve => canvas.toBlob(b => resolve(b), "image/png"));
 }
