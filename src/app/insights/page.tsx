@@ -23,7 +23,7 @@ export default async function InsightsPage() {
   const emailPrefix = (user.email ?? "").split("@")[0] || "user";
   const { data: profile } = await (supabase as any)
     .from("profiles")
-    .select("username, display_name, avatar_url, country_code, collection_value_low, collection_value_med, collection_value_high, collection_value_currency, is_supporter, role")
+    .select("username, display_name, avatar_url, country_code, collection_value_low, collection_value_med, collection_value_high, collection_value_currency, is_supporter, role, star_sign, taste_summary")
     .eq("id", user.id)
     .maybeSingle() as {
       data: {
@@ -37,6 +37,8 @@ export default async function InsightsPage() {
         collection_value_currency?: string | null;
         is_supporter?: boolean | null;
         role?: string | null;
+        star_sign?: string | null;
+        taste_summary?: string | null;
       } | null;
       error: unknown;
     };
@@ -656,6 +658,9 @@ export default async function InsightsPage() {
       spectrum={spectrum}
       topPlayedRecords={topPlayedRecords}
       playedStyleBreakdown={playedStyleBreakdown}
+      starSign={profile?.star_sign ?? null}
+      tasteSummary={profile?.taste_summary ?? null}
+      profileId={user.id}
     />
   );
 }

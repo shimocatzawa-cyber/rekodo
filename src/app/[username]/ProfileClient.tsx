@@ -1,15 +1,13 @@
 "use client";
 
-import { useRef, useState, useTransition, useEffect } from "react";
+import { useRef, useState, useTransition } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { COUNTRIES } from "@/lib/countries";
 import { STAR_SIGNS } from "@/lib/starSigns";
 import { saveAvatarUrl, saveDisplayName, saveProfileSettings } from "@/app/settings/profile/actions";
-import { generateTasteSummary } from "./actions";
 import AppNav from "@/components/AppNav";
 import CollectionPhotos from "@/app/p/[username]/CollectionPhotos";
-import LunarListeningRitual from "@/components/LunarListeningRitual";
 import WantlistClient from "@/components/wantlist/WantlistClient";
 
 const SERIF  = "var(--font-editorial)";
@@ -18,21 +16,6 @@ const ORANGE = "#CC5500";
 const INK    = "#0d0d0d";
 const RULE   = "#e0e0da";
 const MUTED  = "#aaaaaa";
-
-const SIGN_SYMBOL: Record<string, string> = {
-  Aries:       "https://upload.wikimedia.org/wikipedia/commons/0/00/Aries_symbol_%28fixed_width%29.svg",
-  Taurus:      "https://upload.wikimedia.org/wikipedia/commons/0/0b/Taurus_symbol_%28fixed_width%29.svg",
-  Gemini:      "https://upload.wikimedia.org/wikipedia/commons/0/0c/Gemini_symbol_%28fixed_width%29.svg",
-  Cancer:      "https://upload.wikimedia.org/wikipedia/commons/e/ec/Cancer_symbol_%28fixed_width%29.svg",
-  Leo:         "https://upload.wikimedia.org/wikipedia/commons/2/2c/Leo_symbol_%28fixed_width%29.svg",
-  Virgo:       "https://upload.wikimedia.org/wikipedia/commons/a/a8/Virgo_symbol_%28fixed_width%29.svg",
-  Libra:       "https://upload.wikimedia.org/wikipedia/commons/0/07/Libra_symbol_%28fixed_width%29.svg",
-  Scorpio:     "https://upload.wikimedia.org/wikipedia/commons/7/7c/Scorpius_symbol_%28fixed_width%29.svg",
-  Sagittarius: "https://upload.wikimedia.org/wikipedia/commons/5/52/Sagittarius_symbol_%28fixed_width%29.svg",
-  Capricorn:   "https://upload.wikimedia.org/wikipedia/commons/a/a9/Capricornus_symbol_%28fixed_width%29.svg",
-  Aquarius:    "https://upload.wikimedia.org/wikipedia/commons/f/fd/Aquarius_symbol_%28fixed_width%29.svg",
-  Pisces:      "https://upload.wikimedia.org/wikipedia/commons/2/21/Pisces_symbol_%28fixed_width%29.svg",
-};
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -155,27 +138,6 @@ export default function ProfileClient({
     }
   }
 
-  // ── Taste summary ─────────────────────────────────────────────────────────
-  const [summaryPending, startSummaryTransition] = useTransition();
-  const [summaryError,   setSummaryError]        = useState<string | null>(null);
-
-  // ── Album recommendation cover art ────────────────────────────────────────
-  type RecData = { artist: string; album: string; description: string };
-  function parseRec(raw: string | null): RecData | null {
-    if (!raw) return null;
-    try { return JSON.parse(raw) as RecData; } catch { return null; }
-  }
-  const [recCoverUrl, setRecCoverUrl] = useState<string | null>(null);
-
-  useEffect(() => {
-    const rec = parseRec(profile.taste_summary);
-    if (!rec?.artist || !rec?.album) return;
-    fetch(`/api/deep-dive/album-art?artist=${encodeURIComponent(rec.artist)}&album=${encodeURIComponent(rec.album)}`)
-      .then(r => r.ok ? r.json() : null)
-      .then((d: { url?: string | null } | null) => { if (d?.url) setRecCoverUrl(d.url); })
-      .catch(() => {});
-  }, [profile.taste_summary]); // eslint-disable-line react-hooks/exhaustive-deps
-
   // ── Helpers ───────────────────────────────────────────────────────────────
   function openEdit() {
     setNameValue(profile.display_name     ?? "");
@@ -247,15 +209,6 @@ export default function ProfileClient({
     } finally {
       setAvatarUploading(false);
     }
-  }
-
-  function handleGenerateSummary() {
-    setSummaryError(null);
-    startSummaryTransition(async () => {
-      const result = await generateTasteSummary(profile.id, profile.star_sign ?? "");
-      if ("error" in result) { setSummaryError(result.error); return; }
-      router.refresh();
-    });
   }
 
   const displayName    = nameValue || profile.username;
@@ -548,81 +501,6 @@ export default function ProfileClient({
                   </div>
                 )}
 
-                {/* ── Lunar Listening Ritual ── */}
-                <div style={{ marginTop: "16px" }}>
-                  <LunarListeningRitual />
-                </div>
-
-                {/* ── Album recommendation ── */}
-                {profile.star_sign && (
-                  <div style={{ fontFamily: MONO, color: INK }}>
-
-                    {/* Eyebrow — mirrors Lunar Listening header */}
-                    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "10px 20px" }}>
-                      <span style={{ fontSize: "0.56rem", letterSpacing: "0.14em", textTransform: "uppercase", color: ORANGE }}>
-                        Album Recommendation
-                      </span>
-                      {SIGN_SYMBOL[profile.star_sign] && (
-                        // eslint-disable-next-line @next/next/no-img-element
-                        <img src={SIGN_SYMBOL[profile.star_sign]} alt={profile.star_sign} style={{ height: "14px", width: "auto", opacity: 0.3 }} />
-                      )}
-                    </div>
-
-                    {/* Body — same grid as Lunar Listening */}
-                    {profile.taste_summary ? (() => {
-                      const rec = parseRec(profile.taste_summary);
-                      return (
-                        <>
-                          <div style={{ padding: "0 20px 18px", display: "grid", gridTemplateColumns: "56px 1fr", gap: "18px", alignItems: "start" }}>
-                            <div style={{ paddingTop: "2px" }}>
-                              {recCoverUrl ? (
-                                // eslint-disable-next-line @next/next/no-img-element
-                                <img src={recCoverUrl} alt={rec?.album ?? ""} style={{ width: "52px", height: "52px", objectFit: "cover", display: "block" }} />
-                              ) : (
-                                <div style={{ width: "52px", height: "52px", background: "#f0ede8" }} />
-                              )}
-                            </div>
-                            <div>
-                              {rec ? (
-                                <>
-                                  <p style={{ fontFamily: SERIF, fontSize: "1.05rem", fontWeight: 600, letterSpacing: "-0.02em", color: INK, margin: "0 0 5px 0", lineHeight: 1.2 }}>
-                                    {rec.artist}
-                                  </p>
-                                  <p style={{ fontFamily: SERIF, fontSize: "0.9rem", fontWeight: 500, color: INK, lineHeight: 1.4, margin: "0 0 7px 0" }}>
-                                    {rec.album}
-                                  </p>
-                                  <p style={{ fontSize: "0.85rem", lineHeight: 1.7, opacity: 0.65, margin: 0 }}>
-                                    {rec.description}
-                                  </p>
-                                </>
-                              ) : (
-                                <p style={{ fontSize: "0.85rem", lineHeight: 1.7, opacity: 0.65, margin: 0 }}>
-                                  {profile.taste_summary}
-                                </p>
-                              )}
-                            </div>
-                          </div>
-                          {isOwner && (
-                            <div style={{ padding: "0 20px 12px" }}>
-                              <button onClick={handleGenerateSummary} disabled={summaryPending} style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.1em", textTransform: "uppercase", color: summaryPending ? "#ccc" : "#bbb", background: "none", border: "none", cursor: summaryPending ? "default" : "pointer", padding: 0 }}>
-                                {summaryPending ? "Generating…" : "Regenerate →"}
-                              </button>
-                              {summaryError && <p style={{ fontFamily: MONO, fontSize: "10px", color: "#cc3300", margin: "4px 0 0" }}>{summaryError}</p>}
-                            </div>
-                          )}
-                        </>
-                      );
-                    })() : isOwner ? (
-                      <div style={{ padding: "0 20px 18px" }}>
-                        <button onClick={handleGenerateSummary} disabled={summaryPending} style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.1em", textTransform: "uppercase", color: summaryPending ? "#ccc" : ORANGE, background: "none", border: "none", cursor: summaryPending ? "default" : "pointer", padding: 0 }}>
-                          {summaryPending ? "Generating…" : "Generate →"}
-                        </button>
-                        {summaryError && <p style={{ fontFamily: MONO, fontSize: "10px", color: "#cc3300", margin: "4px 0 0" }}>{summaryError}</p>}
-                      </div>
-                    ) : null}
-
-                  </div>
-                )}
               </>
             )}
 
