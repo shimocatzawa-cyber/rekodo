@@ -41,11 +41,32 @@ const TABS: { key: SelectsTab; label: string }[] = [
   { key: "live",         label: "Live"              },
 ];
 
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+
+function senderToUrl(sender: string | null): string | null {
+  if (!sender) return null;
+  const emailMatch = sender.match(/<([^>]+@[^>]+)>/) ?? sender.match(/(\S+@\S+)/);
+  if (!emailMatch) return null;
+  let domain = ((emailMatch[1] ?? emailMatch[0]).trim()).split("@")[1] ?? "";
+  // Strip common transactional subdomains so "newsletter.boomkat.com" → "boomkat.com"
+  domain = domain.replace(/^(newsletter|mail|emails?|news|info|noreply|no-reply|hello|support)\./i, "");
+  return domain ? `https://${domain}` : null;
+}
+
+function senderDisplayName(sender: string | null): string {
+  if (!sender) return "";
+  const m = sender.match(/^([^<"]+?)\s*</);
+  return m ? m[1].trim() : "";
+}
+
 // ─── Release row ─────────────────────────────────────────────────────────────
 
 function ReleaseRow({ item }: { item: LabelFeedItem }) {
   const [hovered, setHovered] = useState(false);
-  const buyHref = `https://www.discogs.com/search/?q=${encodeURIComponent(`${item.artist ?? ""} ${item.album ?? ""}`)}&type=release`;
+  const sourceUrl   = senderToUrl(item.sender);
+  const sourceName  = senderDisplayName(item.sender);
+  const buyHref     = sourceUrl
+    ?? `https://www.discogs.com/search/?q=${encodeURIComponent(`${item.artist ?? ""} ${item.album ?? ""}`)}&type=release`;
 
   return (
     <div
@@ -62,9 +83,11 @@ function ReleaseRow({ item }: { item: LabelFeedItem }) {
         <p style={{ fontFamily: SERIF, fontSize: "0.95rem", fontWeight: 600, color: INK, margin: "0 0 2px 0", lineHeight: 1.2 }}>
           {item.artist}
         </p>
-        <p style={{ fontFamily: SERIF, fontSize: "0.85rem", fontWeight: 400, fontStyle: "italic", color: INK, margin: "0 0 5px 0", lineHeight: 1.2 }}>
-          {item.album}
-        </p>
+        {item.album && (
+          <p style={{ fontFamily: SERIF, fontSize: "0.85rem", fontWeight: 400, fontStyle: "italic", color: INK, margin: "0 0 5px 0", lineHeight: 1.2 }}>
+            {item.album}
+          </p>
+        )}
         {(item.label || item.format) && (
           <p style={{ fontFamily: MONO, fontSize: "0.6rem", letterSpacing: "0.08em", textTransform: "uppercase", color: INK, margin: "0 0 3px 0" }}>
             {[item.label, item.format].filter(Boolean).join(" · ")}
@@ -78,16 +101,23 @@ function ReleaseRow({ item }: { item: LabelFeedItem }) {
       </div>
 
       {/* Buy link */}
-      <a
-        href={buyHref}
-        target="_blank"
-        rel="noopener noreferrer"
-        style={{ fontFamily: MONO, fontSize: "0.65rem", letterSpacing: "0.1em", textTransform: "uppercase", color: INK, textDecoration: "none", flexShrink: 0 }}
-        onMouseEnter={e => { (e.currentTarget as HTMLAnchorElement).style.textDecoration = "underline"; }}
-        onMouseLeave={e => { (e.currentTarget as HTMLAnchorElement).style.textDecoration = "none"; }}
-      >
-        BUY →
-      </a>
+      <div style={{ flexShrink: 0, textAlign: "right" }}>
+        <a
+          href={buyHref}
+          target="_blank"
+          rel="noopener noreferrer"
+          style={{ fontFamily: MONO, fontSize: "0.65rem", letterSpacing: "0.1em", textTransform: "uppercase", color: INK, textDecoration: "none", display: "block" }}
+          onMouseEnter={e => { (e.currentTarget as HTMLAnchorElement).style.textDecoration = "underline"; }}
+          onMouseLeave={e => { (e.currentTarget as HTMLAnchorElement).style.textDecoration = "none"; }}
+        >
+          BUY →
+        </a>
+        {sourceName && (
+          <p style={{ fontFamily: MONO, fontSize: "0.5rem", color: "#aaaaaa", margin: "3px 0 0", letterSpacing: "0.04em" }}>
+            {sourceName}
+          </p>
+        )}
+      </div>
     </div>
   );
 }
@@ -120,8 +150,6 @@ function NewReleasesSection() {
       .select("*")
       .not("artist", "is", null)
       .neq("artist", "")
-      .not("album", "is", null)
-      .neq("album", "")
       .order("received_at", { ascending: false })
       .limit(100)
       .then(({ data, error }) => {
