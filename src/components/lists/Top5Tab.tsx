@@ -177,11 +177,10 @@ export default function Top5Tab({ username }: { username: string }) {
                       </h2>
                     </Link>
                     <button
-                      onClick={() => handleTogglePublic(list.id)}
-                      disabled={toggling}
-                      style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.1em", textTransform: "uppercase", color: list.is_public ? MUTED : ORANGE, background: "none", border: "none", cursor: toggling ? "wait" : "pointer", padding: 0, opacity: toggling ? 0.5 : 1, flexShrink: 0 }}
+                      onClick={() => setShareList(list)}
+                      style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.1em", textTransform: "uppercase", color: ORANGE, background: "none", border: "none", cursor: "pointer", padding: 0, flexShrink: 0 }}
                     >
-                      {list.is_public ? "Public" : "Private"}
+                      Share ↗
                     </button>
                   </div>
                   <div className="rk-top5-list-actions" style={{ display: "flex", alignItems: "center", gap: "16px", flexShrink: 0, marginLeft: "16px" }}>
@@ -191,12 +190,13 @@ export default function Top5Tab({ username }: { username: string }) {
                         ♥ {likes}
                       </span>
                     )}
-                    {/* Share */}
+                    {/* Public/Private toggle */}
                     <button
-                      onClick={() => setShareList(list)}
-                      style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.1em", textTransform: "uppercase", color: MUTED, background: "none", border: "none", cursor: "pointer", padding: 0 }}
+                      onClick={() => handleTogglePublic(list.id)}
+                      disabled={toggling}
+                      style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.1em", textTransform: "uppercase", color: list.is_public ? MUTED : ORANGE, background: "none", border: "none", cursor: toggling ? "wait" : "pointer", padding: 0, opacity: toggling ? 0.5 : 1, flexShrink: 0 }}
                     >
-                      Share ↗
+                      {list.is_public ? "Public" : "Private"}
                     </button>
                     {/* Edit */}
                     <button
