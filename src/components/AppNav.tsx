@@ -121,11 +121,11 @@ export default function AppNav({ username, displayLabel, avatarUrl }: { username
           })}
         </div>
 
-        {/* Right — avatar + @username → settings, sign out */}
+        {/* Right — avatar, settings, sign out */}
         <div className="flex items-center gap-4">
           <Link
-            href="/settings/profile"
-            style={{ display: "flex", alignItems: "center", gap: "9px", textDecoration: "none" }}
+            href={`/@${username}`}
+            style={{ display: "flex", alignItems: "center", textDecoration: "none" }}
           >
             {avatarUrl ? (
               // eslint-disable-next-line @next/next/no-img-element
@@ -158,16 +158,20 @@ export default function AppNav({ username, displayLabel, avatarUrl }: { username
                 {(displayLabel ?? username).charAt(0)}
               </span>
             )}
-            <span
-              style={{
-                fontFamily: MONO,
-                fontSize: "10px",
-                letterSpacing: "0.06em",
-                color: "#888888",
-              }}
-            >
-              @{username}{isSupporter && <span style={{ fontFamily: SERIF, fontSize: "10px", color: "#B8860B", marginLeft: "3px" }} title="rekōdo supporter">ō</span>}
-            </span>
+          </Link>
+          <Link
+            href={`/@${username}`}
+            style={{
+              fontFamily: MONO,
+              fontSize: "10px",
+              letterSpacing: "0.1em",
+              textTransform: "uppercase",
+              color: "#cccccc",
+              textDecoration: "none",
+            }}
+            className="hover:text-black transition-colors"
+          >
+            Settings{isSupporter && <span style={{ fontFamily: SERIF, fontSize: "10px", color: "#B8860B", marginLeft: "3px" }} title="rekōdo supporter">ō</span>}
           </Link>
           <button
             onClick={handleSignOut}
@@ -244,12 +248,13 @@ export default function AppNav({ username, displayLabel, avatarUrl }: { username
 
           <div style={{ marginTop: "1.5rem", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
             <Link
-              href="/settings"
+              href={`/@${username}`}
               onClick={() => setMenuOpen(false)}
               style={{
                 fontFamily: MONO,
                 fontSize: "12px",
-                letterSpacing: "0.06em",
+                letterSpacing: "0.08em",
+                textTransform: "uppercase",
                 color: "#888888",
                 textDecoration: "none",
                 display: "flex",
@@ -257,7 +262,7 @@ export default function AppNav({ username, displayLabel, avatarUrl }: { username
                 gap: "8px",
               }}
             >
-              @{username}{isSupporter && <span style={{ fontFamily: SERIF, fontSize: "12px", color: "#B8860B", marginLeft: "3px" }} title="rekōdo supporter">ō</span>}
+              Settings{isSupporter && <span style={{ fontFamily: SERIF, fontSize: "12px", color: "#B8860B", marginLeft: "3px" }} title="rekōdo supporter">ō</span>}
             </Link>
             <button
               onClick={() => { setMenuOpen(false); handleSignOut(); }}
