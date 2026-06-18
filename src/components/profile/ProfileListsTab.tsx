@@ -1071,12 +1071,12 @@ function MarketplaceDrawer({
 
   const q = encodeURIComponent(`${artist} ${album}`);
   const FIND_LINKS = [
-    { label: "Buy on Discogs ↗",     href: `https://www.discogs.com/search/?q=${q}&type=release` },
-    { label: "Buy on eBay ↗",        href: `https://www.ebay.com/sch/i.html?_nkw=${q}&_sacat=306` },
-    { label: "Search Boomkat ↗",     href: `https://boomkat.com/search?q=${q}` },
-    { label: "Search Juno ↗",        href: `https://www.juno.co.uk/search/?q=${q}` },
-    { label: "Search Rough Trade ↗", href: `https://www.roughtrade.com/search?q=${q}` },
-    { label: "Search Bandcamp ↗",    href: `https://bandcamp.com/search?q=${q}` },
+    { label: "Buy on Discogs ↗",      href: `https://www.discogs.com/search/?q=${q}&type=release` },
+    { label: "Buy on eBay ↗",         href: `https://www.ebay.com/sch/i.html?_nkw=${q}&_sacat=306` },
+    { label: "Search Bandcamp ↗",     href: `https://bandcamp.com/search?q=${q}` },
+    { label: "Search Rough Trade ↗",  href: `https://www.roughtrade.com/search?q=${q}` },
+    { label: "Search Juno ↗",         href: `https://www.juno.co.uk/search/?q=${q}` },
+    { label: "Search Boomkat ↗",      href: `https://boomkat.com/search?q=${q}` },
   ];
   const labelStyle: React.CSSProperties = {
     fontFamily: MONO, fontSize: "0.6rem", letterSpacing: "0.14em",
