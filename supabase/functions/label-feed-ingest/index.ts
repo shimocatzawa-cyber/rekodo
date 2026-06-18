@@ -154,6 +154,7 @@ interface ParsedRelease {
   label: string | null;
   description: string | null;
   tags: string[];
+  buy_url: string | null;
 }
 
 const FALLBACK: ParsedRelease = {
@@ -164,6 +165,7 @@ const FALLBACK: ParsedRelease = {
   label: null,
   description: null,
   tags: [],
+  buy_url: null,
 };
 
 async function parseWithClaude(
@@ -189,6 +191,7 @@ Return a JSON array where each element has:
 - label: record label name or null
 - description: one sentence about this specific release or null
 - tags: array of relevant tags (genre, mood, style — max 5)
+- buy_url: the direct URL to buy or view this specific release (e.g. a product page or Bandcamp link), or null if not found. Prefer specific album/product page URLs over generic store homepages.
 
 If no releases can be identified return an empty array [].
 Return ONLY a valid JSON array, no markdown, no explanation.`;
@@ -301,6 +304,7 @@ Deno.serve(async (_req) => {
             label: parsed.label,
             description: parsed.description,
             tags: parsed.tags,
+            buy_url: parsed.buy_url ?? null,
           });
           if (insertErr) {
             errors.push(`${id}/${parsed.artist}: ${insertErr.message}`);

@@ -27,6 +27,7 @@ type LabelFeedItem = {
   label: string | null;
   description: string | null;
   tags: string[] | null;
+  buy_url: string | null;
   created_at: string | null;
 };
 
@@ -65,7 +66,8 @@ function ReleaseRow({ item }: { item: LabelFeedItem }) {
   const [hovered, setHovered] = useState(false);
   const sourceUrl   = senderToUrl(item.sender);
   const sourceName  = senderDisplayName(item.sender);
-  const buyHref     = sourceUrl
+  const buyHref     = item.buy_url
+    ?? sourceUrl
     ?? `https://www.discogs.com/search/?q=${encodeURIComponent(`${item.artist ?? ""} ${item.album ?? ""}`)}&type=release`;
 
   return (
