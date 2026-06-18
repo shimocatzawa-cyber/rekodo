@@ -3,6 +3,8 @@ import { createClient } from "@/lib/supabase/server";
 import type { SlotItem, ListSlot } from "@/app/lists/types";
 import PublicListClient, { type PublicComment } from "@/components/lists/PublicListClient";
 
+export const dynamic = "force-dynamic";
+
 const SERIF = "var(--font-editorial)";
 const MONO  = "var(--font-mono)";
 
@@ -71,28 +73,33 @@ export default async function PublicListPage({ params }: { params: Params }) {
   const viewerUserId = viewer?.id ?? null;
   const isOwner      = viewerUserId === profile.id;
 
-  // ── Likes ──────────────────────────────────────────────────────────────────
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { count: likeCount } = await (supabase as any)
-    .from("list_likes").select("*", { count: "exact", head: true }).eq("list_id", list.id);
-
-  let initialLiked = false;
-  if (viewerUserId) {
+  // ── Likes & Comments (tables created by migration; graceful fallback if missing) ──
+  let likeCount     = 0;
+  let initialLiked  = false;
+  let initialComments: PublicComment[] = [];
+  try {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: likeRow } = await (supabase as any)
-      .from("list_likes").select("id").eq("list_id", list.id).eq("user_id", viewerUserId).maybeSingle();
-    initialLiked = Boolean(likeRow);
+    const { count } = await (supabase as any)
+      .from("list_likes").select("*", { count: "exact", head: true }).eq("list_id", list.id);
+    likeCount = count ?? 0;
+
+    if (viewerUserId) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { data: likeRow } = await (supabase as any)
+        .from("list_likes").select("id").eq("list_id", list.id).eq("user_id", viewerUserId).maybeSingle();
+      initialLiked = Boolean(likeRow);
+    }
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data: commentsRaw } = await (supabase as any)
+      .from("list_comments")
+      .select("id, user_id, body, created_at, profiles(username, avatar_url)")
+      .eq("list_id", list.id)
+      .order("created_at", { ascending: false });
+    initialComments = (commentsRaw ?? []) as PublicComment[];
+  } catch {
+    // tables not yet created — page renders with empty social state
   }
-
-  // ── Comments ───────────────────────────────────────────────────────────────
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: commentsRaw } = await (supabase as any)
-    .from("list_comments")
-    .select("id, user_id, body, created_at, profiles(username, avatar_url)")
-    .eq("list_id", list.id)
-    .order("created_at", { ascending: false });
-
-  const initialComments: PublicComment[] = (commentsRaw ?? []) as PublicComment[];
 
   return (
     <div className="min-h-screen bg-white">
@@ -118,7 +125,7 @@ export default async function PublicListPage({ params }: { params: Params }) {
           listTitle={list.title}
           username={profile.username}
           slots={slots}
-          initialLikeCount={likeCount ?? 0}
+          initialLikeCount={likeCount}
           initialLiked={initialLiked}
           initialComments={initialComments}
           viewerUserId={viewerUserId}
