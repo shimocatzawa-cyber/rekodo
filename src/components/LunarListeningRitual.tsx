@@ -73,7 +73,7 @@ export default function LunarListeningRitual() {
     <div style={{ fontFamily: "var(--font-mono)", color: "#0a0a0a", borderTop: "1px solid #e0e0da" }}>
 
       {/* Eyebrow row */}
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "10px 20px" }}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "10px 0" }}>
         <span style={{ fontSize: "0.56rem", letterSpacing: "0.14em", textTransform: "uppercase", color: "#CC5500" }}>
           Lunar Listening
         </span>
@@ -83,7 +83,7 @@ export default function LunarListeningRitual() {
       </div>
 
       {/* Body */}
-      <div style={{ padding: "22px 20px", display: "grid", gridTemplateColumns: "56px 1fr", gap: "18px", alignItems: "start" }}>
+      <div style={{ padding: "22px 0", display: "grid", gridTemplateColumns: "56px 1fr", gap: "18px", alignItems: "start" }}>
         <div style={{ paddingTop: "2px" }}>
           <MoonSVG illumination={ritual.illumination} />
         </div>

@@ -778,7 +778,7 @@ export default function InsightsClient({
           {/* ── Album recommendation ── */}
           {starSign && (
             <div style={{ fontFamily: MONO, color: INK }}>
-              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "10px 20px" }}>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "10px 0" }}>
                 <span style={{ fontSize: "0.56rem", letterSpacing: "0.14em", textTransform: "uppercase", color: ORANGE }}>
                   Album Recommendation
                 </span>
@@ -791,7 +791,7 @@ export default function InsightsClient({
                 const rec = parseRec(tasteSummary);
                 return (
                   <>
-                    <div style={{ padding: "0 20px 18px", display: "grid", gridTemplateColumns: "56px 1fr", gap: "18px", alignItems: "start" }}>
+                    <div style={{ padding: "0 0 18px", display: "grid", gridTemplateColumns: "56px 1fr", gap: "18px", alignItems: "start" }}>
                       <div style={{ paddingTop: "2px" }}>
                         {recCoverUrl ? (
                           // eslint-disable-next-line @next/next/no-img-element
@@ -820,7 +820,7 @@ export default function InsightsClient({
                         )}
                       </div>
                     </div>
-                    <div style={{ padding: "0 20px 12px" }}>
+                    <div style={{ padding: "0 0 12px" }}>
                       <button onClick={handleGenerateSummary} disabled={summaryPending} style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.1em", textTransform: "uppercase", color: summaryPending ? "#ccc" : "#bbb", background: "none", border: "none", cursor: summaryPending ? "default" : "pointer", padding: 0 }}>
                         {summaryPending ? "Generating…" : "Regenerate →"}
                       </button>
@@ -829,25 +829,27 @@ export default function InsightsClient({
                   </>
                 );
               })() : (
-                <div style={{ padding: "0 20px 18px" }}>
+                <div style={{ padding: "0 0 18px" }}>
                   <button onClick={handleGenerateSummary} disabled={summaryPending} style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.1em", textTransform: "uppercase", color: summaryPending ? "#ccc" : ORANGE, background: "none", border: "none", cursor: summaryPending ? "default" : "pointer", padding: 0 }}>
                     {summaryPending ? "Generating…" : "Generate →"}
                   </button>
                   {summaryError && <p style={{ fontFamily: MONO, fontSize: "10px", color: "#cc3300", margin: "4px 0 0" }}>{summaryError}</p>}
                 </div>
               )}
-              <div style={{ borderTop: `1px solid ${RULE}`, margin: "0 20px" }} />
+              <div style={{ borderTop: `1px solid ${RULE}` }} />
             </div>
           )}
 
-          <TasteProfile
-            styleBreakdown={styleBreakdown}
-            hasStyles={hasStyles}
-            vinylColourBreakdown={vinylColourBreakdown}
-            spectrum={spectrum}
-            topPlayedRecords={topPlayedRecords}
-            playedStyleBreakdown={playedStyleBreakdown}
-          />
+          <div style={{ marginTop: "40px" }}>
+            <TasteProfile
+              styleBreakdown={styleBreakdown}
+              hasStyles={hasStyles}
+              vinylColourBreakdown={vinylColourBreakdown}
+              spectrum={spectrum}
+              topPlayedRecords={topPlayedRecords}
+              playedStyleBreakdown={playedStyleBreakdown}
+            />
+          </div>
         </main>
       )}
     </div>
