@@ -49,7 +49,7 @@ export default async function AdminPage() {
       .select("id, username, display_name, subscription_tier, role, created_at, last_synced_at, city, country, is_donor, spotify_connected, bandcamp_username")
       .range(0, 999),
     adminDb.auth.admin.listUsers({ perPage: 1000 }),
-    fetchPaged(adminDb, "wantlist", "user_id"),
+    fetchPaged(adminDb, "lists", "user_id", { column: "slug", value: "wantlist" }),
     fetchPaged(adminDb, "discogs_tokens", "user_id"),
     fetchPaged(adminDb, "archetype_cache", "user_id, primary_archetype"),
     fetchPaged(adminDb, "payments", "user_id, type, amount_cents, currency"),
