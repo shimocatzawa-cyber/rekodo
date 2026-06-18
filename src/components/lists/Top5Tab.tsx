@@ -30,6 +30,7 @@ const TOP5_TEMPLATES = [
   "Top 5 Gateway Records",
   "Top 5 Most Played",
   "Top 5 Hidden Gems",
+  "Top 5 Most Wanted",
 ] as const;
 
 type EditorModal =
