@@ -626,9 +626,21 @@ export default async function InsightsPage() {
   // ── Usage stats ────────────────────────────────────────────────────────────
   const { data: digRows } = await (supabase as any)
     .from("dig_daily_count")
-    .select("count")
-    .eq("user_id", user.id) as { data: { count: number }[] | null };
-  const digTotal = (digRows ?? []).reduce((sum: number, r: { count: number }) => sum + (r.count ?? 0), 0);
+    .select("mode, count")
+    .eq("user_id", user.id) as { data: { mode: string; count: number }[] | null };
+  const digByMode = { discover: 0, explore: 0, style: 0 };
+  for (const row of digRows ?? []) {
+    const m = row.mode ?? "discover";
+    if (m === "discover" || m === "explore" || m === "style") {
+      digByMode[m as keyof typeof digByMode] += row.count;
+    }
+  }
+
+  const { count: deepDiveCountRaw } = await (supabase as any)
+    .from("deep_dive_sessions")
+    .select("*", { count: "exact", head: true })
+    .eq("user_id", user.id) as { count: number | null };
+  const deepDiveCount = deepDiveCountRaw ?? 0;
 
   const { data: userListsRaw } = await supabase
     .from("lists")
@@ -669,7 +681,10 @@ export default async function InsightsPage() {
     .map(([genre, count]) => ({ genre, count }));
 
   const usageStats: InsightsProps["usageStats"] = {
-    digTotal,
+    digDiscover: digByMode.discover,
+    digExplore:  digByMode.explore,
+    digStyle:    digByMode.style,
+    deepDiveCount,
     listsTotal,
     listsTop5,
     listsPersonal,

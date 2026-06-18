@@ -355,11 +355,9 @@ ${JSON_SCHEMA}`;
       return Response.json({ error: "Invalid recommendations format" }, { status: 500 });
     }
 
-    // Atomically increment daily dig count for free users (fire-and-forget)
-    if (!isSupporter) {
-      const today = new Date().toISOString().slice(0, 10);
-      void (supabase as any).rpc("increment_dig_count", { p_user_id: user.id, p_date: today });
-    }
+    // Atomically increment daily dig count for all users (fire-and-forget)
+    const today = new Date().toISOString().slice(0, 10);
+    void (supabase as any).rpc("increment_dig_count", { p_user_id: user.id, p_date: today, p_mode: mode });
 
     return Response.json({ recommendations });
   } catch (err) {

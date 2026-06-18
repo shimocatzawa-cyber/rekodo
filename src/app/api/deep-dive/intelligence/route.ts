@@ -1,6 +1,7 @@
 import { type NextRequest, NextResponse } from "next/server";
 import Anthropic from "@anthropic-ai/sdk";
 import { createClient } from "@supabase/supabase-js";
+import { createClient as createAuthClient } from "@/lib/supabase/server";
 
 export const maxDuration = 120;
 
@@ -277,6 +278,23 @@ export async function POST(request: NextRequest) {
     if (CACHED_SECTIONS.has(section)) {
       void writeCache(artist, section, data);
     }
+
+    // ── Track per-user deep dive (fire-and-forget) ─────────────────────────────
+    void (async () => {
+      try {
+        const authClient = await createAuthClient();
+        const { data: { user } } = await authClient.auth.getUser();
+        if (!user) return;
+        const sb = getSupabase();
+        if (!sb) return;
+        await withDbTimeout(() =>
+          sb.from("deep_dive_sessions").upsert(
+            { user_id: user.id, artist, last_viewed_at: new Date().toISOString() },
+            { onConflict: "user_id,artist" }
+          )
+        );
+      } catch { /* non-critical */ }
+    })();
 
     return NextResponse.json({ data });
   } catch (error) {

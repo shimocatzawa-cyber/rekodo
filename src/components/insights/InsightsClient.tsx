@@ -66,7 +66,10 @@ export interface InsightsProps {
   profileId:    string;
   isSupporter:  boolean;
   usageStats:   {
-    digTotal:           number;
+    digDiscover:        number;
+    digExplore:         number;
+    digStyle:           number;
+    deepDiveCount:      number;
     listsTotal:         number;
     listsTop5:          number;
     listsPersonal:      number;

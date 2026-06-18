@@ -25,7 +25,10 @@ interface TasteProfileProps {
   topPlayedRecords:     { artist: string; album: string; coverUrl: string | null; lastPlayedAt: string; playCount: number }[];
   playedStyleBreakdown: { style: string; count: number; pct: number }[];
   usageStats: {
-    digTotal:           number;
+    digDiscover:        number;
+    digExplore:         number;
+    digStyle:           number;
+    deepDiveCount:      number;
     listsTotal:         number;
     listsTop5:          number;
     listsPersonal:      number;
@@ -312,7 +315,10 @@ export default function TasteProfile({
         border: `1px solid ${RULE}`, marginBottom: "32px",
       }}>
         {[
-          { hero: usageStats.digTotal.toLocaleString(),       label: "Total Digs" },
+          { hero: usageStats.digDiscover.toLocaleString(),    label: "Digs · In Collection" },
+          { hero: usageStats.digExplore.toLocaleString(),     label: "Digs · Outside" },
+          { hero: usageStats.digStyle.toLocaleString(),       label: "Digs · By Style" },
+          { hero: usageStats.deepDiveCount.toLocaleString(),  label: "Deep Dives" },
           { hero: usageStats.listsTotal.toLocaleString(),     label: "Lists Created" },
           { hero: usageStats.listItemsTotal.toLocaleString(), label: "List Items" },
           { hero: usageStats.listsTop5.toLocaleString(),      label: "Top 5 Lists" },
@@ -322,7 +328,7 @@ export default function TasteProfile({
           <div key={i} style={{
             padding: "16px 18px",
             borderRight: (i + 1) % 3 !== 0 ? `1px solid ${RULE}` : "none",
-            borderBottom: i < 3 ? `1px solid ${RULE}` : "none",
+            borderBottom: i < 6 ? `1px solid ${RULE}` : "none",
           }}>
             <p style={{
               fontFamily: "var(--font-editorial)", fontSize: "1.4rem", fontWeight: 400,
