@@ -114,8 +114,11 @@ interface SpotifyPlaybackState {
   track_window: {
     current_track: {
       name:    string;
+      uri:     string;
       artists: Array<{ name: string }>;
+      album:   { uri: string; name: string };
     };
+    next_tracks: Array<{ uri: string }>;
   };
 }
 
@@ -284,6 +287,25 @@ export function SpotifyPlayerProvider({ children }: { children: React.ReactNode 
       setPlayError(null);
       const s = state as SpotifyPlaybackState;
       const isPlaying = !s.paused;
+
+      // Collection-mode album boundary guard: Spotify queues tracks outside the
+      // album after it ends (autoplay). Also fires when the user switches albums
+      // mid-play and player_state_changed arrives before setActiveSource's async
+      // pause completes. In both cases: pause if still playing, then discard the
+      // state update so stale track info never reaches the UI.
+      if (
+        sourceRef.current?.mode === "collection" &&
+        sourceRef.current.spotifyUri &&
+        s.track_window?.current_track?.album?.uri &&
+        s.track_window.current_track.album.uri !== sourceRef.current.spotifyUri
+      ) {
+        if (isPlaying) {
+          playerRef.current?.togglePlay().catch(() => {});
+          setPlaying(false);
+        }
+        return;
+      }
+
       setPlaying(isPlaying);
       setPosition(s.position);
       setDuration(s.duration);
