@@ -24,6 +24,15 @@ interface TasteProfileProps {
   spectrum:             SpectrumData;
   topPlayedRecords:     { artist: string; album: string; coverUrl: string | null; lastPlayedAt: string; playCount: number }[];
   playedStyleBreakdown: { style: string; count: number; pct: number }[];
+  usageStats: {
+    digTotal:           number;
+    listsTotal:         number;
+    listsTop5:          number;
+    listsPersonal:      number;
+    listsPublic:        number;
+    listItemsTotal:     number;
+    listGenreBreakdown: { genre: string; count: number }[];
+  };
 }
 
 // Colour-name keyword → badge palette, used to render vinyl colours as labels.
@@ -69,18 +78,6 @@ const DONUT_COLOURS = [
 ];
 
 // ── Helpers ─────────────────────────────────────────────────────────────────────
-
-function relativeDate(isoString: string): string {
-  const played = new Date(isoString);
-  const now = new Date();
-  const diffMs = now.getTime() - played.getTime();
-  const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
-  if (diffDays === 0) return "Today";
-  if (diffDays === 1) return "Yesterday";
-  if (diffDays < 7)  return `${diffDays}d ago`;
-  if (diffDays < 30) return `${Math.floor(diffDays / 7)}w ago`;
-  return played.toLocaleDateString("en-AU", { day: "numeric", month: "short" });
-}
 
 // ── Sub-components ─────────────────────────────────────────────────────────────
 
@@ -177,9 +174,8 @@ function DonutChart({ data }: { data: { style: string; count: number; pct: numbe
   });
 
   return (
-    <div style={{ display: "flex", alignItems: "center", gap: "24px", flexWrap: "wrap" }}>
-      <svg viewBox="0 0 152 152" width="136" height="136" style={{ flexShrink: 0 }}>
-        {/* background ring fills any rounding gap */}
+    <div style={{ display: "flex", flexDirection: "column", gap: "20px" }}>
+      <svg viewBox="0 0 152 152" style={{ width: "100%", maxWidth: "160px" }}>
         <circle cx={cx} cy={cy} r={r} fill="none" stroke={RULE} strokeWidth={20} />
         {segs.map((seg) => (
           <circle
@@ -199,11 +195,8 @@ function DonutChart({ data }: { data: { style: string; count: number; pct: numbe
       <div style={{ display: "flex", flexDirection: "column", gap: "9px" }}>
         {segs.map((seg) => (
           <div key={seg.style} style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-            <div style={{
-              width: "8px", height: "8px", flexShrink: 0,
-              background: seg.colour,
-            }} />
-            <span style={{ fontFamily: MONO, fontSize: "10px", color: INK, lineHeight: 1.2 }}>
+            <div style={{ width: "8px", height: "8px", flexShrink: 0, background: seg.colour }} />
+            <span style={{ fontFamily: MONO, fontSize: "10px", color: INK, lineHeight: 1.2, flex: 1 }}>
               {seg.style}
             </span>
             <span style={{ fontFamily: MONO, fontSize: "10px", color: "#aaaaaa" }}>
@@ -220,7 +213,7 @@ function DonutChart({ data }: { data: { style: string; count: number; pct: numbe
 
 export default function TasteProfile({
   styleBreakdown, hasStyles, vinylColourBreakdown, spectrum,
-  topPlayedRecords, playedStyleBreakdown,
+  topPlayedRecords, playedStyleBreakdown, usageStats,
 }: TasteProfileProps) {
   const maxStylePct = styleBreakdown[0]?.pct ?? 100;
 
@@ -285,9 +278,7 @@ export default function TasteProfile({
                       </div>
                     </div>
                     <span style={{ fontFamily: MONO, fontSize: "10px", color: ORANGE, flexShrink: 0 }}>
-                      {rec.playCount > 0
-                        ? `${rec.playCount}×`
-                        : relativeDate(rec.lastPlayedAt)}
+                      {`×${Math.max(rec.playCount, 1)}`}
                     </span>
                   </div>
                 ))}
@@ -311,6 +302,71 @@ export default function TasteProfile({
           <div style={{ borderTop: `1px solid ${RULE}`, margin: "40px 0" }} />
         </>
       )}
+
+      {/* ── rekodo Activity ───────────────────────────────────────────────── */}
+      <TasteSectionHeader eyebrow="rekodo Activity" title="How you use the app." />
+
+      {/* Stat tiles */}
+      <div style={{
+        display: "grid", gridTemplateColumns: "repeat(3, 1fr)",
+        border: `1px solid ${RULE}`, marginBottom: "32px",
+      }}>
+        {[
+          { hero: usageStats.digTotal.toLocaleString(),       label: "Total Digs" },
+          { hero: usageStats.listsTotal.toLocaleString(),     label: "Lists Created" },
+          { hero: usageStats.listItemsTotal.toLocaleString(), label: "List Items" },
+          { hero: usageStats.listsTop5.toLocaleString(),      label: "Top 5 Lists" },
+          { hero: usageStats.listsPersonal.toLocaleString(),  label: "Personal Lists" },
+          { hero: usageStats.listsPublic.toLocaleString(),    label: "Public Lists" },
+        ].map((tile, i) => (
+          <div key={i} style={{
+            padding: "16px 18px",
+            borderRight: (i + 1) % 3 !== 0 ? `1px solid ${RULE}` : "none",
+            borderBottom: i < 3 ? `1px solid ${RULE}` : "none",
+          }}>
+            <p style={{
+              fontFamily: "var(--font-editorial)", fontSize: "1.4rem", fontWeight: 400,
+              color: INK, lineHeight: 1.1, margin: "0 0 5px", letterSpacing: "-0.01em",
+            }}>
+              {tile.hero}
+            </p>
+            <p style={{
+              fontFamily: MONO, fontSize: "0.58rem", letterSpacing: "0.1em",
+              textTransform: "uppercase", color: "#aaaaaa", margin: 0,
+            }}>
+              {tile.label}
+            </p>
+          </div>
+        ))}
+      </div>
+
+      {/* Genre breakdown of list items */}
+      {usageStats.listGenreBreakdown.length > 0 && (
+        <div style={{ marginBottom: "40px" }}>
+          <SubLabel>Music in your lists by genre</SubLabel>
+          <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
+            {(() => {
+              const maxCount = usageStats.listGenreBreakdown[0]?.count ?? 1;
+              return usageStats.listGenreBreakdown.map(({ genre, count }) => (
+                <div key={genre}>
+                  <div style={{
+                    display: "flex", justifyContent: "space-between",
+                    alignItems: "baseline", marginBottom: "6px",
+                  }}>
+                    <span style={{ fontFamily: MONO, fontSize: "11px", color: INK }}>{genre}</span>
+                    <span style={{ fontFamily: MONO, fontSize: "11px", color: ORANGE }}>{count}</span>
+                  </div>
+                  <div style={{ height: "3px", background: RULE, borderRadius: "2px", overflow: "hidden" }}>
+                    <div style={{ width: `${(count / maxCount) * 100}%`, height: "100%", background: ORANGE, borderRadius: "2px" }} />
+                  </div>
+                </div>
+              ));
+            })()}
+          </div>
+        </div>
+      )}
+
+      <div style={{ borderTop: `1px solid ${RULE}`, margin: "40px 0" }} />
 
       {/* ── Spectrum Dimensions ───────────────────────────────────────────── */}
       <TasteSectionHeader eyebrow="SPECTRUM DIMENSIONS" title="Where you sit on each axis." />

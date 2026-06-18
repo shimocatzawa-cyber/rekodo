@@ -3,7 +3,6 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import InsightsClient, { type InsightsProps } from "@/components/insights/InsightsClient";
 import { getDesirabilityTier, type DesirabilityTier } from "@/lib/desirability";
-import SupporterGate from "@/components/SupporterGate";
 
 export const metadata: Metadata = {
   title: "Insights",
@@ -51,10 +50,7 @@ export default async function InsightsPage() {
   const displayLabel = profile?.display_name?.trim() || username;
   const avatarUrl    = profile?.avatar_url ?? null;
 
-  const hasAccess = profile?.is_supporter || profile?.role === "admin";
-  if (!hasAccess) {
-    return <SupporterGate username={username} displayLabel={displayLabel} avatarUrl={avatarUrl} feature="Insights" />;
-  }
+  const isSupporter = !!(profile?.is_supporter || profile?.role === "admin");
 
   // ── Currency ───────────────────────────────────────────────────────────────
   const COUNTRY_CURRENCY: Record<string, string> = {
@@ -627,6 +623,61 @@ export default async function InsightsPage() {
       pct: playedStyleTotal > 0 ? Math.round((count / playedStyleTotal) * 100) : 0,
     }));
 
+  // ── Usage stats ────────────────────────────────────────────────────────────
+  const { data: digRows } = await (supabase as any)
+    .from("dig_daily_count")
+    .select("count")
+    .eq("user_id", user.id) as { data: { count: number }[] | null };
+  const digTotal = (digRows ?? []).reduce((sum: number, r: { count: number }) => sum + (r.count ?? 0), 0);
+
+  const { data: userListsRaw } = await supabase
+    .from("lists")
+    .select("id, list_type, is_public, slug")
+    .eq("user_id", user.id);
+  const userLists = (userListsRaw ?? []) as { id: string; list_type: string | null; is_public: boolean; slug: string | null }[];
+  const nonWantlists = userLists.filter((l) => l.slug !== "wantlist" && l.slug !== "want-to-buy");
+  const listsTotal    = nonWantlists.length;
+  const listsTop5     = nonWantlists.filter((l) => l.list_type === "top5").length;
+  const listsPersonal = nonWantlists.filter((l) => l.list_type !== "top5").length;
+  const listsPublic   = nonWantlists.filter((l) => l.is_public).length;
+
+  let listItemsTotal = 0;
+  const listGenreCounts = new Map<string, number>();
+  if (userLists.length > 0) {
+    const allListIds = userLists.map((l) => l.id);
+    const { data: itemsData } = await supabase
+      .from("list_items")
+      .select("record_id")
+      .in("list_id", allListIds);
+    const items = (itemsData ?? []) as { record_id: string | null }[];
+    listItemsTotal = items.length;
+    const recordIdsInLists = [...new Set(items.map((i) => i.record_id).filter((id): id is string => !!id))];
+    for (let i = 0; i < recordIdsInLists.length; i += 400) {
+      const { data: recData } = await supabase
+        .from("records")
+        .select("id, genre")
+        .in("id", recordIdsInLists.slice(i, i + 400));
+      for (const r of recData ?? []) {
+        const genre = ((r as { genre: string | null }).genre?.trim()) || "Unknown";
+        listGenreCounts.set(genre, (listGenreCounts.get(genre) ?? 0) + 1);
+      }
+    }
+  }
+  const listGenreBreakdown = [...listGenreCounts.entries()]
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 8)
+    .map(([genre, count]) => ({ genre, count }));
+
+  const usageStats: InsightsProps["usageStats"] = {
+    digTotal,
+    listsTotal,
+    listsTop5,
+    listsPersonal,
+    listsPublic,
+    listItemsTotal,
+    listGenreBreakdown,
+  };
+
   return (
     <InsightsClient
       username={username}
@@ -661,6 +712,8 @@ export default async function InsightsPage() {
       starSign={profile?.star_sign ?? null}
       tasteSummary={profile?.taste_summary ?? null}
       profileId={user.id}
+      isSupporter={isSupporter}
+      usageStats={usageStats}
     />
   );
 }
