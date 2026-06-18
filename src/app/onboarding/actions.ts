@@ -4,11 +4,14 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 
 export async function saveOnboardingProfile(
-  username: string,
+  username:    string,
   displayName: string,
-  city: string,
-  country: string,
-  countryCode: string
+  city:        string,
+  country:     string,
+  countryCode: string,
+  starSign:    string,
+  bandcamp:    string,
+  tasteEssay:  string,
 ): Promise<{ error: string } | undefined> {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
@@ -35,16 +38,19 @@ export async function saveOnboardingProfile(
 
   if (taken) return { error: "That username is already taken." };
 
-  const { error } = await supabase
+  const { error } = await (supabase as any)
     .from("profiles")
     .upsert(
       {
-        id: user.id,
-        username: clean,
-        display_name:  displayName.trim() || null,
-        city:          cleanCity,
-        country:       cleanCountry,
-        country_code:  cleanCode,
+        id:                user.id,
+        username:          clean,
+        display_name:      displayName.trim() || null,
+        city:              cleanCity,
+        country:           cleanCountry,
+        country_code:      cleanCode,
+        star_sign:         starSign || null,
+        bandcamp_username: bandcamp.trim().toLowerCase() || null,
+        bio:               tasteEssay.trim() || null,
       },
       { onConflict: "id" }
     );

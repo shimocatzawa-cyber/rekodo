@@ -2,10 +2,11 @@
 
 import { useState, useTransition } from "react";
 import { COUNTRIES } from "@/lib/countries";
+import { STAR_SIGNS } from "@/lib/starSigns";
 import { saveOnboardingProfile } from "./actions";
 
-const SERIF = "var(--font-editorial)";
-const MONO  = "var(--font-mono)";
+const SERIF  = "var(--font-editorial)";
+const MONO   = "var(--font-mono)";
 const ORANGE = "#CC5500";
 
 interface Props {
@@ -25,13 +26,16 @@ export default function OnboardingForm({
   currentCountry,
   currentCountryCode,
 }: Props) {
-  const [username,    setUsername]    = useState(currentUsername);
-  const [displayName, setDisplayName] = useState(currentDisplayName);
-  const [city,        setCity]        = useState(currentCity);
-  const [countryCode, setCountryCode] = useState(currentCountryCode);
-  const [country,     setCountry]     = useState(currentCountry);
-  const [error,       setError]       = useState<string | null>(null);
-  const [isPending,   startTransition] = useTransition();
+  const [username,        setUsername]        = useState(currentUsername);
+  const [displayName,     setDisplayName]     = useState(currentDisplayName);
+  const [city,            setCity]            = useState(currentCity);
+  const [countryCode,     setCountryCode]     = useState(currentCountryCode);
+  const [country,         setCountry]         = useState(currentCountry);
+  const [starSign,        setStarSign]        = useState("");
+  const [bandcamp,        setBandcamp]        = useState("");
+  const [tasteEssay,      setTasteEssay]      = useState("");
+  const [error,           setError]           = useState<string | null>(null);
+  const [isPending,       startTransition]    = useTransition();
 
   function handleCountryChange(e: React.ChangeEvent<HTMLSelectElement>) {
     const code = e.target.value;
@@ -44,7 +48,10 @@ export default function OnboardingForm({
     e.preventDefault();
     setError(null);
     startTransition(async () => {
-      const result = await saveOnboardingProfile(username, displayName, city, country, countryCode);
+      const result = await saveOnboardingProfile(
+        username, displayName, city, country, countryCode,
+        starSign, bandcamp, tasteEssay,
+      );
       if (result?.error) setError(result.error);
     });
   }
@@ -156,6 +163,74 @@ export default function OnboardingForm({
                 fontFamily: MONO, fontSize: "9px", color: "#aaaaaa", pointerEvents: "none",
               }}>▾</span>
             </div>
+          </div>
+
+          {/* Star sign */}
+          <div>
+            <label style={label}>Star sign <span style={{ color: "#cccccc" }}>(optional)</span></label>
+            <div style={{ position: "relative" }}>
+              <select
+                value={starSign}
+                onChange={e => setStarSign(e.target.value)}
+                style={{
+                  ...input,
+                  appearance: "none",
+                  paddingRight: "20px",
+                  cursor: "pointer",
+                  color: starSign ? "#0d0d0d" : "#aaaaaa",
+                }}
+              >
+                <option value="">Select star sign</option>
+                {STAR_SIGNS.map(s => (
+                  <option key={s} value={s}>{s}</option>
+                ))}
+              </select>
+              <span style={{
+                position: "absolute", right: "2px", bottom: "13px",
+                fontFamily: MONO, fontSize: "9px", color: "#aaaaaa", pointerEvents: "none",
+              }}>▾</span>
+            </div>
+          </div>
+
+          {/* Bandcamp username */}
+          <div>
+            <label style={label}>Bandcamp username <span style={{ color: "#cccccc" }}>(optional)</span></label>
+            <div style={{ display: "flex", alignItems: "baseline", borderBottom: "1px solid rgba(0,0,0,0.14)", paddingBottom: "10px" }}>
+              <span style={{ fontFamily: MONO, fontSize: "13px", color: "#aaaaaa", whiteSpace: "nowrap", paddingTop: "8px" }}>bandcamp.com/</span>
+              <input
+                type="text"
+                value={bandcamp}
+                onChange={e => setBandcamp(e.target.value.replace(/\s/g, "").toLowerCase())}
+                placeholder="yourname"
+                maxLength={60}
+                autoComplete="off"
+                style={{ ...input, border: "none", borderBottom: "none", padding: "8px 0 0", flex: 1 }}
+              />
+            </div>
+          </div>
+
+          {/* Taste essay */}
+          <div>
+            <label style={label}>Taste essay <span style={{ color: "#cccccc" }}>(optional)</span></label>
+            <textarea
+              value={tasteEssay}
+              onChange={e => setTasteEssay(e.target.value)}
+              placeholder="How would you describe your taste in music?"
+              maxLength={500}
+              rows={4}
+              style={{
+                ...input,
+                borderBottom: "1px solid rgba(0,0,0,0.14)",
+                resize: "vertical",
+                fontFamily: MONO,
+                fontSize: "13px",
+                lineHeight: 1.6,
+                paddingTop: "8px",
+              }}
+            />
+            <p style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.04em", color: tasteEssay.length >= 450 ? ORANGE : "#dddddd", margin: "5px 0 0", textAlign: "right" }}>
+              {tasteEssay.length} / 500
+            </p>
           </div>
 
           {error && (
