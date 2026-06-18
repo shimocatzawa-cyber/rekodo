@@ -18,8 +18,8 @@ function getAdminDb() {
   );
 }
 
-// Paginates past PostgREST's default 1000-row cap — same approach as the
-// user_records count loop below, reused for the connection-status tables.
+// Paginates past PostgREST's 1000-row hard cap. Batch size must be ≤ 1000 —
+// requesting more returns exactly 1000, causing the loop to break too early.
 async function fetchPaged(
   adminDb: ReturnType<typeof getAdminDb>,
   table: string,
@@ -27,13 +27,14 @@ async function fetchPaged(
   filter?: { column: string; value: string }
 ): Promise<Record<string, unknown>[]> {
   const rows: Record<string, unknown>[] = [];
-  for (let from = 0; ; from += 5000) {
-    let query = adminDb.from(table).select(columns).range(from, from + 4999);
+  const BATCH = 1000;
+  for (let from = 0; ; from += BATCH) {
+    let query = adminDb.from(table).select(columns).range(from, from + BATCH - 1);
     if (filter) query = query.eq(filter.column, filter.value);
     const { data } = await query;
     if (!data?.length) break;
     rows.push(...(data as unknown as Record<string, unknown>[]));
-    if (data.length < 5000) break;
+    if (data.length < BATCH) break;
   }
   return rows;
 }
@@ -46,7 +47,7 @@ export default async function AdminPage() {
     adminDb
       .from("profiles")
       .select("id, username, display_name, subscription_tier, role, created_at, last_synced_at, city, country, is_donor, spotify_connected")
-      .limit(5000),
+      .range(0, 999),
     adminDb.auth.admin.listUsers({ perPage: 1000 }),
     fetchPaged(adminDb, "wantlist", "user_id"),
     fetchPaged(adminDb, "digital_imports", "user_id", { column: "source", value: "bandcamp" }),
@@ -68,18 +69,19 @@ export default async function AdminPage() {
   const discogsIds   = new Set(discogsRows.map(r => r.user_id as string));
   const archetypeMap = new Map(archetypeRows.map(r => [r.user_id as string, r.primary_archetype as string | null]));
 
-  // Paginate user_records — default PostgREST cap is 1000 which undercounts large collections
+  // Paginate user_records — batch must be ≤ 1000 to match PostgREST's hard cap
   const recordCountMap = new Map<string, number>();
-  for (let from = 0; ; from += 5000) {
+  const REC_BATCH = 1000;
+  for (let from = 0; ; from += REC_BATCH) {
     const { data } = await adminDb
       .from("user_records")
       .select("user_id")
-      .range(from, from + 4999);
+      .range(from, from + REC_BATCH - 1);
     if (!data?.length) break;
     for (const r of data) {
       recordCountMap.set(r.user_id, (recordCountMap.get(r.user_id) ?? 0) + 1);
     }
-    if (data.length < 5000) break;
+    if (data.length < REC_BATCH) break;
   }
 
   // Build user list from auth (source of truth — includes everyone)
