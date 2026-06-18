@@ -30,9 +30,10 @@ export async function updateUserAdmin(
   const adminDb = getAdminDb();
   // "supporter" is the UI label; store as "premium" in DB for consistency with existing data
   const dbTier = tier === "supporter" ? "premium" : tier;
-  const { error } = await adminDb
+  const isSupporter = tier === "supporter";
+  const { error } = await (adminDb as any)
     .from("profiles")
-    .update({ subscription_tier: dbTier, role })
+    .update({ subscription_tier: dbTier, role, is_supporter: isSupporter })
     .eq("id", userId);
 
   if (error) return { success: false, error: error.message };
