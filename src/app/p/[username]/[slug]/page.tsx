@@ -145,11 +145,15 @@ export default async function PublicListPage({ params }: { params: Params }) {
           ō
         </a>
         <div style={{ display: "flex", alignItems: "center", gap: "20px" }}>
-          {viewerUsername && (
+          {isOwner ? (
+            <a href="/lists" style={{ fontFamily: MONO, fontSize: "10px", letterSpacing: "0.08em", color: "#aaa", textDecoration: "none" }}>
+              ← My Lists
+            </a>
+          ) : viewerUsername ? (
             <a href={`/@${viewerUsername}?tab=community`} style={{ fontFamily: MONO, fontSize: "10px", letterSpacing: "0.08em", color: "#aaa", textDecoration: "none" }}>
               ← Community
             </a>
-          )}
+          ) : null}
           <a href={`/@${profile.username}`} style={{ fontFamily: MONO, fontSize: "10px", letterSpacing: "0.08em", color: "#aaa", textDecoration: "none" }}>
             @{profile.username}
           </a>
