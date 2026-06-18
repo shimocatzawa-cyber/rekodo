@@ -140,10 +140,10 @@ export default function Top5Editor({ listId, listTitle, initialSlots, onClose }:
         </button>
       </div>
 
-      <div style={{ maxWidth: "680px", margin: "0 auto", padding: "40px 32px 80px" }}>
+      <div style={{ maxWidth: "1100px", margin: "0 auto", padding: "40px 32px 80px" }}>
 
         {/* Slot grid */}
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(5, 1fr)", gap: "12px", marginBottom: "32px" }}>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(5, 1fr)", gap: "16px", marginBottom: "32px" }}>
           {slots.map(slot => {
             const isActive  = activePos === slot.position;
             const isSaving  = savingPos  === slot.position;
