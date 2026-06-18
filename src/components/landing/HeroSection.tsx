@@ -18,17 +18,7 @@ export default function HeroSection() {
       </div>
 
       {/* Bottom strip */}
-      <div className="flex items-end justify-between pt-16 border-t border-black/10">
-        <p
-          style={{
-            fontFamily: "var(--font-caveat), cursive",
-            fontSize: "28px",
-            color: "#666666",
-            lineHeight: 1.2,
-          }}
-        >
-          Your records say everything about you.
-        </p>
+      <div className="flex items-end justify-end pt-16 border-t border-black/10">
         <Link
           href="#waitlist"
           className="font-mono text-xs tracking-widest uppercase bg-black text-white px-8 py-4 hover:bg-[#CC5500] hover:text-black transition-colors"
