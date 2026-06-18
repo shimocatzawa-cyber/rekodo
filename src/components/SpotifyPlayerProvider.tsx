@@ -197,6 +197,10 @@ export function SpotifyPlayerProvider({ children }: { children: React.ReactNode 
   // Tracks whether the SDK was playing near the end of its track, so
   // player_state_changed can distinguish a natural end from a user pause.
   const nearEndRef   = useRef(false);
+  // Tracks which source key sendSpotifyPlay was last called for, so
+  // handlePlayPause can distinguish "paused on current source → togglePlay"
+  // from "paused on old source after tab switch → need fresh play command".
+  const lastPlayedKeyRef = useRef("");
 
   const isPremium  = !!(tokenData?.connected && tokenData.product === "premium");
   const useSDK     = isPremium && (source?.mode === "collection" ? !!source.spotifyUri : !!(source?.albumUri ?? source?.spotifyTrackUri));
@@ -418,10 +422,13 @@ export function SpotifyPlayerProvider({ children }: { children: React.ReactNode 
       if (playing) {
         await playerRef.current.togglePlay().catch(() => {});
       } else {
-        // If the SDK already has a loaded (paused) track, resume with togglePlay.
-        // Sending a fresh Web API play command to a paused device returns 404.
-        const sdkState = await playerRef.current.getCurrentState().catch(() => null);
-        if (sdkState) {
+        const currentKey = source?.mode === "collection"
+          ? (source.spotifyUri ?? "")
+          : (source?.albumUri ?? source?.spotifyTrackUri ?? "");
+        // Only resume via togglePlay if sendSpotifyPlay was already called for
+        // THIS source. If the source changed (tab switch, new rec), always send
+        // a fresh play command — the SDK may still have the old album loaded.
+        if (currentKey && lastPlayedKeyRef.current === currentKey) {
           await playerRef.current.togglePlay().catch(() => {});
         } else {
           if (!deviceId) return;
@@ -435,7 +442,11 @@ export function SpotifyPlayerProvider({ children }: { children: React.ReactNode 
           if (!body) return;
           setPlayError(null);
           const err = await sendSpotifyPlay(deviceId, body);
-          if (err !== null) setPlayError(err);
+          if (err !== null) {
+            setPlayError(err);
+          } else {
+            lastPlayedKeyRef.current = currentKey;
+          }
         }
       }
     } else if (audioRef.current) {
@@ -504,6 +515,9 @@ export function SpotifyPlayerProvider({ children }: { children: React.ReactNode 
       if (audioRef.current) {
         audioRef.current.pause();
       }
+      // Clear play-source tracking so handlePlayPause sends a fresh play command
+      // rather than resuming the old album via togglePlay.
+      lastPlayedKeyRef.current = "";
     }
 
     sourceRef.current = next;
