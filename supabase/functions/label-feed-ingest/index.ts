@@ -187,9 +187,14 @@ ${body.slice(0, 4000)}
 Extract ALL individual releases mentioned (new releases, represses, preorders, etc).
 Many newsletters list multiple records — include every one you can identify.
 
+IMPORTANT parsing rules:
+- Newsletters often prefix entries with the format, e.g. "LP Swim Deep - Hum" or "12\" Artist - Title". Always strip the format prefix and place it in the "format" field — never include it in artist.
+- The pattern is typically: [FORMAT] [ARTIST] - [ALBUM TITLE]. Split on " - " to separate artist from album.
+- Do not include format tokens (LP, EP, 12", 7", CD, etc.) in the artist field.
+
 Return a JSON array where each element has:
-- artist: string or null
-- album: string or null
+- artist: string or null — the artist/band name only, no format prefix
+- album: string or null — the album/release title only
 - release_type: one of "new_release", "repress", "preorder", "announcement", "unknown"
 - format: e.g. "LP", "12\\"", "7\\"", "CD", "Digital", or null
 - label: record label name or null
