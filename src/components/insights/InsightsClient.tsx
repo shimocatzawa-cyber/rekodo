@@ -836,6 +836,7 @@ export default function InsightsClient({
                   {summaryError && <p style={{ fontFamily: MONO, fontSize: "10px", color: "#cc3300", margin: "4px 0 0" }}>{summaryError}</p>}
                 </div>
               )}
+              <div style={{ borderTop: `1px solid ${RULE}`, margin: "0 20px" }} />
             </div>
           )}
 
