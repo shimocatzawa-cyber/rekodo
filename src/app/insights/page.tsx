@@ -49,7 +49,7 @@ export default async function InsightsPage() {
   const avatarUrl    = profile?.avatar_url ?? null;
 
   if (!profile?.is_supporter) {
-    return <SupporterGate username={username} displayLabel={displayLabel} avatarUrl={avatarUrl} feature="Taste Profile" />;
+    return <SupporterGate username={username} displayLabel={displayLabel} avatarUrl={avatarUrl} feature="Insights" />;
   }
 
   // ── Currency ───────────────────────────────────────────────────────────────
