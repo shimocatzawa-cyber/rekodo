@@ -13,6 +13,7 @@ import type { UserList, ListSlot, SlotItem } from "@/app/lists/types";
 import type { CollectionRecord } from "@/app/collection/page";
 import { generateShareCard, downloadCard, copyCardToClipboard } from "@/lib/shareCard";
 import { isAppleMusicUrl, openAppleMusicLink } from "@/lib/openAppleMusic";
+import { createClient } from "@/lib/supabase/client";
 
 const SERIF  = "var(--font-editorial)";
 const MONO   = "var(--font-mono)";
@@ -940,6 +941,191 @@ function AddRecordButton({ onClick }: { onClick: () => void }) {
   );
 }
 
+// ─── MarketplaceDrawer ────────────────────────────────────────────────────────
+
+type MemberRow = { username: string; avatar_url: string | null };
+
+function MarketplaceDrawer({
+  isOpen, onClose, artist, album,
+}: {
+  isOpen: boolean;
+  onClose: () => void;
+  artist: string;
+  album: string;
+}) {
+  const [isMobile,     setIsMobile]     = useState(false);
+  const [members,      setMembers]      = useState<MemberRow[]>([]);
+  const [membersPhase, setMembersPhase] = useState<"idle" | "loading" | "done">("idle");
+  const [confirming,   setConfirming]   = useState(false);
+  const [interestSent, setInterestSent] = useState(false);
+
+  useEffect(() => {
+    const check = () => setIsMobile(window.innerWidth < 768);
+    check();
+    window.addEventListener("resize", check);
+    return () => window.removeEventListener("resize", check);
+  }, []);
+
+  useEffect(() => {
+    if (!isOpen) {
+      setMembersPhase("idle");
+      setMembers([]);
+      setConfirming(false);
+      setInterestSent(false);
+      return;
+    }
+    setMembersPhase("loading");
+    const supabase = createClient();
+    supabase.auth.getUser().then(async ({ data: { user } }) => {
+      try {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const { data: matchingRecords } = await (supabase as any)
+          .from("records")
+          .select("id")
+          .ilike("artist", artist)
+          .ilike("album", album);
+        if (!matchingRecords?.length) { setMembersPhase("done"); return; }
+        const recordIds = (matchingRecords as { id: string }[]).map(r => r.id);
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        let q = (supabase as any)
+          .from("user_records")
+          .select("user_id")
+          .in("record_id", recordIds)
+          .eq("open_to_offers", true);
+        if (user?.id) q = q.neq("user_id", user.id);
+        const { data: sellerRows } = await q;
+        if (!sellerRows?.length) { setMembersPhase("done"); return; }
+        const userIds = (sellerRows as { user_id: string }[]).map(r => r.user_id);
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const { data: profiles } = await (supabase as any)
+          .from("profiles")
+          .select("username, avatar_url")
+          .in("id", userIds);
+        setMembers((profiles as MemberRow[]) ?? []);
+      } catch { /* silently fail */ }
+      finally { setMembersPhase("done"); }
+    });
+  }, [isOpen, artist, album]);
+
+  async function handleExpressInterest() {
+    const supabase = createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+    await Promise.all(
+      members.map(m =>
+        fetch("/api/wantlist/express-interest", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ buyerUserId: user.id, sellerUsername: m.username, artist, album }),
+        })
+      )
+    );
+    setConfirming(false);
+    setInterestSent(true);
+  }
+
+  if (!isOpen) return null;
+
+  const q = encodeURIComponent(`${artist} ${album}`);
+  const FIND_LINKS = [
+    { label: "Buy on Discogs ↗",     href: `https://www.discogs.com/search/?q=${q}&type=release` },
+    { label: "Buy on eBay ↗",        href: `https://www.ebay.com/sch/i.html?_nkw=${q}&_sacat=306` },
+    { label: "Search Boomkat ↗",     href: `https://boomkat.com/search?q=${q}` },
+    { label: "Search Juno ↗",        href: `https://www.juno.co.uk/search/?q=${q}` },
+    { label: "Search Rough Trade ↗", href: `https://www.roughtrade.com/search?q=${q}` },
+    { label: "Search Bandcamp ↗",    href: `https://bandcamp.com/search?q=${q}` },
+  ];
+  const labelStyle: React.CSSProperties = {
+    fontFamily: MONO, fontSize: "0.6rem", letterSpacing: "0.14em",
+    textTransform: "uppercase", color: ORANGE, margin: "0 0 10px",
+  };
+  const drawerStyle: React.CSSProperties = isMobile
+    ? { position: "fixed", bottom: 0, left: 0, right: 0, maxHeight: "72vh", overflowY: "auto", background: "#FDF6F0", borderTop: "1px solid #e0e0da", zIndex: 200 }
+    : { position: "fixed", right: 0, top: 0, bottom: 0, width: "380px", overflowY: "auto", background: "#FDF6F0", borderLeft: "1px solid #e0e0da", zIndex: 200 };
+
+  return (
+    <>
+      {isMobile && (
+        <div onClick={onClose} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.3)", zIndex: 199 }} />
+      )}
+      <div style={drawerStyle}>
+        <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", padding: "16px 20px 12px", borderBottom: "1px solid #e0e0da" }}>
+          <div>
+            <p style={{ fontFamily: SERIF, fontSize: "14px", fontWeight: 600, color: "#0a0a0a", margin: 0, lineHeight: 1.2 }}>{artist}</p>
+            <p style={{ fontFamily: SERIF, fontStyle: "italic", fontSize: "12px", color: "#555", margin: "3px 0 0" }}>{album}</p>
+          </div>
+          <button onClick={onClose} style={{ fontFamily: MONO, fontSize: "18px", color: "#aaaaaa", background: "none", border: "none", cursor: "pointer", padding: "0 0 0 16px", lineHeight: 1, flexShrink: 0 }}>×</button>
+        </div>
+
+        <div style={{ padding: "16px 20px" }}>
+          <p style={labelStyle}>Find It</p>
+          {FIND_LINKS.map(({ label, href }, i, arr) => (
+            <div key={label}>
+              <a href={href} target="_blank" rel="noopener noreferrer" style={{ fontFamily: MONO, fontSize: "0.82rem", color: "#0a0a0a", textDecoration: "none", display: "block", padding: "8px 0" }}>
+                {label}
+              </a>
+              {i < arr.length - 1 && <div style={{ height: "1px", background: "rgba(0,0,0,0.06)" }} />}
+            </div>
+          ))}
+        </div>
+
+        <div style={{ borderTop: "1px solid #e0e0da", padding: "16px 20px" }}>
+          <p style={labelStyle}>Rekōdo Members</p>
+          {membersPhase === "loading" && (
+            <p style={{ fontFamily: MONO, fontSize: "0.7rem", color: "#888", letterSpacing: "0.04em" }}>Searching members…</p>
+          )}
+          {membersPhase === "done" && members.length === 0 && (
+            <p style={{ fontFamily: MONO, fontSize: "0.7rem", color: "#888", letterSpacing: "0.04em" }}>No members currently selling this.</p>
+          )}
+          {membersPhase === "done" && members.length > 0 && (
+            <>
+              {members.map(m => (
+                <div key={m.username} style={{ display: "flex", alignItems: "center", gap: "10px", padding: "8px 0", borderBottom: "1px solid rgba(0,0,0,0.05)" }}>
+                  <div style={{ width: 28, height: 28, flexShrink: 0, borderRadius: "50%", background: "#e0e0da", display: "flex", alignItems: "center", justifyContent: "center", overflow: "hidden" }}>
+                    {m.avatar_url
+                      // eslint-disable-next-line @next/next/no-img-element
+                      ? <img src={m.avatar_url} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                      : <span style={{ fontFamily: MONO, fontSize: "10px", color: "#888", textTransform: "uppercase" }}>{m.username[0]}</span>
+                    }
+                  </div>
+                  <span style={{ fontFamily: MONO, fontSize: "0.75rem", color: "#0a0a0a", flex: 1 }}>@{m.username}</span>
+                  <a href={`/@${m.username}`} style={{ fontFamily: MONO, fontSize: "0.7rem", color: ORANGE, textDecoration: "none", whiteSpace: "nowrap" }}>
+                    View profile →
+                  </a>
+                </div>
+              ))}
+              {interestSent ? (
+                <p style={{ fontFamily: MONO, fontSize: "0.7rem", color: "#22c55e", margin: "14px 0 0", letterSpacing: "0.04em" }}>Your interest has been shared.</p>
+              ) : confirming ? (
+                <div style={{ marginTop: "14px", padding: "14px", background: "#fff", border: "1px solid #e0e0da" }}>
+                  <p style={{ fontFamily: MONO, fontSize: "0.72rem", color: "#0a0a0a", lineHeight: 1.6, margin: "0 0 14px" }}>
+                    Share your email with {members.length === 1 ? "this member" : "these members"} so they can reach out about <em>{artist} — {album}</em>?
+                  </p>
+                  <div style={{ display: "flex", gap: "10px" }}>
+                    <button onClick={handleExpressInterest} style={{ fontFamily: MONO, fontSize: "0.65rem", letterSpacing: "0.1em", textTransform: "uppercase", background: "#0a0a0a", color: "#FDF6F0", border: "none", cursor: "pointer", padding: "8px 16px", flex: 1 }}>
+                      Confirm
+                    </button>
+                    <button onClick={() => setConfirming(false)} style={{ fontFamily: MONO, fontSize: "0.65rem", letterSpacing: "0.1em", textTransform: "uppercase", background: "none", color: "#888", border: "1px solid #e0e0da", cursor: "pointer", padding: "8px 16px" }}>
+                      Cancel
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <button
+                  onClick={() => setConfirming(true)}
+                  style={{ marginTop: "14px", width: "100%", fontFamily: MONO, fontSize: "0.65rem", letterSpacing: "0.1em", textTransform: "uppercase", background: "#0a0a0a", color: "#FDF6F0", border: "none", cursor: "pointer", padding: "12px 0" }}
+                >
+                  Express Interest
+                </button>
+              )}
+            </>
+          )}
+        </div>
+      </div>
+    </>
+  );
+}
+
 // ─── WantlistCard ─────────────────────────────────────────────────────────────
 
 type WantlistMeta = {
@@ -961,10 +1147,11 @@ function WantlistCard({ slot, monthsOld, showSomedayPrompt, onRemove, onKeepSome
   const { item } = slot;
   if (!item) return null;
 
-  const [hovered,   setHovered]   = useState(false);
-  const [coverUrl,  setCoverUrl]  = useState<string | null>(item.cover_url ?? null);
-  const [noteOpen,  setNoteOpen]  = useState(false);
-  const [noteDraft, setNoteDraft] = useState(slot.note ?? "");
+  const [hovered,    setHovered]    = useState(false);
+  const [coverUrl,   setCoverUrl]   = useState<string | null>(item.cover_url ?? null);
+  const [noteOpen,   setNoteOpen]   = useState(false);
+  const [noteDraft,  setNoteDraft]  = useState(slot.note ?? "");
+  const [drawerOpen, setDrawerOpen] = useState(false);
 
   useEffect(() => {
     if (coverUrl) return;
@@ -986,14 +1173,12 @@ function WantlistCard({ slot, monthsOld, showSomedayPrompt, onRemove, onKeepSome
 
   const priority = (slot.priority ?? null) as Priority | null;
 
-  const discogsUrl = slot.discogs_release_id
-    ? `https://www.discogs.com/release/${slot.discogs_release_id}`
-    : `https://www.discogs.com/search/?q=${encodeURIComponent(`${item.artist} ${item.album}`)}&type=release`;
-  const dateLabel   = slot.created_at
+  const dateLabel = slot.created_at
     ? new Date(slot.created_at).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })
     : null;
 
   return (
+    <>
     <div
       style={{
         border: "1px solid rgba(0,0,0,0.07)", padding: "10px 12px",
@@ -1056,11 +1241,13 @@ function WantlistCard({ slot, monthsOld, showSomedayPrompt, onRemove, onKeepSome
             {item.song_title ?? item.album}
             {item.year && <span style={{ fontFamily: MONO, fontStyle: "normal", fontSize: "0.7rem", color: "#999999", letterSpacing: "0.05em" }}> · {item.year}</span>}
           </p>
-          {/* Discogs link */}
-          <a href={discogsUrl} target="_blank" rel="noopener noreferrer"
-            style={{ fontFamily: MONO, fontSize: "10px", letterSpacing: "0.05em", color: hovered ? "#a34400" : ORANGE, textDecoration: "none", transition: "color 0.15s" }}>
-            Discogs ↗
-          </a>
+          {/* Find It button — opens marketplace drawer */}
+          <button
+            onClick={() => setDrawerOpen(true)}
+            style={{ fontFamily: MONO, fontSize: "10px", letterSpacing: "0.05em", color: hovered ? "#a34400" : ORANGE, background: "none", border: "none", cursor: "pointer", padding: 0, transition: "color 0.15s", textAlign: "left" }}
+          >
+            Find It ↗
+          </button>
         </div>
 
         {/* Remove button */}
@@ -1120,6 +1307,13 @@ function WantlistCard({ slot, monthsOld, showSomedayPrompt, onRemove, onKeepSome
         ) : null}
       </div>
     </div>
+    <MarketplaceDrawer
+      isOpen={drawerOpen}
+      onClose={() => setDrawerOpen(false)}
+      artist={item.artist}
+      album={item.song_title ?? item.album}
+    />
+    </>
   );
 }
 
