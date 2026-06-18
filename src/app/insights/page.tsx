@@ -644,41 +644,19 @@ export default async function InsightsPage() {
 
   const { data: userListsRaw } = await supabase
     .from("lists")
-    .select("id, list_type, is_public, slug")
+    .select("id, slug")
     .eq("user_id", user.id);
-  const userLists = (userListsRaw ?? []) as { id: string; list_type: string | null; is_public: boolean; slug: string | null }[];
-  const nonWantlists = userLists.filter((l) => l.slug !== "wantlist" && l.slug !== "want-to-buy");
-  const listsTotal    = nonWantlists.length;
-  const listsTop5     = nonWantlists.filter((l) => l.list_type === "top5").length;
-  const listsPersonal = nonWantlists.filter((l) => l.list_type !== "top5").length;
-  const listsPublic   = nonWantlists.filter((l) => l.is_public).length;
+  const userLists = (userListsRaw ?? []) as { id: string; slug: string | null }[];
+  const listsTotal = userLists.filter((l) => l.slug !== "wantlist" && l.slug !== "want-to-buy").length;
 
-  let listItemsTotal = 0;
-  const listGenreCounts = new Map<string, number>();
+  let listLikes = 0;
   if (userLists.length > 0) {
-    const allListIds = userLists.map((l) => l.id);
-    const { data: itemsData } = await supabase
-      .from("list_items")
-      .select("record_id")
-      .in("list_id", allListIds);
-    const items = (itemsData ?? []) as { record_id: string | null }[];
-    listItemsTotal = items.length;
-    const recordIdsInLists = [...new Set(items.map((i) => i.record_id).filter((id): id is string => !!id))];
-    for (let i = 0; i < recordIdsInLists.length; i += 400) {
-      const { data: recData } = await supabase
-        .from("records")
-        .select("id, genre")
-        .in("id", recordIdsInLists.slice(i, i + 400));
-      for (const r of recData ?? []) {
-        const genre = ((r as { genre: string | null }).genre?.trim()) || "Unknown";
-        listGenreCounts.set(genre, (listGenreCounts.get(genre) ?? 0) + 1);
-      }
-    }
+    const { count: likesCount } = await (supabase as any)
+      .from("list_likes")
+      .select("*", { count: "exact", head: true })
+      .in("list_id", userLists.map((l) => l.id)) as { count: number | null };
+    listLikes = likesCount ?? 0;
   }
-  const listGenreBreakdown = [...listGenreCounts.entries()]
-    .sort((a, b) => b[1] - a[1])
-    .slice(0, 8)
-    .map(([genre, count]) => ({ genre, count }));
 
   const usageStats: InsightsProps["usageStats"] = {
     digDiscover: digByMode.discover,
@@ -686,11 +664,7 @@ export default async function InsightsPage() {
     digStyle:    digByMode.style,
     deepDiveCount,
     listsTotal,
-    listsTop5,
-    listsPersonal,
-    listsPublic,
-    listItemsTotal,
-    listGenreBreakdown,
+    listLikes,
   };
 
   return (

@@ -66,16 +66,12 @@ export interface InsightsProps {
   profileId:    string;
   isSupporter:  boolean;
   usageStats:   {
-    digDiscover:        number;
-    digExplore:         number;
-    digStyle:           number;
-    deepDiveCount:      number;
-    listsTotal:         number;
-    listsTop5:          number;
-    listsPersonal:      number;
-    listsPublic:        number;
-    listItemsTotal:     number;
-    listGenreBreakdown: { genre: string; count: number }[];
+    digDiscover:   number;
+    digExplore:    number;
+    digStyle:      number;
+    deepDiveCount: number;
+    listsTotal:    number;
+    listLikes:     number;
   };
 }
 

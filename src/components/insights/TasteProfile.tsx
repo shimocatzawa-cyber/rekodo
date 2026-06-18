@@ -25,16 +25,12 @@ interface TasteProfileProps {
   topPlayedRecords:     { artist: string; album: string; coverUrl: string | null; lastPlayedAt: string; playCount: number }[];
   playedStyleBreakdown: { style: string; count: number; pct: number }[];
   usageStats: {
-    digDiscover:        number;
-    digExplore:         number;
-    digStyle:           number;
-    deepDiveCount:      number;
-    listsTotal:         number;
-    listsTop5:          number;
-    listsPersonal:      number;
-    listsPublic:        number;
-    listItemsTotal:     number;
-    listGenreBreakdown: { genre: string; count: number }[];
+    digDiscover:   number;
+    digExplore:    number;
+    digStyle:      number;
+    deepDiveCount: number;
+    listsTotal:    number;
+    listLikes:     number;
   };
 }
 
@@ -315,20 +311,17 @@ export default function TasteProfile({
         border: `1px solid ${RULE}`, marginBottom: "32px",
       }}>
         {[
-          { hero: usageStats.digDiscover.toLocaleString(),    label: "Digs · In Collection" },
-          { hero: usageStats.digExplore.toLocaleString(),     label: "Digs · Outside" },
-          { hero: usageStats.digStyle.toLocaleString(),       label: "Digs · By Style" },
-          { hero: usageStats.deepDiveCount.toLocaleString(),  label: "Deep Dives" },
-          { hero: usageStats.listsTotal.toLocaleString(),     label: "Lists Created" },
-          { hero: usageStats.listItemsTotal.toLocaleString(), label: "List Items" },
-          { hero: usageStats.listsTop5.toLocaleString(),      label: "Top 5 Lists" },
-          { hero: usageStats.listsPersonal.toLocaleString(),  label: "Personal Lists" },
-          { hero: usageStats.listsPublic.toLocaleString(),    label: "Public Lists" },
+          { hero: usageStats.digDiscover.toLocaleString(),   label: "Digs · In Collection" },
+          { hero: usageStats.digExplore.toLocaleString(),    label: "Digs · Outside" },
+          { hero: usageStats.digStyle.toLocaleString(),      label: "Digs · By Style" },
+          { hero: usageStats.deepDiveCount.toLocaleString(), label: "Deep Dives" },
+          { hero: usageStats.listsTotal.toLocaleString(),    label: "Lists Created" },
+          { hero: usageStats.listLikes.toLocaleString(),     label: "List Likes" },
         ].map((tile, i) => (
           <div key={i} style={{
             padding: "16px 18px",
             borderRight: (i + 1) % 3 !== 0 ? `1px solid ${RULE}` : "none",
-            borderBottom: i < 6 ? `1px solid ${RULE}` : "none",
+            borderBottom: i < 3 ? `1px solid ${RULE}` : "none",
           }}>
             <p style={{
               fontFamily: "var(--font-editorial)", fontSize: "1.4rem", fontWeight: 400,
@@ -345,32 +338,6 @@ export default function TasteProfile({
           </div>
         ))}
       </div>
-
-      {/* Genre breakdown of list items */}
-      {usageStats.listGenreBreakdown.length > 0 && (
-        <div style={{ marginBottom: "40px" }}>
-          <SubLabel>Music in your lists by genre</SubLabel>
-          <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
-            {(() => {
-              const maxCount = usageStats.listGenreBreakdown[0]?.count ?? 1;
-              return usageStats.listGenreBreakdown.map(({ genre, count }) => (
-                <div key={genre}>
-                  <div style={{
-                    display: "flex", justifyContent: "space-between",
-                    alignItems: "baseline", marginBottom: "6px",
-                  }}>
-                    <span style={{ fontFamily: MONO, fontSize: "11px", color: INK }}>{genre}</span>
-                    <span style={{ fontFamily: MONO, fontSize: "11px", color: ORANGE }}>{count}</span>
-                  </div>
-                  <div style={{ height: "3px", background: RULE, borderRadius: "2px", overflow: "hidden" }}>
-                    <div style={{ width: `${(count / maxCount) * 100}%`, height: "100%", background: ORANGE, borderRadius: "2px" }} />
-                  </div>
-                </div>
-              ));
-            })()}
-          </div>
-        </div>
-      )}
 
       <div style={{ borderTop: `1px solid ${RULE}`, margin: "40px 0" }} />
 
