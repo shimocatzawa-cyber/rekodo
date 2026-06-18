@@ -4,7 +4,6 @@ import { useState } from "react";
 import { useSearchParams } from "next/navigation";
 import AppNav from "@/components/AppNav";
 import Top5Tab from "@/components/lists/Top5Tab";
-import WantlistClient from "@/components/wantlist/WantlistClient";
 import ProfileListsTab from "@/components/profile/ProfileListsTab";
 import SellListClient from "@/components/profile/SellListClient";
 import CommunityTab from "@/components/community/CommunityTab";
@@ -34,6 +33,9 @@ export default function ListsHub({ profileId, username, displayLabel, avatarUrl,
   const raw = searchParams.get("tab") as SubTab | null;
   const initial: SubTab = TABS.some(t => t.key === raw) ? raw! : "top5";
   const [activeTab, setActiveTab] = useState<SubTab>(initial);
+
+  // isSupporter kept in Props for potential future use
+  void isSupporter;
 
   return (
     <div style={{ minHeight: "100vh", background: "#ffffff", display: "flex", flexDirection: "column" }}>
@@ -72,16 +74,7 @@ export default function ListsHub({ profileId, username, displayLabel, avatarUrl,
           <Top5Tab username={username} />
         )}
         {activeTab === "wantlist" && (
-          <div>
-            {/* CSV import at top, centered */}
-            <div style={{ display: "flex", justifyContent: "center", padding: "2rem 2rem 0" }}>
-              <div style={{ width: "100%", maxWidth: 560 }}>
-                <WantlistClient isOwner={true} isSupporter={isSupporter} userId={profileId} embedded />
-              </div>
-            </div>
-            {/* Wantlist items below */}
-            <ProfileListsTab initialLists={[]} username={username} listTypeFilter="wantlist" />
-          </div>
+          <ProfileListsTab initialLists={[]} username={username} listTypeFilter="wantlist" />
         )}
         {activeTab === "selllist" && (
           <SellListClient profileOwnerId={profileId} isOwner={true} />
