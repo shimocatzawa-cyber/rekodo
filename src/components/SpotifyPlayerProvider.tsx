@@ -403,26 +403,31 @@ export function SpotifyPlayerProvider({ children }: { children: React.ReactNode 
   // ── Play / pause ──────────────────────────────────────────────────────────
   const handlePlayPause = useCallback(async () => {
     if (useSDK && playerRef.current) {
+      // activateElement must run synchronously in the user-gesture call stack —
+      // do it before any await so the browser doesn't suspend the AudioContext.
+      try { playerRef.current.activateElement(); } catch { /* SDK < activateElement */ }
       if (playing) {
         await playerRef.current.togglePlay().catch(() => {});
       } else {
-        if (!deviceId) return;
-        // Unlock the SDK's internal AudioContext while still in the user-gesture
-        // call stack. Browsers suspend AudioContext created outside a gesture
-        // (i.e. on connect()), so without this the play command arrives but no
-        // audio comes out.
-        try { playerRef.current.activateElement(); } catch { /* SDK < activateElement */ }
-        const body = source?.mode === "collection" && source.spotifyUri
-          ? { context_uri: source.spotifyUri }
-          : source?.albumUri
-            ? { context_uri: source.albumUri }
-            : source?.spotifyTrackUri
-              ? { uris: [source.spotifyTrackUri] }
-              : null;
-        if (!body) return;
-        setPlayError(null);
-        const err = await sendSpotifyPlay(deviceId, body);
-        if (err !== null) setPlayError(err);
+        // If the SDK already has a loaded (paused) track, resume with togglePlay.
+        // Sending a fresh Web API play command to a paused device returns 404.
+        const sdkState = await playerRef.current.getCurrentState().catch(() => null);
+        if (sdkState) {
+          await playerRef.current.togglePlay().catch(() => {});
+        } else {
+          if (!deviceId) return;
+          const body = source?.mode === "collection" && source.spotifyUri
+            ? { context_uri: source.spotifyUri }
+            : source?.albumUri
+              ? { context_uri: source.albumUri }
+              : source?.spotifyTrackUri
+                ? { uris: [source.spotifyTrackUri] }
+                : null;
+          if (!body) return;
+          setPlayError(null);
+          const err = await sendSpotifyPlay(deviceId, body);
+          if (err !== null) setPlayError(err);
+        }
       }
     } else if (audioRef.current) {
       if (playing) audioRef.current.pause();
