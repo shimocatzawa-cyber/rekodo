@@ -74,6 +74,7 @@ const PERSONAL_TEMPLATES = [
 interface Props {
   initialLists: UserList[];
   username:     string;
+  listTypeFilter?: "top5" | "wantlist";
 }
 
 type PickerMode =
@@ -116,7 +117,7 @@ function reorderSlots(slots: ListSlot[], fromPos: number, toPos: number): ListSl
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
-export default function ProfileListsTab({ initialLists, username }: Props) {
+export default function ProfileListsTab({ initialLists, username, listTypeFilter }: Props) {
   const router = useRouter();
 
   const [lists,        setLists]       = useState<UserList[]>(initialLists);
@@ -124,6 +125,14 @@ export default function ProfileListsTab({ initialLists, username }: Props) {
   const [activePillId, setActivePillId] = useState<string | null>(
     (initialLists.find(l => l.slug === "wantlist" || l.slug === "want-to-buy") ?? initialLists[0])?.id ?? null
   );
+
+  function pickDefault(arr: UserList[]): string | null {
+    if (!listTypeFilter) {
+      const wl = arr.find(l => l.slug === "wantlist" || l.slug === "want-to-buy");
+      return (wl ?? arr[0])?.id ?? null;
+    }
+    return arr[0]?.id ?? null;
+  }
   const [createState, setCreateState] = useState<CreateState>(null);
   const [newTitle,    setNewTitle]    = useState("");
   const [isCreating,  startCreating]  = useTransition();
@@ -195,10 +204,14 @@ export default function ProfileListsTab({ initialLists, username }: Props) {
       .then(r => r.json())
       .then((json: { lists?: UserList[] }) => {
         if (cancelled) return;
-        const fetched: UserList[] = json.lists ?? [];
+        let fetched: UserList[] = json.lists ?? [];
+        if (listTypeFilter === "top5") {
+          fetched = fetched.filter(l => l.list_type === "top5");
+        } else if (listTypeFilter === "wantlist") {
+          fetched = fetched.filter(l => l.slug === "wantlist" || l.slug === "want-to-buy");
+        }
         setLists(fetched);
-        const wantlist = fetched.find(l => l.slug === "wantlist" || l.slug === "want-to-buy");
-        setActivePillId((wantlist ?? fetched[0])?.id ?? null);
+        setActivePillId(pickDefault(fetched));
       })
       .catch(() => {});
     return () => { cancelled = true; };
@@ -207,10 +220,9 @@ export default function ProfileListsTab({ initialLists, username }: Props) {
   useEffect(() => {
     setActivePillId(prev => {
       if (prev && lists.find(l => l.id === prev)) return prev;
-      const wantlist = lists.find(l => l.slug === "wantlist" || l.slug === "want-to-buy");
-      return (wantlist ?? lists[0])?.id ?? null;
+      return pickDefault(lists);
     });
-  }, [lists]);
+  }, [lists]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     if (pickerTab !== "collection") return;

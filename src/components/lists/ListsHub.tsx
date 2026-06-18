@@ -10,15 +10,14 @@ import CommunityTab from "@/components/community/CommunityTab";
 
 const MONO  = "var(--font-mono)";
 const ORANGE = "#CC5500";
-const RULE   = "#e0e0da";
 
 type SubTab = "top5" | "wantlist" | "selllist" | "community";
 
-const TABS: Array<{ key: SubTab; label: string; jp: string }> = [
-  { key: "top5",      label: "Top 5",    jp: "トップ5" },
-  { key: "wantlist",  label: "Want List", jp: "欲しい物" },
-  { key: "selllist",  label: "Sell List", jp: "売りリスト" },
-  { key: "community", label: "Community", jp: "コミュニティ" },
+const TABS: Array<{ key: SubTab; label: string }> = [
+  { key: "top5",      label: "Top 5" },
+  { key: "wantlist",  label: "Want List" },
+  { key: "selllist",  label: "Sell List" },
+  { key: "community", label: "Community" },
 ];
 
 interface Props {
@@ -40,7 +39,7 @@ export default function ListsHub({ profileId, username, displayLabel, avatarUrl,
       <AppNav username={username} displayLabel={displayLabel ?? undefined} avatarUrl={avatarUrl} />
 
       {/* Sub-tab bar */}
-      <div style={{ borderBottom: `1px solid ${RULE}`, display: "flex", justifyContent: "center", gap: "0", background: "#ffffff", flexShrink: 0 }}>
+      <div style={{ display: "flex", justifyContent: "center", gap: "0", background: "#ffffff", flexShrink: 0 }}>
         {TABS.map(t => (
           <button
             key={t.key}
@@ -56,26 +55,12 @@ export default function ListsHub({ profileId, username, displayLabel, avatarUrl,
               borderBottom: `1.5px solid ${activeTab === t.key ? ORANGE : "transparent"}`,
               cursor: "pointer",
               padding: "14px 24px 12px",
-              marginBottom: "-1px",
               display: "inline-flex",
               alignItems: "center",
-              gap: "6px",
               transition: "color 0.15s, border-color 0.15s",
             }}
           >
             {t.label}
-            <span
-              aria-hidden="true"
-              style={{
-                fontFamily: "var(--font-noto-jp), sans-serif",
-                fontSize: "10px",
-                letterSpacing: 0,
-                textTransform: "none",
-                color: activeTab === t.key ? "#0d0d0d" : "#d0d0d0",
-              }}
-            >
-              {t.jp}
-            </span>
           </button>
         ))}
       </div>
@@ -83,10 +68,17 @@ export default function ListsHub({ profileId, username, displayLabel, avatarUrl,
       {/* Content */}
       <div style={{ flex: 1 }}>
         {activeTab === "top5" && (
-          <ProfileListsTab initialLists={[]} username={username} />
+          <ProfileListsTab initialLists={[]} username={username} listTypeFilter="top5" />
         )}
         {activeTab === "wantlist" && (
-          <WantlistClient isOwner={true} isSupporter={isSupporter} userId={profileId} embedded />
+          <div>
+            <ProfileListsTab initialLists={[]} username={username} listTypeFilter="wantlist" />
+            <div style={{ display: "flex", justifyContent: "center", padding: "0 2rem 3rem" }}>
+              <div style={{ width: "100%", maxWidth: 560 }}>
+                <WantlistClient isOwner={true} isSupporter={isSupporter} userId={profileId} embedded />
+              </div>
+            </div>
+          </div>
         )}
         {activeTab === "selllist" && (
           <SellListClient profileOwnerId={profileId} isOwner={true} />
