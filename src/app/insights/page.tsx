@@ -23,7 +23,7 @@ export default async function InsightsPage() {
   const emailPrefix = (user.email ?? "").split("@")[0] || "user";
   const { data: profile } = await (supabase as any)
     .from("profiles")
-    .select("username, display_name, avatar_url, country_code, collection_value_low, collection_value_med, collection_value_high, collection_value_currency, is_supporter")
+    .select("username, display_name, avatar_url, country_code, collection_value_low, collection_value_med, collection_value_high, collection_value_currency, is_supporter, role")
     .eq("id", user.id)
     .maybeSingle() as {
       data: {
@@ -36,6 +36,7 @@ export default async function InsightsPage() {
         collection_value_high?: number | null;
         collection_value_currency?: string | null;
         is_supporter?: boolean | null;
+        role?: string | null;
       } | null;
       error: unknown;
     };
@@ -48,7 +49,8 @@ export default async function InsightsPage() {
   const displayLabel = profile?.display_name?.trim() || username;
   const avatarUrl    = profile?.avatar_url ?? null;
 
-  if (!profile?.is_supporter) {
+  const hasAccess = profile?.is_supporter || profile?.role === "admin";
+  if (!hasAccess) {
     return <SupporterGate username={username} displayLabel={displayLabel} avatarUrl={avatarUrl} feature="Insights" />;
   }
 

@@ -21,9 +21,9 @@ export default async function DeepDivePage() {
   const emailPrefix = (user.email ?? "").split("@")[0] || "user";
   const { data: profile } = await (supabase as any)
     .from("profiles")
-    .select("username, display_name, avatar_url, is_supporter")
+    .select("username, display_name, avatar_url, is_supporter, role")
     .eq("id", user.id)
-    .maybeSingle() as { data: { username?: string | null; display_name?: string | null; avatar_url?: string | null; is_supporter?: boolean | null } | null };
+    .maybeSingle() as { data: { username?: string | null; display_name?: string | null; avatar_url?: string | null; is_supporter?: boolean | null; role?: string | null } | null };
 
   const autoGen      = `${emailPrefix}_${user.id.slice(0, 6)}`;
   const raw          = profile?.username ?? null;
@@ -31,7 +31,8 @@ export default async function DeepDivePage() {
   const displayLabel = profile?.display_name?.trim() || username;
   const avatarUrl    = profile?.avatar_url ?? null;
 
-  if (!profile?.is_supporter) {
+  const hasAccess = profile?.is_supporter || profile?.role === "admin";
+  if (!hasAccess) {
     return <SupporterGate username={username} displayLabel={displayLabel} avatarUrl={avatarUrl} feature="Deep Dive" />;
   }
 
