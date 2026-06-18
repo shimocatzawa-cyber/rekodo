@@ -343,6 +343,9 @@ export default function ProfileClient({
                   <button onClick={openEdit} style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.1em", textTransform: "uppercase", color: INK, background: "none", border: "none", cursor: "pointer", padding: 0 }}>
                     Edit profile
                   </button>
+                  <button onClick={async () => { await createClient().auth.signOut(); router.push("/login"); }} style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.1em", textTransform: "uppercase", color: INK, background: "none", border: "none", cursor: "pointer", padding: 0 }}>
+                    Sign out
+                  </button>
                 </div>
               )}
             </div>
