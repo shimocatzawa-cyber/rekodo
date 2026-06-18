@@ -31,8 +31,9 @@ export async function GET() {
 
   const { data: pubLists } = await supabase
     .from("lists")
-    .select("id, title, slug, user_id")
+    .select("id, title, slug, user_id, list_type")
     .eq("is_public", true)
+    .eq("list_type", "top5")
     .in("user_id", followingIds)
     .order("created_at", { ascending: false })
     .limit(50);
@@ -85,6 +86,8 @@ export async function GET() {
     const items = (pubItems ?? [])
       .filter(i => i.list_id === l.id)
       .sort((a, b) => a.position - b.position);
+    // Skip top5 lists that aren't fully filled (need all 5 slots)
+    if (items.length < 5) continue;
     const covers = items.slice(0, 4).map(i =>
       i.record_id ? (coverById.get(i.record_id) ?? null) : null
     );

@@ -477,15 +477,16 @@ export default function CommunityTab({ profileOwnerId }: { profileOwnerId: strin
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ listId }),
       });
-      const data = await res.json() as { saved?: boolean };
+      const data = await res.json() as { saved?: boolean; error?: string };
       if (typeof data.saved === "boolean") {
         setSaveState(s => ({ ...s, [listId]: data.saved! }));
-        // Refresh saved tab if it was already loaded
         if (savedListsState === "done") setSavedListsState("idle");
       } else {
+        console.error("[save list] API error:", data.error ?? "unknown");
         setSaveState(s => ({ ...s, [listId]: prev }));
       }
-    } catch {
+    } catch (err) {
+      console.error("[save list] fetch error:", err);
       setSaveState(s => ({ ...s, [listId]: prev }));
     }
   }
