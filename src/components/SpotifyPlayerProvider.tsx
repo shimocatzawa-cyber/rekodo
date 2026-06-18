@@ -336,18 +336,11 @@ export function SpotifyPlayerProvider({ children }: { children: React.ReactNode 
     });
 
     // Clear the stale deviceId so play is disabled while reconnecting.
-    // Retry connect up to 4 times with back-off — a single attempt often
-    // fails if the token fetch is still in flight.
+    // Also reset lastPlayedKeyRef so that on reconnect handlePlayPause sends a
+    // fresh play command rather than calling togglePlay on a dead connection.
     player.addListener("not_ready", () => {
       setDeviceId(null);
-      let attempts = 0;
-      const tryConnect = () => {
-        if (attempts >= 4) return;
-        attempts++;
-        player.connect().catch(() => {});
-        setTimeout(tryConnect, 1500 * attempts);
-      };
-      setTimeout(tryConnect, 1000);
+      lastPlayedKeyRef.current = "";
     });
 
     player.connect();
@@ -384,9 +377,11 @@ export function SpotifyPlayerProvider({ children }: { children: React.ReactNode 
   useEffect(() => {
     if (!sdkReady) return;
     const onVisible = () => {
-      if (!document.hidden && playerRef.current) {
-        playerRef.current.connect().catch(() => {});
-      }
+      if (document.hidden || !playerRef.current) return;
+      // Bust the token cache so the SDK gets a fresh token on reconnect —
+      // the previous token may have expired while the tab was backgrounded.
+      bustSpotifyTokenCache();
+      playerRef.current.connect().catch(() => {});
     };
     document.addEventListener("visibilitychange", onVisible);
     return () => document.removeEventListener("visibilitychange", onVisible);
@@ -451,7 +446,14 @@ export function SpotifyPlayerProvider({ children }: { children: React.ReactNode 
         // THIS source. If the source changed (tab switch, new rec), always send
         // a fresh play command — the SDK may still have the old album loaded.
         if (currentKey && lastPlayedKeyRef.current === currentKey) {
-          await playerRef.current.togglePlay().catch(() => {});
+          try {
+            await playerRef.current.togglePlay();
+          } catch {
+            // SDK is disconnected — reset so the next press sends a fresh
+            // sendSpotifyPlay command rather than re-entering this dead path.
+            lastPlayedKeyRef.current = "";
+            playerRef.current?.connect().catch(() => {});
+          }
         } else {
           if (!deviceId) return;
           const body = source?.mode === "collection" && source.spotifyUri
