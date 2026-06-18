@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect } from "react";
 import { toPng } from "html-to-image";
-import { ARCHETYPES } from "@/lib/archetypes/archetypeConfig";
+import { ARCHETYPES, JUNG_CORE_DESIRES } from "@/lib/archetypes/archetypeConfig";
 
 const SERIF   = '"Shippori Mincho", Georgia, serif';
 const MONO    = '"DM Mono", "Courier New", monospace';
@@ -17,11 +17,11 @@ const RULE   = "#e0e0da";
 type Format = "portrait" | "landscape";
 
 interface CardProps {
-  archetypeId: string;
-  score:       number;
-  username:    string;
+  archetypeId:  string;
+  score:        number;
+  username:     string;
   imageDataUrl: string | null;
-  forExport?:  boolean;
+  forExport?:   boolean;
 }
 interface Props {
   onClose:     () => void;
@@ -52,10 +52,12 @@ async function loadArchetypeImage(imagePath: string): Promise<string | null> {
 // ── Portrait card ─────────────────────────────────────────────────────────
 // DOM: 540×675  →  export: 1080×1350 (pixelRatio 2)
 
-function PortraitCard({ archetypeId, score, username, imageDataUrl, forExport }: CardProps) {
-  const def   = ARCHETYPES[archetypeId];
-  const color = def?.color ?? ORANGE;
-  const IMG_H = 300;
+function PortraitCard({ archetypeId, score, username, forExport }: CardProps) {
+  const def        = ARCHETYPES[archetypeId];
+  const color      = def?.color ?? ORANGE;
+  const jungPrimary = def ? def.jungianRoot.split("·")[0].trim() : "";
+  const desire     = JUNG_CORE_DESIRES[jungPrimary] ?? null;
+  const IMG_H      = 180;
 
   return (
     <div style={{
@@ -65,17 +67,12 @@ function PortraitCard({ archetypeId, score, username, imageDataUrl, forExport }:
       overflow: "hidden",
     }}>
 
-      {/* Top row: archetype label left | rekōdo right */}
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 14, flexShrink: 0 }}>
-        <div style={{ minWidth: 0, flex: 1 }}>
-          <div style={{ fontFamily: MONO, fontSize: 9, color: ORANGE, textTransform: "uppercase", letterSpacing: "0.12em", marginBottom: 4 }}>
-            Primary Archetype
-          </div>
-          <div style={{ fontFamily: SERIF, fontSize: 20, fontWeight: 600, color, lineHeight: 1.2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-            {def?.name} Archetype
-          </div>
+      {/* Top row: page title left | rekōdo right */}
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 12, flexShrink: 0 }}>
+        <div style={{ fontFamily: SERIF, fontSize: 14, fontWeight: 400, color: INK, lineHeight: 1.35, flex: 1, minWidth: 0, paddingRight: 14 }}>
+          What your collection says about you.
         </div>
-        <div style={{ flexShrink: 0, marginLeft: 14, textAlign: "right", paddingTop: 2 }}>
+        <div style={{ flexShrink: 0, textAlign: "right" }}>
           <div style={{ fontFamily: SERIF, fontSize: 21, fontWeight: 600, color: INK, lineHeight: 1, marginBottom: 5 }}>
             rek<span style={{ color: ORANGE }}>ō</span>do
           </div>
@@ -85,43 +82,65 @@ function PortraitCard({ archetypeId, score, username, imageDataUrl, forExport }:
         </div>
       </div>
 
-      {/* Archetype image */}
+      {/* Horizontal rule */}
+      <div style={{ height: 1, background: RULE, marginBottom: 14, flexShrink: 0 }} />
+
+      {/* Archetype image — smaller accent */}
       {forExport ? (
-        <div
-          data-archetype-image
-          style={{ width: "100%", height: IMG_H, flexShrink: 0, backgroundColor: "#e5e2dc" }}
-        />
+        <div data-archetype-image style={{ width: "100%", height: IMG_H, flexShrink: 0, backgroundColor: "#e5e2dc" }} />
       ) : (
         // eslint-disable-next-line @next/next/no-img-element
         <img
-          src={def?.imagePath}
-          alt={def?.name}
+          src={def?.imagePath} alt={def?.name}
           style={{ width: "100%", height: IMG_H, flexShrink: 0, objectFit: "cover", objectPosition: "center top", display: "block" }}
         />
       )}
 
-      {/* Info section */}
-      <div style={{ flex: 1, display: "flex", flexDirection: "column", justifyContent: "space-around", paddingTop: 14 }}>
-        <div>
-          <div style={{ fontFamily: SERIF, fontSize: 24, fontWeight: 600, color, marginBottom: 4, lineHeight: 1.1 }}>
+      {/* Primary archetype block */}
+      <div style={{ marginTop: 14, flexShrink: 0 }}>
+        <div style={{ fontFamily: MONO, fontSize: 8, color: ORANGE, textTransform: "uppercase", letterSpacing: "0.12em", marginBottom: 5 }}>
+          Primary Archetype
+        </div>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 3 }}>
+          <div style={{ fontFamily: SERIF, fontSize: 20, fontWeight: 600, color, lineHeight: 1.1 }}>
             {def?.name}
           </div>
-          <div style={{ fontFamily: MONO, fontSize: 13, color: MUTED, letterSpacing: "0.04em" }}>
+          <div style={{ fontFamily: MONO, fontSize: 10, color: MUTED, letterSpacing: "0.04em" }}>
             {def?.japanese}
           </div>
         </div>
-        <div>
-          <div style={{ width: "100%", height: 3, background: "#e5e2dc", marginBottom: 6 }}>
-            <div style={{ width: `${score}%`, height: "100%", background: color }} />
-          </div>
-          <div style={{ fontFamily: MONO, fontSize: 11, fontWeight: 700, color }}>
+        {/* Score bar */}
+        <div style={{ width: "100%", height: 2, background: "#e5e2dc", marginBottom: 4 }}>
+          <div style={{ width: `${score}%`, height: "100%", background: color }} />
+        </div>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 8 }}>
+          <div style={{ fontFamily: MONO, fontSize: 10, fontWeight: 700, color }}>
             {score} / 100
           </div>
+          <div style={{ fontFamily: MONO, fontSize: 9, color: MUTED }}>
+            Jung: {jungPrimary}
+          </div>
+        </div>
+        {desire && (
+          <div style={{ fontFamily: MONO, fontSize: 9, fontStyle: "italic", color: MUTED, lineHeight: 1.5, marginBottom: 8 }}>
+            &ldquo;{desire}&rdquo;
+          </div>
+        )}
+        <div style={{ fontFamily: MONO, fontSize: 9, color: MUTED, lineHeight: 1.6, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}>
+          {def?.shortDescription}
         </div>
       </div>
 
-      {/* Footer */}
-      <div style={{ marginTop: 14, textAlign: "center", flexShrink: 0 }}>
+      {/* Archetype sentence */}
+      <div style={{ marginTop: 12, paddingLeft: 10, borderLeft: `2px solid ${color}`, flexShrink: 0 }}>
+        <div style={{ fontFamily: SERIF, fontSize: 11, fontStyle: "italic", color: INK, lineHeight: 1.55 }}>
+          &ldquo;{def?.sentence}&rdquo;
+        </div>
+      </div>
+
+      {/* Spacer + footer */}
+      <div style={{ flex: 1 }} />
+      <div style={{ textAlign: "center", paddingTop: 10, flexShrink: 0 }}>
         <div style={{ fontFamily: MONO, fontSize: 10, color: MUTED, letterSpacing: "0.1em" }}>@{username}</div>
       </div>
 
@@ -132,11 +151,13 @@ function PortraitCard({ archetypeId, score, username, imageDataUrl, forExport }:
 // ── Landscape card ────────────────────────────────────────────────────────
 // DOM: 600×314  →  export: 1200×628 (pixelRatio 2)
 
-function LandscapeCard({ archetypeId, score, username, imageDataUrl, forExport }: CardProps) {
-  const def    = ARCHETYPES[archetypeId];
-  const color  = def?.color ?? ORANGE;
-  const LEFT_W = 180;
-  const IMG_W  = 140;
+function LandscapeCard({ archetypeId, score, username, forExport }: CardProps) {
+  const def         = ARCHETYPES[archetypeId];
+  const color       = def?.color ?? ORANGE;
+  const jungPrimary = def ? def.jungianRoot.split("·")[0].trim() : "";
+  const desire      = JUNG_CORE_DESIRES[jungPrimary] ?? null;
+  const LEFT_W      = 175;
+  const IMG_W       = 110;
 
   return (
     <div style={{
@@ -144,22 +165,19 @@ function LandscapeCard({ archetypeId, score, username, imageDataUrl, forExport }
       display: "flex", overflow: "hidden",
     }}>
 
-      {/* Left column: branding + label + username */}
+      {/* Left column: branding + page title + username */}
       <div style={{
         width: LEFT_W, display: "flex", flexDirection: "column",
-        justifyContent: "space-between", padding: "20px 18px",
+        justifyContent: "space-between", padding: "18px 16px",
         borderRight: `1px solid ${RULE}`, flexShrink: 0,
         boxSizing: "border-box", overflow: "hidden",
       }}>
         <div>
-          <div style={{ fontFamily: SERIF, fontSize: 21, fontWeight: 600, color: INK, marginBottom: 12, lineHeight: 1 }}>
+          <div style={{ fontFamily: SERIF, fontSize: 21, fontWeight: 600, color: INK, lineHeight: 1, marginBottom: 10 }}>
             rek<span style={{ color: ORANGE }}>ō</span>do
           </div>
-          <div style={{ fontFamily: MONO, fontSize: 8, color: ORANGE, textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 5 }}>
-            Primary Archetype
-          </div>
-          <div style={{ fontFamily: SERIF, fontSize: 13, fontWeight: 600, color, lineHeight: 1.3, overflow: "hidden" }}>
-            {def?.name} Archetype
+          <div style={{ fontFamily: SERIF, fontSize: 11, fontWeight: 400, color: INK, lineHeight: 1.4 }}>
+            What your collection says about you.
           </div>
         </div>
         <div>
@@ -168,38 +186,48 @@ function LandscapeCard({ archetypeId, score, username, imageDataUrl, forExport }
         </div>
       </div>
 
-      {/* Image column */}
+      {/* Archetype image — portrait crop */}
       {forExport ? (
-        <div
-          data-archetype-image
-          style={{ width: IMG_W, height: 314, flexShrink: 0, backgroundColor: "#e5e2dc" }}
-        />
+        <div data-archetype-image style={{ width: IMG_W, height: 314, flexShrink: 0, backgroundColor: "#e5e2dc" }} />
       ) : (
         // eslint-disable-next-line @next/next/no-img-element
         <img
-          src={def?.imagePath}
-          alt={def?.name}
+          src={def?.imagePath} alt={def?.name}
           style={{ width: IMG_W, height: 314, flexShrink: 0, objectFit: "cover", objectPosition: "center top", display: "block" }}
         />
       )}
 
       {/* Right content */}
-      <div style={{ flex: 1, display: "flex", flexDirection: "column", justifyContent: "space-around", padding: "20px 18px" }}>
+      <div style={{ flex: 1, display: "flex", flexDirection: "column", justifyContent: "space-around", padding: "18px 16px", overflow: "hidden" }}>
         <div>
-          <div style={{ fontFamily: SERIF, fontSize: 22, fontWeight: 600, color, lineHeight: 1.1, marginBottom: 5 }}>
-            {def?.name}
+          <div style={{ fontFamily: MONO, fontSize: 8, color: ORANGE, textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 4 }}>
+            Primary Archetype
           </div>
-          <div style={{ fontFamily: MONO, fontSize: 12, color: MUTED, letterSpacing: "0.04em", marginBottom: 12 }}>
-            {def?.japanese}
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 2 }}>
+            <div style={{ fontFamily: SERIF, fontSize: 17, fontWeight: 600, color, lineHeight: 1.1 }}>
+              {def?.name}
+            </div>
+            <div style={{ fontFamily: MONO, fontSize: 9, color: MUTED }}>
+              {def?.japanese}
+            </div>
           </div>
-          <div style={{ width: "100%", height: 2, background: "#e5e2dc", marginBottom: 5 }}>
+          <div style={{ width: "100%", height: 2, background: "#e5e2dc", marginBottom: 3 }}>
             <div style={{ width: `${score}%`, height: "100%", background: color }} />
           </div>
-          <div style={{ fontFamily: MONO, fontSize: 10, fontWeight: 700, color, marginBottom: 12 }}>
-            {score} / 100
+          <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 6 }}>
+            <div style={{ fontFamily: MONO, fontSize: 9, fontWeight: 700, color }}>{score} / 100</div>
+            <div style={{ fontFamily: MONO, fontSize: 8, color: MUTED }}>Jung: {jungPrimary}</div>
           </div>
-          <div style={{ fontFamily: MONO, fontSize: 9, color: MUTED, lineHeight: 1.6, overflow: "hidden", display: "-webkit-box", WebkitLineClamp: 3, WebkitBoxOrient: "vertical" }}>
-            {def?.shortDescription}
+          {desire && (
+            <div style={{ fontFamily: MONO, fontSize: 8, fontStyle: "italic", color: MUTED, lineHeight: 1.5, marginBottom: 6, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}>
+              &ldquo;{desire}&rdquo;
+            </div>
+          )}
+        </div>
+        {/* Sentence */}
+        <div style={{ paddingLeft: 8, borderLeft: `2px solid ${color}` }}>
+          <div style={{ fontFamily: SERIF, fontSize: 10, fontStyle: "italic", color: INK, lineHeight: 1.5, display: "-webkit-box", WebkitLineClamp: 3, WebkitBoxOrient: "vertical", overflow: "hidden" }}>
+            &ldquo;{def?.sentence}&rdquo;
           </div>
         </div>
       </div>
@@ -238,7 +266,6 @@ export default function ArchetypeShareModal({ onClose, archetypeId, score, usern
 
     const layoutDataUrl = await toPng(exportRef.current, { pixelRatio: PR });
 
-    // Locate the archetype image slot via BCR
     const cardBCR   = exportRef.current.getBoundingClientRect();
     const imageSlot = exportRef.current.querySelector<HTMLElement>("[data-archetype-image]");
 
@@ -310,7 +337,7 @@ export default function ArchetypeShareModal({ onClose, archetypeId, score, usern
   const PRV_W  = Math.round(CARD_W * SCALE);
   const PRV_H  = Math.round(CARD_H * SCALE);
 
-  const busy = exporting || !imageLoaded;
+  const busy     = exporting || !imageLoaded;
   const cardProps = { archetypeId, score, username, imageDataUrl };
 
   return (
