@@ -3,8 +3,9 @@
 import { useState, useEffect, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { createList, deleteList } from "@/app/lists/actions";
+import { createList, deleteList, toggleListPublic } from "@/app/lists/actions";
 import Top5Editor, { type EditorSlot } from "@/components/profile/Top5Editor";
+import { createClient } from "@/lib/supabase/client";
 import type { UserList } from "@/app/lists/types";
 
 const SERIF  = "var(--font-editorial)";
@@ -38,21 +39,47 @@ type EditorModal =
 
 export default function Top5Tab({ username }: { username: string }) {
   const router = useRouter();
-  const [lists, setLists] = useState<UserList[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [lists,      setLists]      = useState<UserList[]>([]);
+  const [loading,    setLoading]    = useState(true);
+  const [likeCounts, setLikeCounts] = useState<Record<string, number>>({});
+  const [copiedId,   setCopiedId]   = useState<string | null>(null);
+  const [togglingId, setTogglingId] = useState<string | null>(null);
   const [editorModal, setEditorModal] = useState<EditorModal>(null);
   const [creatingList, startCreatingList] = useTransition();
 
-  useEffect(() => {
-    fetch("/api/lists/mine")
+  function fetchLists() {
+    return fetch("/api/lists/mine")
       .then(r => r.json())
       .then((json: { lists?: UserList[] }) => {
         const all = json.lists ?? [];
-        setLists(all.filter(l => l.list_type === "top5"));
-        setLoading(false);
-      })
+        return all.filter(l => l.list_type === "top5");
+      });
+  }
+
+  useEffect(() => {
+    fetchLists()
+      .then(filtered => { setLists(filtered); setLoading(false); })
       .catch(() => setLoading(false));
-  }, []);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Fetch like counts whenever list IDs change
+  useEffect(() => {
+    const ids = lists.map(l => l.id);
+    if (ids.length === 0) return;
+    let cancelled = false;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (createClient() as any)
+      .from("list_likes")
+      .select("list_id")
+      .in("list_id", ids)
+      .then(({ data }: { data: { list_id: string }[] | null }) => {
+        if (cancelled || !data) return;
+        const counts: Record<string, number> = {};
+        for (const row of data) counts[row.list_id] = (counts[row.list_id] ?? 0) + 1;
+        setLikeCounts(counts);
+      });
+    return () => { cancelled = true; };
+  }, [lists]);
 
   function openCreate() {
     setEditorModal({ step: "template", customMode: false, customTitle: "" });
@@ -62,8 +89,9 @@ export default function Top5Tab({ username }: { username: string }) {
     startCreatingList(async () => {
       const res = await createList(title, "top5");
       if (res && "success" in res && res.success && res.list) {
-        setEditorModal({ step: "editor", listId: res.list.id, listTitle: res.list.title, slots: [] });
-        setLists(prev => [...prev, { id: res.list!.id, title: res.list!.title, slug: res.list!.slug, is_public: true, list_type: "top5", slots: [] }]);
+        const newList: UserList = { id: res.list.id, title: res.list.title, slug: res.list.slug, is_public: true, list_type: "top5", slots: [] };
+        setLists(prev => [...prev, newList]);
+        setEditorModal({ step: "editor", listId: res.list!.id, listTitle: res.list!.title, slots: [] });
       }
     });
   }
@@ -97,15 +125,26 @@ export default function Top5Tab({ username }: { username: string }) {
     setLists(prev => prev.filter(l => l.id !== listId));
   }
 
+  async function handleTogglePublic(listId: string) {
+    setTogglingId(listId);
+    const res = await toggleListPublic(listId);
+    if (res && "isPublic" in res) {
+      setLists(prev => prev.map(l => l.id === listId ? { ...l, is_public: !!res.isPublic } : l));
+    }
+    setTogglingId(null);
+  }
+
+  function handleShare(list: UserList) {
+    const url = `${window.location.origin}/@${username}/${list.slug}`;
+    navigator.clipboard.writeText(url).then(() => {
+      setCopiedId(list.id);
+      setTimeout(() => setCopiedId(null), 2000);
+    }).catch(() => {});
+  }
+
   function handleEditorClose() {
     setEditorModal(null);
-    // Re-fetch to pick up any cover changes
-    fetch("/api/lists/mine")
-      .then(r => r.json())
-      .then((json: { lists?: UserList[] }) => {
-        setLists((json.lists ?? []).filter(l => l.list_type === "top5"));
-      })
-      .catch(() => {});
+    fetchLists().then(filtered => setLists(filtered)).catch(() => {});
     router.refresh();
   }
 
@@ -121,7 +160,7 @@ export default function Top5Tab({ username }: { username: string }) {
     <div style={{ padding: "3rem 3.5rem", maxWidth: 1100, margin: "0 auto" }}>
       {/* Header */}
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "32px" }}>
-        <p style={eyebrowSt}>Top 5 Lists</p>
+        <p style={eyebrowSt}>My Lists</p>
         <button
           onClick={openCreate}
           style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.1em", textTransform: "uppercase", color: ORANGE, background: "none", border: `1px solid ${ORANGE}`, borderRadius: "3px", cursor: "pointer", padding: "4px 10px", whiteSpace: "nowrap" }}
@@ -132,69 +171,97 @@ export default function Top5Tab({ username }: { username: string }) {
 
       {lists.length > 0 ? (
         <div style={{ display: "flex", flexDirection: "column", gap: "48px" }}>
-          {lists.map(list => (
-            <div key={list.id}>
-              <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", marginBottom: "16px" }}>
-                <Link href={`/@${username}/${list.slug}`} style={{ textDecoration: "none" }}>
-                  <h2 style={{ fontFamily: SERIF, fontSize: "20px", fontWeight: 400, color: INK, margin: 0, lineHeight: 1.2 }}>
-                    {list.title}
-                  </h2>
-                </Link>
-                <div style={{ display: "flex", alignItems: "center", gap: "16px", flexShrink: 0, marginLeft: "16px" }}>
-                  <button
-                    onClick={() => openListEdit(list)}
-                    style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.1em", textTransform: "uppercase", color: ORANGE, background: "none", border: "none", cursor: "pointer", padding: 0 }}
-                  >
-                    Edit →
-                  </button>
-                  <button
-                    onClick={() => handleDeleteList(list.id, list.title)}
-                    style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.1em", textTransform: "uppercase", color: "#cccccc", background: "none", border: "none", cursor: "pointer", padding: 0 }}
-                  >
-                    Delete
-                  </button>
+          {lists.map(list => {
+            const likes   = likeCounts[list.id] ?? 0;
+            const copied  = copiedId === list.id;
+            const toggling = togglingId === list.id;
+            return (
+              <div key={list.id}>
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "16px" }}>
+                  <Link href={`/@${username}/${list.slug}`} style={{ textDecoration: "none", minWidth: 0 }}>
+                    <h2 style={{ fontFamily: SERIF, fontSize: "20px", fontWeight: 400, color: INK, margin: 0, lineHeight: 1.2 }}>
+                      {list.title}
+                    </h2>
+                  </Link>
+                  <div style={{ display: "flex", alignItems: "center", gap: "16px", flexShrink: 0, marginLeft: "16px" }}>
+                    {/* Like count */}
+                    {likes > 0 && (
+                      <span style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.06em", color: MUTED }}>
+                        ♥ {likes}
+                      </span>
+                    )}
+                    {/* Share */}
+                    <button
+                      onClick={() => handleShare(list)}
+                      style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.1em", textTransform: "uppercase", color: copied ? "#22a559" : MUTED, background: "none", border: "none", cursor: "pointer", padding: 0 }}
+                    >
+                      {copied ? "Copied ✓" : "Share ↗"}
+                    </button>
+                    {/* Public/Private toggle */}
+                    <button
+                      onClick={() => handleTogglePublic(list.id)}
+                      disabled={toggling}
+                      style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.1em", textTransform: "uppercase", color: list.is_public ? MUTED : ORANGE, background: "none", border: "none", cursor: toggling ? "wait" : "pointer", padding: 0, opacity: toggling ? 0.5 : 1 }}
+                    >
+                      {list.is_public ? "Public" : "Private"}
+                    </button>
+                    {/* Edit */}
+                    <button
+                      onClick={() => openListEdit(list)}
+                      style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.1em", textTransform: "uppercase", color: ORANGE, background: "none", border: "none", cursor: "pointer", padding: 0 }}
+                    >
+                      Edit →
+                    </button>
+                    {/* Delete */}
+                    <button
+                      onClick={() => handleDeleteList(list.id, list.title)}
+                      style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.1em", textTransform: "uppercase", color: "#cccccc", background: "none", border: "none", cursor: "pointer", padding: 0 }}
+                    >
+                      Delete
+                    </button>
+                  </div>
                 </div>
-              </div>
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(5, 1fr)", gap: "10px" }}>
-                {Array.from({ length: 5 }, (_, i) => {
-                  const pos  = i + 1;
-                  const slot = list.slots.find(s => s.position === pos);
-                  const coverUrl = slot?.item?.cover_url ?? null;
-                  return (
-                    <div key={pos} style={{ minWidth: 0 }}>
-                      <div style={{ position: "relative", overflow: "hidden", lineHeight: 0 }}>
-                        {coverUrl ? (
-                          // eslint-disable-next-line @next/next/no-img-element
-                          <img
-                            src={coverUrl}
-                            alt={slot?.item?.album ?? ""}
-                            style={{ display: "block", width: "100%", aspectRatio: "1/1", objectFit: "cover", minWidth: 0 }}
-                          />
-                        ) : (
-                          <div style={{ width: "100%", aspectRatio: "1/1", background: "#f4f4f4", border: "1px dashed rgba(0,0,0,0.10)", display: "flex", alignItems: "center", justifyContent: "center" }}>
-                            <span style={{ fontFamily: SERIF, fontSize: "18px", color: "#d8d8d8", lineHeight: 1 }}>—</span>
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(5, 1fr)", gap: "10px" }}>
+                  {Array.from({ length: 5 }, (_, i) => {
+                    const pos      = i + 1;
+                    const slot     = list.slots.find(s => s.position === pos);
+                    const coverUrl = slot?.item?.cover_url ?? null;
+                    return (
+                      <div key={pos} style={{ minWidth: 0 }}>
+                        <div style={{ position: "relative", overflow: "hidden", lineHeight: 0 }}>
+                          {coverUrl ? (
+                            // eslint-disable-next-line @next/next/no-img-element
+                            <img
+                              src={coverUrl}
+                              alt={slot?.item?.album ?? ""}
+                              style={{ display: "block", width: "100%", aspectRatio: "1/1", objectFit: "cover", minWidth: 0 }}
+                            />
+                          ) : (
+                            <div style={{ width: "100%", aspectRatio: "1/1", background: "#f4f4f4", border: "1px dashed rgba(0,0,0,0.10)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                              <span style={{ fontFamily: SERIF, fontSize: "18px", color: "#d8d8d8", lineHeight: 1 }}>—</span>
+                            </div>
+                          )}
+                          <span style={{ position: "absolute", top: "7px", left: "7px", fontFamily: MONO, fontSize: "9px", letterSpacing: "0.06em", color: coverUrl ? "rgba(255,255,255,0.75)" : "#cccccc", textShadow: coverUrl ? "0 1px 3px rgba(0,0,0,0.5)" : "none", lineHeight: 1 }}>
+                            {pos}
+                          </span>
+                        </div>
+                        {slot?.item && (
+                          <div style={{ marginTop: "8px" }}>
+                            <p style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.06em", textTransform: "uppercase", color: MUTED, margin: "0 0 3px 0", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                              {slot.item.artist}
+                            </p>
+                            <p style={{ fontFamily: SERIF, fontSize: "12px", color: INK, lineHeight: 1.3, margin: 0, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}>
+                              {slot.item.album}
+                            </p>
                           </div>
                         )}
-                        <span style={{ position: "absolute", top: "7px", left: "7px", fontFamily: MONO, fontSize: "9px", letterSpacing: "0.06em", color: coverUrl ? "rgba(255,255,255,0.75)" : "#cccccc", textShadow: coverUrl ? "0 1px 3px rgba(0,0,0,0.5)" : "none", lineHeight: 1 }}>
-                          {pos}
-                        </span>
                       </div>
-                      {slot?.item && (
-                        <div style={{ marginTop: "8px" }}>
-                          <p style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.06em", textTransform: "uppercase", color: MUTED, margin: "0 0 3px 0", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                            {slot.item.artist}
-                          </p>
-                          <p style={{ fontFamily: SERIF, fontSize: "12px", color: INK, lineHeight: 1.3, margin: 0, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}>
-                            {slot.item.album}
-                          </p>
-                        </div>
-                      )}
-                    </div>
-                  );
-                })}
+                    );
+                  })}
+                </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       ) : (
         <p style={{ fontFamily: MONO, fontSize: "0.65rem", letterSpacing: "0.04em", color: MUTED, margin: 0 }}>

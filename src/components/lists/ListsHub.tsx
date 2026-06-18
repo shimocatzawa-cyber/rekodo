@@ -15,7 +15,7 @@ const ORANGE = "#CC5500";
 type SubTab = "top5" | "wantlist" | "selllist" | "community";
 
 const TABS: Array<{ key: SubTab; label: string }> = [
-  { key: "top5",      label: "Top 5" },
+  { key: "top5",      label: "My Lists" },
   { key: "wantlist",  label: "Want List" },
   { key: "selllist",  label: "Sell List" },
   { key: "community", label: "Community" },
