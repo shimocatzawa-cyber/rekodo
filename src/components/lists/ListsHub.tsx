@@ -42,7 +42,7 @@ export default function ListsHub({ profileId, username, displayLabel, avatarUrl,
       <AppNav username={username} displayLabel={displayLabel ?? undefined} avatarUrl={avatarUrl} />
 
       {/* Sub-tab bar */}
-      <div style={{ display: "flex", justifyContent: "center", background: "#ffffff", flexShrink: 0 }}>
+      <div className="rk-lists-tabs" style={{ display: "flex", justifyContent: "center", background: "#ffffff", flexShrink: 0 }}>
         {TABS.map(t => (
           <button
             key={t.key}

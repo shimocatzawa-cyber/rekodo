@@ -268,6 +268,62 @@ h1, h2, h3, h4, h5, h6 {
     border-top: none !important;
   }
 
+  /* ── Lists Hub ───────────────────────────────────────────────────────── */
+  /* Sub-tab bar: distribute 4 tabs evenly so they don't overflow 375px    */
+  .rk-lists-tabs {
+    justify-content: space-between !important;
+  }
+  .rk-lists-tabs button {
+    flex: 1 !important;
+    padding-left: 8px !important;
+    padding-right: 8px !important;
+    justify-content: center !important;
+    font-size: 9px !important;
+  }
+
+  /* My Lists (Top5Tab) – outer wrapper                                    */
+  .rk-top5-outer {
+    padding-left: 1rem !important;
+    padding-right: 1rem !important;
+    padding-top: 1.5rem !important;
+  }
+
+  /* My Lists – 5-slot album preview → 3-col so covers stay legible       */
+  .rk-top5-grid {
+    grid-template-columns: repeat(3, 1fr) !important;
+    gap: 8px !important;
+  }
+
+  /* My Lists – list header: stack title above action buttons              */
+  .rk-top5-list-header {
+    flex-direction: column !important;
+    align-items: flex-start !important;
+    gap: 10px !important;
+  }
+  .rk-top5-list-actions {
+    margin-left: 0 !important;
+    flex-wrap: wrap !important;
+    gap: 8px 14px !important;
+  }
+
+  /* My Lists – template picker modal: tighter padding on narrow screens   */
+  .rk-top5-modal {
+    padding: 20px !important;
+  }
+
+  /* Community – inner sub-tab bar: 4 tabs, each ~90px on 375px           */
+  .rk-community-tabs {
+    overflow-x: auto !important;
+    -webkit-overflow-scrolling: touch;
+    flex-wrap: nowrap !important;
+  }
+  .rk-community-tabs button {
+    padding-left: 10px !important;
+    padding-right: 10px !important;
+    font-size: 0.52rem !important;
+    white-space: nowrap !important;
+  }
+
   /* ── Support page ────────────────────────────────────────────────────── */
   /* Sub-nav tabs: wrap to avoid "Support rekōdo" overflow */
   .rk-about-tabs {

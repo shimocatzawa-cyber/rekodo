@@ -151,14 +151,14 @@ export default function Top5Tab({ username }: { username: string }) {
 
   if (loading) {
     return (
-      <div style={{ padding: "3rem 3.5rem", maxWidth: 1100, margin: "0 auto" }}>
+      <div className="rk-top5-outer" style={{ padding: "3rem 3.5rem", maxWidth: 1100, margin: "0 auto" }}>
         <p style={{ fontFamily: MONO, fontSize: "0.6rem", letterSpacing: "0.08em", color: MUTED }}>Loading…</p>
       </div>
     );
   }
 
   return (
-    <div style={{ padding: "3rem 3.5rem", maxWidth: 1100, margin: "0 auto" }}>
+    <div className="rk-top5-outer" style={{ padding: "3rem 3.5rem", maxWidth: 1100, margin: "0 auto" }}>
       {/* Header */}
       <div style={{ display: "flex", alignItems: "center", justifyContent: "flex-end", marginBottom: "32px" }}>
         <button
@@ -177,13 +177,13 @@ export default function Top5Tab({ username }: { username: string }) {
             const toggling = togglingId === list.id;
             return (
               <div key={list.id}>
-                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "16px" }}>
+                <div className="rk-top5-list-header" style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "16px" }}>
                   <Link href={`/@${username}/${list.slug}`} style={{ textDecoration: "none", minWidth: 0 }}>
                     <h2 style={{ fontFamily: SERIF, fontSize: "20px", fontWeight: 400, color: INK, margin: 0, lineHeight: 1.2 }}>
                       {list.title}
                     </h2>
                   </Link>
-                  <div style={{ display: "flex", alignItems: "center", gap: "16px", flexShrink: 0, marginLeft: "16px" }}>
+                  <div className="rk-top5-list-actions" style={{ display: "flex", alignItems: "center", gap: "16px", flexShrink: 0, marginLeft: "16px" }}>
                     {/* Like count */}
                     {likes > 0 && (
                       <span style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.06em", color: MUTED }}>
@@ -221,7 +221,7 @@ export default function Top5Tab({ username }: { username: string }) {
                     </button>
                   </div>
                 </div>
-                <div style={{ display: "grid", gridTemplateColumns: "repeat(5, 1fr)", gap: "10px" }}>
+                <div className="rk-top5-grid" style={{ display: "grid", gridTemplateColumns: "repeat(5, 1fr)", gap: "10px" }}>
                   {Array.from({ length: 5 }, (_, i) => {
                     const pos      = i + 1;
                     const slot     = list.slots.find(s => s.position === pos);
@@ -281,7 +281,7 @@ export default function Top5Tab({ username }: { username: string }) {
           style={{ position: "fixed", inset: 0, zIndex: 100, background: "rgba(255,255,255,0.92)", backdropFilter: "blur(6px)", display: "flex", alignItems: "center", justifyContent: "center", padding: "24px" }}
           onClick={e => { if (e.target === e.currentTarget) setEditorModal(null); }}
         >
-          <div style={{ background: "#fff", border: "1px solid rgba(0,0,0,0.1)", width: "100%", maxWidth: "660px", padding: "40px" }}>
+          <div className="rk-top5-modal" style={{ background: "#fff", border: "1px solid rgba(0,0,0,0.1)", width: "100%", maxWidth: "660px", padding: "40px" }}>
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "28px" }}>
               <div>
                 <p style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.14em", textTransform: "uppercase", color: "#aaaaaa", marginBottom: "6px" }}>New list</p>

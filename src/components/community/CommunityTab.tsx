@@ -583,7 +583,7 @@ export default function CommunityTab({ profileOwnerId }: { profileOwnerId: strin
         />
 
         {/* Sub-tabs */}
-        <div style={{ display: "flex", borderBottom: `1px solid ${RULE}`, marginBottom: "28px" }}>
+        <div className="rk-community-tabs" style={{ display: "flex", borderBottom: `1px solid ${RULE}`, marginBottom: "28px" }}>
           {TABS.map(t => (
             <button
               key={t.key}
