@@ -2,6 +2,25 @@ import { type NextRequest, NextResponse } from "next/server";
 
 // Returns Spotify episode URLs for a list of podcast episodes.
 // Uses Client Credentials flow — no user token required.
+//
+// Two-step lookup (same approach as the Apple Podcasts client-side logic):
+//   1. Resolve each unique show name → Spotify show ID + show URL
+//   2. Fetch up to 100 episodes per show, fuzzy-match the episode title
+//   3. Fall back to the show URL if no episode match; omit if show not found
+//
+// This prevents cross-show mismatches (e.g. a "Rick Rubin" search returning
+// an Earth Wind & Fire episode instead of the correct Broken Record episode).
+
+type EpItem = { name: string; external_urls: { spotify: string } };
+
+async function spFetch<T>(url: string, token: string): Promise<T | null> {
+  try {
+    const r = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
+    if (!r.ok) return null;
+    return r.json() as Promise<T>;
+  } catch { return null; }
+}
+
 export async function POST(request: NextRequest) {
   const { episodes } = (await request.json()) as {
     episodes: { show: string; episode: string }[];
@@ -13,11 +32,9 @@ export async function POST(request: NextRequest) {
 
   const clientId     = process.env.SPOTIFY_CLIENT_ID;
   const clientSecret = process.env.SPOTIFY_CLIENT_SECRET;
-  if (!clientId || !clientSecret) {
-    return NextResponse.json({ urls: {} });
-  }
+  if (!clientId || !clientSecret) return NextResponse.json({ urls: {} });
 
-  // Get an app-level access token
+  // ── Auth ──────────────────────────────────────────────────────────────────
   let accessToken: string;
   try {
     const tokenRes = await fetch("https://accounts.spotify.com/api/token", {
@@ -29,40 +46,73 @@ export async function POST(request: NextRequest) {
       body: new URLSearchParams({ grant_type: "client_credentials" }),
     });
     if (!tokenRes.ok) return NextResponse.json({ urls: {} });
-    const tokenData = await tokenRes.json() as { access_token: string };
-    accessToken = tokenData.access_token;
-  } catch {
-    return NextResponse.json({ urls: {} });
-  }
+    const td = await tokenRes.json() as { access_token: string };
+    accessToken = td.access_token;
+  } catch { return NextResponse.json({ urls: {} }); }
 
-  // Search for each episode in parallel
-  const results = await Promise.all(
-    episodes.map(async (ep, i) => {
-      try {
-        const q = encodeURIComponent(`${ep.show} ${ep.episode}`);
-        const res = await fetch(
-          `https://api.spotify.com/v1/search?q=${q}&type=episode&limit=3&market=US`,
-          { headers: { Authorization: `Bearer ${accessToken}` } }
-        );
-        if (!res.ok) return [i, null] as const;
-        const data = await res.json() as {
-          episodes?: { items?: { name?: string; external_urls?: { spotify?: string } }[] };
-        };
-        const items = data.episodes?.items ?? [];
-        // Prefer an item whose name contains part of the episode title
-        const slug = ep.episode.toLowerCase().slice(0, 25);
-        const match = items.find((r) => r.name?.toLowerCase().includes(slug));
-        const url = (match ?? items[0])?.external_urls?.spotify ?? null;
-        return [i, url] as const;
-      } catch {
-        return [i, null] as const;
-      }
-    })
-  );
+  const auth = accessToken;
 
+  // ── Step 1: resolve unique shows → { id, showUrl } ───────────────────────
+  const uniqueShows = [...new Set(episodes.map((e) => e.show))];
+  type ShowMeta = { id: string; showUrl: string };
+  const showMeta: Record<string, ShowMeta> = {};
+
+  await Promise.all(uniqueShows.map(async (show) => {
+    const data = await spFetch<{
+      shows?: { items?: { id?: string; external_urls?: { spotify?: string } }[] };
+    }>(
+      `https://api.spotify.com/v1/search?q=${encodeURIComponent(show)}&type=show&limit=1&market=US`,
+      auth
+    );
+    const item = data?.shows?.items?.[0];
+    if (item?.id && item.external_urls?.spotify) {
+      showMeta[show] = { id: item.id, showUrl: item.external_urls.spotify };
+    }
+  }));
+
+  // ── Step 2: fetch episodes for each resolved show (2 pages = 100 eps) ────
+  const showEps: Record<string, EpItem[]> = {};
+
+  await Promise.all(Object.entries(showMeta).map(async ([show, { id }]) => {
+    const pages = await Promise.all([0, 50].map((offset) =>
+      spFetch<{ items?: EpItem[] }>(
+        `https://api.spotify.com/v1/shows/${id}/episodes?limit=50&offset=${offset}&market=US`,
+        auth
+      )
+    ));
+    showEps[show] = pages.flatMap((p) => p?.items ?? []);
+  }));
+
+  // ── Step 3: fuzzy-match each episode within its own show ─────────────────
   const urls: Record<number, string> = {};
-  for (const [i, url] of results) {
-    if (url) urls[i] = url;
+
+  for (const [i, ep] of episodes.entries()) {
+    const candidates = showEps[ep.show] ?? [];
+    const target = ep.episode.toLowerCase();
+
+    // Score each candidate: count how many words from the target appear in the name
+    let best: EpItem | null = null;
+    let bestScore = 0;
+    for (const c of candidates) {
+      const name = c.name.toLowerCase();
+      // Exact substring match (40 chars) wins immediately
+      if (name.includes(target.slice(0, 40)) || target.includes(name.slice(0, 40))) {
+        best = c;
+        break;
+      }
+      // Word-overlap score as fallback
+      const targetWords = target.split(/\W+/).filter((w) => w.length > 3);
+      const score = targetWords.filter((w) => name.includes(w)).length;
+      if (score > bestScore) { bestScore = score; best = c; }
+    }
+
+    // Require at least 2 overlapping words to avoid false positives
+    if (best && (target.includes(best.name.toLowerCase().slice(0, 40)) || best.name.toLowerCase().includes(target.slice(0, 40)) || bestScore >= 2)) {
+      urls[i] = best.external_urls.spotify;
+    } else if (showMeta[ep.show]) {
+      // Fall back to the show page — correct show, user can find the episode
+      urls[i] = showMeta[ep.show].showUrl;
+    }
   }
 
   return NextResponse.json({ urls });
