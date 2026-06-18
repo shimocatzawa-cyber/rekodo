@@ -6,9 +6,8 @@ import Stripe from "stripe";
 
 export const dynamic = "force-dynamic";
 
-const resend = new Resend(process.env.RESEND_API_KEY);
-
 export async function POST(request: NextRequest) {
+  const resend = new Resend(process.env.RESEND_API_KEY);
   const body = await request.text();
   const sig = request.headers.get("stripe-signature") ?? "";
   const secret = process.env.STRIPE_WEBHOOK_SECRET!;
