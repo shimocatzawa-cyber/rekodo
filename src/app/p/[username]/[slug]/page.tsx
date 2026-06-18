@@ -2,6 +2,9 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import type { SlotItem, ListSlot } from "@/app/lists/types";
+import PublicListClient, { type PublicComment } from "@/components/lists/PublicListClient";
+
+export const dynamic = "force-dynamic";
 
 const SERIF = "var(--font-editorial)";
 const MONO  = "var(--font-mono)";
@@ -9,23 +12,15 @@ const MONO  = "var(--font-mono)";
 type Params = Promise<{ username: string; slug: string }>;
 
 export async function generateMetadata({ params }: { params: Params }): Promise<Metadata> {
-  const { username: rawUsername, slug } = await params;
-  const username = rawUsername.startsWith("@") ? rawUsername.slice(1) : rawUsername;
+  const { username, slug } = await params;
   const supabase = await createClient();
 
   const { data: profile } = await supabase
-    .from("profiles")
-    .select("id, display_name")
-    .eq("username", username)
-    .maybeSingle();
+    .from("profiles").select("id, display_name").eq("username", username).maybeSingle();
   if (!profile) return { title: "List not found" };
 
   const { data: list } = await supabase
-    .from("lists")
-    .select("title, is_public")
-    .eq("user_id", profile.id)
-    .eq("slug", slug)
-    .maybeSingle();
+    .from("lists").select("title, is_public").eq("user_id", profile.id).eq("slug", slug).maybeSingle();
   if (!list || !list.is_public) return { robots: { index: false } };
 
   const name = profile.display_name?.trim() || username;
@@ -41,17 +36,12 @@ export async function generateMetadata({ params }: { params: Params }): Promise<
       url: `https://rekodo.co/@${username}/${slug}`,
       type: "article",
     },
-    twitter: {
-      card: "summary",
-      title: `${list.title} — ${name} on rekōdo`,
-      description,
-    },
+    twitter: { card: "summary", title: `${list.title} — ${name} on rekōdo`, description },
   };
 }
 
 export default async function PublicListPage({ params }: { params: Params }) {
-  const { username: rawUsername, slug } = await params;
-  const username = rawUsername.startsWith("@") ? rawUsername.slice(1) : rawUsername;
+  const { username, slug } = await params;
   const supabase = await createClient();
 
   const { data: profile } = await supabase
@@ -75,11 +65,10 @@ export default async function PublicListPage({ params }: { params: Params }) {
     : { data: [] };
 
   const recordById = new Map((recordsData ?? []).map(r => [r.id, r]));
-
-  const maxSlots = (list.list_type ?? "top5") === "top5" ? 5 : (itemsData?.length ?? 0);
+  const maxSlots   = (list.list_type ?? "top5") === "top5" ? 5 : (itemsData?.length ?? 0);
 
   const slots: ListSlot[] = Array.from({ length: maxSlots }, (_, idx) => {
-    const pos = idx + 1;
+    const pos     = idx + 1;
     const itemRow = (itemsData ?? []).find(i => i.position === pos);
     if (!itemRow) return { position: pos, item: null };
 
@@ -108,6 +97,38 @@ export default async function PublicListPage({ params }: { params: Params }) {
     };
   });
 
+  const { data: { user: viewer } } = await supabase.auth.getUser();
+  const viewerUserId = viewer?.id ?? null;
+  const isOwner      = viewerUserId === profile.id;
+
+  // Likes & Comments — graceful fallback if tables not yet migrated
+  let likeCount            = 0;
+  let initialLiked         = false;
+  let initialComments: PublicComment[] = [];
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { count } = await (supabase as any)
+      .from("list_likes").select("*", { count: "exact", head: true }).eq("list_id", list.id);
+    likeCount = count ?? 0;
+
+    if (viewerUserId) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { data: likeRow } = await (supabase as any)
+        .from("list_likes").select("id").eq("list_id", list.id).eq("user_id", viewerUserId).maybeSingle();
+      initialLiked = Boolean(likeRow);
+    }
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data: commentsRaw } = await (supabase as any)
+      .from("list_comments")
+      .select("id, user_id, body, created_at, profiles(username, avatar_url)")
+      .eq("list_id", list.id)
+      .order("created_at", { ascending: false });
+    initialComments = (commentsRaw ?? []) as PublicComment[];
+  } catch {
+    // tables not yet created — page renders with empty social state
+  }
+
   return (
     <div className="min-h-screen bg-white">
       <nav
@@ -117,50 +138,27 @@ export default async function PublicListPage({ params }: { params: Params }) {
         <a href="/" aria-label="rekōdo home" style={{ fontFamily: SERIF, fontWeight: 700, fontSize: "24px", color: "#CC5500", textDecoration: "none" }}>
           ō
         </a>
+        <a href={`/@${profile.username}`} style={{ fontFamily: MONO, fontSize: "10px", letterSpacing: "0.08em", color: "#aaa", textDecoration: "none" }}>
+          @{profile.username}
+        </a>
       </nav>
 
       <main className="px-8 md:px-12 py-12 w-full max-w-6xl mx-auto">
         <p style={{ fontFamily: MONO, fontSize: "10px", letterSpacing: "0.1em", textTransform: "uppercase", color: "#aaaaaa", marginBottom: "12px" }}>
           @{profile.username}
         </p>
-        <h1 className="mb-12" style={{ fontFamily: SERIF, fontSize: "clamp(28px, 4vw, 48px)", color: "#0d0d0d", lineHeight: 1 }}>
-          {list.title}
-        </h1>
-
-        <div className="rk-list-slots" style={{ display: "grid", gridTemplateColumns: "repeat(5, 1fr)", gap: "16px" }}>
-          {slots.map(({ position, item }) => (
-            <div key={position} style={{ minWidth: 0 }}>
-              <div style={{ position: "relative", overflow: "hidden", lineHeight: 0 }}>
-                {item?.cover_url ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img src={item.cover_url} alt={item.song_title ?? item.album} style={{ display: "block", width: "100%", aspectRatio: "1/1", objectFit: "cover", minWidth: 0 }} />
-                ) : (
-                  <div style={{ width: "100%", aspectRatio: "1/1", background: "#f4f4f4", border: "1px dashed rgba(0,0,0,0.12)", display: "flex", alignItems: "center", justifyContent: "center" }}>
-                    <span style={{ fontFamily: SERIF, fontSize: "22px", color: "#d0d0d0" }}>—</span>
-                  </div>
-                )}
-                <span style={{ position: "absolute", top: "8px", left: "8px", fontFamily: MONO, fontSize: "9px", letterSpacing: "0.08em", color: item ? "rgba(255,255,255,0.8)" : "#c0c0c0", lineHeight: 1, textShadow: item ? "0 1px 2px rgba(0,0,0,0.5)" : "none" }}>
-                  {position}
-                </span>
-              </div>
-
-              <div style={{ marginTop: "10px" }}>
-                {item ? (
-                  <>
-                    <p className="truncate" style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.08em", textTransform: "uppercase", color: "#aaaaaa", marginBottom: "3px" }}>
-                      {item.artist}{item.year ? ` · ${item.year}` : ""}
-                    </p>
-                    <p style={{ fontFamily: SERIF, fontSize: "13px", color: "#0d0d0d", lineHeight: 1.3, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}>
-                      {item.song_title ?? item.album}
-                    </p>
-                  </>
-                ) : (
-                  <p style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.08em", textTransform: "uppercase", color: "#d0d0d0" }}>Empty</p>
-                )}
-              </div>
-            </div>
-          ))}
-        </div>
+        <PublicListClient
+          listId={list.id}
+          ownerId={profile.id}
+          listTitle={list.title}
+          username={profile.username}
+          slots={slots}
+          initialLikeCount={likeCount}
+          initialLiked={initialLiked}
+          initialComments={initialComments}
+          viewerUserId={viewerUserId}
+          isOwner={isOwner}
+        />
       </main>
     </div>
   );
