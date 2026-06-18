@@ -138,9 +138,6 @@ function LandscapeCard({ title, slots, username, covers }: CardProps) {
   const LEFT_W = 172;
   const ART    = 42;
 
-  const m        = title.match(/^Top\s+5\s+(.*)/i);
-  const subTitle = m ? m[1] : title;
-
   return (
     <div style={{
       width: 600, height: 314, background: BG,
@@ -158,11 +155,8 @@ function LandscapeCard({ title, slots, username, covers }: CardProps) {
           <div style={{ fontFamily: SERIF, fontSize: 17, fontWeight: 600, color: INK, marginBottom: 14, lineHeight: 1 }}>
             rek<span style={{ color: ORANGE }}>ō</span>do
           </div>
-          <div style={{ fontFamily: MONO, fontSize: 8, letterSpacing: "0.1em", textTransform: "uppercase", color: MUTED, marginBottom: 4 }}>
-            Top 5
-          </div>
           <div style={{ fontFamily: SERIF, fontSize: 13, fontWeight: 600, color: INK, lineHeight: 1.3, overflow: "hidden" }}>
-            {subTitle}
+            {title}
           </div>
         </div>
         <div>
