@@ -811,9 +811,10 @@ function ModeToggle({ mode, onChange, disabled }: {
 // ─── Main client ──────────────────────────────────────────────────────────────
 
 export default function DigClient({ username, displayLabel, avatarUrl, collectionCount, listsCount, availableStyles }: Props) {
-  const [recs,          setRecs]          = useState<Recommendation[] | null>(null);
-  const [loading,       setLoading]       = useState(true);
-  const [error,         setError]         = useState<string | null>(null);
+  const [recs,              setRecs]              = useState<Recommendation[] | null>(null);
+  const [loading,           setLoading]           = useState(true);
+  const [error,             setError]             = useState<string | null>(null);
+  const [dailyLimitReached, setDailyLimitReached] = useState(false);
   const [idx,           setIdx]           = useState(0);
   const [activeTab,     setActiveTab]     = useState<DigTab>("discover");
   const [selectedStyle, setSelectedStyle] = useState<string | null>(null);
@@ -856,6 +857,11 @@ export default function DigClient({ username, displayLabel, avatarUrl, collectio
         });
         const data = await res.json();
         if (cancelled) return;
+        if (res.status === 429 && data.error === "daily_limit_reached") {
+          setDailyLimitReached(true);
+          setLoading(false);
+          return;
+        }
         if (!res.ok) throw new Error(data.error ?? "Failed to get recommendations");
         const newRecs: Recommendation[] = data.recommendations;
         // Accumulate artists + recs for future exclusion — reset only when mode changes
@@ -892,6 +898,7 @@ export default function DigClient({ username, displayLabel, avatarUrl, collectio
     setActiveTab(tab);
     setError(null);
     setRecs(null);
+    setDailyLimitReached(false);
     if (tab === "style" && !selectedStyle) {
       // Wait for the user to pick a style before fetching anything
       setLoading(false);
@@ -1097,6 +1104,27 @@ export default function DigClient({ username, displayLabel, avatarUrl, collectio
               )}
 
               {loading && <RecordSpinner />}
+
+              {dailyLimitReached && !loading && (
+                <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", flex: 1, gap: "12px", padding: "2rem", textAlign: "center" }}>
+                  <p style={{ fontFamily: MONO, fontSize: "0.55rem", letterSpacing: "0.16em", textTransform: "uppercase", color: ORANGE, margin: 0 }}>
+                    Daily limit reached
+                  </p>
+                  <p style={{ fontFamily: SERIF, fontSize: "1.6rem", fontWeight: 400, color: "#0a0a0a", margin: 0, lineHeight: 1.1 }}>
+                    3 digs per day
+                  </p>
+                  <p style={{ fontFamily: MONO, fontSize: "0.6rem", color: "#666", margin: "4px 0 16px", lineHeight: 1.7 }}>
+                    Free accounts get 3 digs per day.<br />
+                    Support rek<span style={{ color: ORANGE }}>ō</span>do for unlimited access.
+                  </p>
+                  <a
+                    href="/about#support"
+                    style={{ fontFamily: MONO, fontSize: "0.6rem", letterSpacing: "0.12em", textTransform: "uppercase", color: "#FDF6F0", background: "#0a0a0a", padding: "12px 24px", textDecoration: "none", display: "inline-block" }}
+                  >
+                    Support rek<span style={{ color: ORANGE }}>ō</span>do →
+                  </a>
+                </div>
+              )}
 
               {error && !loading && (
                 <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", flex: 1, gap: "16px" }}>

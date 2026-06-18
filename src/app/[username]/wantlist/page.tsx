@@ -15,15 +15,16 @@ export default async function WantlistPage({ params }: { params: Params }) {
   const supabase = await createClient();
   const { data: { user: viewer } } = await supabase.auth.getUser();
 
-  const { data: profile } = await supabase
+  const { data: profile } = await (supabase as any)
     .from("profiles")
-    .select("id, username, display_name, avatar_url")
+    .select("id, username, display_name, avatar_url, is_supporter")
     .eq("username", username)
-    .maybeSingle();
+    .maybeSingle() as { data: { id: string; username?: string | null; display_name?: string | null; avatar_url?: string | null; is_supporter?: boolean | null } | null };
 
   if (!profile) notFound();
 
-  const isOwner = viewer?.id === profile.id;
+  const isOwner     = viewer?.id === profile.id;
+  const isSupporter = !!profile.is_supporter;
 
   let viewerNav: { username: string; displayName: string | null; avatarUrl: string | null } | null = null;
   if (viewer) {
@@ -55,6 +56,7 @@ export default async function WantlistPage({ params }: { params: Params }) {
         </div>
         <WantlistClient
           isOwner={isOwner}
+          isSupporter={isSupporter}
           userId={viewer?.id ?? null}
         />
       </div>

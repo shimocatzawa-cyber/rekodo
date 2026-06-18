@@ -196,6 +196,7 @@ export default async function PublicProfilePage({ params }: { params: Params }) 
         spotify_product:      profile.spotify_product      ?? null,
       }}
       isOwner={isOwner}
+      isSupporter={false}
       totalRecords={totalRecords}
       topGenre={topGenre}
       topCountry={topCountry}

@@ -10,9 +10,10 @@ const BG     = "#FDF6F0";
 const ORANGE = "#CC5500";
 
 interface Props {
-  isOwner: boolean;
-  userId: string | null;
-  embedded?: boolean;
+  isOwner:      boolean;
+  isSupporter:  boolean;
+  userId:       string | null;
+  embedded?:    boolean;
 }
 
 type ParsedRow = {
@@ -84,7 +85,7 @@ type UploadState =
   | { phase: "done"; count: number; timestamp: string; skipped: number }
   | { phase: "error"; message: string };
 
-export default function WantlistClient({ isOwner, userId, embedded = false }: Props) {
+export default function WantlistClient({ isOwner, isSupporter, userId, embedded = false }: Props) {
   const fileRef = useRef<HTMLInputElement>(null);
   const [upload, setUpload] = useState<UploadState>({ phase: "idle" });
   const [dragOver, setDragOver] = useState(false);
@@ -204,6 +205,25 @@ export default function WantlistClient({ isOwner, userId, embedded = false }: Pr
   }
 
   if (!isOwner) return null;
+
+  if (!isSupporter) {
+    return (
+      <div style={{ marginBottom: embedded ? "2rem" : "3rem", padding: "1.5rem", border: "1px solid #e0e0da", background: "#FDFCF8" }}>
+        <p style={{ fontFamily: MONO, fontSize: "0.55rem", letterSpacing: "0.14em", textTransform: "uppercase", color: ORANGE, margin: "0 0 8px" }}>
+          Supporter Feature
+        </p>
+        <p style={{ fontFamily: MONO, fontSize: "0.65rem", color: "#555", margin: "0 0 14px", lineHeight: 1.7 }}>
+          Wantlist upload is available to rek<span style={{ color: ORANGE }}>ō</span>do supporters.
+        </p>
+        <a
+          href="/about#support"
+          style={{ fontFamily: MONO, fontSize: "0.6rem", letterSpacing: "0.1em", textTransform: "uppercase", color: "#FDF6F0", background: "#0a0a0a", padding: "10px 20px", textDecoration: "none", display: "inline-block" }}
+        >
+          Support rek<span style={{ color: ORANGE }}>ō</span>do →
+        </a>
+      </div>
+    );
+  }
 
   return (
     <div style={{ marginBottom: embedded ? "2rem" : "3rem" }}>

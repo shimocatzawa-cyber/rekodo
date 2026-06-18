@@ -87,8 +87,9 @@ export interface CoverRecord {
 }
 
 interface Props {
-  profile: ProfileData;
-  isOwner: boolean;
+  profile:     ProfileData;
+  isOwner:     boolean;
+  isSupporter: boolean;
   totalRecords: number;
   topGenre: string | null;
   topCountry: string | null;
@@ -112,7 +113,7 @@ type ProfileTab = "profile" | "lists" | "sell" | "community";
 // ─── Main component ───────────────────────────────────────────────────────────
 
 export default function ProfileClient({
-  profile, isOwner, totalRecords, topGenre, topCountry, topLabel,
+  profile, isOwner, isSupporter, totalRecords, topGenre, topCountry, topLabel,
   lists, listItems, coverRecords, followerCount, followingCount, viewer,
   fullLists, collectionPhoto = null,
   bcSyncTotal = 0, bcSyncDuplicates = 0, bcSyncDate = null,
@@ -950,6 +951,7 @@ export default function ProfileClient({
           <div style={{ maxWidth: 680, margin: "0 auto", padding: "2rem 1.5rem 0" }}>
             <WantlistClient
               isOwner={isOwner}
+              isSupporter={isSupporter}
               userId={isOwner ? profile.id : null}
               embedded
             />

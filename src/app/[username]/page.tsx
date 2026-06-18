@@ -45,16 +45,16 @@ export default async function PublicProfilePage({ params }: { params: Params }) 
   type ProfileRow = {
     id: string; username: string; display_name: string | null;
     city: string | null; country: string | null; country_code: string | null;
-    bio: string | null; avatar_url: string | null; is_donor: boolean;
+    bio: string | null; avatar_url: string | null; is_donor: boolean; is_supporter: boolean | null;
     taste_summary: string | null; star_sign: string | null;
     bandcamp_username: string | null; role: string | null;
     spotify_connected: boolean | null; spotify_display_name: string | null;
     spotify_product: string | null;
   };
 
-  const { data: profile } = await supabase
+  const { data: profile } = await (supabase as any)
     .from("profiles")
-    .select("id, username, display_name, city, country, country_code, bio, avatar_url, is_donor, taste_summary, star_sign, bandcamp_username, role, spotify_connected, spotify_display_name, spotify_product")
+    .select("id, username, display_name, city, country, country_code, bio, avatar_url, is_donor, is_supporter, taste_summary, star_sign, bandcamp_username, role, spotify_connected, spotify_display_name, spotify_product")
     .eq("username", username)
     .maybeSingle() as unknown as { data: ProfileRow | null };
 
@@ -378,6 +378,7 @@ export default async function PublicProfilePage({ params }: { params: Params }) 
         spotify_product:      profile.spotify_product      ?? null,
       }}
       isOwner={isOwner}
+      isSupporter={!!profile.is_supporter}
       totalRecords={totalRecords}
       topGenre={topGenre}
       topCountry={topCountry}

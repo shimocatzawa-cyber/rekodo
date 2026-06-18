@@ -38,6 +38,29 @@ export async function POST(request: Request) {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return Response.json({ error: "Not authenticated" }, { status: 401 });
 
+  // ── Supporter check + daily rate limit ───────────────────────────────────
+  const FREE_DIG_LIMIT = 3;
+  const { data: profileRow } = await (supabase as any)
+    .from("profiles")
+    .select("is_supporter")
+    .eq("id", user.id)
+    .maybeSingle() as { data: { is_supporter: boolean | null } | null };
+  const isSupporter = !!profileRow?.is_supporter;
+
+  if (!isSupporter) {
+    const today = new Date().toISOString().slice(0, 10);
+    const { data: countRow } = await (supabase as any)
+      .from("dig_daily_count")
+      .select("count")
+      .eq("user_id", user.id)
+      .eq("date", today)
+      .maybeSingle() as { data: { count: number } | null };
+    const used = countRow?.count ?? 0;
+    if (used >= FREE_DIG_LIMIT) {
+      return Response.json({ error: "daily_limit_reached", used, limit: FREE_DIG_LIMIT }, { status: 429 });
+    }
+  }
+
   // ── Fetch collection ──────────────────────────────────────────────────────
   const { data: links } = await supabase
     .from("user_records")
@@ -330,6 +353,12 @@ ${JSON_SCHEMA}`;
 
     if (!Array.isArray(recommendations) || recommendations.length === 0) {
       return Response.json({ error: "Invalid recommendations format" }, { status: 500 });
+    }
+
+    // Atomically increment daily dig count for free users (fire-and-forget)
+    if (!isSupporter) {
+      const today = new Date().toISOString().slice(0, 10);
+      void (supabase as any).rpc("increment_dig_count", { p_user_id: user.id, p_date: today });
     }
 
     return Response.json({ recommendations });

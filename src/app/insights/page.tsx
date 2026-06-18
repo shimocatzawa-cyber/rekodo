@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import InsightsClient, { type InsightsProps } from "@/components/insights/InsightsClient";
 import { getDesirabilityTier, type DesirabilityTier } from "@/lib/desirability";
+import SupporterGate from "@/components/SupporterGate";
 
 export const metadata: Metadata = {
   title: "Insights",
@@ -20,9 +21,9 @@ export default async function InsightsPage() {
   if (!user) redirect("/login");
 
   const emailPrefix = (user.email ?? "").split("@")[0] || "user";
-  const { data: profile } = await supabase
+  const { data: profile } = await (supabase as any)
     .from("profiles")
-    .select("username, display_name, avatar_url, country_code, collection_value_low, collection_value_med, collection_value_high, collection_value_currency")
+    .select("username, display_name, avatar_url, country_code, collection_value_low, collection_value_med, collection_value_high, collection_value_currency, is_supporter")
     .eq("id", user.id)
     .maybeSingle() as {
       data: {
@@ -34,6 +35,7 @@ export default async function InsightsPage() {
         collection_value_med?: number | null;
         collection_value_high?: number | null;
         collection_value_currency?: string | null;
+        is_supporter?: boolean | null;
       } | null;
       error: unknown;
     };
@@ -45,6 +47,10 @@ export default async function InsightsPage() {
     : (profile?.display_name?.trim() || emailPrefix);
   const displayLabel = profile?.display_name?.trim() || username;
   const avatarUrl    = profile?.avatar_url ?? null;
+
+  if (!profile?.is_supporter) {
+    return <SupporterGate username={username} displayLabel={displayLabel} avatarUrl={avatarUrl} feature="Taste Profile" />;
+  }
 
   // ── Currency ───────────────────────────────────────────────────────────────
   const COUNTRY_CURRENCY: Record<string, string> = {

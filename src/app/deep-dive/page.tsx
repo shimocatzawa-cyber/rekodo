@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import AppNav from "@/components/AppNav";
 import DeepDiveClient, { type ArtistData } from "@/components/deep-dive/DeepDiveClient";
+import SupporterGate from "@/components/SupporterGate";
 
 export const metadata: Metadata = {
   title: "Deep Dive",
@@ -18,17 +19,21 @@ export default async function DeepDivePage() {
   if (!user) redirect("/login");
 
   const emailPrefix = (user.email ?? "").split("@")[0] || "user";
-  const { data: profile } = await supabase
+  const { data: profile } = await (supabase as any)
     .from("profiles")
-    .select("username, display_name, avatar_url")
+    .select("username, display_name, avatar_url, is_supporter")
     .eq("id", user.id)
-    .maybeSingle();
+    .maybeSingle() as { data: { username?: string | null; display_name?: string | null; avatar_url?: string | null; is_supporter?: boolean | null } | null };
 
   const autoGen      = `${emailPrefix}_${user.id.slice(0, 6)}`;
   const raw          = profile?.username ?? null;
   const username     = (raw && raw !== autoGen) ? raw : (profile?.display_name?.trim() || emailPrefix);
   const displayLabel = profile?.display_name?.trim() || username;
   const avatarUrl    = profile?.avatar_url ?? null;
+
+  if (!profile?.is_supporter) {
+    return <SupporterGate username={username} displayLabel={displayLabel} avatarUrl={avatarUrl} feature="Deep Dive" />;
+  }
 
   // Fetch all user_record links (paginated)
   type LinkRow = { record_id: string };
