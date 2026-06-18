@@ -301,13 +301,15 @@ export default function PublicListClient({
             <span>{likeCount}</span>
           </button>
 
-          {/* Share */}
-          <button
-            onClick={() => setShowShare(true)}
-            style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.1em", textTransform: "uppercase", background: INK, color: "#fff", border: "none", cursor: "pointer", padding: "7px 12px" }}
-          >
-            Share ↗
-          </button>
+          {/* Share — owner only */}
+          {isOwner && (
+            <button
+              onClick={() => setShowShare(true)}
+              style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.1em", textTransform: "uppercase", background: INK, color: "#fff", border: "none", cursor: "pointer", padding: "7px 12px" }}
+            >
+              Share ↗
+            </button>
+          )}
         </div>
       </div>
 

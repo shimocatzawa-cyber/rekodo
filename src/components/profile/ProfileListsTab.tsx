@@ -157,6 +157,7 @@ export default function ProfileListsTab({ initialLists, username }: Props) {
 
   const [isMobile,     setIsMobile]     = useState(false);
   const [activeDrawer, setActiveDrawer] = useState<{ artist: string; album: string } | null>(null);
+  const [likeCounts,   setLikeCounts]   = useState<Record<string, number>>({});
 
   useEffect(() => {
     const check = () => setIsMobile(window.innerWidth < 900);
@@ -166,6 +167,25 @@ export default function ProfileListsTab({ initialLists, username }: Props) {
   }, []);
 
   useEffect(() => { setLists(initialLists); }, [initialLists]);
+
+  // Fetch like counts for all lists
+  useEffect(() => {
+    const ids = lists.map(l => l.id).filter(Boolean);
+    if (ids.length === 0) return;
+    let cancelled = false;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (createClient() as any)
+      .from("list_likes")
+      .select("list_id")
+      .in("list_id", ids)
+      .then(({ data }: { data: { list_id: string }[] | null }) => {
+        if (cancelled || !data) return;
+        const counts: Record<string, number> = {};
+        for (const row of data) counts[row.list_id] = (counts[row.list_id] ?? 0) + 1;
+        setLikeCounts(counts);
+      });
+    return () => { cancelled = true; };
+  }, [lists]);
 
   // If the server didn't provide lists, fetch them client-side
   useEffect(() => {
@@ -470,7 +490,7 @@ export default function ProfileListsTab({ initialLists, username }: Props) {
       <style>{`.pill-strip::-webkit-scrollbar { display: none; }`}</style>
 
       {/* ── Wantlist ── */}
-      <div style={{ maxWidth: activeDrawer && !isMobile ? 960 : 680, margin: "0 auto", padding: "2rem 1.5rem 3rem", transition: "max-width 0.2s ease" }}>
+      <div style={{ maxWidth: selectedList?.list_type === "top5" ? (activeDrawer && !isMobile ? 1440 : 1100) : (activeDrawer && !isMobile ? 960 : 680), margin: "0 auto", padding: "2rem 1.5rem 3rem", transition: "max-width 0.2s ease" }}>
         {!selectedList && lists.length === 0 ? (
           <p style={{ fontFamily: "var(--font-mono)", fontSize: "11px", letterSpacing: "0.06em", color: "#aaaaaa" }}>
             Loading your lists…
@@ -637,6 +657,11 @@ export default function ProfileListsTab({ initialLists, username }: Props) {
 
               {/* Footer actions */}
               <div style={{ display: "flex", alignItems: "center", gap: "10px", paddingTop: "14px", borderTop: "1px solid rgba(0,0,0,0.06)", flexWrap: "wrap" }}>
+                {selectedList.list_type === "top5" && likeCounts[selectedList.id] !== undefined && (
+                  <span style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.08em", color: "#aaa", marginRight: "4px" }}>
+                    ♥ {likeCounts[selectedList.id]} {likeCounts[selectedList.id] === 1 ? "like" : "likes"}
+                  </span>
+                )}
                 {selectedList.list_type === "top5" && (
                   <button onClick={() => handleShare(selectedList)}
                     style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.1em", textTransform: "uppercase", color: "#ffffff", background: ORANGE, border: "none", cursor: "pointer", padding: "6px 12px" }}>

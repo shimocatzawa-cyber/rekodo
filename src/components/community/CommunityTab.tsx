@@ -467,10 +467,13 @@ export default function CommunityTab({ profileOwnerId }: { profileOwnerId: strin
     }
   }
 
+  const [saveError, setSaveError] = useState<string | null>(null);
+
   async function toggleSaveList(listId: string) {
     if (!viewerUserId) return;
     const prev = saveState[listId] ?? false;
     setSaveState(s => ({ ...s, [listId]: !prev }));
+    setSaveError(null);
     try {
       const res = await fetch("/api/lists/save", {
         method: "POST",
@@ -482,11 +485,15 @@ export default function CommunityTab({ profileOwnerId }: { profileOwnerId: strin
         setSaveState(s => ({ ...s, [listId]: data.saved! }));
         if (savedListsState === "done") setSavedListsState("idle");
       } else {
-        console.error("[save list] API error:", data.error ?? "unknown");
+        const msg = `Save failed (${res.status}): ${data.error ?? "unknown"}`;
+        console.error("[save list] API error:", msg);
+        setSaveError(msg);
         setSaveState(s => ({ ...s, [listId]: prev }));
       }
     } catch (err) {
-      console.error("[save list] fetch error:", err);
+      const msg = `Network error: ${err instanceof Error ? err.message : "unknown"}`;
+      console.error("[save list] fetch error:", msg);
+      setSaveError(msg);
       setSaveState(s => ({ ...s, [listId]: prev }));
     }
   }
@@ -658,6 +665,11 @@ export default function CommunityTab({ profileOwnerId }: { profileOwnerId: strin
         {/* ── Lists from Network ──────────────────────────────────────────────── */}
         {subTab === "lists" && (
           <>
+            {saveError && (
+              <p style={{ fontFamily: MONO, fontSize: "0.6rem", color: "#ef4444", letterSpacing: "0.04em", marginBottom: "12px", padding: "8px 12px", background: "#fef2f2", border: "1px solid #fecaca" }}>
+                {saveError}
+              </p>
+            )}
             {listsState === "loading" && (
               <p style={{ fontFamily: MONO, fontSize: "0.55rem", color: MUTED, letterSpacing: "0.08em" }}>Loading…</p>
             )}
@@ -688,6 +700,11 @@ export default function CommunityTab({ profileOwnerId }: { profileOwnerId: strin
         {/* ── Saved Lists ─────────────────────────────────────────────────────── */}
         {subTab === "saved" && (
           <>
+            {saveError && (
+              <p style={{ fontFamily: MONO, fontSize: "0.6rem", color: "#ef4444", letterSpacing: "0.04em", marginBottom: "12px", padding: "8px 12px", background: "#fef2f2", border: "1px solid #fecaca" }}>
+                {saveError}
+              </p>
+            )}
             {savedListsState === "loading" && (
               <p style={{ fontFamily: MONO, fontSize: "0.55rem", color: MUTED, letterSpacing: "0.08em" }}>Loading…</p>
             )}

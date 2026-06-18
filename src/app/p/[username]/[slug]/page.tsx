@@ -101,6 +101,12 @@ export default async function PublicListPage({ params }: { params: Params }) {
   const viewerUserId = viewer?.id ?? null;
   const isOwner      = viewerUserId === profile.id;
 
+  let viewerUsername: string | null = null;
+  if (viewerUserId && !isOwner) {
+    const { data: vp } = await supabase.from("profiles").select("username").eq("id", viewerUserId).maybeSingle();
+    viewerUsername = vp?.username ?? null;
+  }
+
   // Likes & Comments — graceful fallback if tables not yet migrated
   let likeCount            = 0;
   let initialLiked         = false;
@@ -138,9 +144,16 @@ export default async function PublicListPage({ params }: { params: Params }) {
         <a href="/" aria-label="rekōdo home" style={{ fontFamily: SERIF, fontWeight: 700, fontSize: "24px", color: "#CC5500", textDecoration: "none" }}>
           ō
         </a>
-        <a href={`/@${profile.username}`} style={{ fontFamily: MONO, fontSize: "10px", letterSpacing: "0.08em", color: "#aaa", textDecoration: "none" }}>
-          @{profile.username}
-        </a>
+        <div style={{ display: "flex", alignItems: "center", gap: "20px" }}>
+          {viewerUsername && (
+            <a href={`/@${viewerUsername}?tab=community`} style={{ fontFamily: MONO, fontSize: "10px", letterSpacing: "0.08em", color: "#aaa", textDecoration: "none" }}>
+              ← Community
+            </a>
+          )}
+          <a href={`/@${profile.username}`} style={{ fontFamily: MONO, fontSize: "10px", letterSpacing: "0.08em", color: "#aaa", textDecoration: "none" }}>
+            @{profile.username}
+          </a>
+        </div>
       </nav>
 
       <main className="px-8 md:px-12 py-12 w-full max-w-6xl mx-auto">
