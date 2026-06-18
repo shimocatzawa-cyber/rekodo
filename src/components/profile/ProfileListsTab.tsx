@@ -1109,7 +1109,7 @@ function MarketplaceDrawer({
           <p style={labelStyle}>Find It</p>
           {FIND_LINKS.map(({ label, href }, i, arr) => (
             <div key={label}>
-              <a href={href} target="_blank" rel="noopener noreferrer" style={{ fontFamily: MONO, fontSize: "0.82rem", color: "#0a0a0a", textDecoration: "none", display: "block", padding: "8px 0" }}>
+              <a href={href} target="_blank" rel="noopener noreferrer" style={{ fontFamily: MONO, fontSize: "10px", letterSpacing: "0.05em", color: "#0a0a0a", textDecoration: "none", display: "block", padding: "8px 0" }}>
                 {label}
               </a>
               {i < arr.length - 1 && <div style={{ height: "1px", background: "rgba(0,0,0,0.06)" }} />}
