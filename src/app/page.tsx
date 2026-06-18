@@ -73,7 +73,7 @@ export default async function LandingPage() {
       />
       <main className="flex flex-col min-h-screen bg-white">
         <LandingNav username={username} displayLabel={displayLabel} avatarUrl={avatarUrl} />
-        <HeroSection />
+        <HeroSection isSignedIn={!!user} />
         <WaitlistSection />
         <LandingFooter />
       </main>
