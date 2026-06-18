@@ -305,12 +305,17 @@ export default function ShareModal({ onClose, title, slots, username, listUrl }:
   async function handleCopyImage() {
     setExporting(true);
     try {
-      const canvas = await buildCanvas();
-      if (!canvas) { setCopyImgState("failed"); return; }
-      // Use canvas.toBlob() directly — more reliable than fetch(dataUrl).blob()
-      const blob = await new Promise<Blob | null>(resolve => canvas.toBlob(resolve, "image/png"));
-      if (!blob) { setCopyImgState("failed"); return; }
-      await navigator.clipboard.write([new ClipboardItem({ "image/png": blob })]);
+      // ClipboardItem accepts Promise<Blob> — pass it immediately so the
+      // clipboard write starts within the user gesture (before any awaits
+      // expire the activation context).
+      const blobPromise: Promise<Blob> = buildCanvas().then(canvas => {
+        if (!canvas) throw new Error("capture failed");
+        return new Promise<Blob>((resolve, reject) =>
+          canvas.toBlob(b => b ? resolve(b) : reject(new Error("toBlob failed")), "image/png"),
+        );
+      });
+      await navigator.clipboard.write([new ClipboardItem({ "image/png": blobPromise })]);
+      await blobPromise; // wait so exporting spinner clears after completion
       setCopyImgState("copied");
     } catch {
       setCopyImgState("failed");
