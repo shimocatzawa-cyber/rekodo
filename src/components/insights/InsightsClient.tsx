@@ -816,6 +816,7 @@ export default function InsightsClient({
       {showShare && (
         <InsightsShareModal
           onClose={() => setShowShare(false)}
+          avatarUrl={avatarUrl ?? null}
           username={username}
           totalRecords={totalRecords}
           topGenre={topRealGenre?.genre ?? null}
@@ -823,6 +824,7 @@ export default function InsightsClient({
           topArtist={topArtist?.artist ?? null}
           topLabel={topLabel?.label ?? null}
           topCountry={topPressOrigin?.country ?? null}
+          countryCount={countryBreakdown.length}
           holyGrails={holyGrailCount}
           oneLiner={oneLiner}
         />
