@@ -74,9 +74,11 @@ export async function GET(request: NextRequest) {
 
   const headers = { Authorization: `Bearer ${token}` };
 
-  // Search for artist
+  // Search for artist using the artist: field filter so Spotify matches on
+  // name exactly rather than ranking by personalised popularity (which can
+  // return a solo artist like Thom Yorke instead of Radiohead).
   const searchRes = await fetch(
-    `https://api.spotify.com/v1/search?q=${encodeURIComponent(artist)}&type=artist&limit=1`,
+    `https://api.spotify.com/v1/search?q=artist:${encodeURIComponent(artist)}&type=artist&limit=1`,
     { headers }
   );
   if (!searchRes.ok) {
