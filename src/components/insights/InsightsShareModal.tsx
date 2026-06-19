@@ -28,6 +28,7 @@ interface CardProps {
   topCountry:      string | null;
   countryCount:    number;
   holyGrails:      number;
+  forExport?:      boolean;
 }
 interface Props {
   onClose:         () => void;
@@ -81,7 +82,7 @@ function Anchor({
 // ── Card ─────────────────────────────────────────────────────────────────
 // DOM: 560 wide, natural height → export: 1120px wide at pixelRatio 2
 
-function ProfileCard({ username, avatarSrc, totalRecords, topGenre, mostPopularYear, topArtist, topLabel, topCountry, countryCount, holyGrails }: CardProps) {
+function ProfileCard({ username, avatarSrc, totalRecords, topGenre, mostPopularYear, topArtist, topLabel, topCountry, countryCount, holyGrails, forExport = false }: CardProps) {
   const mostCollectedYear = mostPopularYear ? String(mostPopularYear) : "—";
 
   return (
@@ -127,7 +128,7 @@ function ProfileCard({ username, avatarSrc, totalRecords, topGenre, mostPopularY
         </svg>
 
         {/* ── Centre: profile photo ── */}
-        <div style={{
+        <div data-avatar-slot style={{
           position: "absolute", top: "50%", left: "50%",
           transform: "translate(-50%, -50%)",
           width: 124, height: 124, borderRadius: "50%",
@@ -137,7 +138,7 @@ function ProfileCard({ username, avatarSrc, totalRecords, topGenre, mostPopularY
           backgroundColor: "#e5e2dc",
           flexShrink: 0,
         }}>
-          {avatarSrc ? (
+          {!forExport && avatarSrc ? (
             // eslint-disable-next-line @next/next/no-img-element
             <img src={avatarSrc} alt="" style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
           ) : (
@@ -224,7 +225,11 @@ export default function InsightsShareModal({ onClose, avatarUrl, ...cardProps }:
     const naturalW = exportRef.current.offsetWidth;
     const naturalH = exportRef.current.offsetHeight;
 
-    const dataUrl = await toPng(exportRef.current, { pixelRatio: PR });
+    const layoutDataUrl = await toPng(exportRef.current, { pixelRatio: PR });
+
+    const cardBCR  = exportRef.current.getBoundingClientRect();
+    const slotEl   = exportRef.current.querySelector<HTMLElement>("[data-avatar-slot]");
+    const slotBCR  = slotEl?.getBoundingClientRect();
 
     const canvas = document.createElement("canvas");
     canvas.width  = naturalW * PR;
@@ -235,8 +240,36 @@ export default function InsightsShareModal({ onClose, avatarUrl, ...cardProps }:
       const img = new Image();
       img.onload  = () => { ctx.drawImage(img, 0, 0); resolve(); };
       img.onerror = reject;
-      img.src = dataUrl;
+      img.src = layoutDataUrl;
     });
+
+    // Composite avatar as a clipped circle directly on the canvas
+    if (slotBCR && avatarSrc) {
+      const x = (slotBCR.left - cardBCR.left) * PR;
+      const y = (slotBCR.top  - cardBCR.top ) * PR;
+      const w = slotBCR.width  * PR;
+      const h = slotBCR.height * PR;
+
+      await new Promise<void>(resolve => {
+        const img = new Image();
+        img.onload = () => {
+          const r = w / 2;
+          ctx.save();
+          ctx.beginPath();
+          ctx.arc(x + r, y + r, r, 0, Math.PI * 2);
+          ctx.clip();
+          // objectFit: cover — scale to fill then centre
+          const scale = Math.max(w / img.naturalWidth, h / img.naturalHeight);
+          const sw = img.naturalWidth  * scale;
+          const sh = img.naturalHeight * scale;
+          ctx.drawImage(img, x + (w - sw) / 2, y + (h - sh) / 2, sw, sh);
+          ctx.restore();
+          resolve();
+        };
+        img.onerror = () => resolve();
+        img.src = avatarSrc;
+      });
+    }
 
     return canvas;
   }
@@ -292,7 +325,7 @@ export default function InsightsShareModal({ onClose, avatarUrl, ...cardProps }:
       {/* Off-screen export card */}
       <div style={{ position: "fixed", left: -9999, top: -9999, zIndex: -1 }}>
         <div ref={exportRef}>
-          <ProfileCard {...sharedCardProps} />
+          <ProfileCard {...sharedCardProps} forExport />
         </div>
       </div>
 
