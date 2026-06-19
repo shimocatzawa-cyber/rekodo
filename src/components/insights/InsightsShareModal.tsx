@@ -67,7 +67,7 @@ function Anchor({
     </div>
   );
   const valueEl = (
-    <div style={{ fontFamily: SERIF, fontSize: valSize, fontWeight: 600, color: valColor, lineHeight: 1.15, overflowX: "hidden", overflowY: "visible", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+    <div style={{ fontFamily: SERIF, fontSize: valSize, fontWeight: 600, color: valColor, lineHeight: 1.15, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", paddingBottom: "0.3em" }}>
       {value}
     </div>
   );
