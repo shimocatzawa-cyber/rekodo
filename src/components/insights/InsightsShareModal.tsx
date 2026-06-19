@@ -82,7 +82,7 @@ function Anchor({
 // DOM: 560 wide, natural height → export: 1120px wide at pixelRatio 2
 
 function ProfileCard({ username, avatarSrc, totalRecords, topGenre, mostPopularYear, topArtist, topLabel, topCountry, countryCount, holyGrails }: CardProps) {
-  const decade = mostPopularYear ? `${Math.floor(mostPopularYear / 10) * 10}s` : "—";
+  const mostCollectedYear = mostPopularYear ? String(mostPopularYear) : "—";
 
   return (
     <div style={{ width: 560, background: BG, boxSizing: "border-box", display: "flex", flexDirection: "column" }}>
@@ -92,9 +92,6 @@ function ProfileCard({ username, avatarSrc, totalRecords, topGenre, mostPopularY
         <div>
           <div style={{ fontFamily: SERIF, fontSize: "1.5rem", fontWeight: 600, color: INK, lineHeight: 1.2 }}>
             Collection Profile
-          </div>
-          <div style={{ fontFamily: MONO, fontSize: "0.65rem", color: ORANGE, letterSpacing: "0.1em", marginTop: 6 }}>
-            @{username}
           </div>
         </div>
         <div style={{ textAlign: "right", paddingTop: 2, flexShrink: 0, marginLeft: 16 }}>
@@ -160,16 +157,16 @@ function ProfileCard({ username, avatarSrc, totalRecords, topGenre, mostPopularY
           </div>
         </div>
 
-        {/* ── NE: Top Genre — bottom-left at (389+8, 111) ── */}
-        <Anchor label="Top Genre" value={topGenre ?? "—"}
+        {/* ── NE: Most Collected Genre — bottom-left at (389+8, 111) ── */}
+        <Anchor label="Most Collected Genre" value={topGenre ?? "—"}
           style={{ bottom: 480 - (CY - D45), left: CX + D45 + 8, width: 115, textAlign: "left" }} />
 
-        {/* ── E: Top Decade — vertically centred at (442+8, 240) ── */}
-        <Anchor label="Top Decade" value={decade}
+        {/* ── E: Most Collected Year — vertically centred at (442+8, 240) ── */}
+        <Anchor label="Most Collected Year" value={mostCollectedYear}
           style={{ top: CY, left: CX + R + 8, width: 62, textAlign: "left", transform: "translateY(-50%)" }} />
 
-        {/* ── SE: Top Artist — top-left at (389+8, 369) ── */}
-        <Anchor label="Top Artist" value={topArtist ?? "—"}
+        {/* ── SE: Most Collected Artist — top-left at (389+8, 369) ── */}
+        <Anchor label="Most Collected Artist" value={topArtist ?? "—"}
           style={{ top: CY + D45, left: CX + D45 + 8, width: 115, textAlign: "left" }} />
 
         {/* ── S: Holy Grails — value then label (labelBelow), top at y=426 ── */}
@@ -177,16 +174,16 @@ function ProfileCard({ username, avatarSrc, totalRecords, topGenre, mostPopularY
           valSize="1.6rem" valColor={ORANGE} labelBelow
           style={{ top: CY + R + 6, left: "50%", transform: "translateX(-50%)", width: 200, textAlign: "center" }} />
 
-        {/* ── SW: Top Label — top-right at (131-8, 369) ── */}
-        <Anchor label="Top Label" value={topLabel ?? "—"}
+        {/* ── SW: Most Collected Label — top-right at (131-8, 369) ── */}
+        <Anchor label="Most Collected Label" value={topLabel ?? "—"}
           style={{ top: CY + D45, left: 0, width: CX - D45 - 8, textAlign: "right" }} />
 
-        {/* ── W: Pressing Origin — vertically centred at (78-8, 240) ── */}
-        <Anchor label="Pressing Origin" value={topCountry ?? "—"}
+        {/* ── W: Primary Pressing Origin — vertically centred at (78-8, 240) ── */}
+        <Anchor label="Primary Pressing Origin" value={topCountry ?? "—"}
           style={{ top: CY, left: 0, width: CX - R - 8, textAlign: "right", transform: "translateY(-50%)" }} />
 
-        {/* ── NW: Countries — bottom-right at (131-8, 111) ── */}
-        <Anchor label="Countries" value={countryCount > 0 ? String(countryCount) : "—"}
+        {/* ── NW: Collected Countries — bottom-right at (131-8, 111) ── */}
+        <Anchor label="Collected Countries" value={countryCount > 0 ? String(countryCount) : "—"}
           style={{ bottom: 480 - (CY - D45), left: 0, width: CX - D45 - 8, textAlign: "right" }} />
 
       </div>{/* end radial */}
