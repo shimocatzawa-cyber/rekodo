@@ -340,6 +340,13 @@ export default function ProfileClient({
                   </p>
                 )}
 
+                {(starSignValue || profile.star_sign) && (
+                  <p style={{ fontFamily: MONO, fontSize: "12px", letterSpacing: "0.04em", color: MUTED, margin: "0 0 6px 0" }}>
+                    {({ Aries:"♈", Taurus:"♉", Gemini:"♊", Cancer:"♋", Leo:"♌", Virgo:"♍", Libra:"♎", Scorpio:"♏", Sagittarius:"♐", Capricorn:"♑", Aquarius:"♒", Pisces:"♓" } as Record<string,string>)[starSignValue || profile.star_sign || ""] ?? ""}{" "}
+                    {starSignValue || profile.star_sign}
+                  </p>
+                )}
+
                 {(bioValue || profile.bio) && (
                   <p style={{ fontFamily: SERIF, fontSize: "0.95rem", fontStyle: "italic", color: "#505050", lineHeight: 1.7, margin: "0 0 8px 0", maxWidth: 560 }}>
                     {bioValue || profile.bio}
