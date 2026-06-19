@@ -108,11 +108,11 @@ function LandscapeCard({ archetypeId, score, shadowId, shadowScore, username, fo
         />
       )}
 
-      {/* Right: Primary + Shadow, pushed slightly down */}
+      {/* Right: Primary + Shadow, centred together with tight gap */}
       <div style={{
         flex: 1,
-        display: "flex", flexDirection: "column", justifyContent: "space-between",
-        padding: "22px 14px 16px 12px",
+        display: "flex", flexDirection: "column", justifyContent: "center", gap: 14,
+        padding: "14px 14px 16px 12px",
         overflow: "hidden",
       }}>
 
@@ -145,7 +145,7 @@ function LandscapeCard({ archetypeId, score, shadowId, shadowScore, username, fo
 
         {/* Shadow archetype */}
         <div>
-          <div style={{ fontFamily: MONO, fontSize: 6, color: MUTED, textTransform: "uppercase", letterSpacing: "0.12em", marginBottom: 4 }}>
+          <div style={{ fontFamily: MONO, fontSize: 6, color: INK, textTransform: "uppercase", letterSpacing: "0.12em", marginBottom: 4 }}>
             Shadow Side
           </div>
           <div style={{ fontFamily: SERIF, fontSize: 12, fontWeight: 700, color: shadowColor, lineHeight: 1.1, marginBottom: 2 }}>
