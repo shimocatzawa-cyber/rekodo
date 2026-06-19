@@ -94,12 +94,9 @@ function PortraitCard({ archetypeId, score, username, forExport }: CardProps) {
           </div>
         </div>
 
-        {/* Page title + rule */}
-        <div>
-          <div style={{ fontFamily: SERIF, fontSize: 12, fontWeight: 400, color: INK, lineHeight: 1.45, marginBottom: 10 }}>
-            What your collection says about you.
-          </div>
-          <div style={{ height: 1, background: RULE }} />
+        {/* Page title */}
+        <div style={{ fontFamily: SERIF, fontSize: 22, fontWeight: 600, color: INK, lineHeight: 1.3 }}>
+          What your collection says about you.
         </div>
 
         {/* Primary archetype block */}
@@ -274,10 +271,12 @@ export default function ArchetypeShareModal({ onClose, archetypeId, score, usern
     const naturalW = exportRef.current.offsetWidth;
     const naturalH = exportRef.current.offsetHeight;
 
-    const layoutDataUrl = await toPng(exportRef.current, { pixelRatio: PR });
-
+    // Measure BCR before toPng — toPng is async and can cause reflows that shift the element
     const cardBCR   = exportRef.current.getBoundingClientRect();
     const imageSlot = exportRef.current.querySelector<HTMLElement>("[data-archetype-image]");
+    const slotBCR   = imageSlot?.getBoundingClientRect() ?? null;
+
+    const layoutDataUrl = await toPng(exportRef.current, { pixelRatio: PR });
 
     const canvas = document.createElement("canvas");
     canvas.width  = naturalW * PR;
@@ -291,10 +290,10 @@ export default function ArchetypeShareModal({ onClose, archetypeId, score, usern
       img.src = layoutDataUrl;
     });
 
-    if (imageSlot && imageDataUrl) {
-      const r = imageSlot.getBoundingClientRect();
-      const x = r.left - cardBCR.left;
-      const y = r.top  - cardBCR.top;
+    if (slotBCR && imageDataUrl) {
+      const x = slotBCR.left - cardBCR.left;
+      const y = slotBCR.top  - cardBCR.top;
+      const r = slotBCR;
       await new Promise<void>(resolve => {
         const img = new Image();
         img.onload  = () => {
