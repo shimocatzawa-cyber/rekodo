@@ -306,7 +306,7 @@ export default function ProfileClient({
             {/* ── DISPLAY MODE ── */}
             {!editing && (
               <>
-                <div style={{ display: "flex", alignItems: "baseline", gap: "12px", margin: "0 0 12px 0", flexWrap: "wrap" }}>
+                <div style={{ display: "flex", alignItems: "baseline", gap: "12px", margin: "0 0 8px 0", flexWrap: "wrap" }}>
                   <h1 style={{ fontFamily: SERIF, fontSize: "clamp(32px, 5vw, 48px)", fontWeight: 400, color: INK, lineHeight: 1.1, margin: 0 }}>
                     {displayName}
                   </h1>
@@ -314,6 +314,12 @@ export default function ProfileClient({
                     <span style={{ fontFamily: SERIF, fontSize: "clamp(16px, 2.5vw, 24px)", fontWeight: 400, color: "#B8860B", lineHeight: 1.1 }} title="rekōdo supporter">ō</span>
                   )}
                 </div>
+
+                {(bioValue || profile.bio) && (
+                  <p style={{ fontFamily: SERIF, fontSize: "0.95rem", fontStyle: "italic", color: "#505050", lineHeight: 1.7, margin: "0 0 12px 0", maxWidth: 560 }}>
+                    {bioValue || profile.bio}
+                  </p>
+                )}
 
                 <div style={{ display: "flex", alignItems: "center", gap: "8px", margin: "0 0 6px 0" }}>
                   <p style={{ fontFamily: MONO, fontSize: "12px", letterSpacing: "0.04em", color: MUTED, margin: 0 }}>
@@ -340,18 +346,32 @@ export default function ProfileClient({
                   </p>
                 )}
 
-                {(starSignValue || profile.star_sign) && (
-                  <p style={{ fontFamily: MONO, fontSize: "12px", letterSpacing: "0.04em", color: MUTED, margin: "0 0 6px 0" }}>
-                    {({ Aries:"♈", Taurus:"♉", Gemini:"♊", Cancer:"♋", Leo:"♌", Virgo:"♍", Libra:"♎", Scorpio:"♏", Sagittarius:"♐", Capricorn:"♑", Aquarius:"♒", Pisces:"♓" } as Record<string,string>)[starSignValue || profile.star_sign || ""] ?? ""}{" "}
-                    {starSignValue || profile.star_sign}
-                  </p>
-                )}
-
-                {(bioValue || profile.bio) && (
-                  <p style={{ fontFamily: SERIF, fontSize: "0.95rem", fontStyle: "italic", color: "#505050", lineHeight: 1.7, margin: "0 0 8px 0", maxWidth: 560 }}>
-                    {bioValue || profile.bio}
-                  </p>
-                )}
+                {(starSignValue || profile.star_sign) && (() => {
+                  const sign = starSignValue || profile.star_sign!;
+                  const SIGN_SVG: Record<string, string> = {
+                    Aries:       "https://upload.wikimedia.org/wikipedia/commons/0/00/Aries_symbol_%28fixed_width%29.svg",
+                    Taurus:      "https://upload.wikimedia.org/wikipedia/commons/0/0b/Taurus_symbol_%28fixed_width%29.svg",
+                    Gemini:      "https://upload.wikimedia.org/wikipedia/commons/0/0c/Gemini_symbol_%28fixed_width%29.svg",
+                    Cancer:      "https://upload.wikimedia.org/wikipedia/commons/e/ec/Cancer_symbol_%28fixed_width%29.svg",
+                    Leo:         "https://upload.wikimedia.org/wikipedia/commons/2/2c/Leo_symbol_%28fixed_width%29.svg",
+                    Virgo:       "https://upload.wikimedia.org/wikipedia/commons/a/a8/Virgo_symbol_%28fixed_width%29.svg",
+                    Libra:       "https://upload.wikimedia.org/wikipedia/commons/0/07/Libra_symbol_%28fixed_width%29.svg",
+                    Scorpio:     "https://upload.wikimedia.org/wikipedia/commons/7/7c/Scorpius_symbol_%28fixed_width%29.svg",
+                    Sagittarius: "https://upload.wikimedia.org/wikipedia/commons/5/52/Sagittarius_symbol_%28fixed_width%29.svg",
+                    Capricorn:   "https://upload.wikimedia.org/wikipedia/commons/a/a9/Capricornus_symbol_%28fixed_width%29.svg",
+                    Aquarius:    "https://upload.wikimedia.org/wikipedia/commons/f/fd/Aquarius_symbol_%28fixed_width%29.svg",
+                    Pisces:      "https://upload.wikimedia.org/wikipedia/commons/2/21/Pisces_symbol_%28fixed_width%29.svg",
+                  };
+                  return (
+                    <p style={{ fontFamily: MONO, fontSize: "12px", letterSpacing: "0.04em", color: MUTED, margin: "0 0 6px 0", display: "flex", alignItems: "center", gap: "6px" }}>
+                      {SIGN_SVG[sign] && (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img src={SIGN_SVG[sign]} alt={sign} style={{ height: "13px", width: "auto", opacity: 0.45 }} />
+                      )}
+                      {sign}
+                    </p>
+                  );
+                })()}
 
                 {!isOwner && (bandcampValue || profile.bandcamp_username) && (
                   <p style={{ fontFamily: MONO, fontSize: "12px", letterSpacing: "0.04em", color: MUTED, margin: 0 }}>
@@ -548,7 +568,7 @@ export default function ProfileClient({
                   <p style={{ fontFamily: MONO, fontSize: "0.65rem", color: INK, margin: "5px 0 0" }}>bandcamp.com/your-username — must be set to public</p>
                 </div>
                 <div style={{ marginBottom: "20px" }}>
-                  <label style={labelSt}>Taste essay <span style={{ opacity: 0.45, textTransform: "none", letterSpacing: 0, marginLeft: "6px" }}>optional · 160 chars</span></label>
+                  <label style={labelSt}>Taste Statement <span style={{ opacity: 0.45, textTransform: "none", letterSpacing: 0, marginLeft: "6px" }}>optional · 160 chars</span></label>
                   <textarea value={bioValue} onChange={e => setBioValue(e.target.value.slice(0, 160))} placeholder="How would you describe your taste in music?" rows={4}
                     style={{ ...inputSt, border: "none", borderBottom: "1px solid rgba(0,0,0,0.14)", resize: "none", lineHeight: 1.6, fontFamily: SERIF, fontStyle: "italic", fontSize: "14px" }} />
                   <p style={{ fontFamily: MONO, fontSize: "9px", color: bioValue.length >= 140 ? ORANGE : "#dddddd", margin: "4px 0 0", textAlign: "right" }}>
