@@ -88,14 +88,17 @@ export async function GET(request: NextRequest) {
   const artistItem = searchData.artists?.items?.[0];
   if (!artistItem) return NextResponse.json({ tracks: [] });
 
-  // Get top tracks (market=from_token uses the user's account country,
-  // which is the correct default and avoids a 400 on older API versions)
+  // No market param — user access token lets Spotify infer the correct market.
+  // market=from_token is not valid for this endpoint and causes a 400.
   const topRes = await fetch(
-    `https://api.spotify.com/v1/artists/${artistItem.id}/top-tracks?market=from_token`,
+    `https://api.spotify.com/v1/artists/${artistItem.id}/top-tracks`,
     { headers }
   );
   if (!topRes.ok) {
-    return NextResponse.json({ error: "Spotify top tracks failed" }, { status: 502 });
+    let detail = "";
+    try { detail = await topRes.text(); } catch { /* ignore */ }
+    console.error("[artist-top-tracks] Spotify error", topRes.status, detail);
+    return NextResponse.json({ error: `Spotify top tracks failed (${topRes.status})` }, { status: 502 });
   }
   const topData = await topRes.json() as {
     tracks: Array<{ uri: string; name: string; album: { name: string }; preview_url: string | null }>;
