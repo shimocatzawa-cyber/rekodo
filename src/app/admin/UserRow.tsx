@@ -26,6 +26,7 @@ export interface AdminUser {
   country: string | null;
   is_donor: boolean;
   archetype: string | null;
+  discogs_username: string | null;
   subscription_spend: { cents: number; currency: string } | null;
   donation_total: { cents: number; currency: string } | null;
   connections: {
@@ -235,6 +236,10 @@ export default function UserRow({ user }: { user: AdminUser }) {
           <ConnectionBadges connections={user.connections} />
         </td>
 
+        <td style={{ ...cellSt, color: user.discogs_username ? INK : MUTED }}>
+          {user.discogs_username ?? "—"}
+        </td>
+
         <td style={cellSt}>
           <TierPill tier={user.subscription_tier} />
         </td>
@@ -271,7 +276,7 @@ export default function UserRow({ user }: { user: AdminUser }) {
 
       {open && (
         <tr>
-          <td colSpan={12} style={{ padding: "16px 16px 20px", borderBottom: `1px solid ${RULE}`, background: "#fafaf8" }}>
+          <td colSpan={13} style={{ padding: "16px 16px 20px", borderBottom: `1px solid ${RULE}`, background: "#fafaf8" }}>
             <div style={{ display: "flex", flexDirection: "column", gap: "20px" }}>
 
               {/* Row 1: tier + role + save */}
