@@ -2,18 +2,16 @@
 
 import { useRef, useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { createClient } from "@/lib/supabase/client";
 
 const MONO   = "var(--font-mono)";
 const ORANGE = "#CC5500";
 
 interface Props {
   initialPhoto: string | null;
-  userId: string;
   isOwner: boolean;
 }
 
-export default function CollectionPhotos({ initialPhoto, userId, isOwner }: Props) {
+export default function CollectionPhotos({ initialPhoto, isOwner }: Props) {
   const router = useRouter();
   const [photo,       setPhoto]       = useState<string | null>(initialPhoto);
   const [loading,     setLoading]     = useState(false);
@@ -40,40 +38,20 @@ export default function CollectionPhotos({ initialPhoto, userId, isOwner }: Prop
     }
     setLoading(true);
     setUploadError(null);
-    const supabase = createClient();
-    const storagePath = `${userId}/1.jpg`;
     try {
-      const { error: upErr } = await supabase.storage
-        .from("collection-photos")
-        .upload(storagePath, file, { upsert: true, contentType: file.type });
-      if (upErr) {
-        console.error("Storage upload failed:", upErr);
-        setUploadError(`Upload failed: ${upErr.message}`);
+      const form = new FormData();
+      form.append("file", file);
+      const res = await fetch("/api/collection/photo", { method: "POST", body: form });
+      const json = await res.json() as { publicUrl?: string; error?: string };
+      if (!res.ok || json.error) {
+        setUploadError(json.error ?? "Upload failed.");
         return;
       }
-
-      const { data: { publicUrl } } = supabase.storage
-        .from("collection-photos")
-        .getPublicUrl(storagePath);
-
-      const { error: dbErr } = await supabase
-        .from("collection_photos")
-        .upsert(
-          { user_id: userId, storage_path: storagePath, display_order: 1 },
-          { onConflict: "user_id,display_order" }
-        );
-      if (dbErr) {
-        console.error("DB upsert failed:", dbErr);
-        setUploadError(`Save failed: ${dbErr.message}`);
-        return;
-      }
-
-      setPhoto(`${publicUrl}?v=${Date.now()}`);
+      setPhoto(json.publicUrl!);
       router.refresh();
     } catch (err) {
       console.error("Photo upload failed:", err);
-      const msg = err instanceof Error ? err.message : String(err);
-      setUploadError(`Upload failed: ${msg}`);
+      setUploadError("Upload failed — please try again.");
     } finally {
       setLoading(false);
     }
@@ -81,15 +59,8 @@ export default function CollectionPhotos({ initialPhoto, userId, isOwner }: Prop
 
   async function handleDelete() {
     setLoading(true);
-    const supabase = createClient();
-    const storagePath = `${userId}/1.jpg`;
     try {
-      await supabase.storage.from("collection-photos").remove([storagePath]);
-      await supabase
-        .from("collection_photos")
-        .delete()
-        .eq("user_id", userId)
-        .eq("display_order", 1);
+      await fetch("/api/collection/photo", { method: "DELETE" });
       setPhoto(null);
       setHovering(false);
       router.refresh();
@@ -133,18 +104,17 @@ export default function CollectionPhotos({ initialPhoto, userId, isOwner }: Prop
           </p>
         )}
 
-        {/* Photo frame — full column width, 16:9 */}
+        {/* Photo frame */}
         <div
           style={{
             position: "relative",
             width: "100%",
-            maxWidth: "100%",
             aspectRatio: "16 / 9",
             border: dragging ? `1px dashed ${ORANGE}` : (photo ? "1px solid #e0e0da" : "1px dashed #e0e0da"),
             padding: photo ? "4px" : 0,
             background: dragging ? "#fff8f5" : "#ffffff",
             boxShadow: photo && !dragging ? "3px 3px 0 0 #d0d0c8" : "none",
-            cursor: photo ? "pointer" : (isOwner ? "pointer" : "default"),
+            cursor: isOwner ? "pointer" : (photo ? "zoom-in" : "default"),
             display: "flex", alignItems: "center", justifyContent: "center",
             overflow: "hidden",
             boxSizing: "border-box",

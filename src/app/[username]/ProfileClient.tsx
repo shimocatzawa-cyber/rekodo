@@ -595,7 +595,6 @@ export default function ProfileClient({
           <div style={{ marginBottom: "48px" }}>
             <CollectionPhotos
               initialPhoto={collectionPhoto}
-              userId={profile.id}
               isOwner={isOwner}
             />
           </div>
