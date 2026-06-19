@@ -23,9 +23,11 @@ export default function ArtistPlayer({ artist }: Props) {
     previousTrack, nextTrack, reconnect,
   } = useSpotifyPlayback();
 
-  const [tracks,   setTracks]   = useState<Track[]>([]);
-  const [loading,  setLoading]  = useState(false);
-  const [shuffled, setShuffled] = useState(false);
+  const [tracks,      setTracks]      = useState<Track[]>([]);
+  const [loading,     setLoading]     = useState(false);
+  const [shuffled,    setShuffled]    = useState(false);
+  const [fetchError,  setFetchError]  = useState<string | null>(null);
+  const [retryCount,  setRetryCount]  = useState(0);
   const loadedForRef = useRef<string | null>(null);
 
   // Fetch top tracks when artist changes
@@ -34,16 +36,29 @@ export default function ArtistPlayer({ artist }: Props) {
     if (loadedForRef.current === artist) return;
     loadedForRef.current = artist;
     setTracks([]);
+    setFetchError(null);
     setShuffled(false);
     setLoading(true);
     const controller = new AbortController();
     fetch(`/api/spotify/artist-top-tracks?artist=${encodeURIComponent(artist)}`, { signal: controller.signal })
-      .then(r => r.ok ? r.json() : Promise.reject())
-      .then((d: { tracks: Track[] }) => setTracks(d.tracks ?? []))
-      .catch((err) => { if (err?.name !== "AbortError") setTracks([]); })
+      .then(async r => {
+        if (!r.ok) {
+          let msg = `HTTP ${r.status}`;
+          try { const j = await r.json() as { error?: string }; if (j.error) msg = `${j.error} (${r.status})`; } catch { /* ignore */ }
+          throw new Error(msg);
+        }
+        return r.json() as Promise<{ tracks: Track[] }>;
+      })
+      .then(d => { setTracks(d.tracks ?? []); })
+      .catch((err: Error) => {
+        if (err?.name === "AbortError") return;
+        console.error("[ArtistPlayer] fetch error:", err.message);
+        setFetchError(err.message ?? "Failed to load tracks");
+        setTracks([]);
+      })
       .finally(() => setLoading(false));
     return () => { controller.abort(); };
-  }, [artist, tokenData?.connected]);
+  }, [artist, tokenData?.connected, retryCount]);
 
   // Keep provider source in sync
   useEffect(() => {
@@ -97,6 +112,7 @@ export default function ArtistPlayer({ artist }: Props) {
   }
 
   const eyebrow = playError ? "Error"
+    : fetchError            ? "Error"
     : sdkConnecting         ? "Connecting"
     : loading               ? "Loading"
     : sdkLive               ? "Now Playing"
@@ -108,6 +124,7 @@ export default function ArtistPlayer({ artist }: Props) {
       : playError === 401 ? "Auth error — reconnect Spotify in Settings"
       : playError === 429 ? "Rate limited — wait a moment"
       : `Spotify error ${playError}`)
+    : fetchError    ? fetchError
     : sdkConnecting ? "Connecting to Spotify…"
     : loading       ? "Loading tracks…"
     : !tracks.length ? "No tracks found"
@@ -138,7 +155,7 @@ export default function ArtistPlayer({ artist }: Props) {
           fontSize:      "8px",
           letterSpacing: "0.16em",
           textTransform: "uppercase",
-          color:         (sdkConnecting || loading) ? "#aaaaaa" : playError ? "#cc3300" : ORANGE,
+          color:         (sdkConnecting || loading) ? "#aaaaaa" : (playError || fetchError) ? "#cc3300" : ORANGE,
           flexShrink:    0,
         }}>
           {eyebrow}
@@ -146,7 +163,7 @@ export default function ArtistPlayer({ artist }: Props) {
         <span style={{
           fontFamily:    MONO,
           fontSize:      "10px",
-          color:         playError ? "#cc3300" : "#0d0d0d",
+          color:         (playError || fetchError) ? "#cc3300" : "#0d0d0d",
           overflow:      "hidden",
           textOverflow:  "ellipsis",
           whiteSpace:    "nowrap",
@@ -157,6 +174,14 @@ export default function ArtistPlayer({ artist }: Props) {
 
       {/* Transport controls */}
       <div style={{ display: "flex", alignItems: "center", gap: "4px", flexShrink: 0 }}>
+        {fetchError && (
+          <button
+            onClick={() => { loadedForRef.current = null; setFetchError(null); setRetryCount(c => c + 1); }}
+            style={{ ...iconBtn, fontSize: "8px", fontFamily: MONO, letterSpacing: "0.08em", color: ORANGE, padding: "4px 6px" }}
+          >
+            Retry
+          </button>
+        )}
         {sdkLive && (
           <button
             onClick={() => previousTrack()}
