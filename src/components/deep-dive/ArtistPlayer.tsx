@@ -18,6 +18,7 @@ export default function ArtistPlayer({ artist }: Props) {
   const {
     tokenData, deviceId, playing, position, duration,
     currentTrack, playError,
+    useSDK, usePreview,
     setActiveSource, handlePlayPause, handleSeek: ctxSeek,
     previousTrack, nextTrack, reconnect,
   } = useSpotifyPlayback();
@@ -35,11 +36,13 @@ export default function ArtistPlayer({ artist }: Props) {
     setTracks([]);
     setShuffled(false);
     setLoading(true);
-    fetch(`/api/spotify/artist-top-tracks?artist=${encodeURIComponent(artist)}`)
+    const controller = new AbortController();
+    fetch(`/api/spotify/artist-top-tracks?artist=${encodeURIComponent(artist)}`, { signal: controller.signal })
       .then(r => r.ok ? r.json() : Promise.reject())
       .then((d: { tracks: Track[] }) => setTracks(d.tracks ?? []))
-      .catch(() => setTracks([]))
+      .catch((err) => { if (err?.name !== "AbortError") setTracks([]); })
       .finally(() => setLoading(false));
+    return () => { controller.abort(); };
   }, [artist, tokenData?.connected]);
 
   // Keep provider source in sync
@@ -57,11 +60,15 @@ export default function ArtistPlayer({ artist }: Props) {
   if (tokenData === null || !tokenData.connected || !artist) return null;
 
   const isPremium    = !!(tokenData.product === "premium");
+  // sdkWanted: the user/source WANTS SDK playback (premium + tracks known locally)
   const sdkWanted    = isPremium && tracks.length > 0;
-  const sdkLive      = sdkWanted && !!deviceId;
-  const sdkConnecting = sdkWanted && !deviceId && !playError;
-  const hasPreview   = !sdkWanted && !!tracks[0]?.preview_url;
-  const canPlay      = (sdkLive || hasPreview) && !loading;
+  // sdkLive: provider has source set AND device is ready — use provider's useSDK
+  // as the authoritative flag so we don't enable the button before setActiveSource
+  // has propagated through the provider and the handlePlayPause closure is current.
+  const sdkLive      = useSDK && !!deviceId;
+  const sdkConnecting = sdkWanted && !sdkLive && !playError && !loading && tracks.length > 0;
+  // usePreview from provider is the authoritative flag for preview mode
+  const canPlay      = (sdkLive || usePreview) && !loading;
 
   const fmt = (ms: number) => {
     const s = Math.floor(ms / 1000);
@@ -93,7 +100,7 @@ export default function ArtistPlayer({ artist }: Props) {
     : sdkConnecting         ? "Connecting"
     : loading               ? "Loading"
     : sdkLive               ? "Now Playing"
-    : hasPreview            ? "Preview"
+    : usePreview            ? "Preview"
     :                         "Top Tracks";
 
   const trackLabel = playError

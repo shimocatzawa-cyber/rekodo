@@ -88,9 +88,10 @@ export async function GET(request: NextRequest) {
   const artistItem = searchData.artists?.items?.[0];
   if (!artistItem) return NextResponse.json({ tracks: [] });
 
-  // Get top tracks
+  // Get top tracks (market=from_token uses the user's account country,
+  // which is the correct default and avoids a 400 on older API versions)
   const topRes = await fetch(
-    `https://api.spotify.com/v1/artists/${artistItem.id}/top-tracks`,
+    `https://api.spotify.com/v1/artists/${artistItem.id}/top-tracks?market=from_token`,
     { headers }
   );
   if (!topRes.ok) {
