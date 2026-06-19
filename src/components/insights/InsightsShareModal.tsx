@@ -46,10 +46,10 @@ function ProfileCard({ username, totalRecords, topGenre, mostPopularYear, topArt
       overflow: "hidden",
     }}>
 
-      {/* Top row: title left | rekōdo + rekodo.co right — mirrors Top5 portrait */}
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 18, flexShrink: 0 }}>
+      {/* Top row: title left | rekōdo + rekodo.co right */}
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 16, flexShrink: 0 }}>
         <div style={{ fontFamily: SERIF, fontSize: 26, fontWeight: 600, color: INK, lineHeight: 1.3, flex: 1, minWidth: 0 }}>
-          Collection Profile
+          Collector Profile
         </div>
         <div style={{ flexShrink: 0, marginLeft: 12, textAlign: "right", paddingTop: 3 }}>
           <div style={{ fontFamily: SERIF, fontSize: 21, fontWeight: 600, color: INK, lineHeight: 1, marginBottom: 5 }}>
@@ -73,27 +73,41 @@ function ProfileCard({ username, totalRecords, topGenre, mostPopularYear, topArt
 
       {/* AI collection insight */}
       {oneLiner && (
-        <div style={{ fontFamily: SERIF, fontSize: 13, fontStyle: "italic", color: MUTED, lineHeight: 1.7, marginBottom: 18, flexShrink: 0 }}>
+        <div style={{ fontFamily: SERIF, fontSize: 13, fontStyle: "italic", color: MUTED, lineHeight: 1.7, marginBottom: 16, flexShrink: 0 }}>
           {oneLiner}
         </div>
       )}
 
-      {/* 6 stat rows — space-around fills height, matching Top5 row rhythm */}
-      <div style={{ flex: 1, display: "flex", flexDirection: "column", justifyContent: "space-around" }}>
+      {/* 6 stats — 2-col grid, value large on top, label small underneath */}
+      <div style={{
+        flex: 1,
+        display: "grid",
+        gridTemplateColumns: "1fr 1fr",
+        gridTemplateRows: "repeat(3, 1fr)",
+        columnGap: 20,
+        alignContent: "space-around",
+      }}>
         {stats.map(({ label, value }) => (
-          <div key={label} style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 12 }}>
-            <div style={{ fontFamily: MONO, fontSize: 10, color: MUTED, textTransform: "uppercase", letterSpacing: "0.1em", flexShrink: 0 }}>
-              {label}
-            </div>
-            <div style={{ fontFamily: SERIF, fontSize: 16, fontWeight: 600, color: INK, textAlign: "right", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: "52%" }}>
+          <div key={label} style={{ display: "flex", flexDirection: "column", justifyContent: "center" }}>
+            <div style={{
+              fontFamily: SERIF, fontSize: 20, fontWeight: 600, color: INK,
+              lineHeight: 1.15, marginBottom: 5,
+              overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
+            }}>
               {value}
+            </div>
+            <div style={{
+              fontFamily: MONO, fontSize: 8, color: MUTED,
+              textTransform: "uppercase", letterSpacing: "0.12em",
+            }}>
+              {label}
             </div>
           </div>
         ))}
       </div>
 
-      {/* Footer: @username centered — mirrors Top5 */}
-      <div style={{ marginTop: 16, textAlign: "center", flexShrink: 0 }}>
+      {/* Footer: @username centred */}
+      <div style={{ marginTop: 14, textAlign: "center", flexShrink: 0 }}>
         <div style={{ fontFamily: MONO, fontSize: 10, color: MUTED, letterSpacing: "0.1em" }}>@{username}</div>
       </div>
 

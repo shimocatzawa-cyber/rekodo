@@ -5,7 +5,6 @@ import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 
 const MONO   = "var(--font-mono)";
-const RULE   = "#e0e0da";
 const ORANGE = "#CC5500";
 
 interface Props {
@@ -19,6 +18,7 @@ export default function CollectionPhotos({ initialPhoto, userId, isOwner }: Prop
   const [photo,       setPhoto]       = useState<string | null>(initialPhoto);
   const [loading,     setLoading]     = useState(false);
   const [hovering,    setHovering]    = useState(false);
+  const [dragging,    setDragging]    = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
   const [lightboxUrl, setLightboxUrl] = useState<string | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
@@ -46,7 +46,11 @@ export default function CollectionPhotos({ initialPhoto, userId, isOwner }: Prop
       const { error: upErr } = await supabase.storage
         .from("collection-photos")
         .upload(storagePath, file, { upsert: true, contentType: file.type });
-      if (upErr) throw upErr;
+      if (upErr) {
+        console.error("Storage upload failed:", upErr);
+        setUploadError(`Upload failed: ${upErr.message}`);
+        return;
+      }
 
       const { data: { publicUrl } } = supabase.storage
         .from("collection-photos")
@@ -58,13 +62,18 @@ export default function CollectionPhotos({ initialPhoto, userId, isOwner }: Prop
           { user_id: userId, storage_path: storagePath, display_order: 1 },
           { onConflict: "user_id,display_order" }
         );
-      if (dbErr) throw dbErr;
+      if (dbErr) {
+        console.error("DB upsert failed:", dbErr);
+        setUploadError(`Save failed: ${dbErr.message}`);
+        return;
+      }
 
       setPhoto(`${publicUrl}?v=${Date.now()}`);
       router.refresh();
     } catch (err) {
       console.error("Photo upload failed:", err);
-      setUploadError("Upload failed — please try again.");
+      const msg = err instanceof Error ? err.message : String(err);
+      setUploadError(`Upload failed: ${msg}`);
     } finally {
       setLoading(false);
     }
@@ -103,12 +112,20 @@ export default function CollectionPhotos({ initialPhoto, userId, isOwner }: Prop
           My Collection
         </p>
         {isOwner && (
-          <p style={{
-            fontFamily: MONO, fontSize: "0.65rem", letterSpacing: "0.04em",
-            color: "#aaaaaa", margin: "0 0 16px 0",
-          }}>
-            Add a photo of your collection.
-          </p>
+          <>
+            <p style={{
+              fontFamily: MONO, fontSize: "0.65rem", letterSpacing: "0.04em",
+              color: "#aaaaaa", margin: "0 0 4px 0",
+            }}>
+              Add a photo of your collection.
+            </p>
+            <p style={{
+              fontFamily: MONO, fontSize: "0.55rem", letterSpacing: "0.06em",
+              color: "#cccccc", margin: "0 0 14px 0",
+            }}>
+              JPEG, PNG or WebP · Max 5 MB
+            </p>
+          </>
         )}
         {uploadError && (
           <p style={{ fontFamily: MONO, fontSize: "0.6rem", letterSpacing: "0.04em", color: "#cc3300", margin: "0 0 10px 0" }}>
@@ -123,14 +140,15 @@ export default function CollectionPhotos({ initialPhoto, userId, isOwner }: Prop
             width: "100%",
             maxWidth: "100%",
             aspectRatio: "16 / 9",
-            border: photo ? "1px solid #e0e0da" : "1px dashed #e0e0da",
+            border: dragging ? `1px dashed ${ORANGE}` : (photo ? "1px solid #e0e0da" : "1px dashed #e0e0da"),
             padding: photo ? "4px" : 0,
-            background: "#ffffff",
-            boxShadow: photo ? "3px 3px 0 0 #d0d0c8" : "none",
+            background: dragging ? "#fff8f5" : "#ffffff",
+            boxShadow: photo && !dragging ? "3px 3px 0 0 #d0d0c8" : "none",
             cursor: photo ? "pointer" : (isOwner ? "pointer" : "default"),
             display: "flex", alignItems: "center", justifyContent: "center",
             overflow: "hidden",
             boxSizing: "border-box",
+            transition: "border-color 0.1s, background 0.1s",
           }}
           onClick={() => {
             if (loading) return;
@@ -139,6 +157,16 @@ export default function CollectionPhotos({ initialPhoto, userId, isOwner }: Prop
           }}
           onMouseEnter={() => { if (isOwner) setHovering(true); }}
           onMouseLeave={() => setHovering(false)}
+          onDragOver={e => { if (!isOwner) return; e.preventDefault(); setDragging(true); }}
+          onDragEnter={e => { if (!isOwner) return; e.preventDefault(); setDragging(true); }}
+          onDragLeave={() => setDragging(false)}
+          onDrop={e => {
+            e.preventDefault();
+            setDragging(false);
+            if (!isOwner || loading) return;
+            const file = e.dataTransfer.files[0];
+            if (file) handleUpload(file);
+          }}
         >
           {photo ? (
             // eslint-disable-next-line @next/next/no-img-element
@@ -150,10 +178,16 @@ export default function CollectionPhotos({ initialPhoto, userId, isOwner }: Prop
           ) : (
             <div style={{
               width: "100%", height: "100%",
-              display: "flex", alignItems: "center", justifyContent: "center",
-              background: "#fafafa",
+              display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
+              gap: "6px",
+              background: dragging ? "#fff8f5" : "#fafafa",
             }}>
-              <span style={{ fontFamily: MONO, fontSize: "18px", color: "#d8d8d8", lineHeight: 1 }}>+</span>
+              <span style={{ fontFamily: MONO, fontSize: "18px", color: dragging ? ORANGE : "#d8d8d8", lineHeight: 1 }}>+</span>
+              {isOwner && (
+                <span style={{ fontFamily: MONO, fontSize: "8px", letterSpacing: "0.08em", color: dragging ? ORANGE : "#d8d8d8" }}>
+                  {dragging ? "DROP TO UPLOAD" : "CLICK OR DRAG"}
+                </span>
+              )}
             </div>
           )}
 
