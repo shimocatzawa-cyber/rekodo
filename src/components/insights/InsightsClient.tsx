@@ -5,6 +5,7 @@ import { BarChart, type CustomTooltipProps } from "@tremor/react";
 import AppNav from "@/components/AppNav";
 import TasteProfile, { type SpectrumData } from "@/components/insights/TasteProfile";
 import LunarListeningRitual from "@/components/LunarListeningRitual";
+import InsightsShareModal from "@/components/insights/InsightsShareModal";
 import { generateTasteSummary } from "@/app/[username]/actions";
 import type { DesirabilityTier } from "@/lib/desirability";
 
@@ -252,6 +253,7 @@ export default function InsightsClient({
 
   const [oneLiner, setOneLiner] = useState<string | null>(null);
   const [insightsTab, setInsightsTab] = useState<"collection" | "taste-profile">("collection");
+  const [showShare, setShowShare] = useState(false);
 
   // ── Album recommendation state ─────────────────────────────────────────────
   type RecData = { artist: string; album: string; description: string };
@@ -298,6 +300,7 @@ export default function InsightsClient({
   const topPressOrigin  = countryBreakdown[0] ?? null;
   const topArtist       = topArtists[0] ?? null;
   const topLabel        = topLabels[0]  ?? null;
+  const topDecade       = mostPopularYear ? `${Math.floor(mostPopularYear / 10) * 10}s` : null;
 
   const statTiles: StatTile[] = [
     { hero: totalRecords.toLocaleString(), label: "Items" },
@@ -342,6 +345,16 @@ export default function InsightsClient({
       {insightsTab === "collection" && (
       <main className="rk-arch-main" style={{ padding: "48px 32px 80px", maxWidth: "960px", margin: "0 auto" }}>
 
+
+        {/* ── Collection header row with Share button ─────────────────────── */}
+        <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 8 }}>
+          <button
+            onClick={() => setShowShare(true)}
+            style={{ fontFamily: MONO, fontSize: 10, color: ORANGE, background: "none", border: "none", cursor: "pointer", padding: 0, letterSpacing: "0.06em" }}
+          >
+            Share ↗
+          </button>
+        </div>
 
         {/* ── Stats Bar ───────────────────────────────────────────────────── */}
         <StatBar tiles={statTiles} />
@@ -798,6 +811,20 @@ export default function InsightsClient({
             </a>
           </div>
         </main>
+      )}
+
+      {showShare && (
+        <InsightsShareModal
+          onClose={() => setShowShare(false)}
+          username={username}
+          totalRecords={totalRecords}
+          topGenre={topRealGenre?.genre ?? null}
+          topDecade={topDecade}
+          topArtist={topArtist?.artist ?? null}
+          topCountry={topPressOrigin?.country ?? null}
+          topLabel={topLabel?.label ?? null}
+          holyGrails={holyGrailCount}
+        />
       )}
 
       {insightsTab === "taste-profile" && isSupporter && (
