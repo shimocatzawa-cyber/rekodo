@@ -10,6 +10,9 @@ CREATE TABLE IF NOT EXISTS public.collection_photos (
 
 ALTER TABLE public.collection_photos ENABLE ROW LEVEL SECURITY;
 
+GRANT ALL ON public.collection_photos TO service_role;
+GRANT ALL ON public.collection_photos TO authenticated;
+
 DO $$ BEGIN
   CREATE POLICY "collection_photos_select" ON public.collection_photos
     FOR SELECT USING (true);
