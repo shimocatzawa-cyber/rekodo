@@ -49,72 +49,66 @@ async function loadArchetypeImage(imagePath: string): Promise<string | null> {
   }
 }
 
-function hexToMuted(hex: string): string {
-  const r   = parseInt(hex.slice(1, 3), 16);
-  const g   = parseInt(hex.slice(3, 5), 16);
-  const b   = parseInt(hex.slice(5, 7), 16);
-  const avg = Math.round((r * 0.299 + g * 0.587 + b * 0.114) * 0.5 + 140);
-  return `rgb(${avg},${avg},${avg})`;
-}
-
 // ── Card ─────────────────────────────────────────────────────────────────
 // DOM: 600×314  →  export: 1200×628 (pixelRatio 2)
-// Left col: branding + photo (160px) | Right col: all content (440px)
+// branding left (138px) | photo centre (234px) | content right (227px)
 
 function LandscapeCard({ archetypeId, score, shadowId, shadowScore, username, forExport }: CardProps) {
   const def         = ARCHETYPES[archetypeId];
   const shadow      = ARCHETYPES[shadowId];
   const color       = def?.color    ?? ORANGE;
-  const shadowColor = shadow ? hexToMuted(shadow.color) : MUTED;
+  const shadowColor = shadow?.color ?? ORANGE;
   const jungPrimary = def    ? def.jungianRoot.split("·")[0].trim()    : "";
   const jungShadow  = shadow ? shadow.jungianRoot.split("·")[0].trim() : "";
   const desirePrimary = JUNG_CORE_DESIRES[jungPrimary] ?? null;
   const desireShadow  = JUNG_CORE_DESIRES[jungShadow]  ?? null;
-  const PHOTO_W = 160;
 
   return (
     <div style={{ width: 600, height: 314, background: BG, display: "flex", overflow: "hidden" }}>
 
-      {/* Left: branding + photo + footer */}
+      {/* Left: branding */}
       <div style={{
-        width: PHOTO_W, flexShrink: 0,
-        display: "flex", flexDirection: "column",
-        padding: "14px 10px",
+        width: 138, flexShrink: 0,
+        display: "flex", flexDirection: "column", justifyContent: "space-between",
+        padding: "16px 14px",
         boxSizing: "border-box",
       }}>
-        <div style={{ fontFamily: SERIF, fontSize: 16, fontWeight: 600, color: INK, lineHeight: 1, marginBottom: 10, flexShrink: 0 }}>
-          rek<span style={{ color: ORANGE }}>ō</span>do
+        <div>
+          <div style={{ fontFamily: SERIF, fontSize: 18, fontWeight: 600, color: INK, lineHeight: 1, marginBottom: 8 }}>
+            rek<span style={{ color: ORANGE }}>ō</span>do
+          </div>
+          <div style={{ fontFamily: SERIF, fontSize: 9, color: INK, lineHeight: 1.5 }}>
+            What your collection says about you.
+          </div>
         </div>
-
-        {/* Photo — export uses gray placeholder for canvas compositing */}
-        {forExport ? (
-          <div data-archetype-image style={{ flex: 1, minHeight: 0, backgroundColor: "#e5e2dc" }} />
-        ) : (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img
-            src={def?.imagePath} alt={def?.name}
-            style={{ flex: 1, minHeight: 0, objectFit: "cover", objectPosition: "center top", display: "block", width: "100%" }}
-          />
-        )}
-
-        <div style={{ flexShrink: 0, marginTop: 8 }}>
-          <div style={{ fontFamily: MONO, fontSize: 7, color: MUTED, letterSpacing: "0.07em", marginBottom: 2 }}>@{username}</div>
-          <div style={{ fontFamily: MONO, fontSize: 7, color: "#ccc", letterSpacing: "0.07em" }}>rekodo.co</div>
+        <div>
+          <div style={{ fontFamily: MONO, fontSize: 7, color: MUTED, letterSpacing: "0.07em", marginBottom: 3 }}>@{username}</div>
+          <div style={{ fontFamily: MONO, fontSize: 8, color: "#bbb", letterSpacing: "0.07em" }}>rekodo.co</div>
         </div>
       </div>
 
-      {/* Right: all content */}
+      {/* Centre: photo */}
+      {forExport ? (
+        <div data-archetype-image style={{ width: 234, height: 314, flexShrink: 0, backgroundColor: "#e5e2dc" }} />
+      ) : (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+          src={def?.imagePath} alt={def?.name}
+          style={{ width: 234, height: 314, flexShrink: 0, objectFit: "cover", objectPosition: "center top", display: "block" }}
+        />
+      )}
+
+      {/* Right: content */}
       <div style={{
         flex: 1,
-        display: "flex", flexDirection: "column",
-        justifyContent: "space-between",
-        padding: "14px 16px 14px 12px",
+        display: "flex", flexDirection: "column", justifyContent: "space-between",
+        padding: "14px 14px 14px 12px",
         overflow: "hidden",
       }}>
 
-        {/* Primary archetype block */}
+        {/* Primary archetype */}
         <div>
-          <div style={{ fontFamily: MONO, fontSize: 6, color: ORANGE, textTransform: "uppercase", letterSpacing: "0.12em", marginBottom: 3 }}>
+          <div style={{ fontFamily: MONO, fontSize: 6, color: ORANGE, textTransform: "uppercase", letterSpacing: "0.12em", marginBottom: 4 }}>
             Primary
           </div>
           <div style={{ fontFamily: SERIF, fontSize: 13, fontWeight: 700, color, lineHeight: 1.1, marginBottom: 2 }}>
@@ -133,7 +127,7 @@ function LandscapeCard({ archetypeId, score, shadowId, shadowScore, username, fo
             Jung: {jungPrimary}
           </div>
           {desirePrimary && (
-            <div style={{ fontFamily: MONO, fontSize: 7, fontStyle: "italic", color: MUTED, lineHeight: 1.45 }}>
+            <div style={{ fontFamily: MONO, fontSize: 7, fontStyle: "italic", color: MUTED, lineHeight: 1.4, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}>
               &ldquo;{desirePrimary}&rdquo;
             </div>
           )}
@@ -141,7 +135,7 @@ function LandscapeCard({ archetypeId, score, shadowId, shadowScore, username, fo
 
         {/* Archetype description */}
         <div>
-          <div style={{ fontFamily: MONO, fontSize: 6, color: ORANGE, textTransform: "uppercase", letterSpacing: "0.12em", marginBottom: 3 }}>
+          <div style={{ fontFamily: MONO, fontSize: 6, color: ORANGE, textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 3 }}>
             {def?.name} Archetype
           </div>
           <div style={{ fontFamily: MONO, fontSize: 7, color: MUTED, lineHeight: 1.5, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}>
@@ -149,9 +143,9 @@ function LandscapeCard({ archetypeId, score, shadowId, shadowScore, username, fo
           </div>
         </div>
 
-        {/* Shadow archetype block */}
+        {/* Shadow archetype */}
         <div>
-          <div style={{ fontFamily: MONO, fontSize: 6, color: MUTED, textTransform: "uppercase", letterSpacing: "0.12em", marginBottom: 3 }}>
+          <div style={{ fontFamily: MONO, fontSize: 6, color: MUTED, textTransform: "uppercase", letterSpacing: "0.12em", marginBottom: 4 }}>
             Shadow Side
           </div>
           <div style={{ fontFamily: SERIF, fontSize: 12, fontWeight: 700, color: shadowColor, lineHeight: 1.1, marginBottom: 2 }}>
@@ -170,7 +164,7 @@ function LandscapeCard({ archetypeId, score, shadowId, shadowScore, username, fo
             Jung: {jungShadow}
           </div>
           {desireShadow && (
-            <div style={{ fontFamily: MONO, fontSize: 7, fontStyle: "italic", color: MUTED, lineHeight: 1.45 }}>
+            <div style={{ fontFamily: MONO, fontSize: 7, fontStyle: "italic", color: MUTED, lineHeight: 1.4, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}>
               &ldquo;{desireShadow}&rdquo;
             </div>
           )}
@@ -207,7 +201,6 @@ export default function ArchetypeShareModal({ onClose, archetypeId, score, shado
     });
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Mirrors Top5 ShareModal pattern: toPng first, BCR after, ctx.drawImage stretch
   async function buildCanvas(): Promise<HTMLCanvasElement | null> {
     if (!exportRef.current) return null;
     await document.fonts.ready;
@@ -297,7 +290,6 @@ export default function ArchetypeShareModal({ onClose, archetypeId, score, shado
       onClick={e => { if (e.target === e.currentTarget) onClose(); }}
       style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", zIndex: 300, display: "flex", alignItems: "center", justifyContent: "center", padding: "24px" }}
     >
-      {/* Off-screen export card — natural size, no transforms */}
       <div style={{ position: "fixed", left: -9999, top: -9999, zIndex: -1, overflow: "hidden" }}>
         <div ref={exportRef}>
           <LandscapeCard {...cardProps} forExport />
