@@ -75,10 +75,21 @@ function sortLetter(artist: string): string {
   return /[A-Z]/.test(c) ? c : "#";
 }
 
-function groupByLetter(records: CollectionRecord[]) {
+function lastNameKey(artist: string): string {
+  const stripped = stripArticle(artist.trim() || "");
+  const words    = stripped.split(/\s+/).filter(Boolean);
+  return words.length > 1 ? words[words.length - 1].toLowerCase() : stripped.toLowerCase();
+}
+
+function lastNameLetter(artist: string): string {
+  const c = lastNameKey(artist).toUpperCase().charAt(0);
+  return /[A-Z]/.test(c) ? c : "#";
+}
+
+function groupByLetter(records: CollectionRecord[], byLastName = false) {
   const groups: Array<{ letter: string; records: CollectionRecord[] }> = [];
   for (const r of records) {
-    const letter = sortLetter(r.artist || "");
+    const letter = byLastName ? lastNameLetter(r.artist || "") : sortLetter(r.artist || "");
     const last   = groups[groups.length - 1];
     if (!last || last.letter !== letter) groups.push({ letter, records: [r] });
     else last.records.push(r);
@@ -680,6 +691,14 @@ const [filterFormat,       setFilterFormat]       = useState("");
           stripArticle(b.artist || "").toLowerCase()
             .localeCompare(stripArticle(a.artist || "").toLowerCase(), "en")
         );
+      case "artist-lastname-az":
+        return arr.sort((a, b) =>
+          lastNameKey(a.artist || "").localeCompare(lastNameKey(b.artist || ""), "en")
+        );
+      case "artist-lastname-za":
+        return arr.sort((a, b) =>
+          lastNameKey(b.artist || "").localeCompare(lastNameKey(a.artist || ""), "en")
+        );
       case "value-high-low":
         return arr.sort((a, b) => ((b.price_low ?? b.price_median) ?? -1) - ((a.price_low ?? a.price_median) ?? -1));
       case "value-low-high":
@@ -697,11 +716,12 @@ const [filterFormat,       setFilterFormat]       = useState("");
     }
   }, [filteredCollection, sortBy]);
 
-  const useGrouped = sortBy === "artist-az" || sortBy === "artist-za";
+  const useGrouped   = sortBy === "artist-az" || sortBy === "artist-za" || sortBy === "artist-lastname-az" || sortBy === "artist-lastname-za";
+  const byLastName   = sortBy === "artist-lastname-az" || sortBy === "artist-lastname-za";
   const filteredGroups = useMemo(() => {
     if (!useGrouped) return [];
-    return groupByLetter(sortedCollection);
-  }, [sortedCollection, useGrouped]);
+    return groupByLetter(sortedCollection, byLastName);
+  }, [sortedCollection, useGrouped, byLastName]);
 
   const genres = useMemo(() => {
     const gs = new Set<string>();
@@ -739,13 +759,22 @@ const [filterFormat,       setFilterFormat]       = useState("");
     setFilterDesirability("");
   }
 
+  const NAME_SORT_OPTIONS = [
+    { value: "artist-az",         label: "First A–Z" },
+    { value: "artist-za",         label: "First Z–A" },
+    { value: "artist-lastname-az", label: "Last A–Z" },
+    { value: "artist-lastname-za", label: "Last Z–A" },
+  ];
+
   const SORT_OPTIONS = [
-    { value: "artist-az",      label: "Artist A–Z" },
-    { value: "artist-za",      label: "Artist Z–A" },
-    { value: "value-high-low", label: "Market Value: High to Low" },
-    { value: "value-low-high", label: "Market Value: Low to High" },
-    { value: "year-new-old",   label: "Year: Newest First" },
-    { value: "year-old-new",   label: "Year: Oldest First" },
+    { value: "artist-az",          label: "Artist A–Z" },
+    { value: "artist-za",          label: "Artist Z–A" },
+    { value: "artist-lastname-az", label: "Last Name A–Z" },
+    { value: "artist-lastname-za", label: "Last Name Z–A" },
+    { value: "value-high-low",     label: "Market Value: High to Low" },
+    { value: "value-low-high",     label: "Market Value: Low to High" },
+    { value: "year-new-old",       label: "Year: Newest First" },
+    { value: "year-old-new",       label: "Year: Oldest First" },
   ];
 
   return (
@@ -1106,23 +1135,52 @@ const [filterFormat,       setFilterFormat]       = useState("");
               </select>
             </div>
 
-            {/* Sort dropdown */}
+            {/* Sort bar — name sorts as inline buttons, value/year as dropdown */}
             <div style={{ padding: "0 10px 6px" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: "6px", marginBottom: "6px" }}>
+                <span style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.1em", textTransform: "uppercase", color: "#aaaaaa", flexShrink: 0 }}>
+                  Sort
+                </span>
+                <div style={{ display: "flex", gap: "4px", flexWrap: "wrap" }}>
+                  {NAME_SORT_OPTIONS.map(o => {
+                    const on = sortBy === o.value;
+                    return (
+                      <button
+                        key={o.value}
+                        onClick={() => setSortBy(o.value)}
+                        style={{
+                          fontFamily: MONO, fontSize: "9px", letterSpacing: "0.08em",
+                          textTransform: "uppercase",
+                          color: on ? "#ffffff" : "#888888",
+                          background: on ? "#0d0d0d" : "none",
+                          border: `1px solid ${on ? "#0d0d0d" : "rgba(0,0,0,0.13)"}`,
+                          borderRadius: "3px", cursor: "pointer", padding: "3px 8px",
+                          whiteSpace: "nowrap", transition: "all 0.15s",
+                        }}
+                      >
+                        {o.label}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
               <select
-                value={sortBy}
-                onChange={e => setSortBy(e.target.value)}
+                value={["value-high-low", "value-low-high", "year-new-old", "year-old-new"].includes(sortBy) ? sortBy : ""}
+                onChange={e => { if (e.target.value) setSortBy(e.target.value); }}
                 style={{
                   width: "100%", fontFamily: MONO, fontSize: "10px", letterSpacing: "0.04em",
-                  color: sortBy !== "artist-az" ? ORANGE : "#888888",
+                  color: ["value-high-low", "value-low-high", "year-new-old", "year-old-new"].includes(sortBy) ? ORANGE : "#888888",
                   background: "#ffffff",
-                  border: `1px solid ${sortBy !== "artist-az" ? ORANGE : "rgba(0,0,0,0.13)"}`,
+                  border: `1px solid ${["value-high-low", "value-low-high", "year-new-old", "year-old-new"].includes(sortBy) ? ORANGE : "rgba(0,0,0,0.13)"}`,
                   cursor: "pointer", padding: "4px 6px", outline: "none",
                   transition: "border-color 0.15s, color 0.15s",
                 }}
               >
-                {SORT_OPTIONS.map(o => (
-                  <option key={o.value} value={o.value}>{o.label}</option>
-                ))}
+                <option value="">Value / Year sort…</option>
+                <option value="value-high-low">Market Value: High to Low</option>
+                <option value="value-low-high">Market Value: Low to High</option>
+                <option value="year-new-old">Year: Newest First</option>
+                <option value="year-old-new">Year: Oldest First</option>
               </select>
             </div>
 
