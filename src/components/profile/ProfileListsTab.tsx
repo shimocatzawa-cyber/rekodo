@@ -156,10 +156,11 @@ export default function ProfileListsTab({ initialLists, username, listTypeFilter
   const [shareCopyState,  setShareCopyState]  = useState<"idle"|"copied"|"failed">("idle");
 
   type WantlistSort = "priority" | "date_added" | "artist";
-  const [wantlistSort,   setWantlistSort]   = useState<WantlistSort>("priority");
-  const [wantlistFilter, setWantlistFilter] = useState<Set<Priority>>(new Set());
-  const [wantlistSearch, setWantlistSearch] = useState("");
-  const [keptSomeday,    setKeptSomeday]    = useState<Set<number>>(new Set());
+  const [wantlistSort,         setWantlistSort]         = useState<WantlistSort>("priority");
+  const [wantlistFilter,       setWantlistFilter]       = useState<Set<Priority>>(new Set());
+  const [wantlistSearch,       setWantlistSearch]       = useState("");
+  const [wantlistSourceFilter, setWantlistSourceFilter] = useState<"discogs" | "rekodo" | null>(null);
+  const [keptSomeday,          setKeptSomeday]          = useState<Set<number>>(new Set());
 
   const [dragFromPos, setDragFromPos] = useState<number | null>(null);
   const [dragOverPos, setDragOverPos] = useState<number | null>(null);
@@ -481,6 +482,12 @@ export default function ProfileListsTab({ initialLists, username, listTypeFilter
       });
     }
 
+    if (wantlistSourceFilter === "discogs") {
+      slots = slots.filter(s => s.source === "discogs");
+    } else if (wantlistSourceFilter === "rekodo") {
+      slots = slots.filter(s => s.source !== "discogs");
+    }
+
     const PRIORITY_ORDER: Record<string, number> = { must_have: 0, would_love: 1, someday: 2 };
     if (wantlistSort === "priority") {
       slots = [...slots].sort((a, b) =>
@@ -493,7 +500,7 @@ export default function ProfileListsTab({ initialLists, username, listTypeFilter
     }
 
     return slots;
-  }, [selectedList, wantlistSearch, wantlistFilter, wantlistSort]);
+  }, [selectedList, wantlistSearch, wantlistFilter, wantlistSourceFilter, wantlistSort]);
 
   // ── Render ──────────────────────────────────────────────────────────────────
 
@@ -515,28 +522,52 @@ export default function ProfileListsTab({ initialLists, username, listTypeFilter
                   <>
                     {/* Wantlist controls */}
                     <div style={{ marginBottom: "12px" }}>
-                      <div style={{ display: "flex", gap: "8px", flexWrap: "wrap", marginBottom: "14px" }}>
-                        {(["must_have", "would_love", "someday"] as Priority[]).map(p => {
-                          const on = wantlistFilter.has(p);
-                          return (
-                            <button key={p} onClick={() => {
-                              setWantlistFilter(prev => {
-                                const next = new Set(prev);
-                                if (on) next.delete(p); else next.add(p);
-                                return next;
-                              });
-                            }} style={{
-                              fontFamily: MONO, fontSize: "11px", letterSpacing: "0.06em",
-                              color: on ? PRIORITY_COLORS[p] : "#aaaaaa",
-                              background: on ? `${PRIORITY_COLORS[p]}14` : "none",
-                              border: `1px solid ${on ? PRIORITY_COLORS[p] : "#e0e0da"}`,
-                              borderRadius: "3px", cursor: "pointer", padding: "4px 10px",
-                              flexShrink: 0, whiteSpace: "nowrap", transition: "all 0.15s",
-                            }}>
-                              {PRIORITY_LABELS[p]}
-                            </button>
-                          );
-                        })}
+                      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "8px", flexWrap: "wrap", marginBottom: "14px" }}>
+                        <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
+                          {(["must_have", "would_love", "someday"] as Priority[]).map(p => {
+                            const on = wantlistFilter.has(p);
+                            return (
+                              <button key={p} onClick={() => {
+                                setWantlistFilter(prev => {
+                                  const next = new Set(prev);
+                                  if (on) next.delete(p); else next.add(p);
+                                  return next;
+                                });
+                              }} style={{
+                                fontFamily: MONO, fontSize: "11px", letterSpacing: "0.06em",
+                                color: on ? PRIORITY_COLORS[p] : "#aaaaaa",
+                                background: on ? `${PRIORITY_COLORS[p]}14` : "none",
+                                border: `1px solid ${on ? PRIORITY_COLORS[p] : "#e0e0da"}`,
+                                borderRadius: "3px", cursor: "pointer", padding: "4px 10px",
+                                flexShrink: 0, whiteSpace: "nowrap", transition: "all 0.15s",
+                              }}>
+                                {PRIORITY_LABELS[p]}
+                              </button>
+                            );
+                          })}
+                        </div>
+                        <div style={{ display: "flex", gap: "6px", flexShrink: 0 }}>
+                          {(["discogs", "rekodo"] as const).map(src => {
+                            const on = wantlistSourceFilter === src;
+                            return (
+                              <button
+                                key={src}
+                                onClick={() => setWantlistSourceFilter(on ? null : src)}
+                                style={{
+                                  fontFamily: MONO, fontSize: "9px", letterSpacing: "0.1em",
+                                  textTransform: "uppercase",
+                                  color: on ? "#0d0d0d" : "#aaaaaa",
+                                  background: on ? "#0d0d0d0d" : "none",
+                                  border: `1px solid ${on ? "#0d0d0d" : "#e0e0da"}`,
+                                  borderRadius: "3px", cursor: "pointer", padding: "4px 10px",
+                                  whiteSpace: "nowrap", transition: "all 0.15s",
+                                }}
+                              >
+                                {src === "discogs" ? "Discogs" : "Rekōdo"}
+                              </button>
+                            );
+                          })}
+                        </div>
                       </div>
                       <div style={{ marginBottom: "10px" }}>
                         <input
