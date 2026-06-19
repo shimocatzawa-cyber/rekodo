@@ -63,7 +63,7 @@ function Anchor({
   valSize?: string; valColor?: string; labelBelow?: boolean;
 }) {
   const labelEl = (
-    <div style={{ fontFamily: MONO, fontSize: "0.5rem", color: MUTED, letterSpacing: "0.12em", textTransform: "uppercase", lineHeight: 1.4, whiteSpace: "pre-line" }}>
+    <div style={{ fontFamily: MONO, fontSize: "0.5rem", color: "#444444", letterSpacing: "0.12em", textTransform: "uppercase", lineHeight: 1.4, whiteSpace: "pre-line" }}>
       {label}
     </div>
   );

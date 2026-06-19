@@ -77,7 +77,7 @@ function PortraitCard({ title, slots, username, covers, forExport }: CardProps) 
 
       {/* Top row: title left | rekōdo wordmark + rekodo.co stacked right */}
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 22, flexShrink: 0 }}>
-        <div style={{ fontFamily: SERIF, fontSize: 26, fontWeight: 600, color: INK, lineHeight: 1.3, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", flex: 1, minWidth: 0, paddingBottom: 4 }}>
+        <div style={{ fontFamily: SERIF, fontSize: 26, fontWeight: 600, color: INK, lineHeight: 1.3, overflow: "hidden", flex: 1, minWidth: 0, paddingBottom: 4 }}>
           {title}
         </div>
         <div style={{ flexShrink: 0, marginLeft: 12, textAlign: "right", paddingTop: 3 }}>

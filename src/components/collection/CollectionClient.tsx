@@ -1953,7 +1953,7 @@ function AlbumDetail({ record, detail, price, loading, valueCurrency }: {
                 <span style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.1em", textTransform: "uppercase", color: "#aaaaaa", width: "84px", flexShrink: 0 }}>
                   Market Value
                 </span>
-                <span style={{ fontFamily: MONO, fontSize: "11px", color: ORANGE, letterSpacing: "0.03em", flex: 1 }}>
+                <span style={{ fontFamily: MONO, fontSize: "11px", color: ORANGE, letterSpacing: "0.03em" }}>
                   {formatPrice(price.lowest, price.currency || valueCurrency || "USD")}
                 </span>
                 <button
@@ -1968,7 +1968,7 @@ function AlbumDetail({ record, detail, price, loading, valueCurrency }: {
                     padding: "2px 7px", cursor: offersLoading ? "default" : "pointer",
                   }}
                 >
-                  {offersLoading ? "…" : openToOffers ? "For Sale ✓" : "For Sale?"}
+                  {offersLoading ? "…" : openToOffers ? "Open to Offers ✓" : "Open to Offers"}
                 </button>
               </div>
             )}
@@ -2321,7 +2321,7 @@ function TracklistPanel({ tracks, loading, bandcamp, record }: {
             </button>
 
             {/* Feeling */}
-            <div ref={feelingRef} style={{ position: "relative" }}>
+            <div ref={feelingRef} style={{ position: "relative", display: "flex", alignItems: "center" }}>
               <button
                 onClick={openFeelingPopover}
                 style={{
