@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef, useMemo } from "react";
 import { createClient } from "@/lib/supabase/client";
+import ArtistPlayer from "@/components/deep-dive/ArtistPlayer";
 
 const SERIF  = "var(--font-editorial)";
 const MONO   = "var(--font-mono)";
@@ -1025,6 +1026,7 @@ export default function DeepDiveClient({
             </p>
             <CollectionStrip records={selectedData.records} wantlistRecords={selectedData.wantlistRecords ?? []} artist={selectedArtist} tileSize={36} />
           </div>
+          <ArtistPlayer artist={selectedArtist} />
         </div>
 
         <div style={{ borderBottom: `1px solid ${RULE}` }} />

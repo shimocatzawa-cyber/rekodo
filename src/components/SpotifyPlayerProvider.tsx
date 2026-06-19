@@ -130,18 +130,20 @@ interface TokenData {
 }
 
 export interface ActiveSource {
-  mode:            "collection" | "dig";
-  spotifyUri?:      string;
-  spotifyTrackUri?: string;
+  mode:             "collection" | "dig";
+  spotifyUri?:       string;
+  spotifyTrackUri?:  string;
+  /** Multiple track URIs — e.g. artist top tracks. Played as a queue via uris[]. */
+  spotifyTrackUris?: string[];
   /** Spotify album URI for dig mode — used as context_uri so Spotify queues
    *  the full album, which is the same behaviour as the pre-refactor player. */
-  albumUri?:        string;
-  previewUrl?:      string;
-  artist?:          string;
-  albumTitle?:      string;
+  albumUri?:         string;
+  previewUrl?:       string;
+  artist?:           string;
+  albumTitle?:       string;
   /** Called by the Provider when the current track/preview finishes naturally
    *  (not on user-initiated pause). Dig page uses this to advance to the next rec. */
-  onEnded?:         () => void;
+  onEnded?:          () => void;
 }
 
 interface SpotifyPlaybackContextValue {
@@ -206,7 +208,7 @@ export function SpotifyPlayerProvider({ children }: { children: React.ReactNode 
   const lastPlayedKeyRef = useRef("");
 
   const isPremium  = !!(tokenData?.connected && tokenData.product === "premium");
-  const useSDK     = isPremium && (source?.mode === "collection" ? !!source.spotifyUri : !!(source?.albumUri ?? source?.spotifyTrackUri));
+  const useSDK     = isPremium && (source?.mode === "collection" ? !!source.spotifyUri : !!(source?.albumUri ?? source?.spotifyTrackUris?.length ?? source?.spotifyTrackUri));
   const usePreview = !useSDK && !!source?.previewUrl;
 
   // ── Determine Premium status once, for the lifetime of the app session ───
@@ -361,7 +363,7 @@ export function SpotifyPlayerProvider({ children }: { children: React.ReactNode 
     const key = source
       ? (source.mode === "collection"
           ? (source.spotifyUri ?? "")
-          : (source.albumUri ?? source.spotifyTrackUri ?? source.previewUrl ?? ""))
+          : (source.albumUri ?? source.spotifyTrackUris?.[0] ?? source.spotifyTrackUri ?? source.previewUrl ?? ""))
       : "";
     if (key === sourceKeyRef.current) return;
     sourceKeyRef.current = key;
@@ -441,7 +443,7 @@ export function SpotifyPlayerProvider({ children }: { children: React.ReactNode 
       } else {
         const currentKey = source?.mode === "collection"
           ? (source.spotifyUri ?? "")
-          : (source?.albumUri ?? source?.spotifyTrackUri ?? "");
+          : (source?.albumUri ?? source?.spotifyTrackUris?.[0] ?? source?.spotifyTrackUri ?? "");
         // Only resume via togglePlay if sendSpotifyPlay was already called for
         // THIS source. If the source changed (tab switch, new rec), always send
         // a fresh play command — the SDK may still have the old album loaded.
@@ -460,9 +462,11 @@ export function SpotifyPlayerProvider({ children }: { children: React.ReactNode 
             ? { context_uri: source.spotifyUri }
             : source?.albumUri
               ? { context_uri: source.albumUri }
-              : source?.spotifyTrackUri
-                ? { uris: [source.spotifyTrackUri] }
-                : null;
+              : source?.spotifyTrackUris?.length
+                ? { uris: source.spotifyTrackUris }
+                : source?.spotifyTrackUri
+                  ? { uris: [source.spotifyTrackUri] }
+                  : null;
           if (!body) return;
           setPlayError(null);
           const err = await sendSpotifyPlay(deviceId, body);
@@ -520,7 +524,7 @@ export function SpotifyPlayerProvider({ children }: { children: React.ReactNode 
     // real album/track change vs. a metadata-only update.
     const nextKey = next.mode === "collection"
       ? (next.spotifyUri ?? "")
-      : (next.albumUri ?? next.spotifyTrackUri ?? next.previewUrl ?? "");
+      : (next.albumUri ?? next.spotifyTrackUris?.[0] ?? next.spotifyTrackUri ?? next.previewUrl ?? "");
 
     const prevKey = sourceKeyRef.current;
 
