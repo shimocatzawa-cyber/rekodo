@@ -88,23 +88,44 @@ export async function GET(request: NextRequest) {
   const artistItem = searchData.artists?.items?.[0];
   if (!artistItem) return NextResponse.json({ tracks: [] });
 
-  // No market param — user access token lets Spotify infer the correct market.
-  // market=from_token is not valid for this endpoint and causes a 400.
+  type RawTrack = { uri: string; name: string; album: { name: string }; preview_url: string | null; artists: Array<{ id: string }> };
+
+  let rawTracks: RawTrack[] = [];
+
+  // Try the native top-tracks endpoint first.
+  // Since Nov 2024 Spotify restricts this to extended-quota apps — if we get
+  // 403/401 fall back to a track search filtered to this artist.
   const topRes = await fetch(
     `https://api.spotify.com/v1/artists/${artistItem.id}/top-tracks`,
     { headers }
   );
-  if (!topRes.ok) {
+
+  if (topRes.ok) {
+    const topData = await topRes.json() as { tracks: RawTrack[] };
+    rawTracks = topData.tracks ?? [];
+  } else if (topRes.status === 403 || topRes.status === 401) {
+    // Endpoint not available for this app tier — fall back to track search.
+    // Results are sorted by Spotify relevance which surfaces popular tracks first.
+    const fallbackRes = await fetch(
+      `https://api.spotify.com/v1/search?q=artist:${encodeURIComponent(artistItem.name)}&type=track&limit=10`,
+      { headers }
+    );
+    if (fallbackRes.ok) {
+      const fallbackData = await fallbackRes.json() as { tracks: { items: RawTrack[] } };
+      // Keep only tracks where this artist is a credited artist
+      rawTracks = (fallbackData.tracks?.items ?? [])
+        .filter(t => t.artists.some(a => a.id === artistItem.id));
+    } else {
+      return NextResponse.json({ error: `Spotify search fallback failed (${fallbackRes.status})` }, { status: 502 });
+    }
+  } else {
     let detail = "";
     try { detail = await topRes.text(); } catch { /* ignore */ }
     console.error("[artist-top-tracks] Spotify error", topRes.status, detail);
     return NextResponse.json({ error: `Spotify top tracks failed (${topRes.status})` }, { status: 502 });
   }
-  const topData = await topRes.json() as {
-    tracks: Array<{ uri: string; name: string; album: { name: string }; preview_url: string | null }>;
-  };
 
-  const tracks = (topData.tracks ?? []).map(t => ({
+  const tracks = rawTracks.map(t => ({
     uri:         t.uri,
     name:        t.name,
     album:       t.album?.name ?? "",
