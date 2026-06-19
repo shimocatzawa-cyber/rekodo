@@ -366,7 +366,7 @@ export default function ProfileClient({
                     <p style={{ fontFamily: MONO, fontSize: "12px", letterSpacing: "0.04em", color: MUTED, margin: "0 0 6px 0", display: "flex", alignItems: "center", gap: "6px" }}>
                       {SIGN_SVG[sign] && (
                         // eslint-disable-next-line @next/next/no-img-element
-                        <img src={SIGN_SVG[sign]} alt={sign} style={{ height: "13px", width: "auto", opacity: 0.45 }} />
+                        <img src={SIGN_SVG[sign]} alt={sign} style={{ height: "18px", width: "auto", opacity: 0.5 }} />
                       )}
                       {sign}
                     </p>
