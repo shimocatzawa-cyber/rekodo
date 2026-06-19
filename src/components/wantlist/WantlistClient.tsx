@@ -228,7 +228,7 @@ export default function WantlistClient({ isOwner, isSupporter, userId, embedded 
   return (
     <div style={{ marginBottom: embedded ? "2rem" : "3rem" }}>
       <p style={{ fontFamily: MONO, fontSize: "0.55rem", letterSpacing: "0.14em", textTransform: "uppercase", color: ORANGE, margin: "0 0 6px" }}>
-        IMPORT FROM DISCOGS
+        DISCOGS WANTLIST IMPORT
       </p>
       <p style={{ fontFamily: MONO, fontSize: "0.65rem", color: "#888", margin: "0 0 12px" }}>
         Export your wantlist from Discogs: Account → Export → Wantlist CSV
