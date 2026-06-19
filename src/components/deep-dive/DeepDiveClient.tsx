@@ -1003,6 +1003,9 @@ export default function DeepDiveClient({
 
     return (
       <div className="dd-panel-content" style={{ padding: "2.5rem" }}>
+        {/* Artist player — thin strip above header */}
+        <ArtistPlayer artist={selectedArtist} />
+
         {/* Artist header */}
         <div style={{ display: "flex", gap: 20, alignItems: "flex-start", marginBottom: 24 }}>
           {imgUrl ? (
@@ -1026,7 +1029,6 @@ export default function DeepDiveClient({
             </p>
             <CollectionStrip records={selectedData.records} wantlistRecords={selectedData.wantlistRecords ?? []} artist={selectedArtist} tileSize={36} />
           </div>
-          <ArtistPlayer artist={selectedArtist} />
         </div>
 
         <div style={{ borderBottom: `1px solid ${RULE}` }} />
