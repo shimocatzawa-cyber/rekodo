@@ -819,9 +819,11 @@ export default function InsightsClient({
           username={username}
           totalRecords={totalRecords}
           topGenre={topRealGenre?.genre ?? null}
-          topDecade={topDecade}
+          mostPopularYear={mostPopularYear}
           topArtist={topArtist?.artist ?? null}
           topLabel={topLabel?.label ?? null}
+          topCountry={topPressOrigin?.country ?? null}
+          holyGrails={holyGrailCount}
           oneLiner={oneLiner}
         />
       )}

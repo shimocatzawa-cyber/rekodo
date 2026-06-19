@@ -7,116 +7,94 @@ const SERIF   = '"Shippori Mincho", Georgia, serif';
 const MONO    = '"DM Mono", "Courier New", monospace';
 const UI_MONO = "var(--font-mono)";
 
-const BG      = "#FBF7F2";
-const CHARCOAL = "#1C1C1A";
-const ACCENT  = "#C96A2B";
-const MUTED   = "#9A8F84";
+const BG     = "#FDF6F0";
+const ORANGE = "#CC5500";
+const INK    = "#0d0d0d";
+const MUTED  = "#888888";
 
 interface CardProps {
-  username:     string;
-  totalRecords: number;
-  topGenre:     string | null;
-  topDecade:    string | null;
-  topArtist:    string | null;
-  topLabel:     string | null;
-  oneLiner:     string | null;
+  username:        string;
+  totalRecords:    number;
+  topGenre:        string | null;
+  mostPopularYear: number | null;
+  topArtist:       string | null;
+  topLabel:        string | null;
+  topCountry:      string | null;
+  holyGrails:      number;
+  oneLiner:        string | null;
 }
 interface Props extends CardProps {
   onClose: () => void;
 }
 
 // DOM: 540×675 → export: 1080×1350 (pixelRatio 2)
-function ProfileCard({ username, totalRecords, topGenre, topDecade, topArtist, topLabel, oneLiner }: CardProps) {
-  const highlights = [
-    { label: "Top Genre",  value: topGenre  ?? "—" },
-    { label: "Top Artist", value: topArtist ?? "—" },
-    { label: "Top Decade", value: topDecade ?? "—" },
-    { label: "Top Label",  value: topLabel  ?? "—" },
+function ProfileCard({ username, totalRecords, topGenre, mostPopularYear, topArtist, topLabel, topCountry, holyGrails, oneLiner }: CardProps) {
+  const stats = [
+    { label: "Top Genre",             value: topGenre        ?? "—" },
+    { label: "Most Collected Artist", value: topArtist       ?? "—" },
+    { label: "Most Collected Label",  value: topLabel        ?? "—" },
+    { label: "Most Collected Year",   value: mostPopularYear ? String(mostPopularYear) : "—" },
+    { label: "Holy Grails",           value: holyGrails > 0  ? holyGrails.toLocaleString() : "—" },
+    { label: "Pressing Origin",       value: topCountry      ?? "—" },
   ];
 
   return (
     <div style={{
       width: 540, height: 675, background: BG,
-      boxSizing: "border-box", padding: "32px 44px",
+      boxSizing: "border-box", padding: "20px 26px",
       display: "flex", flexDirection: "column",
       overflow: "hidden",
     }}>
 
-      {/* 1. Logo */}
-      <div style={{ flexShrink: 0 }}>
-        <span style={{ fontFamily: SERIF, fontSize: 15, fontWeight: 600, color: CHARCOAL, letterSpacing: "0.01em" }}>
-          rek<span style={{ color: ACCENT }}>ō</span>do
+      {/* Top row: title left | rekōdo + rekodo.co right — mirrors Top5 portrait */}
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 18, flexShrink: 0 }}>
+        <div style={{ fontFamily: SERIF, fontSize: 26, fontWeight: 600, color: INK, lineHeight: 1.3, flex: 1, minWidth: 0 }}>
+          Collection Profile
+        </div>
+        <div style={{ flexShrink: 0, marginLeft: 12, textAlign: "right", paddingTop: 3 }}>
+          <div style={{ fontFamily: SERIF, fontSize: 21, fontWeight: 600, color: INK, lineHeight: 1, marginBottom: 5 }}>
+            rek<span style={{ color: ORANGE }}>ō</span>do
+          </div>
+          <div style={{ fontFamily: MONO, fontSize: 10, color: MUTED, letterSpacing: "0.08em" }}>
+            rekodo.co
+          </div>
+        </div>
+      </div>
+
+      {/* Release count */}
+      <div style={{ flexShrink: 0, marginBottom: 14 }}>
+        <span style={{ fontFamily: SERIF, fontSize: 36, fontWeight: 400, color: INK, letterSpacing: "-0.01em" }}>
+          {totalRecords.toLocaleString()}
+        </span>
+        <span style={{ fontFamily: MONO, fontSize: 10, color: ORANGE, letterSpacing: "0.12em", textTransform: "uppercase", marginLeft: 10 }}>
+          Releases
         </span>
       </div>
 
-      {/* 2. Eyebrow */}
-      <div style={{ marginTop: 36, flexShrink: 0 }}>
-        <div style={{ fontFamily: MONO, fontSize: 7, color: MUTED, letterSpacing: "0.3em", textTransform: "uppercase" }}>
-          Collection Profile
-        </div>
-      </div>
-
-      {/* 3. Hero release count */}
-      <div style={{ marginTop: 14, flexShrink: 0 }}>
-        <div style={{
-          fontFamily: SERIF, fontSize: 80, fontWeight: 400, color: CHARCOAL,
-          lineHeight: 0.9, letterSpacing: "-0.025em",
-        }}>
-          {totalRecords.toLocaleString()}
-        </div>
-        <div style={{
-          fontFamily: MONO, fontSize: 8, color: ACCENT,
-          letterSpacing: "0.22em", textTransform: "uppercase", marginTop: 10,
-        }}>
-          Releases
-        </div>
-      </div>
-
-      {/* 4. AI insight */}
+      {/* AI collection insight */}
       {oneLiner && (
-        <div style={{ marginTop: 28, flexShrink: 0, paddingRight: 16 }}>
-          <div style={{
-            fontFamily: SERIF, fontSize: 11, fontStyle: "italic",
-            color: MUTED, lineHeight: 1.8,
-          }}>
-            {oneLiner}
-          </div>
+        <div style={{ fontFamily: SERIF, fontSize: 13, fontStyle: "italic", color: MUTED, lineHeight: 1.7, marginBottom: 18, flexShrink: 0 }}>
+          {oneLiner}
         </div>
       )}
 
-      {/* 5. Four collection highlights */}
-      <div style={{ marginTop: oneLiner ? 28 : 32, flexShrink: 0 }}>
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", rowGap: 22, columnGap: 24 }}>
-          {highlights.map(({ label, value }) => (
-            <div key={label}>
-              <div style={{
-                fontFamily: MONO, fontSize: 7, color: MUTED,
-                letterSpacing: "0.2em", textTransform: "uppercase", marginBottom: 6,
-              }}>
-                {label}
-              </div>
-              <div style={{
-                fontFamily: SERIF, fontSize: 14, fontWeight: 500, color: CHARCOAL,
-                lineHeight: 1.25, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
-              }}>
-                {value}
-              </div>
+      {/* 6 stat rows — space-around fills height, matching Top5 row rhythm */}
+      <div style={{ flex: 1, display: "flex", flexDirection: "column", justifyContent: "space-around" }}>
+        {stats.map(({ label, value }) => (
+          <div key={label} style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 12 }}>
+            <div style={{ fontFamily: MONO, fontSize: 10, color: MUTED, textTransform: "uppercase", letterSpacing: "0.1em", flexShrink: 0 }}>
+              {label}
             </div>
-          ))}
-        </div>
+            <div style={{ fontFamily: SERIF, fontSize: 16, fontWeight: 600, color: INK, textAlign: "right", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: "52%" }}>
+              {value}
+            </div>
+          </div>
+        ))}
       </div>
 
-      {/* Spacer */}
-      <div style={{ flex: 1 }} />
-
-      {/* 6+7. Username + rekodo.co */}
-      <div style={{ flexShrink: 0, display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
-        <div style={{ fontFamily: MONO, fontSize: 8, color: MUTED, letterSpacing: "0.1em" }}>
-          @{username}
-        </div>
-        <div style={{ fontFamily: MONO, fontSize: 8, color: MUTED, letterSpacing: "0.08em" }}>
-          rekodo.co
-        </div>
+      {/* Footer: @username centered — mirrors Top5 */}
+      <div style={{ marginTop: 16, textAlign: "center", flexShrink: 0 }}>
+        <div style={{ fontFamily: MONO, fontSize: 10, color: MUTED, letterSpacing: "0.1em" }}>@{username}</div>
       </div>
 
     </div>
@@ -225,14 +203,14 @@ export default function InsightsShareModal({ onClose, ...cardProps }: Props) {
             <button
               onClick={handleDownload}
               disabled={exporting}
-              style={{ flex: 1, fontFamily: UI_MONO, fontSize: "9px", letterSpacing: "0.1em", textTransform: "uppercase", background: CHARCOAL, color: "#fff", border: "none", cursor: exporting ? "wait" : "pointer", padding: "10px 0", opacity: exporting ? 0.5 : 1 }}
+              style={{ flex: 1, fontFamily: UI_MONO, fontSize: "9px", letterSpacing: "0.1em", textTransform: "uppercase", background: INK, color: "#fff", border: "none", cursor: exporting ? "wait" : "pointer", padding: "10px 0", opacity: exporting ? 0.5 : 1 }}
             >
               {exporting ? "Exporting…" : "Download PNG"}
             </button>
             <button
               onClick={handleCopyImage}
               disabled={exporting}
-              style={{ flex: 1, fontFamily: UI_MONO, fontSize: "9px", letterSpacing: "0.1em", textTransform: "uppercase", background: "none", border: "1px solid rgba(0,0,0,0.15)", cursor: exporting ? "wait" : "pointer", padding: "10px 0", color: copyState === "copied" ? "#22c55e" : copyState === "failed" ? "#ef4444" : CHARCOAL, opacity: exporting ? 0.5 : 1 }}
+              style={{ flex: 1, fontFamily: UI_MONO, fontSize: "9px", letterSpacing: "0.1em", textTransform: "uppercase", background: "none", border: "1px solid rgba(0,0,0,0.15)", cursor: exporting ? "wait" : "pointer", padding: "10px 0", color: copyState === "copied" ? "#22c55e" : copyState === "failed" ? "#ef4444" : INK, opacity: exporting ? 0.5 : 1 }}
             >
               {copyState === "copied" ? "Copied ✓" : copyState === "failed" ? "Failed" : "Copy Image"}
             </button>
