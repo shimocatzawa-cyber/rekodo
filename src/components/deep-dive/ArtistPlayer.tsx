@@ -117,12 +117,11 @@ export default function ArtistPlayer({ artist }: Props) {
   return (
     <div
       style={{
-        display:       "flex",
-        alignItems:    "center",
-        gap:           "10px",
-        paddingBottom: "16px",
-        marginBottom:  "20px",
-        borderBottom:  `1px solid ${RULE}`,
+        display:    "flex",
+        alignItems: "center",
+        gap:        "10px",
+        padding:    "10px 2.5rem",
+        borderBottom: `1px solid ${RULE}`,
       }}
     >
       {/* Eyebrow + track label */}

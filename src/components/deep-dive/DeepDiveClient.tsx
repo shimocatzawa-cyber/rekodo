@@ -1002,10 +1002,11 @@ export default function DeepDiveClient({
     const imgUrl = imageMap[selectedArtist];
 
     return (
-      <div className="dd-panel-content" style={{ padding: "2.5rem" }}>
-        {/* Artist player — thin strip above header */}
+      <div>
+        {/* Artist player — flush at top, same horizontal padding as content */}
         <ArtistPlayer artist={selectedArtist} />
 
+      <div className="dd-panel-content" style={{ padding: "2.5rem" }}>
         {/* Artist header */}
         <div style={{ display: "flex", gap: 20, alignItems: "flex-start", marginBottom: 24 }}>
           {imgUrl ? (
@@ -1112,6 +1113,7 @@ export default function DeepDiveClient({
         <div style={{ marginTop: 24 }}>
           {renderTabContent()}
         </div>
+      </div>
       </div>
     );
   }
