@@ -50,7 +50,7 @@ export default async function AdminPage() {
       .range(0, 999),
     adminDb.auth.admin.listUsers({ perPage: 1000 }),
     fetchPaged(adminDb, "lists", "user_id", { column: "slug", value: "wantlist" }),
-    fetchPaged(adminDb, "discogs_tokens", "user_id"),
+    fetchPaged(adminDb, "discogs_tokens", "user_id, discogs_username"),
     fetchPaged(adminDb, "archetype_cache", "user_id, primary_archetype"),
     fetchPaged(adminDb, "payments", "user_id, type, amount_cents, currency"),
   ]);
@@ -66,6 +66,7 @@ export default async function AdminPage() {
 
   const wantlistIds  = new Set(wantlistRows.map(r => r.user_id as string));
   const discogsIds   = new Set(discogsRows.map(r => r.user_id as string));
+  const discogsUsernameMap = new Map(discogsRows.map(r => [r.user_id as string, r.discogs_username as string | null]));
   const archetypeMap = new Map(archetypeRows.map(r => [r.user_id as string, r.primary_archetype as string | null]));
 
   // Aggregate payments per user
@@ -122,6 +123,7 @@ export default async function AdminPage() {
       country:           p?.country ?? null,
       is_donor:          p?.is_donor ?? false,
       archetype:         archetypeId ? (ARCHETYPES[archetypeId]?.name ?? null) : null,
+      discogs_username:  discogsUsernameMap.get(u.id) ?? null,
       subscription_spend: subSpend,
       donation_total:     donation,
       connections: {

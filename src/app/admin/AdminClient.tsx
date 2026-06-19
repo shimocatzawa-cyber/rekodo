@@ -42,7 +42,7 @@ export default function AdminClient({ users }: { users: AdminUser[] }) {
         <table style={{ width: "100%", borderCollapse: "collapse" }}>
           <thead>
             <tr>
-              {["Username", "Email", "Location", "Archetype", "Collection", "Sub. spend", "Donated", "Connected", "Tier", "Last active", "Status", ""].map(col => (
+              {["Username", "Email", "Location", "Archetype", "Collection", "Sub. spend", "Donated", "Connected", "Discogs username", "Tier", "Last active", "Status", ""].map(col => (
                 <th key={col} style={{
                   fontFamily: MONO, fontSize: "9px", letterSpacing: "0.14em",
                   textTransform: "uppercase", color: ORANGE,
