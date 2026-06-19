@@ -821,9 +821,8 @@ export default function InsightsClient({
           topGenre={topRealGenre?.genre ?? null}
           topDecade={topDecade}
           topArtist={topArtist?.artist ?? null}
-          topCountry={topPressOrigin?.country ?? null}
           topLabel={topLabel?.label ?? null}
-          holyGrails={holyGrailCount}
+          oneLiner={oneLiner}
         />
       )}
 
