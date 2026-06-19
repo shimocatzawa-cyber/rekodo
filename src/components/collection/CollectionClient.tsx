@@ -1947,7 +1947,31 @@ function AlbumDetail({ record, detail, price, loading, valueCurrency }: {
         {/* Marketplace pricing */}
         {price && (
           <>
-            <PriceRow label="Market Value" value={formatPrice(price.lowest, price.currency || valueCurrency || "USD")} />
+            {/* Market Value row — inline with Open to Offers toggle */}
+            {formatPrice(price.lowest, price.currency || valueCurrency || "USD") && (
+              <div style={{ display: "flex", padding: "6px 0", borderBottom: "1px solid rgba(0,0,0,0.05)", alignItems: "center", gap: "8px" }}>
+                <span style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.1em", textTransform: "uppercase", color: "#aaaaaa", width: "84px", flexShrink: 0 }}>
+                  Market Value
+                </span>
+                <span style={{ fontFamily: MONO, fontSize: "11px", color: ORANGE, letterSpacing: "0.03em", flex: 1 }}>
+                  {formatPrice(price.lowest, price.currency || valueCurrency || "USD")}
+                </span>
+                <button
+                  onClick={handleOpenToOffers}
+                  disabled={offersLoading}
+                  style={{
+                    fontFamily: MONO, fontSize: "8px", letterSpacing: "0.1em",
+                    textTransform: "uppercase", flexShrink: 0,
+                    color: offersLoading ? "#aaaaaa" : openToOffers ? "#ffffff" : ORANGE,
+                    background: openToOffers && !offersLoading ? ORANGE : "transparent",
+                    border: `1px solid ${offersLoading ? "#dddddd" : ORANGE}`,
+                    padding: "2px 7px", cursor: offersLoading ? "default" : "pointer",
+                  }}
+                >
+                  {offersLoading ? "…" : openToOffers ? "For Sale ✓" : "For Sale?"}
+                </button>
+              </div>
+            )}
             <PriceRow label="Median"    value={formatPrice(price.median, price.currency)} />
             <PriceRow label="High"     value={formatPrice(price.highest,   price.currency)} />
             <PriceRow
@@ -1999,29 +2023,11 @@ function AlbumDetail({ record, detail, price, loading, valueCurrency }: {
         )}
       </div>
 
-      {/* Open to Offers — moved here from right rail */}
-      <div style={{ marginTop: "16px" }}>
-        <button
-          onClick={handleOpenToOffers}
-          disabled={offersLoading}
-          style={{
-            fontFamily: MONO, fontSize: "9px", letterSpacing: "0.12em",
-            textTransform: "uppercase",
-            color: offersLoading ? "#aaaaaa" : openToOffers ? "#ffffff" : ORANGE,
-            background: openToOffers && !offersLoading ? ORANGE : "transparent",
-            border: `1px solid ${offersLoading ? "#dddddd" : ORANGE}`,
-            padding: "5px 12px", cursor: offersLoading ? "default" : "pointer",
-            display: "inline-block",
-          }}
-        >
-          {offersLoading ? "Saving…" : openToOffers ? "Open to Offers ✓" : "Open to Offers"}
-        </button>
-        {offersError && (
-          <p style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.04em", color: "#cc3300", margin: "6px 0 0" }}>
-            {offersError}
-          </p>
-        )}
-      </div>
+      {offersError && (
+        <p style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.04em", color: "#cc3300", margin: "8px 0 0" }}>
+          {offersError}
+        </p>
+      )}
     </div>
     </div>
   );
@@ -2336,7 +2342,7 @@ function TracklistPanel({ tracks, loading, bandcamp, record }: {
                 <div style={{
                   position: "absolute",
                   [feelingAbove ? "bottom" : "top"]: "calc(100% + 4px)",
-                  left: 0,
+                  right: 0,
                   background: "#ffffff",
                   border: "1px solid #e0e0da",
                   boxShadow: "0 4px 16px rgba(0,0,0,0.10)",
