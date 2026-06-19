@@ -1198,7 +1198,7 @@ export default function DeepDiveClient({
 
         {/* Right panel */}
         <div style={{ flex: 1, minWidth: 0 }}>
-          <RightPanelContent />
+          {RightPanelContent()}
         </div>
       </div>
 
@@ -1243,7 +1243,7 @@ export default function DeepDiveClient({
         )}
 
         {/* Mobile content panel */}
-        <RightPanelContent />
+        {RightPanelContent()}
       </div>
     </div>
   );
