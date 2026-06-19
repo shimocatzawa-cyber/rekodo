@@ -170,12 +170,6 @@ function LandscapeCard({ archetypeId, score, shadowId, shadowScore, username, fo
           )}
         </div>
 
-        {/* Archetypal sentence */}
-        <div style={{ paddingLeft: 6, borderLeft: `2px solid ${color}` }}>
-          <div style={{ fontFamily: SERIF, fontSize: 8, fontStyle: "italic", color: INK, lineHeight: 1.55, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}>
-            &ldquo;{def?.sentence}&rdquo;
-          </div>
-        </div>
 
       </div>
     </div>
