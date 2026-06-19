@@ -66,19 +66,29 @@ function LandscapeCard({ archetypeId, score, shadowId, shadowScore, username, fo
   return (
     <div style={{ width: 600, height: 314, background: BG, display: "flex", overflow: "hidden" }}>
 
-      {/* Left: branding */}
+      {/* Left: branding + archetype description */}
       <div style={{
         width: 138, flexShrink: 0,
         display: "flex", flexDirection: "column", justifyContent: "space-between",
         padding: "16px 14px",
         boxSizing: "border-box",
       }}>
-        <div>
-          <div style={{ fontFamily: SERIF, fontSize: 18, fontWeight: 600, color: INK, lineHeight: 1, marginBottom: 8 }}>
-            rek<span style={{ color: ORANGE }}>ō</span>do
+        <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+          <div>
+            <div style={{ fontFamily: SERIF, fontSize: 18, fontWeight: 600, color: INK, lineHeight: 1, marginBottom: 8 }}>
+              rek<span style={{ color: ORANGE }}>ō</span>do
+            </div>
+            <div style={{ fontFamily: SERIF, fontSize: 9, color: INK, lineHeight: 1.5 }}>
+              What your collection says about you.
+            </div>
           </div>
-          <div style={{ fontFamily: SERIF, fontSize: 9, color: INK, lineHeight: 1.5 }}>
-            What your collection says about you.
+          <div>
+            <div style={{ fontFamily: MONO, fontSize: 5, color: ORANGE, textTransform: "uppercase", letterSpacing: "0.12em", marginBottom: 4 }}>
+              {def?.name} Archetype
+            </div>
+            <div style={{ fontFamily: MONO, fontSize: 6, color: MUTED, lineHeight: 1.55, display: "-webkit-box", WebkitLineClamp: 5, WebkitBoxOrient: "vertical", overflow: "hidden" }}>
+              {def?.shortDescription}
+            </div>
           </div>
         </div>
         <div>
@@ -98,11 +108,11 @@ function LandscapeCard({ archetypeId, score, shadowId, shadowScore, username, fo
         />
       )}
 
-      {/* Right: content */}
+      {/* Right: Primary + Shadow, pushed slightly down */}
       <div style={{
         flex: 1,
         display: "flex", flexDirection: "column", justifyContent: "space-between",
-        padding: "14px 14px 14px 12px",
+        padding: "22px 14px 16px 12px",
         overflow: "hidden",
       }}>
 
@@ -133,16 +143,6 @@ function LandscapeCard({ archetypeId, score, shadowId, shadowScore, username, fo
           )}
         </div>
 
-        {/* Archetype description */}
-        <div>
-          <div style={{ fontFamily: MONO, fontSize: 6, color: ORANGE, textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 3 }}>
-            {def?.name} Archetype
-          </div>
-          <div style={{ fontFamily: MONO, fontSize: 7, color: MUTED, lineHeight: 1.5, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}>
-            {def?.shortDescription}
-          </div>
-        </div>
-
         {/* Shadow archetype */}
         <div>
           <div style={{ fontFamily: MONO, fontSize: 6, color: MUTED, textTransform: "uppercase", letterSpacing: "0.12em", marginBottom: 4 }}>
@@ -169,7 +169,6 @@ function LandscapeCard({ archetypeId, score, shadowId, shadowScore, username, fo
             </div>
           )}
         </div>
-
 
       </div>
     </div>
