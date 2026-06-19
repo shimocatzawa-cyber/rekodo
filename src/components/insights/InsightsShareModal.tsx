@@ -28,7 +28,6 @@ interface CardProps {
   topCountry:      string | null;
   countryCount:    number;
   holyGrails:      number;
-  oneLiner:        string | null;
 }
 interface Props {
   onClose:         () => void;
@@ -42,7 +41,6 @@ interface Props {
   topCountry:      string | null;
   countryCount:    number;
   holyGrails:      number;
-  oneLiner:        string | null;
 }
 
 async function blobToDataUrl(blob: Blob): Promise<string> {
@@ -83,7 +81,7 @@ function Anchor({
 // ── Card ─────────────────────────────────────────────────────────────────
 // DOM: 560 wide, natural height → export: 1120px wide at pixelRatio 2
 
-function ProfileCard({ username, avatarSrc, totalRecords, topGenre, mostPopularYear, topArtist, topLabel, topCountry, countryCount, holyGrails, oneLiner }: CardProps) {
+function ProfileCard({ username, avatarSrc, totalRecords, topGenre, mostPopularYear, topArtist, topLabel, topCountry, countryCount, holyGrails }: CardProps) {
   const decade = mostPopularYear ? `${Math.floor(mostPopularYear / 10) * 10}s` : "—";
 
   return (
@@ -108,15 +106,6 @@ function ProfileCard({ username, avatarSrc, totalRecords, topGenre, mostPopularY
           </div>
         </div>
       </div>
-
-      {/* ── AI insight (optional) ── */}
-      {oneLiner && (
-        <div style={{ padding: "0 32px 12px", boxSizing: "border-box" }}>
-          <div style={{ fontFamily: SERIF, fontSize: "0.75rem", fontStyle: "italic", color: MUTED, lineHeight: 1.7 }}>
-            {oneLiner}
-          </div>
-        </div>
-      )}
 
       {/* ── Radial section ── */}
       <div style={{ position: "relative", width: 520, height: 480, margin: "0 auto", flexShrink: 0 }}>
@@ -220,10 +209,10 @@ export default function InsightsShareModal({ onClose, avatarUrl, ...cardProps }:
   const [copyState,    setCopyState]    = useState<"idle" | "copied" | "failed">("idle");
   const exportRef = useRef<HTMLDivElement>(null);
 
-  // Pre-load avatar via image proxy so html-to-image can embed it
+  // Pre-load avatar directly (Supabase storage allows CORS; image proxy only allows Discogs)
   useEffect(() => {
     if (!avatarUrl) { setAvatarReady(true); return; }
-    fetch(`/api/image-proxy?url=${encodeURIComponent(avatarUrl)}`)
+    fetch(avatarUrl)
       .then(r => r.ok ? r.blob() : null)
       .then(b => b ? blobToDataUrl(b) : null)
       .then(url => { setAvatarSrc(url); setAvatarReady(true); })

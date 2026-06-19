@@ -826,7 +826,6 @@ export default function InsightsClient({
           topCountry={topPressOrigin?.country ?? null}
           countryCount={countryBreakdown.length}
           holyGrails={holyGrailCount}
-          oneLiner={oneLiner}
         />
       )}
 
