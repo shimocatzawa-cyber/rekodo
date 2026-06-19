@@ -339,6 +339,8 @@ const [filterFormat,       setFilterFormat]       = useState("");
         media_condition:  string | null;
         sleeve_condition: string | null;
         open_to_offers:   boolean | null;
+        is_essential:     boolean | null;
+        feeling:          string | null;
       };
       const allLinks: LinkRow[] = [];
       const PAGE = 1000;
@@ -346,7 +348,7 @@ const [filterFormat,       setFilterFormat]       = useState("");
         const { data, error } = await supabase
           .from("user_records")
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          .select("record_id, value, price_low, price_median, price_currency, media_condition, sleeve_condition, open_to_offers" as any)
+          .select("record_id, value, price_low, price_median, price_currency, media_condition, sleeve_condition, open_to_offers, is_essential, feeling" as any)
           .eq("user_id", user.id)
           .range(from, from + PAGE - 1);
         console.log(`[collection] user_records page from=${from}: count=${data?.length ?? 0} error=${JSON.stringify(error)}`);
@@ -363,8 +365,10 @@ const [filterFormat,       setFilterFormat]       = useState("");
       const mediaConditionMap  = new Map<string, string | null>(allLinks.map((l) => [l.record_id, l.media_condition  ?? null]));
       const sleeveConditionMap = new Map<string, string | null>(allLinks.map((l) => [l.record_id, l.sleeve_condition ?? null]));
       const openToOffersMap    = new Map<string, boolean | null>(allLinks.map((l) => [l.record_id, l.open_to_offers ?? null]));
+      const isEssentialMap     = new Map<string, boolean | null>(allLinks.map((l) => [l.record_id, l.is_essential ?? null]));
+      const feelingMap         = new Map<string, string | null>(allLinks.map((l) => [l.record_id, l.feeling ?? null]));
       const BATCH        = 400;
-      const recordsMap   = new Map<string, Omit<CollectionRecord, "value" | "price_low" | "price_low_usd" | "price_median" | "price_currency" | "media_condition" | "sleeve_condition">>();
+      const recordsMap   = new Map<string, Omit<CollectionRecord, "value" | "price_low" | "price_low_usd" | "price_median" | "price_currency" | "media_condition" | "sleeve_condition" | "open_to_offers" | "is_essential" | "feeling">>();
       for (let i = 0; i < recordIds.length; i += BATCH) {
         const { data, error } = await supabase
           .from("records")
@@ -388,6 +392,8 @@ const [filterFormat,       setFilterFormat]       = useState("");
             media_condition:  mediaConditionMap.get(id)  ?? null,
             sleeve_condition: sleeveConditionMap.get(id) ?? null,
             open_to_offers:   openToOffersMap.get(id)    ?? null,
+            is_essential:     isEssentialMap.get(id)     ?? null,
+            feeling:          feelingMap.get(id)         ?? null,
           };
         })
         .filter((r): r is CollectionRecord => r !== undefined);
@@ -1833,6 +1839,40 @@ function AlbumDetail({ record, detail, price, loading, valueCurrency }: {
   loading: boolean;
   valueCurrency?: string;
 }) {
+  const [openToOffers, setOpenToOffers] = useState<boolean>(record?.open_to_offers ?? false);
+  const [offersLoading, setOffersLoading] = useState(false);
+  const [offersError, setOffersError] = useState<string | null>(null);
+
+  useEffect(() => {
+    setOpenToOffers(record?.open_to_offers ?? false);
+    setOffersError(null);
+  }, [record?.id, record?.open_to_offers]);
+
+  async function handleOpenToOffers() {
+    if (offersLoading) return;
+    const next = !openToOffers;
+    setOpenToOffers(next);
+    setOffersLoading(true);
+    setOffersError(null);
+    try {
+      const res = await fetch("/api/collection/offers", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ recordId: record.id, open_to_offers: next }),
+      });
+      if (!res.ok) {
+        setOpenToOffers(!next);
+        const json = await res.json().catch(() => null) as { error?: string } | null;
+        setOffersError(json?.error ?? "Could not save. Please try again.");
+      }
+    } catch {
+      setOpenToOffers(!next);
+      setOffersError("Network error. Please try again.");
+    } finally {
+      setOffersLoading(false);
+    }
+  }
+
   const displayLabel = detail?.labels?.[0]?.name ?? record.label ?? null;
   const catno        = detail?.labels?.[0]?.catno ?? null;
   const format       = detail ? formatLabel(detail.formats) : null;
@@ -1958,6 +1998,30 @@ function AlbumDetail({ record, detail, price, loading, valueCurrency }: {
           </div>
         )}
       </div>
+
+      {/* Open to Offers — moved here from right rail */}
+      <div style={{ marginTop: "16px" }}>
+        <button
+          onClick={handleOpenToOffers}
+          disabled={offersLoading}
+          style={{
+            fontFamily: MONO, fontSize: "9px", letterSpacing: "0.12em",
+            textTransform: "uppercase",
+            color: offersLoading ? "#aaaaaa" : openToOffers ? "#ffffff" : ORANGE,
+            background: openToOffers && !offersLoading ? ORANGE : "transparent",
+            border: `1px solid ${offersLoading ? "#dddddd" : ORANGE}`,
+            padding: "5px 12px", cursor: offersLoading ? "default" : "pointer",
+            display: "inline-block",
+          }}
+        >
+          {offersLoading ? "Saving…" : openToOffers ? "Open to Offers ✓" : "Open to Offers"}
+        </button>
+        {offersError && (
+          <p style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.04em", color: "#cc3300", margin: "6px 0 0" }}>
+            {offersError}
+          </p>
+        )}
+      </div>
     </div>
     </div>
   );
@@ -2020,9 +2084,14 @@ function TracklistPanel({ tracks, loading, bandcamp, record }: {
   const [lastPlayed, setLastPlayed] = useState<string | null>(record?.last_played_at ?? null);
   const [playedLoading, setPlayedLoading] = useState(false);
 
-  const [openToOffers, setOpenToOffers] = useState<boolean>(record?.open_to_offers ?? false);
-  const [offersLoading, setOffersLoading] = useState(false);
-  const [offersError, setOffersError] = useState<string | null>(null);
+  const [isEssential, setIsEssential] = useState<boolean>(record?.is_essential ?? false);
+  const [essentialLoading, setEssentialLoading] = useState(false);
+
+  const [feeling, setFeeling] = useState<string | null>(record?.feeling ?? null);
+  const [feelingLoading, setFeelingLoading] = useState(false);
+  const [feelingOpen, setFeelingOpen] = useState(false);
+  const [feelingAbove, setFeelingAbove] = useState(false);
+  const feelingRef = useRef<HTMLDivElement>(null);
 
   // Sync when selected record changes
   useEffect(() => {
@@ -2030,8 +2099,23 @@ function TracklistPanel({ tracks, loading, bandcamp, record }: {
   }, [record?.id, record?.last_played_at]);
 
   useEffect(() => {
-    setOpenToOffers(record?.open_to_offers ?? false);
-  }, [record?.id, record?.open_to_offers]);
+    setIsEssential(record?.is_essential ?? false);
+  }, [record?.id, record?.is_essential]);
+
+  useEffect(() => {
+    setFeeling(record?.feeling ?? null);
+  }, [record?.id, record?.feeling]);
+
+  useEffect(() => {
+    if (!feelingOpen) return;
+    function handleClickOutside(e: MouseEvent) {
+      if (feelingRef.current && !feelingRef.current.contains(e.target as Node)) {
+        setFeelingOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [feelingOpen]);
 
   // ── Spotify ───────────────────────────────────────────────────────────────
   const [spotifyPremium,  setSpotifyPremium]  = useState(false);
@@ -2102,29 +2186,53 @@ function TracklistPanel({ tracks, loading, bandcamp, record }: {
     return () => { cancelled = true; };
   }, [record?.id, spotifyPremium]);
 
-  async function handleOpenToOffers() {
-    if (!record?.id || offersLoading) return;
-    const next = !openToOffers;
-    setOpenToOffers(next);
-    setOffersLoading(true);
-    setOffersError(null);
+  const FEELINGS = ["upbeat", "joyful", "calm", "tender", "nostalgic", "melancholy", "powerful", "haunted", "longing"] as const;
+
+  async function handleEssential() {
+    if (!record?.id || essentialLoading) return;
+    const next = !isEssential;
+    setIsEssential(next);
+    setEssentialLoading(true);
     try {
-      const res = await fetch("/api/collection/offers", {
+      const res = await fetch("/api/collection/tag", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ recordId: record.id, open_to_offers: next }),
+        body: JSON.stringify({ recordId: record.id, is_essential: next }),
       });
-      if (!res.ok) {
-        setOpenToOffers(!next);
-        const json = await res.json().catch(() => null) as { error?: string } | null;
-        setOffersError(json?.error ?? "Could not save. Please try again.");
-      }
+      if (!res.ok) setIsEssential(!next);
     } catch {
-      setOpenToOffers(!next);
-      setOffersError("Network error. Please try again.");
+      setIsEssential(!next);
     } finally {
-      setOffersLoading(false);
+      setEssentialLoading(false);
     }
+  }
+
+  async function handleFeeling(word: string) {
+    if (!record?.id || feelingLoading) return;
+    const next = feeling === word ? null : word;
+    setFeeling(next);
+    setFeelingOpen(false);
+    setFeelingLoading(true);
+    try {
+      const res = await fetch("/api/collection/tag", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ recordId: record.id, feeling: next }),
+      });
+      if (!res.ok) setFeeling(feeling);
+    } catch {
+      setFeeling(feeling);
+    } finally {
+      setFeelingLoading(false);
+    }
+  }
+
+  function openFeelingPopover() {
+    if (feelingRef.current) {
+      const rect = feelingRef.current.getBoundingClientRect();
+      setFeelingAbove(window.innerHeight - rect.bottom < 180);
+    }
+    setFeelingOpen(v => !v);
   }
 
   async function handlePlayedToday() {
@@ -2168,10 +2276,12 @@ function TracklistPanel({ tracks, loading, bandcamp, record }: {
         </div>
       )}
 
-      {/* ── Played Today + Open to Offers ── */}
+      {/* ── Played Today + Essential + Feeling ── */}
       {record && (
         <div style={{ padding: "16px 28px 0" }}>
-          <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
+          <div style={{ display: "flex", gap: "8px", flexWrap: "wrap", alignItems: "center" }}>
+
+            {/* Played Today */}
             <button
               onClick={handlePlayedToday}
               disabled={playedLoading}
@@ -2185,27 +2295,89 @@ function TracklistPanel({ tracks, loading, bandcamp, record }: {
             >
               {playedLoading ? "Saving…" : "Played Today"}
             </button>
+
+            {/* Essential */}
             <button
-              onClick={handleOpenToOffers}
-              disabled={offersLoading}
+              onClick={handleEssential}
+              disabled={essentialLoading}
               style={{
                 fontFamily: MONO, fontSize: "9px", letterSpacing: "0.12em",
                 textTransform: "uppercase",
-                color: offersLoading ? "#aaaaaa" : openToOffers ? "#ffffff" : ORANGE,
-                background: openToOffers && !offersLoading ? ORANGE : "transparent",
-                border: `1px solid ${offersLoading ? "#dddddd" : ORANGE}`,
-                padding: "5px 12px", cursor: offersLoading ? "default" : "pointer",
-                display: "inline-block",
+                color: essentialLoading ? "#aaaaaa" : isEssential ? "#FDF6F0" : "#0a0a0a",
+                background: isEssential && !essentialLoading ? ORANGE : "transparent",
+                border: `1px solid ${essentialLoading ? "#dddddd" : isEssential ? ORANGE : "#0a0a0a"}`,
+                padding: "5px 12px", cursor: essentialLoading ? "default" : "pointer",
+                display: "inline-flex", alignItems: "center", gap: "3px",
               }}
             >
-              {offersLoading ? "Saving…" : openToOffers ? "Open to Offers ✓" : "Open to Offers"}
+              <span style={{ fontFamily: SERIF, fontSize: "11px", lineHeight: 1 }}>ō</span>
+              {essentialLoading ? "Saving…" : "Essential"}
             </button>
+
+            {/* Feeling */}
+            <div ref={feelingRef} style={{ position: "relative" }}>
+              <button
+                onClick={openFeelingPopover}
+                style={{
+                  fontFamily: MONO, fontSize: "9px", letterSpacing: "0.12em",
+                  textTransform: "uppercase",
+                  color: feeling ? "#FDF6F0" : "#888888",
+                  background: feeling ? ORANGE : "transparent",
+                  border: `1px solid ${feeling ? ORANGE : "#e0e0da"}`,
+                  padding: "5px 10px", cursor: "pointer",
+                  display: "inline-flex", alignItems: "center", gap: "4px",
+                }}
+              >
+                {feeling ? feeling.toUpperCase() : "+ Feeling"}
+                <span style={{ fontSize: "8px", opacity: 0.7 }}>⌄</span>
+              </button>
+
+              {feelingOpen && (
+                <div style={{
+                  position: "absolute",
+                  [feelingAbove ? "bottom" : "top"]: "calc(100% + 4px)",
+                  left: 0,
+                  background: "#ffffff",
+                  border: "1px solid #e0e0da",
+                  boxShadow: "0 4px 16px rgba(0,0,0,0.10)",
+                  zIndex: 50,
+                  width: "216px",
+                }}>
+                  <div style={{ padding: "8px 10px", borderBottom: "1px solid #e0e0da" }}>
+                    <span style={{ fontFamily: MONO, fontSize: "8.5px", letterSpacing: "0.08em", textTransform: "uppercase", color: "#888888" }}>
+                      How does this make you feel?
+                    </span>
+                  </div>
+                  <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", borderTop: "none", borderLeft: "1px solid #e0e0da" }}>
+                    {FEELINGS.map(word => {
+                      const selected = feeling === word;
+                      return (
+                        <button
+                          key={word}
+                          onClick={() => handleFeeling(word)}
+                          style={{
+                            fontFamily: MONO, fontSize: "9px", letterSpacing: "0.04em",
+                            textTransform: "uppercase",
+                            color: selected ? "#FDF6F0" : "#0a0a0a",
+                            background: selected ? ORANGE : "transparent",
+                            border: "none",
+                            borderRight: "1px solid #e0e0da",
+                            borderBottom: "1px solid #e0e0da",
+                            padding: "10px 4px",
+                            cursor: "pointer", textAlign: "center" as const,
+                            display: "block", width: "100%",
+                          }}
+                        >
+                          {word}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+            </div>
+
           </div>
-          {offersError && (
-            <p style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.04em", color: "#cc3300", margin: "6px 0 0" }}>
-              {offersError}
-            </p>
-          )}
           {lastPlayed && (
             <p style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.08em", color: "#aaaaaa", margin: "6px 0 0" }}>
               Last played: {formatLastPlayed(lastPlayed)}

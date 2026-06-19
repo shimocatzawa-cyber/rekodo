@@ -70,6 +70,58 @@ export async function sendWaitlistConfirmation(email: string, name?: string | nu
   });
 }
 
+export async function sendSignupNotification(email: string, username: string) {
+  const resend = getResend();
+  await resend.emails.send({
+    from: FROM,
+    to: ADMIN,
+    subject: `new signup — ${username}`,
+    html: `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+</head>
+<body style="margin:0;padding:0;background:#000000;font-family:'Courier New',monospace;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background:#000000;padding:48px 24px;">
+    <tr>
+      <td align="center">
+        <table width="100%" cellpadding="0" cellspacing="0" style="max-width:480px;">
+          <tr>
+            <td style="padding-bottom:32px;">
+              <p style="margin:0;font-family:'Courier New',monospace;font-size:11px;letter-spacing:0.15em;text-transform:uppercase;color:#CC5500;">
+                new user
+              </p>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding-bottom:16px;">
+              <p style="margin:0;font-family:'Courier New',monospace;font-size:11px;letter-spacing:0.08em;text-transform:uppercase;color:rgba(255,255,255,0.4);">
+                username
+              </p>
+              <p style="margin:4px 0 0;font-family:'Courier New',monospace;font-size:14px;color:#ffffff;">
+                @${username}
+              </p>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding-bottom:8px;">
+              <p style="margin:0;font-family:'Courier New',monospace;font-size:11px;letter-spacing:0.08em;text-transform:uppercase;color:rgba(255,255,255,0.4);">
+                email
+              </p>
+              <p style="margin:4px 0 0;font-family:'Courier New',monospace;font-size:14px;color:#ffffff;">
+                ${email}
+              </p>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>`,
+  });
+}
+
 export async function sendWaitlistNotification(email: string, name?: string | null) {
   const resend = getResend();
   await resend.emails.send({

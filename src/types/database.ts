@@ -110,6 +110,9 @@ export type Database = {
           open_to_offers:    boolean;
           open_to_offers_at: string | null;
           date_added:        string | null;
+          is_essential:      boolean;
+          feeling:           string | null;
+          feeling_tagged_at: string | null;
         };
         Insert: {
           id?: string;
@@ -129,6 +132,9 @@ export type Database = {
           open_to_offers?:    boolean;
           open_to_offers_at?: string | null;
           date_added?:        string | null;
+          is_essential?:      boolean;
+          feeling?:           string | null;
+          feeling_tagged_at?: string | null;
         };
         Update: {
           value?: number | null;
@@ -144,6 +150,9 @@ export type Database = {
           open_to_offers?:    boolean;
           open_to_offers_at?: string | null;
           date_added?:        string | null;
+          is_essential?:      boolean;
+          feeling?:           string | null;
+          feeling_tagged_at?: string | null;
         };
         Relationships: [];
       };
