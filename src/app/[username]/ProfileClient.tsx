@@ -379,9 +379,16 @@ export default function ProfileClient({
                   </p>
                 )}
 
-                {/* ── SPOTIFY + BANDCAMP ── */}
+                {/* ── Collection photo ── */}
                 {isOwner && (
-                  <div style={{ marginTop: "16px", paddingTop: "16px", borderTop: `1px solid ${RULE}`, display: "flex", gap: "0", alignItems: "flex-start" }}>
+                  <div style={{ marginTop: "16px", marginBottom: "16px" }}>
+                    <CollectionPhotos initialPhoto={collectionPhoto} isOwner={isOwner} />
+                  </div>
+                )}
+
+                {/* ── SPOTIFY + BANDCAMP + WANTLIST ── */}
+                {isOwner && (
+                  <div style={{ marginTop: "0", paddingTop: "16px", borderTop: `1px solid ${RULE}`, display: "flex", gap: "0", alignItems: "flex-start" }}>
 
                     {/* Spotify */}
                     <div style={{ flex: 1, minWidth: 0 }}>
@@ -515,16 +522,17 @@ export default function ProfileClient({
                     )}
                     </div>
 
-                  </div>
-                )}
+                    {/* Divider */}
+                    <div style={{ width: "1px", background: RULE, alignSelf: "stretch", margin: "0 16px", flexShrink: 0 }} />
 
-                {/* ── Discogs wantlist import ── */}
-                {isOwner && (
-                  <div style={{ marginTop: "16px", paddingTop: "16px", borderTop: `1px solid ${RULE}` }}>
-                    <p style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.14em", textTransform: "uppercase", color: ORANGE, margin: "0 0 10px 0" }}>
-                      Discogs Wantlist
-                    </p>
-                    <WantlistClient isOwner={true} isSupporter={isSupporter} userId={profile.id} embedded />
+                    {/* Wantlist */}
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <p style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.14em", textTransform: "uppercase", color: ORANGE, margin: "0 0 10px 0" }}>
+                        Discogs Wantlist
+                      </p>
+                      <WantlistClient isOwner={true} isSupporter={isSupporter} userId={profile.id} embedded />
+                    </div>
+
                   </div>
                 )}
 
@@ -586,17 +594,6 @@ export default function ProfileClient({
                 </div>
               </div>
             )}
-          </div>
-
-          {/* Divider */}
-          <div style={{ height: 1, background: RULE, marginBottom: "32px" }} />
-
-          {/* ── Collection photo ── */}
-          <div style={{ marginBottom: "48px" }}>
-            <CollectionPhotos
-              initialPhoto={collectionPhoto}
-              isOwner={isOwner}
-            />
           </div>
 
         </main>
