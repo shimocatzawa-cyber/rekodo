@@ -24,8 +24,8 @@ export async function POST(request: NextRequest) {
   if (!ALLOWED.includes(file.type)) {
     return NextResponse.json({ error: "Only JPEG, PNG and WebP are supported." }, { status: 400 });
   }
-  if (file.size > 5 * 1024 * 1024) {
-    return NextResponse.json({ error: "Image must be under 5 MB." }, { status: 400 });
+  if (file.size > 10 * 1024 * 1024) {
+    return NextResponse.json({ error: "Image must be under 10 MB." }, { status: 400 });
   }
 
   const sb = getServiceClient();

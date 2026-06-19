@@ -27,20 +27,36 @@ export default function CollectionPhotos({ initialPhoto, isOwner }: Props) {
     return () => document.removeEventListener("keydown", onKey);
   }, []);
 
+  function resizeToBlob(file: File, maxPx = 2000, quality = 0.85): Promise<Blob> {
+    return new Promise((resolve, reject) => {
+      const img = new Image();
+      const url = URL.createObjectURL(file);
+      img.onload = () => {
+        URL.revokeObjectURL(url);
+        const { naturalWidth: w, naturalHeight: h } = img;
+        const scale = Math.min(1, maxPx / Math.max(w, h));
+        const canvas = document.createElement("canvas");
+        canvas.width  = Math.round(w * scale);
+        canvas.height = Math.round(h * scale);
+        canvas.getContext("2d")!.drawImage(img, 0, 0, canvas.width, canvas.height);
+        canvas.toBlob(b => b ? resolve(b) : reject(new Error("Canvas toBlob failed")), "image/jpeg", quality);
+      };
+      img.onerror = () => { URL.revokeObjectURL(url); reject(new Error("Image load failed")); };
+      img.src = url;
+    });
+  }
+
   async function handleUpload(file: File) {
     if (!["image/jpeg", "image/png", "image/webp"].includes(file.type)) {
       setUploadError("Only JPEG, PNG and WebP images are supported.");
       return;
     }
-    if (file.size > 5 * 1024 * 1024) {
-      setUploadError("Image must be under 5 MB.");
-      return;
-    }
     setLoading(true);
     setUploadError(null);
     try {
+      const resized = await resizeToBlob(file);
       const form = new FormData();
-      form.append("file", file);
+      form.append("file", resized, "photo.jpg");
       const res = await fetch("/api/collection/photo", { method: "POST", body: form });
       const json = await res.json() as { publicUrl?: string; error?: string };
       if (!res.ok || json.error) {
