@@ -74,7 +74,7 @@ export default function LunarListeningRitual() {
 
       {/* Eyebrow row */}
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "10px 0" }}>
-        <span style={{ fontSize: "0.56rem", letterSpacing: "0.14em", textTransform: "uppercase", color: "#CC5500" }}>
+        <span style={{ fontSize: "11px", letterSpacing: "0.12em", textTransform: "uppercase", color: "#CC5500" }}>
           Lunar Listening
         </span>
         <span style={{ fontSize: "0.52rem", letterSpacing: "0.08em", textTransform: "uppercase", opacity: 0.35 }}>
