@@ -321,7 +321,7 @@ export default function ProfileClient({
                   </p>
                 )}
 
-                <div style={{ display: "flex", alignItems: "center", gap: "8px", margin: "0 0 6px 0" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: "8px", margin: "0 0 12px 0" }}>
                   <p style={{ fontFamily: MONO, fontSize: "12px", letterSpacing: "0.04em", color: MUTED, margin: 0 }}>
                     @{profile.username}
                   </p>
@@ -333,7 +333,7 @@ export default function ProfileClient({
                 </div>
 
                 {(followerCount > 0 || followingCount > 0) && (
-                  <p style={{ fontFamily: MONO, fontSize: "12px", letterSpacing: "0.04em", color: MUTED, margin: "0 0 8px 0" }}>
+                  <p style={{ fontFamily: MONO, fontSize: "12px", letterSpacing: "0.04em", color: MUTED, margin: "0 0 12px 0" }}>
                     {followerCount > 0 && <span>{followerCount} {followerCount === 1 ? "follower" : "followers"}</span>}
                     {followerCount > 0 && followingCount > 0 && <span style={{ margin: "0 8px" }}>·</span>}
                     {followingCount > 0 && <span>following {followingCount}</span>}
@@ -341,7 +341,7 @@ export default function ProfileClient({
                 )}
 
                 {(cityValue || countryValue) && (
-                  <p style={{ fontFamily: MONO, fontSize: "12px", letterSpacing: "0.04em", color: MUTED, margin: "0 0 6px 0" }}>
+                  <p style={{ fontFamily: MONO, fontSize: "12px", letterSpacing: "0.04em", color: MUTED, margin: "0 0 12px 0" }}>
                     {[cityValue || profile.city, countryValue || profile.country].filter(Boolean).join(", ")}
                   </p>
                 )}
@@ -363,7 +363,7 @@ export default function ProfileClient({
                     Pisces:      "https://upload.wikimedia.org/wikipedia/commons/2/21/Pisces_symbol_%28fixed_width%29.svg",
                   };
                   return (
-                    <p style={{ fontFamily: MONO, fontSize: "12px", letterSpacing: "0.04em", color: MUTED, margin: "0 0 6px 0", display: "flex", alignItems: "center", gap: "6px" }}>
+                    <p style={{ fontFamily: MONO, fontSize: "12px", letterSpacing: "0.04em", color: MUTED, margin: "0 0 16px 0", display: "flex", alignItems: "center", gap: "6px" }}>
                       {SIGN_SVG[sign] && (
                         // eslint-disable-next-line @next/next/no-img-element
                         <img src={SIGN_SVG[sign]} alt={sign} style={{ height: "18px", width: "auto", opacity: 0.5 }} />
