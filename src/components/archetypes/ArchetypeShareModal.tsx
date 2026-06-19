@@ -58,56 +58,54 @@ function PortraitCard({ archetypeId, score, username, forExport }: CardProps) {
   const color       = def?.color ?? ORANGE;
   const jungPrimary = def ? def.jungianRoot.split("·")[0].trim() : "";
   const desire      = JUNG_CORE_DESIRES[jungPrimary] ?? null;
-  const PHOTO_W     = 220;
+  const IMG_H       = 172;
 
   return (
     <div style={{
       width: 540, height: 675, background: BG,
-      display: "flex", overflow: "hidden",
+      display: "flex", flexDirection: "column", overflow: "hidden",
     }}>
 
-      {/* Left: photo — full card height, 3:4 source crops to top-center */}
+      {/* Top section: branding + heading */}
+      <div style={{ padding: "20px 26px 16px", flexShrink: 0 }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 14 }}>
+          <div style={{ fontFamily: SERIF, fontSize: 21, fontWeight: 600, color: INK, lineHeight: 1 }}>
+            rek<span style={{ color: ORANGE }}>ō</span>do
+          </div>
+          <div style={{ fontFamily: MONO, fontSize: 9, color: MUTED, letterSpacing: "0.08em" }}>rekodo.co</div>
+        </div>
+        <div style={{ fontFamily: SERIF, fontSize: 22, fontWeight: 600, color: INK, lineHeight: 1.3, marginBottom: 10 }}>
+          What your collection says about you.
+        </div>
+        <div style={{ fontFamily: MONO, fontSize: 7, color: ORANGE, textTransform: "uppercase", letterSpacing: "0.12em" }}>
+          Primary Archetype
+        </div>
+      </div>
+
+      {/* Image strip — full card width, no side padding */}
       {forExport ? (
-        <div data-archetype-image style={{ width: PHOTO_W, height: 675, flexShrink: 0, backgroundColor: "#e5e2dc" }} />
+        <div data-archetype-image style={{ width: 540, height: IMG_H, flexShrink: 0, backgroundColor: "#e5e2dc" }} />
       ) : (
         // eslint-disable-next-line @next/next/no-img-element
         <img
           src={def?.imagePath} alt={def?.name}
-          style={{ width: PHOTO_W, height: 675, flexShrink: 0, objectFit: "cover", objectPosition: "center top", display: "block" }}
+          style={{ width: 540, height: IMG_H, flexShrink: 0, objectFit: "cover", objectPosition: "center top", display: "block" }}
         />
       )}
 
-      {/* Right: all content */}
+      {/* Bottom section: archetype content */}
       <div style={{
         flex: 1, display: "flex", flexDirection: "column",
         justifyContent: "space-between",
-        padding: "20px 20px 20px 18px", overflow: "hidden",
+        padding: "16px 26px 20px", overflow: "hidden",
       }}>
 
-        {/* Branding */}
+        {/* Archetype name + score */}
         <div>
-          <div style={{ fontFamily: SERIF, fontSize: 19, fontWeight: 600, color: INK, lineHeight: 1, marginBottom: 4 }}>
-            rek<span style={{ color: ORANGE }}>ō</span>do
-          </div>
-          <div style={{ fontFamily: MONO, fontSize: 9, color: MUTED, letterSpacing: "0.08em" }}>
-            rekodo.co
-          </div>
-        </div>
-
-        {/* Page title */}
-        <div style={{ fontFamily: SERIF, fontSize: 22, fontWeight: 600, color: INK, lineHeight: 1.3 }}>
-          What your collection says about you.
-        </div>
-
-        {/* Primary archetype block */}
-        <div>
-          <div style={{ fontFamily: MONO, fontSize: 7, color: ORANGE, textTransform: "uppercase", letterSpacing: "0.12em", marginBottom: 5 }}>
-            Primary Archetype
-          </div>
-          <div style={{ fontFamily: SERIF, fontSize: 17, fontWeight: 600, color, lineHeight: 1.1, marginBottom: 2 }}>
+          <div style={{ fontFamily: SERIF, fontSize: 18, fontWeight: 600, color, lineHeight: 1.1, marginBottom: 2 }}>
             {def?.name}
           </div>
-          <div style={{ fontFamily: MONO, fontSize: 10, color: MUTED, letterSpacing: "0.04em", marginBottom: 8 }}>
+          <div style={{ fontFamily: MONO, fontSize: 10, color: MUTED, letterSpacing: "0.04em", marginBottom: 10 }}>
             {def?.japanese}
           </div>
           <div style={{ width: "100%", height: 2, background: "#e5e2dc", marginBottom: 4 }}>
@@ -118,7 +116,7 @@ function PortraitCard({ archetypeId, score, username, forExport }: CardProps) {
             <div style={{ fontFamily: MONO, fontSize: 8, color: MUTED }}>Jung: {jungPrimary}</div>
           </div>
           {desire && (
-            <div style={{ fontFamily: MONO, fontSize: 8, fontStyle: "italic", color: MUTED, lineHeight: 1.5, marginBottom: 8, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}>
+            <div style={{ fontFamily: MONO, fontSize: 8, fontStyle: "italic", color: MUTED, lineHeight: 1.5, marginBottom: 6, display: "-webkit-box", WebkitLineClamp: 1, WebkitBoxOrient: "vertical", overflow: "hidden" }}>
               &ldquo;{desire}&rdquo;
             </div>
           )}
@@ -129,15 +127,13 @@ function PortraitCard({ archetypeId, score, username, forExport }: CardProps) {
 
         {/* Sentence */}
         <div style={{ paddingLeft: 8, borderLeft: `2px solid ${color}` }}>
-          <div style={{ fontFamily: SERIF, fontSize: 10, fontStyle: "italic", color: INK, lineHeight: 1.55, display: "-webkit-box", WebkitLineClamp: 4, WebkitBoxOrient: "vertical", overflow: "hidden" }}>
+          <div style={{ fontFamily: SERIF, fontSize: 10, fontStyle: "italic", color: INK, lineHeight: 1.55, display: "-webkit-box", WebkitLineClamp: 3, WebkitBoxOrient: "vertical", overflow: "hidden" }}>
             &ldquo;{def?.sentence}&rdquo;
           </div>
         </div>
 
         {/* Footer */}
-        <div>
-          <div style={{ fontFamily: MONO, fontSize: 9, color: MUTED, letterSpacing: "0.1em" }}>@{username}</div>
-        </div>
+        <div style={{ fontFamily: MONO, fontSize: 9, color: MUTED, letterSpacing: "0.1em" }}>@{username}</div>
 
       </div>
     </div>
