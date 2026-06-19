@@ -186,6 +186,8 @@ export default function ArchetypesClient({ userId, username, displayLabel, avata
             onClose={() => setShowShare(false)}
             archetypeId={data.primary}
             score={data.primaryScore}
+            shadowId={data.shadow}
+            shadowScore={data.scores[data.shadow] ?? 0}
             username={username}
           />
         )}
