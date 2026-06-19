@@ -12,7 +12,6 @@ const BG     = "#FDF6F0";
 const ORANGE = "#CC5500";
 const INK    = "#0d0d0d";
 const MUTED  = "#888888";
-const RULE   = "#e0e0da";
 
 interface CardProps {
   archetypeId:  string;
@@ -50,106 +49,134 @@ async function loadArchetypeImage(imagePath: string): Promise<string | null> {
   }
 }
 
-// ── Landscape card ────────────────────────────────────────────────────────
+function hexToMuted(hex: string): string {
+  const r   = parseInt(hex.slice(1, 3), 16);
+  const g   = parseInt(hex.slice(3, 5), 16);
+  const b   = parseInt(hex.slice(5, 7), 16);
+  const avg = Math.round((r * 0.299 + g * 0.587 + b * 0.114) * 0.5 + 140);
+  return `rgb(${avg},${avg},${avg})`;
+}
+
+// ── Card ─────────────────────────────────────────────────────────────────
 // DOM: 600×314  →  export: 1200×628 (pixelRatio 2)
-// Three columns: branding left (138px) | photo (234px) | content right (~227px)
+// Left col: branding + photo (160px) | Right col: all content (440px)
 
 function LandscapeCard({ archetypeId, score, shadowId, shadowScore, username, forExport }: CardProps) {
   const def         = ARCHETYPES[archetypeId];
   const shadow      = ARCHETYPES[shadowId];
   const color       = def?.color    ?? ORANGE;
-  const shadowColor = shadow?.color ?? MUTED;
-  const jungPrimary = def ? def.jungianRoot.split("·")[0].trim() : "";
-  const BRAND_W     = 138;
-  const PHOTO_W     = 234;
+  const shadowColor = shadow ? hexToMuted(shadow.color) : MUTED;
+  const jungPrimary = def    ? def.jungianRoot.split("·")[0].trim()    : "";
+  const jungShadow  = shadow ? shadow.jungianRoot.split("·")[0].trim() : "";
+  const desirePrimary = JUNG_CORE_DESIRES[jungPrimary] ?? null;
+  const desireShadow  = JUNG_CORE_DESIRES[jungShadow]  ?? null;
+  const PHOTO_W = 160;
 
   return (
-    <div style={{
-      width: 600, height: 314, background: BG,
-      display: "flex", overflow: "hidden",
-    }}>
+    <div style={{ width: 600, height: 314, background: BG, display: "flex", overflow: "hidden" }}>
 
-      {/* Left: branding */}
+      {/* Left: branding + photo + footer */}
       <div style={{
-        width: BRAND_W, flexShrink: 0,
-        display: "flex", flexDirection: "column", justifyContent: "space-between",
-        padding: "18px 14px", borderRight: `1px solid ${RULE}`,
-        boxSizing: "border-box", overflow: "hidden",
+        width: PHOTO_W, flexShrink: 0,
+        display: "flex", flexDirection: "column",
+        padding: "14px 10px",
+        boxSizing: "border-box",
       }}>
-        <div>
-          <div style={{ fontFamily: SERIF, fontSize: 19, fontWeight: 600, color: INK, lineHeight: 1, marginBottom: 10 }}>
-            rek<span style={{ color: ORANGE }}>ō</span>do
-          </div>
-          <div style={{ fontFamily: SERIF, fontSize: 10, color: INK, lineHeight: 1.45 }}>
-            What your collection says about you.
-          </div>
+        <div style={{ fontFamily: SERIF, fontSize: 16, fontWeight: 600, color: INK, lineHeight: 1, marginBottom: 10, flexShrink: 0 }}>
+          rek<span style={{ color: ORANGE }}>ō</span>do
         </div>
-        <div>
-          <div style={{ fontFamily: MONO, fontSize: 8, color: MUTED, letterSpacing: "0.07em", marginBottom: 3 }}>@{username}</div>
-          <div style={{ fontFamily: MONO, fontSize: 9, color: "#bbb", letterSpacing: "0.07em" }}>rekodo.co</div>
+
+        {/* Photo — export uses gray placeholder for canvas compositing */}
+        {forExport ? (
+          <div data-archetype-image style={{ flex: 1, minHeight: 0, backgroundColor: "#e5e2dc" }} />
+        ) : (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={def?.imagePath} alt={def?.name}
+            style={{ flex: 1, minHeight: 0, objectFit: "cover", objectPosition: "center top", display: "block", width: "100%" }}
+          />
+        )}
+
+        <div style={{ flexShrink: 0, marginTop: 8 }}>
+          <div style={{ fontFamily: MONO, fontSize: 7, color: MUTED, letterSpacing: "0.07em", marginBottom: 2 }}>@{username}</div>
+          <div style={{ fontFamily: MONO, fontSize: 7, color: "#ccc", letterSpacing: "0.07em" }}>rekodo.co</div>
         </div>
       </div>
 
-      {/* Centre: photo — export uses gray placeholder for canvas compositing */}
-      {forExport ? (
-        <div data-archetype-image style={{ width: PHOTO_W, height: 314, flexShrink: 0, backgroundColor: "#e5e2dc" }} />
-      ) : (
-        // eslint-disable-next-line @next/next/no-img-element
-        <img
-          src={def?.imagePath} alt={def?.name}
-          style={{ width: PHOTO_W, height: 314, flexShrink: 0, objectFit: "cover", objectPosition: "center top", display: "block" }}
-        />
-      )}
-
-      {/* Right: content */}
+      {/* Right: all content */}
       <div style={{
-        flex: 1, display: "flex", flexDirection: "column",
+        flex: 1,
+        display: "flex", flexDirection: "column",
         justifyContent: "space-between",
-        padding: "16px 14px", overflow: "hidden",
-        borderLeft: `1px solid ${RULE}`,
+        padding: "14px 16px 14px 12px",
+        overflow: "hidden",
       }}>
 
-        {/* Primary archetype */}
+        {/* Primary archetype block */}
         <div>
-          <div style={{ fontFamily: MONO, fontSize: 6, color: ORANGE, textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 4 }}>
+          <div style={{ fontFamily: MONO, fontSize: 6, color: ORANGE, textTransform: "uppercase", letterSpacing: "0.12em", marginBottom: 3 }}>
             Primary
           </div>
-          <div style={{ fontFamily: SERIF, fontSize: 14, fontWeight: 600, color, lineHeight: 1.1, marginBottom: 2 }}>
+          <div style={{ fontFamily: SERIF, fontSize: 13, fontWeight: 700, color, lineHeight: 1.1, marginBottom: 2 }}>
             {def?.name}
           </div>
-          <div style={{ fontFamily: MONO, fontSize: 8, color: MUTED, letterSpacing: "0.04em", marginBottom: 6 }}>
+          <div style={{ fontFamily: MONO, fontSize: 7, color: MUTED, letterSpacing: "0.04em", marginBottom: 6 }}>
             {def?.japanese}
           </div>
-          <div style={{ width: "100%", height: 2, background: "#e5e2dc", marginBottom: 3 }}>
+          <div style={{ width: 60, height: 2, background: "#e5e2dc", marginBottom: 3 }}>
             <div style={{ width: `${score}%`, height: "100%", background: color }} />
           </div>
-          <div style={{ display: "flex", justifyContent: "space-between" }}>
-            <div style={{ fontFamily: MONO, fontSize: 8, fontWeight: 700, color }}>{score} / 100</div>
-            <div style={{ fontFamily: MONO, fontSize: 6, color: MUTED }}>Jung: {jungPrimary}</div>
+          <div style={{ fontFamily: MONO, fontSize: 8, fontWeight: 700, color, marginBottom: 3 }}>
+            {score} / 100
+          </div>
+          <div style={{ fontFamily: MONO, fontSize: 7, color: MUTED, marginBottom: 2 }}>
+            Jung: {jungPrimary}
+          </div>
+          {desirePrimary && (
+            <div style={{ fontFamily: MONO, fontSize: 7, fontStyle: "italic", color: MUTED, lineHeight: 1.45 }}>
+              &ldquo;{desirePrimary}&rdquo;
+            </div>
+          )}
+        </div>
+
+        {/* Archetype description */}
+        <div>
+          <div style={{ fontFamily: MONO, fontSize: 6, color: ORANGE, textTransform: "uppercase", letterSpacing: "0.12em", marginBottom: 3 }}>
+            {def?.name} Archetype
+          </div>
+          <div style={{ fontFamily: MONO, fontSize: 7, color: MUTED, lineHeight: 1.5, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}>
+            {def?.shortDescription}
           </div>
         </div>
 
-        {/* Separator */}
-        <div style={{ height: 1, background: RULE, flexShrink: 0 }} />
-
-        {/* Shadow archetype */}
+        {/* Shadow archetype block */}
         <div>
-          <div style={{ fontFamily: MONO, fontSize: 6, color: MUTED, textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 4 }}>
+          <div style={{ fontFamily: MONO, fontSize: 6, color: MUTED, textTransform: "uppercase", letterSpacing: "0.12em", marginBottom: 3 }}>
             Shadow Side
           </div>
-          <div style={{ fontFamily: SERIF, fontSize: 13, fontWeight: 600, color: shadowColor, lineHeight: 1.1, marginBottom: 2 }}>
+          <div style={{ fontFamily: SERIF, fontSize: 12, fontWeight: 700, color: shadowColor, lineHeight: 1.1, marginBottom: 2 }}>
             {shadow?.name}
           </div>
-          <div style={{ fontFamily: MONO, fontSize: 8, color: MUTED, letterSpacing: "0.04em", marginBottom: 6 }}>
+          <div style={{ fontFamily: MONO, fontSize: 7, color: MUTED, letterSpacing: "0.04em", marginBottom: 6 }}>
             {shadow?.japanese}
           </div>
-          <div style={{ width: "100%", height: 2, background: "#e5e2dc", marginBottom: 3 }}>
+          <div style={{ width: 60, height: 2, background: "#e5e2dc", marginBottom: 3 }}>
             <div style={{ width: `${shadowScore}%`, height: "100%", background: shadowColor }} />
           </div>
-          <div style={{ fontFamily: MONO, fontSize: 8, fontWeight: 700, color: shadowColor }}>{shadowScore} / 100</div>
+          <div style={{ fontFamily: MONO, fontSize: 8, fontWeight: 700, color: shadowColor, marginBottom: 3 }}>
+            {shadowScore} / 100
+          </div>
+          <div style={{ fontFamily: MONO, fontSize: 7, color: MUTED, marginBottom: 2 }}>
+            Jung: {jungShadow}
+          </div>
+          {desireShadow && (
+            <div style={{ fontFamily: MONO, fontSize: 7, fontStyle: "italic", color: MUTED, lineHeight: 1.45 }}>
+              &ldquo;{desireShadow}&rdquo;
+            </div>
+          )}
         </div>
 
-        {/* Sentence */}
+        {/* Archetypal sentence */}
         <div style={{ paddingLeft: 6, borderLeft: `2px solid ${color}` }}>
           <div style={{ fontFamily: SERIF, fontSize: 8, fontStyle: "italic", color: INK, lineHeight: 1.55, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}>
             &ldquo;{def?.sentence}&rdquo;
@@ -180,23 +207,20 @@ export default function ArchetypeShareModal({ onClose, archetypeId, score, shado
     });
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Mirrors the exact approach used in ShareModal (Top5) which is known to work:
-  // 1. toPng captures layout with gray placeholder
-  // 2. BCR measured AFTER toPng
-  // 3. Image drawn onto canvas with simple stretch (slot ~= image aspect ratio)
+  // Mirrors Top5 ShareModal pattern: toPng first, BCR after, ctx.drawImage stretch
   async function buildCanvas(): Promise<HTMLCanvasElement | null> {
     if (!exportRef.current) return null;
     await document.fonts.ready;
 
-    const PR = 2;
+    const PR       = 2;
     const naturalW = exportRef.current.offsetWidth;
     const naturalH = exportRef.current.offsetHeight;
 
     const layoutDataUrl = await toPng(exportRef.current, { pixelRatio: PR });
 
-    const cardBCR  = exportRef.current.getBoundingClientRect();
-    const slot     = exportRef.current.querySelector<HTMLElement>("[data-archetype-image]");
-    const slotBCR  = slot?.getBoundingClientRect();
+    const cardBCR = exportRef.current.getBoundingClientRect();
+    const slot    = exportRef.current.querySelector<HTMLElement>("[data-archetype-image]");
+    const slotBCR = slot?.getBoundingClientRect();
 
     const canvas = document.createElement("canvas");
     canvas.width  = naturalW * PR;
@@ -273,7 +297,7 @@ export default function ArchetypeShareModal({ onClose, archetypeId, score, shado
       onClick={e => { if (e.target === e.currentTarget) onClose(); }}
       style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", zIndex: 300, display: "flex", alignItems: "center", justifyContent: "center", padding: "24px" }}
     >
-      {/* Off-screen export card — natural size, used by toPng */}
+      {/* Off-screen export card — natural size, no transforms */}
       <div style={{ position: "fixed", left: -9999, top: -9999, zIndex: -1, overflow: "hidden" }}>
         <div ref={exportRef}>
           <LandscapeCard {...cardProps} forExport />
@@ -287,9 +311,9 @@ export default function ArchetypeShareModal({ onClose, archetypeId, score, shado
           <button onClick={onClose} style={{ fontFamily: UI_MONO, fontSize: "18px", color: "#aaa", background: "none", border: "none", cursor: "pointer", lineHeight: 1, padding: 0 }}>×</button>
         </div>
 
-        <div style={{ flex: 1, overflowY: "auto", padding: "16px", display: "flex", justifyContent: "center" }}>
+        <div style={{ flex: 1, overflowY: "auto", padding: "16px", display: "flex", justifyContent: "center", alignItems: "center" }}>
           {!imageLoaded ? (
-            <p style={{ fontFamily: UI_MONO, fontSize: "10px", color: "#aaa", letterSpacing: "0.06em", alignSelf: "center" }}>Loading…</p>
+            <p style={{ fontFamily: UI_MONO, fontSize: "10px", color: "#aaa", letterSpacing: "0.06em" }}>Loading…</p>
           ) : (
             <div style={{ width: PRV_W, height: PRV_H, overflow: "hidden", flexShrink: 0, border: "1px solid rgba(0,0,0,0.08)" }}>
               <div style={{ transform: `scale(${SCALE})`, transformOrigin: "top left", display: "inline-block" }}>
