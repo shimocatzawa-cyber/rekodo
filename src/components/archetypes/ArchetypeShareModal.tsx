@@ -53,7 +53,7 @@ async function loadArchetypeImage(imagePath: string): Promise<string | null> {
 // DOM: 540×675  →  export: 1080×1350 (pixelRatio 2)
 // Two columns: photo left (220px, full bleed) | content right
 
-function PortraitCard({ archetypeId, score, username, forExport }: CardProps) {
+function PortraitCard({ archetypeId, score, username, imageDataUrl, forExport }: CardProps) {
   const def         = ARCHETYPES[archetypeId];
   const color       = def?.color ?? ORANGE;
   const jungPrimary = def ? def.jungianRoot.split("·")[0].trim() : "";
@@ -84,7 +84,10 @@ function PortraitCard({ archetypeId, score, username, forExport }: CardProps) {
 
       {/* Image strip — full card width, no side padding */}
       {forExport ? (
-        <div data-archetype-image style={{ width: 540, height: IMG_H, flexShrink: 0, backgroundColor: "#e5e2dc" }} />
+        imageDataUrl
+          // eslint-disable-next-line @next/next/no-img-element
+          ? <img src={imageDataUrl} alt={def?.name} style={{ width: 540, height: IMG_H, flexShrink: 0, objectFit: "cover", objectPosition: "center top", display: "block" }} />
+          : <div data-archetype-image style={{ width: 540, height: IMG_H, flexShrink: 0, backgroundColor: "#e5e2dc" }} />
       ) : (
         // eslint-disable-next-line @next/next/no-img-element
         <img
@@ -144,7 +147,7 @@ function PortraitCard({ archetypeId, score, username, forExport }: CardProps) {
 // DOM: 600×314  →  export: 1200×628 (pixelRatio 2)
 // Three columns: branding left | photo centre (3:4 at 314px height ≈ 235px wide, minimal crop) | content right
 
-function LandscapeCard({ archetypeId, score, username, forExport }: CardProps) {
+function LandscapeCard({ archetypeId, score, username, imageDataUrl, forExport }: CardProps) {
   const def         = ARCHETYPES[archetypeId];
   const color       = def?.color ?? ORANGE;
   const jungPrimary = def ? def.jungianRoot.split("·")[0].trim() : "";
@@ -182,7 +185,10 @@ function LandscapeCard({ archetypeId, score, username, forExport }: CardProps) {
 
       {/* Centre: photo — 3:4 source at 314px height needs ~235px width, minimal crop */}
       {forExport ? (
-        <div data-archetype-image style={{ width: PHOTO_W, height: 314, flexShrink: 0, backgroundColor: "#e5e2dc" }} />
+        imageDataUrl
+          // eslint-disable-next-line @next/next/no-img-element
+          ? <img src={imageDataUrl} alt={def?.name} style={{ width: PHOTO_W, height: 314, flexShrink: 0, objectFit: "cover", objectPosition: "center top", display: "block" }} />
+          : <div data-archetype-image style={{ width: PHOTO_W, height: 314, flexShrink: 0, backgroundColor: "#e5e2dc" }} />
       ) : (
         // eslint-disable-next-line @next/next/no-img-element
         <img
@@ -267,9 +273,11 @@ export default function ArchetypeShareModal({ onClose, archetypeId, score, usern
     const naturalW = exportRef.current.offsetWidth;
     const naturalH = exportRef.current.offsetHeight;
 
-    // Measure BCR before toPng — toPng is async and can cause reflows that shift the element
-    const cardBCR   = exportRef.current.getBoundingClientRect();
-    const imageSlot = exportRef.current.querySelector<HTMLElement>("[data-archetype-image]");
+    // When imageDataUrl is available the export card already renders a real <img>
+    // with a data-URL src, so toPng captures it correctly — no compositing needed.
+    // Only fall back to canvas compositing when imageDataUrl is null (fetch failed).
+    const cardBCR   = imageDataUrl ? null : exportRef.current.getBoundingClientRect();
+    const imageSlot = imageDataUrl ? null : exportRef.current.querySelector<HTMLElement>("[data-archetype-image]");
     const slotBCR   = imageSlot?.getBoundingClientRect() ?? null;
 
     const layoutDataUrl = await toPng(exportRef.current, { pixelRatio: PR });
@@ -286,39 +294,43 @@ export default function ArchetypeShareModal({ onClose, archetypeId, score, usern
       img.src = layoutDataUrl;
     });
 
-    if (slotBCR && imageDataUrl) {
+    // Fallback: composite image onto the gray placeholder when imageDataUrl was null
+    if (!imageDataUrl && slotBCR && cardBCR) {
       const x = slotBCR.left - cardBCR.left;
       const y = slotBCR.top  - cardBCR.top;
       const r = slotBCR;
-      await new Promise<void>(resolve => {
-        const img = new Image();
-        img.onload  = () => {
-          // Draw image with cover behaviour: scale to fill slot, anchor top-center
-          const slotW = r.width  * PR;
-          const slotH = r.height * PR;
-          const imgAspect  = 1440 / 1920; // known 3:4
-          const slotAspect = slotW / slotH;
-          let drawW: number, drawH: number, offX: number, offY: number;
-          if (slotAspect > imgAspect) {
-            drawW = slotW;
-            drawH = slotW / imgAspect;
-          } else {
-            drawH = slotH;
-            drawW = slotH * imgAspect;
-          }
-          offX = (slotW - drawW) / 2; // centre horizontally
-          offY = 0;                    // anchor top
-          ctx.save();
-          ctx.beginPath();
-          ctx.rect(x * PR, y * PR, slotW, slotH);
-          ctx.clip();
-          ctx.drawImage(img, x * PR + offX, y * PR + offY, drawW, drawH);
-          ctx.restore();
-          resolve();
-        };
-        img.onerror = () => resolve();
-        img.src = imageDataUrl;
-      });
+      const fallbackUrl = def?.imagePath;
+      if (fallbackUrl) {
+        await new Promise<void>(resolve => {
+          const img = new Image();
+          img.onload  = () => {
+            // Draw image with cover behaviour: scale to fill slot, anchor top-center
+            const slotW = r.width  * PR;
+            const slotH = r.height * PR;
+            const imgAspect  = 1440 / 1920; // known 3:4
+            const slotAspect = slotW / slotH;
+            let drawW: number, drawH: number, offX: number, offY: number;
+            if (slotAspect > imgAspect) {
+              drawW = slotW;
+              drawH = slotW / imgAspect;
+            } else {
+              drawH = slotH;
+              drawW = slotH * imgAspect;
+            }
+            offX = (slotW - drawW) / 2; // centre horizontally
+            offY = 0;                    // anchor top
+            ctx.save();
+            ctx.beginPath();
+            ctx.rect(x * PR, y * PR, slotW, slotH);
+            ctx.clip();
+            ctx.drawImage(img, x * PR + offX, y * PR + offY, drawW, drawH);
+            ctx.restore();
+            resolve();
+          };
+          img.onerror = () => resolve();
+          img.src = fallbackUrl;
+        });
+      }
     }
 
     return canvas;
