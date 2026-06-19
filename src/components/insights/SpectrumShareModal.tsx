@@ -42,9 +42,6 @@ function SpectrumCard({ username, spectrum }: { username: string; spectrum: Spec
       {/* Top row: title left | rekōdo + rekodo.co right — same as Top5 portrait */}
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 22, flexShrink: 0 }}>
         <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ fontFamily: MONO, fontSize: 9, letterSpacing: "0.16em", textTransform: "uppercase", color: ORANGE, marginBottom: 7 }}>
-            Taste Profile
-          </div>
           <div style={{ fontFamily: SERIF, fontSize: 24, fontWeight: 600, color: INK, lineHeight: 1.2 }}>
             Spectrum Dimensions
           </div>
