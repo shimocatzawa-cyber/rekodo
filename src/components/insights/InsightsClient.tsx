@@ -261,25 +261,27 @@ export default function InsightsClient({
     if (!raw) return null;
     try { return JSON.parse(raw) as RecData; } catch { return null; }
   }
+  const [localTasteSummary, setLocalTasteSummary] = useState<string | null>(tasteSummary);
   const [recCoverUrl, setRecCoverUrl] = useState<string | null>(null);
   const [summaryPending, startSummaryTransition] = useTransition();
   const [summaryError, setSummaryError] = useState<string | null>(null);
 
   useEffect(() => {
-    const rec = parseRec(tasteSummary);
+    const rec = parseRec(localTasteSummary);
     if (!rec?.artist || !rec?.album) return;
+    setRecCoverUrl(null);
     fetch(`/api/deep-dive/album-art?artist=${encodeURIComponent(rec.artist)}&album=${encodeURIComponent(rec.album)}`)
       .then(r => r.ok ? r.json() : null)
       .then((d: { url?: string | null } | null) => { if (d?.url) setRecCoverUrl(d.url); })
       .catch(() => {});
-  }, [tasteSummary]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [localTasteSummary]); // eslint-disable-line react-hooks/exhaustive-deps
 
   function handleGenerateSummary() {
     setSummaryError(null);
     startSummaryTransition(async () => {
       const result = await generateTasteSummary(profileId, starSign ?? "");
       if ("error" in result) { setSummaryError(result.error); return; }
-      window.location.reload();
+      setLocalTasteSummary(result.summary);
     });
   }
 
@@ -849,8 +851,8 @@ export default function InsightsClient({
                   <img src={SIGN_SYMBOL[starSign]} alt={starSign} style={{ height: "14px", width: "auto", opacity: 0.3 }} />
                 )}
               </div>
-              {tasteSummary ? (() => {
-                const rec = parseRec(tasteSummary);
+              {localTasteSummary ? (() => {
+                const rec = parseRec(localTasteSummary);
                 return (
                   <>
                     <div style={{ padding: "0 0 18px", display: "grid", gridTemplateColumns: "56px 1fr", gap: "18px", alignItems: "start" }}>
