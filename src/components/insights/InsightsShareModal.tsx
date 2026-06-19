@@ -62,12 +62,12 @@ function Anchor({
   valSize?: string; valColor?: string; labelBelow?: boolean;
 }) {
   const labelEl = (
-    <div style={{ fontFamily: MONO, fontSize: "0.5rem", color: MUTED, letterSpacing: "0.12em", textTransform: "uppercase", lineHeight: 1.4 }}>
+    <div style={{ fontFamily: MONO, fontSize: "0.5rem", color: MUTED, letterSpacing: "0.12em", textTransform: "uppercase", lineHeight: 1.4, whiteSpace: "pre-line" }}>
       {label}
     </div>
   );
   const valueEl = (
-    <div style={{ fontFamily: SERIF, fontSize: valSize, fontWeight: 600, color: valColor, lineHeight: 1.15, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+    <div style={{ fontFamily: SERIF, fontSize: valSize, fontWeight: 600, color: valColor, lineHeight: 1.15, overflowX: "hidden", overflowY: "visible", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
       {value}
     </div>
   );
@@ -183,7 +183,7 @@ function ProfileCard({ username, avatarSrc, totalRecords, topGenre, mostPopularY
           style={{ top: CY, left: 0, width: CX - R - 8, textAlign: "right", transform: "translateY(-50%)" }} />
 
         {/* ── NW: Collected Countries — bottom-right at (131-8, 111) ── */}
-        <Anchor label="Collected Countries" value={countryCount > 0 ? String(countryCount) : "—"}
+        <Anchor label={"Collected\nCountries"} value={countryCount > 0 ? String(countryCount) : "—"}
           style={{ bottom: 480 - (CY - D45), left: 0, width: CX - D45 - 8, textAlign: "right" }} />
 
       </div>{/* end radial */}
