@@ -119,7 +119,9 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ ok: true });
     }
 
-    if (spotifyRes.status === 404 && attempt < 4) {
+    // 404 = device not yet registered; 500 = Spotify backend conflict (e.g.
+    // pause/play race when switching artists). Both resolve on retry.
+    if ((spotifyRes.status === 404 || spotifyRes.status === 500) && attempt < 4) {
       await new Promise(r => setTimeout(r, 500 + attempt * 500));
       continue;
     }
