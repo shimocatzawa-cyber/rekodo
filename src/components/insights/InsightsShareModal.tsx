@@ -40,53 +40,63 @@ function ProfileCard({ username, totalRecords, topGenre, topDecade, topArtist, t
   return (
     <div style={{
       width: 540, height: 675, background: BG,
-      boxSizing: "border-box", padding: "20px 26px",
+      boxSizing: "border-box", padding: "24px 28px",
       display: "flex", flexDirection: "column",
       overflow: "hidden",
     }}>
 
-      {/* Top row — mirrors Top5 share card header */}
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 20, flexShrink: 0 }}>
-        <div style={{ flex: 1, minWidth: 0, paddingRight: 12 }}>
-          <div style={{ fontFamily: SERIF, fontSize: 26, fontWeight: 600, color: INK, lineHeight: 1.2, marginBottom: 5 }}>
+      {/* Top row */}
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 28, flexShrink: 0 }}>
+        <div>
+          <div style={{ fontFamily: SERIF, fontSize: 24, fontWeight: 600, color: INK, lineHeight: 1.15 }}>
             Collection Profile
           </div>
-          <div style={{ fontFamily: MONO, fontSize: 9, color: ORANGE, letterSpacing: "0.1em" }}>
-            @{username}
-          </div>
         </div>
-        <div style={{ flexShrink: 0, textAlign: "right", paddingTop: 3 }}>
-          <div style={{ fontFamily: SERIF, fontSize: 21, fontWeight: 600, color: INK, lineHeight: 1, marginBottom: 5 }}>
+        <div style={{ flexShrink: 0, textAlign: "right", paddingTop: 2 }}>
+          <div style={{ fontFamily: SERIF, fontSize: 19, fontWeight: 600, color: INK, lineHeight: 1, marginBottom: 4 }}>
             rek<span style={{ color: ORANGE }}>ō</span>do
           </div>
-          <div style={{ fontFamily: MONO, fontSize: 10, color: MUTED, letterSpacing: "0.08em" }}>
+          <div style={{ fontFamily: MONO, fontSize: 9, color: MUTED, letterSpacing: "0.08em" }}>
             rekodo.co
           </div>
         </div>
       </div>
 
       {/* Hero stat */}
-      <div style={{ flexShrink: 0, marginBottom: 28 }}>
-        <div style={{ fontFamily: SERIF, fontSize: 56, fontWeight: 400, color: INK, lineHeight: 1, letterSpacing: "-0.02em" }}>
+      <div style={{ flexShrink: 0, marginBottom: 32 }}>
+        <div style={{ fontFamily: SERIF, fontSize: 64, fontWeight: 400, color: INK, lineHeight: 1, letterSpacing: "-0.02em" }}>
           {totalRecords.toLocaleString()}
         </div>
-        <div style={{ fontFamily: MONO, fontSize: 9, color: ORANGE, letterSpacing: "0.12em", textTransform: "uppercase", marginTop: 6 }}>
+        <div style={{ fontFamily: MONO, fontSize: 9, color: ORANGE, letterSpacing: "0.12em", textTransform: "uppercase", marginTop: 8 }}>
           Releases
         </div>
       </div>
 
-      {/* Stats — flex column, space-between fills remaining height */}
-      <div style={{ flex: 1, display: "flex", flexDirection: "column", justifyContent: "space-between" }}>
+      {/* Stats — fixed gap, no stretching */}
+      <div style={{ flexShrink: 0, display: "flex", flexDirection: "column", gap: 20 }}>
         {stats.map(({ label, value }) => (
           <div key={label} style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 16 }}>
             <div style={{ fontFamily: MONO, fontSize: 9, color: MUTED, textTransform: "uppercase", letterSpacing: "0.1em", flexShrink: 0 }}>
               {label}
             </div>
-            <div style={{ fontFamily: SERIF, fontSize: 18, fontWeight: 600, color: INK, textAlign: "right", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+            <div style={{ fontFamily: SERIF, fontSize: 17, fontWeight: 600, color: INK, textAlign: "right", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: "55%" }}>
               {value}
             </div>
           </div>
         ))}
+      </div>
+
+      {/* Push footer to bottom */}
+      <div style={{ flex: 1 }} />
+
+      {/* Footer */}
+      <div style={{ flexShrink: 0, display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
+        <div style={{ fontFamily: MONO, fontSize: 9, color: ORANGE, letterSpacing: "0.1em" }}>
+          @{username}
+        </div>
+        <div style={{ fontFamily: MONO, fontSize: 9, color: MUTED, letterSpacing: "0.08em" }}>
+          rekodo.co
+        </div>
       </div>
 
     </div>
