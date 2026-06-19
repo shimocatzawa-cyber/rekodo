@@ -1,3 +1,8 @@
+"use client";
+
+import { useState } from "react";
+import SpectrumShareModal from "@/components/insights/SpectrumShareModal";
+
 const SERIF     = "var(--font-editorial)";
 const MONO      = "var(--font-mono)";
 const ORANGE    = "#CC5500";
@@ -18,6 +23,7 @@ export interface SpectrumData {
 }
 
 interface TasteProfileProps {
+  username:             string;
   styleBreakdown:       { style: string; count: number; pct: number }[];
   hasStyles:            boolean;
   vinylColourBreakdown: { colour: string; count: number; pct: number }[];
@@ -179,9 +185,10 @@ function StyleLegend({ data }: { data: { style: string; count: number; pct: numb
 // ── Main component ─────────────────────────────────────────────────────────────
 
 export default function TasteProfile({
-  styleBreakdown, hasStyles, vinylColourBreakdown, spectrum,
+  username, styleBreakdown, hasStyles, vinylColourBreakdown, spectrum,
   topPlayedRecords, playedStyleBreakdown, usageStats,
 }: TasteProfileProps) {
+  const [showSpectrumShare, setShowSpectrumShare] = useState(false);
   const maxStylePct = styleBreakdown[0]?.pct ?? 100;
 
   const axes: SpectrumAxis[] = [
@@ -310,6 +317,14 @@ export default function TasteProfile({
       <div style={{ borderTop: `1px solid ${RULE}`, margin: "40px 0" }} />
 
       {/* ── Spectrum Dimensions ───────────────────────────────────────────── */}
+      <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 8 }}>
+        <button
+          onClick={() => setShowSpectrumShare(true)}
+          style={{ fontFamily: MONO, fontSize: 10, color: ORANGE, background: "none", border: "none", cursor: "pointer", padding: 0, letterSpacing: "0.06em" }}
+        >
+          Share ↗
+        </button>
+      </div>
       <TasteSectionHeader eyebrow="SPECTRUM DIMENSIONS" title="Where you sit on each axis." />
 
       <div>
@@ -317,6 +332,14 @@ export default function TasteProfile({
           <SpectrumRow key={`${axis.left}-${axis.right}`} {...axis} />
         ))}
       </div>
+
+      {showSpectrumShare && (
+        <SpectrumShareModal
+          onClose={() => setShowSpectrumShare(false)}
+          username={username}
+          spectrum={spectrum}
+        />
+      )}
 
       <div style={{ borderTop: `1px solid ${RULE}`, margin: "40px 0" }} />
 

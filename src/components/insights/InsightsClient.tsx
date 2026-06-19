@@ -903,6 +903,7 @@ export default function InsightsClient({
 
           <div style={{ marginTop: "40px" }}>
             <TasteProfile
+              username={username}
               styleBreakdown={styleBreakdown}
               hasStyles={hasStyles}
               vinylColourBreakdown={vinylColourBreakdown}
