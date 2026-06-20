@@ -2202,6 +2202,11 @@ function TracklistPanel({ tracks, loading, bandcamp, record }: {
         const r1 = await fetch(`https://api.spotify.com/v1/search?q=${q1}&type=album&limit=1`, {
           headers: { Authorization: `Bearer ${token}` },
         });
+        // A non-OK response (e.g. 429 rate limit, 401 expired token) is not the
+        // same as "no match" — don't cache it client-side or write it back to
+        // the DB, or a transient Spotify error permanently poisons the record's
+        // match status for every future visit.
+        if (!r1.ok) { if (!cancelled) setCurrentSpotifyUri(null); return; }
         const d1 = await r1.json() as { albums?: { items?: Array<{ uri: string }> } };
         let uri  = d1?.albums?.items?.[0]?.uri ?? null;
 
@@ -2211,6 +2216,7 @@ function TracklistPanel({ tracks, loading, bandcamp, record }: {
           const r2 = await fetch(`https://api.spotify.com/v1/search?q=${q2}&type=album&limit=1`, {
             headers: { Authorization: `Bearer ${token}` },
           });
+          if (!r2.ok) { if (!cancelled) setCurrentSpotifyUri(null); return; }
           const d2 = await r2.json() as { albums?: { items?: Array<{ uri: string }> } };
           uri = d2?.albums?.items?.[0]?.uri ?? null;
         }
