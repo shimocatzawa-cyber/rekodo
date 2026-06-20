@@ -4,11 +4,17 @@ import { createClient as createDirectClient } from "@supabase/supabase-js";
 import { getSpotifyAccessToken } from "@/lib/spotify";
 
 export const dynamic = "force-dynamic";
-export const maxDuration = 300;
+export const maxDuration = 60;
 
+// Runtime logs showed this function actually getting killed by Vercel's
+// platform timeout well before the previous 250s budget — whatever the real
+// enforced ceiling is here, it's much lower than the declared maxDuration.
+// Keep each invocation short and let the client (which polls/re-triggers
+// every few seconds and has no "frozen after response" failure mode) drive
+// continuation instead of relying on long single passes or server self-chains.
 const SPOTIFY_DELAY_MS = 200; // small gap between calls to avoid bursting
-const TIME_BUDGET_MS = 250_000; // leave ~50s of margin under maxDuration=300
-const FETCH_LIMIT = 500; // pull a generous chunk up front; the time budget bounds actual work, not this
+const TIME_BUDGET_MS = 40_000; // well under maxDuration, even with 429 backoffs
+const FETCH_LIMIT = 100; // a chunk comfortably larger than what 40s can process
 
 type SpotifyTrackJson = {
   spotify_uri: string;

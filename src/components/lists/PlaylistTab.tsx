@@ -52,6 +52,7 @@ export default function PlaylistTab() {
 
   const matchPollRef     = useRef<ReturnType<typeof setInterval> | null>(null);
   const resequenceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const lastMatchTriggerRef = useRef(0);
 
   // ── Spotify connection check ──────────────────────────────────────────────
   useEffect(() => {
@@ -62,6 +63,13 @@ export default function PlaylistTab() {
   }, []);
 
   // ── Trigger + poll lazy Spotify matching ──────────────────────────────────
+  // Each worker invocation only processes a short, time-boxed chunk (server
+  // self-triggering chains aren't reliable on Vercel) — so as long as work
+  // remains, the client re-fires the trigger periodically itself. The browser
+  // doesn't have the "frozen after response" failure mode serverless
+  // functions do, so it's the dependable way to keep progress moving.
+  const MATCH_RETRIGGER_MS = 15_000;
+
   useEffect(() => {
     if (spotifyConnected !== true) return;
 
@@ -70,14 +78,19 @@ export default function PlaylistTab() {
         .then(r => r.json() as Promise<MatchStatus>)
         .then(data => {
           setMatchStatus(data);
-          if (data.pending === 0 && matchPollRef.current) {
-            clearInterval(matchPollRef.current);
-            matchPollRef.current = null;
+          if (data.pending === 0) {
+            if (matchPollRef.current) { clearInterval(matchPollRef.current); matchPollRef.current = null; }
+            return;
+          }
+          if (Date.now() - lastMatchTriggerRef.current > MATCH_RETRIGGER_MS) {
+            lastMatchTriggerRef.current = Date.now();
+            fetch("/api/playlist/match-spotify", { method: "POST" }).catch(() => {});
           }
         })
         .catch(() => {});
     }
 
+    lastMatchTriggerRef.current = Date.now();
     fetch("/api/playlist/match-spotify", { method: "POST" }).catch(() => {});
     poll();
     matchPollRef.current = setInterval(poll, MATCH_POLL_MS);
