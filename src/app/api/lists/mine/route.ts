@@ -83,13 +83,8 @@ export async function GET() {
     const isWantlist = l.slug === "wantlist" || l.slug === "want-to-buy";
     const listType   = (isWantlist ? "personal" : (l.list_type ?? "top5")) as "top5" | "personal";
     const listItems = itemsData.filter(i => i.list_id === l.id);
-    const maxPos    = listType === "top5" ? 5 : listItems.length > 0 ? Math.max(...listItems.map(i => i.position)) : 0;
 
-    const slots: ListSlot[] = Array.from({ length: maxPos }, (_, idx) => {
-      const pos  = idx + 1;
-      const item = listItems.find(i => i.position === pos);
-      if (!item) return { position: pos, item: null };
-
+    function buildSlot(item: typeof listItems[0]): ListSlot {
       const slotMeta = {
         note: item.note ?? null,
         priority: (item.priority as ListSlot["priority"]) ?? null,
@@ -100,10 +95,9 @@ export async function GET() {
         source: item.source ?? null,
         discogs_release_id: item.discogs_release_id ?? null,
       };
-
       if (item.item_type === "song") {
         return {
-          position: pos,
+          position: item.position,
           item: {
             id: item.id, item_type: "song",
             artist: item.song_artist ?? "", album: item.song_album ?? "",
@@ -113,12 +107,11 @@ export async function GET() {
           ...slotMeta,
         };
       }
-
       const r = item.record_id ? recordById.get(item.record_id) : undefined;
-      if (!r && !item.song_artist) return { position: pos, item: null };
+      if (!r && !item.song_artist) return { position: item.position, item: null };
       if (!r) {
         return {
-          position: pos,
+          position: item.position,
           item: {
             id: item.id, item_type: "record",
             artist: item.song_artist ?? "", album: item.song_album ?? "",
@@ -129,7 +122,7 @@ export async function GET() {
         };
       }
       return {
-        position: pos,
+        position: item.position,
         item: {
           id: r.id, item_type: "record",
           artist: r.artist, album: r.album,
@@ -138,7 +131,21 @@ export async function GET() {
         } satisfies SlotItem,
         ...slotMeta,
       };
-    });
+    }
+
+    let slots: ListSlot[];
+    if (isWantlist) {
+      // Return every item — no dedup by position so nothing is hidden
+      slots = [...listItems].sort((a, b) => a.position - b.position).map(buildSlot);
+    } else {
+      const maxPos = listType === "top5" ? 5 : listItems.length > 0 ? Math.max(...listItems.map(i => i.position)) : 0;
+      slots = Array.from({ length: maxPos }, (_, idx) => {
+        const pos  = idx + 1;
+        const item = listItems.find(i => i.position === pos);
+        if (!item) return { position: pos, item: null };
+        return buildSlot(item);
+      });
+    }
 
     return { id: l.id, title: l.title, slug: l.slug, is_public: l.is_public, list_type: listType, slots };
   });

@@ -614,7 +614,7 @@ export default function ProfileListsTab({ initialLists, username, listTypeFilter
                             !keptSomeday.has(slot.position);
                           return (
                             <WantlistCard
-                              key={slot.position}
+                              key={slot.item?.id ?? slot.position}
                               slot={slot}
                               monthsOld={monthsOld}
                               showSomedayPrompt={showSomedayPrompt}
