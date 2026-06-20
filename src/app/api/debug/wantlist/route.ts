@@ -29,7 +29,7 @@ export async function GET() {
   );
 
   // Probe: try inserting a test row with source:"dig" to see the exact error
-  const wantlistId = wantlists[0]?.list?.id ?? null;
+  const wantlistId = wantlists[0]?.id ?? null;
   let insertProbe: { error: string | null; code: string | null } = { error: null, code: null };
   if (wantlistId) {
     const { error: probeErr } = await supabase.from("list_items").insert({
