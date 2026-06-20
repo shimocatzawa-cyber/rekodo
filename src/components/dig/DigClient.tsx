@@ -2,7 +2,6 @@
 
 import { useState, useEffect, useRef } from "react";
 import AppNav from "@/components/AppNav";
-import { addToWantlist } from "@/app/dig/actions";
 import RecordSpinner from "@/components/RecordSpinner";
 import { isAppleMusicUrl, openAppleMusicLink } from "@/lib/openAppleMusic";
 import { useSpotifyPlayback } from "@/components/SpotifyPlayerProvider";
@@ -937,10 +936,15 @@ export default function DigClient({ username, displayLabel, avatarUrl, collectio
     setWantlistAdded(prev => new Set(prev).add(key));
     setWantlistError(null);
     try {
-      const result = await addToWantlist(rec.artist, rec.album, rec.year);
-      if (result?.error) {
+      const res = await fetch("/api/wantlist/dig", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ artist: rec.artist, album: rec.album, year: rec.year ?? null }),
+      });
+      const result = await res.json() as { error?: string };
+      if (!res.ok || result?.error) {
         setWantlistAdded(prev => { const s = new Set(prev); s.delete(key); return s; });
-        setWantlistError(result.error);
+        setWantlistError(result?.error ?? "Failed to add to wantlist");
         setTimeout(() => setWantlistError(null), 4000);
       }
     } catch (e) {
