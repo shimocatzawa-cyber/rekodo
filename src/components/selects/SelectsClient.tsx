@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import AppNav from "@/components/AppNav";
 import { createClient } from "@/lib/supabase/client";
+import { useUrlTab } from "@/lib/useUrlTab";
 import MariaBCSpotlight from "./MariaBCSpotlight";
 import LightInTheAtticSpotlight from "./LightInTheAtticSpotlight";
 
@@ -396,7 +397,7 @@ interface Props {
 // ─── Main component ───────────────────────────────────────────────────────────
 
 export default function SelectsClient({ username, displayLabel, avatarUrl }: Props) {
-  const [activeTab, setActiveTab] = useState<SelectsTab>("artist");
+  const [activeTab, setActiveTab] = useUrlTab<SelectsTab>("tab", TABS.map(t => t.key), "artist");
 
   return (
     <div style={{ minHeight: "100vh", background: "#ffffff" }}>

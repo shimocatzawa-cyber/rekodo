@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef, useMemo } from "react";
 import { createClient } from "@/lib/supabase/client";
 import ArtistPlayer from "@/components/deep-dive/ArtistPlayer";
+import { useUrlTab } from "@/lib/useUrlTab";
 
 const SERIF  = "var(--font-editorial)";
 const MONO   = "var(--font-mono)";
@@ -759,7 +760,7 @@ export default function DeepDiveClient({
 }) {
   const [query, setQuery] = useState("");
   const [selectedArtist, setSelectedArtist] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<Section>("rankings");
+  const [activeTab, setActiveTab] = useUrlTab<Section>("tab", TABS.map(t => t.id), "rankings");
   const [imageMap, setImageMap] = useState<Record<string, string>>({});
   const [cache, setCache] = useState<Record<string, Record<string, unknown>>>({});
   const [loadingTabs, setLoadingTabs] = useState<Record<string, boolean>>({});

@@ -1,7 +1,6 @@
 "use client";
 
-import { useState } from "react";
-import { useSearchParams } from "next/navigation";
+import { useUrlTab } from "@/lib/useUrlTab";
 import AppNav from "@/components/AppNav";
 import Top5Tab from "@/components/lists/Top5Tab";
 import ProfileListsTab from "@/components/profile/ProfileListsTab";
@@ -29,10 +28,7 @@ interface Props {
 }
 
 export default function ListsHub({ profileId, username, displayLabel, avatarUrl, isSupporter }: Props) {
-  const searchParams = useSearchParams();
-  const raw = searchParams.get("tab") as SubTab | null;
-  const initial: SubTab = TABS.some(t => t.key === raw) ? raw! : "top5";
-  const [activeTab, setActiveTab] = useState<SubTab>(initial);
+  const [activeTab, setActiveTab] = useUrlTab<SubTab>("tab", TABS.map(t => t.key), "top5");
 
   // isSupporter kept in Props for potential future use
   void isSupporter;

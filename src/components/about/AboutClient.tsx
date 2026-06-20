@@ -3,6 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import AppNav from "@/components/AppNav";
+import { useUrlTab } from "@/lib/useUrlTab";
 import SupporterContent from "@/components/profile/SupporterContent";
 
 const SERIF  = "var(--font-editorial)";
@@ -40,7 +41,7 @@ export default function AboutClient({
   username, displayLabel, avatarUrl,
   isOwner, isSubscriber, isDonor, userId, success,
 }: Props) {
-  const [activeTab, setActiveTab] = useState<SupportTab>("support");
+  const [activeTab, setActiveTab] = useUrlTab<SupportTab>("tab", TABS.map(t => t.key), "support");
 
   return (
     <div style={{ minHeight: "100vh", background: "#ffffff" }}>

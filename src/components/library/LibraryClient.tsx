@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import AppNav from "@/components/AppNav";
+import { useUrlTab } from "@/lib/useUrlTab";
 
 const SERIF  = "var(--font-editorial)";
 const MONO   = "var(--font-mono)";
@@ -404,7 +405,7 @@ function StackPanel({ refreshSignal }: { refreshSignal: number }) {
 // ── Root ──────────────────────────────────────────────────────────────────────
 
 export default function LibraryClient({ username, displayLabel, avatarUrl }: Props) {
-  const [activeTab,       setActiveTab]       = useState<ContentTab>("podcast");
+  const [activeTab,       setActiveTab]       = useUrlTab<ContentTab>("tab", CONTENT_TABS, "podcast");
   const [showStack,       setShowStack]       = useState(false);
   const [recommendations, setRecommendations] = useState<Recommendation[]>([]);
   const [hasGenerated,    setHasGenerated]    = useState(false);

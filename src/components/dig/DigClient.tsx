@@ -6,6 +6,7 @@ import RecordSpinner from "@/components/RecordSpinner";
 import { isAppleMusicUrl, openAppleMusicLink } from "@/lib/openAppleMusic";
 import { useSpotifyPlayback } from "@/components/SpotifyPlayerProvider";
 import { createClient } from "@/lib/supabase/client";
+import { useUrlTab } from "@/lib/useUrlTab";
 
 const SERIF  = "var(--font-editorial)";
 const MONO   = "var(--font-mono)";
@@ -818,7 +819,7 @@ export default function DigClient({ userId, username, displayLabel, avatarUrl, c
   const [error,             setError]             = useState<string | null>(null);
   const [dailyLimitReached, setDailyLimitReached] = useState(false);
   const [idx,           setIdx]           = useState(0);
-  const [activeTab,     setActiveTab]     = useState<DigTab>("discover");
+  const [activeTab,     setActiveTab]     = useUrlTab<DigTab>("tab", ["discover", "explore", "style", "history"], "discover");
   const [selectedStyle, setSelectedStyle] = useState<string | null>(null);
   const [wantlistAdded, setWantlistAdded] = useState<Set<string>>(new Set());
   const [wantlistError, setWantlistError] = useState<string | null>(null);
