@@ -4,7 +4,10 @@ import type { UserList, ListSlot, SlotItem } from "@/app/lists/types";
 export const dynamic = "force-dynamic";
 
 // PostgREST caps results at 1000 rows per request; wantlists can exceed that,
-// so page through with .range() until a page comes back short.
+// so page through with .range() until a page comes back short. `position`
+// has duplicates in this table (see 4aa397f), so it alone isn't a stable
+// sort key for OFFSET pagination — order by `id` too, or ties at a page
+// boundary can land in two consecutive pages and show up as duplicates.
 const PAGE_SIZE = 1000;
 
 async function fetchAllListItems(
@@ -19,6 +22,7 @@ async function fetchAllListItems(
       .select(select)
       .in("list_id", listIds)
       .order("position")
+      .order("id")
       .range(from, from + PAGE_SIZE - 1);
     if (error) return { data: null, error };
     rows.push(...((data ?? []) as unknown as Record<string, unknown>[]));
