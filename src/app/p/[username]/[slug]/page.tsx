@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import type { SlotItem, ListSlot } from "@/app/lists/types";
-import PublicListClient, { type PublicComment } from "@/components/lists/PublicListClient";
+import PublicListClient from "@/components/lists/PublicListClient";
 
 export const dynamic = "force-dynamic";
 
@@ -107,10 +107,9 @@ export default async function PublicListPage({ params }: { params: Params }) {
     viewerUsername = vp?.username ?? null;
   }
 
-  // Likes & Comments — graceful fallback if tables not yet migrated
-  let likeCount            = 0;
-  let initialLiked         = false;
-  let initialComments: PublicComment[] = [];
+  // Likes — graceful fallback if table not yet migrated
+  let likeCount    = 0;
+  let initialLiked = false;
   try {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { count } = await (supabase as any)
@@ -123,16 +122,8 @@ export default async function PublicListPage({ params }: { params: Params }) {
         .from("list_likes").select("id").eq("list_id", list.id).eq("user_id", viewerUserId).maybeSingle();
       initialLiked = Boolean(likeRow);
     }
-
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: commentsRaw } = await (supabase as any)
-      .from("list_comments")
-      .select("id, user_id, body, created_at, profiles(username, avatar_url)")
-      .eq("list_id", list.id)
-      .order("created_at", { ascending: false });
-    initialComments = (commentsRaw ?? []) as PublicComment[];
   } catch {
-    // tables not yet created — page renders with empty social state
+    // table not yet created — page renders with empty social state
   }
 
   return (
@@ -172,7 +163,6 @@ export default async function PublicListPage({ params }: { params: Params }) {
           slots={slots}
           initialLikeCount={likeCount}
           initialLiked={initialLiked}
-          initialComments={initialComments}
           viewerUserId={viewerUserId}
           isOwner={isOwner}
         />

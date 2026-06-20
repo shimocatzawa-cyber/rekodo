@@ -14,14 +14,6 @@ const INK    = "#0d0d0d";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
-export type PublicComment = {
-  id: string;
-  user_id: string;
-  body: string;
-  created_at: string;
-  profiles: { username: string; avatar_url: string | null } | null;
-};
-
 interface Props {
   listId:           string;
   ownerId:          string;
@@ -30,7 +22,6 @@ interface Props {
   slots:            ListSlot[];
   initialLikeCount: number;
   initialLiked:     boolean;
-  initialComments:  PublicComment[];
   viewerUserId:     string | null;
   isOwner:          boolean;
 }
@@ -39,7 +30,7 @@ interface Props {
 
 export default function PublicListClient({
   listId, ownerId, listTitle, username, slots,
-  initialLikeCount, initialLiked, initialComments,
+  initialLikeCount, initialLiked,
   viewerUserId, isOwner,
 }: Props) {
   // ── Like state ──────────────────────────────────────────────────────────────
@@ -88,55 +79,6 @@ export default function PublicListClient({
 
   // ── Share card ──────────────────────────────────────────────────────────────
   const [showShare, setShowShare] = useState(false);
-
-  // ── Comments ────────────────────────────────────────────────────────────────
-  const [comments,     setComments]     = useState<PublicComment[]>(initialComments);
-  const [commentDraft, setCommentDraft] = useState("");
-  const [submitting,   setSubmitting]   = useState(false);
-
-  async function submitComment(e: React.FormEvent) {
-    e.preventDefault();
-    const body = commentDraft.trim();
-    if (!body || !viewerUserId || submitting) return;
-    setSubmitting(true);
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const supabase = createClient() as any;
-    const { data } = await supabase
-      .from("list_comments")
-      .insert({ list_id: listId, user_id: viewerUserId, body })
-      .select("id, user_id, body, created_at")
-      .single();
-    if (data) {
-      const { data: profile } = await supabase
-        .from("profiles").select("username, avatar_url").eq("id", viewerUserId).maybeSingle();
-      setComments((prev: PublicComment[]) => [{
-        ...(data as { id: string; user_id: string; body: string; created_at: string }),
-        profiles: (profile as { username: string; avatar_url: string | null } | null) ?? null,
-      }, ...prev]);
-      setCommentDraft("");
-    }
-    setSubmitting(false);
-  }
-
-  async function deleteComment(commentId: string) {
-    if (!viewerUserId) return;
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const supabase = createClient() as any;
-    await supabase.from("list_comments").delete().eq("id", commentId).eq("user_id", viewerUserId);
-    setComments(prev => prev.filter((c: PublicComment) => c.id !== commentId));
-  }
-
-  function timeAgo(iso: string) {
-    const diff = Date.now() - new Date(iso).getTime();
-    const mins  = Math.floor(diff / 60000);
-    const hours = Math.floor(diff / 3600000);
-    const days  = Math.floor(diff / 86400000);
-    if (mins < 1)   return "just now";
-    if (mins < 60)  return `${mins}m ago`;
-    if (hours < 24) return `${hours}h ago`;
-    if (days < 7)   return `${days}d ago`;
-    return new Date(iso).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
-  }
 
   // ── Wantlist helper ─────────────────────────────────────────────────────────
   const [savedIds,   setSavedIds]   = useState<Set<string>>(new Set());
@@ -267,7 +209,6 @@ export default function PublicListClient({
                       {[
                         { label: "Discogs",     href: `https://www.discogs.com/search/?q=${encodeURIComponent(`${item.artist} ${item.song_title ?? item.album}`)}&type=release` },
                         { label: "Apple Music", href: `https://music.apple.com/search?term=${encodeURIComponent(`${item.artist} ${item.song_title ?? item.album}`)}` },
-                        { label: "Tidal",       href: `https://tidal.com/search?q=${encodeURIComponent(`${item.artist} ${item.song_title ?? item.album}`)}` },
                         { label: "Spotify",     href: `https://open.spotify.com/search/${encodeURIComponent(`${item.artist} ${item.song_title ?? item.album}`)}` },
                       ].map(({ label, href }) => (
                         <a key={label} href={href} target="_blank" rel="noopener noreferrer"
@@ -297,78 +238,6 @@ export default function PublicListClient({
         </div>
       </div>
 
-      {/* Comments */}
-      <div style={{ borderTop: "1px solid rgba(0,0,0,0.08)", paddingTop: "40px" }}>
-        <p style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.12em", textTransform: "uppercase", color: "#aaa", marginBottom: "24px" }}>
-          {comments.length === 0 ? "No comments yet" : `${comments.length} comment${comments.length === 1 ? "" : "s"}`}
-        </p>
-
-        {/* Comment form */}
-        {viewerUserId ? (
-          <form onSubmit={submitComment} style={{ marginBottom: "32px" }}>
-            <textarea
-              value={commentDraft}
-              onChange={e => setCommentDraft(e.target.value)}
-              placeholder="Leave a comment…"
-              maxLength={500}
-              rows={3}
-              style={{
-                width: "100%", boxSizing: "border-box",
-                fontFamily: MONO, fontSize: "12px", letterSpacing: "0.02em",
-                color: INK, background: "#fafafa",
-                border: "1px solid rgba(0,0,0,0.1)", outline: "none",
-                padding: "10px 12px", resize: "vertical", lineHeight: 1.6,
-              }}
-            />
-            <div style={{ display: "flex", justifyContent: "flex-end", marginTop: "8px" }}>
-              <button
-                type="submit"
-                disabled={!commentDraft.trim() || submitting}
-                style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.1em", textTransform: "uppercase", background: INK, color: "#fff", border: "none", cursor: "pointer", padding: "7px 16px", opacity: (!commentDraft.trim() || submitting) ? 0.4 : 1 }}
-              >
-                {submitting ? "Posting…" : "Post"}
-              </button>
-            </div>
-          </form>
-        ) : (
-          <p style={{ fontFamily: MONO, fontSize: "10px", letterSpacing: "0.04em", color: "#bbb", marginBottom: "32px" }}>
-            <a href="/login" style={{ color: ORANGE, textDecoration: "none" }}>Sign in</a> to leave a comment.
-          </p>
-        )}
-
-        {/* Comment list */}
-        <div>
-          {comments.map(c => (
-            <div key={c.id} style={{ paddingBottom: "20px", marginBottom: "20px", borderBottom: "1px solid rgba(0,0,0,0.06)" }}>
-              <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "6px" }}>
-                {/* Avatar */}
-                <div style={{ width: 24, height: 24, borderRadius: "50%", background: "#e0e0da", overflow: "hidden", flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center" }}>
-                  {c.profiles?.avatar_url
-                    // eslint-disable-next-line @next/next/no-img-element
-                    ? <img src={c.profiles.avatar_url} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
-                    : <span style={{ fontFamily: MONO, fontSize: "9px", color: "#888", textTransform: "uppercase" }}>{c.profiles?.username?.[0] ?? "?"}</span>
-                  }
-                </div>
-                <a href={`/@${c.profiles?.username}`} style={{ fontFamily: MONO, fontSize: "10px", letterSpacing: "0.06em", color: INK, textDecoration: "none" }}>
-                  @{c.profiles?.username ?? "unknown"}
-                </a>
-                <span style={{ fontFamily: MONO, fontSize: "9px", color: "#bbb", letterSpacing: "0.04em" }}>{timeAgo(c.created_at)}</span>
-                {(c.user_id === viewerUserId || isOwner) && (
-                  <button
-                    onClick={() => deleteComment(c.id)}
-                    style={{ marginLeft: "auto", fontFamily: MONO, fontSize: "9px", color: "#ccc", background: "none", border: "none", cursor: "pointer", padding: 0 }}
-                  >
-                    Delete
-                  </button>
-                )}
-              </div>
-              <p style={{ fontFamily: MONO, fontSize: "12px", letterSpacing: "0.02em", color: "#444", lineHeight: 1.7, margin: 0 }}>
-                {c.body}
-              </p>
-            </div>
-          ))}
-        </div>
-      </div>
     </>
   );
 }
