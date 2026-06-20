@@ -56,19 +56,27 @@ async function spotifyFetch(url: string, token: string): Promise<Response | null
   let res: Response;
   try {
     res = await fetchWithTimeout(url, token);
-  } catch {
-    return null; // timed out or network error
-  }
-  if (res.status !== 429) return res;
-  const retryAfterSec = Number(res.headers.get("Retry-After")) || 1;
-  console.warn(`[match-spotify-worker] 429 rate limited, Retry-After=${retryAfterSec}s`);
-  if (retryAfterSec > MAX_INLINE_RETRY_SEC) return null; // sustained limit — don't retry inline
-  await sleep((retryAfterSec + 0.5) * 1000);
-  try {
-    return await fetchWithTimeout(url, token);
-  } catch {
+  } catch (err) {
+    console.warn(`[match-spotify-worker] fetch threw (timeout/network): ${err instanceof Error ? err.message : err}`);
     return null;
   }
+  if (res.status === 429) {
+    const retryAfterSec = Number(res.headers.get("Retry-After")) || 1;
+    console.warn(`[match-spotify-worker] 429 rate limited, Retry-After=${retryAfterSec}s`);
+    if (retryAfterSec > MAX_INLINE_RETRY_SEC) return null;
+    await sleep((retryAfterSec + 0.5) * 1000);
+    try {
+      return await fetchWithTimeout(url, token);
+    } catch (err) {
+      console.warn(`[match-spotify-worker] retry fetch threw: ${err instanceof Error ? err.message : err}`);
+      return null;
+    }
+  }
+  if (!res.ok) {
+    const text = await res.text().catch(() => "");
+    console.warn(`[match-spotify-worker] non-ok response status=${res.status} body=${text.slice(0, 200)}`);
+  }
+  return res;
 }
 
 async function searchAlbum(token: string, artist: string, album: string): Promise<SearchResult> {
