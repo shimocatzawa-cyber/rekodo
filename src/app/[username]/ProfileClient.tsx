@@ -527,9 +527,6 @@ export default function ProfileClient({
 
                     {/* Wantlist */}
                     <div style={{ flex: 1, minWidth: 0 }}>
-                      <p style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.14em", textTransform: "uppercase", color: ORANGE, margin: "0 0 10px 0" }}>
-                        Discogs Wantlist
-                      </p>
                       <WantlistClient isOwner={true} isSupporter={isSupporter} userId={profile.id} embedded />
                     </div>
 

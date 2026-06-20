@@ -80,7 +80,8 @@ export async function GET() {
   const recordById = new Map((recordsData ?? []).map(r => [r.id, r]));
 
   const lists: UserList[] = listsRaw.map(l => {
-    const listType  = (l.list_type ?? "top5") as "top5" | "personal";
+    const isWantlist = l.slug === "wantlist" || l.slug === "want-to-buy";
+    const listType   = (isWantlist ? "personal" : (l.list_type ?? "top5")) as "top5" | "personal";
     const listItems = itemsData.filter(i => i.list_id === l.id);
     const maxPos    = listType === "top5" ? 5 : listItems.length > 0 ? Math.max(...listItems.map(i => i.position)) : 0;
 
