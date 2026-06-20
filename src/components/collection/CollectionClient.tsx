@@ -2165,9 +2165,32 @@ function TracklistPanel({ tracks, loading, bandcamp, record }: {
       setCurrentSpotifyUri(spotifyUriCache.current.get(key) ?? null);
       return;
     }
-    const artist = record.artist;
-    const album  = record.album;
+    // Already matched by the background Spotify matcher (or a previous visit
+    // here) — use the stored album, no live search needed.
+    if (record.spotify_matched && record.spotify_album_id) {
+      const cachedUri = `spotify:album:${record.spotify_album_id}`;
+      spotifyUriCache.current.set(key, cachedUri);
+      setCurrentSpotifyUri(cachedUri);
+      return;
+    }
+    const artist   = record.artist;
+    const album    = record.album;
+    const recordId = record.id;
     let cancelled = false;
+
+    function cacheResult(uri: string | null) {
+      // Best-effort — write the live-search result back so future opens of
+      // this record (Collection or Playlist tab) skip the search entirely.
+      fetch("/api/collection/spotify-match-result", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          recordId, matched: !!uri,
+          albumId: uri ? uri.split(":").pop() : null,
+        }),
+      }).catch(() => {});
+    }
+
     (async () => {
       try {
         // Always fetch a fresh token — stale state tokens expire after 1 hour
@@ -2195,6 +2218,7 @@ function TracklistPanel({ tracks, loading, bandcamp, record }: {
         if (cancelled) return;
         spotifyUriCache.current.set(key, uri);
         setCurrentSpotifyUri(uri);
+        cacheResult(uri);
       } catch {
         if (cancelled) return;
         spotifyUriCache.current.set(key, null);
