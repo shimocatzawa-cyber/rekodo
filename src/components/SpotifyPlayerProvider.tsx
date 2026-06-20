@@ -196,6 +196,9 @@ export function SpotifyPlayerProvider({ children }: { children: React.ReactNode 
   const audioRef    = useRef<HTMLAudioElement | null>(null);
   const pollRef     = useRef<ReturnType<typeof setInterval> | null>(null);
   const sourceKeyRef = useRef<string | null>(null);
+  // True only when not_ready has fired without a subsequent ready — i.e. the
+  // SDK has genuinely disconnected and needs a reconnect on next tab focus.
+  const sdkDisconnectedRef = useRef(false);
   // Always-current reference to source so SDK event listeners (set up once on
   // mount) can read the latest onEnded callback without stale closure issues.
   const sourceRef    = useRef<ActiveSource | null>(null);
@@ -256,6 +259,7 @@ export function SpotifyPlayerProvider({ children }: { children: React.ReactNode 
     });
 
     player.addListener("ready", (data) => {
+      sdkDisconnectedRef.current = false;
       setDeviceId((data as { device_id: string }).device_id);
       setPlayError(null);
     });
@@ -341,6 +345,7 @@ export function SpotifyPlayerProvider({ children }: { children: React.ReactNode 
     // Also reset lastPlayedKeyRef so that on reconnect handlePlayPause sends a
     // fresh play command rather than calling togglePlay on a dead connection.
     player.addListener("not_ready", () => {
+      sdkDisconnectedRef.current = true;
       setDeviceId(null);
       lastPlayedKeyRef.current = "";
     });
@@ -376,12 +381,15 @@ export function SpotifyPlayerProvider({ children }: { children: React.ReactNode 
   }, [source]);
 
   // ── Keep SDK alive across tab switches ────────────────────────────────────
+  // Only reconnect if the SDK actually disconnected (not_ready fired without
+  // a subsequent ready). Calling connect() unnecessarily triggers a
+  // not_ready → ready cycle that re-registers the device on Spotify's backend,
+  // causing a multi-second window where play commands 404.
   useEffect(() => {
     if (!sdkReady) return;
     const onVisible = () => {
       if (document.hidden || !playerRef.current) return;
-      // Bust the token cache so the SDK gets a fresh token on reconnect —
-      // the previous token may have expired while the tab was backgrounded.
+      if (!sdkDisconnectedRef.current) return;
       bustSpotifyTokenCache();
       playerRef.current.connect().catch(() => {});
     };
