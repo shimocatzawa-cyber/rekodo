@@ -14,7 +14,7 @@ const BODY_PARAGRAPHS = [
   "rekōdo started with too many trips to Tokyo's Disc Unions, and twenty-odd years of buying records I probably didn't need. Discogs is brilliant at tracking what you own but it's never once told me what it means.",
   "rekōdo reads your collection the way a friend who's been digging for decades would: not as a spreadsheet, but as a set of decisions you've made over years. It finds the records you should own but don't. It tells you your collector archetype. It builds out artist and label deep dives so a name in your collection becomes a rabbit hole, not a line item.",
   "rekōdo is for people who want to know more about the records they already love.",
-  "rekōdo is independent and built by people who own too many records. If rekōdo has given you something, a recommendation that changed your week, a list that made you think, a Dig that found the record you didn't know you needed, consider supporting us or buying us one back.",
+  "If rekōdo has given you something, a recommendation that changed your week, a list that made you think, a Dig that found the record you didn't know you needed, consider supporting us or buying us one back.",
 ];
 
 type SupportTab = "support" | "faqs" | "contact";
