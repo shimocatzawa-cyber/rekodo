@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse, after } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createClient as createDirectClient } from "@supabase/supabase-js";
 import { getSpotifyAccessToken } from "@/lib/spotify";
@@ -6,15 +6,19 @@ import { getSpotifyAccessToken } from "@/lib/spotify";
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
 
-// Runtime logs showed this function actually getting killed by Vercel's
-// platform timeout well before the previous 250s budget — whatever the real
-// enforced ceiling is here, it's much lower than the declared maxDuration.
-// Keep each invocation short and let the client (which polls/re-triggers
-// every few seconds and has no "frozen after response" failure mode) drive
-// continuation instead of relying on long single passes or server self-chains.
-const SPOTIFY_DELAY_MS = 200; // small gap between calls to avoid bursting
-const TIME_BUDGET_MS = 40_000; // well under maxDuration, even with 429 backoffs
-const FETCH_LIMIT = 100; // a chunk comfortably larger than what 40s can process
+// The client (PlaylistTab.tsx) re-triggers this route every ~15s while work
+// remains, since server-to-server self-triggering proved unreliable on
+// Vercel (silently stalling, then hard-timing-out). That means multiple
+// invocations for the same user can otherwise overlap and hammer Spotify
+// simultaneously — a TTL lock on profiles.spotify_match_lock_at ensures
+// only one invocation actually does work at a time. TTL (not a cleared-on-
+// exit lock) so a killed/timed-out invocation can't wedge it open forever.
+const LOCK_TTL_MS = 70_000;
+const FETCH_TIMEOUT_MS = 6_000; // hard cap per Spotify request — nothing should hang silently
+const MAX_TRACK_PAGES = 2; // 100 tracks covers nearly every release; bounds worst-case time
+const SPOTIFY_DELAY_MS = 200;
+const TIME_BUDGET_MS = 40_000; // well under maxDuration
+const FETCH_LIMIT = 100;
 
 type SpotifyTrackJson = {
   spotify_uri: string;
@@ -25,45 +29,68 @@ type SpotifyTrackJson = {
 };
 
 // null id + transient=false  -> Spotify genuinely has no match (terminal failure)
-// null id + transient=true   -> request failed/rate-limited — leave unattempted, retry later
+// null id + transient=true   -> request failed/rate-limited/timed out — leave unattempted, retry later
 type SearchResult = { id: string | null; transient: boolean };
 
 function sleep(ms: number) {
   return new Promise<void>(r => setTimeout(r, ms));
 }
 
-// Retries once on 429, honoring Retry-After. Anything still not-OK after that
-// is treated as a transient failure rather than a confident "no match".
-async function spotifyFetch(url: string, token: string): Promise<Response> {
-  const res = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
+async function fetchWithTimeout(url: string, token: string): Promise<Response> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
+  try {
+    return await fetch(url, { headers: { Authorization: `Bearer ${token}` }, signal: controller.signal });
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+// Retries once on 429, honoring Retry-After. Anything still not-OK (or that
+// times out) after that is treated as transient rather than a confident "no match".
+async function spotifyFetch(url: string, token: string): Promise<Response | null> {
+  let res: Response;
+  try {
+    res = await fetchWithTimeout(url, token);
+  } catch {
+    return null; // timed out or network error
+  }
   if (res.status !== 429) return res;
-  const retryAfterSec = Number(res.headers.get("Retry-After")) || 1;
+  const retryAfterSec = Math.min(Number(res.headers.get("Retry-After")) || 1, 5);
   console.warn(`[match-spotify-worker] 429 rate limited — backing off ${retryAfterSec}s`);
   await sleep((retryAfterSec + 0.5) * 1000);
-  return fetch(url, { headers: { Authorization: `Bearer ${token}` } });
+  try {
+    return await fetchWithTimeout(url, token);
+  } catch {
+    return null;
+  }
 }
 
 async function searchAlbum(token: string, artist: string, album: string): Promise<SearchResult> {
   const q1 = encodeURIComponent(`album:"${album}" artist:"${artist}"`);
   const r1 = await spotifyFetch(`https://api.spotify.com/v1/search?q=${q1}&type=album&limit=1`, token);
-  if (!r1.ok) return { id: null, transient: true };
+  if (!r1 || !r1.ok) return { id: null, transient: true };
   const d1 = await r1.json().catch(() => null) as { albums?: { items?: Array<{ id: string }> } } | null;
   const id1 = d1?.albums?.items?.[0]?.id ?? null;
   if (id1) return { id: id1, transient: false };
 
   const q2 = encodeURIComponent(`${artist} ${album}`);
   const r2 = await spotifyFetch(`https://api.spotify.com/v1/search?q=${q2}&type=album&limit=1`, token);
-  if (!r2.ok) return { id: null, transient: true };
+  if (!r2 || !r2.ok) return { id: null, transient: true };
   const d2 = await r2.json().catch(() => null) as { albums?: { items?: Array<{ id: string }> } } | null;
   return { id: d2?.albums?.items?.[0]?.id ?? null, transient: false };
 }
 
-async function fetchAlbumTracks(token: string, albumId: string): Promise<SpotifyTrackJson[]> {
+// Returns null (instead of a partial list) on any failure/timeout so the
+// caller treats it as transient rather than saving an incomplete tracklist.
+async function fetchAlbumTracks(token: string, albumId: string): Promise<SpotifyTrackJson[] | null> {
   const tracks: SpotifyTrackJson[] = [];
   let url = `https://api.spotify.com/v1/albums/${albumId}/tracks?limit=50`;
-  while (url) {
+  let pages = 0;
+  while (url && pages < MAX_TRACK_PAGES) {
+    pages++;
     const res = await spotifyFetch(url, token);
-    if (!res.ok) break;
+    if (!res || !res.ok) return null;
     const data = await res.json() as {
       items: Array<{ uri: string; name: string; track_number: number; duration_ms: number; preview_url: string | null }>;
       next: string | null;
@@ -110,128 +137,121 @@ export async function POST(request: NextRequest) {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const db = supabase as any;
 
-  const token = await getSpotifyAccessToken(db, userId);
-  if (!token) {
-    console.error(`[match-spotify-worker] no Spotify token for user ${userId}`);
-    return NextResponse.json({ error: "No Spotify token" }, { status: 401 });
+  // ── Lock: skip entirely if another invocation is already working ──────────
+  const { data: profileLock } = await db.from("profiles").select("spotify_match_lock_at").eq("id", userId).maybeSingle();
+  const lockAt = profileLock?.spotify_match_lock_at ? new Date(profileLock.spotify_match_lock_at).getTime() : 0;
+  if (lockAt && Date.now() - lockAt < LOCK_TTL_MS) {
+    console.log(`[match-spotify-worker] user ${userId}: skipped — another invocation is already running`);
+    return NextResponse.json({ skipped: true, reason: "locked" });
   }
+  await db.from("profiles").update({ spotify_match_lock_at: new Date().toISOString() }).eq("id", userId);
 
-  // ── Build the unmatched pool: owned records ∪ wantlist record_id items ∪ wantlist song items ──
-  const { data: ownedLinks } = await db.from("user_records").select("record_id").eq("user_id", userId);
-  const ownedRecordIds: string[] = [...new Set<string>((ownedLinks ?? []).map((r: { record_id: string }) => r.record_id))];
-
-  const { data: wantlist } = await db
-    .from("lists").select("id").eq("user_id", userId).eq("slug", "wantlist").maybeSingle();
-
-  let wantlistRecordIds: string[] = [];
-  if (wantlist?.id) {
-    const { data: recordItems } = await db
-      .from("list_items").select("record_id")
-      .eq("list_id", wantlist.id).eq("item_type", "record").not("record_id", "is", null);
-    wantlistRecordIds = (recordItems ?? []).map((r: { record_id: string }) => r.record_id);
-  }
-
-  const allRecordIds = [...new Set([...ownedRecordIds, ...wantlistRecordIds])];
-
-  const { data: pendingRecords } = allRecordIds.length
-    ? await db.from("records")
-        .select("id, artist, album")
-        .in("id", allRecordIds)
-        .is("spotify_matched_at", null)
-        .limit(FETCH_LIMIT)
-    : { data: [] };
-
-  const { data: pendingSongItems } = wantlist?.id
-    ? await db.from("list_items")
-        .select("id, song_artist, song_album")
-        .eq("list_id", wantlist.id).eq("item_type", "song")
-        .is("spotify_matched_at", null)
-        .limit(FETCH_LIMIT)
-    : { data: [] };
-
-  const recordJobs = (pendingRecords ?? []) as Array<{ id: string; artist: string; album: string }>;
-  const songJobs   = (pendingSongItems ?? []) as Array<{ id: string; song_artist: string; song_album: string }>;
-
-  console.log(`[match-spotify-worker] user ${userId}: ${recordJobs.length} pending records, ${songJobs.length} pending wantlist songs`);
-
-  let matched = 0, failed = 0, transientSkipped = 0, processed = 0, calls = 0;
-  let timeBudgetExceeded = false;
-
-  function timeLeft() {
-    return Date.now() - startedAt < TIME_BUDGET_MS;
-  }
-
-  for (const job of recordJobs) {
-    if (!timeLeft()) { timeBudgetExceeded = true; break; }
-    if (calls++ > 0) await sleep(SPOTIFY_DELAY_MS);
-    processed++;
-    try {
-      const { id: albumId, transient } = await searchAlbum(token, job.artist, job.album);
-      if (transient) { transientSkipped++; continue; } // leave spotify_matched_at null — retried later
-      if (!albumId) {
-        await db.from("records").update({ spotify_matched: false, spotify_matched_at: new Date().toISOString() }).eq("id", job.id);
-        failed++; continue;
-      }
-      const tracks = await fetchAlbumTracks(token, albumId);
-      await db.from("records").update({
-        spotify_album_id: albumId, spotify_matched: true,
-        spotify_tracks: tracks, spotify_matched_at: new Date().toISOString(),
-      }).eq("id", job.id);
-      matched++;
-    } catch (err) {
-      console.error(`[match-spotify-worker] error matching record ${job.id}:`, err);
-      transientSkipped++; // unexpected error — don't mark permanently unmatched
+  try {
+    const token = await getSpotifyAccessToken(db, userId);
+    if (!token) {
+      console.error(`[match-spotify-worker] no Spotify token for user ${userId}`);
+      return NextResponse.json({ error: "No Spotify token" }, { status: 401 });
     }
-  }
 
-  if (!timeBudgetExceeded) {
-    for (const job of songJobs) {
+    // ── Build the unmatched pool: owned records ∪ wantlist record_id items ∪ wantlist song items ──
+    const { data: ownedLinks } = await db.from("user_records").select("record_id").eq("user_id", userId);
+    const ownedRecordIds: string[] = [...new Set<string>((ownedLinks ?? []).map((r: { record_id: string }) => r.record_id))];
+
+    const { data: wantlist } = await db
+      .from("lists").select("id").eq("user_id", userId).eq("slug", "wantlist").maybeSingle();
+
+    let wantlistRecordIds: string[] = [];
+    if (wantlist?.id) {
+      const { data: recordItems } = await db
+        .from("list_items").select("record_id")
+        .eq("list_id", wantlist.id).eq("item_type", "record").not("record_id", "is", null);
+      wantlistRecordIds = (recordItems ?? []).map((r: { record_id: string }) => r.record_id);
+    }
+
+    const allRecordIds = [...new Set([...ownedRecordIds, ...wantlistRecordIds])];
+
+    const { data: pendingRecords } = allRecordIds.length
+      ? await db.from("records")
+          .select("id, artist, album")
+          .in("id", allRecordIds)
+          .is("spotify_matched_at", null)
+          .limit(FETCH_LIMIT)
+      : { data: [] };
+
+    const { data: pendingSongItems } = wantlist?.id
+      ? await db.from("list_items")
+          .select("id, song_artist, song_album")
+          .eq("list_id", wantlist.id).eq("item_type", "song")
+          .is("spotify_matched_at", null)
+          .limit(FETCH_LIMIT)
+      : { data: [] };
+
+    const recordJobs = (pendingRecords ?? []) as Array<{ id: string; artist: string; album: string }>;
+    const songJobs   = (pendingSongItems ?? []) as Array<{ id: string; song_artist: string; song_album: string }>;
+
+    console.log(`[match-spotify-worker] user ${userId}: ${recordJobs.length} pending records, ${songJobs.length} pending wantlist songs`);
+
+    let matched = 0, failed = 0, transientSkipped = 0, processed = 0, calls = 0;
+    let timeBudgetExceeded = false;
+
+    function timeLeft() {
+      return Date.now() - startedAt < TIME_BUDGET_MS;
+    }
+
+    for (const job of recordJobs) {
       if (!timeLeft()) { timeBudgetExceeded = true; break; }
       if (calls++ > 0) await sleep(SPOTIFY_DELAY_MS);
       processed++;
       try {
-        const { id: albumId, transient } = await searchAlbum(token, job.song_artist, job.song_album);
+        const { id: albumId, transient } = await searchAlbum(token, job.artist, job.album);
         if (transient) { transientSkipped++; continue; }
         if (!albumId) {
-          await db.from("list_items").update({ spotify_matched: false, spotify_matched_at: new Date().toISOString() }).eq("id", job.id);
+          await db.from("records").update({ spotify_matched: false, spotify_matched_at: new Date().toISOString() }).eq("id", job.id);
           failed++; continue;
         }
         const tracks = await fetchAlbumTracks(token, albumId);
-        await db.from("list_items").update({
+        if (tracks === null) { transientSkipped++; continue; }
+        await db.from("records").update({
           spotify_album_id: albumId, spotify_matched: true,
           spotify_tracks: tracks, spotify_matched_at: new Date().toISOString(),
         }).eq("id", job.id);
         matched++;
       } catch (err) {
-        console.error(`[match-spotify-worker] error matching wantlist item ${job.id}:`, err);
+        console.error(`[match-spotify-worker] error matching record ${job.id}:`, err);
         transientSkipped++;
       }
     }
-  }
 
-  console.log(`[match-spotify-worker] user ${userId}: processed=${processed} matched=${matched} failed=${failed} transientSkipped=${transientSkipped} timeBudgetExceeded=${timeBudgetExceeded} elapsedMs=${Date.now() - startedAt}`);
-
-  // Only self-trigger if we genuinely ran out of time with more candidates queued —
-  // most collections finish in this single pass and never need this.
-  if (timeBudgetExceeded) {
-    const selfUrl = new URL("/api/playlist/match-spotify-worker", request.url).toString();
-    after(async () => {
-      try {
-        const res = await fetch(selfUrl, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "x-rekodo-internal": "true",
-            ...(jwt ? { Authorization: `Bearer ${jwt}` } : {}),
-          },
-          body: JSON.stringify({ userId }),
-        });
-        console.log(`[match-spotify-worker] self-trigger response status=${res.status} for user ${userId}`);
-      } catch (err) {
-        console.error(`[match-spotify-worker] self-trigger failed for user ${userId}:`, err);
+    if (!timeBudgetExceeded) {
+      for (const job of songJobs) {
+        if (!timeLeft()) { timeBudgetExceeded = true; break; }
+        if (calls++ > 0) await sleep(SPOTIFY_DELAY_MS);
+        processed++;
+        try {
+          const { id: albumId, transient } = await searchAlbum(token, job.song_artist, job.song_album);
+          if (transient) { transientSkipped++; continue; }
+          if (!albumId) {
+            await db.from("list_items").update({ spotify_matched: false, spotify_matched_at: new Date().toISOString() }).eq("id", job.id);
+            failed++; continue;
+          }
+          const tracks = await fetchAlbumTracks(token, albumId);
+          if (tracks === null) { transientSkipped++; continue; }
+          await db.from("list_items").update({
+            spotify_album_id: albumId, spotify_matched: true,
+            spotify_tracks: tracks, spotify_matched_at: new Date().toISOString(),
+          }).eq("id", job.id);
+          matched++;
+        } catch (err) {
+          console.error(`[match-spotify-worker] error matching wantlist item ${job.id}:`, err);
+          transientSkipped++;
+        }
       }
-    });
-  }
+    }
 
-  return NextResponse.json({ processed, matched, failed, transientSkipped, timeBudgetExceeded });
+    console.log(`[match-spotify-worker] user ${userId}: processed=${processed} matched=${matched} failed=${failed} transientSkipped=${transientSkipped} timeBudgetExceeded=${timeBudgetExceeded} elapsedMs=${Date.now() - startedAt}`);
+
+    return NextResponse.json({ processed, matched, failed, transientSkipped, timeBudgetExceeded });
+  } finally {
+    await db.from("profiles").update({ spotify_match_lock_at: null }).eq("id", userId);
+  }
 }
