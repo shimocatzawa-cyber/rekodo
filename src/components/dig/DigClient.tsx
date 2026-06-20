@@ -28,6 +28,7 @@ interface Props {
   collectionCount: number;
   listsCount:      number;
   availableStyles: string[];
+  hasQuizProfile?: boolean;
 }
 
 // ─── Vinyl disc SVG ───────────────────────────────────────────────────────────
@@ -810,7 +811,7 @@ function ModeToggle({ mode, onChange, disabled }: {
 
 // ─── Main client ──────────────────────────────────────────────────────────────
 
-export default function DigClient({ username, displayLabel, avatarUrl, collectionCount, listsCount, availableStyles }: Props) {
+export default function DigClient({ username, displayLabel, avatarUrl, collectionCount, listsCount, availableStyles, hasQuizProfile }: Props) {
   const [recs,              setRecs]              = useState<Recommendation[] | null>(null);
   const [loading,           setLoading]           = useState(true);
   const [error,             setError]             = useState<string | null>(null);
@@ -1082,6 +1083,13 @@ export default function DigClient({ username, displayLabel, avatarUrl, collectio
         <div className="dig-main-inner" style={{ maxWidth: 1200, width: "100%", margin: "0 auto", flex: 1, display: "flex", flexDirection: "column", padding: "0 40px 72px", overflow: "hidden" }}>
 
           <ModeToggle mode={activeTab} onChange={handleTabChange} disabled={loading} />
+
+          {collectionCount === 0 && hasQuizProfile && activeTab === "discover" && (
+            <p style={{ fontFamily: MONO, fontSize: "10px", letterSpacing: "0.05em", color: "#aaaaaa", margin: "8px 0 0" }}>
+              Starter picks based on your taste profile ·{" "}
+              <a href="/collection" style={{ color: ORANGE, textDecoration: "none" }}>Sync Discogs to unlock your full collection →</a>
+            </p>
+          )}
 
           {activeTab === "history" ? (
             <DigHistoryView onAddToWantlist={handleAddToWantlist} wantlistAdded={wantlistAdded} />

@@ -498,6 +498,7 @@ const [filterFormat,       setFilterFormat]       = useState("");
       formData.append("file", file);
       const res = await fetch("/api/collection/csv-import", { method: "POST", body: formData });
       if (res.ok) {
+        void fetch("/api/collection/quiz-archive", { method: "POST" });
         router.refresh();
       }
     } finally {
@@ -583,6 +584,7 @@ const [filterFormat,       setFilterFormat]       = useState("");
                 timestamp:    ev.timestamp    ?? new Date().toISOString(),
               });
               setSyncState("complete");
+              void fetch("/api/collection/quiz-archive", { method: "POST" });
               router.refresh();
               runPriceLoop(ev.total ?? 0);
 
@@ -918,6 +920,12 @@ const [filterFormat,       setFilterFormat]       = useState("");
               </p>
             </div>
           </div>
+
+          {/* Quiz path */}
+          <p style={{ fontFamily: MONO, fontSize: "10px", letterSpacing: "0.05em", color: "#bbbbbb", marginTop: "28px", textAlign: "center" }}>
+            Don&apos;t have Discogs yet?{" "}
+            <a href="/quiz" style={{ color: ORANGE, textDecoration: "none" }}>Pick your top 5 to get started →</a>
+          </p>
         </div>
       )}
 

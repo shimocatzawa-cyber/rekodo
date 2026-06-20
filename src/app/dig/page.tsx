@@ -37,6 +37,18 @@ export default async function DigPage() {
     .select("id", { count: "exact", head: true })
     .eq("user_id", user.id);
 
+  // Quiz profile (active, non-archived) — for users with no collection yet
+  let hasQuizProfile = false;
+  if ((collectionCount ?? 0) === 0) {
+    const { data: quizRow } = await (supabase as any)
+      .from("user_quiz_profile")
+      .select("id")
+      .eq("user_id", user.id)
+      .is("archived_at", null)
+      .maybeSingle() as { data: { id: string } | null };
+    hasQuizProfile = !!quizRow;
+  }
+
   // Top 5 lists count
   const { data: listsRaw } = await supabase
     .from("lists")
@@ -75,6 +87,7 @@ export default async function DigPage() {
       collectionCount={collectionCount ?? 0}
       listsCount={listsCount}
       availableStyles={availableStyles}
+      hasQuizProfile={hasQuizProfile}
     />
   );
 }

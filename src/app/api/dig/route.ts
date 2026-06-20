@@ -83,6 +83,76 @@ export async function POST(request: Request) {
     .map((id) => collectionMap.get(id))
     .filter((r): r is RecordRow => r !== undefined);
 
+  // ── Quiz fallback (no collection synced yet) ─────────────────────────────
+  if (collection.length === 0 && mode === "discover") {
+    const { data: quizRow } = await (supabase as any)
+      .from("user_quiz_profile")
+      .select("top5_releases, mood_context, depth_breadth")
+      .eq("user_id", user.id)
+      .is("archived_at", null)
+      .maybeSingle() as { data: { top5_releases: Array<{ artist: string; album: string; year?: number }> | null; mood_context: string | null; depth_breadth: string | null } | null };
+
+    if (quizRow) {
+      const picks = (quizRow.top5_releases ?? []).filter(r => r.artist && r.album);
+      const picksBlock = picks.length > 0
+        ? picks.map(r => `- ${r.artist} — ${r.album}${r.year ? ` (${r.year})` : ""}`).join("\n")
+        : "(No specific albums listed)";
+
+      const moodLabel: Record<string, string> = {
+        energised: "Energised & social", introspective: "Introspective & late night",
+        background: "Background & ambient", shifting: "Shifting — it depends",
+      };
+      const depthLabel: Record<string, string> = {
+        deep: "Deep into one artist at a time", wide: "Wide across many styles",
+        scene: "Following a scene or movement", surprise: "Whatever surprises me",
+      };
+
+      const quizPrompt = `You are a vinyl crate-digging assistant with encyclopaedic knowledge of recorded music across all genres, eras, and territories.
+
+A new collector has shared their favourite albums and how they listen. Use this to infer their taste and recommend 3 records they would love — albums to seek out as first vinyl purchases.
+
+THEIR FAVOURITE ALBUMS:
+${picksBlock}
+
+LISTENING MOOD: ${moodLabel[quizRow.mood_context ?? ""] ?? quizRow.mood_context ?? "Not specified"}
+EXPLORATION STYLE: ${depthLabel[quizRow.depth_breadth ?? ""] ?? quizRow.depth_breadth ?? "Not specified"}
+
+Rules:
+- Recommend 3 records by 3 different artists that follow naturally from their declared taste
+- If they listed specific albums, reference the aesthetic logic — explain the connection explicitly
+- Prioritise records that are readily available on vinyl (original pressings, reissues, secondhand)
+- Each reason must explain WHY this is a perfect first purchase for someone with this taste profile — speak to texture, mood, and aesthetic territory. Maximum 2 sentences.
+- Do not default to the most famous records in any genre — find the records that will genuinely surprise and delight
+
+Return ONLY a valid JSON array with exactly 3 objects. No markdown, no explanation outside the JSON.
+
+Schema:
+${JSON_SCHEMA}`;
+
+      try {
+        const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+        const message = await anthropic.messages.create({
+          model: "claude-sonnet-4-5",
+          max_tokens: 1024,
+          messages: [{ role: "user", content: quizPrompt }],
+        });
+        const content = message.content[0];
+        if (content.type !== "text") return Response.json({ error: "Unexpected response from AI" }, { status: 500 });
+        const raw = content.text.trim().replace(/^```json\n?/, "").replace(/\n?```$/, "").trim();
+        const recommendations = JSON.parse(raw);
+        if (!Array.isArray(recommendations) || recommendations.length === 0) {
+          return Response.json({ error: "Invalid recommendations format" }, { status: 500 });
+        }
+        const today = new Date().toISOString().slice(0, 10);
+        void (supabase as any).rpc("increment_dig_count", { p_user_id: user.id, p_date: today, p_mode: mode });
+        return Response.json({ recommendations, quiz: true });
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : "Unknown error";
+        return Response.json({ error: `AI error: ${msg}` }, { status: 500 });
+      }
+    }
+  }
+
   // ── Fetch top-5 lists and items ───────────────────────────────────────────
   const { data: listsRaw } = await supabase
     .from("lists")
