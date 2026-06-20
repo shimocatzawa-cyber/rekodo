@@ -3,6 +3,30 @@ import type { UserList, ListSlot, SlotItem } from "@/app/lists/types";
 
 export const dynamic = "force-dynamic";
 
+// PostgREST caps results at 1000 rows per request; wantlists can exceed that,
+// so page through with .range() until a page comes back short.
+const PAGE_SIZE = 1000;
+
+async function fetchAllListItems(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  listIds: string[],
+  select: string,
+) {
+  const rows: Record<string, unknown>[] = [];
+  for (let from = 0; ; from += PAGE_SIZE) {
+    const { data, error } = await supabase
+      .from("list_items")
+      .select(select)
+      .in("list_id", listIds)
+      .order("position")
+      .range(from, from + PAGE_SIZE - 1);
+    if (error) return { data: null, error };
+    rows.push(...((data ?? []) as unknown as Record<string, unknown>[]));
+    if (!data || data.length < PAGE_SIZE) break;
+  }
+  return { data: rows, error: null };
+}
+
 export async function GET() {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
@@ -44,29 +68,28 @@ export async function GET() {
 
   let itemsData: ItemRow[] = [];
   {
-    const { data: full, error: fullErr } = await supabase
-      .from("list_items")
-      .select("id, list_id, position, item_type, record_id, song_title, song_artist, song_album, song_cover_url, song_year, note, priority, price_cap, pressing_tip, found, created_at, source, discogs_release_id")
-      .in("list_id", listIds).order("position");
+    const { data: full, error: fullErr } = await fetchAllListItems(
+      supabase, listIds,
+      "id, list_id, position, item_type, record_id, song_title, song_artist, song_album, song_cover_url, song_year, note, priority, price_cap, pressing_tip, found, created_at, source, discogs_release_id",
+    );
     if (!fullErr) {
       itemsData = (full ?? []) as unknown as ItemRow[];
     } else {
-      const { data: tier2, error: tier2Err } = await supabase
-        .from("list_items")
-        .select("id, list_id, position, item_type, record_id, song_title, song_artist, song_album, song_cover_url, song_year, note, priority")
-        .in("list_id", listIds).order("position");
+      const { data: tier2, error: tier2Err } = await fetchAllListItems(
+        supabase, listIds,
+        "id, list_id, position, item_type, record_id, song_title, song_artist, song_album, song_cover_url, song_year, note, priority",
+      );
       if (!tier2Err) {
         itemsData = ((tier2 ?? []) as unknown as Record<string, unknown>[]).map(i => ({
           ...i, price_cap: null, pressing_tip: null, found: null, created_at: null, source: null, discogs_release_id: null,
         })) as unknown as ItemRow[];
       } else {
-        const { data: fallback } = await supabase
-          .from("list_items").select("id, list_id, position, record_id").in("list_id", listIds).order("position");
+        const { data: fallback } = await fetchAllListItems(supabase, listIds, "id, list_id, position, record_id");
         itemsData = (fallback ?? []).map(i => ({
           ...i, item_type: "record", song_title: null, song_artist: null, song_album: null,
           song_cover_url: null, song_year: null, note: null, priority: null,
           price_cap: null, pressing_tip: null, found: null, created_at: null, source: null, discogs_release_id: null,
-        }));
+        })) as unknown as ItemRow[];
       }
     }
   }
