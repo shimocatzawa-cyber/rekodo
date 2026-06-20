@@ -5,6 +5,7 @@ import AppNav from "@/components/AppNav";
 import RecordSpinner from "@/components/RecordSpinner";
 import { isAppleMusicUrl, openAppleMusicLink } from "@/lib/openAppleMusic";
 import { useSpotifyPlayback } from "@/components/SpotifyPlayerProvider";
+import { createClient } from "@/lib/supabase/client";
 
 const SERIF  = "var(--font-editorial)";
 const MONO   = "var(--font-mono)";
@@ -936,16 +937,60 @@ export default function DigClient({ username, displayLabel, avatarUrl, collectio
     setWantlistAdded(prev => new Set(prev).add(key));
     setWantlistError(null);
     try {
-      const res = await fetch("/api/wantlist/dig", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ artist: rec.artist, album: rec.album, year: rec.year ?? null }),
-      });
-      const result = await res.json() as { error?: string };
-      if (!res.ok || result?.error) {
-        setWantlistAdded(prev => { const s = new Set(prev); s.delete(key); return s; });
-        setWantlistError(result?.error ?? "Failed to add to wantlist");
-        setTimeout(() => setWantlistError(null), 4000);
+      const supabase = createClient();
+      const { data: { user }, error: authErr } = await supabase.auth.getUser();
+      if (authErr || !user) throw new Error("Not authenticated");
+
+      // Find or create wantlist
+      let { data: wantlist, error: findErr } = await supabase
+        .from("lists")
+        .select("id")
+        .eq("user_id", user.id)
+        .in("slug", ["wantlist", "want-to-buy"])
+        .maybeSingle();
+
+      if (findErr) throw new Error(findErr.message);
+
+      if (!wantlist) {
+        const { data: created, error: createErr } = await supabase
+          .from("lists")
+          .insert({ user_id: user.id, title: "Wantlist", slug: "wantlist", is_public: false, list_type: "personal" })
+          .select("id")
+          .single();
+        if (createErr || !created) throw new Error(createErr?.message ?? "Could not create wantlist");
+        wantlist = created;
+      }
+
+      // Next position
+      const { data: posRow, error: posErr } = await supabase
+        .from("list_items")
+        .select("position")
+        .eq("list_id", wantlist.id)
+        .order("position", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (posErr) throw new Error(posErr.message);
+      const nextPos = (posRow?.position ?? 0) + 1;
+
+      // Insert
+      const { data: inserted, error: insertErr } = await supabase
+        .from("list_items")
+        .insert({
+          list_id:     wantlist.id,
+          position:    nextPos,
+          item_type:   "song",
+          song_title:  rec.album,
+          song_artist: rec.artist,
+          song_album:  rec.album,
+          song_year:   rec.year ?? null,
+          source:      "dig",
+        })
+        .select("id")
+        .single();
+
+      if (insertErr || !inserted) {
+        throw new Error(insertErr?.message ?? "Insert returned no row");
       }
     } catch (e) {
       setWantlistAdded(prev => { const s = new Set(prev); s.delete(key); return s; });
