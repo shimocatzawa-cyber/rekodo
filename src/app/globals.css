@@ -206,15 +206,17 @@ h1, h2, h3, h4, h5, h6 {
   }
 
   /* ── Insights: format / desirability table → 3-col compressed, no scroll */
+  /* Each row is its own grid, so the value column must be a fixed width — */
+  /* "auto" sizes per-row independently and throws header/data out of sync */
   .rk-ins-fmt > * {
-    grid-template-columns: 1fr 36px auto !important;
+    grid-template-columns: 1fr 36px 80px !important;
     gap: 8px !important;
   }
 
   /* ── Insights: top items table → cover + artist + value, no scroll ───── */
   /* Drop "Album" (3rd col) — artist + value remain readable               */
   .rk-ins-top > * {
-    grid-template-columns: 44px 1fr auto !important;
+    grid-template-columns: 44px 1fr 80px !important;
   }
   .rk-ins-top > * > *:nth-child(3) {
     display: none !important;
