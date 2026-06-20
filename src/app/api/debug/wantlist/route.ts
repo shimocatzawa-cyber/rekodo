@@ -28,5 +28,28 @@ export async function GET() {
     })
   );
 
-  return Response.json({ user_id: user.id, wantlists: result });
+  // Probe: try inserting a test row with source:"dig" to see the exact error
+  const wantlistId = wantlists[0]?.list?.id ?? null;
+  let insertProbe: { error: string | null; code: string | null } = { error: null, code: null };
+  if (wantlistId) {
+    const { error: probeErr } = await supabase.from("list_items").insert({
+      list_id: wantlistId,
+      position: 9999,
+      item_type: "song",
+      song_title: "__debug_probe__",
+      song_artist: "__debug_probe__",
+      song_album: "__debug_probe__",
+      source: "dig",
+    });
+    if (probeErr) {
+      insertProbe = { error: probeErr.message, code: probeErr.code ?? null };
+    } else {
+      // Clean up the test row immediately
+      await supabase.from("list_items").delete()
+        .eq("list_id", wantlistId).eq("position", 9999).eq("song_title", "__debug_probe__");
+      insertProbe = { error: null, code: "SUCCESS" };
+    }
+  }
+
+  return Response.json({ user_id: user.id, wantlists: result, insertProbe });
 }
