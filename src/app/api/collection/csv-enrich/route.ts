@@ -195,25 +195,11 @@ export async function POST(request: NextRequest) {
     }
   }
 
-  // 4. If more pending records remain, self-trigger for the next batch
-  const { count: remainingCount } = await (supabase as any)
-    .from("user_records")
-    .select("*", { count: "exact", head: true })
-    .eq("user_id", userId)
-    .eq("enrichment_status", "pending") as { count: number | null };
-
-  if ((remainingCount ?? 0) > 0) {
-    const selfUrl = new URL("/api/collection/csv-enrich", request.url).toString();
-    fetch(selfUrl, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "x-rekodo-internal": "true",
-        ...(jwt ? { Authorization: `Bearer ${jwt}` } : {}),
-      },
-      body: JSON.stringify({ userId }),
-    }).catch(() => {});
-  }
-
+  // Any remaining pending batch is picked up by the next /api/collection/
+  // enrich-status poll (see that route) rather than self-triggering here —
+  // a bare server-to-server fetch() like this used to chain the next batch,
+  // but that pattern is the same one already found unreliable on Vercel for
+  // the Spotify matcher (silently stalls instead of erroring), and unlike
+  // that worker, nothing was re-triggering this one if the chain died.
   return NextResponse.json({ processed: pendingLinks.length, enriched, failed: failedCount });
 }

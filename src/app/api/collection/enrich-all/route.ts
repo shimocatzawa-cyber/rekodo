@@ -1,15 +1,16 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 
 export const dynamic = "force-dynamic";
 
 // POST — authenticated. Queues all of the user's records for enrichment
-// (sets enrichment_status = 'pending' for any record not already enriched)
-// then fires the enrichment worker.
+// (sets enrichment_status = 'pending' for any record not already enriched).
+// /api/collection/enrich-status picks up the actual enrichment run on its
+// next poll.
 //
 // Skips already-enriched records so re-running is safe.
 // Failed records are re-queued so they get another attempt.
-export async function POST(request: NextRequest) {
+export async function POST() {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -30,22 +31,12 @@ export async function POST(request: NextRequest) {
 
   const queued = count ?? 0;
 
-  if (queued > 0) {
-    // Forward the user's JWT so csv-enrich runs as authenticated (not anon)
-    const { data: { session } } = await supabase.auth.getSession();
-
-    // Fire enrichment worker — best-effort, no await
-    const enrichUrl = new URL("/api/collection/csv-enrich", request.url).toString();
-    fetch(enrichUrl, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "x-rekodo-internal": "true",
-        ...(session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {}),
-      },
-      body: JSON.stringify({ userId: user.id }),
-    }).catch(() => {});
-  }
+  // No fire-and-forget trigger here — /api/collection/enrich-status (polled
+  // every 8s by CollectionClient while pending > 0) picks this up reliably
+  // on its next poll instead. A bare server-to-server fetch() from this
+  // request would otherwise risk being killed before it starts, the same
+  // unreliable pattern already found and removed from csv-enrich's own
+  // self-chaining.
 
   const batchesEstimate = Math.ceil(queued / 50);
   const minutesEstimate = Math.ceil((batchesEstimate * 60) / 60);

@@ -1,9 +1,19 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse, after } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 
 export const dynamic = "force-dynamic";
 
-export async function GET() {
+// Polled every 8s by CollectionClient while enrichment is in progress. Also
+// owns re-triggering csv-enrich for the next batch — enrich-all only fires
+// the first one, and csv-enrich no longer self-chains (that bare
+// server-to-server fetch() pattern was found unreliable on Vercel, the same
+// lesson already learned for the Spotify matcher). Using the most recent
+// enrichment_attempted_at as an activity signal avoids needing a separate
+// lock column: if nothing's been touched in the last 20s, the previous
+// batch finished (or silently died) and it's safe to fire another.
+const RETRIGGER_IF_IDLE_MS = 20_000;
+
+export async function GET(request: NextRequest) {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -46,6 +56,42 @@ export async function GET() {
   const p  = pendingCount ?? 0;
   const f  = failedCount ?? 0;
   const pct = t > 0 ? Math.round((e / t) * 100) : 0;
+
+  if (p > 0) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data: lastAttempt } = await (supabase as any)
+      .from("user_records")
+      .select("enrichment_attempted_at")
+      .eq("user_id", user.id)
+      .not("enrichment_attempted_at", "is", null)
+      .order("enrichment_attempted_at", { ascending: false })
+      .limit(1)
+      .maybeSingle() as { data: { enrichment_attempted_at: string } | null };
+
+    const lastAttemptAt = lastAttempt?.enrichment_attempted_at
+      ? new Date(lastAttempt.enrichment_attempted_at).getTime()
+      : 0;
+
+    if (Date.now() - lastAttemptAt > RETRIGGER_IF_IDLE_MS) {
+      const { data: { session } } = await supabase.auth.getSession();
+      const enrichUrl = new URL("/api/collection/csv-enrich", request.url).toString();
+      after(async () => {
+        try {
+          await fetch(enrichUrl, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              "x-rekodo-internal": "true",
+              ...(session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {}),
+            },
+            body: JSON.stringify({ userId: user.id }),
+          });
+        } catch (err) {
+          console.error(`[enrich-status] csv-enrich trigger failed for user ${user.id}:`, err);
+        }
+      });
+    }
+  }
 
   return NextResponse.json({
     total:           t,
