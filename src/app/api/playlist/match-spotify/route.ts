@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest, NextResponse, after } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 
 export const dynamic = "force-dynamic";
@@ -51,15 +51,20 @@ export async function POST(request: NextRequest) {
   if (totalToMatch > 0) {
     const { data: { session } } = await supabase.auth.getSession();
     const matchUrl = new URL("/api/playlist/match-spotify-worker", request.url).toString();
-    fetch(matchUrl, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "x-rekodo-internal": "true",
-        ...(session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {}),
-      },
-      body: JSON.stringify({ userId: user.id }),
-    }).catch(() => {});
+    // after() keeps the serverless function alive until this fetch actually
+    // completes — a bare unawaited fetch() gets killed mid-flight as soon as
+    // the response below is sent, which is why the matcher was stalling.
+    after(() =>
+      fetch(matchUrl, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-rekodo-internal": "true",
+          ...(session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {}),
+        },
+        body: JSON.stringify({ userId: user.id }),
+      }).catch(() => {})
+    );
   }
 
   return NextResponse.json({

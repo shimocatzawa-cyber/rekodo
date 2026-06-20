@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest, NextResponse, after } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createClient as createDirectClient } from "@supabase/supabase-js";
 import { getSpotifyAccessToken } from "@/lib/spotify";
@@ -174,15 +174,20 @@ export async function POST(request: NextRequest) {
   const processedThisBatch = recordJobs.length + songJobs.length;
   if (processedThisBatch >= BATCH_SIZE) {
     const selfUrl = new URL("/api/playlist/match-spotify-worker", request.url).toString();
-    fetch(selfUrl, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "x-rekodo-internal": "true",
-        ...(jwt ? { Authorization: `Bearer ${jwt}` } : {}),
-      },
-      body: JSON.stringify({ userId }),
-    }).catch(() => {});
+    // after() keeps this invocation alive until the self-trigger fetch actually
+    // completes — without it, an unawaited fetch can get killed mid-flight the
+    // moment the response below is sent, silently breaking the batch chain.
+    after(() =>
+      fetch(selfUrl, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-rekodo-internal": "true",
+          ...(jwt ? { Authorization: `Bearer ${jwt}` } : {}),
+        },
+        body: JSON.stringify({ userId }),
+      }).catch(() => {})
+    );
   }
 
   return NextResponse.json({ processed: processedThisBatch, matched, failed });
