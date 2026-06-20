@@ -161,6 +161,8 @@ export default function ProfileListsTab({ initialLists, username, listTypeFilter
   const [wantlistSearch,       setWantlistSearch]       = useState("");
   const [wantlistSourceFilter, setWantlistSourceFilter] = useState<"discogs" | "rekodo" | null>(null);
   const [keptSomeday,          setKeptSomeday]          = useState<Set<number>>(new Set());
+  const WANTLIST_PAGE_SIZE = 50;
+  const [wantlistVisibleCount, setWantlistVisibleCount] = useState(WANTLIST_PAGE_SIZE);
 
   const [dragFromPos, setDragFromPos] = useState<number | null>(null);
   const [dragOverPos, setDragOverPos] = useState<number | null>(null);
@@ -502,6 +504,12 @@ export default function ProfileListsTab({ initialLists, username, listTypeFilter
     return slots;
   }, [selectedList, wantlistSearch, wantlistFilter, wantlistSourceFilter, wantlistSort]);
 
+  // Search/filter/sort always run over the full wantlistSlots above — this only
+  // caps how many of the *matching* results get mounted as cards at once.
+  useEffect(() => {
+    setWantlistVisibleCount(WANTLIST_PAGE_SIZE);
+  }, [wantlistSearch, wantlistFilter, wantlistSourceFilter, wantlistSort, selectedList?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+
   // ── Render ──────────────────────────────────────────────────────────────────
 
   return (
@@ -604,7 +612,7 @@ export default function ProfileListsTab({ initialLists, username, listTypeFilter
                       : {}
                     }>
                       <div>
-                        {wantlistSlots.map(slot => {
+                        {wantlistSlots.slice(0, wantlistVisibleCount).map(slot => {
                           const monthsOld = slot.created_at
                             ? Math.floor((Date.now() - new Date(slot.created_at).getTime()) / (1000 * 60 * 60 * 24 * 30))
                             : null;
@@ -625,6 +633,20 @@ export default function ProfileListsTab({ initialLists, username, listTypeFilter
                             />
                           );
                         })}
+
+                        {wantlistSlots.length > wantlistVisibleCount && (
+                          <button
+                            onClick={() => setWantlistVisibleCount(c => c + WANTLIST_PAGE_SIZE)}
+                            style={{
+                              display: "block", width: "100%", margin: "12px 0 4px",
+                              fontFamily: MONO, fontSize: "10px", letterSpacing: "0.08em", textTransform: "uppercase",
+                              color: ORANGE, background: "none", border: `1px solid ${ORANGE}`, borderRadius: "2px",
+                              padding: "10px 0", cursor: "pointer",
+                            }}
+                          >
+                            Load {Math.min(WANTLIST_PAGE_SIZE, wantlistSlots.length - wantlistVisibleCount)} more ({wantlistSlots.length - wantlistVisibleCount} remaining)
+                          </button>
+                        )}
 
                         {selectedList.slots.filter(s => s.item).length === 0 && (
                           <div style={{ margin: "32px 0 24px" }}>
@@ -1365,7 +1387,14 @@ function WantlistCard({ slot, monthsOld, showSomedayPrompt, onRemove, onKeepSome
         const url = (first.cover_image && !first.cover_image.includes("spacer"))
           ? first.cover_image
           : (first.thumb && !first.thumb.includes("spacer") ? first.thumb : null);
-        if (url) setCoverUrl(url);
+        if (!url) return;
+        setCoverUrl(url);
+        // Cache so this card never re-hits Discogs on a later page load.
+        // item.id is the list_items row id for "song" rows (Dig/CSV imports);
+        // "record" rows already get a persistent cover via the records table.
+        if (item.item_type === "song") {
+          createClient().from("list_items").update({ song_cover_url: url }).eq("id", item.id).then(() => {});
+        }
       })
       .catch(() => {});
     return () => { cancelled = true; };
