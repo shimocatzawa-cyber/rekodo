@@ -922,10 +922,14 @@ const [filterFormat,       setFilterFormat]       = useState("");
           </div>
 
           {/* Quiz path */}
-          <p style={{ fontFamily: MONO, fontSize: "10px", letterSpacing: "0.05em", color: "#bbbbbb", marginTop: "28px", textAlign: "center" }}>
-            Don&apos;t have Discogs yet?{" "}
-            <a href="/quiz" style={{ color: ORANGE, textDecoration: "none" }}>Pick your top 5 to get started →</a>
-          </p>
+          <div style={{ marginTop: "36px", paddingTop: "28px", borderTop: "1px solid #e0e0da", textAlign: "center" }}>
+            <p style={{ fontFamily: SERIF, fontSize: "17px", fontWeight: 400, color: "#0d0d0d", margin: "0 0 10px", letterSpacing: "-0.01em" }}>
+              Don&apos;t have Discogs yet?
+            </p>
+            <a href="/quiz" style={{ fontFamily: MONO, fontSize: "11px", letterSpacing: "0.06em", color: ORANGE, textDecoration: "none" }}>
+              Answer a few important questions to get started →
+            </a>
+          </div>
         </div>
       )}
 

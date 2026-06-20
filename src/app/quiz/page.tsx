@@ -20,5 +20,14 @@ export default async function QuizPage() {
 
   if ((count ?? 0) > 0) redirect("/collection");
 
+  // Already completed the quiz — send to Dig to see their starter picks
+  const { data: existingQuiz } = await (supabase as any)
+    .from("user_quiz_profile")
+    .select("id")
+    .eq("user_id", user.id)
+    .maybeSingle() as { data: { id: string } | null };
+
+  if (existingQuiz) redirect("/dig");
+
   return <QuizFlow />;
 }

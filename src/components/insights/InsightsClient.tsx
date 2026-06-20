@@ -344,7 +344,24 @@ export default function InsightsClient({
         })}
       </div>
 
-      {insightsTab === "collection" && (
+      {insightsTab === "collection" && totalRecords === 0 && (
+        <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "80px 32px", textAlign: "center" }}>
+          <p style={{ fontFamily: SERIF, fontSize: "22px", fontWeight: 400, color: INK, margin: "0 0 10px", letterSpacing: "-0.02em" }}>
+            Your collection insights live here.
+          </p>
+          <p style={{ fontFamily: MONO, fontSize: "11px", letterSpacing: "0.04em", color: "#aaaaaa", margin: "0 0 28px", lineHeight: 1.7, maxWidth: "360px" }}>
+            Import your Discogs collection to unlock genre breakdowns, value analysis, taste spectrum, and more.
+          </p>
+          <a
+            href="/collection"
+            style={{ fontFamily: MONO, fontSize: "10px", letterSpacing: "0.1em", textTransform: "uppercase", background: ORANGE, color: "#ffffff", padding: "11px 24px", textDecoration: "none", display: "inline-block" }}
+          >
+            Import collection →
+          </a>
+        </div>
+      )}
+
+      {insightsTab === "collection" && totalRecords > 0 && (
       <main className="rk-arch-main" style={{ padding: "48px 32px 80px", maxWidth: "960px", margin: "0 auto" }}>
 
 
