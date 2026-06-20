@@ -178,8 +178,6 @@ export default function ProfileListsTab({ initialLists, username, listTypeFilter
     return () => window.removeEventListener("resize", check);
   }, []);
 
-  useEffect(() => { setLists(initialLists); }, [initialLists]);
-
   // Fetch like counts for all lists
   useEffect(() => {
     const ids = lists.map(l => l.id).filter(Boolean);
@@ -300,12 +298,13 @@ export default function ProfileListsTab({ initialLists, username, listTypeFilter
     };
     if (picker.strategy === "replace") {
       const { position } = picker;
+      const prevLists = lists;
       optimisticSet(listId, position, slotItem);
       closePicker();
       setSaving(`${listId}-${position}`);
       const res = await setListRecord(listId, position, record.id);
       setSaving(null);
-      if (res?.error) { console.error(res.error); setLists(initialLists); }
+      if (res?.error) { console.error(res.error); setLists(prevLists); }
     } else {
       closePicker();
       const res = await appendRecordToList(listId, record.id);
@@ -330,10 +329,11 @@ export default function ProfileListsTab({ initialLists, username, listTypeFilter
     closePicker();
     if (picker.strategy === "replace") {
       const { position } = picker;
+      const prevLists = lists;
       setSaving(`${listId}-${position}`);
       const res = await addDiscogsRecordToList(listId, position, payload);
       setSaving(null);
-      if (res?.error) { console.error(res.error); setLists(initialLists); }
+      if (res?.error) { console.error(res.error); setLists(prevLists); }
       else if (res?.item) optimisticSet(listId, position, res.item as SlotItem);
     } else {
       const res = await appendDiscogsRecordToList(listId, payload);
@@ -361,11 +361,12 @@ export default function ProfileListsTab({ initialLists, username, listTypeFilter
     closePicker();
     if (picker.strategy === "replace") {
       const { position } = picker;
+      const prevLists = lists;
       optimisticSet(listId, position, tempItem);
       setSaving(`${listId}-${position}`);
       const res = await addSongToList(listId, position, payload);
       setSaving(null);
-      if (res?.error) { console.error(res.error); setLists(initialLists); }
+      if (res?.error) { console.error(res.error); setLists(prevLists); }
       else if (res?.item) optimisticSet(listId, position, res.item as SlotItem);
     } else {
       const res = await appendSongToList(listId, payload);
@@ -376,48 +377,53 @@ export default function ProfileListsTab({ initialLists, username, listTypeFilter
   }
 
   async function handleRemoveItem(listId: string, position: number) {
+    const prevLists = lists;
     setLists(prev => prev.map(l =>
       l.id !== listId ? l : { ...l, slots: l.slots.filter(s => s.position !== position) }
     ));
     const res = await removeListItem(listId, position);
-    if (res?.error) { console.error(res.error); setLists(initialLists); }
+    if (res?.error) { console.error(res.error); setLists(prevLists); }
     router.refresh();
   }
 
   async function handleDeleteList(listId: string) {
+    const prevLists = lists;
     const remaining = lists.filter(l => l.id !== listId);
     setLists(remaining);
     if (activePillId === listId) { setActivePillId(remaining[0]?.id ?? null); closePicker(); }
     const res = await deleteList(listId);
-    if (res?.error) { console.error(res.error); setLists(initialLists); }
+    if (res?.error) { console.error(res.error); setLists(prevLists); }
     router.refresh();
   }
 
   async function handleTogglePublic(listId: string) {
+    const prevLists = lists;
     setLists(prev => prev.map(l => l.id !== listId ? l : { ...l, is_public: !l.is_public }));
     const res = await toggleListPublic(listId);
-    if (res?.error) { setLists(initialLists); router.refresh(); }
+    if (res?.error) { setLists(prevLists); router.refresh(); }
   }
 
   async function handleUpdateWantlistItemMeta(
     listId: string, position: number,
     updates: { note?: string | null; priority?: Priority | null; price_cap?: number | null; pressing_tip?: string | null; found?: boolean | null }
   ) {
+    const prevLists = lists;
     setLists(prev => prev.map(l => l.id !== listId ? l : {
       ...l,
       slots: l.slots.map(s => s.position !== position ? s : { ...s, ...updates }),
     }));
     const res = await updateWantlistItemMeta(listId, position, updates);
-    if (res?.error) { console.error(res.error); setLists(initialLists); }
+    if (res?.error) { console.error(res.error); setLists(prevLists); }
   }
 
   async function handleReorder(listId: string, fromPos: number, toPos: number) {
     if (fromPos === toPos) return;
+    const prevLists = lists;
     setLists(prev => prev.map(l =>
       l.id !== listId ? l : { ...l, slots: reorderSlots(l.slots, fromPos, toPos) }
     ));
     const res = await reorderListItems(listId, fromPos, toPos);
-    if (res?.error) { console.error(res.error); setLists(initialLists); }
+    if (res?.error) { console.error(res.error); setLists(prevLists); }
     router.refresh();
   }
 
