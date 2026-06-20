@@ -936,10 +936,16 @@ export default function DigClient({ username, displayLabel, avatarUrl, collectio
     const key = `${rec.artist}||${rec.album}`;
     setWantlistAdded(prev => new Set(prev).add(key));
     setWantlistError(null);
-    const result = await addToWantlist(rec.artist, rec.album, rec.year);
-    if (result?.error) {
+    try {
+      const result = await addToWantlist(rec.artist, rec.album, rec.year);
+      if (result?.error) {
+        setWantlistAdded(prev => { const s = new Set(prev); s.delete(key); return s; });
+        setWantlistError(result.error);
+        setTimeout(() => setWantlistError(null), 4000);
+      }
+    } catch (e) {
       setWantlistAdded(prev => { const s = new Set(prev); s.delete(key); return s; });
-      setWantlistError(result.error);
+      setWantlistError(e instanceof Error ? e.message : "Failed to add to wantlist");
       setTimeout(() => setWantlistError(null), 4000);
     }
   }
