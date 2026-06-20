@@ -54,17 +54,22 @@ export async function POST(request: NextRequest) {
     // after() keeps the serverless function alive until this fetch actually
     // completes — a bare unawaited fetch() gets killed mid-flight as soon as
     // the response below is sent, which is why the matcher was stalling.
-    after(() =>
-      fetch(matchUrl, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "x-rekodo-internal": "true",
-          ...(session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {}),
-        },
-        body: JSON.stringify({ userId: user.id }),
-      }).catch(() => {})
-    );
+    after(async () => {
+      try {
+        const res = await fetch(matchUrl, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "x-rekodo-internal": "true",
+            ...(session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {}),
+          },
+          body: JSON.stringify({ userId: user.id }),
+        });
+        console.log(`[match-spotify] worker trigger response status=${res.status} for user ${user.id}`);
+      } catch (err) {
+        console.error(`[match-spotify] worker trigger failed for user ${user.id}:`, err);
+      }
+    });
   }
 
   return NextResponse.json({
