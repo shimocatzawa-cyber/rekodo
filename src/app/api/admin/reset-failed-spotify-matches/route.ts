@@ -43,17 +43,11 @@ export async function GET() {
     .eq("spotify_matched", false)
     .select("id");
 
-  if (recordsError || songItemsError) {
-    return NextResponse.json({
-      error: "Update failed",
-      recordsError: recordsError?.message,
-      songItemsError: songItemsError?.message,
-    }, { status: 500 });
-  }
-
   return NextResponse.json({
-    ok: true,
-    recordsReset: records?.length ?? 0,
-    songItemsReset: songItems?.length ?? 0,
-  });
+    ok: !recordsError && !songItemsError,
+    recordsReset:    records?.length ?? 0,
+    songItemsReset:  songItems?.length ?? 0,
+    recordsError:    recordsError?.message,
+    songItemsError:  songItemsError?.message,
+  }, { status: recordsError || songItemsError ? 500 : 200 });
 }
