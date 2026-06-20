@@ -68,7 +68,9 @@ export async function POST(req: Request) {
   const nextPos = (posRow?.position ?? 0) + 1;
 
   // ── 3. Insert ───────────────────────────────────────────────────────────────
-  const { error: insertErr } = await supabase
+  // Use .select().single() so RLS-blocked inserts surface as errors instead of
+  // silently returning { data: null, error: null } with 0 rows written.
+  const { data: inserted, error: insertErr } = await supabase
     .from("list_items")
     .insert({
       list_id:     wantlistId,
@@ -79,12 +81,14 @@ export async function POST(req: Request) {
       song_album:  album,
       song_year:   year,
       source:      "dig",
-    });
+    })
+    .select("id")
+    .single();
 
-  if (insertErr) {
+  if (insertErr || !inserted) {
     return Response.json({
-      error:      insertErr.message,
-      code:       (insertErr as { code?: string }).code ?? null,
+      error:      insertErr?.message ?? "Insert returned no row (RLS may be blocking)",
+      code:       (insertErr as { code?: string } | null)?.code ?? null,
       wantlistId,
       nextPos,
       artist,
@@ -92,5 +96,5 @@ export async function POST(req: Request) {
     }, { status: 500 });
   }
 
-  return Response.json({ success: true, wantlistId, position: nextPos });
+  return Response.json({ success: true, wantlistId, position: nextPos, id: inserted.id });
 }
