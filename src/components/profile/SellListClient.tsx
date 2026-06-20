@@ -60,17 +60,38 @@ export default function SellListClient({
   const [items, setItems]     = useState<SellItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError]     = useState<string | null>(null);
+  const [removeError, setRemoveError] = useState<string | null>(null);
 
-  useEffect(() => {
-    fetch(`/api/collection/sell-list?userId=${encodeURIComponent(profileOwnerId)}`)
+  function loadItems() {
+    return fetch(`/api/collection/sell-list?userId=${encodeURIComponent(profileOwnerId)}`)
       .then(r => r.json())
       .then(d => {
         if (d.error) setError(d.error);
         else setItems(d.items ?? []);
       })
-      .catch(() => setError("Could not load sell list."))
-      .finally(() => setLoading(false));
-  }, [profileOwnerId]);
+      .catch(() => setError("Could not load sell list."));
+  }
+
+  useEffect(() => {
+    loadItems().finally(() => setLoading(false));
+  }, [profileOwnerId]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  async function handleRemove(item: SellItem) {
+    setItems(prev => prev.filter(i => i.id !== item.id));
+    setRemoveError(null);
+    try {
+      const res = await fetch("/api/collection/offers", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ recordId: item.id, open_to_offers: false }),
+      });
+      if (!res.ok) throw new Error("Failed to remove");
+    } catch {
+      setRemoveError("Couldn't remove that item — try again.");
+      setTimeout(() => setRemoveError(null), 4000);
+      loadItems();
+    }
+  }
 
   return (
     <div style={{ maxWidth: 760, margin: "0 auto", padding: "2rem 1.5rem 4rem" }}>
@@ -96,6 +117,10 @@ export default function SellListClient({
           </Link>
         )}
       </div>
+
+      {removeError && (
+        <p style={{ fontFamily: MONO, fontSize: "0.6rem", color: "#cc3300", marginBottom: "16px" }}>{removeError}</p>
+      )}
 
       {/* Loading */}
       {loading && (
@@ -147,8 +172,26 @@ export default function SellListClient({
             return (
               <div
                 key={item.id}
-                style={{ display: "flex", alignItems: "center", gap: "18px", padding: "16px 0", borderBottom: `1px solid ${RULE}` }}
+                style={{
+                  position: "relative", display: "flex", alignItems: "center", gap: "18px",
+                  padding: isOwner ? "16px 22px 16px 0" : "16px 0", borderBottom: `1px solid ${RULE}`,
+                }}
               >
+                {isOwner && (
+                  <button
+                    onClick={() => handleRemove(item)}
+                    aria-label="Remove from sell list"
+                    style={{
+                      position: "absolute", top: "14px", right: "0",
+                      fontFamily: MONO, fontSize: "16px", lineHeight: 1,
+                      color: "#cccccc", background: "none", border: "none",
+                      cursor: "pointer", padding: "2px 4px",
+                    }}
+                  >
+                    ×
+                  </button>
+                )}
+
                 {/* Cover */}
                 <div style={{ width: 48, height: 48, flexShrink: 0, background: "#f0ede8", overflow: "hidden" }}>
                   {item.cover_url && (
