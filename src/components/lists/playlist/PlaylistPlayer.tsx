@@ -1,0 +1,127 @@
+"use client";
+
+import { useEffect } from "react";
+import { useSpotifyPlayback } from "@/components/SpotifyPlayerProvider";
+import type { GeneratedTrack } from "@/components/lists/PlaylistTab";
+
+const MONO          = "var(--font-mono)";
+const ORANGE        = "#CC5500";
+const RULE          = "#e0e0da";
+const INK           = "#0a0a0a";
+const SPOTIFY_GREEN = "#1DB954";
+
+function IconPlay() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 16 16" aria-hidden="true">
+      <polygon points="3,1 3,15 14,8" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round" />
+    </svg>
+  );
+}
+function IconPause() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 16 16" aria-hidden="true">
+      <rect x="2.5" y="1.5" width="4" height="13" fill="none" stroke="currentColor" strokeWidth="1.5" />
+      <rect x="9.5" y="1.5" width="4" height="13" fill="none" stroke="currentColor" strokeWidth="1.5" />
+    </svg>
+  );
+}
+
+function fmt(ms: number) {
+  const s = Math.floor(ms / 1000);
+  return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;
+}
+
+export default function PlaylistPlayer({ tracks, moodLabel }: { tracks: GeneratedTrack[]; moodLabel: string }) {
+  const {
+    tokenData, deviceId, playing, position, duration, currentTrack, playError,
+    useSDK, setActiveSource, handlePlayPause, handleSeek,
+  } = useSpotifyPlayback();
+
+  useEffect(() => {
+    if (!tracks.length) return;
+    setActiveSource({
+      mode: "playlist",
+      spotifyTrackUris: tracks.map(t => t.spotify_uri),
+      artist: tracks[0]?.artist,
+      albumTitle: `${moodLabel} — via rekōdo`,
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tracks]);
+
+  if (!tracks.length) return null;
+  if (tokenData === null) return null;
+
+  if (!tokenData.connected) {
+    return (
+      <p style={{ fontFamily: MONO, fontSize: "9.5px", letterSpacing: "0.04em", color: "#aaaaaa", padding: "12px 0" }}>
+        Connect Spotify in Settings to preview this playlist.
+      </p>
+    );
+  }
+
+  if (tokenData.product !== "premium") {
+    return (
+      <p style={{ fontFamily: MONO, fontSize: "9.5px", letterSpacing: "0.04em", color: "#aaaaaa", padding: "12px 0" }}>
+        Preview requires Spotify Premium. Open individual tracks in Spotify below instead.
+      </p>
+    );
+  }
+
+  const sdkConnecting = useSDK && !deviceId;
+  const progressPct = duration > 0 ? Math.min(100, (position / duration) * 100) : 0;
+
+  const onSeek = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (!duration) return;
+    const rect = e.currentTarget.getBoundingClientRect();
+    const pct  = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
+    handleSeek(pct);
+  };
+
+  const nowPlayingText = sdkConnecting
+    ? "Connecting to Spotify…"
+    : currentTrack ? `${currentTrack.artist} — ${currentTrack.name}` : "Ready to play";
+
+  return (
+    <div style={{ background: "#ffffff", border: `1px solid ${RULE}` }}>
+      <div style={{ padding: "12px 16px", display: "flex", alignItems: "center", gap: "14px" }}>
+        <button
+          onClick={sdkConnecting ? undefined : handlePlayPause}
+          disabled={sdkConnecting}
+          aria-label={playing ? "Pause" : "Play"}
+          style={{
+            width: "36px", height: "36px", borderRadius: "50%", flexShrink: 0,
+            background: "none", border: `1.5px solid ${INK}`, color: INK,
+            display: "flex", alignItems: "center", justifyContent: "center",
+            cursor: sdkConnecting ? "default" : "pointer", opacity: sdkConnecting ? 0.4 : 1,
+          }}
+        >
+          {playing ? <IconPause /> : <IconPlay />}
+        </button>
+
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <p style={{ fontFamily: MONO, fontSize: "10px", color: INK, margin: "0 0 6px 0", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+            {nowPlayingText}
+          </p>
+          <div onClick={onSeek} style={{ position: "relative", height: "2px", background: RULE, cursor: "pointer" }}>
+            <div style={{ position: "absolute", left: 0, top: 0, height: "100%", width: `${progressPct}%`, background: ORANGE }} />
+          </div>
+          <div style={{ display: "flex", justifyContent: "space-between", marginTop: "4px" }}>
+            <span style={{ fontFamily: MONO, fontSize: "8px", letterSpacing: "0.04em", color: "#aaaaaa" }}>{fmt(position)}</span>
+            <span style={{ fontFamily: MONO, fontSize: "8px", letterSpacing: "0.04em", color: "#aaaaaa" }}>{duration > 0 ? fmt(duration) : "--:--"}</span>
+          </div>
+        </div>
+
+        <span style={{ display: "flex", alignItems: "center", gap: "5px", flexShrink: 0, border: `1px solid ${RULE}`, padding: "4px 8px" }}>
+          <span style={{ width: "6px", height: "6px", borderRadius: "50%", background: SPOTIFY_GREEN }} />
+          <span style={{ fontFamily: MONO, fontSize: "8px", color: SPOTIFY_GREEN, letterSpacing: "0.04em" }}>spotify</span>
+        </span>
+      </div>
+
+      {playError !== null && (
+        <p style={{ fontFamily: MONO, fontSize: "9px", color: "#cc3300", padding: "0 16px 10px" }}>
+          Playback error {playError} — try again in a moment.
+        </p>
+      )}
+    </div>
+  );
+}

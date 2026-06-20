@@ -130,7 +130,7 @@ interface TokenData {
 }
 
 export interface ActiveSource {
-  mode:             "collection" | "dig";
+  mode:             "collection" | "dig" | "playlist";
   spotifyUri?:       string;
   spotifyTrackUri?:  string;
   /** Multiple track URIs — e.g. artist top tracks. Played as a queue via uris[]. */

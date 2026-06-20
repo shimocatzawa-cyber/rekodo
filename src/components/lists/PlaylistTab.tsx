@@ -1,0 +1,254 @@
+"use client";
+
+import { useState, useEffect, useRef } from "react";
+import { useRouter } from "next/navigation";
+import { createList, appendSongToList } from "@/app/lists/actions";
+import PlaylistPromptPanel, { type Mood, type MatchStatus } from "@/components/lists/playlist/PlaylistPromptPanel";
+import PlaylistPlayer from "@/components/lists/playlist/PlaylistPlayer";
+import PlaylistTrackList from "@/components/lists/playlist/PlaylistTrackList";
+
+const SERIF  = "var(--font-editorial)";
+const MONO   = "var(--font-mono)";
+const ORANGE = "#CC5500";
+const INK    = "#0d0d0d";
+const MUTED  = "#aaaaaa";
+const RULE   = "#e0e0da";
+
+export type GeneratedTrack = {
+  spotify_uri: string;
+  artist:      string;
+  title:       string;
+  album:       string;
+  year:        number | null;
+  cover_url:   string | null;
+  duration_ms: number;
+  preview_url: string | null;
+  rationale:   string;
+  source:      "collection" | "wantlist";
+};
+
+const MATCH_POLL_MS = 5000;
+const RESEQUENCE_DEBOUNCE_MS = 400;
+
+export default function PlaylistTab() {
+  const router = useRouter();
+
+  const [mood,            setMood]            = useState<Mood | null>(null);
+  const [refinement,      setRefinement]      = useState("");
+  const [includeWantlist, setIncludeWantlist] = useState(false);
+  const [trackCount,      setTrackCount]      = useState(10);
+
+  const [tracks,     setTracks]     = useState<GeneratedTrack[]>([]);
+  const [generating,  setGenerating] = useState(false);
+  const [error,       setError]      = useState<string | null>(null);
+  const [resequencing, setResequencing] = useState(false);
+
+  const [matchStatus, setMatchStatus] = useState<MatchStatus | null>(null);
+  const [spotifyConnected, setSpotifyConnected] = useState<boolean | null>(null);
+
+  const [titleDraft, setTitleDraft] = useState("");
+  const [saving,     setSaving]     = useState(false);
+  const [saveDone,   setSaveDone]   = useState<string | null>(null);
+
+  const matchPollRef     = useRef<ReturnType<typeof setInterval> | null>(null);
+  const resequenceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // ── Spotify connection check ──────────────────────────────────────────────
+  useEffect(() => {
+    fetch("/api/spotify/token")
+      .then(r => r.json() as Promise<{ connected: boolean }>)
+      .then(data => setSpotifyConnected(data.connected))
+      .catch(() => setSpotifyConnected(false));
+  }, []);
+
+  // ── Trigger + poll lazy Spotify matching ──────────────────────────────────
+  useEffect(() => {
+    if (spotifyConnected !== true) return;
+
+    function poll() {
+      fetch("/api/playlist/match-status")
+        .then(r => r.json() as Promise<MatchStatus>)
+        .then(data => {
+          setMatchStatus(data);
+          if (data.pending === 0 && matchPollRef.current) {
+            clearInterval(matchPollRef.current);
+            matchPollRef.current = null;
+          }
+        })
+        .catch(() => {});
+    }
+
+    fetch("/api/playlist/match-spotify", { method: "POST" }).catch(() => {});
+    poll();
+    matchPollRef.current = setInterval(poll, MATCH_POLL_MS);
+
+    return () => {
+      if (matchPollRef.current) { clearInterval(matchPollRef.current); matchPollRef.current = null; }
+    };
+  }, [spotifyConnected]);
+
+  // ── Generate ───────────────────────────────────────────────────────────────
+  async function handleGenerate() {
+    if (!mood) return;
+    setGenerating(true);
+    setError(null);
+    setSaveDone(null);
+    try {
+      const res = await fetch("/api/playlist/generate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ mood, includeWantlist, trackCount, refinement }),
+      });
+      const data = await res.json() as { tracks?: GeneratedTrack[]; error?: string };
+      if (!res.ok || !data.tracks) {
+        setError(data.error ?? "Failed to generate playlist.");
+        setTracks([]);
+      } else {
+        setTracks(data.tracks);
+        setTitleDraft(`${mood[0].toUpperCase()}${mood.slice(1)} Mix`);
+      }
+    } catch {
+      setError("Failed to generate playlist.");
+    } finally {
+      setGenerating(false);
+    }
+  }
+
+  // ── Reorder (optimistic, debounced rationale refresh) ────────────────────
+  function handleReorder(newTracks: GeneratedTrack[]) {
+    setTracks(newTracks);
+    if (resequenceTimerRef.current) clearTimeout(resequenceTimerRef.current);
+    resequenceTimerRef.current = setTimeout(() => {
+      void resequenceNotes(newTracks);
+    }, RESEQUENCE_DEBOUNCE_MS);
+  }
+
+  async function resequenceNotes(snapshot: GeneratedTrack[]) {
+    setResequencing(true);
+    try {
+      const res = await fetch("/api/playlist/resequence-notes", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          mood,
+          tracks: snapshot.map(t => ({ spotify_uri: t.spotify_uri, artist: t.artist, title: t.title, album: t.album })),
+        }),
+      });
+      const data = await res.json() as { rationales?: string[] };
+      if (res.ok && data.rationales) {
+        setTracks(current => {
+          // Only apply if the current order's URIs still match the snapshot we requested for —
+          // avoids overwriting a newer reorder that happened while this request was in flight.
+          const sameOrder = current.length === snapshot.length && current.every((t, i) => t.spotify_uri === snapshot[i].spotify_uri);
+          if (!sameOrder) return current;
+          return current.map((t, i) => ({ ...t, rationale: data.rationales![i] ?? t.rationale }));
+        });
+      }
+    } catch {
+      // best-effort — leave existing rationales in place on failure
+    } finally {
+      setResequencing(false);
+    }
+  }
+
+  // ── Save as list ───────────────────────────────────────────────────────────
+  async function handleSave() {
+    if (!tracks.length) return;
+    setSaving(true);
+    setSaveDone(null);
+    const title = titleDraft.trim() || "My Playlist";
+    const res = await createList(title, "personal");
+    if (!res.success || !res.list) {
+      setError("error" in res && res.error ? res.error : "Failed to create list.");
+      setSaving(false);
+      return;
+    }
+    const listId = res.list.id;
+    for (const t of tracks) {
+      await appendSongToList(listId, {
+        song_title: t.title, song_artist: t.artist, song_album: t.album,
+        song_cover_url: t.cover_url, song_year: t.year,
+      });
+    }
+    setSaving(false);
+    setSaveDone(title);
+    router.refresh();
+  }
+
+  return (
+    <div style={{ padding: "3rem 3.5rem", maxWidth: 1100, margin: "0 auto" }}>
+      <div style={{ display: "grid", gridTemplateColumns: "320px 1fr", gap: "32px", alignItems: "flex-start" }}>
+        <PlaylistPromptPanel
+          mood={mood} setMood={setMood}
+          refinement={refinement} setRefinement={setRefinement}
+          includeWantlist={includeWantlist} setIncludeWantlist={setIncludeWantlist}
+          trackCount={trackCount} setTrackCount={setTrackCount}
+          onGenerate={handleGenerate} generating={generating}
+          matchStatus={matchStatus} spotifyConnected={spotifyConnected}
+        />
+
+        <div style={{ minWidth: 0 }}>
+          {error && (
+            <p style={{ fontFamily: MONO, fontSize: "10px", color: "#cc3300", marginBottom: "16px" }}>{error}</p>
+          )}
+
+          {tracks.length > 0 ? (
+            <>
+              <div style={{ marginBottom: "16px" }}>
+                <PlaylistPlayer tracks={tracks} moodLabel={mood ?? ""} />
+              </div>
+
+              <PlaylistTrackList tracks={tracks} onReorder={handleReorder} resequencing={resequencing} />
+
+              <div style={{ display: "flex", alignItems: "center", gap: "12px", marginTop: "20px", flexWrap: "wrap" }}>
+                <button
+                  onClick={handleGenerate}
+                  disabled={generating}
+                  style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.1em", textTransform: "uppercase", color: ORANGE, background: "none", border: `1px solid ${ORANGE}`, borderRadius: "3px", cursor: generating ? "wait" : "pointer", padding: "8px 14px" }}
+                >
+                  Regenerate
+                </button>
+
+                <input
+                  value={titleDraft}
+                  onChange={e => setTitleDraft(e.target.value)}
+                  placeholder="List title"
+                  maxLength={80}
+                  style={{ fontFamily: SERIF, fontSize: "13px", color: INK, border: `1px solid ${RULE}`, padding: "8px 10px", flex: 1, minWidth: "140px" }}
+                />
+
+                <button
+                  onClick={handleSave}
+                  disabled={saving}
+                  style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.1em", textTransform: "uppercase", background: INK, color: "#ffffff", border: "none", cursor: saving ? "wait" : "pointer", padding: "9px 14px" }}
+                >
+                  {saving ? "Saving…" : "Save as list"}
+                </button>
+
+                <button
+                  disabled
+                  title="Coming soon"
+                  style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.1em", textTransform: "uppercase", color: "#cccccc", background: "none", border: `1px solid ${RULE}`, borderRadius: "3px", cursor: "default", padding: "8px 14px" }}
+                >
+                  Send to Spotify (coming soon)
+                </button>
+              </div>
+
+              {saveDone && (
+                <p style={{ fontFamily: MONO, fontSize: "9.5px", color: MUTED, marginTop: "10px" }}>
+                  Saved as “{saveDone}” under My Lists.
+                </p>
+              )}
+            </>
+          ) : (
+            <div style={{ border: `1px dashed ${RULE}`, padding: "48px 24px", textAlign: "center" }}>
+              <p style={{ fontFamily: SERIF, fontSize: "16px", color: MUTED, margin: 0 }}>
+                Pick a mood and generate a playlist from your collection.
+              </p>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}

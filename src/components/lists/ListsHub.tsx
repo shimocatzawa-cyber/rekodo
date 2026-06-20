@@ -6,16 +6,18 @@ import Top5Tab from "@/components/lists/Top5Tab";
 import ProfileListsTab from "@/components/profile/ProfileListsTab";
 import SellListClient from "@/components/profile/SellListClient";
 import CommunityTab from "@/components/community/CommunityTab";
+import PlaylistTab from "@/components/lists/PlaylistTab";
 
 const MONO   = "var(--font-mono)";
 const ORANGE = "#CC5500";
 
-type SubTab = "top5" | "wantlist" | "selllist" | "community";
+type SubTab = "top5" | "wantlist" | "selllist" | "community" | "playlist";
 
 const TABS: Array<{ key: SubTab; label: string }> = [
   { key: "top5",      label: "My Lists" },
   { key: "wantlist",  label: "Want List" },
   { key: "selllist",  label: "Sell List" },
+  { key: "playlist",  label: "Playlist" },
   { key: "community", label: "Community" },
 ];
 
@@ -74,6 +76,9 @@ export default function ListsHub({ profileId, username, displayLabel, avatarUrl,
         )}
         {activeTab === "selllist" && (
           <SellListClient profileOwnerId={profileId} isOwner={true} />
+        )}
+        {activeTab === "playlist" && (
+          <PlaylistTab />
         )}
         {activeTab === "community" && (
           <CommunityTab profileOwnerId={profileId} />
