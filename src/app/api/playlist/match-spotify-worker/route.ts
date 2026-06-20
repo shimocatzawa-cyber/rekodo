@@ -46,8 +46,12 @@ async function fetchWithTimeout(url: string, token: string): Promise<Response> {
   }
 }
 
-// Retries once on 429, honoring Retry-After. Anything still not-OK (or that
-// times out) after that is treated as transient rather than a confident "no match".
+// On 429, only retry within this same call if Spotify's own Retry-After is
+// short — burning a big chunk of the 40s invocation budget sleeping out a
+// long penalty wastes the whole pass. If it's long, bail immediately and let
+// the natural gap between client re-triggers (~15s) be the wait instead.
+const MAX_INLINE_RETRY_SEC = 3;
+
 async function spotifyFetch(url: string, token: string): Promise<Response | null> {
   let res: Response;
   try {
@@ -56,8 +60,9 @@ async function spotifyFetch(url: string, token: string): Promise<Response | null
     return null; // timed out or network error
   }
   if (res.status !== 429) return res;
-  const retryAfterSec = Math.min(Number(res.headers.get("Retry-After")) || 1, 5);
-  console.warn(`[match-spotify-worker] 429 rate limited — backing off ${retryAfterSec}s`);
+  const retryAfterSec = Number(res.headers.get("Retry-After")) || 1;
+  console.warn(`[match-spotify-worker] 429 rate limited, Retry-After=${retryAfterSec}s`);
+  if (retryAfterSec > MAX_INLINE_RETRY_SEC) return null; // sustained limit — don't retry inline
   await sleep((retryAfterSec + 0.5) * 1000);
   try {
     return await fetchWithTimeout(url, token);
