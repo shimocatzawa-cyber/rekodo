@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Shippori_Mincho, DM_Mono, Caveat } from "next/font/google";
 import Script from "next/script";
+import { Analytics } from "@vercel/analytics/next";
 import { SpotifyPlayerProvider } from "@/components/SpotifyPlayerProvider";
 import "./globals.css";
 
@@ -114,6 +115,7 @@ export default function RootLayout({
             strategy="afterInteractive"
           />
         )}
+        <Analytics />
       </body>
     </html>
   );
