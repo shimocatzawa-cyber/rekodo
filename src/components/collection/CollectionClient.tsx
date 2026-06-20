@@ -2193,6 +2193,15 @@ function TracklistPanel({ tracks, loading, bandcamp, record }: {
 
     (async () => {
       try {
+        // Spotify search may be in an active, app-wide rate-limit cooldown
+        // (shared with the matcher worker) — don't keep poking it from here
+        // too. Leave currentSpotifyUri at its already-set undefined ("still
+        // loading") rather than null, so this doesn't show as a false
+        // "no match" — it just retries next visit.
+        const cooldownRes = await fetch("/api/spotify/search-cooldown");
+        const cooldownData = await cooldownRes.json() as { cooldownUntil?: string | null };
+        if (cooldownData.cooldownUntil || cancelled) return;
+
         // Always fetch a fresh token — stale state tokens expire after 1 hour
         const token = await getFreshSpotifyToken();
         if (!token || cancelled) { setCurrentSpotifyUri(null); return; }
