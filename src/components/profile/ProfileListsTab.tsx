@@ -1448,12 +1448,15 @@ function WantlistCard({ slot, monthsOld, showSomedayPrompt, onRemove, onKeepSome
         </div>
 
         {/* Remove button */}
-        {hovered && (
-          <button onClick={onRemove}
-            style={{ fontFamily: MONO, fontSize: "13px", color: "#cccccc", background: "none", border: "none", cursor: "pointer", padding: 0, lineHeight: 1, flexShrink: 0 }}>
-            ×
-          </button>
-        )}
+        <button onClick={e => { e.stopPropagation(); onRemove(); }}
+          aria-label="Remove from wantlist"
+          style={{
+            fontFamily: MONO, fontSize: "16px", lineHeight: 1, flexShrink: 0,
+            color: hovered ? "#888888" : "#cccccc", background: "none", border: "none",
+            cursor: "pointer", padding: "2px 4px", transition: "color 0.15s",
+          }}>
+          ×
+        </button>
       </div>
 
       <div style={{ display: "flex", alignItems: "flex-start", gap: "8px", marginTop: "5px", paddingTop: "5px", borderTop: "1px solid rgba(0,0,0,0.05)" }}>
