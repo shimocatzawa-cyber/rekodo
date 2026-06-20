@@ -60,6 +60,11 @@ export async function getSpotifyAccessToken(
   }
 }
 
+// Shared with match-spotify-worker (which owns the lock) and match-spotify
+// (which checks it before triggering the worker at all) — one source of truth
+// so the two can't drift out of sync.
+export const SPOTIFY_MATCH_LOCK_TTL_MS = 70_000;
+
 // ─── Global Spotify search rate limiting ──────────────────────────────────
 // /v1/search calls happen from many independent places — one matcher
 // invocation per active user, plus the Collection page's own live search

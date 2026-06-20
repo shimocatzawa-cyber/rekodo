@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse, after } from "next/server";
 import { createClient } from "@/lib/supabase/server";
-import { getSpotifySearchCooldownUntil } from "@/lib/spotify";
+import { getSpotifySearchCooldownUntil, SPOTIFY_MATCH_LOCK_TTL_MS } from "@/lib/spotify";
 
 export const dynamic = "force-dynamic";
 
@@ -49,16 +49,26 @@ export async function POST(request: NextRequest) {
 
   const totalToMatch = unmatchedRecordCount + wantlistSongPendingCount;
 
-  // This route gets polled every ~5s by every user with pending matches, and
+  // This route gets polled every ~30s by every user with pending matches, and
   // the worker trigger below is wrapped in after() specifically so the
   // function stays alive for the worker's full run. During an active global
-  // rate-limit cooldown the worker would just no-op anyway — checking here
-  // first means that no-op costs nothing (one cheap read, no after(), no
-  // function kept alive) instead of repeating a full worker round-trip every
-  // few seconds for every active user for the entire cooldown.
-  const cooldownUntil = totalToMatch > 0 ? await getSpotifySearchCooldownUntil() : null;
+  // rate-limit cooldown, or while another invocation for this user is still
+  // running, the worker would just no-op anyway — checking both here first
+  // means that no-op costs one cheap read instead of a full after()-kept-
+  // alive worker round trip.
+  let cooldownUntil: string | null = null;
+  let alreadyLocked = false;
+  if (totalToMatch > 0) {
+    cooldownUntil = await getSpotifySearchCooldownUntil();
+    if (!cooldownUntil) {
+      const { data: profileLock } = await db
+        .from("profiles").select("spotify_match_lock_at").eq("id", user.id).maybeSingle();
+      const lockAt = profileLock?.spotify_match_lock_at ? new Date(profileLock.spotify_match_lock_at).getTime() : 0;
+      alreadyLocked = !!lockAt && Date.now() - lockAt < SPOTIFY_MATCH_LOCK_TTL_MS;
+    }
+  }
 
-  if (totalToMatch > 0 && !cooldownUntil) {
+  if (totalToMatch > 0 && !cooldownUntil && !alreadyLocked) {
     const { data: { session } } = await supabase.auth.getSession();
     const matchUrl = new URL("/api/playlist/match-spotify-worker", request.url).toString();
     // after() keeps the serverless function alive until this fetch actually

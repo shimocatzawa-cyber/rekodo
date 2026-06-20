@@ -6,19 +6,20 @@ import {
   reserveSpotifySearchSlot,
   recordSpotifySearchRateLimit,
   getSpotifySearchCooldownUntil,
+  SPOTIFY_MATCH_LOCK_TTL_MS,
 } from "@/lib/spotify";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
 
-// The client (PlaylistTab.tsx) re-triggers this route every ~15s while work
+// The client (PlaylistTab.tsx) re-triggers this route every ~30s while work
 // remains, since server-to-server self-triggering proved unreliable on
 // Vercel (silently stalling, then hard-timing-out). That means multiple
 // invocations for the same user can otherwise overlap and hammer Spotify
 // simultaneously — a TTL lock on profiles.spotify_match_lock_at ensures
 // only one invocation actually does work at a time. TTL (not a cleared-on-
 // exit lock) so a killed/timed-out invocation can't wedge it open forever.
-const LOCK_TTL_MS = 70_000;
+const LOCK_TTL_MS = SPOTIFY_MATCH_LOCK_TTL_MS;
 const FETCH_TIMEOUT_MS = 6_000; // hard cap per Spotify request — nothing should hang silently
 const MAX_TRACK_PAGES = 2; // 100 tracks covers nearly every release; bounds worst-case time
 const SPOTIFY_PACING_MS = 200; // global, cross-user/cross-invocation pacing — see reserveSpotifySearchSlot

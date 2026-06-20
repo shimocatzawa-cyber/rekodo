@@ -68,12 +68,17 @@ export default function PlaylistTab() {
   // remains, the client re-fires the trigger periodically itself. The browser
   // doesn't have the "frozen after response" failure mode serverless
   // functions do, so it's the dependable way to keep progress moving.
-  const MATCH_RETRIGGER_MS = 15_000;
+  // 30s rather than tighter — this is a background backfill, not anything
+  // the user is waiting on, and each retrigger costs a real (Vercel-billed)
+  // worker invocation kept alive for its full run via after().
+  const MATCH_RETRIGGER_MS = 30_000;
 
   useEffect(() => {
     if (spotifyConnected !== true) return;
 
     function poll() {
+      // Don't keep billing worker invocations for a tab nobody's looking at.
+      if (document.hidden) return;
       fetch("/api/playlist/match-status")
         .then(r => r.json() as Promise<MatchStatus>)
         .then(data => {
