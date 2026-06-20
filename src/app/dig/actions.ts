@@ -59,17 +59,23 @@ export async function addToWantlist(
 
   const { data: existing } = await supabase
     .from("list_items")
-    .select("position, song_artist, song_album")
+    .select("position, song_artist, song_album, source")
     .eq("list_id", wantlistId)
     .order("position", { ascending: false });
 
+  // Only skip the insert if a Dig-added item already matches artist+album.
+  // CSV-imported items (source: "discogs") must NOT block a Dig insert — they
+  // are different entries and the user may want to add a note or separate record.
   const alreadyAdded = (existing ?? []).some(
-    i => i.song_artist?.toLowerCase() === artist.toLowerCase() &&
+    i => i.source === "dig" &&
+         i.song_artist?.toLowerCase() === artist.toLowerCase() &&
          i.song_album?.toLowerCase()  === album.toLowerCase()
   );
   if (alreadyAdded) return { success: true };
 
-  const nextPos = (existing?.[0]?.position ?? 0) + 1;
+  // Use MAX(position) across ALL items to avoid collisions with any existing row.
+  const maxPos = (existing ?? []).reduce((m, i) => Math.max(m, i.position ?? 0), 0);
+  const nextPos = maxPos + 1;
 
   // ── 3. Insert directly as a song item — no records table insert needed ──────
 

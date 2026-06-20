@@ -51,5 +51,16 @@ export async function GET() {
     }
   }
 
-  return Response.json({ user_id: user.id, wantlists: result, insertProbe });
+  // Search for any "Ananda Shankar" items to diagnose the false-already-added scenario
+  let anandaSearch: { items: unknown[]; error: string | null } = { items: [], error: null };
+  if (wantlistId) {
+    const { data: anandaItems, error: anandaErr } = await supabase
+      .from("list_items")
+      .select("id, position, item_type, song_artist, song_album, song_title, source, discogs_release_id, created_at")
+      .eq("list_id", wantlistId)
+      .or("song_artist.ilike.%ananda%,song_album.ilike.%ananda%");
+    anandaSearch = { items: anandaItems ?? [], error: anandaErr?.message ?? null };
+  }
+
+  return Response.json({ user_id: user.id, wantlists: result, insertProbe, anandaSearch });
 }
