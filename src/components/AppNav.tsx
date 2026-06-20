@@ -30,12 +30,12 @@ export default function AppNav({ username, displayLabel, avatarUrl }: { username
     const sb = createClient();
     sb.auth.getUser().then(({ data: { user } }) => {
       if (!user) return;
-      sb.from("profiles")
-        .select("is_donor, role")
+      (sb as any).from("profiles")
+        .select("is_donor, is_supporter, role")
         .eq("id", user.id)
         .maybeSingle()
-        .then(({ data }) => {
-          if (data?.is_donor || data?.role === "admin") setIsSupporter(true);
+        .then(({ data }: { data: { is_donor?: boolean; is_supporter?: boolean; role?: string } | null }) => {
+          if (data?.is_donor || data?.is_supporter || data?.role === "admin") setIsSupporter(true);
         });
     });
   }, []);
