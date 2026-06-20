@@ -22,6 +22,7 @@ type Recommendation = {
 };
 
 interface Props {
+  userId:          string;
   username:        string;
   displayLabel?:   string;
   avatarUrl?:      string | null;
@@ -811,7 +812,7 @@ function ModeToggle({ mode, onChange, disabled }: {
 
 // ─── Main client ──────────────────────────────────────────────────────────────
 
-export default function DigClient({ username, displayLabel, avatarUrl, collectionCount, listsCount, availableStyles, hasQuizProfile }: Props) {
+export default function DigClient({ userId, username, displayLabel, avatarUrl, collectionCount, listsCount, availableStyles, hasQuizProfile }: Props) {
   const [recs,              setRecs]              = useState<Recommendation[] | null>(null);
   const [loading,           setLoading]           = useState(true);
   const [error,             setError]             = useState<string | null>(null);
@@ -936,48 +937,73 @@ export default function DigClient({ username, displayLabel, avatarUrl, collectio
     const key = `${rec.artist}||${rec.album}`;
     setWantlistAdded(prev => new Set(prev).add(key));
     setWantlistError(null);
-    try {
-      const supabase = createClient();
-      const { data: { user }, error: authErr } = await supabase.auth.getUser();
-      if (authErr || !user) throw new Error("Not authenticated");
 
-      // Find or create wantlist
-      let { data: wantlist, error: findErr } = await supabase
+    const supabase = createClient();
+    let listId: string;
+
+    try {
+      // ── 1. Find wantlist ──────────────────────────────────────────────────
+      console.log("[wantlist] finding list for user", userId);
+      const { data: existing, error: findErr } = await supabase
         .from("lists")
         .select("id")
-        .eq("user_id", user.id)
-        .in("slug", ["wantlist", "want-to-buy"])
-        .maybeSingle();
+        .eq("user_id", userId)
+        .eq("slug", "wantlist")
+        .single();
 
-      if (findErr) throw new Error(findErr.message);
-
-      if (!wantlist) {
-        const { data: created, error: createErr } = await supabase
-          .from("lists")
-          .insert({ user_id: user.id, title: "Wantlist", slug: "wantlist", is_public: false, list_type: "personal" })
-          .select("id")
-          .single();
-        if (createErr || !created) throw new Error(createErr?.message ?? "Could not create wantlist");
-        wantlist = created;
+      if (findErr && findErr.code !== "PGRST116") {
+        console.error("[wantlist] find error", findErr);
+        throw new Error(`List lookup failed: ${findErr.message}`);
       }
 
-      // Next position
+      if (existing) {
+        console.log("[wantlist] found list", existing.id);
+        listId = existing.id;
+      } else {
+        // ── 2. Create wantlist if missing ───────────────────────────────────
+        console.log("[wantlist] no list found, creating");
+        const { data: created, error: createErr } = await supabase
+          .from("lists")
+          .insert({ user_id: userId, title: "Wantlist", slug: "wantlist", is_public: true, list_type: "personal" })
+          .select("id")
+          .single();
+
+        if (createErr || !created) {
+          console.error("[wantlist] create error", createErr);
+          throw new Error(`Could not create wantlist: ${createErr?.message ?? "unknown"}`);
+        }
+        console.log("[wantlist] created list", created.id);
+        listId = created.id;
+      }
+    } catch (e) {
+      setWantlistAdded(prev => { const s = new Set(prev); s.delete(key); return s; });
+      setWantlistError(e instanceof Error ? e.message : "Failed to find wantlist");
+      setTimeout(() => setWantlistError(null), 6000);
+      return;
+    }
+
+    try {
+      // ── 3. Next position ──────────────────────────────────────────────────
       const { data: posRow, error: posErr } = await supabase
         .from("list_items")
         .select("position")
-        .eq("list_id", wantlist.id)
+        .eq("list_id", listId)
         .order("position", { ascending: false })
         .limit(1)
         .maybeSingle();
 
-      if (posErr) throw new Error(posErr.message);
+      if (posErr) {
+        console.error("[wantlist] position lookup error", posErr);
+        throw new Error(`Position lookup failed: ${posErr.message}`);
+      }
       const nextPos = (posRow?.position ?? 0) + 1;
+      console.log("[wantlist] next position", nextPos);
 
-      // Insert
+      // ── 4. Insert ─────────────────────────────────────────────────────────
       const { data: inserted, error: insertErr } = await supabase
         .from("list_items")
         .insert({
-          list_id:     wantlist.id,
+          list_id:     listId,
           position:    nextPos,
           item_type:   "song",
           song_title:  rec.album,
@@ -990,12 +1016,14 @@ export default function DigClient({ username, displayLabel, avatarUrl, collectio
         .single();
 
       if (insertErr || !inserted) {
-        throw new Error(insertErr?.message ?? "Insert returned no row");
+        console.error("[wantlist] insert error", insertErr);
+        throw new Error(insertErr?.message ?? "Insert returned no row — check RLS policies");
       }
+      console.log("[wantlist] inserted item", inserted.id, "at position", nextPos);
     } catch (e) {
       setWantlistAdded(prev => { const s = new Set(prev); s.delete(key); return s; });
       setWantlistError(e instanceof Error ? e.message : "Failed to add to wantlist");
-      setTimeout(() => setWantlistError(null), 4000);
+      setTimeout(() => setWantlistError(null), 6000);
     }
   }
 

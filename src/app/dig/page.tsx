@@ -81,6 +81,7 @@ export default async function DigPage() {
 
   return (
     <DigClient
+      userId={user.id}
       username={username}
       displayLabel={displayLabel}
       avatarUrl={avatarUrl}
