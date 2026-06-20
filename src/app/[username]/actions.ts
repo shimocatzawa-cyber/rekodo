@@ -15,6 +15,26 @@ export async function generateTasteSummary(
   const { data: { user } } = await supabase.auth.getUser();
   if (!user || user.id !== userId) return { error: "Not authorized." };
 
+  const { data: profileRow } = await supabase
+    .from("profiles")
+    .select("taste_summary, taste_summary_history")
+    .eq("id", userId)
+    .maybeSingle();
+
+  type RecentPick = { artist: string; album: string };
+  const history: RecentPick[] = Array.isArray(profileRow?.taste_summary_history)
+    ? (profileRow!.taste_summary_history as unknown as RecentPick[])
+    : [];
+  // Seed history with the current pick too, in case it predates this column.
+  if (profileRow?.taste_summary) {
+    try {
+      const current = JSON.parse(profileRow.taste_summary) as RecentPick;
+      if (current.artist && current.album && !history.some(h => h.artist === current.artist && h.album === current.album)) {
+        history.push(current);
+      }
+    } catch { /* malformed/legacy summary — ignore */ }
+  }
+
   const { data: links } = await supabase
     .from("user_records")
     .select("record_id")
@@ -64,6 +84,7 @@ export async function generateTasteSummary(
     artists.length   && `Artists with multiple records: ${artists.map(([a, n]) => `${a} (${n})`).join(", ")}`,
     decades.length   && `Decades: ${decades.map(([d, n]) => `${d} (${n})`).join(", ")}`,
     `Already owned (do NOT recommend any of these): ${ownedAlbums.join("; ")}`,
+    history.length   && `Already recommended recently (do NOT repeat any of these either): ${history.slice(-20).map(h => `${h.artist} — ${h.album}`).join("; ")}`,
   ].filter(Boolean).join("\n");
 
   try {
@@ -73,7 +94,7 @@ export async function generateTasteSummary(
       system: [
         {
           type: "text",
-          text: "You are rekōdo, a music recommendation app for serious vinyl collectors. Based on a collector's taste profile and star sign, recommend ONE specific album they don't already own. Respond with a raw JSON object (no markdown, no code block) with exactly three keys: \"artist\" (string), \"album\" (string), \"description\" (one sentence, max 20 words, poetic and specific to their taste and star sign).",
+          text: "You are rekōdo, a music recommendation app for serious vinyl collectors. Based on a collector's taste profile and star sign, recommend ONE specific album they don't already own and haven't already been recommended (see the 'Already owned' and 'Already recommended recently' lists — both are hard exclusions). When regenerated, pick something meaningfully different each time, not a near-duplicate of recent picks. Respond with a raw JSON object (no markdown, no code block) with exactly three keys: \"artist\" (string), \"album\" (string), \"description\" (one sentence, max 20 words, poetic and specific to their taste and star sign).",
           cache_control: { type: "ephemeral" },
         },
       ],
@@ -86,9 +107,15 @@ export async function generateTasteSummary(
     const parsed = JSON.parse(raw) as { artist: string; album: string; description: string };
     const summary = JSON.stringify({ artist: parsed.artist, album: parsed.album, description: parsed.description });
 
+    const newHistory = [...history, { artist: parsed.artist, album: parsed.album }].slice(-20);
+
     await supabase
       .from("profiles")
-      .update({ taste_summary: summary, taste_summary_count: allRecords.length })
+      .update({
+        taste_summary: summary,
+        taste_summary_count: allRecords.length,
+        taste_summary_history: newHistory,
+      })
       .eq("id", userId);
 
     const { data: pData } = await supabase.from("profiles").select("username").eq("id", userId).maybeSingle();
