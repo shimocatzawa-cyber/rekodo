@@ -1220,9 +1220,11 @@ function MarketplaceDrawer({
   if (!isOpen) return null;
 
   const q = encodeURIComponent(`${artist} ${album}`);
+  const qVinyl = encodeURIComponent(`${artist} ${album} vinyl record`);
   const FIND_LINKS = [
     { label: "Buy on Discogs ↗",      href: `https://www.discogs.com/search/?q=${q}&type=release` },
     { label: "Buy on eBay ↗",         href: `https://www.ebay.com/sch/i.html?_nkw=${q}&_sacat=306` },
+    { label: "Search Google Shopping ↗", href: `https://www.google.com/search?tbm=shop&q=${qVinyl}` },
     { label: "Search Bandcamp ↗",     href: `https://bandcamp.com/search?q=${q}` },
     { label: "Search Rough Trade ↗",  href: `https://www.roughtrade.com/search?q=${q}` },
     { label: "Search Juno ↗",         href: `https://www.juno.co.uk/search/?q=${q}` },
