@@ -6,6 +6,7 @@ import AppNav from "@/components/AppNav";
 import TasteProfile, { type SpectrumData } from "@/components/insights/TasteProfile";
 import LunarListeningRitual from "@/components/LunarListeningRitual";
 import InsightsShareModal from "@/components/insights/InsightsShareModal";
+import EssentialsWallModal from "@/components/insights/EssentialsWallModal";
 import { generateTasteSummary } from "@/app/[username]/actions";
 import type { DesirabilityTier } from "@/lib/desirability";
 
@@ -57,6 +58,12 @@ export interface InsightsProps {
   yearRange:       { oldest: number; newest: number } | null;
   mostPopularYear: number | null;
   vinylColourBreakdown: { colour: string; count: number; pct: number }[];
+  essentials: {
+    total:           number;
+    primaryGenre:    string | null;
+    primaryGenrePct: number;
+    covers:          { artist: string; album: string; coverUrl: string | null }[];
+  };
   collectionLifespan: { period: string; Added: number }[];
   collectionByMonth: { period: string; Added: number }[];
   spectrum:           SpectrumData;
@@ -246,6 +253,7 @@ export default function InsightsClient({
   countryBreakdown, topLabels, topArtists, topProducers,
   formatBreakdown, desirabilityBreakdown,
   topFormat, yearRange, mostPopularYear, vinylColourBreakdown,
+  essentials,
   collectionLifespan, collectionByMonth, spectrum,
   topPlayedRecords, playedStyleBreakdown,
   starSign, tasteSummary, profileId, isSupporter, usageStats,
@@ -254,6 +262,7 @@ export default function InsightsClient({
   const [oneLiner, setOneLiner] = useState<string | null>(null);
   const [insightsTab, setInsightsTab] = useState<"collection" | "taste-profile">("collection");
   const [showShare, setShowShare] = useState(false);
+  const [showEssentialsShare, setShowEssentialsShare] = useState(false);
 
   // ── Album recommendation state ─────────────────────────────────────────────
   type RecData = { artist: string; album: string; description: string };
@@ -394,6 +403,70 @@ export default function InsightsClient({
             </p>
           </div>
         )}
+
+        {/* ── Section -1: Essentials Wall (records you've tagged Essential) ──── */}
+        <div style={{ marginBottom: "28px" }}>
+          <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between" }}>
+            <div>
+              <p style={{
+                fontFamily: MONO, fontSize: "0.65rem", letterSpacing: "0.14em",
+                textTransform: "uppercase", color: ORANGE, margin: "0 0 8px",
+              }}>
+                Essentials
+              </p>
+              <h2 style={{
+                fontFamily: SERIF, fontSize: "1.8rem", fontWeight: 600,
+                color: INK, letterSpacing: "-0.025em", lineHeight: 1.15,
+                margin: "0 0 6px",
+              }}>
+                Your essentials wall.
+              </h2>
+              <p style={{ fontFamily: MONO, fontSize: "10px", color: "#999999", letterSpacing: "0.04em", margin: "0 0 16px" }}>
+                Built from records you&apos;ve tagged Essential — not your full collection.
+              </p>
+            </div>
+            {essentials.covers.length > 0 && (
+              <button
+                onClick={() => setShowEssentialsShare(true)}
+                style={{ fontFamily: MONO, fontSize: 10, color: ORANGE, background: "none", border: "none", cursor: "pointer", padding: 0, letterSpacing: "0.06em", flexShrink: 0, marginLeft: 16 }}
+              >
+                Share ↗
+              </button>
+            )}
+          </div>
+          <div style={{ borderTop: `1px solid ${RULE}`, marginBottom: "20px" }} />
+
+          {essentials.covers.length === 0 ? (
+            <p style={{ fontFamily: MONO, fontSize: "11px", letterSpacing: "0.04em", color: INK, margin: "0 0 40px" }}>
+              Tag records as Essential from your collection to build your wall.
+            </p>
+          ) : (
+            <div style={{
+              display: "grid",
+              gridTemplateColumns: "repeat(auto-fill, minmax(56px, 1fr))",
+              gap: "6px",
+              marginBottom: "40px",
+            }}>
+              {essentials.covers.map((c, i) => (
+                c.coverUrl ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    key={i}
+                    src={c.coverUrl}
+                    alt={`${c.artist} — ${c.album}`}
+                    style={{ width: "100%", aspectRatio: "1 / 1", objectFit: "cover", display: "block", background: RULE }}
+                  />
+                ) : (
+                  <div key={i} style={{ width: "100%", aspectRatio: "1 / 1", background: RULE, display: "flex", alignItems: "center", justifyContent: "center" }}>
+                    <span style={{ fontFamily: MONO, fontSize: "8px", color: "#aaaaaa" }}>—</span>
+                  </div>
+                )
+              ))}
+            </div>
+          )}
+        </div>
+
+        <SectionDivider />
 
         {/* ── Section 0: Collection Lifespan ─────────────────────────────────── */}
         <SectionHeader eyebrow="Collection Lifespan" title="When you added to it." />
@@ -845,6 +918,17 @@ export default function InsightsClient({
           topCountry={topPressOrigin?.country ?? null}
           countryCount={countryBreakdown.length}
           holyGrails={holyGrailCount}
+        />
+      )}
+
+      {showEssentialsShare && (
+        <EssentialsWallModal
+          onClose={() => setShowEssentialsShare(false)}
+          username={username}
+          covers={essentials.covers}
+          total={essentials.total}
+          primaryGenre={essentials.primaryGenre}
+          primaryGenrePct={essentials.primaryGenrePct}
         />
       )}
 

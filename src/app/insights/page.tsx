@@ -94,13 +94,14 @@ export default async function InsightsPage() {
     date_added:       string | null;
     last_played_at:   string | null;
     play_count:       number;
+    is_essential:     boolean;
   };
   const allLinks: LinkRow[] = [];
   const PAGE = 1000;
   for (let from = 0; ; from += PAGE) {
     const { data, error } = await supabase
       .from("user_records")
-      .select("record_id, price_low, price_median, price_high, price_currency, media_condition, sleeve_condition, date_added, last_played_at, play_count")
+      .select("record_id, price_low, price_median, price_high, price_currency, media_condition, sleeve_condition, date_added, last_played_at, play_count, is_essential")
       .eq("user_id", user.id)
       .range(from, from + PAGE - 1);
     if (error || !data || data.length === 0) break;
@@ -282,6 +283,39 @@ export default async function InsightsPage() {
       valueSum,
       pct: totalRecords > 0 ? Math.round((count / totalRecords) * 100) : 0,
     }));
+
+  // ── Essentials wall (user-tagged "Essential" records only) ────────────────
+  const essentialLinks = allLinks
+    .filter((l) => l.is_essential)
+    .sort((a, b) => new Date(b.date_added ?? 0).getTime() - new Date(a.date_added ?? 0).getTime());
+
+  const essentialGenreCounts = new Map<string, number>();
+  for (const l of essentialLinks) {
+    const genre = recordsMap.get(l.record_id)?.genre ?? "Unknown";
+    essentialGenreCounts.set(genre, (essentialGenreCounts.get(genre) ?? 0) + 1);
+  }
+  const essentialsTotal = essentialLinks.length;
+  let essentialsPrimaryGenre: string | null = null;
+  let essentialsPrimaryGenrePct = 0;
+  if (essentialGenreCounts.size > 0) {
+    const [topGenre, topCount] = [...essentialGenreCounts.entries()].sort((a, b) => b[1] - a[1])[0];
+    essentialsPrimaryGenre = topGenre;
+    essentialsPrimaryGenrePct = Math.round((topCount / essentialsTotal) * 100);
+  }
+  const essentialsCovers: InsightsProps["essentials"]["covers"] = essentialLinks
+    .map((l) => {
+      const rec = recordsMap.get(l.record_id);
+      if (!rec) return null;
+      return { artist: rec.artist, album: rec.album, coverUrl: rec.cover_url ?? null };
+    })
+    .filter((r): r is NonNullable<typeof r> => r !== null);
+
+  const essentials: InsightsProps["essentials"] = {
+    total:           essentialsTotal,
+    primaryGenre:    essentialsPrimaryGenre,
+    primaryGenrePct: essentialsPrimaryGenrePct,
+    covers:          essentialsCovers,
+  };
 
   // ── Style analysis ─────────────────────────────────────────────────────────
   const styleCounts = new Map<string, number>();
@@ -693,6 +727,7 @@ export default async function InsightsPage() {
       yearRange={yearRange}
       mostPopularYear={mostPopularYear}
       vinylColourBreakdown={vinylColourBreakdown}
+      essentials={essentials}
       collectionLifespan={collectionLifespan}
       collectionByMonth={collectionByMonth}
       spectrum={spectrum}
