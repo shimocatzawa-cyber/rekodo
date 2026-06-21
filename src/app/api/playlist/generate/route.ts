@@ -65,6 +65,28 @@ function flattenCandidates(
   return out;
 }
 
+// Supabase/PostgREST caps unfiltered reads at 1000 rows, and a `.in()` filter
+// with thousands of UUIDs crammed into one request URL can fail outright
+// (URL too long) — both silently look like "0 rows" if you don't check for
+// it. Page past the row cap, and batch large id lists into chunks, the same
+// way collection/page.tsx and discogs/import/route.ts already do.
+const PAGE_SIZE = 1000;
+const ID_BATCH = 400;
+
+async function selectInBatches<T>(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  db: any, table: string, select: string, idCol: string, ids: string[], extra?: (q: any) => any,
+): Promise<T[]> {
+  const out: T[] = [];
+  for (let i = 0; i < ids.length; i += ID_BATCH) {
+    let q = db.from(table).select(select).in(idCol, ids.slice(i, i + ID_BATCH));
+    if (extra) q = extra(q);
+    const { data } = await q;
+    if (data) out.push(...(data as T[]));
+  }
+  return out;
+}
+
 type UnmatchedItem = {
   refId:   string;
   table:   "records" | "list_items";
@@ -148,23 +170,25 @@ export async function POST(request: NextRequest) {
   const db = supabase as any;
 
   // ── Owned collection candidates ──────────────────────────────────────────
-  const { data: ownedLinks } = await db
-    .from("user_records").select("record_id, feeling").eq("user_id", user.id);
+  const ownedLinks: Array<{ record_id: string; feeling: string | null }> = [];
+  for (let from = 0; ; from += PAGE_SIZE) {
+    const { data } = await db
+      .from("user_records").select("record_id, feeling").eq("user_id", user.id)
+      .range(from, from + PAGE_SIZE - 1);
+    if (!data || data.length === 0) break;
+    ownedLinks.push(...data);
+    if (data.length < PAGE_SIZE) break;
+  }
 
   const feelingByRecordId = new Map<string, string | null>(
-    (ownedLinks ?? []).map((r: { record_id: string; feeling: string | null }) => [r.record_id, r.feeling])
+    ownedLinks.map((r) => [r.record_id, r.feeling])
   );
   const ownedRecordIds = [...feelingByRecordId.keys()];
 
-  let ownedMatchedRecords: Array<{ id: string; artist: string; album: string; year: number | null; cover_url: string | null; spotify_tracks: SpotifyTrackJson[] | null }> = [];
-  if (ownedRecordIds.length > 0) {
-    const { data } = await db
-      .from("records")
-      .select("id, artist, album, year, cover_url, spotify_tracks")
-      .in("id", ownedRecordIds)
-      .eq("spotify_matched", true);
-    ownedMatchedRecords = data ?? [];
-  }
+  const ownedMatchedRecords = await selectInBatches<{ id: string; artist: string; album: string; year: number | null; cover_url: string | null; spotify_tracks: SpotifyTrackJson[] | null }>(
+    db, "records", "id, artist, album, year, cover_url, spotify_tracks", "id", ownedRecordIds,
+    (q) => q.eq("spotify_matched", true),
+  );
 
   const taggedOwned   = ownedMatchedRecords.filter(r => feelingByRecordId.get(r.id) === mood);
   const untaggedOwned = ownedMatchedRecords.filter(r => feelingByRecordId.get(r.id) !== mood);
@@ -191,10 +215,11 @@ export async function POST(request: NextRequest) {
       wantlistRecordIds = (recordItems ?? []).map((r: { record_id: string }) => r.record_id);
 
       if (wantlistRecordIds.length > 0) {
-        const { data: matchedWantlistRecords } = await db
-          .from("records").select("id, artist, album, year, cover_url, spotify_tracks")
-          .in("id", wantlistRecordIds).eq("spotify_matched", true);
-        candidates = candidates.concat(flattenCandidates(matchedWantlistRecords ?? [], "wantlist", "inferred"));
+        const matchedWantlistRecords = await selectInBatches<{ id: string; artist: string; album: string; year: number | null; cover_url: string | null; spotify_tracks: SpotifyTrackJson[] | null }>(
+          db, "records", "id, artist, album, year, cover_url, spotify_tracks", "id", wantlistRecordIds,
+          (q) => q.eq("spotify_matched", true),
+        );
+        candidates = candidates.concat(flattenCandidates(matchedWantlistRecords, "wantlist", "inferred"));
       }
 
       const { data: matchedSongItems } = await db
@@ -216,7 +241,7 @@ export async function POST(request: NextRequest) {
   // producing matches — strip this once it's confirmed working.
   const debug: Record<string, unknown> = {
     userId: user.id,
-    ownedLinksCount: ownedLinks?.length ?? 0,
+    ownedLinksCount: ownedLinks.length,
     ownedRecordIdsCount: ownedRecordIds.length,
     existingCandidates: candidates.length,
     minDesired: MIN_DESIRED,
@@ -227,10 +252,11 @@ export async function POST(request: NextRequest) {
     const unmatchedPool: UnmatchedItem[] = [];
 
     if (ownedRecordIds.length > 0) {
-      const { data } = await db
-        .from("records").select("id, artist, album, year, genre")
-        .in("id", ownedRecordIds).is("spotify_matched_at", null);
-      for (const r of (data ?? []) as Array<{ id: string; artist: string; album: string; year: number | null; genre: string | null }>) {
+      const rows = await selectInBatches<{ id: string; artist: string; album: string; year: number | null; genre: string | null }>(
+        db, "records", "id, artist, album, year, genre", "id", ownedRecordIds,
+        (q) => q.is("spotify_matched_at", null),
+      );
+      for (const r of rows) {
         unmatchedPool.push({
           refId: r.id, table: "records", artist: r.artist, album: r.album,
           year: r.year, genre: r.genre, feeling: feelingByRecordId.get(r.id) ?? null, source: "collection",
@@ -239,10 +265,11 @@ export async function POST(request: NextRequest) {
     }
 
     if (includeWantlist && wantlistRecordIds.length > 0) {
-      const { data } = await db
-        .from("records").select("id, artist, album, year, genre")
-        .in("id", wantlistRecordIds).is("spotify_matched_at", null);
-      for (const r of (data ?? []) as Array<{ id: string; artist: string; album: string; year: number | null; genre: string | null }>) {
+      const rows = await selectInBatches<{ id: string; artist: string; album: string; year: number | null; genre: string | null }>(
+        db, "records", "id, artist, album, year, genre", "id", wantlistRecordIds,
+        (q) => q.is("spotify_matched_at", null),
+      );
+      for (const r of rows) {
         unmatchedPool.push({
           refId: r.id, table: "records", artist: r.artist, album: r.album,
           year: r.year, genre: r.genre, feeling: null, source: "wantlist",
