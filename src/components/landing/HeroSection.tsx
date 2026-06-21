@@ -15,7 +15,10 @@ export default function HeroSection({ isSignedIn }: { isSignedIn: boolean }) {
   );
 
   return (
-    <section className="relative flex flex-col justify-end min-h-screen pt-32 pb-24 md:pt-24 md:pb-16 px-8 md:px-12 lg:px-16 overflow-hidden">
+    <section
+      className="relative flex flex-col justify-end pt-32 pb-24 md:pt-24 md:pb-16 px-8 md:px-12 lg:px-16 overflow-hidden"
+      style={{ minHeight: "100dvh" }}
+    >
       {/* Full-width wordmark */}
       <div className="flex-1 flex flex-col justify-center items-start">
         {isSignedIn ? (
