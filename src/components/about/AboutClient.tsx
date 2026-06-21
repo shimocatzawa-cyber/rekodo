@@ -90,6 +90,13 @@ export default function AboutClient({
       {activeTab === "support" && (
         <>
           <main style={{ maxWidth: 960, margin: "0 auto", padding: "48px 32px 80px" }}>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src="/support-dig-deeper.jpg"
+              alt="Dig deeper — crates of records"
+              style={{ width: "100%", height: "auto", display: "block", marginBottom: "40px" }}
+            />
+
             <h1 style={{
               fontFamily: SERIF,
               fontSize: "clamp(52px, 8vw, 88px)",
