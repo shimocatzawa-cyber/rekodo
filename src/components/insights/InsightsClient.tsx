@@ -446,7 +446,7 @@ export default function InsightsClient({
           ) : (
             <div style={{
               display: "grid",
-              gridTemplateColumns: "repeat(auto-fill, minmax(56px, 1fr))",
+              gridTemplateColumns: "repeat(auto-fill, minmax(30px, 1fr))",
               gap: "6px",
               marginBottom: "40px",
             }}>
