@@ -30,7 +30,7 @@ type Candidate = {
   cover_url:    string | null;
   duration_ms:  number;
   preview_url:  string | null;
-  source:       "collection" | "wantlist";
+  source:       "collection" | "wantlist" | "discover";
   confidence:   "tagged" | "inferred";
 };
 
@@ -44,12 +44,12 @@ type GeneratedTrack = {
   duration_ms: number;
   preview_url: string | null;
   rationale:   string;
-  source:      "collection" | "wantlist";
+  source:      "collection" | "wantlist" | "discover";
 };
 
 function flattenCandidates(
   records: Array<{ artist: string; album: string; year?: number | null; cover_url: string | null; spotify_tracks: SpotifyTrackJson[] | null }>,
-  source: "collection" | "wantlist",
+  source: "collection" | "wantlist" | "discover",
   confidence: "tagged" | "inferred",
 ): Candidate[] {
   const out: Candidate[] = [];
@@ -128,15 +128,28 @@ async function shortlistUnmatched(
       max_tokens: 500,
       system: [{
         type: "text",
-        text: `You help shortlist albums from a record collector's catalog before looking them up. Given a mood, an optional refinement constraint, and a list of candidate albums (each with a refId, artist, album, and optionally year/genre/a collector-tagged feeling), pick up to ${SHORTLIST_SIZE} albums most likely to fit the mood well, best fit first. Prefer albums tagged with the matching feeling. Respond with a raw JSON object (no markdown) with exactly one key "refIds": an array of refId strings, best fit first, copied verbatim from the candidate list.`,
+        text: `You help shortlist albums from a record collector's catalog before looking them up. Given a mood, an optional refinement constraint, and a list of candidate albums (each with a refId, artist, album, and optionally year/genre/a collector-tagged feeling), pick up to ${SHORTLIST_SIZE} albums most likely to fit the mood well, best fit first. Prefer albums tagged with the matching feeling.`,
         cache_control: { type: "ephemeral" },
       }],
+      // Forced tool call instead of asking for raw JSON in prose — a model that
+      // prefaces its answer with conversational text ("I need to...") before the
+      // JSON object used to crash JSON.parse with "Unexpected token". Tool use
+      // guarantees a structured, schema-shaped result instead.
+      tools: [{
+        name: "shortlist_albums",
+        description: "Return the shortlisted refIds, best fit first.",
+        input_schema: {
+          type: "object",
+          properties: { refIds: { type: "array", items: { type: "string" } } },
+          required: ["refIds"],
+        },
+      }],
+      tool_choice: { type: "tool", name: "shortlist_albums" },
       messages: [{ role: "user", content: userPrompt }],
     });
-    const block = msg.content[0];
-    if (block.type !== "text") return [];
-    const raw = block.text.trim().replace(/^```(?:json)?\n?|\n?```$/g, "");
-    const parsed = JSON.parse(raw) as { refIds?: string[] };
+    const block = msg.content.find(b => b.type === "tool_use");
+    if (!block || block.type !== "tool_use") return [];
+    const parsed = block.input as { refIds?: string[] };
     const byRefId = new Map(prioritized.map(p => [p.refId, p]));
     const picked: UnmatchedItem[] = [];
     for (const refId of parsed.refIds ?? []) {
@@ -149,13 +162,88 @@ async function shortlistUnmatched(
   }
 }
 
+// Same "outside collection" + style-biased logic as Dig's Discover/Style Dig
+// modes, repurposed for the playlist generator: ask Claude for real albums
+// the collector doesn't own or want yet, biased toward the styles already in
+// their collection, then live-match them on Spotify same as the on-demand
+// top-up below.
+const DISCOVER_PICKS = 8;
+
+type DiscoveryPick = { artist: string; album: string; year: number | null };
+
+async function discoverOutsideCollection(
+  mood: string, refinement: string, ownedArtists: string[], wantlistArtists: string[], styles: string[],
+): Promise<DiscoveryPick[]> {
+  const ownedBlock = ownedArtists.length > 0
+    ? `\nOWNED ARTISTS — never recommend any of these:\n${ownedArtists.join(" · ")}\n`
+    : "";
+  const wantlistBlock = wantlistArtists.length > 0
+    ? `\nWANTLIST ARTISTS — never recommend any of these either (already on their radar):\n${wantlistArtists.join(" · ")}\n`
+    : "";
+  const stylesBlock = styles.length > 0
+    ? `\nSTYLES IN THEIR COLLECTION — bias picks toward these styles or close neighbors, but don't feel limited to them:\n${styles.join(" · ")}\n`
+    : "";
+
+  const userPrompt = [
+    `Mood: ${mood}`,
+    refinement && `Refinement: ${refinement}`,
+    `Recommend up to ${DISCOVER_PICKS} real studio albums by artists this collector does not yet own and has not wishlisted, that fit the mood and are reasonably likely to be findable on Spotify.`,
+    ownedBlock, wantlistBlock, stylesBlock,
+  ].filter(Boolean).join("\n");
+
+  try {
+    const msg = await anthropic.messages.create({
+      model: "claude-sonnet-4-6",
+      max_tokens: 700,
+      system: [{
+        type: "text",
+        text: `You are a vinyl crate-digging assistant with encyclopaedic knowledge of recorded music across genres, eras, and territories. Given a mood, a collector's owned and wishlisted artists (to exclude), and the styles already in their collection (to bias toward, without being strictly limited to them), recommend real albums they don't already have that fit the mood. Never invent fictional artists or albums.`,
+        cache_control: { type: "ephemeral" },
+      }],
+      tools: [{
+        name: "return_discoveries",
+        description: "Return the recommended albums.",
+        input_schema: {
+          type: "object",
+          properties: {
+            albums: {
+              type: "array",
+              items: {
+                type: "object",
+                properties: {
+                  artist: { type: "string" },
+                  album:  { type: "string" },
+                  year:   { type: "number" },
+                },
+                required: ["artist", "album"],
+              },
+            },
+          },
+          required: ["albums"],
+        },
+      }],
+      tool_choice: { type: "tool", name: "return_discoveries" },
+      messages: [{ role: "user", content: userPrompt }],
+    });
+    const block = msg.content.find(b => b.type === "tool_use");
+    if (!block || block.type !== "tool_use") return [];
+    const parsed = block.input as { albums?: Array<{ artist: string; album: string; year?: number }> };
+    return (parsed.albums ?? [])
+      .filter(a => a.artist && a.album)
+      .slice(0, DISCOVER_PICKS)
+      .map(a => ({ artist: a.artist, album: a.album, year: a.year ?? null }));
+  } catch {
+    return []; // best-effort — generation still proceeds on collection/wantlist candidates
+  }
+}
+
 export async function POST(request: NextRequest) {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
 
   const body = await request.json().catch(() => ({})) as {
-    mood?: string; includeWantlist?: boolean; trackCount?: number; refinement?: string;
+    mood?: string; includeOutsideCollection?: boolean; trackCount?: number; refinement?: string;
   };
 
   const mood = (body.mood ?? "").toLowerCase().trim();
@@ -163,7 +251,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Invalid mood" }, { status: 400 });
   }
   const trackCount = Math.max(5, Math.min(15, Math.round(body.trackCount ?? 10)));
-  const includeWantlist = !!body.includeWantlist;
+  const includeOutsideCollection = !!body.includeOutsideCollection;
   const refinement = (body.refinement ?? "").trim().slice(0, 300);
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -203,7 +291,7 @@ export async function POST(request: NextRequest) {
   // ── Wantlist candidates (optional) ───────────────────────────────────────
   let wantlistId: string | null = null;
   let wantlistRecordIds: string[] = [];
-  if (includeWantlist) {
+  if (includeOutsideCollection) {
     const { data: wantlist } = await db
       .from("lists").select("id").eq("user_id", user.id).eq("slug", "wantlist").maybeSingle();
     wantlistId = wantlist?.id ?? null;
@@ -234,6 +322,56 @@ export async function POST(request: NextRequest) {
     }
   }
 
+  // ── Outside-collection discovery (optional) — Dig's "outside collection +
+  // styles" logic, repurposed: ask Claude for fresh picks the collector
+  // doesn't own or want yet, biased by the styles already in their
+  // collection, then live-match them on Spotify ───────────────────────────
+  if (includeOutsideCollection && !(await getSpotifySearchCooldownUntil())) {
+    const ownedArtistRows = await selectInBatches<{ artist: string; styles: string[] | null }>(
+      db, "records", "artist, styles", "id", ownedRecordIds,
+    );
+    const ownedArtistsAll = [...new Set(ownedArtistRows.map(r => r.artist))];
+    const ownedStyles = [...new Set(ownedArtistRows.flatMap(r => r.styles ?? []))].sort();
+
+    const wantlistArtistsAll = new Set<string>();
+    if (wantlistRecordIds.length > 0) {
+      const wlArtistRows = await selectInBatches<{ artist: string }>(
+        db, "records", "artist", "id", wantlistRecordIds,
+      );
+      for (const r of wlArtistRows) wantlistArtistsAll.add(r.artist);
+    }
+    if (wantlistId) {
+      const { data: wlSongRows } = await db
+        .from("list_items").select("song_artist")
+        .eq("list_id", wantlistId).eq("item_type", "song");
+      for (const r of (wlSongRows ?? []) as Array<{ song_artist: string }>) {
+        if (r.song_artist) wantlistArtistsAll.add(r.song_artist);
+      }
+    }
+
+    const discoveries = await discoverOutsideCollection(
+      mood, refinement, ownedArtistsAll, [...wantlistArtistsAll], ownedStyles,
+    );
+
+    if (discoveries.length > 0) {
+      const token = await getSpotifyAccessToken(db, user.id);
+      if (token) {
+        for (const d of discoveries) {
+          const result = await searchAlbum(token, d.artist, d.album);
+          if (result.kind === "blocked") break; // global cooldown just kicked in — stop immediately
+          if (result.kind === "transient" || result.kind === "not_found") continue;
+          const tracks = await fetchAlbumTracks(token, result.id);
+          if (tracks === "blocked") break;
+          if (tracks === null) continue; // transient
+          candidates = candidates.concat(flattenCandidates(
+            [{ artist: d.artist, album: d.album, year: d.year, cover_url: null, spotify_tracks: tracks }],
+            "discover", "inferred",
+          ));
+        }
+      }
+    }
+  }
+
   // ── On-demand top-up: candidate pool too thin — try a small, bounded live
   // match instead of making the user wait on the background backfill ───────
   const MIN_DESIRED = trackCount * 2;
@@ -253,7 +391,7 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    if (includeWantlist && wantlistRecordIds.length > 0) {
+    if (includeOutsideCollection && wantlistRecordIds.length > 0) {
       const rows = await selectInBatches<{ id: string; artist: string; album: string; year: number | null; genre: string | null }>(
         db, "records", "id, artist, album, year, genre", "id", wantlistRecordIds,
         (q) => q.is("spotify_matched_at", null),
@@ -266,7 +404,7 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    if (includeWantlist && wantlistId) {
+    if (includeOutsideCollection && wantlistId) {
       const { data } = await db
         .from("list_items").select("id, song_artist, song_album, song_year")
         .eq("list_id", wantlistId).eq("item_type", "song").is("spotify_matched_at", null);
@@ -341,16 +479,44 @@ export async function POST(request: NextRequest) {
       max_tokens: 2000,
       system: [{
         type: "text",
-        text: `You are rekōdo's DJ. Given a candidate pool of tracks (each tagged with its confidence — "tagged" means the collector explicitly marked the album with this mood, "inferred" means it's a guess from genre/era/label context) and a target mood, select exactly the requested number of tracks and sequence them as a coherent DJ set: an arc with an opening, building section, peak, and resolution. Never select more than one track from the same artist — each artist may appear at most once in the playlist, even if the candidate pool is dominated by a few artists; skip an otherwise-good track rather than repeat an artist. Prefer "tagged" tracks over "inferred" ones when there are enough to choose from. Honor any refinement text as a hard constraint (e.g. "skip anything too upbeat" means exclude upbeat-feeling tracks even if otherwise a good mood fit). For each track, write one short rationale (max 20 words) explaining its place in the sequence (e.g. "opens low and slow", "lifts the energy into the peak", "brings it back down to close"). You must only select spotify_uri values that appear verbatim in the candidate list — never invent a track. Respond with a raw JSON object (no markdown, no code block) with exactly one key "tracks": an array of objects with keys "spotify_uri", "artist", "title", "album", "rationale", "source" (copy source verbatim from the candidate's source field), in final sequence order.`,
+        text: `You are rekōdo's DJ. Given a candidate pool of tracks (each tagged with its confidence — "tagged" means the collector explicitly marked the album with this mood, "inferred" means it's a guess from genre/era/label context) and a target mood, select exactly the requested number of tracks and sequence them as a coherent DJ set: an arc with an opening, building section, peak, and resolution. Never select more than one track from the same artist — each artist may appear at most once in the playlist, even if the candidate pool is dominated by a few artists; skip an otherwise-good track rather than repeat an artist. Prefer "tagged" tracks over "inferred" ones when there are enough to choose from. Honor any refinement text as a hard constraint (e.g. "skip anything too upbeat" means exclude upbeat-feeling tracks even if otherwise a good mood fit). For each track, write one short rationale (max 20 words) explaining its place in the sequence (e.g. "opens low and slow", "lifts the energy into the peak", "brings it back down to close"). You must only select spotify_uri values that appear verbatim in the candidate list — never invent a track.`,
         cache_control: { type: "ephemeral" },
       }],
+      // Forced tool call instead of raw-JSON-in-prose — see shortlistUnmatched
+      // above for why: a conversational preamble before the JSON used to crash
+      // JSON.parse with "Unexpected token" and surface as a generation error.
+      tools: [{
+        name: "return_playlist",
+        description: "Return the selected, sequenced tracks.",
+        input_schema: {
+          type: "object",
+          properties: {
+            tracks: {
+              type: "array",
+              items: {
+                type: "object",
+                properties: {
+                  spotify_uri: { type: "string" },
+                  artist:      { type: "string" },
+                  title:       { type: "string" },
+                  album:       { type: "string" },
+                  rationale:   { type: "string" },
+                  source:      { type: "string" },
+                },
+                required: ["spotify_uri", "rationale"],
+              },
+            },
+          },
+          required: ["tracks"],
+        },
+      }],
+      tool_choice: { type: "tool", name: "return_playlist" },
       messages: [{ role: "user", content: userPrompt }],
     });
 
-    const block = msg.content[0];
-    if (block.type !== "text") throw new Error("Unexpected response type");
-    const raw = block.text.trim().replace(/^```(?:json)?\n?|\n?```$/g, "");
-    const parsed = JSON.parse(raw) as { tracks: Array<{ spotify_uri: string; rationale: string }> };
+    const block = msg.content.find(b => b.type === "tool_use");
+    if (!block || block.type !== "tool_use") throw new Error("Unexpected response type");
+    const parsed = block.input as { tracks: Array<{ spotify_uri: string; rationale: string }> };
 
     // Trust the candidate pool for metadata (artist/title/album/year/cover/duration) —
     // only take spotify_uri (to look up the candidate) and rationale from Claude's response.

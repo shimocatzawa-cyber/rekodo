@@ -19,8 +19,8 @@ interface Props {
   setMood:         (m: Mood) => void;
   refinement:      string;
   setRefinement:   (s: string) => void;
-  includeWantlist: boolean;
-  setIncludeWantlist: (b: boolean) => void;
+  includeOutsideCollection: boolean;
+  setIncludeOutsideCollection: (b: boolean) => void;
   trackCount:      number;
   setTrackCount:   (n: number) => void;
   onGenerate:      () => void;
@@ -30,7 +30,7 @@ interface Props {
 }
 
 export default function PlaylistPromptPanel({
-  mood, setMood, refinement, setRefinement, includeWantlist, setIncludeWantlist,
+  mood, setMood, refinement, setRefinement, includeOutsideCollection, setIncludeOutsideCollection,
   trackCount, setTrackCount, onGenerate, generating, matchStatus, spotifyConnected,
 }: Props) {
   const matching = !!matchStatus && matchStatus.pending > 0;
@@ -108,23 +108,23 @@ export default function PlaylistPromptPanel({
 
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "20px" }}>
         <button
-          onClick={() => setIncludeWantlist(!includeWantlist)}
+          onClick={() => setIncludeOutsideCollection(!includeOutsideCollection)}
           style={{
             display: "flex", alignItems: "center", gap: "8px",
             fontFamily: MONO, fontSize: "9.5px", letterSpacing: "0.06em", textTransform: "uppercase",
-            color: includeWantlist ? ORANGE : MUTED, background: "none", border: "none", cursor: "pointer", padding: 0,
+            color: includeOutsideCollection ? ORANGE : MUTED, background: "none", border: "none", cursor: "pointer", padding: 0,
           }}
         >
           <span style={{
             width: "28px", height: "16px", borderRadius: "8px", position: "relative",
-            background: includeWantlist ? ORANGE : RULE, transition: "background 0.15s",
+            background: includeOutsideCollection ? ORANGE : RULE, transition: "background 0.15s",
           }}>
             <span style={{
-              position: "absolute", top: "2px", left: includeWantlist ? "14px" : "2px",
+              position: "absolute", top: "2px", left: includeOutsideCollection ? "14px" : "2px",
               width: "12px", height: "12px", borderRadius: "50%", background: "#fff", transition: "left 0.15s",
             }} />
           </span>
-          Include Wantlist
+          Include tracks outside my collection
         </button>
 
         <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>

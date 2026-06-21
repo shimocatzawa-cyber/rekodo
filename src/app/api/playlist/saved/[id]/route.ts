@@ -41,3 +41,23 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 
   return NextResponse.json({ title: list.title, tracks });
 }
+
+export async function DELETE(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const db = supabase as any;
+
+  const { data: list } = await db
+    .from("lists").select("id").eq("id", id).eq("user_id", user.id).maybeSingle();
+  if (!list) return NextResponse.json({ error: "Not found" }, { status: 404 });
+
+  // list_items cascade-delete via FK — no need to delete them separately.
+  const { error } = await db.from("lists").delete().eq("id", id).eq("user_id", user.id);
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+
+  return NextResponse.json({ success: true });
+}

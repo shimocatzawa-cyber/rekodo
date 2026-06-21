@@ -23,7 +23,7 @@ export type GeneratedTrack = {
   duration_ms: number;
   preview_url: string | null;
   rationale:   string;
-  source:      "collection" | "wantlist";
+  source:      "collection" | "wantlist" | "discover";
 };
 
 const MATCH_POLL_MS = 5000;
@@ -38,10 +38,10 @@ const BACKGROUND_MATCH_ENABLED = false;
 export default function PlaylistTab() {
   const router = useRouter();
 
-  const [mood,            setMood]            = useState<Mood | null>(null);
-  const [refinement,      setRefinement]      = useState("");
-  const [includeWantlist, setIncludeWantlist] = useState(false);
-  const [trackCount,      setTrackCount]      = useState(10);
+  const [mood,                    setMood]                    = useState<Mood | null>(null);
+  const [refinement,              setRefinement]              = useState("");
+  const [includeOutsideCollection, setIncludeOutsideCollection] = useState(false);
+  const [trackCount,              setTrackCount]              = useState(10);
 
   const [tracks,     setTracks]     = useState<GeneratedTrack[]>([]);
   const [generating,  setGenerating] = useState(false);
@@ -104,11 +104,39 @@ export default function PlaylistTab() {
         setError(data.error ?? "Failed to load saved playlist.");
         return;
       }
-      setTracks(data.tracks);
       setTitleDraft(data.title ?? "");
       setActiveSavedId(id);
+      // An empty result means none of the saved items carry Spotify match data —
+      // a legacy list saved before tracks were matched. There's nothing to play;
+      // say so instead of silently showing the "pick a mood" empty state.
+      if (data.tracks.length === 0) {
+        setTracks([]);
+        setError("This saved playlist has no Spotify-matched tracks (likely saved before matching was added) — delete it from My Saved Playlists.");
+        return;
+      }
+      setTracks(data.tracks);
     } catch {
       setError("Failed to load saved playlist.");
+    }
+  }
+
+  async function handleDeleteSaved(id: string) {
+    if (!window.confirm("Delete this saved playlist? This can't be undone.")) return;
+    try {
+      const res = await fetch(`/api/playlist/saved/${id}`, { method: "DELETE" });
+      if (!res.ok) {
+        setError("Failed to delete saved playlist.");
+        return;
+      }
+      setSavedPlaylists(prev => prev.filter(p => p.id !== id));
+      if (activeSavedId === id) {
+        setActiveSavedId(null);
+        setTracks([]);
+        setTitleDraft("");
+        setError(null);
+      }
+    } catch {
+      setError("Failed to delete saved playlist.");
     }
   }
 
@@ -167,7 +195,7 @@ export default function PlaylistTab() {
       const res = await fetch("/api/playlist/generate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ mood, includeWantlist, trackCount, refinement }),
+        body: JSON.stringify({ mood, includeOutsideCollection, trackCount, refinement }),
       });
       const data = await res.json() as { tracks?: GeneratedTrack[]; error?: string };
       if (!res.ok || !data.tracks) {
@@ -254,7 +282,7 @@ export default function PlaylistTab() {
         <PlaylistPromptPanel
           mood={mood} setMood={setMood}
           refinement={refinement} setRefinement={setRefinement}
-          includeWantlist={includeWantlist} setIncludeWantlist={setIncludeWantlist}
+          includeOutsideCollection={includeOutsideCollection} setIncludeOutsideCollection={setIncludeOutsideCollection}
           trackCount={trackCount} setTrackCount={setTrackCount}
           onGenerate={handleGenerate} generating={generating}
           matchStatus={matchStatus} spotifyConnected={spotifyConnected}
@@ -289,6 +317,7 @@ export default function PlaylistTab() {
           hasTracks={tracks.length > 0}
           savedPlaylists={savedPlaylists} loadingSaved={loadingSaved}
           activeSavedId={activeSavedId} onLoadSaved={handleLoadSaved}
+          onDeleteSaved={handleDeleteSaved}
         />
       </div>
     </div>

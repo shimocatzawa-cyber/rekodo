@@ -42,6 +42,7 @@ export default function PlaylistTrackList({ tracks, onReorder, resequencing }: P
 
   const fromCollection = tracks.filter(t => t.source === "collection").length;
   const fromWantlist   = tracks.filter(t => t.source === "wantlist").length;
+  const fromDiscover   = tracks.filter(t => t.source === "discover").length;
 
   return (
     <div style={{ background: "#ffffff", border: `1px solid ${RULE}` }}>
@@ -80,6 +81,11 @@ export default function PlaylistTrackList({ tracks, onReorder, resequencing }: P
                     wantlist
                   </span>
                 )}
+                {t.source === "discover" && (
+                  <span style={{ fontFamily: MONO, fontSize: "7.5px", letterSpacing: "0.06em", textTransform: "uppercase", color: ORANGE, border: `1px solid ${ORANGE}`, borderRadius: "2px", padding: "1px 5px" }}>
+                    discovered
+                  </span>
+                )}
               </div>
               <p style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.04em", textTransform: "uppercase", color: MUTED, margin: "3px 0 0" }}>
                 {t.artist} — {t.album}{t.year ? ` — ${t.year}` : ""}
@@ -110,7 +116,7 @@ export default function PlaylistTrackList({ tracks, onReorder, resequencing }: P
 
       <div style={{ padding: "10px 16px", background: "#fafafa" }}>
         <span style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.04em", color: MUTED }}>
-          {fromCollection} from your collection{fromWantlist > 0 ? ` · ${fromWantlist} from your wantlist` : ""}
+          {fromCollection} from your collection{fromWantlist > 0 ? ` · ${fromWantlist} from your wantlist` : ""}{fromDiscover > 0 ? ` · ${fromDiscover} discovered for you` : ""}
         </span>
       </div>
     </div>

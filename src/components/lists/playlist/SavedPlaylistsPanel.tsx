@@ -31,11 +31,12 @@ interface Props {
   loadingSaved:   boolean;
   activeSavedId:  string | null;
   onLoadSaved:    (id: string) => void;
+  onDeleteSaved:  (id: string) => void;
 }
 
 export default function SavedPlaylistsPanel({
   titleDraft, setTitleDraft, onRegenerate, generating, onSave, saving, saveDone, hasTracks,
-  savedPlaylists, loadingSaved, activeSavedId, onLoadSaved,
+  savedPlaylists, loadingSaved, activeSavedId, onLoadSaved, onDeleteSaved,
 }: Props) {
   return (
     <div style={{ background: "#ffffff", border: `1px solid ${RULE}`, padding: "28px 28px 24px" }}>
@@ -100,22 +101,42 @@ export default function SavedPlaylistsPanel({
             {savedPlaylists.map(p => {
               const active = p.id === activeSavedId;
               return (
-                <button
+                <div
                   key={p.id}
-                  onClick={() => onLoadSaved(p.id)}
                   style={{
-                    textAlign: "left", background: active ? "#fdf6f0" : "none",
-                    border: "none", borderLeft: `2px solid ${active ? ORANGE : "transparent"}`,
-                    padding: "8px 10px", cursor: "pointer",
+                    display: "flex", alignItems: "center", gap: "4px",
+                    background: active ? "#fdf6f0" : "none",
+                    borderLeft: `2px solid ${active ? ORANGE : "transparent"}`,
                   }}
                 >
-                  <p style={{ fontFamily: SERIF, fontSize: "13px", color: INK, margin: "0 0 2px 0", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                    {p.title}
-                  </p>
-                  <p style={{ fontFamily: MONO, fontSize: "8px", letterSpacing: "0.04em", color: MUTED, margin: 0 }}>
-                    {p.trackCount} track{p.trackCount === 1 ? "" : "s"} · {relativeDate(p.createdAt)}
-                  </p>
-                </button>
+                  <button
+                    onClick={() => onLoadSaved(p.id)}
+                    style={{
+                      flex: 1, minWidth: 0, textAlign: "left", background: "none",
+                      border: "none", padding: "8px 10px", cursor: "pointer",
+                    }}
+                  >
+                    <p style={{ fontFamily: SERIF, fontSize: "13px", color: INK, margin: "0 0 2px 0", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                      {p.title}
+                    </p>
+                    <p style={{ fontFamily: MONO, fontSize: "8px", letterSpacing: "0.04em", color: MUTED, margin: 0 }}>
+                      {p.trackCount} track{p.trackCount === 1 ? "" : "s"} · {relativeDate(p.createdAt)}
+                    </p>
+                  </button>
+                  <button
+                    onClick={() => onDeleteSaved(p.id)}
+                    aria-label={`Delete ${p.title}`}
+                    title="Delete"
+                    style={{
+                      flexShrink: 0, fontFamily: MONO, fontSize: "11px", color: MUTED,
+                      background: "none", border: "none", cursor: "pointer", padding: "8px 10px",
+                    }}
+                    onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.color = "#cc3300"; }}
+                    onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.color = MUTED; }}
+                  >
+                    ×
+                  </button>
+                </div>
               );
             })}
           </div>
