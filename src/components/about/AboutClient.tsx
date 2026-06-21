@@ -12,8 +12,8 @@ const ORANGE = "#CC5500";
 const INK    = "#0a0a0a";
 
 const BODY_PARAGRAPHS = [
-  "rekōdo started with too many trips to Tokyo's Disc Unions, and twenty-odd years of buying records I probably didn't need. Discogs is brilliant at tracking what you own but it's never once told me what it means.",
-  "rekōdo reads your collection the way a friend who's been digging for decades would: not as a spreadsheet, but as a set of decisions you've made over years. It finds the records you should own but don't. It tells you your collector archetype. It builds out artist and label deep dives so a name in your collection becomes a rabbit hole, not a line item.",
+  "The idea for rekōdo started after twenty-odd years of collecting and many trips to Tokyo digging in crates at Disk Unions. I wanted to create something that gives your collection the love it deserves and celebrates the passion of collecting records (rekōdo life).",
+  "rekōdo reads your collection the way a friend who's been digging for decades would: not as a spreadsheet, but as a set of decisions you've made over years. It finds the records you should own but don't. It tells you your collector archetype. It builds out artist deep dives so a name in your collection becomes a rabbit hole.",
   "rekōdo is for people who want to know more about the records they already love.",
   "If rekōdo has given you something, a recommendation that changed your week, a list that made you think, a Dig that found the record you didn't know you needed, consider supporting us or buying us one back.",
 ];
