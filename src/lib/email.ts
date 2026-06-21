@@ -122,7 +122,7 @@ export async function sendSignupNotification(email: string, username: string) {
   });
 }
 
-export async function sendWaitlistNotification(email: string, name?: string | null) {
+export async function sendWaitlistNotification(email: string, name?: string | null, estCollectionSize?: number) {
   const resend = getResend();
   await resend.emails.send({
     from: FROM,
@@ -162,6 +162,16 @@ export async function sendWaitlistNotification(email: string, name?: string | nu
               </p>
               <p style="margin:4px 0 0;font-family:'Courier New',monospace;font-size:14px;color:#ffffff;">
                 ${name}
+              </p>
+            </td>
+          </tr>` : ""}
+          ${typeof estCollectionSize === "number" ? `<tr>
+            <td style="padding-bottom:8px;padding-top:16px;">
+              <p style="margin:0;font-family:'Courier New',monospace;font-size:11px;letter-spacing:0.08em;text-transform:uppercase;color:rgba(255,255,255,0.4);">
+                est. collection size
+              </p>
+              <p style="margin:4px 0 0;font-family:'Courier New',monospace;font-size:14px;color:#ffffff;">
+                ${estCollectionSize}
               </p>
             </td>
           </tr>` : ""}

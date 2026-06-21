@@ -10,6 +10,7 @@ interface Entry {
   id: string;
   email: string;
   name: string | null;
+  est_collection_size: number | null;
   created_at: string;
 }
 
@@ -19,9 +20,9 @@ interface Props {
 
 export default function WaitlistAdminClient({ entries }: Props) {
   function exportCSV() {
-    const header = "Email,Name,Joined\n";
+    const header = "Email,Name,Est Collection Size,Joined\n";
     const rows = entries
-      .map((e) => `${csvEscape(e.email)},${csvEscape(e.name ?? "")},${csvEscape(new Date(e.created_at).toISOString())}`)
+      .map((e) => `${csvEscape(e.email)},${csvEscape(e.name ?? "")},${csvEscape(e.est_collection_size?.toString() ?? "")},${csvEscape(new Date(e.created_at).toISOString())}`)
       .join("\n");
     const blob = new Blob([header + rows], { type: "text/csv" });
     const url = URL.createObjectURL(blob);
@@ -73,7 +74,7 @@ export default function WaitlistAdminClient({ entries }: Props) {
           <table style={{ width: "100%", borderCollapse: "collapse" }}>
             <thead>
               <tr style={{ borderBottom: "1px solid rgba(0,0,0,0.1)" }}>
-                {["Email", "Name", "Joined"].map((col) => (
+                {["Email", "Name", "Est Collection Size", "Joined"].map((col) => (
                   <th
                     key={col}
                     style={{
@@ -94,6 +95,9 @@ export default function WaitlistAdminClient({ entries }: Props) {
                   </td>
                   <td style={{ fontFamily: MONO, fontSize: "13px", color: entry.name ? "#0d0d0d" : "#cccccc", padding: "14px 32px 14px 0" }}>
                     {entry.name ?? "—"}
+                  </td>
+                  <td style={{ fontFamily: MONO, fontSize: "13px", color: entry.est_collection_size != null ? "#0d0d0d" : "#cccccc", padding: "14px 32px 14px 0" }}>
+                    {entry.est_collection_size ?? "—"}
                   </td>
                   <td style={{ fontFamily: MONO, fontSize: "11px", color: "#888888", padding: "14px 0" }}>
                     {new Date(entry.created_at).toLocaleDateString("en-US", {

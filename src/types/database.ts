@@ -229,9 +229,9 @@ export type Database = {
         Relationships: [];
       };
       waitlist_emails: {
-        Row: { id: string; email: string; name: string | null; created_at: string };
-        Insert: { id?: string; email: string; name?: string | null; created_at?: string };
-        Update: { email?: string; name?: string | null };
+        Row: { id: string; email: string; name: string | null; est_collection_size: number | null; created_at: string };
+        Insert: { id?: string; email: string; name?: string | null; est_collection_size?: number | null; created_at?: string };
+        Update: { email?: string; name?: string | null; est_collection_size?: number | null };
         Relationships: [];
       };
       compatibility_scores: {

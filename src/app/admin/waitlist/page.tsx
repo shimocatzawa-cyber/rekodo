@@ -10,7 +10,7 @@ export default async function WaitlistAdminPage() {
 
   const { data: entries, error } = await supabase
     .from("waitlist_emails")
-    .select("id, email, name, created_at")
+    .select("id, email, name, est_collection_size, created_at")
     .order("created_at", { ascending: false });
 
   if (error) {

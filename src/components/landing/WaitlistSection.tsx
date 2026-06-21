@@ -8,19 +8,20 @@ const SERIF = "var(--font-shippori), Georgia, serif";
 export default function WaitlistSection() {
   const [email, setEmail] = useState("");
   const [name, setName] = useState("");
+  const [estCollectionSize, setEstCollectionSize] = useState("");
   const [status, setStatus] = useState<"idle" | "loading" | "success" | "duplicate">("idle");
   const [error, setError] = useState("");
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!email || status === "loading") return;
+    if (!email || !name || !estCollectionSize || status === "loading") return;
     setStatus("loading");
     setError("");
     try {
       const res = await fetch("/api/waitlist", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, name: name || undefined }),
+        body: JSON.stringify({ email, name, estCollectionSize: Number(estCollectionSize) }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Something went wrong");
@@ -87,7 +88,19 @@ export default function WaitlistSection() {
               type="text"
               value={name}
               onChange={(e) => setName(e.target.value)}
-              placeholder="Your name (optional)"
+              placeholder="Your first name"
+              required
+              className="bg-white/5 border border-white/20 px-5 py-4 text-white placeholder-white/30 text-sm focus:outline-none focus:border-[#CC5500] transition-colors"
+              style={{ fontFamily: MONO }}
+            />
+            <input
+              type="number"
+              min={0}
+              step={1}
+              value={estCollectionSize}
+              onChange={(e) => setEstCollectionSize(e.target.value)}
+              placeholder="Est. collection size"
+              required
               className="bg-white/5 border border-white/20 px-5 py-4 text-white placeholder-white/30 text-sm focus:outline-none focus:border-[#CC5500] transition-colors"
               style={{ fontFamily: MONO }}
             />

@@ -69,6 +69,7 @@ export default function WaitlistModal({ isOpen, onClose }: WaitlistModalProps) {
 function WaitlistForm() {
   const [email, setEmail] = useState("");
   const [name, setName] = useState("");
+  const [estCollectionSize, setEstCollectionSize] = useState("");
   const [status, setStatus] = useState<"idle" | "loading" | "success" | "duplicate">("idle");
   const [error, setError] = useState("");
   const emailRef = useRef<HTMLInputElement>(null);
@@ -80,14 +81,14 @@ function WaitlistForm() {
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!email || status === "loading") return;
+    if (!email || !name || !estCollectionSize || status === "loading") return;
     setStatus("loading");
     setError("");
     try {
       const res = await fetch("/api/waitlist", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, name: name || undefined }),
+        body: JSON.stringify({ email, name, estCollectionSize: Number(estCollectionSize) }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Something went wrong");
@@ -141,14 +142,36 @@ function WaitlistForm() {
           htmlFor="modal-name"
           style={{ fontFamily: MONO, fontSize: "10px", letterSpacing: "0.1em", textTransform: "uppercase", color: "#999999", display: "block", marginBottom: "8px" }}
         >
-          Name <span style={{ color: "#cccccc" }}>(optional)</span>
+          First Name
         </label>
         <input
           id="modal-name"
           type="text"
           value={name}
           onChange={(e) => setName(e.target.value)}
-          placeholder="Your name"
+          placeholder="Your first name"
+          required
+          className="w-full border border-[#dddddd] focus:border-[#CC5500] outline-none transition-colors"
+          style={{ fontFamily: MONO, fontSize: "13px", color: "#0d0d0d", padding: "12px 14px" }}
+        />
+      </div>
+
+      <div>
+        <label
+          htmlFor="modal-collection-size"
+          style={{ fontFamily: MONO, fontSize: "10px", letterSpacing: "0.1em", textTransform: "uppercase", color: "#999999", display: "block", marginBottom: "8px" }}
+        >
+          Est. Collection Size
+        </label>
+        <input
+          id="modal-collection-size"
+          type="number"
+          min={0}
+          step={1}
+          value={estCollectionSize}
+          onChange={(e) => setEstCollectionSize(e.target.value)}
+          placeholder="e.g. 250"
+          required
           className="w-full border border-[#dddddd] focus:border-[#CC5500] outline-none transition-colors"
           style={{ fontFamily: MONO, fontSize: "13px", color: "#0d0d0d", padding: "12px 14px" }}
         />

@@ -6,22 +6,26 @@ export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
     const email = typeof body.email === "string" ? body.email.trim().toLowerCase() : "";
-    const name = typeof body.name === "string" ? body.name.trim() || null : null;
+    const name = typeof body.name === "string" ? body.name.trim() : "";
+    const estCollectionSize = Number(body.estCollectionSize);
 
     if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
       return NextResponse.json({ error: "Valid email required" }, { status: 400 });
     }
 
-    const supabase = await createClient();
+    if (!name) {
+      return NextResponse.json({ error: "First name required" }, { status: 400 });
+    }
 
-    // Omit name when null — avoids a column-not-found error if the migration
-    // hasn't been applied to this environment yet.
-    const insertData: { email: string; name?: string } = { email };
-    if (name) insertData.name = name;
+    if (!Number.isInteger(estCollectionSize) || estCollectionSize < 0) {
+      return NextResponse.json({ error: "Estimated collection size required" }, { status: 400 });
+    }
+
+    const supabase = await createClient();
 
     const { error } = await supabase
       .from("waitlist_emails")
-      .insert(insertData);
+      .insert({ email, name, est_collection_size: estCollectionSize });
 
     if (error) {
       console.error("Waitlist insert error:", {
@@ -41,7 +45,7 @@ export async function POST(request: NextRequest) {
 
     await Promise.all([
       sendWaitlistConfirmation(email, name),
-      sendWaitlistNotification(email, name),
+      sendWaitlistNotification(email, name, estCollectionSize),
     ]).catch((err) => console.error("Email send error:", err));
 
     return NextResponse.json({ message: "Added to waitlist" }, { status: 201 });
@@ -60,7 +64,7 @@ export async function GET() {
 
   const { data, error } = await supabase
     .from("waitlist_emails")
-    .select("id, email, name, created_at")
+    .select("id, email, name, est_collection_size, created_at")
     .order("created_at", { ascending: false });
 
   if (error) {
