@@ -488,6 +488,20 @@ export function SpotifyPlayerProvider({ children }: { children: React.ReactNode 
             setPlayError(err);
           } else {
             lastPlayedKeyRef.current = currentKey;
+            // Belt-and-suspenders: Spotify's /play endpoint doesn't reliably
+            // honor an explicit position_ms/offset on the initial request —
+            // particularly for context_uri (album) playback resuming a
+            // context that was recently active on this device, where it
+            // silently ignores the requested position. A forced seek to 0
+            // shortly after the track actually starts overrides whatever
+            // position /play picked, regardless of the cause.
+            setTimeout(() => {
+              fetch("/api/spotify/seek", {
+                method:  "POST",
+                headers: { "Content-Type": "application/json" },
+                body:    JSON.stringify({ positionMs: 0, deviceId }),
+              }).catch(() => {});
+            }, 400);
           }
         }
       }
