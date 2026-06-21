@@ -11,7 +11,7 @@ const JP = "var(--font-noto-jp), sans-serif";
 const ORANGE = "#CC5500";
 
 const NAV_ITEMS = [
-  { href: "/selects",    label: "Rekodo Selects", jp: "選集" },
+  { href: "/selects",    label: "Rekōdo Selects", jp: "選集" },
   { href: "/collection", label: "Collection", jp: "コレクション" },
   { href: "/dig",        label: "Dig",        jp: "発掘" },
   { href: "/deep-dive",  label: "Deep Dive",  jp: "ディープダイブ" },
@@ -74,7 +74,7 @@ export default function AppNav({ username, displayLabel, avatarUrl }: { username
         </button>
 
         {/* Centre — desktop nav links */}
-        <div className="hidden md:flex items-center gap-8">
+        <div className="hidden md:flex items-center gap-6">
           {NAV_ITEMS.map(({ href, label, jp }) => {
             const active = pathname === href || (pathname?.startsWith(href + "/") ?? false);
             return (
