@@ -91,8 +91,8 @@ console.log("✓ favicon-16x16.png");
 writeFileSync(`${PUBLIC}/favicon-32x32.png`, png32);
 console.log("✓ favicon-32x32.png");
 
-writeFileSync(`${PUBLIC}/apple-touch-icon.png`, png180);
-console.log("✓ apple-touch-icon.png");
+writeFileSync(`${PUBLIC}/apple-touch-icon-180.png`, png180);
+console.log("✓ apple-touch-icon-180.png");
 
 const ico = buildIco([png16, png32]);
 writeFileSync(`${PUBLIC}/favicon.ico`, ico);
