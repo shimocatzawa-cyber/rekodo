@@ -948,19 +948,18 @@ const [filterFormat,       setFilterFormat]       = useState("");
 
       {/* ── Three-column panel ── */}
       {collection.length > 0 && (
-      <>
-      <style>{`
-        @media (max-width: 767px) {
-          /* Album detail no longer owns its own internal scroll on mobile — its
-             new wrapper (above) scrolls the centre card + tracklist as one unit. */
-          .rk-album-detail-root { height: auto !important; overflow-y: visible !important; }
-        }
-        @media (min-width: 768px) {
-          .rk-col2 { display: flex; flex-direction: column; flex: 1; overflow: hidden; border-right: 1px solid rgba(0,0,0,0.08); }
-          .rk-col3 { display: block; overflow-y: auto; }
-        }
-      `}</style>
       <div className="flex flex-col md:grid" style={{ flex: 1, overflow: "hidden", gridTemplateColumns: "380px 1fr 380px" }}>
+        <style>{`
+          @media (max-width: 767px) {
+            /* Album detail no longer owns its own internal scroll on mobile — its
+               new wrapper (above) scrolls the centre card + tracklist as one unit. */
+            .rk-album-detail-root { height: auto !important; overflow-y: visible !important; }
+          }
+          @media (min-width: 768px) {
+            .rk-col2 { display: flex; flex-direction: column; flex: 1; overflow: hidden; border-right: 1px solid rgba(0,0,0,0.08); }
+            .rk-col3 { display: block; overflow-y: auto; }
+          }
+        `}</style>
 
         {/* Col 1 — search + filters + A-Z record list */}
         <div className={`${mobileDetailOpen ? "hidden" : "flex"} flex-col md:flex`} style={{ flex: 1, borderRight: "1px solid rgba(0,0,0,0.08)", minWidth: 0, overflow: "hidden" }}>
