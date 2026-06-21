@@ -196,6 +196,10 @@ export function SpotifyPlayerProvider({ children }: { children: React.ReactNode 
   const audioRef    = useRef<HTMLAudioElement | null>(null);
   const pollRef     = useRef<ReturnType<typeof setInterval> | null>(null);
   const sourceKeyRef = useRef<string | null>(null);
+  // Mirrors deviceId state for synchronous reads inside the reconnect-and-wait
+  // poll below — state updates are async, so a fresh "ready" event wouldn't be
+  // visible to a loop reading the `deviceId` closure variable.
+  const deviceIdRef = useRef<string | null>(null);
   // True only when not_ready has fired without a subsequent ready — i.e. the
   // SDK has genuinely disconnected and needs a reconnect on next tab focus.
   const sdkDisconnectedRef = useRef(false);
@@ -260,7 +264,9 @@ export function SpotifyPlayerProvider({ children }: { children: React.ReactNode 
 
     player.addListener("ready", (data) => {
       sdkDisconnectedRef.current = false;
-      setDeviceId((data as { device_id: string }).device_id);
+      const id = (data as { device_id: string }).device_id;
+      deviceIdRef.current = id;
+      setDeviceId(id);
       setPlayError(null);
     });
 
@@ -346,6 +352,7 @@ export function SpotifyPlayerProvider({ children }: { children: React.ReactNode 
     // fresh play command rather than calling togglePlay on a dead connection.
     player.addListener("not_ready", () => {
       sdkDisconnectedRef.current = true;
+      deviceIdRef.current = null;
       setDeviceId(null);
       lastPlayedKeyRef.current = "";
     });
@@ -440,6 +447,21 @@ export function SpotifyPlayerProvider({ children }: { children: React.ReactNode 
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [source?.previewUrl]);
 
+  // Forces a reconnect and waits (up to ~3.5s) for a fresh device id — used
+  // when the SDK has gone quiet (laptop slept, tab backgrounded for a while,
+  // Spotify evicted the Connect device) so pressing Play actually revives the
+  // connection instead of silently no-op'ing on a null deviceId.
+  const reconnectAndWaitForDevice = useCallback(async (): Promise<string | null> => {
+    if (!playerRef.current) return null;
+    bustSpotifyTokenCache();
+    try { await playerRef.current.connect(); } catch { /* still poll — ready may fire shortly after */ }
+    for (let i = 0; i < 12; i++) {
+      if (deviceIdRef.current) return deviceIdRef.current;
+      await new Promise(r => setTimeout(r, 300));
+    }
+    return deviceIdRef.current;
+  }, []);
+
   // ── Play / pause ──────────────────────────────────────────────────────────
   const handlePlayPause = useCallback(async () => {
     if (useSDK && playerRef.current) {
@@ -452,26 +474,36 @@ export function SpotifyPlayerProvider({ children }: { children: React.ReactNode 
         const currentKey = source?.mode === "collection"
           ? (source.spotifyUri ?? "")
           : (source?.albumUri ?? source?.spotifyTrackUris?.[0] ?? source?.spotifyTrackUri ?? "");
+
         // Only resume via togglePlay if sendSpotifyPlay was already called for
         // THIS source. If the source changed (tab switch, new rec), always send
         // a fresh play command — the SDK may still have the old album loaded.
+        let resumed = false;
         if (currentKey && lastPlayedKeyRef.current === currentKey) {
           try {
             await playerRef.current.togglePlay();
+            resumed = true;
           } catch {
-            // SDK is disconnected — reset so the next press sends a fresh
-            // sendSpotifyPlay command rather than re-entering this dead path.
+            // SDK is disconnected — fall through to the fresh-play path below,
+            // which reconnects and re-sends the play command instead of just
+            // firing connect() and stopping (that left Play silently dead).
             lastPlayedKeyRef.current = "";
-            playerRef.current?.connect().catch(() => {});
           }
-        } else {
-          if (!deviceId) return;
-          // This branch only ever fires for a genuinely new source (true resumes
-          // go through togglePlay above) — always force position 0 explicitly.
-          // Spotify's /play endpoint can otherwise fall back to whatever
-          // position it last has cached for this exact context/track on this
-          // device, which surfaces as playback intermittently starting partway
-          // through instead of at the beginning.
+        }
+
+        if (!resumed) {
+          let activeDeviceId = deviceId ?? deviceIdRef.current;
+          if (!activeDeviceId) {
+            setPlayError(null);
+            activeDeviceId = await reconnectAndWaitForDevice();
+          }
+          if (!activeDeviceId) { setPlayError(0); return; }
+
+          // Always force position 0 explicitly. Spotify's /play endpoint can
+          // otherwise fall back to whatever position it last has cached for
+          // this exact context/track on this device, which surfaces as
+          // playback intermittently starting partway through instead of at
+          // the beginning.
           const body = source?.mode === "collection" && source.spotifyUri
             ? { context_uri: source.spotifyUri, offset: { position: 0 }, position_ms: 0 }
             : source?.albumUri
@@ -483,7 +515,7 @@ export function SpotifyPlayerProvider({ children }: { children: React.ReactNode 
                   : null;
           if (!body) return;
           setPlayError(null);
-          const err = await sendSpotifyPlay(deviceId, body);
+          const err = await sendSpotifyPlay(activeDeviceId, body);
           if (err !== null) {
             setPlayError(err);
           } else {
@@ -491,13 +523,12 @@ export function SpotifyPlayerProvider({ children }: { children: React.ReactNode 
             // Belt-and-suspenders: Spotify's /play endpoint doesn't reliably
             // honor an explicit position_ms/offset on the initial request —
             // particularly for context_uri (album) playback resuming a
-            // context that was recently active on this device, where it
-            // silently ignores the requested position. A blind fixed-delay
-            // seek can land before playback has actually started (the delay
-            // races Spotify's own backend latency, not something we control),
-            // hitting stale state instead of correcting it — so poll for the
-            // first real state update instead of guessing a delay, then only
-            // correct if the reported position is actually non-zero.
+            // context that was recently active on this device, where it can
+            // report position 0 right away and only snap to the stale cached
+            // position a moment later. Keep polling/correcting across the
+            // whole window instead of stopping at the first state update —
+            // a single early check can see 0 and miss the late stale-position
+            // override entirely.
             (async () => {
               for (let i = 0; i < 8; i++) {
                 await new Promise(r => setTimeout(r, 250));
@@ -507,10 +538,9 @@ export function SpotifyPlayerProvider({ children }: { children: React.ReactNode 
                   fetch("/api/spotify/seek", {
                     method:  "POST",
                     headers: { "Content-Type": "application/json" },
-                    body:    JSON.stringify({ positionMs: 0, deviceId }),
+                    body:    JSON.stringify({ positionMs: 0, deviceId: activeDeviceId }),
                   }).catch(() => {});
                 }
-                break;
               }
             })();
           }
@@ -520,7 +550,7 @@ export function SpotifyPlayerProvider({ children }: { children: React.ReactNode 
       if (playing) audioRef.current.pause();
       else audioRef.current.play().catch(() => {});
     }
-  }, [useSDK, playing, source, deviceId]);
+  }, [useSDK, playing, source, deviceId, reconnectAndWaitForDevice]);
 
   // ── Seek ──────────────────────────────────────────────────────────────────
   const handleSeek = useCallback(async (pct: number) => {
