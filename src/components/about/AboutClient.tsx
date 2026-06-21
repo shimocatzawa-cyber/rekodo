@@ -176,15 +176,15 @@ const FAQ_SECTIONS: { section: string; items: { q: string; a: string }[] }[] = [
       },
       {
         q: "How long does the first sync take?",
-        a: "It depends on collection size. A few hundred records takes under a minute. Collections of 1,000+ records can take considerably longer — expect 10–15 minutes as rekōdo fetches metadata, market prices, and community data for each release.",
+        a: "It depends on collection size. A few hundred records takes under 5 minutes. Collections of 1,000+ records can take considerably longer — expect 15+ minutes as rekōdo fetches metadata, market prices, and community data for each release. Discogs API is notoriously slow and this is where the hold up will be. You can navigate off and explore other areas of rekōdo in a new tab whilst you wait.",
       },
       {
-        q: "What's the quiz I see if I haven't connected a collection yet?",
-        a: "If you land in rekōdo before connecting Discogs, you'll be asked to pick a handful of records you love. rekōdo uses those picks to seed your first Dig recommendations until your real collection is synced.",
+        q: "Can I still use rekōdo without connecting my Discogs account?",
+        a: "Yes but you'll lose a lot of great functionality. You can complete our taste questionnaire where you'll be asked to pick a handful of records you love. rekōdo uses those picks to seed your first Dig recommendations until your real collection is synced.",
       },
       {
         q: "What can I set up in onboarding?",
-        a: "Username, display name, city and country (used for currency conversion and Gigs location), star sign, and optionally your Bandcamp username and a short taste essay. Everything except username can be changed later from your profile.",
+        a: "Username, display name, city and country (used for currency conversion and live concert information), star sign, and optionally your Bandcamp username and a short taste essay. Everything except username can be changed later from your profile.",
       },
     ],
   },
@@ -205,7 +205,11 @@ const FAQ_SECTIONS: { section: string; items: { q: string; a: string }[] }[] = [
       },
       {
         q: "What does 'Played Today' do?",
-        a: "Tap Played Today on any record's detail view to log a play. It updates Last Played and feeds your Most Played stats and Taste Profile, showing which parts of your collection you actually reach for.",
+        a: "Whenever you play a record from your collection, tap the 'Played Today' button to log the play. It updates with a last played date and feeds your Most Played stats and Taste Profile, showing which parts of your collection you actually reach for and which parts you don't.",
+      },
+      {
+        q: "What does the randomiser button do?",
+        a: "It randomly selects an item from your collection that you might want to play. Takes the thinking out of selecting what to listen to!",
       },
       {
         q: "What does the Essential tag do?",
@@ -234,7 +238,7 @@ const FAQ_SECTIONS: { section: string; items: { q: string; a: string }[] }[] = [
     items: [
       {
         q: "How is my collection value calculated?",
-        a: "rekōdo uses the official Discogs collection value figures when available (synced with each collection update). If those aren't populated yet, it aggregates median sale prices across your individual records as a fallback.",
+        a: "rekōdo uses the market value field to determine your collection value. This is updated every time you Sync.",
       },
       {
         q: "What is the Essentials Wall?",
@@ -301,7 +305,7 @@ const FAQ_SECTIONS: { section: string; items: { q: string; a: string }[] }[] = [
     ],
   },
   {
-    section: "Gigs",
+    section: "Live",
     items: [
       {
         q: "How does rekōdo find gigs?",
@@ -318,24 +322,11 @@ const FAQ_SECTIONS: { section: string; items: { q: string; a: string }[] }[] = [
     ],
   },
   {
-    section: "Library",
-    items: [
-      {
-        q: "What is Library?",
-        a: "Library is a recommendations feed for podcasts, audiobooks, and books — matched to the artists and labels in your collection. It's for the listening and reading that sits alongside record collecting.",
-      },
-      {
-        q: "Where do the recommendations come from?",
-        a: "rekōdo curates Library content editorially, matched to artists and labels represented in the rekōdo user base. Your personal stack (saved, in progress, done) is stored privately.",
-      },
-    ],
-  },
-  {
     section: "Rekōdo Selects",
     items: [
       {
         q: "What is Rekōdo Selects?",
-        a: "Selects has four tabs. New Releases tracks new releases, represses, and preorders matched to artists and labels in your collection. Artist Spotlight and Label Spotlight are rotating editorial deep dives — landmark releases, pressing notes, and context you won't find on a streaming platform. Live is the same upcoming-gigs feed as the Gigs page.",
+        a: "Selects has four tabs. New Releases tracks new releases, represses, and preorders matched to artists and labels in your collection. Artist Spotlight and Label Spotlight are rotating editorial deep dives — landmark releases, pressing notes, and context you won't find on a streaming platform.",
       },
       {
         q: "How often is Selects updated?",
@@ -360,12 +351,8 @@ const FAQ_SECTIONS: { section: string; items: { q: string; a: string }[] }[] = [
     section: "Lists, Wantlist & Playlists",
     items: [
       {
-        q: "What is my public profile?",
-        a: "Your public profile (rekōdo.co/@username) shows your lists and any records you've marked open to offers. Everything else — your collection, Insights, play history — remains private.",
-      },
-      {
-        q: "What is the wantlist?",
-        a: "Your wantlist syncs from Discogs and shows records you're looking for. Records added via Dig also appear here. rekōdo supporters can also bulk-import a wantlist from a CSV exported from Discogs. The wantlist is private.",
+        q: "What is a Want List?",
+        a: "Your wantlist generates from Discogs (supporter feature) and directly from rekōdo's Dig and List sections. It shows records you're looking for. rekōdo supporters can also bulk-import a wantlist from a CSV exported from Discogs. The wantlist is private.",
       },
       {
         q: "What is the Sell List?",
@@ -399,11 +386,11 @@ const FAQ_SECTIONS: { section: string; items: { q: string; a: string }[] }[] = [
     items: [
       {
         q: "What can I configure on my profile?",
-        a: "Username, display name, city, country, bio, star sign, your Bandcamp username, and your avatar. City and country also drive Gigs location and currency conversion.",
+        a: "Username, display name, city, country, bio, star sign, your Bandcamp username, and your avatar. City and country also drive live concert location and currency conversion.",
       },
       {
         q: "What does adding my Bandcamp username do?",
-        a: "rekōdo imports your Bandcamp purchases as digital additions to your collection. They count toward the Vinyl pure ↔ Format agnostic dimension in your Taste Profile.",
+        a: "rekōdo imports your Bandcamp purchases as digital additions to your Deep Dive artist list. They count toward the Vinyl pure ↔ Format agnostic dimension in your Taste Profile as well. The collection tab will only show physical items you own.",
       },
       {
         q: "Can I connect Spotify?",
@@ -416,7 +403,7 @@ const FAQ_SECTIONS: { section: string; items: { q: string; a: string }[] }[] = [
     items: [
       {
         q: "Is rekōdo free?",
-        a: "Most of rekōdo is free: collection sync, Insights (including the Essentials Wall and Feeling breakdown), Dig (3 sessions a day), Gigs, Library, and Selects. A rekōdo supporter subscription unlocks Deep Dive, Taste Profile, Archetypes, unlimited Dig, and wantlist CSV upload — plus the golden ō badge.",
+        a: "Most of rekōdo is free: collection sync, Insights (including the Essentials Wall and Feeling breakdown), Dig (3 sessions a day), Lists, and Selects. A rekōdo supporter subscription unlocks Deep Dive, Taste Profile Insights, Archetypes, unlimited Dig, and Want List CSV upload — plus the golden ō badge.",
       },
       {
         q: "What is the difference between a Supporter and a donor?",
