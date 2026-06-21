@@ -374,8 +374,14 @@ export async function POST(request: NextRequest) {
 
   // ── On-demand top-up: candidate pool too thin — try a small, bounded live
   // match instead of making the user wait on the background backfill ───────
+  // Gate on DISTINCT ARTISTS, not raw track count: the final selection allows
+  // only one track per artist, so a pool with plenty of tracks but only a
+  // handful of artists (e.g. a few fully-matched albums) was reporting as
+  // "thick enough" and skipping the top-up, then consistently truncating the
+  // playlist short of the requested track count.
   const MIN_DESIRED = trackCount * 2;
-  if (candidates.length < MIN_DESIRED && !(await getSpotifySearchCooldownUntil())) {
+  const distinctArtistCount = new Set(candidates.map(c => c.artist.toLowerCase().trim())).size;
+  if ((candidates.length < MIN_DESIRED || distinctArtistCount < trackCount) && !(await getSpotifySearchCooldownUntil())) {
     const unmatchedPool: UnmatchedItem[] = [];
 
     if (ownedRecordIds.length > 0) {

@@ -15,6 +15,13 @@ function fmt(ms: number) {
   return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;
 }
 
+function fmtTotal(ms: number) {
+  const totalMin = Math.round(ms / 60_000);
+  const h = Math.floor(totalMin / 60);
+  const m = totalMin % 60;
+  return h > 0 ? `${h}h ${m}m` : `${m}m`;
+}
+
 function openInSpotifyUrl(uri: string): string {
   const id = uri.split(":").pop() ?? "";
   return `https://open.spotify.com/track/${id}`;
@@ -43,6 +50,7 @@ export default function PlaylistTrackList({ tracks, onReorder, resequencing }: P
   const fromCollection = tracks.filter(t => t.source === "collection").length;
   const fromWantlist   = tracks.filter(t => t.source === "wantlist").length;
   const fromDiscover   = tracks.filter(t => t.source === "discover").length;
+  const totalDurationMs = tracks.reduce((sum, t) => sum + (t.duration_ms || 0), 0);
 
   return (
     <div style={{ background: "#ffffff", border: `1px solid ${RULE}` }}>
@@ -114,9 +122,12 @@ export default function PlaylistTrackList({ tracks, onReorder, resequencing }: P
         );
       })}
 
-      <div style={{ padding: "10px 16px", background: "#fafafa" }}>
+      <div style={{ padding: "10px 16px", background: "#fafafa", display: "flex", justifyContent: "space-between", gap: "12px" }}>
         <span style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.04em", color: MUTED }}>
           {fromCollection} from your collection{fromWantlist > 0 ? ` · ${fromWantlist} from your wantlist` : ""}{fromDiscover > 0 ? ` · ${fromDiscover} discovered for you` : ""}
+        </span>
+        <span style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.04em", color: MUTED, flexShrink: 0 }}>
+          {tracks.length} track{tracks.length === 1 ? "" : "s"} · {fmtTotal(totalDurationMs)}
         </span>
       </div>
     </div>

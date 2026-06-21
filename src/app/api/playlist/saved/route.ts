@@ -26,15 +26,19 @@ export async function GET() {
   if (listRows.length === 0) return NextResponse.json({ playlists: [] });
 
   const listIds = listRows.map((l) => l.id);
-  const { data: counts } = await db
-    .from("list_items").select("list_id").in("list_id", listIds);
-  const countByList = new Map<string, number>();
-  for (const r of (counts ?? []) as Array<{ list_id: string }>) {
+  const { data: items } = await db
+    .from("list_items").select("list_id, spotify_tracks").in("list_id", listIds);
+  const countByList    = new Map<string, number>();
+  const durationByList = new Map<string, number>();
+  for (const r of (items ?? []) as Array<{ list_id: string; spotify_tracks: Array<{ duration_ms: number }> | null }>) {
     countByList.set(r.list_id, (countByList.get(r.list_id) ?? 0) + 1);
+    const ms = r.spotify_tracks?.[0]?.duration_ms ?? 0;
+    durationByList.set(r.list_id, (durationByList.get(r.list_id) ?? 0) + ms);
   }
 
   const playlists = listRows.map((l) => ({
-    id: l.id, title: l.title, createdAt: l.created_at, trackCount: countByList.get(l.id) ?? 0,
+    id: l.id, title: l.title, createdAt: l.created_at,
+    trackCount: countByList.get(l.id) ?? 0, durationMs: durationByList.get(l.id) ?? 0,
   }));
 
   return NextResponse.json({ playlists });

@@ -328,8 +328,11 @@ export function SpotifyPlayerProvider({ children }: { children: React.ReactNode 
       });
       // Track whether we were near the end while playing, so we can detect
       // a natural track end (paused at position 0 after being near-end) vs
-      // a user-initiated pause. Only fires for dig mode so collection playback
-      // (which has its own queue) isn't affected.
+      // a user-initiated pause. Collection mode's context_uri queue and dig's
+      // onEnded callback both already handle advancing; playlist mode sends
+      // an explicit `uris` queue, which the SDK doesn't reliably auto-continue
+      // through — nudge it with an explicit nextTrack() when it stalls at a
+      // track boundary instead of fully stopping.
       if (isPlaying && s.duration > 0 && (s.duration - s.position) < 2000) {
         nearEndRef.current = true;
       }
@@ -337,6 +340,8 @@ export function SpotifyPlayerProvider({ children }: { children: React.ReactNode 
         nearEndRef.current = false;
         if (sourceRef.current?.mode === "dig") {
           sourceRef.current.onEnded?.();
+        } else if (sourceRef.current?.mode === "playlist" && (s.track_window?.next_tracks?.length ?? 0) > 0) {
+          playerRef.current?.nextTrack().catch(() => {});
         }
       }
       if (!s.paused) {

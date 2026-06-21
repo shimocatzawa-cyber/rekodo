@@ -7,7 +7,7 @@ const INK    = "#0d0d0d";
 const MUTED  = "#aaaaaa";
 const RULE   = "#e0e0da";
 
-export type SavedPlaylistSummary = { id: string; title: string; createdAt: string; trackCount: number };
+export type SavedPlaylistSummary = { id: string; title: string; createdAt: string; trackCount: number; durationMs: number };
 
 function relativeDate(iso: string): string {
   const days = Math.floor((Date.now() - new Date(iso).getTime()) / 86_400_000);
@@ -16,6 +16,13 @@ function relativeDate(iso: string): string {
   if (days < 7) return `${days}d ago`;
   if (days < 30) return `${Math.floor(days / 7)}w ago`;
   return new Date(iso).toLocaleDateString();
+}
+
+function fmtTotal(ms: number): string {
+  const totalMin = Math.round(ms / 60_000);
+  const h = Math.floor(totalMin / 60);
+  const m = totalMin % 60;
+  return h > 0 ? `${h}h ${m}m` : `${m}m`;
 }
 
 interface Props {
@@ -120,7 +127,7 @@ export default function SavedPlaylistsPanel({
                       {p.title}
                     </p>
                     <p style={{ fontFamily: MONO, fontSize: "8px", letterSpacing: "0.04em", color: MUTED, margin: 0 }}>
-                      {p.trackCount} track{p.trackCount === 1 ? "" : "s"} · {relativeDate(p.createdAt)}
+                      {p.trackCount} track{p.trackCount === 1 ? "" : "s"}{p.durationMs > 0 ? ` · ${fmtTotal(p.durationMs)}` : ""} · {relativeDate(p.createdAt)}
                     </p>
                   </button>
                   <button
