@@ -835,6 +835,9 @@ export default function DigClient({ userId, username, displayLabel, avatarUrl, c
   const shownArtists = useRef<string[]>([]);
   const shownRecs    = useRef<Array<{ artist: string; album: string }>>([]);
 
+  // Mobile swipe — tracks touch start to detect a horizontal swipe on the sleeve card
+  const touchStart = useRef<{ x: number; y: number } | null>(null);
+
   // fetchKey drives all fetches. Incrementing `n` re-triggers the effect for
   // "dig again" without changing mode; swapping `mode` handles mode changes.
   // `style` is only set when mode is "style" — the effect skips fetching until it is.
@@ -1157,6 +1160,13 @@ export default function DigClient({ userId, username, displayLabel, avatarUrl, c
             padding: 0 8px !important;
             font-size: 11px !important;
           }
+
+          /* Loading vinyl: give it room instead of hugging the top — the page
+             no longer has a fixed flex height to center into on mobile. */
+          .dig-loading {
+            min-height: 45vh !important;
+            justify-content: center !important;
+          }
         }
       `}</style>
 
@@ -1195,7 +1205,11 @@ export default function DigClient({ userId, username, displayLabel, avatarUrl, c
                 </div>
               )}
 
-              {loading && <RecordSpinner />}
+              {loading && (
+                <div className="dig-loading" style={{ display: "flex", flexDirection: "column", flex: 1 }}>
+                  <RecordSpinner />
+                </div>
+              )}
 
               {dailyLimitReached && !loading && (
                 <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", flex: 1, gap: "12px", padding: "2rem", textAlign: "center" }}>
@@ -1230,14 +1244,32 @@ export default function DigClient({ userId, username, displayLabel, avatarUrl, c
               {recs && !loading && (
                 <>
                   <PositionIndicator idx={idx} total={recs.length} onNav={setIdx} />
-                  <SleeveCard
-                    key={`${idx}-${mode}`}
-                    rec={recs[idx]}
-                    mode={mode}
-                    onAddToWantlist={() => handleAddToWantlist(recs[idx])}
-                    wantlistAdded={wantlistAdded.has(`${recs[idx].artist}||${recs[idx].album}`)}
-                    onPreviewReady={setDigSpotify}
-                  />
+                  <div
+                    onTouchStart={e => {
+                      const t = e.touches[0];
+                      touchStart.current = { x: t.clientX, y: t.clientY };
+                    }}
+                    onTouchEnd={e => {
+                      const start = touchStart.current;
+                      touchStart.current = null;
+                      if (!start || recs.length < 2) return;
+                      const t = e.changedTouches[0];
+                      const dx = t.clientX - start.x;
+                      const dy = t.clientY - start.y;
+                      if (Math.abs(dx) > 40 && Math.abs(dx) > Math.abs(dy)) {
+                        navigate(dx < 0 ? 1 : -1);
+                      }
+                    }}
+                  >
+                    <SleeveCard
+                      key={`${idx}-${mode}`}
+                      rec={recs[idx]}
+                      mode={mode}
+                      onAddToWantlist={() => handleAddToWantlist(recs[idx])}
+                      wantlistAdded={wantlistAdded.has(`${recs[idx].artist}||${recs[idx].album}`)}
+                      onPreviewReady={setDigSpotify}
+                    />
+                  </div>
                   {wantlistError && (
                     <p style={{ fontFamily: "var(--font-mono)", fontSize: "10px", color: "#cc3300", textAlign: "center", margin: "0 16px 4px", letterSpacing: "0.04em" }}>
                       {wantlistError}

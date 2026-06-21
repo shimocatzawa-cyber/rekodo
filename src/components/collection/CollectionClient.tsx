@@ -948,6 +948,18 @@ const [filterFormat,       setFilterFormat]       = useState("");
 
       {/* ── Three-column panel ── */}
       {collection.length > 0 && (
+      <>
+      <style>{`
+        @media (max-width: 767px) {
+          /* Album detail no longer owns its own internal scroll on mobile — its
+             new wrapper (above) scrolls the centre card + tracklist as one unit. */
+          .rk-album-detail-root { height: auto !important; overflow-y: visible !important; }
+        }
+        @media (min-width: 768px) {
+          .rk-col2 { display: flex; flex-direction: column; flex: 1; overflow: hidden; border-right: 1px solid rgba(0,0,0,0.08); }
+          .rk-col3 { display: block; overflow-y: auto; }
+        }
+      `}</style>
       <div className="flex flex-col md:grid" style={{ flex: 1, overflow: "hidden", gridTemplateColumns: "380px 1fr 380px" }}>
 
         {/* Col 1 — search + filters + A-Z record list */}
@@ -1052,8 +1064,57 @@ const [filterFormat,       setFilterFormat]       = useState("");
                   onChange={e => setFilterDesirability(e.target.value)}
                   style={{ fontFamily: MONO, fontSize: "12px", padding: "8px", border: "0.5px solid #e8e8e8", borderRadius: "4px", background: "#fafafa", outline: "none", color: filterDesirability ? ORANGE : "#888888" }}
                 >
-                  <option value="">Desirability</option>
+                  <option value="">All</option>
                   {desirabilityOptions.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+                </select>
+              </div>
+
+              {/* Sort bar — name sorts as inline buttons, value/year as dropdown */}
+              <div style={{ marginTop: "8px" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: "6px", marginBottom: "6px" }}>
+                  <span style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.1em", textTransform: "uppercase", color: "#aaaaaa", flexShrink: 0 }}>
+                    Sort
+                  </span>
+                  <div style={{ display: "flex", gap: "4px", flexWrap: "wrap" }}>
+                    {NAME_SORT_OPTIONS.map(o => {
+                      const on = sortBy === o.value;
+                      return (
+                        <button
+                          key={o.value}
+                          onClick={() => setSortBy(o.value)}
+                          style={{
+                            fontFamily: MONO, fontSize: "9px", letterSpacing: "0.08em",
+                            textTransform: "uppercase",
+                            color: on ? "#ffffff" : "#888888",
+                            background: on ? "#0d0d0d" : "none",
+                            border: `1px solid ${on ? "#0d0d0d" : "rgba(0,0,0,0.13)"}`,
+                            borderRadius: "3px", cursor: "pointer", padding: "3px 8px",
+                            whiteSpace: "nowrap", transition: "all 0.15s",
+                          }}
+                        >
+                          {o.label}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+                <select
+                  value={["value-high-low", "value-low-high", "year-new-old", "year-old-new"].includes(sortBy) ? sortBy : ""}
+                  onChange={e => { if (e.target.value) setSortBy(e.target.value); }}
+                  style={{
+                    width: "100%", fontFamily: MONO, fontSize: "12px", letterSpacing: "0.02em",
+                    color: ["value-high-low", "value-low-high", "year-new-old", "year-old-new"].includes(sortBy) ? ORANGE : "#888888",
+                    background: "#fafafa",
+                    border: `0.5px solid ${["value-high-low", "value-low-high", "year-new-old", "year-old-new"].includes(sortBy) ? ORANGE : "#e8e8e8"}`,
+                    borderRadius: "4px",
+                    cursor: "pointer", padding: "8px", outline: "none",
+                  }}
+                >
+                  <option value="">Value / Year sort…</option>
+                  <option value="value-high-low">Market Value: High to Low</option>
+                  <option value="value-low-high">Market Value: Low to High</option>
+                  <option value="year-new-old">Year: Newest First</option>
+                  <option value="year-old-new">Year: Oldest First</option>
                 </select>
               </div>
             </div>
@@ -1266,9 +1327,13 @@ const [filterFormat,       setFilterFormat]       = useState("");
         </div>
 
         {selectedRecord ? (
-          <>
-            {/* Col 2 — Album details */}
-            <div className={`${mobileDetailOpen ? "flex" : "hidden"} flex-col md:flex`} style={{ flex: 1, borderRight: "1px solid rgba(0,0,0,0.08)", overflow: "hidden", minWidth: 0 }}>
+          // On mobile this wrapper is the single scroll container for the whole
+          // detail view (centre card + tracklist stacked below it). On desktop
+          // it's `display: contents`, so Col 2 / Col 3 below become direct grid
+          // items again — identical to the previous two-column grid layout.
+          <div className={`${mobileDetailOpen ? "flex" : "hidden"} flex-col md:contents`} style={{ flex: 1, overflowY: "auto", minWidth: 0 }}>
+            {/* Col 2 — Album details (the centre card) */}
+            <div className="rk-col2" style={{ flexShrink: 0, minWidth: 0 }}>
               <button
                 className="md:hidden"
                 onClick={() => setMobileDetailOpen(false)}
@@ -1296,8 +1361,9 @@ const [filterFormat,       setFilterFormat]       = useState("");
               />
             </div>
 
-            {/* Col 3 — Tracklist + Bandcamp */}
-            <div className="hidden md:block" style={{ overflowY: "auto", minWidth: 0 }}>
+            {/* Col 3 — Tracklist + Bandcamp. Desktop: side panel. Mobile: stacked
+                below the centre card, no player. */}
+            <div className="rk-col3" style={{ flexShrink: 0, minWidth: 0 }}>
               <TracklistPanel
                 tracks={releaseDetail?.tracklist ?? null}
                 loading={detailLoading}
@@ -1305,7 +1371,7 @@ const [filterFormat,       setFilterFormat]       = useState("");
                 record={selectedRecord}
               />
             </div>
-          </>
+          </div>
         ) : (
           <div className="hidden md:flex" style={{ gridColumn: "2 / 4", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: "6px" }}>
             <p style={{ fontFamily: SERIF, fontSize: "18px", color: "#d8d8d8" }}>Select a record</p>
@@ -2320,18 +2386,18 @@ function TracklistPanel({ tracks, loading, bandcamp, record }: {
 
   return (
     <div>
-      {/* ── Spotify Player ── */}
-      {/* SpotifyPlayer stays mounted while Premium + a record is selected so the SDK
-          player never disconnects between album switches. spotifyUri=undefined when
-          searching so the player renders nothing but keeps the SDK connection alive. */}
-      {spotifyPremium && record && (
-        <SpotifyPlayer mode="collection" spotifyUri={currentSpotifyUri ?? undefined} />
-      )}
-      {spotifyPremium && record && currentSpotifyUri === null && (
-        <div style={{ padding: "10px 28px", borderBottom: "1px solid #e0e0da", fontFamily: "var(--font-mono)", fontSize: "9px", letterSpacing: "0.04em", color: "#aaaaaa" }}>
-          No Spotify match for this release.
-        </div>
-      )}
+      {/* ── Spotify Player — desktop only; stays mounted (just CSS-hidden) on mobile
+          so the SDK connection never disconnects between album switches. ── */}
+      <div className="hidden md:block">
+        {spotifyPremium && record && (
+          <SpotifyPlayer mode="collection" spotifyUri={currentSpotifyUri ?? undefined} />
+        )}
+        {spotifyPremium && record && currentSpotifyUri === null && (
+          <div style={{ padding: "10px 28px", borderBottom: "1px solid #e0e0da", fontFamily: "var(--font-mono)", fontSize: "9px", letterSpacing: "0.04em", color: "#aaaaaa" }}>
+            No Spotify match for this release.
+          </div>
+        )}
+      </div>
 
       {/* ── Played Today + Essential + Feeling ── */}
       {record && (

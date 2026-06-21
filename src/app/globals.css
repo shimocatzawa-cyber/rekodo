@@ -205,6 +205,16 @@ h1, h2, h3, h4, h5, h6 {
     padding: 24px 16px 60px !important;
   }
 
+  /* ── Archetypes: stat + regenerate stack under the title, flush left ──── */
+  .rk-arch-header {
+    flex-direction: column !important;
+    align-items: flex-start !important;
+  }
+  .rk-arch-stat {
+    text-align: left !important;
+    padding-left: 0 !important;
+  }
+
   /* ── Insights: format / desirability table → 3-col compressed, no scroll */
   /* Each row is its own grid, so the value column must be a fixed width — */
   /* "auto" sizes per-row independently and throws header/data out of sync */

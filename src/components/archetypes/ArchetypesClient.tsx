@@ -135,7 +135,7 @@ export default function ArchetypesClient({ userId, username, displayLabel, avata
               )}
             </div>
             {data && (
-              <div style={{ textAlign: "right", flexShrink: 0, paddingLeft: 24 }}>
+              <div className="rk-arch-stat" style={{ textAlign: "right", flexShrink: 0, paddingLeft: 24 }}>
                 <div style={{ fontFamily: MONO, fontSize: 10, color: MUTED, marginBottom: 6 }}>
                   {data.currentCount ?? data.recordCount} records analysed
                 </div>

@@ -374,7 +374,7 @@ export default function ProfileClient({
                 })()}
 
                 {!isOwner && (bandcampValue || profile.bandcamp_username) && (
-                  <p style={{ fontFamily: MONO, fontSize: "12px", letterSpacing: "0.04em", color: MUTED, margin: 0 }}>
+                  <p style={{ fontFamily: MONO, fontSize: "12px", letterSpacing: "0.04em", color: MUTED, margin: 0, overflowWrap: "anywhere" }}>
                     bandcamp.com/{bandcampValue || profile.bandcamp_username}
                   </p>
                 )}
@@ -458,9 +458,9 @@ export default function ProfileClient({
 
                       {(bandcampValue || profile.bandcamp_username) ? (
                         <>
-                          <p style={{ fontFamily: MONO, fontSize: "11px", letterSpacing: "0.04em", color: "#0a0a0a", margin: "0 0 6px 0", display: "flex", alignItems: "center", gap: "6px" }}>
+                          <p style={{ fontFamily: MONO, fontSize: "11px", letterSpacing: "0.04em", color: "#0a0a0a", margin: "0 0 6px 0", display: "flex", alignItems: "center", gap: "6px", minWidth: 0 }}>
                             <span style={{ width: "6px", height: "6px", borderRadius: "50%", background: "#1DA0C3", flexShrink: 0, display: "inline-block" }} />
-                            bandcamp.com/{bandcampValue || profile.bandcamp_username}
+                            <span style={{ overflowWrap: "anywhere", minWidth: 0 }}>bandcamp.com/{bandcampValue || profile.bandcamp_username}</span>
                           </p>
                           {bcResult && (
                             <>

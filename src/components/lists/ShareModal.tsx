@@ -224,6 +224,9 @@ export default function ShareModal({ onClose, title, slots, username, listUrl }:
   const [coversLoaded,  setCoversLoaded]  = useState(false);
   const [exporting,     setExporting]     = useState(false);
   const [copyImgState,  setCopyImgState]  = useState<"idle" | "copied" | "failed">("idle");
+  // Available width for the scaled preview — defaults to the desktop cap (508)
+  // and shrinks to fit narrow/mobile viewports so the card never overflows the modal.
+  const [maxPreviewWidth, setMaxPreviewWidth] = useState(508);
 
   // Separate ref for the off-screen export card (natural size, no transform)
   const exportRef = useRef<HTMLDivElement>(null);
@@ -231,6 +234,16 @@ export default function ShareModal({ onClose, title, slots, username, listUrl }:
   useEffect(() => {
     loadCovers(slots).then(c => { setCovers(c); setCoversLoaded(true); });
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    // Modal: 24px outer padding each side, 16px inner preview padding each side
+    function recalc() {
+      setMaxPreviewWidth(Math.min(508, window.innerWidth - 48 - 32));
+    }
+    recalc();
+    window.addEventListener("resize", recalc);
+    return () => window.removeEventListener("resize", recalc);
+  }, []);
 
   async function buildCanvas(): Promise<HTMLCanvasElement | null> {
     if (!exportRef.current) return null;
@@ -327,7 +340,7 @@ export default function ShareModal({ onClose, title, slots, username, listUrl }:
 
   const CARD_W = format === "portrait" ? 540 : 600;
   const CARD_H = format === "portrait" ? 675 : 314;
-  const SCALE  = Math.min(1, 508 / CARD_W);
+  const SCALE  = Math.min(1, maxPreviewWidth / CARD_W);
   const PRV_W  = Math.round(CARD_W * SCALE);
   const PRV_H  = Math.round(CARD_H * SCALE);
 

@@ -699,6 +699,7 @@ export default function ProfileListsTab({ initialLists, username, listTypeFilter
                     slots={selectedList.slots}
                     onEdit={pos => openPicker({ listId: selectedList.id, position: pos, strategy: "replace" })}
                     onRemove={pos => handleRemoveItem(selectedList.id, pos)}
+                    isMobile={isMobile}
                   />
                 ) : (
                   <>
@@ -977,12 +978,67 @@ function TracklistRow({ position, item, isSaving, isPickerOpen, onOpen, onRemove
 
 // ─── Top5Grid ─────────────────────────────────────────────────────────────────
 
-function Top5Grid({ slots, onEdit, onRemove }: {
+function Top5Grid({ slots, onEdit, onRemove, isMobile }: {
   slots: ListSlot[];
   onEdit:   (position: number) => void;
   onRemove: (position: number) => void;
+  isMobile?: boolean;
 }) {
   const [hoveredPos, setHoveredPos] = useState<number | null>(null);
+
+  if (isMobile) {
+    return (
+      <div style={{ display: "flex", flexDirection: "column", gap: "10px", marginBottom: "8px" }}>
+        {[1, 2, 3, 4, 5].map(pos => {
+          const slot = slots.find(s => s.position === pos);
+          const item = slot?.item ?? null;
+          return (
+            <div key={pos} style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+              <span style={{ fontFamily: MONO, fontSize: "9px", color: "#c0c0c0", width: "14px", flexShrink: 0, textAlign: "center" }}>
+                {pos}
+              </span>
+              <div
+                onClick={() => onEdit(pos)}
+                style={{ width: "56px", height: "56px", flexShrink: 0, overflow: "hidden", lineHeight: 0, cursor: "pointer" }}
+              >
+                {item?.cover_url ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={item.cover_url} alt="" style={{ display: "block", width: "100%", height: "100%", objectFit: "cover" }} />
+                ) : (
+                  <div style={{ width: "100%", height: "100%", background: "#f4f4f4", border: "1px dashed rgba(0,0,0,0.14)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                    <span style={{ fontFamily: MONO, fontSize: "16px", color: "#ddd" }}>+</span>
+                  </div>
+                )}
+              </div>
+              <div onClick={() => onEdit(pos)} style={{ flex: 1, minWidth: 0, cursor: "pointer" }}>
+                {item ? (
+                  <>
+                    <p style={{ fontFamily: MONO, fontSize: "8px", letterSpacing: "0.07em", textTransform: "uppercase", color: "#aaa", marginBottom: "2px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                      {item.artist}
+                    </p>
+                    <p style={{ fontFamily: SERIF, fontSize: "13px", color: "#0d0d0d", lineHeight: 1.3, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                      {item.song_title ?? item.album}
+                    </p>
+                  </>
+                ) : (
+                  <p style={{ fontFamily: SERIF, fontStyle: "italic", fontSize: "13px", color: "#cccccc" }}>+ Add a record</p>
+                )}
+              </div>
+              {item && (
+                <button
+                  onClick={e => { e.stopPropagation(); onRemove(pos); }}
+                  style={{ fontFamily: MONO, fontSize: "16px", color: "#cccccc", background: "none", border: "none", cursor: "pointer", padding: "0 4px", lineHeight: 1, flexShrink: 0 }}
+                >
+                  ×
+                </button>
+              )}
+            </div>
+          );
+        })}
+      </div>
+    );
+  }
+
   return (
     <div style={{ display: "grid", gridTemplateColumns: "repeat(5, 1fr)", gap: "12px", marginBottom: "8px" }}>
       {[1, 2, 3, 4, 5].map(pos => {

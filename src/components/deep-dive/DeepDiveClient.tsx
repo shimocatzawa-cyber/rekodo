@@ -1004,8 +1004,10 @@ export default function DeepDiveClient({
 
     return (
       <div>
-        {/* Artist player — flush at top, same horizontal padding as content */}
-        <ArtistPlayer artist={selectedArtist} />
+        {/* Artist player — flush at top, same horizontal padding as content. Desktop only — too cramped on mobile. */}
+        <div className="hidden md:block">
+          <ArtistPlayer artist={selectedArtist} />
+        </div>
 
       <div className="dd-panel-content" style={{ padding: "2.5rem" }}>
         {/* Artist header */}
@@ -1232,6 +1234,20 @@ export default function DeepDiveClient({
                 <option key={a.name} value={a.name}>{a.name}</option>
               ))}
             </select>
+            <button
+              type="button"
+              onClick={() => {
+                const idx = Math.floor(Math.random() * mergedArtists.length);
+                selectArtist(mergedArtists[idx].name);
+              }}
+              style={{
+                fontFamily: MONO, fontSize: "10px", letterSpacing: "0.06em",
+                color: ORANGE, background: "none", border: "none",
+                cursor: "pointer", padding: 0, marginTop: "10px",
+              }}
+            >
+              ↺ Randomiser
+            </button>
           </div>
         )}
 
