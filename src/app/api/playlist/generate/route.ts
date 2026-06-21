@@ -214,7 +214,13 @@ export async function POST(request: NextRequest) {
   const MIN_DESIRED = trackCount * 2;
   // TEMPORARY diagnostics while we track down why the on-demand top-up isn't
   // producing matches — strip this once it's confirmed working.
-  const debug: Record<string, unknown> = { existingCandidates: candidates.length, minDesired: MIN_DESIRED };
+  const debug: Record<string, unknown> = {
+    userId: user.id,
+    ownedLinksCount: ownedLinks?.length ?? 0,
+    ownedRecordIdsCount: ownedRecordIds.length,
+    existingCandidates: candidates.length,
+    minDesired: MIN_DESIRED,
+  };
   const cooldown = await getSpotifySearchCooldownUntil();
   debug.cooldownUntil = cooldown;
   if (candidates.length < MIN_DESIRED && !cooldown) {
