@@ -77,10 +77,8 @@ function WallCard({ username, total, primaryGenre, primaryGenrePct, covers, cove
   const gridH = rows * CELL + (rows - 1) * GAP;
 
   const footerStats = [
-    { label: "Records",       value: total > 0 ? total.toLocaleString() : "—", serif: true },
-    { label: "Primary Genre", value: primaryGenre ? `${primaryGenrePct}% ${primaryGenre}` : "—", serif: true },
-    { label: "Collector",     value: `@${username}`, serif: false },
-    { label: "",              value: "rekodo.co", serif: false },
+    { label: "Records",       value: total > 0 ? total.toLocaleString() : "—" },
+    { label: "Primary Genre", value: primaryGenre ? `${primaryGenrePct}% ${primaryGenre}` : "—" },
   ];
 
   return (
@@ -132,7 +130,7 @@ function WallCard({ username, total, primaryGenre, primaryGenrePct, covers, cove
         )}
       </div>
 
-      {/* Footer — museum-plaque stat strip */}
+      {/* Footer — two-column stat strip, then collector credit below */}
       <div style={{ display: "flex", marginTop: 24, borderTop: `1px solid ${RULE}` }}>
         {footerStats.map((s, i) => (
           <div
@@ -142,20 +140,23 @@ function WallCard({ username, total, primaryGenre, primaryGenrePct, covers, cove
               borderRight: i < footerStats.length - 1 ? `1px solid ${RULE}` : "none",
             }}
           >
-            {s.label && (
-              <div style={{ fontFamily: MONO, fontSize: 8, letterSpacing: "0.1em", textTransform: "uppercase", color: MUTED, marginBottom: 4 }}>
-                {s.label}
-              </div>
-            )}
+            <div style={{ fontFamily: MONO, fontSize: 8, letterSpacing: "0.1em", textTransform: "uppercase", color: MUTED, marginBottom: 4 }}>
+              {s.label}
+            </div>
             <div style={{
-              fontFamily: s.serif ? SERIF : MONO, fontWeight: s.serif ? 600 : 400,
-              fontSize: s.serif ? "0.95rem" : "0.7rem", color: s.serif ? INK : MUTED,
+              fontFamily: SERIF, fontWeight: 600,
+              fontSize: "0.95rem", color: INK,
               lineHeight: 1.2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
             }}>
               {s.value}
             </div>
           </div>
         ))}
+      </div>
+      <div style={{ padding: "12px 6px", textAlign: "center", borderTop: `1px solid ${RULE}` }}>
+        <span style={{ fontFamily: MONO, fontSize: "0.7rem", color: MUTED }}>
+          @{username} - rekodo.co
+        </span>
       </div>
       <div style={{ height: 24 }} />
     </div>
@@ -257,7 +258,7 @@ export default function EssentialsWallModal({ onClose, username, covers, total, 
   }
 
   const rows   = Math.max(1, Math.ceil(shownCovers.length / COLS));
-  const CARD_H = 28 + 46 + (shownCovers.length === 0 ? 200 : rows * CELL + (rows - 1) * GAP) + 24 + 62 + 24;
+  const CARD_H = 28 + 46 + (shownCovers.length === 0 ? 200 : rows * CELL + (rows - 1) * GAP) + 24 + 58 + 36 + 24;
   const SCALE  = Math.min(1, 508 / CARD_W);
   const PRV_W  = Math.round(CARD_W * SCALE);
   const PRV_H  = Math.round(CARD_H * SCALE);
