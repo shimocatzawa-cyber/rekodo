@@ -30,6 +30,12 @@ export type GeneratedTrack = {
 const MATCH_POLL_MS = 5000;
 const RESEQUENCE_DEBOUNCE_MS = 400;
 
+// Kill switch — paused while we rework this to stop hammering Spotify's
+// entire backlog in the background (see the on-demand matcher added to
+// /api/playlist/generate instead). Flip back to true to restore the old
+// eager-background-sync behavior.
+const BACKGROUND_MATCH_ENABLED = false;
+
 export default function PlaylistTab() {
   const router = useRouter();
 
@@ -74,6 +80,7 @@ export default function PlaylistTab() {
   const MATCH_RETRIGGER_MS = 30_000;
 
   useEffect(() => {
+    if (!BACKGROUND_MATCH_ENABLED) return;
     if (spotifyConnected !== true) return;
 
     function poll() {
