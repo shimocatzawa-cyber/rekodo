@@ -1,5 +1,7 @@
 "use client";
 
+import { FEELINGS } from "@/lib/feelings";
+
 const SERIF  = "var(--font-editorial)";
 const MONO   = "var(--font-mono)";
 const ORANGE = "#CC5500";
@@ -7,7 +9,7 @@ const INK    = "#0d0d0d";
 const MUTED  = "#aaaaaa";
 const RULE   = "#e0e0da";
 
-export const MOODS = ["upbeat", "joyful", "calm", "tender", "nostalgic", "melancholy", "powerful", "haunted", "longing"] as const;
+export const MOODS = FEELINGS;
 export type Mood = typeof MOODS[number];
 
 export type MatchStatus = { total: number; matched: number; pending: number; percentComplete: number };

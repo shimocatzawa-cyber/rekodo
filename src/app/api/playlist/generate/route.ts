@@ -3,6 +3,7 @@ import Anthropic from "@anthropic-ai/sdk";
 import { createClient } from "@/lib/supabase/server";
 import { getSpotifyAccessToken, getSpotifySearchCooldownUntil } from "@/lib/spotify";
 import { searchAlbum, fetchAlbumTracks } from "@/lib/spotifyMatch";
+import { FEELINGS as MOODS } from "@/lib/feelings";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
@@ -17,8 +18,6 @@ const SHORTLIST_SIZE = 12;
 const MAX_UNMATCHED_POOL_FOR_PROMPT = 300;
 
 const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
-
-const MOODS = ["upbeat", "joyful", "calm", "tender", "nostalgic", "melancholy", "powerful", "haunted", "longing"] as const;
 
 type SpotifyTrackJson = { spotify_uri: string; title: string; track_number: number; duration_ms: number; preview_url: string | null };
 
