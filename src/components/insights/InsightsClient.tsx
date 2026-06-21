@@ -9,6 +9,7 @@ import InsightsShareModal from "@/components/insights/InsightsShareModal";
 import EssentialsWallModal from "@/components/insights/EssentialsWallModal";
 import { generateTasteSummary } from "@/app/[username]/actions";
 import type { DesirabilityTier } from "@/lib/desirability";
+import { feelingLabel } from "@/lib/feelings";
 
 const SERIF  = "var(--font-editorial)";
 const MONO   = "var(--font-mono)";
@@ -64,6 +65,7 @@ export interface InsightsProps {
     primaryGenrePct: number;
     covers:          { artist: string; album: string; coverUrl: string | null }[];
   };
+  feelingBreakdown: { feeling: string; count: number; pct: number }[];
   collectionLifespan: { period: string; Added: number }[];
   collectionByMonth: { period: string; Added: number }[];
   spectrum:           SpectrumData;
@@ -253,7 +255,7 @@ export default function InsightsClient({
   countryBreakdown, topLabels, topArtists, topProducers,
   formatBreakdown, desirabilityBreakdown,
   topFormat, yearRange, mostPopularYear, vinylColourBreakdown,
-  essentials,
+  essentials, feelingBreakdown,
   collectionLifespan, collectionByMonth, spectrum,
   topPlayedRecords, playedStyleBreakdown,
   starSign, tasteSummary, profileId, isSupporter, usageStats,
@@ -304,6 +306,7 @@ export default function InsightsClient({
 
   const maxGenrePct     = genreBreakdown[0]?.pct      ?? 100;
   const maxCountryCount = countryBreakdown[0]?.count  ?? 1;
+  const maxFeelingPct   = feelingBreakdown[0]?.pct    ?? 100;
 
   // Derive stats bar tiles from available data
   const holyGrailCount  = desirabilityBreakdown.find((d) => d.tier === "holy-grail")?.count ?? 0;
@@ -724,6 +727,34 @@ export default function InsightsClient({
                   </span>
                 </div>
                 <PercentBar pct={pct} maxPct={maxGenrePct} />
+              </div>
+            ))}
+          </div>
+        )}
+
+        <SectionDivider />
+
+        {/* ── Section 3a: Feeling ──────────────────────────────────────────────── */}
+        <SectionHeader eyebrow="Feeling" title="How it makes you feel." />
+
+        {feelingBreakdown.length === 0 ? (
+          <p style={{ fontFamily: MONO, fontSize: "11px", color: INK, margin: 0 }}>
+            Tag records with a feeling from the collection view to see this breakdown.
+          </p>
+        ) : (
+          <div style={{ display: "flex", flexDirection: "column", gap: "14px" }}>
+            {feelingBreakdown.map(({ feeling, count, pct }) => (
+              <div key={feeling}>
+                <div style={{
+                  display: "flex", justifyContent: "space-between",
+                  alignItems: "baseline", marginBottom: "6px", gap: "12px",
+                }}>
+                  <span style={{ fontFamily: MONO, fontSize: "11px", color: INK }}>{feelingLabel(feeling)}</span>
+                  <span style={{ fontFamily: MONO, fontSize: "11px", color: INK, whiteSpace: "nowrap" }}>
+                    {count} items · <span style={{ color: ORANGE }}>{pct}%</span>
+                  </span>
+                </div>
+                <PercentBar pct={pct} maxPct={maxFeelingPct} />
               </div>
             ))}
           </div>

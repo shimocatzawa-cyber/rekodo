@@ -1,10 +1,6 @@
 import { type NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
-
-const VALID_FEELINGS = new Set([
-  "upbeat", "joyful", "calm", "tender", "nostalgic",
-  "melancholy", "powerful", "haunted", "longing",
-]);
+import { isValidFeeling } from "@/lib/feelings";
 
 export async function PATCH(request: NextRequest) {
   const supabase = await createClient();
@@ -33,7 +29,7 @@ export async function PATCH(request: NextRequest) {
   }
 
   if (feeling !== undefined) {
-    if (feeling !== null && (typeof feeling !== "string" || !VALID_FEELINGS.has(feeling))) {
+    if (feeling !== null && (typeof feeling !== "string" || !isValidFeeling(feeling))) {
       return NextResponse.json({ error: "Invalid feeling value" }, { status: 400 });
     }
     update.feeling = feeling;

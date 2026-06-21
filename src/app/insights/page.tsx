@@ -95,13 +95,14 @@ export default async function InsightsPage() {
     last_played_at:   string | null;
     play_count:       number;
     is_essential:     boolean;
+    feeling:          string | null;
   };
   const allLinks: LinkRow[] = [];
   const PAGE = 1000;
   for (let from = 0; ; from += PAGE) {
     const { data, error } = await supabase
       .from("user_records")
-      .select("record_id, price_low, price_median, price_high, price_currency, media_condition, sleeve_condition, date_added, last_played_at, play_count, is_essential")
+      .select("record_id, price_low, price_median, price_high, price_currency, media_condition, sleeve_condition, date_added, last_played_at, play_count, is_essential, feeling")
       .eq("user_id", user.id)
       .range(from, from + PAGE - 1);
     if (error || !data || data.length === 0) break;
@@ -316,6 +317,20 @@ export default async function InsightsPage() {
     primaryGenrePct: essentialsPrimaryGenrePct,
     covers:          essentialsCovers,
   };
+
+  // ── Feeling breakdown (user-tagged "how does this make you feel") ─────────
+  const feelingCounts = new Map<string, number>();
+  for (const l of allLinks) {
+    if (l.feeling) feelingCounts.set(l.feeling, (feelingCounts.get(l.feeling) ?? 0) + 1);
+  }
+  const feelingsTaggedTotal = [...feelingCounts.values()].reduce((a, b) => a + b, 0);
+  const feelingBreakdown: InsightsProps["feelingBreakdown"] = [...feelingCounts.entries()]
+    .sort((a, b) => b[1] - a[1])
+    .map(([feeling, count]) => ({
+      feeling,
+      count,
+      pct: feelingsTaggedTotal > 0 ? Math.round((count / feelingsTaggedTotal) * 100) : 0,
+    }));
 
   // ── Style analysis ─────────────────────────────────────────────────────────
   const styleCounts = new Map<string, number>();
@@ -728,6 +743,7 @@ export default async function InsightsPage() {
       mostPopularYear={mostPopularYear}
       vinylColourBreakdown={vinylColourBreakdown}
       essentials={essentials}
+      feelingBreakdown={feelingBreakdown}
       collectionLifespan={collectionLifespan}
       collectionByMonth={collectionByMonth}
       spectrum={spectrum}

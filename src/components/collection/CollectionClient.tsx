@@ -7,6 +7,7 @@ import type { CollectionRecord, CollectionInsights } from "@/app/collection/page
 import { persistRecordPrice } from "@/app/collection/actions";
 import { createClient } from "@/lib/supabase/client";
 import { getDesirabilityTier, type DesirabilityTier } from "@/lib/desirability";
+import { FEELINGS, feelingLabel } from "@/lib/feelings";
 import { openAppleMusicLink } from "@/lib/openAppleMusic";
 import SpotifyPlayer, { getFreshSpotifyToken } from "@/components/SpotifyPlayer";
 
@@ -302,6 +303,7 @@ export default function CollectionClient({
 
 const [filterFormat,       setFilterFormat]       = useState("");
   const [filterDesirability, setFilterDesirability] = useState("");
+  const [filterFeeling,      setFilterFeeling]      = useState("");
   const [sortBy,             setSortBy]             = useState("artist-az");
 
   const [filterSheetOpen,  setFilterSheetOpen]  = useState(false);
@@ -683,8 +685,9 @@ const [filterFormat,       setFilterFormat]       = useState("");
     if (filterDesirability) result = result.filter(r =>
       getDesirabilityTier(r.community_have, r.community_want, r.price_low_usd, r.community_num_for_sale) === filterDesirability
     );
+    if (filterFeeling)      result = result.filter(r => r.feeling === filterFeeling);
     return result;
-  }, [collection, searchQuery, filterGenre, filterYear, filterFormat, filterDesirability]);
+  }, [collection, searchQuery, filterGenre, filterYear, filterFormat, filterDesirability, filterFeeling]);
 
   const sortedCollection = useMemo(() => {
     const arr = [...filteredCollection];
@@ -756,8 +759,8 @@ const [filterFormat,       setFilterFormat]       = useState("");
   // and 0-result selections are explained by the "N of M items" counter.
   const desirabilityOptions = DESIRABILITY_FILTER_OPTIONS;
 
-  const hasFilters = !!searchQuery.trim() || !!filterGenre || !!filterYear || !!filterFormat || !!filterDesirability;
-  const activeFilterCount = [filterGenre, filterYear, filterFormat, filterDesirability].filter(Boolean).length;
+  const hasFilters = !!searchQuery.trim() || !!filterGenre || !!filterYear || !!filterFormat || !!filterDesirability || !!filterFeeling;
+  const activeFilterCount = [filterGenre, filterYear, filterFormat, filterDesirability, filterFeeling].filter(Boolean).length;
 
   function clearAllFilters() {
     setSearchQuery("");
@@ -765,6 +768,7 @@ const [filterFormat,       setFilterFormat]       = useState("");
     setFilterYear("");
     setFilterFormat("");
     setFilterDesirability("");
+    setFilterFeeling("");
   }
 
   const NAME_SORT_OPTIONS = [
@@ -1066,6 +1070,14 @@ const [filterFormat,       setFilterFormat]       = useState("");
                   <option value="">All</option>
                   {desirabilityOptions.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
                 </select>
+                <select
+                  value={filterFeeling}
+                  onChange={e => setFilterFeeling(e.target.value)}
+                  style={{ fontFamily: MONO, fontSize: "12px", padding: "8px", border: "0.5px solid #e8e8e8", borderRadius: "4px", background: "#fafafa", outline: "none", color: filterFeeling ? ORANGE : "#888888" }}
+                >
+                  <option value="">Feeling</option>
+                  {FEELINGS.map(f => <option key={f} value={f}>{feelingLabel(f)}</option>)}
+                </select>
               </div>
 
               {/* Sort bar — name sorts as inline buttons, value/year as dropdown */}
@@ -1213,6 +1225,25 @@ const [filterFormat,       setFilterFormat]       = useState("");
               </select>
             </div>
 
+            {/* Filter dropdowns — row 3: Feeling */}
+            <div style={{ padding: "0 10px 6px", display: "flex", gap: "6px" }}>
+              <select
+                value={filterFeeling}
+                onChange={e => setFilterFeeling(e.target.value)}
+                style={{
+                  flex: 1, fontFamily: MONO, fontSize: "10px", letterSpacing: "0.04em",
+                  color: filterFeeling ? ORANGE : "#888888",
+                  background: "#ffffff",
+                  border: `1px solid ${filterFeeling ? ORANGE : "rgba(0,0,0,0.13)"}`,
+                  cursor: "pointer", padding: "4px 6px", outline: "none",
+                  transition: "border-color 0.15s, color 0.15s",
+                }}
+              >
+                <option value="">Feeling</option>
+                {FEELINGS.map(f => <option key={f} value={f}>{feelingLabel(f)}</option>)}
+              </select>
+            </div>
+
             {/* Sort bar — name sorts as inline buttons, value/year as dropdown */}
             <div style={{ padding: "0 10px 6px" }}>
               <div style={{ display: "flex", alignItems: "center", gap: "6px", marginBottom: "6px" }}>
@@ -1263,12 +1294,13 @@ const [filterFormat,       setFilterFormat]       = useState("");
             </div>
 
             {/* Active filter tags */}
-            {(filterGenre || filterYear || filterFormat || filterDesirability) && (
+            {(filterGenre || filterYear || filterFormat || filterDesirability || filterFeeling) && (
               <div style={{ padding: "0 10px 6px", display: "flex", flexWrap: "wrap", gap: "4px" }}>
                 {filterGenre        && <FilterTag label={`Genre: ${filterGenre}`}       onRemove={() => setFilterGenre("")} />}
                 {filterYear         && <FilterTag label={`Year: ${filterYear}`}         onRemove={() => setFilterYear("")} />}
                 {filterFormat       && <FilterTag label={`Format: ${filterFormat}`}     onRemove={() => setFilterFormat("")} />}
                 {filterDesirability && <FilterTag label={`Desirability: ${DESIRABILITY_FILTER_OPTIONS.find(o => o.value === filterDesirability)?.label ?? filterDesirability}`} onRemove={() => setFilterDesirability("")} />}
+                {filterFeeling      && <FilterTag label={`Feeling: ${feelingLabel(filterFeeling)}`} onRemove={() => setFilterFeeling("")} />}
               </div>
             )}
 
@@ -2307,8 +2339,6 @@ function TracklistPanel({ tracks, loading, bandcamp, record }: {
     })();
     return () => { cancelled = true; };
   }, [record?.id, spotifyPremium]);
-
-  const FEELINGS = ["upbeat", "joyful", "calm", "tender", "nostalgic", "melancholy", "powerful", "haunted", "longing"] as const;
 
   async function handleEssential() {
     if (!record?.id || essentialLoading) return;
