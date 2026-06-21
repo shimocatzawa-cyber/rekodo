@@ -466,14 +466,20 @@ export function SpotifyPlayerProvider({ children }: { children: React.ReactNode 
           }
         } else {
           if (!deviceId) return;
+          // This branch only ever fires for a genuinely new source (true resumes
+          // go through togglePlay above) — always force position 0 explicitly.
+          // Spotify's /play endpoint can otherwise fall back to whatever
+          // position it last has cached for this exact context/track on this
+          // device, which surfaces as playback intermittently starting partway
+          // through instead of at the beginning.
           const body = source?.mode === "collection" && source.spotifyUri
-            ? { context_uri: source.spotifyUri }
+            ? { context_uri: source.spotifyUri, offset: { position: 0 }, position_ms: 0 }
             : source?.albumUri
-              ? { context_uri: source.albumUri }
+              ? { context_uri: source.albumUri, offset: { position: 0 }, position_ms: 0 }
               : source?.spotifyTrackUris?.length
-                ? { uris: source.spotifyTrackUris }
+                ? { uris: source.spotifyTrackUris, position_ms: 0 }
                 : source?.spotifyTrackUri
-                  ? { uris: [source.spotifyTrackUri] }
+                  ? { uris: [source.spotifyTrackUri], position_ms: 0 }
                   : null;
           if (!body) return;
           setPlayError(null);
