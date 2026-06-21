@@ -237,18 +237,7 @@ export async function POST(request: NextRequest) {
   // ── On-demand top-up: candidate pool too thin — try a small, bounded live
   // match instead of making the user wait on the background backfill ───────
   const MIN_DESIRED = trackCount * 2;
-  // TEMPORARY diagnostics while we track down why the on-demand top-up isn't
-  // producing matches — strip this once it's confirmed working.
-  const debug: Record<string, unknown> = {
-    userId: user.id,
-    ownedLinksCount: ownedLinks.length,
-    ownedRecordIdsCount: ownedRecordIds.length,
-    existingCandidates: candidates.length,
-    minDesired: MIN_DESIRED,
-  };
-  const cooldown = await getSpotifySearchCooldownUntil();
-  debug.cooldownUntil = cooldown;
-  if (candidates.length < MIN_DESIRED && !cooldown) {
+  if (candidates.length < MIN_DESIRED && !(await getSpotifySearchCooldownUntil())) {
     const unmatchedPool: UnmatchedItem[] = [];
 
     if (ownedRecordIds.length > 0) {
@@ -289,31 +278,23 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    debug.unmatchedPoolSize = unmatchedPool.length;
-
     if (unmatchedPool.length > 0) {
       const shortlist = await shortlistUnmatched(unmatchedPool, mood, refinement);
-      debug.shortlistSize = shortlist.length;
       if (shortlist.length > 0) {
         const token = await getSpotifyAccessToken(db, user.id);
-        debug.tokenOk = !!token;
         if (token) {
-          const outcomes: string[] = [];
           for (const item of shortlist) {
             const result = await searchAlbum(token, item.artist, item.album);
-            if (result.kind === "blocked") { outcomes.push(`${item.album}:blocked`); break; }
-            if (result.kind === "transient") { outcomes.push(`${item.album}:transient`); continue; }
+            if (result.kind === "blocked") break; // global cooldown just kicked in — stop immediately
+            if (result.kind === "transient") continue; // leave unmatched, background worker will retry
+            const now = new Date().toISOString();
             if (result.kind === "not_found") {
-              outcomes.push(`${item.album}:not_found`);
-              const now = new Date().toISOString();
               await db.from(item.table).update({ spotify_matched: false, spotify_matched_at: now }).eq("id", item.refId);
               continue;
             }
             const tracks = await fetchAlbumTracks(token, result.id);
-            if (tracks === "blocked") { outcomes.push(`${item.album}:tracks_blocked`); break; }
-            if (tracks === null) { outcomes.push(`${item.album}:tracks_transient`); continue; }
-            outcomes.push(`${item.album}:matched(${tracks.length})`);
-            const now = new Date().toISOString();
+            if (tracks === "blocked") break;
+            if (tracks === null) continue; // transient — leave unmatched
             await db.from(item.table).update({
               spotify_album_id: result.id, spotify_matched: true, spotify_tracks: tracks, spotify_matched_at: now,
             }).eq("id", item.refId);
@@ -322,14 +303,13 @@ export async function POST(request: NextRequest) {
               item.source, item.feeling === mood ? "tagged" : "inferred",
             ));
           }
-          debug.outcomes = outcomes;
         }
       }
     }
   }
 
   if (candidates.length === 0) {
-    return NextResponse.json({ error: "No Spotify-matched tracks available yet. Wait for matching to finish, or sync more records.", debug }, { status: 422 });
+    return NextResponse.json({ error: "No Spotify-matched tracks available yet. Wait for matching to finish, or sync more records." }, { status: 422 });
   }
 
   // Cap prompt size — tagged/high-confidence first, then a slice of the rest.
