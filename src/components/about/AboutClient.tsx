@@ -178,6 +178,14 @@ const FAQ_SECTIONS: { section: string; items: { q: string; a: string }[] }[] = [
         q: "How long does the first sync take?",
         a: "It depends on collection size. A few hundred records takes under a minute. Collections of 1,000+ records can take considerably longer — expect 10–15 minutes as rekōdo fetches metadata, market prices, and community data for each release.",
       },
+      {
+        q: "What's the quiz I see if I haven't connected a collection yet?",
+        a: "If you land in rekōdo before connecting Discogs, you'll be asked to pick a handful of records you love. rekōdo uses those picks to seed your first Dig recommendations until your real collection is synced.",
+      },
+      {
+        q: "What can I set up in onboarding?",
+        a: "Username, display name, city and country (used for currency conversion and Gigs location), star sign, and optionally your Bandcamp username and a short taste essay. Everything except username can be changed later from your profile.",
+      },
     ],
   },
   {
@@ -196,8 +204,20 @@ const FAQ_SECTIONS: { section: string; items: { q: string; a: string }[] }[] = [
         a: "Desirability is calculated from Discogs community data — how many people have it vs. want it, current for-sale listings, and median sale price. Tiers run from Holy Grail (extremely rare, highly sought) through Rare, Cult Pressing, In Demand, and Widely Loved.",
       },
       {
-        q: "What does 'last played' mean?",
-        a: "You can log a play directly from your Collection by tapping the play icon on any record. Last played timestamps feed into your Taste Profile, showing which parts of your collection you actually reach for.",
+        q: "What does 'Played Today' do?",
+        a: "Tap Played Today on any record's detail view to log a play. It updates Last Played and feeds your Most Played stats and Taste Profile, showing which parts of your collection you actually reach for.",
+      },
+      {
+        q: "What does the Essential tag do?",
+        a: "Mark a record Essential from its detail view to add it to your Essentials Wall — a thumbnail wall of the records that matter most to you, shown at the top of Insights with a shareable card.",
+      },
+      {
+        q: "What is the Feeling tag?",
+        a: "Tag any record with how it makes you feel — Upbeat, Calm, Nostalgic, Dreamy, Defiant, and more — from its detail view. Feelings show up in your Insights Feeling breakdown and power the mood selector when generating a Spotify playlist.",
+      },
+      {
+        q: "What filters can I use in my collection list?",
+        a: "Filter by Genre, Decade, Format, Desirability, or Feeling, search by artist, album, or label, and sort by name, value, or year.",
       },
       {
         q: "Can other people see my collection?",
@@ -205,7 +225,7 @@ const FAQ_SECTIONS: { section: string; items: { q: string; a: string }[] }[] = [
       },
       {
         q: "What does 'open to offers' mean?",
-        a: "Marking a record as open to offers flags it on your public profile so other collectors can contact you about it. rekōdo doesn't facilitate the transaction — it's just a signal.",
+        a: "Marking a record as open to offers flags it on your public profile — and in your Sell List — so other collectors can contact you about it. rekōdo doesn't facilitate the transaction — it's just a signal.",
       },
     ],
   },
@@ -217,12 +237,20 @@ const FAQ_SECTIONS: { section: string; items: { q: string; a: string }[] }[] = [
         a: "rekōdo uses the official Discogs collection value figures when available (synced with each collection update). If those aren't populated yet, it aggregates median sale prices across your individual records as a fallback.",
       },
       {
+        q: "What is the Essentials Wall?",
+        a: "A thumbnail wall of every record you've tagged Essential, with a shareable card showing your record count, primary genre, and your @username. Tag records as Essential from the Collection view to build it.",
+      },
+      {
+        q: "What is the Feeling breakdown?",
+        a: "It shows the percentage split of every Feeling you've tagged across your collection — a quick read on the emotional shape of what you actually own.",
+      },
+      {
         q: "What is the Taste Profile?",
-        a: "Taste Profile is the second tab in Insights. It analyses your collection across seven dimensions — from Ambient vs. Abrasive to Canon vs. Obscure — and plots where you sit on each axis based on actual data from your records.",
+        a: "Taste Profile is the second tab in Insights, available to rekōdo supporters. It analyses your collection across seven Spectrum Dimensions — from Ambient vs. Abrasive to Canon vs. Obscure — and plots where you sit on each axis based on actual data from your records.",
       },
       {
         q: "What do the Spectrum Dimensions mean?",
-        a: "Each axis measures a real quality of your collection. Canon ↔ Obscure uses Discogs have/want ratios. Nostalgic ↔ Contemporary uses pressing years. Completist measures how many artists you own 3+ records by. Vinyl pure ↔ Format agnostic compares vinyl to any digital imports you've added.",
+        a: "Each axis measures a real quality of your collection. Canon ↔ Obscure uses Discogs have/want ratios. Nostalgic ↔ Contemporary uses pressing years. Completist measures how many artists you own 3+ records by. Vinyl pure ↔ Format agnostic compares vinyl to any digital imports — including Bandcamp purchases — you've added.",
       },
       {
         q: "Why does some data say it needs a resync?",
@@ -242,6 +270,10 @@ const FAQ_SECTIONS: { section: string; items: { q: string; a: string }[] }[] = [
         a: "Dig analyses your collection — genres, styles, labels, and lists you've built — and uses that as a prompt to generate personalised record recommendations. Each session produces a fresh set. It's AI-powered, not an algorithm pulling from a fixed catalogue.",
       },
       {
+        q: "Is there a limit on how many times I can Dig?",
+        a: "Free accounts get 3 Dig sessions a day. rekōdo supporters get unlimited regeneration.",
+      },
+      {
         q: "Can I add a recommendation to my wantlist?",
         a: "Yes. Each recommendation has an Add to Wantlist button. It'll appear in your wantlist on Discogs and in rekōdo.",
       },
@@ -256,7 +288,11 @@ const FAQ_SECTIONS: { section: string; items: { q: string; a: string }[] }[] = [
     items: [
       {
         q: "What is Deep Dive?",
-        a: "Deep Dive takes a single artist from your collection and surfaces everything rekōdo knows about them — every record you own, pressing details, market values, and how they connect to the rest of your collection.",
+        a: "Deep Dive is available to rekōdo supporters. It takes a single artist from your collection and surfaces everything rekōdo knows about them — every record you own, pressing details, market values, and how they connect to the rest of your collection.",
+      },
+      {
+        q: "What else does Deep Dive surface?",
+        a: "Beyond your own records, Deep Dive can suggest essential albums you're missing, books and interviews about the artist, and Spotify playback where a match is available.",
       },
       {
         q: "How do I choose an artist?",
@@ -269,11 +305,11 @@ const FAQ_SECTIONS: { section: string; items: { q: string; a: string }[] }[] = [
     items: [
       {
         q: "How does rekōdo find gigs?",
-        a: "rekōdo cross-references the artists in your collection against live event data from Ticketmaster and looks for upcoming shows. Only artists you actually own records by will appear.",
+        a: "rekōdo cross-references the artists in your collection against live event data from Ticketmaster and looks for shows in the next 9 months. Only artists you actually own records by will appear.",
       },
       {
         q: "What location does it use?",
-        a: "rekōdo uses the country set in your profile to filter events. If you're not seeing results, check that your country is set correctly in Settings.",
+        a: "rekōdo uses the city and country set in your profile to filter events. If you're not seeing results, check that your city and country are set correctly in your profile settings.",
       },
       {
         q: "Why are some artists missing?",
@@ -295,15 +331,15 @@ const FAQ_SECTIONS: { section: string; items: { q: string; a: string }[] }[] = [
     ],
   },
   {
-    section: "Selects",
+    section: "Rekōdo Selects",
     items: [
       {
-        q: "What are Selects?",
-        a: "Selects are long-form editorial spotlights on artists and labels — written by rekōdo, updated periodically. They're designed for the serious collector: landmark releases, pressing intelligence, collector's notes, and context you won't find on a streaming platform.",
+        q: "What is Rekōdo Selects?",
+        a: "Selects has four tabs. New Releases tracks new releases, represses, and preorders matched to artists and labels in your collection. Artist Spotlight and Label Spotlight are rotating editorial deep dives — landmark releases, pressing notes, and context you won't find on a streaming platform. Live is the same upcoming-gigs feed as the Gigs page.",
       },
       {
-        q: "How often are Selects updated?",
-        a: "New Selects are added regularly. Artist and label spotlights are published on a rolling basis — check back each month.",
+        q: "How often is Selects updated?",
+        a: "New Releases refreshes regularly as labels announce new stock. Artist and Label Spotlights are published on a rolling basis — check back each month.",
       },
     ],
   },
@@ -312,7 +348,7 @@ const FAQ_SECTIONS: { section: string; items: { q: string; a: string }[] }[] = [
     items: [
       {
         q: "What is an Archetype?",
-        a: "Your Archetype is rekōdo's read on what kind of collector you are, derived from the actual shape of your collection — its genres, decades, labels, rarity distribution, and how you use the app. It's not a quiz; it's calculated from data.",
+        a: "Your Archetype is rekōdo's read on what kind of collector you are, derived from the actual shape of your collection — its genres, decades, labels, rarity distribution, and how you use the app. It's not a quiz; it's calculated from data. Archetypes is available to rekōdo supporters.",
       },
       {
         q: "Can my Archetype change?",
@@ -321,7 +357,7 @@ const FAQ_SECTIONS: { section: string; items: { q: string; a: string }[] }[] = [
     ],
   },
   {
-    section: "Lists & Profile",
+    section: "Lists, Wantlist & Playlists",
     items: [
       {
         q: "What is my public profile?",
@@ -329,11 +365,49 @@ const FAQ_SECTIONS: { section: string; items: { q: string; a: string }[] }[] = [
       },
       {
         q: "What is the wantlist?",
-        a: "Your wantlist syncs from Discogs and shows records you're looking for. Records added via Dig also appear here. The wantlist is private.",
+        a: "Your wantlist syncs from Discogs and shows records you're looking for. Records added via Dig also appear here. rekōdo supporters can also bulk-import a wantlist from a CSV exported from Discogs. The wantlist is private.",
+      },
+      {
+        q: "What is the Sell List?",
+        a: "Any record you've marked Open to Offers automatically appears in your Sell List, visible on your public profile so other collectors can reach out.",
       },
       {
         q: "How do I create a list?",
-        a: "From your profile, use the New List button. Give it a name, add records from your collection or search Discogs, and choose whether to keep it private or make it public.",
+        a: "From the Lists hub, use the New List button. Give it a name, add records from your collection or search Discogs, and choose whether to keep it private or make it public.",
+      },
+      {
+        q: "Can rekōdo build me a Spotify playlist?",
+        a: "Yes, from the Playlist tab. Pick a mood from your Feeling tags, how many tracks you want, and whether to include your wantlist — rekōdo builds a Spotify playlist from your collection with a short rationale for each pick. Requires a connected Spotify account.",
+      },
+    ],
+  },
+  {
+    section: "Community",
+    items: [
+      {
+        q: "What is Community?",
+        a: "Community is a tab in the Lists hub for finding other collectors. Matches surfaces collectors with similar taste based on shared tags; Collectors lets you browse and filter everyone on rekōdo; Lists shows public lists other people have built, which you can save or discover; Saved holds everything you've saved.",
+      },
+      {
+        q: "Can I follow other collectors?",
+        a: "Yes. Follow a collector from their profile or from the Community tab to keep track of who's building what.",
+      },
+    ],
+  },
+  {
+    section: "Connections & Settings",
+    items: [
+      {
+        q: "What can I configure on my profile?",
+        a: "Username, display name, city, country, bio, star sign, your Bandcamp username, and your avatar. City and country also drive Gigs location and currency conversion.",
+      },
+      {
+        q: "What does adding my Bandcamp username do?",
+        a: "rekōdo imports your Bandcamp purchases as digital additions to your collection. They count toward the Vinyl pure ↔ Format agnostic dimension in your Taste Profile.",
+      },
+      {
+        q: "Can I connect Spotify?",
+        a: "Yes, from your profile. Once connected, you can preview full tracks inside rekōdo (with a Premium account) and generate mood-based playlists from your collection.",
       },
     ],
   },
@@ -342,15 +416,15 @@ const FAQ_SECTIONS: { section: string; items: { q: string; a: string }[] }[] = [
     items: [
       {
         q: "Is rekōdo free?",
-        a: "Core rekōdo — collection sync, Insights, Dig, Gigs, Library, Deep Dive — is free. Supporting rekōdo via a monthly subscription unlocks the Supporter badge and helps keep the project alive and ad-free.",
+        a: "Most of rekōdo is free: collection sync, Insights (including the Essentials Wall and Feeling breakdown), Dig (3 sessions a day), Gigs, Library, and Selects. A rekōdo supporter subscription unlocks Deep Dive, Taste Profile, Archetypes, unlimited Dig, and wantlist CSV upload — plus the golden ō badge.",
       },
       {
         q: "What is the difference between a Supporter and a donor?",
-        a: "A Supporter subscribes monthly and receives the golden ō badge on their profile. A donor makes a one-off contribution. Both are appreciated — the badge is the Supporter's alone.",
+        a: "A Supporter subscribes monthly and unlocks every feature listed above. A donor makes a one-off contribution (from $1, with $5/$10/$20 presets) and gets the golden ō badge too, but not the gated features — those are tied to an active subscription.",
       },
       {
         q: "What does the golden ō badge do?",
-        a: "It shows on your public profile as a visible marker that you support independent software. It doesn't unlock paywalled features — rekōdo doesn't believe in locking core functionality behind a subscription.",
+        a: "It shows on your public profile as a visible marker that you've supported independent software, whether through a subscription or a one-off donation.",
       },
       {
         q: "How do I cancel my subscription?",
