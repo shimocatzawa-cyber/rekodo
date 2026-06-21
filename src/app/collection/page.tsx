@@ -37,8 +37,6 @@ export type CollectionRecord = {
   open_to_offers:         boolean | null;
   is_essential:           boolean | null;
   feeling:                string | null;
-  spotify_album_id:       string | null;
-  spotify_matched:        boolean | null;
 };
 
 export type CollectionInsights = {
@@ -218,7 +216,7 @@ export default async function CollectionPage({
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { data, error } = await (supabase as any)
       .from("records")
-      .select("id, discogs_id, artist, album, year, genre, cover_url, label, format, country, community_have, community_want, community_num_for_sale, spotify_album_id, spotify_matched")
+      .select("id, discogs_id, artist, album, year, genre, cover_url, label, format, country, community_have, community_want, community_num_for_sale")
       .in("id", recordIds.slice(i, i + BATCH));
     if (error) console.error('[collection/page] records batch error:', JSON.stringify(error));
     else console.log(`[collection/page] records batch i=${i}: ${data?.length ?? 0} rows`);

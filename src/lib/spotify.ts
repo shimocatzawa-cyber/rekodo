@@ -84,7 +84,7 @@ function getRateLimitDb() {
   );
 }
 
-const DEFAULT_SEARCH_PACING_MS = 200;
+const DEFAULT_SEARCH_PACING_MS = 350;
 
 // Call before every Spotify /v1/search (or any endpoint sharing its rate
 // limit bucket) request. Returns null if a cooldown is active and the call

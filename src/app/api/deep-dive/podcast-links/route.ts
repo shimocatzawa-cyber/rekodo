@@ -1,4 +1,5 @@
 import { type NextRequest, NextResponse } from "next/server";
+import { reserveSpotifySearchSlot, recordSpotifySearchRateLimit, getSpotifySearchCooldownUntil } from "@/lib/spotify";
 
 // Returns Spotify episode URLs for a list of podcast episodes.
 // Uses Client Credentials flow — no user token required.
@@ -10,12 +11,27 @@ import { type NextRequest, NextResponse } from "next/server";
 //
 // This prevents cross-show mismatches (e.g. a "Rick Rubin" search returning
 // an Earth Wind & Fire episode instead of the correct Broken Record episode).
+//
+// Runs on the same /v1/search-bucket as the playlist matcher, and fires on
+// every Deep Dive page view (not a user-gated action) — so it shares the
+// global pacing slot and reports 429s back to it, same as the matcher does.
+// Without this it can independently keep tripping (and re-extending) a
+// Spotify ban the matcher's own circuit breaker already backed off from.
 
 type EpItem = { name: string; external_urls: { spotify: string } };
 
 async function spFetch<T>(url: string, token: string): Promise<T | null> {
+  const wait = await reserveSpotifySearchSlot();
+  if (wait === null) return null; // global cooldown active — don't call at all
+  if (wait > 0) await new Promise((r) => setTimeout(r, wait));
+
   try {
     const r = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
+    if (r.status === 429) {
+      const retryAfter = parseInt(r.headers.get("retry-after") ?? "30", 10);
+      await recordSpotifySearchRateLimit(retryAfter);
+      return null;
+    }
     if (!r.ok) return null;
     return r.json() as Promise<T>;
   } catch { return null; }
@@ -27,6 +43,10 @@ export async function POST(request: NextRequest) {
   };
 
   if (!Array.isArray(episodes) || episodes.length === 0) {
+    return NextResponse.json({ urls: {} });
+  }
+
+  if (await getSpotifySearchCooldownUntil()) {
     return NextResponse.json({ urls: {} });
   }
 

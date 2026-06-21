@@ -15,12 +15,19 @@ const MUTED  = "#888888";
 const RULE   = "#e0e0da";
 const ART_BG = "#e5e2dc";
 
-const MAX_COVERS = 36;
-const COLS       = 6;
 const CARD_W     = 560;
 const GRID_PAD   = 28;
 const GAP        = 4;
-const CELL       = Math.floor((CARD_W - GRID_PAD * 2 - GAP * (COLS - 1)) / COLS);
+
+// Cols grow with the cover count (sqrt-scaled, so the wall stays roughly
+// square) and the cell size shrinks to fit — nothing gets truncated, it
+// just gets smaller as the collection grows.
+function gridLayout(count: number) {
+  const cols = Math.max(1, Math.ceil(Math.sqrt(count)));
+  const cell = Math.floor((CARD_W - GRID_PAD * 2 - GAP * (cols - 1)) / cols);
+  const rows = Math.ceil(count / cols);
+  return { cols, cell, rows, gridH: rows * cell + (rows - 1) * GAP };
+}
 
 interface Cover { artist: string; album: string; coverUrl: string | null }
 type CoverSrcs = Record<number, string | null>;
@@ -73,8 +80,7 @@ async function loadCovers(covers: Cover[]): Promise<CoverSrcs> {
 // White-framed "wall" of essential covers, with a museum-plaque footer.
 
 function WallCard({ username, total, primaryGenre, primaryGenrePct, covers, coverSrcs, forExport = false }: CardProps) {
-  const rows  = Math.max(1, Math.ceil(covers.length / COLS));
-  const gridH = rows * CELL + (rows - 1) * GAP;
+  const { cols, cell, gridH } = gridLayout(Math.max(1, covers.length));
 
   const footerStats = [
     { label: "Records",       value: total > 0 ? total.toLocaleString() : "—" },
@@ -103,22 +109,22 @@ function WallCard({ username, total, primaryGenre, primaryGenrePct, covers, cove
         ) : (
           <div style={{ position: "relative", width: CARD_W - GRID_PAD * 2, height: gridH }}>
             {covers.map((c, i) => {
-              const col = i % COLS;
-              const row = Math.floor(i / COLS);
-              const x   = col * (CELL + GAP);
-              const y   = row * (CELL + GAP);
+              const col = i % cols;
+              const row = Math.floor(i / cols);
+              const x   = col * (cell + GAP);
+              const y   = row * (cell + GAP);
               const src = coverSrcs[i] ?? null;
               return forExport ? (
                 <div
                   key={i}
                   data-cover-slot={i}
-                  style={{ position: "absolute", left: x, top: y, width: CELL, height: CELL, background: ART_BG }}
+                  style={{ position: "absolute", left: x, top: y, width: cell, height: cell, background: ART_BG }}
                 />
               ) : (
                 <div
                   key={i}
                   style={{
-                    position: "absolute", left: x, top: y, width: CELL, height: CELL,
+                    position: "absolute", left: x, top: y, width: cell, height: cell,
                     backgroundImage: src ? `url(${src})` : "none",
                     backgroundSize: "cover", backgroundPosition: "center",
                     backgroundColor: ART_BG,
@@ -166,7 +172,7 @@ function WallCard({ username, total, primaryGenre, primaryGenrePct, covers, cove
 // ── Modal ──────────────────────────────────────────────────────────────────
 
 export default function EssentialsWallModal({ onClose, username, covers, total, primaryGenre, primaryGenrePct }: Props) {
-  const shownCovers = covers.slice(0, MAX_COVERS);
+  const shownCovers = covers;
 
   const [coverSrcs,    setCoverSrcs]    = useState<CoverSrcs>({});
   const [coversLoaded, setCoversLoaded] = useState(shownCovers.length === 0);
@@ -257,8 +263,7 @@ export default function EssentialsWallModal({ onClose, username, covers, total, 
     }
   }
 
-  const rows   = Math.max(1, Math.ceil(shownCovers.length / COLS));
-  const CARD_H = 28 + 46 + (shownCovers.length === 0 ? 200 : rows * CELL + (rows - 1) * GAP) + 24 + 58 + 36 + 24;
+  const CARD_H = 28 + 46 + (shownCovers.length === 0 ? 200 : gridLayout(shownCovers.length).gridH) + 24 + 58 + 36 + 24;
   const SCALE  = Math.min(1, 508 / CARD_W);
   const PRV_W  = Math.round(CARD_W * SCALE);
   const PRV_H  = Math.round(CARD_H * SCALE);

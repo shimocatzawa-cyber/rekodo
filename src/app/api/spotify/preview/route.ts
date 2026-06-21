@@ -1,6 +1,24 @@
 import { NextRequest, NextResponse } from "next/server";
+import { reserveSpotifySearchSlot, recordSpotifySearchRateLimit, getSpotifySearchCooldownUntil } from "@/lib/spotify";
 
 export const dynamic = "force-dynamic";
+
+// Fires automatically on every Dig card shown — shares the matcher's
+// /v1/search rate bucket, so it has to respect and feed the same global
+// pacing/cooldown rather than calling Spotify on its own.
+async function spotifyFetch(url: string, token: string): Promise<Response | null> {
+  const wait = await reserveSpotifySearchSlot();
+  if (wait === null) return null; // global cooldown active — don't call at all
+  if (wait > 0) await new Promise((r) => setTimeout(r, wait));
+
+  const res = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
+  if (res.status === 429) {
+    const retryAfter = parseInt(res.headers.get("retry-after") ?? "30", 10);
+    await recordSpotifySearchRateLimit(retryAfter);
+    return null;
+  }
+  return res;
+}
 
 let _clientToken: { token: string; expiresAt: number } | null = null;
 let _clientTokenPromise: Promise<string | null> | null = null;
@@ -45,16 +63,18 @@ export async function GET(request: NextRequest) {
   const title  = searchParams.get("title")  ?? "";
   if (!artist || !title) return NextResponse.json(empty);
 
+  if (await getSpotifySearchCooldownUntil()) return NextResponse.json(empty);
+
   const token = await getClientToken();
   if (!token) return NextResponse.json(empty);
 
   try {
     const q = encodeURIComponent(`album:${title} artist:${artist}`);
-    const searchRes = await fetch(
+    const searchRes = await spotifyFetch(
       `https://api.spotify.com/v1/search?q=${q}&type=album&limit=1`,
-      { headers: { Authorization: `Bearer ${token}` } }
+      token
     );
-    if (!searchRes.ok) return NextResponse.json(empty);
+    if (!searchRes?.ok) return NextResponse.json(empty);
 
     const searchData = await searchRes.json() as {
       albums: { items: Array<{ uri: string; id: string }> };
@@ -62,11 +82,11 @@ export async function GET(request: NextRequest) {
     const album = searchData.albums?.items?.[0];
     if (!album) return NextResponse.json(empty);
 
-    const tracksRes = await fetch(
+    const tracksRes = await spotifyFetch(
       `https://api.spotify.com/v1/albums/${album.id}/tracks?limit=10`,
-      { headers: { Authorization: `Bearer ${token}` } }
+      token
     );
-    if (!tracksRes.ok) return NextResponse.json({ ...empty, album_uri: album.uri });
+    if (!tracksRes?.ok) return NextResponse.json({ ...empty, album_uri: album.uri });
 
     const tracksData = await tracksRes.json() as {
       items: Array<{ uri: string; preview_url: string | null }>;
