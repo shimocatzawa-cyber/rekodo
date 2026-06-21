@@ -65,6 +65,14 @@ function flattenCandidates(
   return out;
 }
 
+function shuffle<T>(arr: T[]): T[] {
+  for (let i = arr.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [arr[i], arr[j]] = [arr[j], arr[i]];
+  }
+  return arr;
+}
+
 // Supabase/PostgREST caps unfiltered reads at 1000 rows, and a `.in()` filter
 // with thousands of UUIDs crammed into one request URL can fail outright
 // (URL too long) — both silently look like "0 rows" if you don't check for
@@ -171,6 +179,8 @@ const DISCOVER_PICKS = 8;
 
 type DiscoveryPick = { artist: string; album: string; year: number | null };
 
+function pick<T>(arr: T[]): T { return arr[Math.floor(Math.random() * arr.length)]; }
+
 async function discoverOutsideCollection(
   mood: string, refinement: string, ownedArtists: string[], wantlistArtists: string[], styles: string[],
 ): Promise<DiscoveryPick[]> {
@@ -184,11 +194,32 @@ async function discoverOutsideCollection(
     ? `\nSTYLES IN THEIR COLLECTION — bias picks toward these styles or close neighbors, but don't feel limited to them:\n${styles.join(" · ")}\n`
     : "";
 
+  // Random exploration angle, same idea as Dig's Discover/Style modes —
+  // without it, repeated calls (different moods, or "Generate" pressed again
+  // for the same mood) tend to converge on the same handful of safe, famous
+  // picks every time.
+  const angleDecade = pick(["1960s", "1970s", "1980s", "1990s", "2000s", "2010s", "2020s"]);
+  const angleRegion  = pick([
+    "West Africa", "Japan", "Brazil", "Jamaica", "Germany", "Nigeria", "Colombia",
+    "South Korea", "Scandinavia", "India", "Turkey", "Eastern Europe", "Caribbean",
+    "Indonesia", "Argentina", "Morocco", "Cuba", "Mali", "Iran", "Ghana", "Portugal",
+  ]);
+  const angleVibe = pick([
+    "deeply obscure and rarely discussed even among collectors",
+    "critically overlooked on release but reassessed since",
+    "a cult classic with a devoted underground following",
+    "a regional gem almost unknown outside its home country",
+    "a late-career revelation by an artist known for something else entirely",
+    "an influential record that shaped a genre without ever becoming famous itself",
+    "a record so genre-defying it still has no accurate descriptor",
+  ]);
+  const angleBlock = `\nEXPLORATION ANGLE — bias at least one or two picks toward: the ${angleDecade}, music originating from ${angleRegion}, and/or a pick that is ${angleVibe}. Resist defaulting to the most famous or obvious records for this mood.\n`;
+
   const userPrompt = [
     `Mood: ${mood}`,
     refinement && `Refinement: ${refinement}`,
     `Recommend up to ${DISCOVER_PICKS} real studio albums by artists this collector does not yet own and has not wishlisted, that fit the mood and are reasonably likely to be findable on Spotify.`,
-    ownedBlock, wantlistBlock, stylesBlock,
+    ownedBlock, wantlistBlock, stylesBlock, angleBlock,
   ].filter(Boolean).join("\n");
 
   try {
@@ -237,6 +268,69 @@ async function discoverOutsideCollection(
   }
 }
 
+// When the explicitly mood-tagged pool is too thin, generation used to widen
+// to the ENTIRE untagged matched collection regardless of which mood was
+// asked for — so two different moods saw almost the same candidate universe,
+// and the final picks converged on the same songs. This filters that bulk
+// pool down to what's actually mood-relevant (by artist/album/year/genre —
+// no audio, no extra Spotify calls) before it's flattened into per-track
+// candidates, so different moods genuinely surface different albums instead
+// of relying on chance from the cap's shuffle alone.
+const MOOD_RELEVANCE_THRESHOLD = 60; // below this, just include everything — not worth filtering a small pool
+const MOOD_RELEVANCE_LIMIT     = 80;
+
+type OwnedAlbumMeta = { id: string; artist: string; album: string; year: number | null; genre: string | null; feeling: string | null };
+
+async function shortlistMoodRelevantAlbums(
+  pool: OwnedAlbumMeta[], mood: string, refinement: string,
+): Promise<Set<string>> {
+  const prioritized = shuffle(pool.slice()).slice(0, MAX_UNMATCHED_POOL_FOR_PROMPT);
+  const allIds = new Set(pool.map(p => p.id));
+
+  const listText = prioritized
+    .map(p => `${p.id} :: ${p.artist} — ${p.album}${p.year ? ` (${p.year})` : ""}${p.genre ? `, genre: ${p.genre}` : ""}${p.feeling ? `, tagged feeling: ${p.feeling}` : ""}`)
+    .join("\n");
+
+  const userPrompt = [
+    `Mood: ${mood}`,
+    refinement && `Refinement: ${refinement}`,
+    `None of these albums are explicitly tagged with the "${mood}" feeling. From artist/album/year/genre alone, pick up to ${MOOD_RELEVANCE_LIMIT} that genuinely plausibly fit this mood — be decisive, most albums in any collection don't fit most moods equally well. If an album is tagged with a different feeling, only include it if it's still a strong fit for this mood too.`,
+    "",
+    "Candidate albums (you may ONLY choose ids that appear verbatim in this list):",
+    listText,
+  ].filter(Boolean).join("\n");
+
+  try {
+    const msg = await anthropic.messages.create({
+      model: "claude-sonnet-4-6",
+      max_tokens: 1024,
+      system: [{
+        type: "text",
+        text: `You help filter a record collector's matched catalog down to the albums most likely to fit a given mood, using only artist/album/year/genre metadata — no audio. Be decisive rather than inclusive.`,
+        cache_control: { type: "ephemeral" },
+      }],
+      tools: [{
+        name: "shortlist_mood_relevant",
+        description: "Return the ids of mood-relevant albums.",
+        input_schema: {
+          type: "object",
+          properties: { ids: { type: "array", items: { type: "string" } } },
+          required: ["ids"],
+        },
+      }],
+      tool_choice: { type: "tool", name: "shortlist_mood_relevant" },
+      messages: [{ role: "user", content: userPrompt }],
+    });
+    const block = msg.content.find(b => b.type === "tool_use");
+    if (!block || block.type !== "tool_use") return allIds; // fall back to including everything
+    const parsed = block.input as { ids?: string[] };
+    const picked = (parsed.ids ?? []).filter(id => allIds.has(id)).slice(0, MOOD_RELEVANCE_LIMIT);
+    return picked.length > 0 ? new Set(picked) : allIds; // empty/unusable result — don't zero out the pool
+  } catch {
+    return allIds; // best-effort — fall back to including everything on failure
+  }
+}
+
 export async function POST(request: NextRequest) {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
@@ -273,18 +367,30 @@ export async function POST(request: NextRequest) {
   );
   const ownedRecordIds = [...feelingByRecordId.keys()];
 
-  const ownedMatchedRecords = await selectInBatches<{ id: string; artist: string; album: string; year: number | null; cover_url: string | null; spotify_tracks: SpotifyTrackJson[] | null }>(
-    db, "records", "id, artist, album, year, cover_url, spotify_tracks", "id", ownedRecordIds,
+  const ownedMatchedRecords = await selectInBatches<{ id: string; artist: string; album: string; year: number | null; genre: string | null; cover_url: string | null; spotify_tracks: SpotifyTrackJson[] | null }>(
+    db, "records", "id, artist, album, year, genre, cover_url, spotify_tracks", "id", ownedRecordIds,
     (q) => q.eq("spotify_matched", true),
   );
 
   const taggedOwned   = ownedMatchedRecords.filter(r => feelingByRecordId.get(r.id) === mood);
-  const untaggedOwned = ownedMatchedRecords.filter(r => feelingByRecordId.get(r.id) !== mood);
+  let untaggedOwned   = ownedMatchedRecords.filter(r => feelingByRecordId.get(r.id) !== mood);
 
   let candidates: Candidate[] = flattenCandidates(taggedOwned, "collection", "tagged");
   // Tagged pool too thin to fill the requested track count — widen to the
   // full matched collection, marking the rest as lower-confidence inferred.
   if (taggedOwned.length < trackCount) {
+    // A large untagged pool gets a cheap text-only mood-relevance pass first —
+    // otherwise every thin-tagged mood widens to nearly the same "everything
+    // else" superset, and the final picks converge on the same songs
+    // regardless of which mood was actually requested.
+    if (untaggedOwned.length > MOOD_RELEVANCE_THRESHOLD) {
+      const pool: OwnedAlbumMeta[] = untaggedOwned.map(r => ({
+        id: r.id, artist: r.artist, album: r.album, year: r.year, genre: r.genre,
+        feeling: feelingByRecordId.get(r.id) ?? null,
+      }));
+      const relevantIds = await shortlistMoodRelevantAlbums(pool, mood, refinement);
+      untaggedOwned = untaggedOwned.filter(r => relevantIds.has(r.id));
+    }
     candidates = candidates.concat(flattenCandidates(untaggedOwned, "collection", "inferred"));
   }
 
@@ -459,9 +565,23 @@ export async function POST(request: NextRequest) {
   // Cap prompt size — tagged/high-confidence first, then a slice of the rest.
   const MAX_CANDIDATES = 150;
   if (candidates.length > MAX_CANDIDATES) {
-    const tagged = candidates.filter(c => c.confidence === "tagged");
-    const rest   = candidates.filter(c => c.confidence !== "tagged");
-    candidates = tagged.concat(rest).slice(0, MAX_CANDIDATES);
+    const tagged   = candidates.filter(c => c.confidence === "tagged");
+    // Discover-sourced candidates were getting silently dropped here: they're
+    // appended to the candidate array near the end of the pipeline, after the
+    // bulk of the owned/untagged collection — but `rest` preserved that same
+    // insertion order and the slice just took the head, so once the untagged
+    // collection alone exceeded the cap, none of the "outside my collection"
+    // picks ever survived to reach Claude. Always keep them.
+    const discover = candidates.filter(c => c.confidence !== "tagged" && c.source === "discover");
+    const rest     = candidates.filter(c => c.confidence !== "tagged" && c.source !== "discover");
+    // Shuffle the bulk pool instead of always slicing the same deterministic
+    // DB-order head — otherwise every mood that falls back to the untagged
+    // collection (most moods, once the explicitly-tagged pool is thin) gets
+    // fed the exact same first-150 tracks every time, and the final picks
+    // converge on the same songs regardless of which mood was requested.
+    // This also gives the few freshly top-up-matched tracks mixed into `rest`
+    // a fair chance of surviving the cut instead of being reliably excluded.
+    candidates = tagged.concat(discover, shuffle(rest)).slice(0, MAX_CANDIDATES);
   }
 
   const candidateByUri = new Map(candidates.map(c => [c.spotify_uri, c]));

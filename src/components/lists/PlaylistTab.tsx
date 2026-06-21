@@ -7,6 +7,7 @@ import PlaylistPromptPanel, { type Mood, type MatchStatus } from "@/components/l
 import PlaylistPlayer from "@/components/lists/playlist/PlaylistPlayer";
 import PlaylistTrackList from "@/components/lists/playlist/PlaylistTrackList";
 import SavedPlaylistsPanel, { type SavedPlaylistSummary } from "@/components/lists/playlist/SavedPlaylistsPanel";
+import RecordSpinner from "@/components/RecordSpinner";
 
 const SERIF  = "var(--font-editorial)";
 const MONO   = "var(--font-mono)";
@@ -289,11 +290,15 @@ export default function PlaylistTab() {
         />
 
         <div style={{ minWidth: 0 }}>
-          {error && (
+          {error && !generating && (
             <p style={{ fontFamily: MONO, fontSize: "10px", color: "#cc3300", marginBottom: "16px" }}>{error}</p>
           )}
 
-          {tracks.length > 0 ? (
+          {generating ? (
+            <div style={{ display: "flex", flexDirection: "column", minHeight: "420px" }}>
+              <RecordSpinner />
+            </div>
+          ) : tracks.length > 0 ? (
             <>
               <div style={{ marginBottom: "16px" }}>
                 <PlaylistPlayer tracks={tracks} moodLabel={mood ?? titleDraft} />
