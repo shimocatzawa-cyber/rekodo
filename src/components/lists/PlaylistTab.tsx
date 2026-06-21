@@ -6,11 +6,10 @@ import { createList, appendSongToList } from "@/app/lists/actions";
 import PlaylistPromptPanel, { type Mood, type MatchStatus } from "@/components/lists/playlist/PlaylistPromptPanel";
 import PlaylistPlayer from "@/components/lists/playlist/PlaylistPlayer";
 import PlaylistTrackList from "@/components/lists/playlist/PlaylistTrackList";
+import SavedPlaylistsPanel, { type SavedPlaylistSummary } from "@/components/lists/playlist/SavedPlaylistsPanel";
 
 const SERIF  = "var(--font-editorial)";
 const MONO   = "var(--font-mono)";
-const ORANGE = "#CC5500";
-const INK    = "#0d0d0d";
 const MUTED  = "#aaaaaa";
 const RULE   = "#e0e0da";
 
@@ -56,6 +55,10 @@ export default function PlaylistTab() {
   const [saving,     setSaving]     = useState(false);
   const [saveDone,   setSaveDone]   = useState<string | null>(null);
 
+  const [savedPlaylists, setSavedPlaylists] = useState<SavedPlaylistSummary[]>([]);
+  const [loadingSaved,   setLoadingSaved]   = useState(true);
+  const [activeSavedId,  setActiveSavedId]  = useState<string | null>(null);
+
   const matchPollRef     = useRef<ReturnType<typeof setInterval> | null>(null);
   const resequenceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lastMatchTriggerRef = useRef(0);
@@ -67,6 +70,47 @@ export default function PlaylistTab() {
       .then(data => setSpotifyConnected(data.connected))
       .catch(() => setSpotifyConnected(false));
   }, []);
+
+  // ── Saved playlists (right column) ────────────────────────────────────────
+  // loadingSaved starts true (initial mount); don't setState synchronously
+  // within the mount effect below — only clear it once the fetch settles.
+  async function loadSavedPlaylists() {
+    try {
+      const res = await fetch("/api/playlist/saved");
+      const data = await res.json() as { playlists?: SavedPlaylistSummary[] };
+      setSavedPlaylists(data.playlists ?? []);
+    } catch {
+      // best-effort — leave whatever was already loaded
+    } finally {
+      setLoadingSaved(false);
+    }
+  }
+
+  useEffect(() => {
+    fetch("/api/playlist/saved")
+      .then(r => r.json() as Promise<{ playlists?: SavedPlaylistSummary[] }>)
+      .then(data => setSavedPlaylists(data.playlists ?? []))
+      .catch(() => {})
+      .finally(() => setLoadingSaved(false));
+  }, []);
+
+  async function handleLoadSaved(id: string) {
+    setError(null);
+    setSaveDone(null);
+    try {
+      const res = await fetch(`/api/playlist/saved/${id}`);
+      const data = await res.json() as { title?: string; tracks?: GeneratedTrack[]; error?: string };
+      if (!res.ok || !data.tracks) {
+        setError(data.error ?? "Failed to load saved playlist.");
+        return;
+      }
+      setTracks(data.tracks);
+      setTitleDraft(data.title ?? "");
+      setActiveSavedId(id);
+    } catch {
+      setError("Failed to load saved playlist.");
+    }
+  }
 
   // ── Trigger + poll lazy Spotify matching ──────────────────────────────────
   // Each worker invocation only processes a short, time-boxed chunk (server
@@ -118,6 +162,7 @@ export default function PlaylistTab() {
     setGenerating(true);
     setError(null);
     setSaveDone(null);
+    setActiveSavedId(null);
     try {
       const res = await fetch("/api/playlist/generate", {
         method: "POST",
@@ -193,16 +238,19 @@ export default function PlaylistTab() {
       await appendSongToList(listId, {
         song_title: t.title, song_artist: t.artist, song_album: t.album,
         song_cover_url: t.cover_url, song_year: t.year,
+        spotify_uri: t.spotify_uri, duration_ms: t.duration_ms, preview_url: t.preview_url,
       });
     }
+    await loadSavedPlaylists();
     setSaving(false);
     setSaveDone(title);
+    setActiveSavedId(listId);
     router.refresh();
   }
 
   return (
-    <div style={{ padding: "3rem 3.5rem", maxWidth: 1100, margin: "0 auto" }}>
-      <div style={{ display: "grid", gridTemplateColumns: "320px 1fr", gap: "32px", alignItems: "flex-start" }}>
+    <div style={{ padding: "3rem 3.5rem", maxWidth: 1400, margin: "0 auto" }}>
+      <div style={{ display: "grid", gridTemplateColumns: "320px 1fr 300px", gap: "32px", alignItems: "flex-start" }}>
         <PlaylistPromptPanel
           mood={mood} setMood={setMood}
           refinement={refinement} setRefinement={setRefinement}
@@ -220,52 +268,10 @@ export default function PlaylistTab() {
           {tracks.length > 0 ? (
             <>
               <div style={{ marginBottom: "16px" }}>
-                <PlaylistPlayer tracks={tracks} moodLabel={mood ?? ""} />
+                <PlaylistPlayer tracks={tracks} moodLabel={mood ?? titleDraft} />
               </div>
 
               <PlaylistTrackList tracks={tracks} onReorder={handleReorder} resequencing={resequencing} />
-
-              <div style={{ display: "flex", alignItems: "center", gap: "12px", marginTop: "20px", flexWrap: "wrap" }}>
-                <input
-                  value={titleDraft}
-                  onChange={e => setTitleDraft(e.target.value)}
-                  placeholder="List title"
-                  maxLength={80}
-                  style={{ fontFamily: SERIF, fontSize: "13px", color: INK, border: `1px solid ${RULE}`, padding: "8px 10px", flex: 1, minWidth: "140px" }}
-                />
-
-                <div style={{ display: "grid", gridTemplateColumns: "repeat(3, auto)", gap: "10px" }}>
-                  <button
-                    onClick={handleGenerate}
-                    disabled={generating}
-                    style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.1em", textTransform: "uppercase", color: ORANGE, background: "none", border: `1px solid ${ORANGE}`, borderRadius: "3px", cursor: generating ? "wait" : "pointer", padding: "8px 14px" }}
-                  >
-                    Regenerate
-                  </button>
-
-                  <button
-                    onClick={handleSave}
-                    disabled={saving}
-                    style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.1em", textTransform: "uppercase", background: INK, color: "#ffffff", border: "none", cursor: saving ? "wait" : "pointer", padding: "9px 14px" }}
-                  >
-                    {saving ? "Saving…" : "Save as list"}
-                  </button>
-
-                  <button
-                    disabled
-                    title="Coming soon"
-                    style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.1em", textTransform: "uppercase", color: "#cccccc", background: "none", border: `1px solid ${RULE}`, borderRadius: "3px", cursor: "default", padding: "8px 14px" }}
-                  >
-                    Send to Spotify (coming soon)
-                  </button>
-                </div>
-              </div>
-
-              {saveDone && (
-                <p style={{ fontFamily: MONO, fontSize: "9.5px", color: MUTED, marginTop: "10px" }}>
-                  Saved as “{saveDone}” under My Lists.
-                </p>
-              )}
             </>
           ) : (
             <div style={{ border: `1px dashed ${RULE}`, padding: "48px 24px", textAlign: "center" }}>
@@ -275,6 +281,15 @@ export default function PlaylistTab() {
             </div>
           )}
         </div>
+
+        <SavedPlaylistsPanel
+          titleDraft={titleDraft} setTitleDraft={setTitleDraft}
+          onRegenerate={handleGenerate} generating={generating}
+          onSave={handleSave} saving={saving} saveDone={saveDone}
+          hasTracks={tracks.length > 0}
+          savedPlaylists={savedPlaylists} loadingSaved={loadingSaved}
+          activeSavedId={activeSavedId} onLoadSaved={handleLoadSaved}
+        />
       </div>
     </div>
   );

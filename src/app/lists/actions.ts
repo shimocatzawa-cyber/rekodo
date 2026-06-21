@@ -179,6 +179,13 @@ export interface SongPayload {
   song_album: string;
   song_cover_url: string | null;
   song_year: number | null;
+  // Optional — only set by the AI playlist generator's save flow, so a saved
+  // playlist can be reopened and actually played later instead of just
+  // showing as text history. Reuses the same spotify_tracks column the
+  // wantlist song-matching feature already has on this table.
+  spotify_uri?:  string;
+  duration_ms?:  number;
+  preview_url?:  string | null;
 }
 
 export async function addSongToList(
@@ -319,9 +326,19 @@ export async function appendSongToList(listId: string, payload: SongPayload) {
   const nextPos = (existing?.[0]?.position ?? 0) + 1;
   if (nextPos > 20) return { error: "List is full (20 items maximum)" };
 
-  const { data: written, error } = await supabase
+  const spotifyExtra = payload.spotify_uri ? {
+    spotify_tracks: [{
+      spotify_uri: payload.spotify_uri, title: payload.song_title, track_number: 1,
+      duration_ms: payload.duration_ms ?? 0, preview_url: payload.preview_url ?? null,
+    }],
+    spotify_matched: true,
+    spotify_matched_at: new Date().toISOString(),
+  } : {};
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: written, error } = await (supabase as any)
     .from("list_items")
-    .insert({ list_id: listId, position: nextPos, item_type: "song", record_id: null, song_title: payload.song_title, song_artist: payload.song_artist, song_album: payload.song_album, song_cover_url: payload.song_cover_url, song_year: payload.song_year })
+    .insert({ list_id: listId, position: nextPos, item_type: "song", record_id: null, song_title: payload.song_title, song_artist: payload.song_artist, song_album: payload.song_album, song_cover_url: payload.song_cover_url, song_year: payload.song_year, ...spotifyExtra })
     .select("id");
 
   if (error) return { error: error.message };
