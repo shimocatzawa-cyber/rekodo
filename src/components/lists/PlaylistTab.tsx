@@ -226,14 +226,6 @@ export default function PlaylistTab() {
               <PlaylistTrackList tracks={tracks} onReorder={handleReorder} resequencing={resequencing} />
 
               <div style={{ display: "flex", alignItems: "center", gap: "12px", marginTop: "20px", flexWrap: "wrap" }}>
-                <button
-                  onClick={handleGenerate}
-                  disabled={generating}
-                  style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.1em", textTransform: "uppercase", color: ORANGE, background: "none", border: `1px solid ${ORANGE}`, borderRadius: "3px", cursor: generating ? "wait" : "pointer", padding: "8px 14px" }}
-                >
-                  Regenerate
-                </button>
-
                 <input
                   value={titleDraft}
                   onChange={e => setTitleDraft(e.target.value)}
@@ -242,21 +234,31 @@ export default function PlaylistTab() {
                   style={{ fontFamily: SERIF, fontSize: "13px", color: INK, border: `1px solid ${RULE}`, padding: "8px 10px", flex: 1, minWidth: "140px" }}
                 />
 
-                <button
-                  onClick={handleSave}
-                  disabled={saving}
-                  style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.1em", textTransform: "uppercase", background: INK, color: "#ffffff", border: "none", cursor: saving ? "wait" : "pointer", padding: "9px 14px" }}
-                >
-                  {saving ? "Saving…" : "Save as list"}
-                </button>
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(3, auto)", gap: "10px" }}>
+                  <button
+                    onClick={handleGenerate}
+                    disabled={generating}
+                    style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.1em", textTransform: "uppercase", color: ORANGE, background: "none", border: `1px solid ${ORANGE}`, borderRadius: "3px", cursor: generating ? "wait" : "pointer", padding: "8px 14px" }}
+                  >
+                    Regenerate
+                  </button>
 
-                <button
-                  disabled
-                  title="Coming soon"
-                  style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.1em", textTransform: "uppercase", color: "#cccccc", background: "none", border: `1px solid ${RULE}`, borderRadius: "3px", cursor: "default", padding: "8px 14px" }}
-                >
-                  Send to Spotify (coming soon)
-                </button>
+                  <button
+                    onClick={handleSave}
+                    disabled={saving}
+                    style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.1em", textTransform: "uppercase", background: INK, color: "#ffffff", border: "none", cursor: saving ? "wait" : "pointer", padding: "9px 14px" }}
+                  >
+                    {saving ? "Saving…" : "Save as list"}
+                  </button>
+
+                  <button
+                    disabled
+                    title="Coming soon"
+                    style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.1em", textTransform: "uppercase", color: "#cccccc", background: "none", border: `1px solid ${RULE}`, borderRadius: "3px", cursor: "default", padding: "8px 14px" }}
+                  >
+                    Send to Spotify (coming soon)
+                  </button>
+                </div>
               </div>
 
               {saveDone && (

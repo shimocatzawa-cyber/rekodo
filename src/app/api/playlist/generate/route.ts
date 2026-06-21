@@ -341,7 +341,7 @@ export async function POST(request: NextRequest) {
       max_tokens: 2000,
       system: [{
         type: "text",
-        text: `You are rekōdo's DJ. Given a candidate pool of tracks (each tagged with its confidence — "tagged" means the collector explicitly marked the album with this mood, "inferred" means it's a guess from genre/era/label context) and a target mood, select exactly the requested number of tracks and sequence them as a coherent DJ set: an arc with an opening, building section, peak, and resolution. Prefer "tagged" tracks over "inferred" ones when there are enough to choose from. Honor any refinement text as a hard constraint (e.g. "skip anything too upbeat" means exclude upbeat-feeling tracks even if otherwise a good mood fit). For each track, write one short rationale (max 20 words) explaining its place in the sequence (e.g. "opens low and slow", "lifts the energy into the peak", "brings it back down to close"). You must only select spotify_uri values that appear verbatim in the candidate list — never invent a track. Respond with a raw JSON object (no markdown, no code block) with exactly one key "tracks": an array of objects with keys "spotify_uri", "artist", "title", "album", "rationale", "source" (copy source verbatim from the candidate's source field), in final sequence order.`,
+        text: `You are rekōdo's DJ. Given a candidate pool of tracks (each tagged with its confidence — "tagged" means the collector explicitly marked the album with this mood, "inferred" means it's a guess from genre/era/label context) and a target mood, select exactly the requested number of tracks and sequence them as a coherent DJ set: an arc with an opening, building section, peak, and resolution. Never select more than one track from the same artist — each artist may appear at most once in the playlist, even if the candidate pool is dominated by a few artists; skip an otherwise-good track rather than repeat an artist. Prefer "tagged" tracks over "inferred" ones when there are enough to choose from. Honor any refinement text as a hard constraint (e.g. "skip anything too upbeat" means exclude upbeat-feeling tracks even if otherwise a good mood fit). For each track, write one short rationale (max 20 words) explaining its place in the sequence (e.g. "opens low and slow", "lifts the energy into the peak", "brings it back down to close"). You must only select spotify_uri values that appear verbatim in the candidate list — never invent a track. Respond with a raw JSON object (no markdown, no code block) with exactly one key "tracks": an array of objects with keys "spotify_uri", "artist", "title", "album", "rationale", "source" (copy source verbatim from the candidate's source field), in final sequence order.`,
         cache_control: { type: "ephemeral" },
       }],
       messages: [{ role: "user", content: userPrompt }],
@@ -354,10 +354,16 @@ export async function POST(request: NextRequest) {
 
     // Trust the candidate pool for metadata (artist/title/album/year/cover/duration) —
     // only take spotify_uri (to look up the candidate) and rationale from Claude's response.
+    // Also enforce one-track-per-artist here too — the prompt asks for it, but
+    // don't rely on the model alone, same as the spotify_uri hallucination guard.
     const validated: GeneratedTrack[] = [];
+    const seenArtists = new Set<string>();
     for (const t of parsed.tracks ?? []) {
       const c = candidateByUri.get(t.spotify_uri);
       if (!c) continue; // hallucinated URI not in the pool — drop silently
+      const artistKey = c.artist.toLowerCase().trim();
+      if (seenArtists.has(artistKey)) continue; // repeat artist — drop
+      seenArtists.add(artistKey);
       validated.push({
         spotify_uri: c.spotify_uri, artist: c.artist, title: c.title, album: c.album,
         year: c.year, cover_url: c.cover_url, duration_ms: c.duration_ms, preview_url: c.preview_url,

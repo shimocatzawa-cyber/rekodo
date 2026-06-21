@@ -21,6 +21,12 @@ export const maxDuration = 60;
 const LOCK_TTL_MS = SPOTIFY_MATCH_LOCK_TTL_MS;
 const TIME_BUDGET_MS = 40_000; // well under maxDuration
 const FETCH_LIMIT = 100;
+// Supabase/PostgREST caps unfiltered reads at 1000 rows, and a `.in()` filter
+// with thousands of ids crammed into one request URL can fail outright (URL
+// too long) — both silently look like "0 rows" if the error isn't checked.
+// Page past the row cap, and batch large id lists into chunks.
+const PAGE_SIZE = 1000;
+const ID_BATCH = 400;
 
 export async function POST(request: NextRequest) {
   const startedAt = Date.now();
@@ -76,8 +82,15 @@ export async function POST(request: NextRequest) {
     }
 
     // ── Build the unmatched pool: owned records ∪ wantlist record_id items ∪ wantlist song items ──
-    const { data: ownedLinks } = await db.from("user_records").select("record_id").eq("user_id", userId);
-    const ownedRecordIds: string[] = [...new Set<string>((ownedLinks ?? []).map((r: { record_id: string }) => r.record_id))];
+    const ownedLinks: Array<{ record_id: string }> = [];
+    for (let from = 0; ; from += PAGE_SIZE) {
+      const { data } = await db.from("user_records").select("record_id").eq("user_id", userId)
+        .range(from, from + PAGE_SIZE - 1);
+      if (!data || data.length === 0) break;
+      ownedLinks.push(...data);
+      if (data.length < PAGE_SIZE) break;
+    }
+    const ownedRecordIds: string[] = [...new Set<string>(ownedLinks.map((r) => r.record_id))];
 
     const { data: wantlist } = await db
       .from("lists").select("id").eq("user_id", userId).eq("slug", "wantlist").maybeSingle();
@@ -92,13 +105,15 @@ export async function POST(request: NextRequest) {
 
     const allRecordIds = [...new Set([...ownedRecordIds, ...wantlistRecordIds])];
 
-    const { data: pendingRecords } = allRecordIds.length
-      ? await db.from("records")
-          .select("id, artist, album")
-          .in("id", allRecordIds)
-          .is("spotify_matched_at", null)
-          .limit(FETCH_LIMIT)
-      : { data: [] };
+    const pendingRecords: Array<{ id: string; artist: string; album: string }> = [];
+    for (let i = 0; i < allRecordIds.length && pendingRecords.length < FETCH_LIMIT; i += ID_BATCH) {
+      const { data } = await db.from("records")
+        .select("id, artist, album")
+        .in("id", allRecordIds.slice(i, i + ID_BATCH))
+        .is("spotify_matched_at", null)
+        .limit(FETCH_LIMIT - pendingRecords.length);
+      if (data) pendingRecords.push(...data);
+    }
 
     const { data: pendingSongItems } = wantlist?.id
       ? await db.from("list_items")
@@ -108,8 +123,8 @@ export async function POST(request: NextRequest) {
           .limit(FETCH_LIMIT)
       : { data: [] };
 
-    const recordJobs = (pendingRecords ?? []) as Array<{ id: string; artist: string; album: string }>;
-    const songJobs   = (pendingSongItems ?? []) as Array<{ id: string; song_artist: string; song_album: string }>;
+    const recordJobs = pendingRecords;
+    const songJobs    = (pendingSongItems ?? []) as Array<{ id: string; song_artist: string; song_album: string }>;
 
     console.log(`[match-spotify-worker] user ${userId}: ${recordJobs.length} pending records, ${songJobs.length} pending wantlist songs`);
 

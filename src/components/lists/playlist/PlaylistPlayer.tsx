@@ -12,16 +12,16 @@ const SPOTIFY_GREEN = "#1DB954";
 
 function IconPlay() {
   return (
-    <svg width="14" height="14" viewBox="0 0 16 16" aria-hidden="true">
-      <polygon points="3,1 3,15 14,8" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round" />
+    <svg width="12" height="12" viewBox="0 0 16 16" aria-hidden="true">
+      <polygon points="3,1 3,15 14,8" fill="currentColor" />
     </svg>
   );
 }
 function IconPause() {
   return (
-    <svg width="14" height="14" viewBox="0 0 16 16" aria-hidden="true">
-      <rect x="2.5" y="1.5" width="4" height="13" fill="none" stroke="currentColor" strokeWidth="1.5" />
-      <rect x="9.5" y="1.5" width="4" height="13" fill="none" stroke="currentColor" strokeWidth="1.5" />
+    <svg width="12" height="12" viewBox="0 0 16 16" aria-hidden="true">
+      <rect x="2" y="1" width="4" height="14" fill="currentColor" />
+      <rect x="10" y="1" width="4" height="14" fill="currentColor" />
     </svg>
   );
 }
@@ -89,11 +89,14 @@ export default function PlaylistPlayer({ tracks, moodLabel }: { tracks: Generate
           disabled={sdkConnecting}
           aria-label={playing ? "Pause" : "Play"}
           style={{
-            width: "36px", height: "36px", borderRadius: "50%", flexShrink: 0,
-            background: "none", border: `1.5px solid ${INK}`, color: INK,
+            width: "36px", height: "36px", flexShrink: 0,
+            background: sdkConnecting ? "#cccccc" : INK, color: "#ffffff", border: "none",
             display: "flex", alignItems: "center", justifyContent: "center",
-            cursor: sdkConnecting ? "default" : "pointer", opacity: sdkConnecting ? 0.4 : 1,
+            cursor: sdkConnecting ? "default" : "pointer", opacity: sdkConnecting ? 0.5 : 1,
+            transition: "background 0.15s",
           }}
+          onMouseEnter={e => { if (!sdkConnecting) (e.currentTarget as HTMLButtonElement).style.background = ORANGE; }}
+          onMouseLeave={e => { if (!sdkConnecting) (e.currentTarget as HTMLButtonElement).style.background = INK; }}
         >
           {playing ? <IconPause /> : <IconPlay />}
         </button>
