@@ -492,16 +492,27 @@ export function SpotifyPlayerProvider({ children }: { children: React.ReactNode 
             // honor an explicit position_ms/offset on the initial request —
             // particularly for context_uri (album) playback resuming a
             // context that was recently active on this device, where it
-            // silently ignores the requested position. A forced seek to 0
-            // shortly after the track actually starts overrides whatever
-            // position /play picked, regardless of the cause.
-            setTimeout(() => {
-              fetch("/api/spotify/seek", {
-                method:  "POST",
-                headers: { "Content-Type": "application/json" },
-                body:    JSON.stringify({ positionMs: 0, deviceId }),
-              }).catch(() => {});
-            }, 400);
+            // silently ignores the requested position. A blind fixed-delay
+            // seek can land before playback has actually started (the delay
+            // races Spotify's own backend latency, not something we control),
+            // hitting stale state instead of correcting it — so poll for the
+            // first real state update instead of guessing a delay, then only
+            // correct if the reported position is actually non-zero.
+            (async () => {
+              for (let i = 0; i < 8; i++) {
+                await new Promise(r => setTimeout(r, 250));
+                const state = await playerRef.current?.getCurrentState().catch(() => null);
+                if (!state) continue;
+                if (state.position > 1500) {
+                  fetch("/api/spotify/seek", {
+                    method:  "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body:    JSON.stringify({ positionMs: 0, deviceId }),
+                  }).catch(() => {});
+                }
+                break;
+              }
+            })();
           }
         }
       }
