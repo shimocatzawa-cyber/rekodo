@@ -65,7 +65,7 @@ export async function GET() {
         (countryCode ? `&countryCode=${encodeURIComponent(countryCode)}` : "") +
         `&classificationName=music` +
         `&startDateTime=${isoNow()}` +
-        `&endDateTime=${isoMonthsFromNow(6)}` +
+        `&endDateTime=${isoMonthsFromNow(9)}` +
         `&apikey=${TM_API_KEY}` +
         `&size=50` +
         `&sort=date,asc`;
