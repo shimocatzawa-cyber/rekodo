@@ -3,7 +3,7 @@ import Link from "next/link";
 export default function HeroSection({ isSignedIn }: { isSignedIn: boolean }) {
   const wordmark = (
     <h1
-      className="leading-none tracking-tighter text-black select-none"
+      className="leading-none tracking-tighter text-black select-none text-center md:text-left"
       style={{
         fontFamily: "var(--font-shippori), Georgia, serif",
         fontSize: "clamp(5rem, 18vw, 22rem)",
@@ -15,9 +15,9 @@ export default function HeroSection({ isSignedIn }: { isSignedIn: boolean }) {
   );
 
   return (
-    <section className="relative flex flex-col justify-end min-h-screen pt-24 pb-16 px-8 md:px-12 lg:px-16 overflow-hidden">
+    <section className="relative flex flex-col justify-end min-h-screen pt-32 pb-24 md:pt-24 md:pb-16 px-8 md:px-12 lg:px-16 overflow-hidden">
       {/* Full-width wordmark */}
-      <div className="flex-1 flex flex-col justify-center">
+      <div className="flex-1 flex flex-col justify-center items-center md:items-start">
         {isSignedIn ? (
           <Link href="/collection" style={{ textDecoration: "none" }}>
             {wordmark}
@@ -28,7 +28,7 @@ export default function HeroSection({ isSignedIn }: { isSignedIn: boolean }) {
       </div>
 
       {/* Bottom strip */}
-      <div className="flex items-end justify-end pt-16 border-t border-black/10">
+      <div className="flex items-end justify-center md:justify-end pt-16 border-t-0 md:border-t border-black/10">
         <Link
           href="#waitlist"
           className="font-mono text-xs tracking-widest uppercase bg-black text-white px-8 py-4 hover:bg-[#CC5500] hover:text-black transition-colors"
