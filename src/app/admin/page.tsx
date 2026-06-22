@@ -201,57 +201,62 @@ export default async function AdminPage() {
         </span>
       </header>
 
-      {/* Stats bar */}
+      {/* Stats grid + feature popularity */}
       <div style={{ borderBottom: `1px solid ${RULE}`, display: "flex" }}>
-        {[
-          { label: "Total users", value: total },
-          { label: "Supporters",  value: supporters },
-          { label: "Free",        value: free },
-          { label: "Donors",      value: donors },
-        ].map(({ label, value }, i) => (
-          <div key={label} style={{
-            flex: 1, padding: "28px 32px",
-            borderLeft: i > 0 ? `1px solid ${RULE}` : "none",
-          }}>
-            <p style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.14em", textTransform: "uppercase", color: MUTED, margin: "0 0 8px 0" }}>
-              {label}
-            </p>
-            <p style={{ fontFamily: SERIF, fontSize: "36px", color: INK, margin: 0, lineHeight: 1 }}>
-              {value}
-            </p>
-          </div>
-        ))}
-      </div>
 
-      {/* Feature popularity */}
-      <div style={{ borderBottom: `1px solid ${RULE}`, padding: "28px 48px" }}>
-        <p style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.14em", textTransform: "uppercase", color: ORANGE, margin: "0 0 16px 0" }}>
-          Feature popularity (all-time page views)
-        </p>
-        {featurePopularity.length === 0 ? (
-          <p style={{ fontFamily: MONO, fontSize: "11px", color: MUTED, margin: 0 }}>
-            No page views tracked yet — data will appear as users browse.
+        {/* Stats (2x2): Total users / Supporters on top, Free / Donors below */}
+        <div style={{ flex: 1, display: "grid", gridTemplateColumns: "1fr 1fr" }}>
+          {[
+            { label: "Total users", value: total },
+            { label: "Supporters",  value: supporters },
+            { label: "Free",        value: free },
+            { label: "Donors",      value: donors },
+          ].map(({ label, value }, i) => (
+            <div key={label} style={{
+              padding: "28px 32px",
+              borderLeft: i % 2 === 1 ? `1px solid ${RULE}` : "none",
+              borderTop:  i >= 2 ? `1px solid ${RULE}` : "none",
+            }}>
+              <p style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.14em", textTransform: "uppercase", color: MUTED, margin: "0 0 8px 0" }}>
+                {label}
+              </p>
+              <p style={{ fontFamily: SERIF, fontSize: "36px", color: INK, margin: 0, lineHeight: 1 }}>
+                {value}
+              </p>
+            </div>
+          ))}
+        </div>
+
+        {/* Feature popularity — top right */}
+        <div style={{ flex: 1, padding: "28px 32px", borderLeft: `1px solid ${RULE}` }}>
+          <p style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.14em", textTransform: "uppercase", color: ORANGE, margin: "0 0 16px 0" }}>
+            Feature popularity (all-time page views)
           </p>
-        ) : (
-          <div style={{ display: "flex", flexDirection: "column", gap: "10px", maxWidth: "560px" }}>
-            {featurePopularity.map(([section, count]) => (
-              <div key={section} style={{ display: "flex", alignItems: "center", gap: "12px" }}>
-                <span style={{ fontFamily: MONO, fontSize: "10px", color: INK, width: "120px", flexShrink: 0 }}>
-                  {section}
-                </span>
-                <div style={{ flex: 1, background: "#f0f0ea", height: "8px" }}>
-                  <div style={{
-                    width: `${maxSectionCount ? (count / maxSectionCount) * 100 : 0}%`,
-                    height: "100%", background: ORANGE,
-                  }} />
+          {featurePopularity.length === 0 ? (
+            <p style={{ fontFamily: MONO, fontSize: "11px", color: MUTED, margin: 0 }}>
+              No page views tracked yet — data will appear as users browse.
+            </p>
+          ) : (
+            <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
+              {featurePopularity.map(([section, count]) => (
+                <div key={section} style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+                  <span style={{ fontFamily: MONO, fontSize: "10px", color: INK, width: "100px", flexShrink: 0 }}>
+                    {section}
+                  </span>
+                  <div style={{ flex: 1, background: "#f0f0ea", height: "8px" }}>
+                    <div style={{
+                      width: `${maxSectionCount ? (count / maxSectionCount) * 100 : 0}%`,
+                      height: "100%", background: ORANGE,
+                    }} />
+                  </div>
+                  <span style={{ fontFamily: MONO, fontSize: "10px", color: MUTED, width: "40px", textAlign: "right" as const, flexShrink: 0 }}>
+                    {count.toLocaleString()}
+                  </span>
                 </div>
-                <span style={{ fontFamily: MONO, fontSize: "10px", color: MUTED, width: "40px", textAlign: "right" as const, flexShrink: 0 }}>
-                  {count.toLocaleString()}
-                </span>
-              </div>
-            ))}
-          </div>
-        )}
+              ))}
+            </div>
+          )}
+        </div>
       </div>
 
       {/* User table */}
