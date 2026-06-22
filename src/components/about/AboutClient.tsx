@@ -189,6 +189,15 @@ const FAQ_SECTIONS: { section: string; items: { q: string; a: string }[] }[] = [
     ],
   },
   {
+    section: "Mobile",
+    items: [
+      {
+        q: "Is there a rekōdo mobile app?",
+        a: "Not yet — but the website is fully optimised for use on iOS. To get an app-like experience, open rekōdo in Safari on your iPhone, tap the Share icon, then 'Add to Home Screen'. This adds a rekōdo icon to your home screen that launches full-screen, just like a native app.",
+      },
+    ],
+  },
+  {
     section: "Collection",
     items: [
       {
