@@ -487,11 +487,22 @@ export function SpotifyPlayerProvider({ children }: { children: React.ReactNode 
         if (currentKey && lastPlayedKeyRef.current === currentKey) {
           try {
             await playerRef.current.togglePlay();
-            resumed = true;
+            // togglePlay() can resolve successfully while doing nothing if the
+            // Connect device went stale (laptop slept, long tab inactivity)
+            // without the SDK ever firing not_ready — verify playback actually
+            // started before trusting the resolved promise.
+            for (let i = 0; i < 2 && !resumed; i++) {
+              await new Promise(r => setTimeout(r, 300));
+              const state = await playerRef.current.getCurrentState().catch(() => null);
+              resumed = !!state && !state.paused;
+            }
           } catch {
-            // SDK is disconnected — fall through to the fresh-play path below,
-            // which reconnects and re-sends the play command instead of just
-            // firing connect() and stopping (that left Play silently dead).
+            // SDK threw outright — definitely disconnected.
+          }
+          if (!resumed) {
+            // Toggle either threw or silently no-op'd on a dead device — fall
+            // through to the fresh-play path below, which reconnects and
+            // re-sends the play command instead of leaving Play silently dead.
             lastPlayedKeyRef.current = "";
           }
         }
