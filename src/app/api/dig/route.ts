@@ -10,6 +10,8 @@ const JSON_SCHEMA = `[
     "artist": "string",
     "album": "string",
     "year": number or null,
+    "genre": "string — the single primary genre/style tag for this pick",
+    "region": "string — the country or region this artist/record originates from",
     "reason": "string",
     "bandcamp_search_url": "https://bandcamp.com/search?q=ENCODED_QUERY",
     "spotify_search_url": "https://open.spotify.com/search/ENCODED_QUERY",
@@ -233,6 +235,65 @@ ${JSON_SCHEMA}`;
     }
   }
 
+  // ── Fetch persistent dig history (stops repeats across sessions/devices —
+  // the in-memory session list alone is wiped on every refresh) ─────────────
+  type HistoryRow = {
+    artist: string; album: string;
+    genre: string | null; region: string | null;
+    wantlisted_at: string | null; collected_at: string | null;
+  };
+  const { data: historyRows } = await (supabase as any)
+    .from("dig_history")
+    .select("artist, album, genre, region, wantlisted_at, collected_at")
+    .eq("user_id", user.id)
+    .order("created_at", { ascending: false })
+    .limit(150) as { data: HistoryRow[] | null };
+  const history = historyRows ?? [];
+
+  const allPrevArtists = [...new Set([...previousArtists, ...history.map((h) => h.artist)])];
+  const allPrevRecsMap = new Map<string, { artist: string; album: string }>();
+  for (const r of [...previousRecommendations, ...history]) {
+    if (r.artist && r.album) allPrevRecsMap.set(`${r.artist} ${r.album}`, r);
+  }
+  const allPrevRecs = [...allPrevRecsMap.values()];
+
+  // ── Feedback signal from past digs: what they acted on (wantlisted or later
+  // bought) vs. what they've seen repeatedly and never touched ───────────────
+  function tally(key: "genre" | "region") {
+    const counts = new Map<string, { shown: number; accepted: number }>();
+    for (const r of history) {
+      const val = r[key];
+      if (!val) continue;
+      const entry = counts.get(val) ?? { shown: 0, accepted: 0 };
+      entry.shown += 1;
+      if (r.wantlisted_at || r.collected_at) entry.accepted += 1;
+      counts.set(val, entry);
+    }
+    return counts;
+  }
+  const genreCounts = tally("genre");
+  const regionCounts = tally("region");
+  const accepted = (counts: Map<string, { shown: number; accepted: number }>) =>
+    [...counts.entries()].filter(([, v]) => v.accepted > 0).map(([k]) => k);
+  const fatigued = (counts: Map<string, { shown: number; accepted: number }>) =>
+    [...counts.entries()].filter(([, v]) => v.shown >= 3 && v.accepted === 0).map(([k]) => k);
+  const acceptedGenres = accepted(genreCounts);
+  const fatiguedGenres = fatigued(genreCounts);
+  const acceptedRegions = accepted(regionCounts);
+  const fatiguedRegions = fatigued(regionCounts);
+
+  const feedbackBlock = (acceptedGenres.length || fatiguedGenres.length || acceptedRegions.length || fatiguedRegions.length)
+    ? `\nFEEDBACK FROM PAST DIGS — this collector's real behaviour, weight it more than guesswork:\n${
+        acceptedGenres.length ? `- They've wantlisted or bought past picks in: ${acceptedGenres.join(", ")}. Lean toward more of this when it genuinely fits the brief.\n` : ""
+      }${
+        fatiguedGenres.length ? `- They've been shown repeated picks in ${fatiguedGenres.join(", ")} without acting on any — ease off this territory unless something truly exceptional warrants it.\n` : ""
+      }${
+        acceptedRegions.length ? `- Regions they've responded to: ${acceptedRegions.join(", ")}.\n` : ""
+      }${
+        fatiguedRegions.length ? `- Regions shown repeatedly with no action: ${fatiguedRegions.join(", ")} — deprioritise these.\n` : ""
+      }`
+    : "";
+
   // ── Build prompt ──────────────────────────────────────────────────────────
   const collectionLines = collection
     .map((r) => `- ${r.artist} — ${r.album}${r.year ? ` (${r.year})` : ""}${r.genre ? ` [${r.genre}]` : ""}`)
@@ -258,39 +319,48 @@ ${JSON_SCHEMA}`;
       ? `\nOWNED ARTISTS — you must not recommend any record by any of these artists:\n${ownedArtists.join(" · ")}\n`
       : "";
 
-    const prevBlock = previousArtists.length > 0
-      ? `\nALREADY RECOMMENDED THIS SESSION — do not repeat any of these artists (user has already seen them):\n${previousArtists.join(" · ")}\n`
+    const prevBlock = allPrevArtists.length > 0
+      ? `\nALREADY RECOMMENDED — do not repeat any of these artists (user has already seen them, possibly in an earlier session):\n${allPrevArtists.join(" · ")}\n`
       : "";
 
-    // Random exploration angle — forces variety on every call
+    // Random exploration angle — forces era variety on every call, but
+    // obscurity/region are only an occasional spice (~40-50% of calls),
+    // not a mandate stacked onto all three picks every single time.
     const digDecadeClassic = pick([
       "1950s", "1960s", "early 1970s", "late 1970s",
       "1980s", "early 1990s", "late 1990s", "2000s",
     ]);
     const digDecadeModern = pick(["2010s", "2020s"]);
-    const digRegion = pick([
-      "West Africa", "Japan", "Brazil", "Jamaica", "Germany", "Nigeria", "Colombia",
-      "South Korea", "Scandinavia", "India", "Turkey", "Eastern Europe", "Caribbean",
-      "Indonesia", "Argentina", "Morocco", "Cuba", "Mali", "Iran", "Ghana", "Portugal",
-    ]);
-    const digAngle  = pick([
-      "deeply obscure and rarely discussed even among collectors",
-      "critically overlooked on release but reassessed since",
-      "a cult classic with a devoted underground following",
-      "a regional gem almost unknown outside its home country",
-      "a one-album wonder that was never followed up",
-      "a late-career revelation by an artist known for something else entirely",
-      "an influential record that shaped a genre without ever becoming famous itself",
-      "a collaborative or side-project record that outshines the artists' main work",
-      "a debut record that arrived fully-formed and changed everything for a small scene",
-      "a record so genre-defying it still has no accurate descriptor",
-    ]);
+    const digRegion = Math.random() < 0.4
+      ? pick([
+          "West Africa", "Japan", "Brazil", "Jamaica", "Germany", "Nigeria", "Colombia",
+          "South Korea", "Scandinavia", "India", "Turkey", "Eastern Europe", "Caribbean",
+          "Indonesia", "Argentina", "Morocco", "Cuba", "Mali", "Iran", "Ghana", "Portugal",
+          "United States", "United Kingdom", "France", "Italy", "Canada", "Australia",
+        ])
+      : null;
+    const digAngle = Math.random() < 0.5
+      ? pick([
+          "deeply obscure and rarely discussed even among collectors",
+          "critically overlooked on release but reassessed since",
+          "a cult classic with a devoted underground following",
+          "a regional gem almost unknown outside its home country",
+          "a one-album wonder that was never followed up",
+          "a collaborative or side-project record that outshines the artists' main work",
+        ])
+      : pick([
+          "a widely loved, critically acclaimed record this collector has somehow never picked up",
+          "a record that turns up on every credible 'best albums' list, and earns its place there",
+          "a famous record from a genre adjacent to their taste they've likely just never gotten around to",
+          "a defining record by an artist they already love a different era or side of",
+          "a well-known, obvious-in-hindsight next step from what's already on their shelves",
+        ]);
 
-    const prevRecsBlock = previousRecommendations.length > 0
-      ? `\nALREADY RECOMMENDED THIS SESSION (avoid the same genre, region, or sonic territory as these):\n${previousRecommendations.map(r => `- ${r.artist} — ${r.album}`).join("\n")}\n`
+    const prevRecsBlock = allPrevRecs.length > 0
+      ? `\nALREADY RECOMMENDED (avoid the same genre, region, or sonic territory as these):\n${allPrevRecs.map(r => `- ${r.artist} — ${r.album}`).join("\n")}\n`
       : "";
 
-    const angleBlock = `\nEXPLORATION ANGLE — you must satisfy all three era constraints:\n- One pick MUST come from the ${digDecadeModern} — modern releases are just as valid on vinyl as classics\n- One pick MUST come from the ${digDecadeClassic} — dig into that era's obscure corners\n- The third pick can come from any era\n- Geography: look toward music originating from ${digRegion}\n- At least one pick must be: ${digAngle}\n`;
+    const angleBlock = `\nEXPLORATION ANGLE — you must satisfy both era constraints:\n- One pick MUST come from the ${digDecadeModern} — modern releases are just as valid on vinyl as classics\n- One pick MUST come from the ${digDecadeClassic}\n- The third pick can come from any era\n${digRegion ? `- Geography: one pick should lean toward music originating from ${digRegion}\n` : ""}- One pick should be: ${digAngle}\n- The other two picks do NOT need to be obscure or regional — well-known, widely loved records that genuinely fit this collector's taste are just as valid a recommendation as a deep cut. Most digs should land mostly on great, findable records; rarity is a bonus, not the goal.\n`;
 
     prompt = `You are a vinyl crate-digging assistant with encyclopaedic knowledge of recorded music across all genres, eras, and territories.
 
@@ -301,7 +371,7 @@ ${collectionLines || "(Empty collection)"}
 
 TOP 5 LISTS:
 ${listsLines}
-${artistsBlock}${prevBlock}${wantlistBlock}${prevRecsBlock}${angleBlock}
+${artistsBlock}${prevBlock}${wantlistBlock}${prevRecsBlock}${feedbackBlock}${angleBlock}
 MODE: DISCOVER — recommend artists this collector does not own yet and has not already wishlisted.
 
 Rules:
@@ -309,7 +379,7 @@ Rules:
 - STRICT: Do not recommend anything from the same genre, regional scene, or sonic territory as the ALREADY RECOMMENDED list above — every "Dig again" must open a genuinely different crate.
 - STRICT: Follow the era constraints in the EXPLORATION ANGLE exactly — one modern pick (post-2000) is mandatory every single time.
 - STRICT: Do not default to the 1960s–1970s classic canon for all three picks. Resist the training bias toward that period.
-- Follow the EXPLORATION ANGLE — do not default to the most obvious or well-known records that match this taste profile.
+- Apply the EXPLORATION ANGLE to one pick only. The other two picks should be whatever genuinely fits this collector's taste best — they can be well-known, even famous, records. The bar is "this collector will love it," not "this collector hasn't heard of it." Do not chase obscurity for its own sake.
 - Each recommendation must have a reason written in plain English that reveals the aesthetic logic — not genre tags, but the texture, atmosphere, and emotional territory. Write it as if pointing at two records already on their shelf and saying "this is where those two shelves collide." Maximum 2 sentences.
 - The picks should feel genuinely surprising but inevitable in hindsight — the kind of record they will wonder how they missed.
 - Prioritise records obtainable on vinyl (original pressings, reissues, or easily available secondhand).
@@ -324,12 +394,12 @@ ${JSON_SCHEMA}`;
       ? `\nOWNED ARTISTS — you must not recommend any record by any of these artists:\n${ownedArtists.join(" · ")}\n`
       : "";
 
-    const prevBlock = previousArtists.length > 0
-      ? `\nALREADY RECOMMENDED THIS SESSION — do not repeat any of these artists (user has already seen them):\n${previousArtists.join(" · ")}\n`
+    const prevBlock = allPrevArtists.length > 0
+      ? `\nALREADY RECOMMENDED — do not repeat any of these artists (user has already seen them, possibly in an earlier session):\n${allPrevArtists.join(" · ")}\n`
       : "";
 
-    const prevRecsBlock = previousRecommendations.length > 0
-      ? `\nALREADY RECOMMENDED THIS SESSION (avoid repeating the same artists or sub-style as these):\n${previousRecommendations.map(r => `- ${r.artist} — ${r.album}`).join("\n")}\n`
+    const prevRecsBlock = allPrevRecs.length > 0
+      ? `\nALREADY RECOMMENDED (avoid repeating the same artists or sub-style as these):\n${allPrevRecs.map(r => `- ${r.artist} — ${r.album}`).join("\n")}\n`
       : "";
 
     const digDecadeClassic = pick([
@@ -337,20 +407,23 @@ ${JSON_SCHEMA}`;
       "1980s", "early 1990s", "late 1990s", "2000s",
     ]);
     const digDecadeModern = pick(["2010s", "2020s"]);
-    const digAngle = pick([
-      "deeply obscure and rarely discussed even among collectors",
-      "critically overlooked on release but reassessed since",
-      "a cult classic with a devoted underground following",
-      "a regional gem almost unknown outside its home country",
-      "a one-album wonder that was never followed up",
-      "a late-career revelation by an artist known for something else entirely",
-      "an influential record that shaped a genre without ever becoming famous itself",
-      "a collaborative or side-project record that outshines the artists' main work",
-      "a debut record that arrived fully-formed and changed everything for a small scene",
-      "a record so genre-defying it still has no accurate descriptor",
-    ]);
+    const digAngle = Math.random() < 0.5
+      ? pick([
+          "deeply obscure and rarely discussed even among collectors",
+          "critically overlooked on release but reassessed since",
+          "a cult classic with a devoted underground following",
+          "a regional gem almost unknown outside its home country",
+          "a one-album wonder that was never followed up",
+          "a collaborative or side-project record that outshines the artists' main work",
+        ])
+      : pick([
+          "a widely loved, critically acclaimed record this collector has somehow never picked up",
+          "a record that turns up on every credible 'best of the style' list, and earns its place there",
+          "a defining record by an artist they already love a different era or side of",
+          "a well-known, obvious-in-hindsight next step from what's already on their shelves",
+        ]);
 
-    const angleBlock = `\nEXPLORATION ANGLE — you must satisfy both era constraints:\n- One pick MUST come from the ${digDecadeModern} — modern releases are just as valid on vinyl as classics\n- One pick MUST come from the ${digDecadeClassic} — dig into that era's obscure corners\n- The third pick can come from any era\n- At least one pick must be: ${digAngle}\n`;
+    const angleBlock = `\nEXPLORATION ANGLE — you must satisfy both era constraints:\n- One pick MUST come from the ${digDecadeModern} — modern releases are just as valid on vinyl as classics\n- One pick MUST come from the ${digDecadeClassic}\n- The third pick can come from any era\n- One pick should be: ${digAngle}\n- The other two picks do NOT need to be obscure — well-known, widely loved records within "${style}" are just as valid as a deep cut. Most digs should land mostly on great, findable records; rarity is a bonus, not the goal.\n`;
 
     prompt = `You are a vinyl crate-digging assistant with encyclopaedic knowledge of recorded music across all genres, eras, and territories.
 
@@ -361,14 +434,14 @@ ${collectionLines || "(Empty collection)"}
 
 TOP 5 LISTS:
 ${listsLines}
-${artistsBlock}${prevBlock}${wantlistBlock}${prevRecsBlock}${angleBlock}
+${artistsBlock}${prevBlock}${wantlistBlock}${prevRecsBlock}${feedbackBlock}${angleBlock}
 MODE: STYLE DIG — recommend artists/albums squarely within the style "${style}" that this collector does not own yet and has not already wishlisted.
 
 Rules:
 - STRICT: Every recommendation must be unambiguously within the "${style}" style, or a very close subgenre of it. Do not drift into adjacent but distinct styles.
 - STRICT: Every recommendation must be by an artist NOT in the OWNED ARTISTS list and NOT in the WANTLIST.
-- STRICT: Do not repeat artists from the ALREADY RECOMMENDED THIS SESSION list — every "Dig again" must surface a genuinely different corner of "${style}".
-- Follow the EXPLORATION ANGLE for era variety — do not default to the three most famous records in this style.
+- STRICT: Do not repeat artists from the ALREADY RECOMMENDED list — every "Dig again" must surface a genuinely different corner of "${style}".
+- Apply the EXPLORATION ANGLE to one pick only. The other two should be whatever genuinely fits this collector's taste best within "${style}" — they can be well-known, even essential, records in the style. The bar is "this collector will love it," not "this collector hasn't heard of it."
 - Each reason must explain specifically what makes this pick a great entry point into "${style}" for someone who already collects vinyl in this lane — speak to the texture, atmosphere, and lineage, not genre tags. Maximum 2 sentences.
 - The picks should feel genuinely surprising but inevitable in hindsight — the kind of record they will wonder how they missed.
 - Prioritise records obtainable on vinyl (original pressings, reissues, or easily available secondhand).
@@ -428,6 +501,18 @@ ${JSON_SCHEMA}`;
     // Atomically increment daily dig count for all users (fire-and-forget)
     const today = new Date().toISOString().slice(0, 10);
     void (supabase as any).rpc("increment_dig_count", { p_user_id: user.id, p_date: today, p_mode: mode });
+
+    // Persist outside-collection picks (with genre/region tags) so future digs
+    // (any session/device) don't repeat them and can learn from what's accepted
+    if (mode === "discover" || mode === "style") {
+      const rows = recommendations
+        .filter((r: { artist?: string; album?: string }) => r.artist && r.album)
+        .map((r: { artist: string; album: string; genre?: string; region?: string }) => ({
+          user_id: user.id, artist: r.artist, album: r.album, mode,
+          genre: r.genre ?? null, region: r.region ?? null,
+        }));
+      if (rows.length > 0) void (supabase as any).from("dig_history").insert(rows);
+    }
 
     return Response.json({ recommendations });
   } catch (err) {
