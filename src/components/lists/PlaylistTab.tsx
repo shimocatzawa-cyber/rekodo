@@ -47,6 +47,7 @@ export default function PlaylistTab() {
   const [tracks,     setTracks]     = useState<GeneratedTrack[]>([]);
   const [generating,  setGenerating] = useState(false);
   const [error,       setError]      = useState<string | null>(null);
+  const [dailyLimitReached, setDailyLimitReached] = useState(false);
   const [resequencing, setResequencing] = useState(false);
 
   const [matchStatus, setMatchStatus] = useState<MatchStatus | null>(null);
@@ -190,6 +191,7 @@ export default function PlaylistTab() {
     if (!mood) return;
     setGenerating(true);
     setError(null);
+    setDailyLimitReached(false);
     setSaveDone(null);
     setActiveSavedId(null);
     try {
@@ -199,7 +201,10 @@ export default function PlaylistTab() {
         body: JSON.stringify({ mood, includeOutsideCollection, trackCount, refinement }),
       });
       const data = await res.json() as { tracks?: GeneratedTrack[]; error?: string };
-      if (!res.ok || !data.tracks) {
+      if (res.status === 429 && data.error === "daily_limit_reached") {
+        setDailyLimitReached(true);
+        setTracks([]);
+      } else if (!res.ok || !data.tracks) {
         setError(data.error ?? "Failed to generate playlist.");
         setTracks([]);
       } else {
@@ -290,6 +295,27 @@ export default function PlaylistTab() {
         />
 
         <div style={{ minWidth: 0 }}>
+          {dailyLimitReached && !generating && (
+            <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: "12px", padding: "2rem", textAlign: "center" }}>
+              <p style={{ fontFamily: MONO, fontSize: "0.55rem", letterSpacing: "0.16em", textTransform: "uppercase", color: "#CC5500", margin: 0 }}>
+                Daily limit reached
+              </p>
+              <p style={{ fontFamily: SERIF, fontSize: "1.6rem", fontWeight: 400, color: "#0a0a0a", margin: 0, lineHeight: 1.1 }}>
+                2 playlists per day
+              </p>
+              <p style={{ fontFamily: MONO, fontSize: "0.6rem", color: "#666", margin: "4px 0 16px", lineHeight: 1.7 }}>
+                Free accounts get 2 playlist generations per day.<br />
+                Support rek<span style={{ color: "#CC5500" }}>ō</span>do for unlimited access.
+              </p>
+              <a
+                href="/about#support"
+                style={{ fontFamily: MONO, fontSize: "0.6rem", letterSpacing: "0.12em", textTransform: "uppercase", color: "#FDF6F0", background: "#0a0a0a", padding: "12px 24px", textDecoration: "none", display: "inline-block" }}
+              >
+                Support rek<span style={{ color: "#CC5500" }}>ō</span>do →
+              </a>
+            </div>
+          )}
+
           {error && !generating && (
             <p style={{ fontFamily: MONO, fontSize: "10px", color: "#cc3300", marginBottom: "16px" }}>{error}</p>
           )}

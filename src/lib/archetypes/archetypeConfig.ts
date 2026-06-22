@@ -72,7 +72,7 @@ export const ARCHETYPES: Record<string, ArchetypeDefinition> = {
     japanese: '愛好者',
     jungianRoot: 'The Lover · Anima/Animus',
     color: '#CC5500',
-    sentence: 'You couldn\'t explain some of these records to anyone. That\'s not a problem.',
+    sentence: 'This collection has a heartbeat. It\'s been tracking your life the whole time.',
     shortDescription: 'The collection is a diary. Records mark emotional events, relationships, periods of life.',
     shadowOf: 'scholar',
     imagePath: '/archetypes/lover.png',
