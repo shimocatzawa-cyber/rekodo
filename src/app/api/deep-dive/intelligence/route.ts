@@ -83,6 +83,36 @@ function stripUnverifiedPodcastUrls(data: unknown): void {
   }
 }
 
+// Same backstop for the books section: a "verified" link must be the book's own
+// product page, not a search/category page or some other Amazon/Audible URL.
+function isAmazonProductUrl(url: string): boolean {
+  try {
+    const u = new URL(url);
+    if (!/(^|\.)amazon\.com$/.test(u.hostname)) return false;
+    return /\/dp\/[A-Z0-9]{10}(?:[/?]|$)/i.test(u.pathname);
+  } catch {
+    return false;
+  }
+}
+
+function isAudibleProductUrl(url: string): boolean {
+  try {
+    const u = new URL(url);
+    if (!/(^|\.)audible\.com$/.test(u.hostname)) return false;
+    return u.pathname.startsWith("/pd/");
+  } catch {
+    return false;
+  }
+}
+
+function stripUnverifiedBookUrls(data: unknown): void {
+  if (!data || typeof data !== "object" || !Array.isArray((data as { items?: unknown }).items)) return;
+  for (const item of (data as { items: Record<string, unknown>[] }).items) {
+    if (typeof item.amazonUrl === "string" && !isAmazonProductUrl(item.amazonUrl)) delete item.amazonUrl;
+    if (typeof item.audibleUrl === "string" && !isAudibleProductUrl(item.audibleUrl)) delete item.audibleUrl;
+  }
+}
+
 function getSupabase() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -196,8 +226,8 @@ ORDER — strictly follow this:
 
 INSTRUCTIONS:
 - Use web search to confirm each title actually exists before including it — a title you can't verify is worse than no title.
-- If the format includes print ("book" or "both"), search for the real Amazon product page (e.g. "<title> <author> site:amazon.com") and set "amazonUrl" to a direct amazon.com/dp/... URL if found.
-- If the format includes audio ("audiobook" or "both"), search for the real Audible page (e.g. "<title> <author> site:audible.com") and set "audibleUrl" to a direct audible.com/pd/... URL if found.
+- If the format includes print ("book" or "both"), search for the real Amazon product page (e.g. "<title> <author> site:amazon.com") and set "amazonUrl" to that book's own product page — it must contain "/dp/" followed by the ASIN (e.g. https://www.amazon.com/dp/0571234567). A search-results or category page is not a product page — omit the field instead of guessing.
+- If the format includes audio ("audiobook" or "both"), search for the real Audible page (e.g. "<title> <author> site:audible.com") and set "audibleUrl" to that title's own product page — it must start with "/pd/" (e.g. https://www.audible.com/pd/Title-Audiobook/B0ABCDEFGH). Omit the field if you can't find that exact pattern.
 - For the "format" field: use "audiobook" if only available as audio. Use "both" if it exists as both print and audiobook. Use "book" if no audiobook edition is known. This field controls which store links appear — be accurate.
 - For the "isbn13" field: include the ISBN-13 if you are confident (13 digits, starts with 978 or 979). Omit if uncertain — a wrong ISBN is worse than none.
 - For the "written_by_artist" field: set true if ${artist} is the author or primary narrator. Set false for all other items.
@@ -293,10 +323,12 @@ export async function POST(request: NextRequest) {
     if (CACHED_SECTIONS.has(section)) {
       const cached = await readCache(artist, section);
       if (cached) {
-        // Cached podcasts entries from before show-vs-episode URL validation existed
-        // may still have a show URL mislabeled as verified — strip it on read so the
-        // client's fallback lookup gets a real shot, without paying for regeneration.
+        // Cached podcasts/books entries from before product-vs-page URL validation
+        // existed may still have a non-product URL mislabeled as verified — strip
+        // it on read so the client's fallback lookup gets a real shot, without
+        // paying for regeneration.
         if (section === "podcasts") stripUnverifiedPodcastUrls(cached);
+        if (section === "books") stripUnverifiedBookUrls(cached);
         return NextResponse.json({ data: cached, cached: true });
       }
     }
@@ -354,6 +386,7 @@ export async function POST(request: NextRequest) {
     }
 
     if (section === "podcasts") stripUnverifiedPodcastUrls(data);
+    if (section === "books") stripUnverifiedBookUrls(data);
 
     // ── Cache write (fire-and-forget, 3 s hard timeout) ────────────────────────
     if (CACHED_SECTIONS.has(section)) {
