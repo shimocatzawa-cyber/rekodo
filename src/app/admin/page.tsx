@@ -1,7 +1,22 @@
-import { createClient as createServiceClient } from "@supabase/supabase-js";
+import { createClient as createServiceClient, type User } from "@supabase/supabase-js";
 import AdminClient from "./AdminClient";
 import type { AdminUser } from "./UserRow";
 import { ARCHETYPES } from "@/lib/archetypes/archetypeConfig";
+
+type ProfileRow = {
+  id: string;
+  username: string | null;
+  display_name: string | null;
+  subscription_tier: string | null;
+  role: string | null;
+  created_at: string;
+  last_synced_at: string | null;
+  city: string | null;
+  country: string | null;
+  is_donor: boolean;
+  spotify_connected: boolean;
+  bandcamp_username: string | null;
+};
 
 const SERIF  = "var(--font-editorial)";
 const MONO   = "var(--font-mono)";
@@ -39,30 +54,41 @@ async function fetchPaged(
   return rows;
 }
 
+// auth.admin.listUsers has its own page/perPage cap — must be paginated separately from fetchPaged.
+async function fetchAllAuthUsers(adminDb: ReturnType<typeof getAdminDb>): Promise<User[]> {
+  const users: User[] = [];
+  const PER_PAGE = 1000;
+  for (let page = 1; ; page++) {
+    const { data, error } = await adminDb.auth.admin.listUsers({ page, perPage: PER_PAGE });
+    if (error) {
+      console.error("[admin] listUsers query failed:", error.message);
+      break;
+    }
+    if (!data.users.length) break;
+    users.push(...data.users);
+    if (data.users.length < PER_PAGE) break;
+  }
+  return users;
+}
+
 export default async function AdminPage() {
   const adminDb = getAdminDb();
 
-  // Fetch profiles and auth users — explicit limit avoids Supabase's default 1000-row cap
-  const [profilesResult, usersResult, wantlistRows, discogsRows, archetypeRows, paymentRows] = await Promise.all([
-    adminDb
-      .from("profiles")
-      .select("id, username, display_name, subscription_tier, role, created_at, last_synced_at, city, country, is_donor, spotify_connected, bandcamp_username")
-      .range(0, 999),
-    adminDb.auth.admin.listUsers({ perPage: 1000 }),
+  // Fetch profiles and auth users — paginated past Supabase's 1000-row/page caps
+  const [profiles, authUsers, wantlistRows, discogsRows, archetypeRows, paymentRows] = await Promise.all([
+    fetchPaged(
+      adminDb,
+      "profiles",
+      "id, username, display_name, subscription_tier, role, created_at, last_synced_at, city, country, is_donor, spotify_connected, bandcamp_username"
+    ),
+    fetchAllAuthUsers(adminDb),
     fetchPaged(adminDb, "lists", "user_id", { column: "slug", value: "wantlist" }),
     fetchPaged(adminDb, "discogs_tokens", "user_id, discogs_username"),
     fetchPaged(adminDb, "archetype_cache", "user_id, primary_archetype"),
     fetchPaged(adminDb, "payments", "user_id, type, amount_cents, currency"),
   ]);
 
-  if (profilesResult.error) {
-    console.error("[admin] profiles query failed:", profilesResult.error.message);
-  }
-
-  const profiles  = profilesResult.data ?? [];
-  const authUsers = usersResult.data?.users ?? [];
-
-  const profileById = new Map(profiles.map(p => [p.id, p]));
+  const profileById = new Map(profiles.map(p => [p.id as string, p as unknown as ProfileRow]));
 
   const wantlistIds  = new Set(wantlistRows.map(r => r.user_id as string));
   const discogsIds   = new Set(discogsRows.map(r => r.user_id as string));

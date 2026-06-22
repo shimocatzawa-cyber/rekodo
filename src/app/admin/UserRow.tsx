@@ -49,31 +49,31 @@ function formatLocation(city: string | null, country: string | null): string {
 }
 
 function ConnectionBadges({ connections }: { connections: AdminUser["connections"] }) {
-  const items: { key: keyof AdminUser["connections"]; label: string }[] = [
-    { key: "discogs",    label: "Discogs" },
-    { key: "collection", label: "Collection" },
-    { key: "wantlist",   label: "Wantlist" },
-    { key: "spotify",    label: "Spotify" },
-    { key: "bandcamp",   label: "Bandcamp" },
+  const items: { key: keyof AdminUser["connections"]; label: string; initial: string }[] = [
+    { key: "discogs",    label: "Discogs",    initial: "D" },
+    { key: "collection", label: "Collection", initial: "C" },
+    { key: "wantlist",   label: "Wantlist",   initial: "W" },
+    { key: "spotify",    label: "Spotify",    initial: "S" },
+    { key: "bandcamp",   label: "Bandcamp",   initial: "B" },
   ];
   return (
-    <div style={{ display: "flex", gap: "4px", flexWrap: "wrap" }}>
-      {items.map(({ key, label }) => {
+    <div style={{ display: "flex", gap: "3px" }}>
+      {items.map(({ key, label, initial }) => {
         const on = connections[key];
         return (
           <span
             key={key}
             title={`${label}: ${on ? "connected" : "not connected"}`}
             style={{
-              fontFamily: MONO, fontSize: "8px", letterSpacing: "0.06em",
-              textTransform: "uppercase", padding: "2px 6px",
+              fontFamily: MONO, fontSize: "9px", fontWeight: 700,
+              width: "16px", height: "16px", lineHeight: "16px",
+              textAlign: "center", borderRadius: "2px",
               border: `1px solid ${on ? ORANGE : RULE}`,
               color: on ? ORANGE : MUTED,
               background: "transparent",
-              whiteSpace: "nowrap",
             }}
           >
-            {label}
+            {initial}
           </span>
         );
       })}
@@ -99,7 +99,7 @@ function TierPill({ tier }: { tier: string | null }) {
   );
 }
 
-function isBlocked(bannedUntil: string | null): boolean {
+export function isBlocked(bannedUntil: string | null): boolean {
   if (!bannedUntil) return false;
   return new Date(bannedUntil) > new Date();
 }
@@ -109,7 +109,7 @@ function formatDate(iso: string | null): string {
   return new Date(iso).toLocaleDateString("en-AU", { day: "numeric", month: "short", year: "numeric" });
 }
 
-export default function UserRow({ user }: { user: AdminUser }) {
+export default function UserRow({ user, showFinancial, columnCount }: { user: AdminUser; showFinancial: boolean; columnCount: number }) {
   const [open,        setOpen]       = useState(false);
   const initialTier = ["plus", "premium", "supporter"].includes(user.subscription_tier ?? "") ? "supporter" : "free";
   const [tier,        setTier]       = useState(initialTier);
@@ -218,30 +218,39 @@ export default function UserRow({ user }: { user: AdminUser }) {
           {user.record_count > 0 ? user.record_count.toLocaleString() : "—"}
         </td>
 
-        {/* Subscription spend */}
-        <td style={{ ...cellSt, color: user.subscription_spend ? INK : MUTED, textAlign: "right" as const }}>
-          {user.subscription_spend
-            ? formatAmount(user.subscription_spend.cents, user.subscription_spend.currency)
-            : "—"}
-        </td>
+        {/* Subscription spend / Donated / Discogs username — hidden by default behind "show all columns" */}
+        {showFinancial && (
+          <td style={{ ...cellSt, color: user.subscription_spend ? INK : MUTED, textAlign: "right" as const }}>
+            {user.subscription_spend
+              ? formatAmount(user.subscription_spend.cents, user.subscription_spend.currency)
+              : "—"}
+          </td>
+        )}
 
-        {/* Donation total */}
-        <td style={{ ...cellSt, color: user.donation_total ? INK : MUTED, textAlign: "right" as const }}>
-          {user.donation_total
-            ? formatAmount(user.donation_total.cents, user.donation_total.currency)
-            : "—"}
-        </td>
+        {showFinancial && (
+          <td style={{ ...cellSt, color: user.donation_total ? INK : MUTED, textAlign: "right" as const }}>
+            {user.donation_total
+              ? formatAmount(user.donation_total.cents, user.donation_total.currency)
+              : "—"}
+          </td>
+        )}
 
         <td style={cellSt}>
           <ConnectionBadges connections={user.connections} />
         </td>
 
-        <td style={{ ...cellSt, color: user.discogs_username ? INK : MUTED }}>
-          {user.discogs_username ?? "—"}
-        </td>
+        {showFinancial && (
+          <td style={{ ...cellSt, color: user.discogs_username ? INK : MUTED }}>
+            {user.discogs_username ?? "—"}
+          </td>
+        )}
 
         <td style={cellSt}>
           <TierPill tier={user.subscription_tier} />
+        </td>
+
+        <td style={{ ...cellSt, color: MUTED, whiteSpace: "nowrap" as const }}>
+          {formatDate(user.created_at)}
         </td>
 
         <td style={{ ...cellSt, color: MUTED, whiteSpace: "nowrap" as const }}>
@@ -276,7 +285,7 @@ export default function UserRow({ user }: { user: AdminUser }) {
 
       {open && (
         <tr>
-          <td colSpan={13} style={{ padding: "16px 16px 20px", borderBottom: `1px solid ${RULE}`, background: "#fafaf8" }}>
+          <td colSpan={columnCount} style={{ padding: "16px 16px 20px", borderBottom: `1px solid ${RULE}`, background: "#fafaf8" }}>
             <div style={{ display: "flex", flexDirection: "column", gap: "20px" }}>
 
               {/* Row 1: tier + role + save */}
