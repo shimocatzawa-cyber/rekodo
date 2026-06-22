@@ -73,7 +73,6 @@ export async function GET(request: NextRequest) {
       : 0;
 
     if (Date.now() - lastAttemptAt > RETRIGGER_IF_IDLE_MS) {
-      const { data: { session } } = await supabase.auth.getSession();
       const enrichUrl = new URL("/api/collection/csv-enrich", request.url).toString();
       after(async () => {
         try {
@@ -81,8 +80,7 @@ export async function GET(request: NextRequest) {
             method: "POST",
             headers: {
               "Content-Type": "application/json",
-              "x-rekodo-internal": "true",
-              ...(session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {}),
+              "x-rekodo-internal-secret": process.env.INTERNAL_API_SECRET ?? "",
             },
             body: JSON.stringify({ userId: user.id }),
           });

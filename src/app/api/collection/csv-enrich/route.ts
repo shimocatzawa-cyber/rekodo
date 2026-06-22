@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@/lib/supabase/server";
-import { createClient as createDirectClient } from "@supabase/supabase-js";
+import { createClient as createServiceClient } from "@supabase/supabase-js";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 300;
@@ -54,8 +53,9 @@ interface DiscogsRelease {
 }
 
 export async function POST(request: NextRequest) {
-  // Internal-only: require the shared header
-  if (request.headers.get("x-rekodo-internal") !== "true") {
+  // Internal-only: require a real shared secret, not a guessable static header.
+  const internalSecret = process.env.INTERNAL_API_SECRET;
+  if (!internalSecret || request.headers.get("x-rekodo-internal-secret") !== internalSecret) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
@@ -69,16 +69,14 @@ export async function POST(request: NextRequest) {
   const userId = body.userId;
   if (!userId) return NextResponse.json({ error: "userId required" }, { status: 400 });
 
-  // Prefer an authenticated client using the JWT forwarded by enrich-all
-  const authHeader = request.headers.get("Authorization");
-  const jwt = authHeader?.startsWith("Bearer ") ? authHeader.slice(7) : null;
-  const supabase = jwt
-    ? createDirectClient(
-        process.env.NEXT_PUBLIC_SUPABASE_URL!,
-        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-        { global: { headers: { Authorization: `Bearer ${jwt}` } } }
-      )
-    : await createClient();
+  // Trusted internal call (secret already verified above) — use the service
+  // role client so this works regardless of RLS, matching the other
+  // server-to-server background routes (discogs-sync-processor, price-batch).
+  const supabase = createServiceClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!,
+    { auth: { persistSession: false } }
+  );
 
   const key    = process.env.DISCOGS_CONSUMER_KEY;
   const secret = process.env.DISCOGS_CONSUMER_SECRET;

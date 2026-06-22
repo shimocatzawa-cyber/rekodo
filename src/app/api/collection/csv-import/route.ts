@@ -228,7 +228,7 @@ export async function POST(request: NextRequest) {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
-      "x-rekodo-internal": "true",
+      "x-rekodo-internal-secret": process.env.INTERNAL_API_SECRET ?? "",
     },
     body: JSON.stringify({ userId: user.id }),
   }).catch(() => {});

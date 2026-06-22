@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
+import { createClient as createServiceClient } from "@supabase/supabase-js";
 import { type NextRequest } from "next/server";
 
 export const dynamic = "force-dynamic";
@@ -133,6 +134,11 @@ export async function GET(request: NextRequest) {
 
   const supabase = await createClient();
   const { data: { user: viewer } } = await supabase.auth.getUser();
+
+  // Requires login (not ownership — viewing matches on any public profile is
+  // intended) so the expensive scoring computation below can't be triggered
+  // by anonymous, unauthenticated traffic.
+  if (!viewer) return Response.json({ error: "Unauthorized" }, { status: 401 });
 
   // ── Check cache (24h) ─────────────────────────────────────────────────────
   const cacheExpiry = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
@@ -321,9 +327,18 @@ export async function GET(request: NextRequest) {
 
   scored.sort((a, b) => b.score - a.score);
 
-  // 8. Cache results if authenticated (delete-then-insert pattern per project convention)
-  if (viewer && scored.length > 0) {
-    await supabase.from("compatibility_scores").delete().eq("user_id_a", userId);
+  // 8. Cache results (delete-then-insert pattern per project convention).
+  // Uses the service role client since these rows are a shared cache keyed by
+  // the profile being viewed (user_id_a), not by the viewer — the server
+  // computes and writes them on the viewer's behalf rather than the viewer
+  // writing their own rows, so this can't go through the viewer's RLS-scoped session.
+  if (scored.length > 0) {
+    const adminDb = createServiceClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.SUPABASE_SERVICE_ROLE_KEY!,
+      { auth: { persistSession: false } }
+    );
+    await adminDb.from("compatibility_scores").delete().eq("user_id_a", userId);
     const toInsert = scored.slice(0, 50).map(s => ({
       user_id_a:    userId,
       user_id_b:    s.userId,
@@ -333,7 +348,7 @@ export async function GET(request: NextRequest) {
     }));
     // Insert in chunks to avoid request size limits
     for (let i = 0; i < toInsert.length; i += 20) {
-      await supabase.from("compatibility_scores").insert(toInsert.slice(i, i + 20));
+      await adminDb.from("compatibility_scores").insert(toInsert.slice(i, i + 20));
     }
   }
 
