@@ -17,6 +17,15 @@ export const maxDuration = 60;
 const SHORTLIST_SIZE = 12;
 const MAX_UNMATCHED_POOL_FOR_PROMPT = 300;
 
+// With "include tracks outside my collection" on, the final selection had no
+// floor on how many tracks actually come from the collection — Claude was
+// sometimes filling the whole playlist with wantlist/discover picks and
+// returning zero from the collection itself, defeating the point of "a
+// playlist from your collection". This guarantees at least half (rounding up)
+// always comes from what the collector actually owns, whenever enough owned
+// candidates exist to allow it.
+const MIN_COLLECTION_RATIO = 0.5;
+
 const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
 type SpotifyTrackJson = { spotify_uri: string; title: string; track_number: number; duration_ms: number; preview_url: string | null };
@@ -590,10 +599,17 @@ export async function POST(request: NextRequest) {
     .map(c => `${c.spotify_uri} :: ${c.artist} — ${c.title} (album: ${c.album}; source: ${c.source}; confidence: ${c.confidence})`)
     .join("\n");
 
+  const minCollectionCount = Math.ceil(trackCount * MIN_COLLECTION_RATIO);
+  const collectionCandidateCount = candidates.filter(c => c.source === "collection").length;
+  const ratioBlock = includeOutsideCollection && collectionCandidateCount > 0
+    ? `\nAt least ${Math.min(minCollectionCount, collectionCandidateCount)} of the ${trackCount} tracks MUST have source "collection" — this is a playlist FROM the collector's own collection first; wantlist and discover picks are a bonus, not a replacement.\n`
+    : "";
+
   const userPrompt = [
     `Mood: ${mood}`,
     refinement && `Refinement: ${refinement}`,
     `Target track count: ${trackCount}`,
+    ratioBlock,
     "",
     "Candidate tracks (you may ONLY choose from this exact list, using the exact spotify_uri given):",
     candidateListText,
@@ -605,7 +621,7 @@ export async function POST(request: NextRequest) {
       max_tokens: 2000,
       system: [{
         type: "text",
-        text: `You are rekōdo's DJ. Given a candidate pool of tracks (each tagged with its confidence — "tagged" means the collector explicitly marked the album with this mood, "inferred" means it's a guess from genre/era/label context) and a target mood, select exactly the requested number of tracks and sequence them as a coherent DJ set: an arc with an opening, building section, peak, and resolution. Never select more than one track from the same artist — each artist may appear at most once in the playlist, even if the candidate pool is dominated by a few artists; skip an otherwise-good track rather than repeat an artist. Prefer "tagged" tracks over "inferred" ones when there are enough to choose from. Honor any refinement text as a hard constraint (e.g. "skip anything too upbeat" means exclude upbeat-feeling tracks even if otherwise a good mood fit). For each track, write one short rationale (max 20 words) explaining its place in the sequence (e.g. "opens low and slow", "lifts the energy into the peak", "brings it back down to close"). You must only select spotify_uri values that appear verbatim in the candidate list — never invent a track.`,
+        text: `You are rekōdo's DJ. Given a candidate pool of tracks (each tagged with its confidence — "tagged" means the collector explicitly marked the album with this mood, "inferred" means it's a guess from genre/era/label context — and its source, "collection", "wantlist", or "discover") and a target mood, select exactly the requested number of tracks and sequence them as a coherent DJ set: an arc with an opening, building section, peak, and resolution. Never select more than one track from the same artist — each artist may appear at most once in the playlist, even if the candidate pool is dominated by a few artists; skip an otherwise-good track rather than repeat an artist. Prefer "tagged" tracks over "inferred" ones when there are enough to choose from. If a minimum "collection" track count is specified, treat it as a hard floor, not a target to undercut. Honor any refinement text as a hard constraint (e.g. "skip anything too upbeat" means exclude upbeat-feeling tracks even if otherwise a good mood fit). For each track, write one short rationale (max 20 words) explaining its place in the sequence (e.g. "opens low and slow", "lifts the energy into the peak", "brings it back down to close"). You must only select spotify_uri values that appear verbatim in the candidate list — never invent a track.`,
         cache_control: { type: "ephemeral" },
       }],
       // Forced tool call instead of raw-JSON-in-prose — see shortlistUnmatched
@@ -665,6 +681,40 @@ export async function POST(request: NextRequest) {
 
     if (validated.length === 0) {
       return NextResponse.json({ error: "Generation failed — no valid tracks returned." }, { status: 502 });
+    }
+
+    // Enforce the inside/outside ratio here too — the prompt asks for a
+    // collection floor, but the same "don't rely on the model alone" rule
+    // applies as for the artist-dedup above. Swap from the tail first (the
+    // resolution end of Claude's sequence) so the deliberately-built opening
+    // is disturbed the least; fall back to appending if there's nothing left
+    // to swap out.
+    if (includeOutsideCollection) {
+      const target = Math.min(minCollectionCount, collectionCandidateCount);
+      let collectionCount = validated.filter(t => t.source === "collection").length;
+      if (collectionCount < target) {
+        const usedArtists = new Set(validated.map(t => t.artist.toLowerCase().trim()));
+        const usedUris    = new Set(validated.map(t => t.spotify_uri));
+        const extraCollection = shuffle(candidates.filter(c =>
+          c.source === "collection" && !usedUris.has(c.spotify_uri) && !usedArtists.has(c.artist.toLowerCase().trim())
+        ));
+        while (collectionCount < target && extraCollection.length > 0) {
+          const extra = extraCollection.pop()!;
+          const replacement: GeneratedTrack = {
+            spotify_uri: extra.spotify_uri, artist: extra.artist, title: extra.title, album: extra.album,
+            year: extra.year, cover_url: extra.cover_url, duration_ms: extra.duration_ms, preview_url: extra.preview_url,
+            rationale: "from your collection", source: extra.source,
+          };
+          let swapIdx = -1;
+          for (let i = validated.length - 1; i >= 0; i--) {
+            if (validated[i].source !== "collection") { swapIdx = i; break; }
+          }
+          if (swapIdx >= 0) validated[swapIdx] = replacement;
+          else validated.push(replacement);
+          usedArtists.add(extra.artist.toLowerCase().trim());
+          collectionCount++;
+        }
+      }
     }
 
     return NextResponse.json({ tracks: validated });
