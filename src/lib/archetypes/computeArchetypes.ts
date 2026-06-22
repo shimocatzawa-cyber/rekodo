@@ -24,6 +24,7 @@ export interface ComputedSignals {
   aspirationRatio: SignalResult & { ratio: number }
   curatorialReach: SignalResult
   digitalDivergence: SignalResult & { digitalOnlyArtists: string[] }
+  emotionalRange: SignalResult & { uniqueFeelings: number; taggedCount: number }
 }
 
 export interface ArchetypeResult {
@@ -66,6 +67,7 @@ export async function computeArchetypes(
         media_condition,
         price_median,
         created_at,
+        feeling,
         records (
           artist, album, year, genre, styles, label, country, format,
           community_have, community_want
@@ -96,6 +98,7 @@ export async function computeArchetypes(
     media_condition: string | null
     price_median: number | null
     created_at: string | null
+    feeling: string | null
     records: RecordJoin | RecordJoin[] | null
   }
 
@@ -525,6 +528,25 @@ export async function computeArchetypes(
     }
   }
 
+  // 15. emotionalRange — breadth of user-applied feeling tags (collection's "Feeling" attribute).
+  // Entirely optional per record, so most collections will have zero tagged — unavailable
+  // (score 0) in that case, same pattern as trophyRatio/styleRange above.
+  const feelingCounts = new Map<string, number>()
+  for (const row of userRecords) {
+    if (row.feeling) feelingCounts.set(row.feeling, (feelingCounts.get(row.feeling) ?? 0) + 1)
+  }
+  const taggedCount = [...feelingCounts.values()].reduce((a, b) => a + b, 0)
+  const uniqueFeelings = feelingCounts.size
+  const hasFeelingData = taggedCount > 0
+  const emotionalRange: ComputedSignals['emotionalRange'] = {
+    score: hasFeelingData ? clamp(uniqueFeelings * 8) : 0,
+    label: !hasFeelingData ? 'No feeling data' : uniqueFeelings > 7 ? 'Full Spectrum' : uniqueFeelings >= 4 ? 'Varied' : 'Focused',
+    uniqueFeelings,
+    taggedCount,
+    subtext: hasFeelingData ? `${taggedCount} records tagged across ${uniqueFeelings} feelings` : 'Tag records with a feeling to unlock',
+    unavailable: !hasFeelingData,
+  }
+
   // ── ASSEMBLE SIGNALS ────────────────────────────────────────────────────────
   const signals: ComputedSignals = {
     labelLoyalty,
@@ -541,6 +563,7 @@ export async function computeArchetypes(
     aspirationRatio,
     curatorialReach,
     digitalDivergence,
+    emotionalRange,
   }
 
   // ── ARCHETYPE SCORING ────────────────────────────────────────────────────────
@@ -585,11 +608,12 @@ export async function computeArchetypes(
       s.pressingOriginDiversity.score * 0.15
     ),
     lover: clamp(
-      s.acquisitionRhythm.score * 0.30 +
-      (100 - s.sonicCoherence.score) * 0.25 +
-      s.aspirationRatio.score * 0.20 +
+      s.acquisitionRhythm.score * 0.25 +
+      (100 - s.sonicCoherence.score) * 0.20 +
+      s.aspirationRatio.score * 0.15 +
       (100 - s.labelLoyalty.score) * 0.15 +
-      s.styleRange.score * 0.10
+      s.styleRange.score * 0.10 +
+      s.emotionalRange.score * 0.15
     ),
     alchemist: clamp(
       s.curatorialReach.score * 0.35 +

@@ -105,4 +105,11 @@ export const SIGNALS: SignalDefinition[] = [
     description: 'How different your Bandcamp taste is from your vinyl',
     dataSource: 'digital_imports vs records',
   },
+  {
+    id: 'emotionalRange',
+    label: 'Emotional Signature',
+    japaneseLabel: '感情の幅',
+    description: 'Breadth of feelings you\'ve tagged across your collection',
+    dataSource: 'user_records.feeling',
+  },
 ]

@@ -44,8 +44,14 @@ export async function GET() {
     .eq("user_id", user.id)
     .maybeSingle() as { data: Record<string, unknown> | null };
 
+  // Cached signals predating the emotionalRange signal (added below) lack that key —
+  // treat as stale so existing users get it on their next load instead of waiting
+  // out the full 30-day cache window.
+  const cacheHasCurrentSignals = (cache?.signals as Record<string, unknown> | null)?.emotionalRange != null;
+
   if (
     cache &&
+    cacheHasCurrentSignals &&
     isCacheValid(
       cache.generated_at as string | null,
       cache.record_count_at_generation as number | null,
