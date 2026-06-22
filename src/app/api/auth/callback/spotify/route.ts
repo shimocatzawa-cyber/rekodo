@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { createClient } from "@/lib/supabase/server";
+import { getProfileTokenDb } from "@/lib/spotify";
 
 export const dynamic = "force-dynamic";
 
@@ -63,8 +64,12 @@ export async function GET(request: NextRequest) {
 
     const me = await meRes.json() as { display_name: string; product: string };
 
+    // Token columns are column-privilege-revoked from anon/authenticated
+    // (see migration 20260622000007) — writing them requires the service
+    // role. Safe here because user.id comes from the caller's own verified
+    // session above, never a client-supplied value.
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    await (supabase as any).from("profiles").update({
+    await (getProfileTokenDb() as any).from("profiles").update({
       spotify_access_token:  tokens.access_token,
       spotify_refresh_token: tokens.refresh_token,
       spotify_token_expiry:  new Date(Date.now() + tokens.expires_in * 1000).toISOString(),

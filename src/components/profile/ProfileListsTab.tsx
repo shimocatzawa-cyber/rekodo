@@ -1265,10 +1265,9 @@ function MarketplaceDrawer({
         const recordIds = (matchingRecords as { id: string }[]).map(r => r.id);
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         let q = (supabase as any)
-          .from("user_records")
+          .from("public_sell_list")
           .select("user_id")
-          .in("record_id", recordIds)
-          .eq("open_to_offers", true);
+          .in("record_id", recordIds);
         if (user?.id) q = q.neq("user_id", user.id);
         const { data: sellerRows } = await q;
         if (!sellerRows?.length) { setMembersPhase("done"); return; }
@@ -1293,7 +1292,7 @@ function MarketplaceDrawer({
         fetch("/api/wantlist/express-interest", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ buyerUserId: user.id, sellerUsername: m.username, artist, album }),
+          body: JSON.stringify({ sellerUsername: m.username, artist, album }),
         })
       )
     );

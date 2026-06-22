@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import Anthropic from "@anthropic-ai/sdk";
 import { createClient } from "@/lib/supabase/server";
+import { checkDailyLimit, isSupporter } from "@/lib/rateLimit";
 
 export const dynamic = "force-dynamic";
 
@@ -14,6 +15,15 @@ export async function POST(request: NextRequest) {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
+
+  // Cheap per call, but still unbounded — debounced client-side, not server-side.
+  const FREE_RESEQUENCE_LIMIT = 100;
+  if (!(await isSupporter(supabase, user.id))) {
+    const { allowed, used, limit } = await checkDailyLimit(supabase, user.id, "playlist_resequence", FREE_RESEQUENCE_LIMIT);
+    if (!allowed) {
+      return NextResponse.json({ error: "daily_limit_reached", used, limit }, { status: 429 });
+    }
+  }
 
   const body = await request.json().catch(() => ({})) as { mood?: string; tracks?: TrackInput[] };
   const mood = (body.mood ?? "").toLowerCase().trim();

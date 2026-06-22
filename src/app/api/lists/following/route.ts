@@ -54,7 +54,8 @@ export async function GET() {
   ] = await Promise.all([
     supabase.from("profiles").select("id, username, display_name").in("id", pubUserIds),
     supabase.from("list_items").select("list_id, position, record_id").in("list_id", pubListIds).order("position"),
-    supabase.from("user_records").select("user_id").in("user_id", pubUserIds),
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (supabase as any).from("public_collection_summary").select("user_id").in("user_id", pubUserIds),
     supabase.from("saved_lists").select("list_id").eq("user_id", user.id).in("list_id", pubListIds),
     supabase.from("compatibility_scores")
       .select("user_id_b, score")

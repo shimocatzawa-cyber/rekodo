@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { getProfileTokenDb } from "@/lib/spotify";
 
 export const dynamic = "force-dynamic";
 
@@ -9,12 +10,16 @@ type SpotifyProfile = {
   spotify_token_expiry:  string | null;
 };
 
+// Token columns are column-privilege-revoked from anon/authenticated (see
+// migration 20260622000007) — reading/writing them requires the service
+// role. Safe here because userId always comes from the caller's own
+// verified session, never a client-supplied value.
 async function getValidToken(
-  supabase: Awaited<ReturnType<typeof createClient>>,
   userId: string
 ): Promise<string | null> {
+  const tokenDb = getProfileTokenDb();
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: profile } = await (supabase as any)
+  const { data: profile } = await (tokenDb as any)
     .from("profiles")
     .select("spotify_access_token, spotify_refresh_token, spotify_token_expiry")
     .eq("id", userId)
@@ -56,7 +61,7 @@ async function getValidToken(
   if (data.refresh_token) patch.spotify_refresh_token = data.refresh_token;
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  await (supabase as any).from("profiles").update(patch).eq("id", userId);
+  await (tokenDb as any).from("profiles").update(patch).eq("id", userId);
 
   return data.access_token;
 }
@@ -69,7 +74,7 @@ export async function GET(request: NextRequest) {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const token = await getValidToken(supabase, user.id);
+  const token = await getValidToken(user.id);
   if (!token) return NextResponse.json({ error: "No Spotify token" }, { status: 401 });
 
   const headers = { Authorization: `Bearer ${token}` };

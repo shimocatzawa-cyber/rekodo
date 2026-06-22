@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { getProfileTokenDb } from "@/lib/spotify";
 
 export const dynamic = "force-dynamic";
 
@@ -10,12 +11,16 @@ type SpotifyProfile = {
   spotify_product:       string | null;
 };
 
+// Token columns are column-privilege-revoked from anon/authenticated (see
+// migration 20260622000007) — reading/writing them requires the service
+// role. Safe here because userId always comes from the caller's own
+// verified session, never a client-supplied value.
 async function getValidToken(
-  supabase: Awaited<ReturnType<typeof createClient>>,
   userId: string
 ): Promise<{ token: string | null; status: number }> {
+  const tokenDb = getProfileTokenDb();
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: profile } = await (supabase as any)
+  const { data: profile } = await (tokenDb as any)
     .from("profiles")
     .select("spotify_access_token, spotify_refresh_token, spotify_token_expiry, spotify_product")
     .eq("id", userId)
@@ -61,7 +66,7 @@ async function getValidToken(
   if (data.refresh_token) patch.spotify_refresh_token = data.refresh_token;
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  await (supabase as any).from("profiles").update(patch).eq("id", userId);
+  await (tokenDb as any).from("profiles").update(patch).eq("id", userId);
 
   return { token: data.access_token, status: 200 };
 }
@@ -80,7 +85,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Missing deviceId or body" }, { status: 400 });
   }
 
-  const { token, status: tokenStatus } = await getValidToken(supabase, user.id);
+  const { token, status: tokenStatus } = await getValidToken(user.id);
   if (!token) {
     return NextResponse.json({ error: "No Spotify token", spotifyStatus: tokenStatus }, { status: 401 });
   }

@@ -69,12 +69,19 @@ export async function POST(request: NextRequest) {
   if (!(file instanceof File)) {
     return NextResponse.json({ error: "No file provided" }, { status: 400 });
   }
+  if (file.size > 10 * 1024 * 1024) {
+    return NextResponse.json({ error: "CSV must be under 10 MB." }, { status: 400 });
+  }
 
   const text = await file.text();
   const lines = text.split(/\r?\n/).filter(Boolean);
 
   if (lines.length < 2) {
     return NextResponse.json({ error: "CSV has no data rows" }, { status: 400 });
+  }
+  const MAX_ROWS = 20_000; // a header row plus a generously large collection
+  if (lines.length - 1 > MAX_ROWS) {
+    return NextResponse.json({ error: `CSV has too many rows — limit is ${MAX_ROWS.toLocaleString()}.` }, { status: 400 });
   }
 
   let imported = 0;

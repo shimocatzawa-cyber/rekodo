@@ -117,7 +117,8 @@ export default async function PublicProfilePage({ params }: { params: Params }) 
   }
 
   const [userRecordsResult, listsResult, followerRes, followingRes, collectionPhotoRes] = await Promise.all([
-    supabase.from("user_records").select("record_id").eq("user_id", profile.id),
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (supabase as any).from("public_collection_summary").select("record_id").eq("user_id", profile.id),
     supabase.from("lists")
       .select("id, title, slug, list_type")
       .eq("user_id", profile.id)
@@ -140,7 +141,7 @@ export default async function PublicProfilePage({ params }: { params: Params }) 
     collectionPhoto = publicUrl;
   }
   const totalRecords   = userRecords.length;
-  const recordIds      = userRecords.map(r => r.record_id).filter(Boolean) as string[];
+  const recordIds      = userRecords.map((r: { record_id: string }) => r.record_id).filter(Boolean) as string[];
   const listIds        = lists.map(l => l.id);
 
   const [recordDetailsResult, listItemsResult] = await Promise.all([

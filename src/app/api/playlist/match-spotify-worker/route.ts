@@ -41,9 +41,13 @@ export async function POST(request: NextRequest) {
   } catch {
     return NextResponse.json({ error: "Invalid body" }, { status: 400 });
   }
-  const userId = body.userId;
-  if (!userId) return NextResponse.json({ error: "userId required" }, { status: 400 });
 
+  // The "internal" header above is a static string, not a real secret — it's
+  // visible to anyone who opens devtools, so it can't be trusted as the only
+  // gate. The legitimate caller (match-spotify/route.ts) always forwards the
+  // calling user's own session token AND sets body.userId to that same id —
+  // derive the authoritative id from the verified token instead of trusting
+  // the body, so a forged request can't target an arbitrary user's id.
   const authHeader = request.headers.get("Authorization");
   const jwt = authHeader?.startsWith("Bearer ") ? authHeader.slice(7) : null;
   const supabase = jwt
@@ -53,6 +57,14 @@ export async function POST(request: NextRequest) {
         { global: { headers: { Authorization: `Bearer ${jwt}` } } }
       )
     : await createClient();
+  const { data: { user: callingUser } } = await supabase.auth.getUser();
+  if (!callingUser) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+  const userId = callingUser.id;
+  if (body.userId && body.userId !== userId) {
+    return NextResponse.json({ error: "userId mismatch" }, { status: 403 });
+  }
+
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const db = supabase as any;
 

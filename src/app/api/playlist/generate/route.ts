@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { getSpotifyAccessToken, getSpotifySearchCooldownUntil } from "@/lib/spotify";
 import { searchAlbum, fetchAlbumTracks } from "@/lib/spotifyMatch";
 import { FEELINGS as MOODS } from "@/lib/feelings";
+import { checkDailyLimit, isSupporter } from "@/lib/rateLimit";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
@@ -344,6 +345,17 @@ export async function POST(request: NextRequest) {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
+
+  // Each generation can fire up to 4 Anthropic calls (shortlist, discover,
+  // mood-relevance filter, final selection) — cap free usage so a scripted
+  // loop can't run up the bill unbounded. Supporters are unlimited.
+  const FREE_GENERATE_LIMIT = 20;
+  if (!(await isSupporter(supabase, user.id))) {
+    const { allowed, used, limit } = await checkDailyLimit(supabase, user.id, "playlist_generate", FREE_GENERATE_LIMIT);
+    if (!allowed) {
+      return NextResponse.json({ error: "daily_limit_reached", used, limit }, { status: 429 });
+    }
+  }
 
   const body = await request.json().catch(() => ({})) as {
     mood?: string; includeOutsideCollection?: boolean; trackCount?: number; refinement?: string;

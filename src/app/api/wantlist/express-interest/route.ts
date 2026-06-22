@@ -1,6 +1,7 @@
 import { type NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { Resend } from "resend";
+import { createClient as createServerClient } from "@/lib/supabase/server";
 
 const FROM = "rekōdo <hello@rekodo.co>";
 
@@ -13,16 +14,22 @@ function getAdminSupabase() {
 }
 
 export async function POST(request: NextRequest) {
-  let body: { buyerUserId?: unknown; sellerUsername?: unknown; artist?: unknown; album?: unknown };
+  // The buyer must be derived from their own authenticated session — this
+  // route used to trust a client-supplied buyerUserId, which let anyone
+  // disclose an arbitrary user's real email address to any seller they named.
+  const sessionSupabase = await createServerClient();
+  const { data: { user: caller } } = await sessionSupabase.auth.getUser();
+  if (!caller) return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
+
+  let body: { sellerUsername?: unknown; artist?: unknown; album?: unknown };
   try {
     body = await request.json();
   } catch {
     return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
   }
 
-  const { buyerUserId, sellerUsername, artist, album } = body;
+  const { sellerUsername, artist, album } = body;
   if (
-    typeof buyerUserId !== "string" || !buyerUserId ||
     typeof sellerUsername !== "string" || !sellerUsername ||
     typeof artist !== "string" || !artist ||
     typeof album !== "string" || !album
@@ -30,6 +37,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
   }
 
+  const buyerUserId = caller.id;
   const supabase = getAdminSupabase();
 
   // Resolve buyer email + username

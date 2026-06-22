@@ -10,14 +10,37 @@ type SpotifyProfile = {
   spotify_token_expiry:  string | null;
 };
 
+// profiles.spotify_access_token/spotify_refresh_token/spotify_token_expiry
+// are column-privilege-revoked from anon/authenticated (see migration
+// 20260622000007) — profiles.select is otherwise public, and these are live
+// OAuth credentials, not just per-user data. Reading or writing them now
+// requires the service role. Safe to use here precisely because every
+// caller in this codebase derives `userId` from the caller's OWN verified
+// session (supabase.auth.getUser()) before reaching this function — never
+// from a client-supplied id — so this can't be used to fetch another user's
+// token. If a new caller ever needs to pass through an unverified id, it
+// must verify ownership itself first, the same way match-spotify-worker does.
+export function getProfileTokenDb() {
+  return createServiceClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!,
+    { auth: { persistSession: false } }
+  );
+}
+
 // Generic over any Supabase client (cookie-based server client or a direct
-// JWT-forwarded client built in a worker route) — both expose .from().
+// JWT-forwarded client built in a worker route) — both expose .from(). The
+// `supabase` param is no longer used for the token read/write itself (that
+// always goes through the service role above); kept so existing call sites
+// don't need to change, and so future non-token reads added here can still
+// use the caller's own RLS-scoped client.
 export async function getSpotifyAccessToken(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  supabase: any,
+  _supabase: any,
   userId: string,
 ): Promise<string | null> {
-  const { data: profile } = await supabase
+  const db = getProfileTokenDb();
+  const { data: profile } = await db
     .from("profiles")
     .select("spotify_access_token, spotify_refresh_token, spotify_token_expiry")
     .eq("id", userId)
@@ -53,7 +76,7 @@ export async function getSpotifyAccessToken(
     };
     if (data.refresh_token) patch.spotify_refresh_token = data.refresh_token;
 
-    await supabase.from("profiles").update(patch).eq("id", userId);
+    await db.from("profiles").update(patch).eq("id", userId);
     return data.access_token;
   } catch {
     return null;

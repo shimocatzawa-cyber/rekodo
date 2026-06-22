@@ -152,7 +152,8 @@ export async function GET(request: NextRequest) {
     const [profilesRes, followerRes, recCountRes, followingRes] = await Promise.all([
       supabase.from("profiles").select("id, username, display_name, city, country, is_donor").in("id", ids),
       supabase.from("follows").select("following_id").in("following_id", ids),
-      supabase.from("user_records").select("user_id").in("user_id", ids),
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (supabase as any).from("public_collection_summary").select("user_id").in("user_id", ids),
       viewer
         ? supabase.from("follows").select("following_id").eq("follower_id", viewer.id).in("following_id", ids)
         : Promise.resolve({ data: [] }),
@@ -195,8 +196,9 @@ export async function GET(request: NextRequest) {
   // ── Fresh computation ─────────────────────────────────────────────────────
 
   // 1. Find eligible users (≥20 records, not the target)
-  const { data: eligibleLinks } = await supabase
-    .from("user_records")
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: eligibleLinks } = await (supabase as any)
+    .from("public_collection_summary")
     .select("user_id")
     .neq("user_id", userId)
     .limit(200000);
@@ -217,8 +219,9 @@ export async function GET(request: NextRequest) {
   // 2. Fetch all user_records for relevant users (paginated to handle large datasets)
   const urData: { user_id: string; record_id: string }[] = [];
   for (let from = 0; ; from += PAGE) {
-    const { data } = await supabase
-      .from("user_records")
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data } = await (supabase as any)
+      .from("public_collection_summary")
       .select("user_id, record_id")
       .in("user_id", allUserIds)
       .range(from, from + PAGE - 1);

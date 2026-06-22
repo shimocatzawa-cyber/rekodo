@@ -50,10 +50,9 @@ export async function GET(request: NextRequest) {
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data: links, error } = await (supabase as any)
-    .from("user_records")
+    .from("public_sell_list")
     .select("record_id, media_condition, sleeve_condition, value, price_median, price_currency")
     .eq("user_id", userId)
-    .eq("open_to_offers", true)
     .order("open_to_offers_at", { ascending: false });
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });

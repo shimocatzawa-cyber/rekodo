@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
+import { checkDailyLimit, isSupporter } from "@/lib/rateLimit";
 
 export const dynamic = "force-dynamic";
 
@@ -6,6 +7,19 @@ export async function POST(request: Request) {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return Response.json({ error: "Not authenticated" }, { status: 401 });
+
+  // Archetypes is a supporter-only feature (see src/app/archetypes/page.tsx) —
+  // the page gates access, but this API route didn't, so it was callable
+  // directly by anyone with an account, bypassing the paywall.
+  if (!(await isSupporter(supabase, user.id))) {
+    return Response.json({ error: "Supporter access required" }, { status: 403 });
+  }
+
+  const FREE_ESSAY_LIMIT = 30; // the 30-day cache already limits natural usage; this just guards scripted abuse
+  const { allowed, used, limit } = await checkDailyLimit(supabase, user.id, "archetypes_essay", FREE_ESSAY_LIMIT);
+  if (!allowed) {
+    return Response.json({ error: "daily_limit_reached", used, limit }, { status: 429 });
+  }
 
   const body = await request.json().catch(() => ({})) as {
     primary?: string;

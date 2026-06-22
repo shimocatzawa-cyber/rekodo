@@ -1,5 +1,7 @@
 import { type NextRequest, NextResponse } from "next/server";
 import Anthropic from "@anthropic-ai/sdk";
+import { createClient } from "@/lib/supabase/server";
+import { checkDailyLimit, isSupporter } from "@/lib/rateLimit";
 
 export const maxDuration = 60;
 
@@ -47,6 +49,22 @@ The "format" field must be one of: "print", "video", "audio".`,
 
 export async function POST(request: NextRequest) {
   try {
+    // Deep Dive is a supporter-only feature (src/app/deep-dive/page.tsx
+    // gates the page itself) — this route had no auth check at all, so it
+    // was directly callable by anyone, logged in or not, bypassing both the
+    // login wall and the paywall, with no rate limit on Anthropic spend.
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
+    if (!(await isSupporter(supabase, user.id))) {
+      return NextResponse.json({ error: "Supporter access required" }, { status: 403 });
+    }
+    const FREE_DEEP_DIVE_LIMIT = 50;
+    const { allowed, used, limit } = await checkDailyLimit(supabase, user.id, "deep_dive", FREE_DEEP_DIVE_LIMIT);
+    if (!allowed) {
+      return NextResponse.json({ error: "daily_limit_reached", used, limit }, { status: 429 });
+    }
+
     const { artist, section } = (await request.json()) as {
       artist?: string;
       section?: string;

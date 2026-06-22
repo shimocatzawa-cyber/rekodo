@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { getProfileTokenDb } from "@/lib/spotify";
 
 export const dynamic = "force-dynamic";
 
@@ -7,6 +8,12 @@ export async function GET() {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ connected: false });
+
+  // Token columns are column-privilege-revoked from anon/authenticated (see
+  // migration 20260622000007) — reading them requires the service role.
+  // Safe here because userId always comes from the caller's own verified
+  // session above, never a client-supplied value.
+  const tokenDb = getProfileTokenDb();
 
   type SpotifyProfile = {
     spotify_connected:    boolean | null;
@@ -16,7 +23,7 @@ export async function GET() {
     spotify_product:       string | null;
   };
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: profile } = await (supabase as any)
+  const { data: profile } = await (tokenDb as any)
     .from("profiles")
     .select("spotify_connected, spotify_access_token, spotify_refresh_token, spotify_token_expiry, spotify_product")
     .eq("id", user.id)
@@ -91,7 +98,7 @@ export async function GET() {
     if (data.refresh_token) patch.spotify_refresh_token = data.refresh_token;
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    await (supabase as any).from("profiles").update(patch).eq("id", user.id);
+    await (tokenDb as any).from("profiles").update(patch).eq("id", user.id);
 
     const product = await ensureProduct(data.access_token);
 
