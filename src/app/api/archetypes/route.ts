@@ -1,8 +1,23 @@
-import { redirect } from "next/navigation";
+import { createClient as createServiceClient } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase/server";
 import { computeArchetypes } from "@/lib/archetypes/computeArchetypes";
 
 export const dynamic = "force-dynamic";
+
+// archetype_cache is a purely server-computed cache (never user-edited), and —
+// like profiles and list_items before it — was created directly against the
+// database outside any tracked migration, so its grants for the authenticated
+// role were never verifiable from the repo. Read/write it via the service role
+// (same pattern lib/spotify.ts already uses for token columns) so this cache
+// doesn't depend on that uncertainty at all; userId always comes from the
+// caller's own verified session below, never a client-supplied value.
+function getCacheDb() {
+  return createServiceClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!,
+    { auth: { persistSession: false } }
+  );
+}
 
 async function getAuthUser() {
   const supabase = await createClient();
@@ -28,8 +43,7 @@ export async function GET() {
   const { supabase, user } = await getAuthUser();
   if (!user) return Response.json({ error: "Not authenticated" }, { status: 401 });
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const db = supabase as any;
+  const cacheDb = getCacheDb();
 
   // Get current record count
   const { count: currentCount } = await supabase
@@ -38,11 +52,16 @@ export async function GET() {
     .eq("user_id", user.id);
 
   // Check cache
-  const { data: cache } = await db
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: cache, error: cacheReadError } = await (cacheDb as any)
     .from("archetype_cache")
     .select("*")
     .eq("user_id", user.id)
-    .maybeSingle() as { data: Record<string, unknown> | null };
+    .maybeSingle() as { data: Record<string, unknown> | null; error: { message: string } | null };
+
+  if (cacheReadError) {
+    console.error("[archetypes] cache read failed:", cacheReadError.message);
+  }
 
   // Cached signals predating the emotionalRange signal (added below) lack that key —
   // treat as stale so existing users get it on their next load instead of waiting
@@ -77,7 +96,8 @@ export async function GET() {
   try {
     const result = await computeArchetypes(user.id, supabase);
 
-    await db.from("archetype_cache").upsert({
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { error: upsertError } = await (cacheDb as any).from("archetype_cache").upsert({
       user_id: user.id,
       signals: result.signals,
       archetype_scores: result.scores,
@@ -90,6 +110,10 @@ export async function GET() {
       record_count_at_generation: result.recordCount,
       generated_at: result.generatedAt,
     }, { onConflict: "user_id" });
+
+    if (upsertError) {
+      console.error("[archetypes] cache write failed:", upsertError.message);
+    }
 
     return Response.json({
       data: result.signals,
@@ -114,8 +138,7 @@ export async function POST() {
   const { supabase, user } = await getAuthUser();
   if (!user) return Response.json({ error: "Not authenticated" }, { status: 401 });
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const db = supabase as any;
+  const cacheDb = getCacheDb();
 
   const { count: currentCount } = await supabase
     .from("user_records")
@@ -125,7 +148,8 @@ export async function POST() {
   try {
     const result = await computeArchetypes(user.id, supabase);
 
-    await db.from("archetype_cache").upsert({
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { error: upsertError } = await (cacheDb as any).from("archetype_cache").upsert({
       user_id: user.id,
       signals: result.signals,
       archetype_scores: result.scores,
@@ -141,6 +165,10 @@ export async function POST() {
       essay_text: null,
       essay_generated_at: null,
     }, { onConflict: "user_id" });
+
+    if (upsertError) {
+      console.error("[archetypes] cache write failed:", upsertError.message);
+    }
 
     return Response.json({
       data: result.signals,

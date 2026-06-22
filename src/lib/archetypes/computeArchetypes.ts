@@ -67,6 +67,7 @@ export async function computeArchetypes(
         media_condition,
         price_median,
         created_at,
+        date_added,
         feeling,
         records (
           artist, album, year, genre, styles, label, country, format,
@@ -98,6 +99,7 @@ export async function computeArchetypes(
     media_condition: string | null
     price_median: number | null
     created_at: string | null
+    date_added: string | null
     feeling: string | null
     records: RecordJoin | RecordJoin[] | null
   }
@@ -353,10 +355,17 @@ export async function computeArchetypes(
     subtext: modalDecade ? `Modal decade: ${modalDecade}s` : 'No year data',
   }
 
-  // 9. acquisitionRhythm — using created_at as proxy for date_added
+  // 9. acquisitionRhythm — uses date_added (the actual Discogs collection-add date,
+  // synced per-record) so collectors with real purchase history spread over years
+  // score correctly. Falls back to created_at (rekōdo's own row-insert time) only
+  // for records added before date_added existed or via a path that doesn't set it —
+  // using created_at as the primary signal would otherwise read ANY single bulk
+  // sync (the standard onboarding flow) as a maximally steady "Ritualist" buying
+  // rhythm, since every record gets the same insert timestamp regardless of when
+  // it was actually acquired.
   const datedRecords = userRecords
-    .filter(row => row.created_at)
-    .map(row => new Date(row.created_at!))
+    .filter(row => row.date_added || row.created_at)
+    .map(row => new Date((row.date_added ?? row.created_at)!))
 
   let rhythmResult: ComputedSignals['acquisitionRhythm']
   if (datedRecords.length < 10) {
