@@ -5,9 +5,11 @@ import { reserveSpotifySearchSlot, recordSpotifySearchRateLimit, getSpotifySearc
 // Uses Client Credentials flow — no user token required.
 //
 // Two-step lookup (same approach as the Apple Podcasts client-side logic):
-//   1. Resolve each unique show name → Spotify show ID + show URL
+//   1. Resolve each unique show name → Spotify show ID
 //   2. Fetch up to 100 episodes per show, fuzzy-match the episode title
-//   3. Fall back to the show URL if no episode match; omit if show not found
+//   3. Fall back to a search-results URL (never the bare show page) if no
+//      confident episode match is found — a search link is honestly labeled;
+//      a show-page link looks like the episode and isn't.
 //
 // This prevents cross-show mismatches (e.g. a "Rick Rubin" search returning
 // an Earth Wind & Fire episode instead of the correct Broken Record episode).
@@ -72,21 +74,21 @@ export async function POST(request: NextRequest) {
 
   const auth = accessToken;
 
-  // ── Step 1: resolve unique shows → { id, showUrl } ───────────────────────
+  // ── Step 1: resolve unique shows → show id ────────────────────────────────
   const uniqueShows = [...new Set(episodes.map((e) => e.show))];
-  type ShowMeta = { id: string; showUrl: string };
+  type ShowMeta = { id: string };
   const showMeta: Record<string, ShowMeta> = {};
 
   await Promise.all(uniqueShows.map(async (show) => {
     const data = await spFetch<{
-      shows?: { items?: { id?: string; external_urls?: { spotify?: string } }[] };
+      shows?: { items?: { id?: string }[] };
     }>(
       `https://api.spotify.com/v1/search?q=${encodeURIComponent(show)}&type=show&limit=1&market=US`,
       auth
     );
     const item = data?.shows?.items?.[0];
-    if (item?.id && item.external_urls?.spotify) {
-      showMeta[show] = { id: item.id, showUrl: item.external_urls.spotify };
+    if (item?.id) {
+      showMeta[show] = { id: item.id };
     }
   }));
 
@@ -129,9 +131,11 @@ export async function POST(request: NextRequest) {
     // Require at least 2 overlapping words to avoid false positives
     if (best && (target.includes(best.name.toLowerCase().slice(0, 40)) || best.name.toLowerCase().includes(target.slice(0, 40)) || bestScore >= 2)) {
       urls[i] = best.external_urls.spotify;
-    } else if (showMeta[ep.show]) {
-      // Fall back to the show page — correct show, user can find the episode
-      urls[i] = showMeta[ep.show].showUrl;
+    } else {
+      // No confident episode match — point to a search results page instead of
+      // the show's own page. A search link is honestly labeled as "search"; a
+      // bare show-page link looks like it should be the episode and isn't.
+      urls[i] = `https://open.spotify.com/search/${encodeURIComponent(`${ep.show} ${ep.episode}`)}`;
     }
   }
 

@@ -51,6 +51,38 @@ async function withDbTimeout<T>(fn: () => PromiseLike<T>): Promise<T | null> {
   return Promise.race([Promise.resolve(fn()), timeout]);
 }
 
+// Deterministic backstop for the podcasts section: Claude is instructed to omit
+// appleUrl/spotifyUrl rather than substitute a show-level URL, but model
+// compliance isn't guaranteed — strip anything that doesn't actually match an
+// episode-level URL pattern so a show link never slips through silently
+// labeled as "verified" (the client's own fuzzy-match fallback gets a real
+// shot at finding the episode instead).
+function isAppleEpisodeUrl(url: string): boolean {
+  try {
+    const u = new URL(url);
+    return u.hostname === "podcasts.apple.com" && u.searchParams.has("i");
+  } catch {
+    return false;
+  }
+}
+
+function isSpotifyEpisodeUrl(url: string): boolean {
+  try {
+    const u = new URL(url);
+    return u.hostname === "open.spotify.com" && u.pathname.startsWith("/episode/");
+  } catch {
+    return false;
+  }
+}
+
+function stripUnverifiedPodcastUrls(data: unknown): void {
+  if (!data || typeof data !== "object" || !Array.isArray((data as { episodes?: unknown }).episodes)) return;
+  for (const ep of (data as { episodes: Record<string, unknown>[] }).episodes) {
+    if (typeof ep.appleUrl === "string" && !isAppleEpisodeUrl(ep.appleUrl)) delete ep.appleUrl;
+    if (typeof ep.spotifyUrl === "string" && !isSpotifyEpisodeUrl(ep.spotifyUrl)) delete ep.spotifyUrl;
+  }
+}
+
 function getSupabase() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -143,8 +175,9 @@ Priority order:
 
 INSTRUCTIONS:
 - For each candidate episode, use web search to confirm it actually exists and to find its real listen URL — e.g. search "<show> <episode title>" and look for a podcasts.apple.com or open.spotify.com result.
-- "appleUrl" must be a direct podcasts.apple.com URL for that episode (or the show itself if no episode-specific page is found) — only set it if found via search.
-- "spotifyUrl" must be a direct open.spotify.com URL for that episode (or show) — only set it if found via search.
+- "appleUrl" must be the EPISODE's own page — a real Apple Podcasts episode URL always has an "?i=" query parameter (e.g. https://podcasts.apple.com/us/podcast/show-name/id123456789?i=1000098765432). A URL without "?i=" is just the show page, not the episode.
+- "spotifyUrl" must be the EPISODE's own page — a real Spotify episode URL always starts with https://open.spotify.com/episode/ (not /show/, which is the show page, not the episode).
+- If search only turns up the show's page and not an episode-specific URL matching the patterns above, OMIT that URL field entirely — do NOT substitute the show URL. A downstream lookup will try harder to find the exact episode; a wrong-precision link is worse than none.
 - Always provide a specific episode title. Never use "Various episodes" or vague placeholders — if you cannot name and verify a specific episode, omit that show entirely.
 - Include the year of the specific episode, not the show's launch year.
 - Aim for 8–10 results maximum. Quality over quantity — only include episodes you verified via search.
@@ -259,7 +292,13 @@ export async function POST(request: NextRequest) {
     // ── Cache read (3 s hard timeout — hangs must not block Claude) ────────────
     if (CACHED_SECTIONS.has(section)) {
       const cached = await readCache(artist, section);
-      if (cached) return NextResponse.json({ data: cached, cached: true });
+      if (cached) {
+        // Cached podcasts entries from before show-vs-episode URL validation existed
+        // may still have a show URL mislabeled as verified — strip it on read so the
+        // client's fallback lookup gets a real shot, without paying for regeneration.
+        if (section === "podcasts") stripUnverifiedPodcastUrls(cached);
+        return NextResponse.json({ data: cached, cached: true });
+      }
     }
 
     // ── Model + token budget ───────────────────────────────────────────────────
@@ -313,6 +352,8 @@ export async function POST(request: NextRequest) {
       console.error(`[deep-dive] parse error — ${artist}/${section} stop=${message.stop_reason} raw=${clean.slice(0, 400)}`);
       return NextResponse.json({ error: "Parse error" }, { status: 500 });
     }
+
+    if (section === "podcasts") stripUnverifiedPodcastUrls(data);
 
     // ── Cache write (fire-and-forget, 3 s hard timeout) ────────────────────────
     if (CACHED_SECTIONS.has(section)) {

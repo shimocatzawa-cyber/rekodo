@@ -186,14 +186,16 @@ function PodcastsContent({ data, artist }: { data: { episodes?: Episode[] }; art
     let cancelled = false;
 
     // Apple Podcasts — two-step iTunes lookup:
-    // 1. Resolve each unique show name → collectionId + show URL (batched, one req per show)
+    // 1. Resolve each unique show name → collectionId (batched, one req per show)
     // 2. Fetch up to 200 episodes for each show via /lookup, fuzzy-match episode title
-    // Falls back to the show page when no episode match is found.
+    // No confident match → leave unset, so appleHref's own fallback (a search URL,
+    // honestly labeled as a search) takes over rather than a show-page link that
+    // looks like the episode and isn't.
     if (appleIdx.length > 0) (async () => {
       try {
         // Step 1: resolve unique shows
         const uniqueShows = [...new Set(appleIdx.map(([e]) => e.show))];
-        type ShowMeta = { collectionId: number; showUrl: string };
+        type ShowMeta = { collectionId: number };
         const showMeta: Record<string, ShowMeta> = {};
         await Promise.all(
           uniqueShows.map(async (show) => {
@@ -202,10 +204,10 @@ function PodcastsContent({ data, artist }: { data: { episodes?: Episode[] }; art
                 `https://itunes.apple.com/search?term=${encodeURIComponent(show)}&media=podcast&entity=podcast&limit=1`
               );
               if (!res.ok) return;
-              const json = await res.json() as { results?: { collectionId?: number; collectionViewUrl?: string }[] };
+              const json = await res.json() as { results?: { collectionId?: number }[] };
               const r = json.results?.[0];
-              if (r?.collectionId && r.collectionViewUrl) {
-                showMeta[show] = { collectionId: r.collectionId, showUrl: r.collectionViewUrl };
+              if (r?.collectionId) {
+                showMeta[show] = { collectionId: r.collectionId };
               }
             } catch { /* skip */ }
           })
@@ -230,18 +232,34 @@ function PodcastsContent({ data, artist }: { data: { episodes?: Episode[] }; art
 
         if (cancelled) return;
 
-        // Step 3: match each episode by title (fuzzy — handles slight wording differences)
+        // Step 3: match each episode by title — substring match wins immediately,
+        // otherwise require 2+ overlapping significant words (same bar as the
+        // Spotify route) to avoid confidently linking to the wrong episode.
         const map: Record<number, string> = {};
         appleIdx.forEach(([ep, i]) => {
           const candidates = showEps[ep.show] ?? [];
           const target = ep.episode.toLowerCase();
           const slug = target.slice(0, 40);
-          const matched = candidates.find((c) => {
+
+          let best: EpMeta | null = null;
+          let bestScore = 0;
+          for (const c of candidates) {
             const name = (c.trackName ?? "").toLowerCase();
-            return name.includes(slug) || target.includes(name.slice(0, 40));
-          });
-          const url = matched?.trackViewUrl ?? showMeta[ep.show]?.showUrl;
-          if (url) map[i] = url;
+            if (name.includes(slug) || target.includes(name.slice(0, 40))) {
+              best = c;
+              break;
+            }
+            const targetWords = target.split(/\W+/).filter((w) => w.length > 3);
+            const score = targetWords.filter((w) => name.includes(w)).length;
+            if (score > bestScore) { bestScore = score; best = c; }
+          }
+
+          const confident = best && (
+            target.includes((best.trackName ?? "").toLowerCase().slice(0, 40)) ||
+            (best.trackName ?? "").toLowerCase().includes(slug) ||
+            bestScore >= 2
+          );
+          if (confident && best?.trackViewUrl) map[i] = best.trackViewUrl;
         });
         setAppleUrls(map);
       } catch { /* silent */ }
