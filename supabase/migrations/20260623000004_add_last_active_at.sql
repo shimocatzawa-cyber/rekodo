@@ -1,0 +1,12 @@
+-- "Last active" in the admin console was previously last_synced_at (Discogs
+-- collection sync time) falling back to last_sign_in_at (auth.users field
+-- that only updates on an explicit login — refresh tokens never expire by
+-- default, so a long-logged-in user's last_sign_in_at can be stale for
+-- months even while they browse daily). Neither reflects real site usage.
+--
+-- last_active_at is bumped from middleware (src/lib/supabase/middleware.ts)
+-- on every authenticated request, throttled via a cookie to at most once
+-- per ~15 minutes per browser session. Writable by the user themselves
+-- under the existing "users can update their own profile row" RLS policy —
+-- no new policy needed.
+ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS last_active_at timestamptz;

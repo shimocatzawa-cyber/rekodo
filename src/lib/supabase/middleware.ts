@@ -49,5 +49,33 @@ export async function updateSession(request: NextRequest) {
     return NextResponse.redirect(url);
   }
 
+  if (user) {
+    await pingLastActive(supabase, request, supabaseResponse, user.id);
+  }
+
   return supabaseResponse;
+}
+
+const ACTIVITY_COOKIE = "rk_last_active_ping";
+const ACTIVITY_INTERVAL_SECONDS = 15 * 60;
+
+// Bumps profiles.last_active_at, throttled via a cookie so it's at most one
+// DB write per ~15 minutes per browser session rather than on every request.
+async function pingLastActive(
+  supabase: ReturnType<typeof createServerClient<Database>>,
+  request: NextRequest,
+  response: NextResponse,
+  userId: string
+) {
+  const lastPing = request.cookies.get(ACTIVITY_COOKIE)?.value;
+  const isStale = !lastPing || Date.now() - Number(lastPing) > ACTIVITY_INTERVAL_SECONDS * 1000;
+  if (!isStale) return;
+
+  await supabase.from("profiles").update({ last_active_at: new Date().toISOString() }).eq("id", userId);
+  response.cookies.set(ACTIVITY_COOKIE, String(Date.now()), {
+    maxAge: ACTIVITY_INTERVAL_SECONDS,
+    httpOnly: true,
+    sameSite: "lax",
+    path: "/",
+  });
 }

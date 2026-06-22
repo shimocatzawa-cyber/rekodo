@@ -3,6 +3,7 @@ import { Shippori_Mincho, DM_Mono, Caveat } from "next/font/google";
 import Script from "next/script";
 import { Analytics } from "@vercel/analytics/next";
 import { SpotifyPlayerProvider } from "@/components/SpotifyPlayerProvider";
+import PageViewTracker from "@/components/PageViewTracker";
 import "./globals.css";
 
 const shipporiMincho = Shippori_Mincho({
@@ -106,6 +107,7 @@ export default function RootLayout({
         <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400&display=swap" rel="stylesheet" />
       </head>
       <body className="min-h-full flex flex-col bg-white text-black antialiased">
+        <PageViewTracker />
         <SpotifyPlayerProvider>
           {children}
         </SpotifyPlayerProvider>

@@ -11,6 +11,7 @@ type ProfileRow = {
   role: string | null;
   created_at: string;
   last_synced_at: string | null;
+  last_active_at: string | null;
   city: string | null;
   country: string | null;
   is_donor: boolean;
@@ -75,17 +76,18 @@ export default async function AdminPage() {
   const adminDb = getAdminDb();
 
   // Fetch profiles and auth users — paginated past Supabase's 1000-row/page caps
-  const [profiles, authUsers, wantlistRows, discogsRows, archetypeRows, paymentRows] = await Promise.all([
+  const [profiles, authUsers, wantlistRows, discogsRows, archetypeRows, paymentRows, pageViewRows] = await Promise.all([
     fetchPaged(
       adminDb,
       "profiles",
-      "id, username, display_name, subscription_tier, role, created_at, last_synced_at, city, country, is_donor, spotify_connected, bandcamp_username"
+      "id, username, display_name, subscription_tier, role, created_at, last_synced_at, last_active_at, city, country, is_donor, spotify_connected, bandcamp_username"
     ),
     fetchAllAuthUsers(adminDb),
     fetchPaged(adminDb, "lists", "user_id", { column: "slug", value: "wantlist" }),
     fetchPaged(adminDb, "discogs_tokens", "user_id, discogs_username"),
     fetchPaged(adminDb, "archetype_cache", "user_id, primary_archetype"),
     fetchPaged(adminDb, "payments", "user_id, type, amount_cents, currency"),
+    fetchPaged(adminDb, "page_views", "user_id, section"),
   ]);
 
   const profileById = new Map(profiles.map(p => [p.id as string, p as unknown as ProfileRow]));
@@ -110,6 +112,20 @@ export default async function AdminPage() {
       donationMap.set(uid, { cents: prev.cents + cents, currency: cur });
     }
   }
+
+  // Aggregate page views: overall section popularity + each user's top sections
+  const sectionCounts = new Map<string, number>();
+  const userSectionCounts = new Map<string, Map<string, number>>();
+  for (const row of pageViewRows) {
+    const uid     = row.user_id as string;
+    const section = row.section as string;
+    sectionCounts.set(section, (sectionCounts.get(section) ?? 0) + 1);
+    const userMap = userSectionCounts.get(uid) ?? new Map<string, number>();
+    userMap.set(section, (userMap.get(section) ?? 0) + 1);
+    userSectionCounts.set(uid, userMap);
+  }
+  const featurePopularity = [...sectionCounts.entries()].sort((a, b) => b[1] - a[1]);
+  const maxSectionCount = featurePopularity[0]?.[1] ?? 0;
 
   // Paginate user_records — batch must be ≤ 1000 to match PostgREST's hard cap
   const recordCountMap = new Map<string, number>();
@@ -143,6 +159,7 @@ export default async function AdminPage() {
       created_at:        p?.created_at ?? u.created_at,
       last_sign_in_at:   u.last_sign_in_at ?? null,
       last_synced_at:    p?.last_synced_at ?? null,
+      last_active_at:    p?.last_active_at ?? null,
       banned_until:      u.banned_until ?? null,
       record_count:      recordCount,
       city:              p?.city ?? null,
@@ -152,6 +169,10 @@ export default async function AdminPage() {
       discogs_username:  discogsUsernameMap.get(u.id) ?? null,
       subscription_spend: subSpend,
       donation_total:     donation,
+      top_sections: [...(userSectionCounts.get(u.id) ?? new Map<string, number>()).entries()]
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, 3)
+        .map(([section, count]) => ({ section, count })),
       connections: {
         collection: recordCount > 0,
         wantlist:   wantlistIds.has(u.id),
@@ -200,6 +221,37 @@ export default async function AdminPage() {
             </p>
           </div>
         ))}
+      </div>
+
+      {/* Feature popularity */}
+      <div style={{ borderBottom: `1px solid ${RULE}`, padding: "28px 48px" }}>
+        <p style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.14em", textTransform: "uppercase", color: ORANGE, margin: "0 0 16px 0" }}>
+          Feature popularity (all-time page views)
+        </p>
+        {featurePopularity.length === 0 ? (
+          <p style={{ fontFamily: MONO, fontSize: "11px", color: MUTED, margin: 0 }}>
+            No page views tracked yet — data will appear as users browse.
+          </p>
+        ) : (
+          <div style={{ display: "flex", flexDirection: "column", gap: "10px", maxWidth: "560px" }}>
+            {featurePopularity.map(([section, count]) => (
+              <div key={section} style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+                <span style={{ fontFamily: MONO, fontSize: "10px", color: INK, width: "120px", flexShrink: 0 }}>
+                  {section}
+                </span>
+                <div style={{ flex: 1, background: "#f0f0ea", height: "8px" }}>
+                  <div style={{
+                    width: `${maxSectionCount ? (count / maxSectionCount) * 100 : 0}%`,
+                    height: "100%", background: ORANGE,
+                  }} />
+                </div>
+                <span style={{ fontFamily: MONO, fontSize: "10px", color: MUTED, width: "40px", textAlign: "right" as const, flexShrink: 0 }}>
+                  {count.toLocaleString()}
+                </span>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
 
       {/* User table */}

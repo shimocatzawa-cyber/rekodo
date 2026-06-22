@@ -64,7 +64,7 @@ function getSortValue(u: AdminUser, key: SortKey): string | number {
     case "discogs_username":     return (u.discogs_username ?? "").toLowerCase();
     case "subscription_tier":    return u.subscription_tier ?? "";
     case "joined":                return new Date(u.created_at).getTime();
-    case "last_active":          return new Date(u.last_synced_at ?? u.last_sign_in_at ?? 0).getTime();
+    case "last_active":          return new Date(u.last_active_at ?? u.last_sign_in_at ?? 0).getTime();
     case "status":               return isBlocked(u.banned_until) ? 1 : 0;
   }
 }
@@ -100,7 +100,7 @@ function buildCSV(users: AdminUser[]): string {
       u.discogs_username ?? "",
       isSupporterTier(u.subscription_tier) ? "Supporter" : "Free",
       u.created_at,
-      u.last_synced_at ?? u.last_sign_in_at ?? "",
+      u.last_active_at ?? u.last_sign_in_at ?? "",
       isBlocked(u.banned_until) ? "Blocked" : "Active",
     ];
     lines.push(row.map(csvEscape).join(","));

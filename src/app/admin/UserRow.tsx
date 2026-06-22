@@ -20,6 +20,7 @@ export interface AdminUser {
   created_at: string;
   last_sign_in_at: string | null;
   last_synced_at: string | null;
+  last_active_at: string | null;
   banned_until: string | null;
   record_count: number;
   city: string | null;
@@ -29,6 +30,7 @@ export interface AdminUser {
   discogs_username: string | null;
   subscription_spend: { cents: number; currency: string } | null;
   donation_total: { cents: number; currency: string } | null;
+  top_sections: { section: string; count: number }[];
   connections: {
     collection: boolean;
     wantlist: boolean;
@@ -254,7 +256,7 @@ export default function UserRow({ user, showFinancial, columnCount }: { user: Ad
         </td>
 
         <td style={{ ...cellSt, color: MUTED, whiteSpace: "nowrap" as const }}>
-          {formatDate(user.last_synced_at ?? user.last_sign_in_at)}
+          {formatDate(user.last_active_at ?? user.last_sign_in_at)}
         </td>
 
         <td style={cellSt}>
@@ -400,6 +402,30 @@ export default function UserRow({ user, showFinancial, columnCount }: { user: Ad
                 >
                   {idPending ? "Saving…" : "Save identity"}
                 </button>
+              </div>
+
+              {/* Row 3: feature usage */}
+              <div style={{ paddingTop: "4px", borderTop: `1px solid ${RULE}` }}>
+                <label style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.1em", textTransform: "uppercase", color: MUTED, display: "block", marginBottom: "8px" }}>
+                  Top sections used
+                </label>
+                {user.top_sections.length === 0 ? (
+                  <span style={{ fontFamily: MONO, fontSize: "10px", color: MUTED }}>No activity tracked yet</span>
+                ) : (
+                  <div style={{ display: "flex", gap: "6px", flexWrap: "wrap" }}>
+                    {user.top_sections.map(({ section, count }) => (
+                      <span
+                        key={section}
+                        style={{
+                          fontFamily: MONO, fontSize: "9px", letterSpacing: "0.04em",
+                          padding: "4px 8px", border: `1px solid ${RULE}`, color: INK,
+                        }}
+                      >
+                        {section} ×{count}
+                      </span>
+                    ))}
+                  </div>
+                )}
               </div>
 
               {error && (
