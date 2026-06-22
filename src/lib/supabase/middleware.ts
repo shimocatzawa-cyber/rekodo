@@ -71,7 +71,13 @@ async function pingLastActive(
   const isStale = !lastPing || Date.now() - Number(lastPing) > ACTIVITY_INTERVAL_SECONDS * 1000;
   if (!isStale) return;
 
-  await supabase.from("profiles").update({ last_active_at: new Date().toISOString() }).eq("id", userId);
+  const { error } = await supabase.from("profiles").update({ last_active_at: new Date().toISOString() }).eq("id", userId);
+  if (error) {
+    // Don't set the cookie on failure — retry on the next request instead of
+    // going quiet for ACTIVITY_INTERVAL_SECONDS on a permission/DB error.
+    console.error("[middleware] last_active_at update failed:", error.message);
+    return;
+  }
   response.cookies.set(ACTIVITY_COOKIE, String(Date.now()), {
     maxAge: ACTIVITY_INTERVAL_SECONDS,
     httpOnly: true,

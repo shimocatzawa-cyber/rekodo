@@ -41,7 +41,8 @@ export async function POST(request: Request) {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ ok: true });
 
-  await supabase.from("page_views").insert({ user_id: user.id, section, path });
+  const { error } = await supabase.from("page_views").insert({ user_id: user.id, section, path });
+  if (error) console.error("[track-pageview] insert failed:", error.message);
 
   return NextResponse.json({ ok: true });
 }
