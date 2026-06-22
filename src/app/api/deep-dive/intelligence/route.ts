@@ -29,12 +29,17 @@ const SONNET_SECTIONS = new Set(["rankings", "podcasts", "books", "interviews"])
 
 const MAX_TOKENS: Record<string, number> = {
   rankings:   2000,
-  podcasts:   2000,
-  books:      2000,
+  podcasts:   4096,
+  books:      4096,
   interviews: 2000,
   blindspot:  2048,
   related:    1500,
 };
+
+// Sections where Claude verifies results via Anthropic's server-side web search
+// tool (runs within the same API call — no extra request loop needed) rather
+// than relying solely on training-data recall.
+const WEB_SEARCH_SECTIONS = new Set(["interviews", "podcasts", "books"]);
 
 // Race an async callback against a timeout — returns null on timeout instead of hanging.
 // Accepts a callback (not a raw Promise) so callers can pass Supabase query builders,
@@ -129,41 +134,45 @@ Return ONLY valid JSON, no markdown, no backticks, no preamble:
   },
 
   podcasts: (artist) =>
-    `You are a music research assistant. Find specific podcast episodes for a fan of ${artist}.
+    `You are a music research assistant with web search access. Find specific podcast episodes for a fan of ${artist}.
 
 Priority order:
 1. Dedicated podcast series about ${artist} or their albums — include the series itself as a named show with its best or most recent episode
 2. Specific episodes where ${artist} is a main guest or interview subject — include the exact episode title
 3. Specific episodes that do a deep review of a named ${artist} album — include the exact episode title and album name
 
-RULES:
-- Always provide a specific episode title. Never use "Various episodes" or vague placeholders — if you cannot name a specific episode, omit that show entirely.
-- Do not fabricate episode titles. If you know the show covers ${artist} but cannot recall a specific episode title, omit it.
+INSTRUCTIONS:
+- For each candidate episode, use web search to confirm it actually exists and to find its real listen URL — e.g. search "<show> <episode title>" and look for a podcasts.apple.com or open.spotify.com result.
+- "appleUrl" must be a direct podcasts.apple.com URL for that episode (or the show itself if no episode-specific page is found) — only set it if found via search.
+- "spotifyUrl" must be a direct open.spotify.com URL for that episode (or show) — only set it if found via search.
+- Always provide a specific episode title. Never use "Various episodes" or vague placeholders — if you cannot name and verify a specific episode, omit that show entirely.
 - Include the year of the specific episode, not the show's launch year.
-- Aim for 8–10 results maximum. Quality over quantity — only include episodes you are confident exist.
+- Aim for 8–10 results maximum. Quality over quantity — only include episodes you verified via search.
 
 Return ONLY valid JSON, no markdown, no backticks, no preamble:
-{"episodes":[{"show":"Show Name","episode":"Exact episode title","year":2021,"type":"interview","note":"One sentence on why worth listening"}]}
-type must be one of: "interview", "review", "documentary", "discussion". Return an empty array only if you genuinely cannot identify any. Do not fabricate.`,
+{"episodes":[{"show":"Show Name","episode":"Exact episode title","year":2021,"type":"interview","note":"One sentence on why worth listening","appleUrl":"https://podcasts.apple.com/...","spotifyUrl":"https://open.spotify.com/..."}]}
+type must be one of: "interview", "review", "documentary", "discussion". appleUrl and spotifyUrl are optional — omit whichever you could not verify. Return an empty array only if you genuinely cannot verify any. Do not fabricate.`,
 
   books: (artist) =>
-    `You are a music research assistant helping a vinyl collector. List books and audiobooks by or about ${artist}.
+    `You are a music research assistant with web search access, helping a vinyl collector. List books and audiobooks by or about ${artist}.
 
 ORDER — strictly follow this:
 1. Books or audiobooks WRITTEN OR NARRATED BY ${artist} themselves (memoirs, essays, spoken word) — list these first
 2. Books significantly about ${artist} — biographies, critical studies, authorised accounts
 3. Essential books about the scene, era, or movement ${artist} defined — only include if genuinely illuminating for a fan
 
-RULES:
-- Only include titles you are confident exist. Do not fabricate.
-- Return up to 10 items total, sorted by year ascending within each group.
+INSTRUCTIONS:
+- Use web search to confirm each title actually exists before including it — a title you can't verify is worse than no title.
+- If the format includes print ("book" or "both"), search for the real Amazon product page (e.g. "<title> <author> site:amazon.com") and set "amazonUrl" to a direct amazon.com/dp/... URL if found.
+- If the format includes audio ("audiobook" or "both"), search for the real Audible page (e.g. "<title> <author> site:audible.com") and set "audibleUrl" to a direct audible.com/pd/... URL if found.
 - For the "format" field: use "audiobook" if only available as audio. Use "both" if it exists as both print and audiobook. Use "book" if no audiobook edition is known. This field controls which store links appear — be accurate.
 - For the "isbn13" field: include the ISBN-13 if you are confident (13 digits, starts with 978 or 979). Omit if uncertain — a wrong ISBN is worse than none.
 - For the "written_by_artist" field: set true if ${artist} is the author or primary narrator. Set false for all other items.
+- Return up to 10 items total, sorted by year ascending within each group.
 
 Return ONLY valid JSON, no markdown, no backticks, no preamble:
-{"items":[{"title":"Book Title","author":"Author Name","year":2003,"type":"memoir","format":"both","isbn13":"9780571234567","written_by_artist":true,"note":"One sentence on why essential"}]}
-type must be one of: "biography", "memoir", "criticism", "history", "fiction", "reference". Do not fabricate titles.`,
+{"items":[{"title":"Book Title","author":"Author Name","year":2003,"type":"memoir","format":"both","isbn13":"9780571234567","written_by_artist":true,"note":"One sentence on why essential","amazonUrl":"https://www.amazon.com/dp/...","audibleUrl":"https://www.audible.com/pd/..."}]}
+type must be one of: "biography", "memoir", "criticism", "history", "fiction", "reference". amazonUrl and audibleUrl are optional — omit whichever you could not verify. Do not fabricate titles.`,
 
   interviews: (artist) =>
     `You are a music research assistant. Use web search to find print interviews given by ${artist} and their direct URLs.
@@ -264,25 +273,38 @@ export async function POST(request: NextRequest) {
 
     console.log(`[deep-dive] calling ${model} — ${artist}/${section} max_tokens=${maxTokens}`);
 
-    // Interviews use Anthropic's built-in web search tool so Claude can look up
-    // real article URLs rather than relying on training-data recall.
-    // The search runs server-side within the single API call — no loop needed.
-    // Interviews use Anthropic's built-in web search tool (server-side, no extra API key).
+    // Interviews, podcasts, and books use Anthropic's built-in web search tool
+    // (server-side, no extra API key) so Claude verifies real URLs instead of
+    // relying on training-data recall, which produces hallucinated episode
+    // titles / ISBNs that never resolve on the actual platform.
     // The `as any` casts are needed because the SDK typings may not yet include this tool type.
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const message = (await (client.messages.create as any)({
       model,
       max_tokens: maxTokens,
       messages: [{ role: "user", content: PROMPTS[section](artist, promptAlbums) }],
-      ...(section === "interviews" && {
+      ...(WEB_SEARCH_SECTIONS.has(section) && {
         tools: [{ type: "web_search_20250305", name: "web_search" }],
       }),
     })) as Anthropic.Message;
 
     console.log(`[deep-dive] done — ${artist}/${section} stop_reason=${message.stop_reason} tokens=${message.usage.output_tokens}`);
 
-    const text  = message.content.find((b) => b.type === "text")?.text ?? "";
-    const clean = text.replace(/```json\n?/g, "").replace(/```\n?/g, "").trim();
+    // Use the last text block, not the first — with web search enabled, Claude
+    // sometimes prefaces the JSON with a text block discussing what it found
+    // before settling on a final answer.
+    const textBlocks = message.content.filter((b) => b.type === "text");
+    const text  = textBlocks[textBlocks.length - 1]?.text ?? "";
+    let clean = text.replace(/```json\n?/g, "").replace(/```\n?/g, "").trim();
+
+    // Claude occasionally adds a disclaimer sentence before or after the JSON
+    // despite "no preamble" instructions — fall back to extracting the
+    // outermost {...} object rather than failing the whole section.
+    if (!clean.startsWith("{")) {
+      const start = clean.indexOf("{");
+      const end = clean.lastIndexOf("}");
+      if (start !== -1 && end > start) clean = clean.slice(start, end + 1);
+    }
 
     let data: unknown;
     try {

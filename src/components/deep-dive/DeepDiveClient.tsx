@@ -162,31 +162,37 @@ function RankingsContent({ data }: { data: { albums?: Album[] } }) {
   );
 }
 
-type Episode = { show: string; episode: string; year: number; type: string; note: string };
+type Episode = { show: string; episode: string; year: number; type: string; note: string; appleUrl?: string; spotifyUrl?: string };
 
 function PodcastsContent({ data, artist }: { data: { episodes?: Episode[] }; artist: string }) {
   // Sort episodes by year descending, cap at 10
   const eps = [...(data.episodes ?? [])].sort((a, b) => (b.year ?? 0) - (a.year ?? 0)).slice(0, 10);
 
-  // Apple Podcasts: episode-level lookup via iTunes, falls back to show then search
+  // Apple Podcasts: episode-level lookup via iTunes, falls back to show then search.
+  // Only used for episodes the generation step couldn't verify a real URL for (ep.appleUrl).
   const [appleUrls, setAppleUrls] = useState<Record<number, string>>({});
-  // Spotify: episode lookup via server route (client credentials, hides secret)
+  // Spotify: episode lookup via server route (client credentials, hides secret).
+  // Same — only a fallback for episodes missing ep.spotifyUrl.
   const [spotifyUrls, setSpotifyUrls] = useState<Record<number, string>>({});
 
   const epsKey = eps.map((e, i) => `${i}:${e.show}:${e.episode}`).join("|");
 
   useEffect(() => {
-    if (eps.length === 0) return;
+    // Only chase down links the generation step didn't already verify via web search.
+    // Keep original eps indices so map keys still line up with the rendered list.
+    const appleIdx   = eps.map((e, i) => [e, i] as const).filter(([e]) => !e.appleUrl);
+    const spotifyIdx = eps.map((e, i) => [e, i] as const).filter(([e]) => !e.spotifyUrl);
+    if (appleIdx.length === 0 && spotifyIdx.length === 0) return;
     let cancelled = false;
 
     // Apple Podcasts — two-step iTunes lookup:
     // 1. Resolve each unique show name → collectionId + show URL (batched, one req per show)
     // 2. Fetch up to 200 episodes for each show via /lookup, fuzzy-match episode title
     // Falls back to the show page when no episode match is found.
-    (async () => {
+    if (appleIdx.length > 0) (async () => {
       try {
         // Step 1: resolve unique shows
-        const uniqueShows = [...new Set(eps.map((e) => e.show))];
+        const uniqueShows = [...new Set(appleIdx.map(([e]) => e.show))];
         type ShowMeta = { collectionId: number; showUrl: string };
         const showMeta: Record<string, ShowMeta> = {};
         await Promise.all(
@@ -226,7 +232,7 @@ function PodcastsContent({ data, artist }: { data: { episodes?: Episode[] }; art
 
         // Step 3: match each episode by title (fuzzy — handles slight wording differences)
         const map: Record<number, string> = {};
-        eps.forEach((ep, i) => {
+        appleIdx.forEach(([ep, i]) => {
           const candidates = showEps[ep.show] ?? [];
           const target = ep.episode.toLowerCase();
           const slug = target.slice(0, 40);
@@ -242,14 +248,20 @@ function PodcastsContent({ data, artist }: { data: { episodes?: Episode[] }; art
     })();
 
     // Spotify — server-side route to keep client secret hidden
-    fetch("/api/deep-dive/podcast-links", {
+    if (spotifyIdx.length > 0) fetch("/api/deep-dive/podcast-links", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ episodes: eps.map((e) => ({ show: e.show, episode: e.episode })) }),
+      body: JSON.stringify({ episodes: spotifyIdx.map(([e]) => ({ show: e.show, episode: e.episode })) }),
     })
       .then((r) => r.ok ? r.json() : null)
       .then((d: { urls?: Record<number, string> } | null) => {
-        if (!cancelled && d?.urls) setSpotifyUrls(d.urls);
+        if (cancelled || !d?.urls) return;
+        // Response keys are indices into the subset we sent — remap to original eps indices.
+        const remapped: Record<number, string> = {};
+        spotifyIdx.forEach(([, originalI], sentI) => {
+          if (d.urls![sentI]) remapped[originalI] = d.urls![sentI];
+        });
+        setSpotifyUrls(remapped);
       })
       .catch(() => {});
 
@@ -258,7 +270,8 @@ function PodcastsContent({ data, artist }: { data: { episodes?: Episode[] }; art
   }, [epsKey]);
 
   const appleHref = (i: number, ep: Episode) =>
-    appleUrls[i] ?? `https://podcasts.apple.com/search?term=${encodeURIComponent(`${ep.show} ${ep.episode}`)}`;
+    ep.appleUrl ?? appleUrls[i] ?? `https://podcasts.apple.com/search?term=${encodeURIComponent(`${ep.show} ${ep.episode}`)}`;
+  const spotifyHref = (i: number, ep: Episode) => ep.spotifyUrl ?? spotifyUrls[i];
 
   const linkStyle = { fontFamily: MONO, fontSize: "0.65rem", letterSpacing: "0.08em", color: ORANGE, textDecoration: "none" };
   const hoverOn  = (e: React.MouseEvent<HTMLAnchorElement>) => { e.currentTarget.style.textDecoration = "underline"; };
@@ -285,8 +298,8 @@ function PodcastsContent({ data, artist }: { data: { episodes?: Episode[] }; art
             <a href={appleHref(i, ep)} target="_blank" rel="noopener noreferrer" style={linkStyle} onMouseEnter={hoverOn} onMouseLeave={hoverOff}>
               Apple Podcasts →
             </a>
-            {spotifyUrls[i] && (
-              <a href={spotifyUrls[i]} target="_blank" rel="noopener noreferrer" style={linkStyle} onMouseEnter={hoverOn} onMouseLeave={hoverOff}>
+            {spotifyHref(i, ep) && (
+              <a href={spotifyHref(i, ep)} target="_blank" rel="noopener noreferrer" style={linkStyle} onMouseEnter={hoverOn} onMouseLeave={hoverOff}>
                 Spotify →
               </a>
             )}
@@ -311,7 +324,7 @@ function PodcastsContent({ data, artist }: { data: { episodes?: Episode[] }; art
   );
 }
 
-type BookItem = { title: string; author: string; year: number; type: string; format: string; isbn13?: string; note: string; written_by_artist?: boolean };
+type BookItem = { title: string; author: string; year: number; type: string; format: string; isbn13?: string; note: string; written_by_artist?: boolean; amazonUrl?: string; audibleUrl?: string };
 
 function BooksContent({ data }: { data: { items?: BookItem[] } }) {
   // Sort by year ascending (oldest first), preserving written_by_artist grouping
@@ -333,9 +346,13 @@ function BooksContent({ data }: { data: { items?: BookItem[] } }) {
   const tag = process.env.NEXT_PUBLIC_AMAZON_AFFILIATE_TAG;
 
   function amazonHref(b: BookItem) {
-    // field-isbn targets Amazon's book ISBN index directly (much more reliable than k=ISBN).
+    // Prefer the direct product URL Claude found and verified via web search.
     // OneLink (loaded in layout) rewrites amazon.com links to each visitor's local store.
-    // PA API will replace this with a direct /dp/ASIN URL once credentials are available.
+    if (b.amazonUrl) {
+      if (!tag) return b.amazonUrl;
+      return `${b.amazonUrl}${b.amazonUrl.includes("?") ? "&" : "?"}tag=${tag}`;
+    }
+    // field-isbn targets Amazon's book ISBN index directly (much more reliable than k=ISBN).
     if (b.isbn13) {
       const base = `https://www.amazon.com/s?field-isbn=${encodeURIComponent(b.isbn13)}&search-alias=books`;
       return tag ? `${base}&tag=${tag}` : base;
@@ -345,8 +362,10 @@ function BooksContent({ data }: { data: { items?: BookItem[] } }) {
   }
 
   function audibleHref(b: BookItem) {
-    // Audible uses its own ASIN system — ISBN lookup doesn't map. Title+author is more reliable.
+    // Prefer the direct page Claude found and verified via web search.
     // OneLink handles regional routing (audible.co.uk, audible.com.au, etc.) via the layout script.
+    if (b.audibleUrl) return b.audibleUrl;
+    // Audible uses its own ASIN system — ISBN lookup doesn't map. Title+author is more reliable.
     const q = encodeURIComponent(`${b.title} ${b.author}`);
     return `https://www.audible.com/search?keywords=${q}`;
   }
