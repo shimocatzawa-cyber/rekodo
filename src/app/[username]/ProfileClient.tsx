@@ -138,6 +138,33 @@ export default function ProfileClient({
     }
   }
 
+  // ── Delete account ───────────────────────────────────────────────────────
+  const [deleteConfirming, setDeleteConfirming] = useState(false);
+  const [deleting,         setDeleting]         = useState(false);
+  const [deleteError,      setDeleteError]      = useState<string | null>(null);
+
+  async function handleDeleteAccount() {
+    setDeleting(true);
+    setDeleteError(null);
+    try {
+      const res = await fetch("/api/account/delete", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ confirm: "DELETE" }),
+      });
+      const data = await res.json() as { success?: boolean; error?: string };
+      if (!res.ok || !data.success) {
+        setDeleteError(data.error ?? "Failed to delete account.");
+        setDeleting(false);
+        return;
+      }
+      router.push("/");
+    } catch {
+      setDeleteError("Failed to delete account.");
+      setDeleting(false);
+    }
+  }
+
   // ── Helpers ───────────────────────────────────────────────────────────────
   function openEdit() {
     setNameValue(profile.display_name     ?? "");
@@ -588,6 +615,32 @@ export default function ProfileClient({
                   <button onClick={cancelEdit} style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.12em", textTransform: "uppercase", color: MUTED, background: "none", border: "none", cursor: "pointer", padding: "10px 0" }}>
                     Cancel
                   </button>
+                </div>
+
+                <div style={{ marginTop: "32px", paddingTop: "20px", borderTop: `1px solid ${RULE}` }}>
+                  <p style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.12em", textTransform: "uppercase", color: "#9a1f1f", margin: "0 0 10px" }}>
+                    Danger zone
+                  </p>
+                  {deleteError && <p style={{ fontFamily: MONO, fontSize: "10px", color: "#cc3300", margin: "0 0 10px" }}>{deleteError}</p>}
+                  {!deleteConfirming ? (
+                    <button onClick={() => setDeleteConfirming(true)} style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.1em", textTransform: "uppercase", color: "#9a1f1f", background: "none", border: "1px solid #9a1f1f", cursor: "pointer", padding: "8px 14px" }}>
+                      Delete account
+                    </button>
+                  ) : (
+                    <div>
+                      <p style={{ fontFamily: SERIF, fontSize: "13px", color: INK, margin: "0 0 12px", maxWidth: "380px" }}>
+                        This permanently deletes your collection, lists, and connections. There&rsquo;s no undo.
+                      </p>
+                      <div style={{ display: "flex", gap: "12px", alignItems: "center" }}>
+                        <button onClick={handleDeleteAccount} disabled={deleting} style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.1em", textTransform: "uppercase", color: "#fff", background: deleting ? "rgba(154,31,31,0.6)" : "#9a1f1f", border: "none", cursor: deleting ? "default" : "pointer", padding: "10px 20px" }}>
+                          {deleting ? "Deleting…" : "Yes, delete everything"}
+                        </button>
+                        <button onClick={() => setDeleteConfirming(false)} disabled={deleting} style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.12em", textTransform: "uppercase", color: MUTED, background: "none", border: "none", cursor: "pointer", padding: "10px 0" }}>
+                          Cancel
+                        </button>
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
             )}
