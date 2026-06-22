@@ -9,19 +9,12 @@ jobs:
   backup:
     runs-on: ubuntu-latest
     steps:
-      - name: Install postgresql-client-17
-        run: |
-          sudo install -d /usr/share/postgresql-common/pgdg
-          sudo curl -o /usr/share/postgresql-common/pgdg/apt.postgresql.org.asc --fail https://www.postgresql.org/media/keys/ACCC4CF8.asc
-          sudo sh -c 'echo "deb [signed-by=/usr/share/postgresql-common/pgdg/apt.postgresql.org.asc] https://apt.postgresql.org/pub/repos/apt $(. /etc/os-release && echo $VERSION_CODENAME)-pgdg main" > /etc/apt/sources.list.d/pgdg.list'
-          sudo apt-get update
-          sudo apt-get install -y postgresql-client-17
-
       - name: Dump database
         env:
           SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
         run: |
-          pg_dump "$SUPABASE_DB_URL" --no-owner --no-privileges -F c -f rekodo-backup.dump
+          docker run --rm -e SUPABASE_DB_URL -v "$PWD:/backup" postgres:17 \
+            pg_dump "$SUPABASE_DB_URL" --no-owner --no-privileges -F c -f /backup/rekodo-backup.dump
 
       - name: Upload backup artifact
         uses: actions/upload-artifact@v4
