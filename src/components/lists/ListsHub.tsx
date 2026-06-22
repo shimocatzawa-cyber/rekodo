@@ -77,9 +77,14 @@ export default function ListsHub({ profileId, username, displayLabel, avatarUrl,
         {activeTab === "selllist" && (
           <SellListClient profileOwnerId={profileId} isOwner={true} />
         )}
-        {activeTab === "playlist" && (
+        {/* Kept mounted (just hidden) rather than conditionally rendered like the
+            other tabs — switching away used to fully unmount PlaylistTab, wiping
+            its generated tracks/player state, so coming back showed an empty
+            "pick a mood" placeholder with no way to resume what was still
+            playing in the background via the persistent SpotifyPlayerProvider. */}
+        <div style={{ display: activeTab === "playlist" ? "block" : "none" }}>
           <PlaylistTab />
-        )}
+        </div>
         {activeTab === "community" && (
           <CommunityTab profileOwnerId={profileId} />
         )}
