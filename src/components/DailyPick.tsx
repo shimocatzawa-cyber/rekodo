@@ -52,11 +52,11 @@ export default function DailyPick({ dailyPick }: { dailyPick: DailyPickData | nu
       </div>
 
       {/* Gatefold spread */}
-      <div style={{ padding: "0 0 18px", display: "grid", gridTemplateColumns: "120px 1fr", gap: "20px" }}>
+      <div style={{ padding: "0 0 18px", display: "grid", gridTemplateColumns: "240px 1fr", gap: "20px" }}>
         <div
           style={{
-            width: "120px",
-            height: "120px",
+            width: "240px",
+            height: "240px",
             background: dailyPick.coverUrl ? undefined : "#f0ede8",
           }}
         >
@@ -65,7 +65,7 @@ export default function DailyPick({ dailyPick }: { dailyPick: DailyPickData | nu
             <img
               src={dailyPick.coverUrl}
               alt={dailyPick.album}
-              style={{ width: "120px", height: "120px", objectFit: "cover", display: "block" }}
+              style={{ width: "240px", height: "240px", objectFit: "cover", display: "block" }}
             />
           )}
         </div>
