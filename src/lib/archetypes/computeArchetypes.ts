@@ -67,12 +67,13 @@ export async function computeArchetypes(
       .select(`
         media_condition,
         price_median,
+        price_low,
         created_at,
         date_added,
         feeling,
         records (
           artist, album, year, genre, styles, label, country, format,
-          community_have, community_want, community_num_for_sale, price_low_usd
+          community_have, community_want, community_num_for_sale
         )
       `)
       .eq('user_id', userId)
@@ -95,16 +96,16 @@ export async function computeArchetypes(
     community_have:          number | null
     community_want:          number | null
     community_num_for_sale:  number | null
-    price_low_usd:           number | null
   }
 
   type UserRecordRow = {
     media_condition: string | null
-    price_median: number | null
-    created_at: string | null
-    date_added: string | null
-    feeling: string | null
-    records: RecordJoin | RecordJoin[] | null
+    price_median:    number | null
+    price_low:       number | null
+    created_at:      string | null
+    date_added:      string | null
+    feeling:         string | null
+    records:         RecordJoin | RecordJoin[] | null
   }
 
   const userRecords: UserRecordRow[] = (userRecordsRaw ?? []) as UserRecordRow[]
@@ -319,7 +320,7 @@ export async function computeArchetypes(
     if (r?.community_have != null && r?.community_want != null) {
       const tier = getDesirabilityTier(
         r.community_have, r.community_want,
-        r.price_low_usd ?? null, r.community_num_for_sale ?? null,
+        row.price_low ?? null, r.community_num_for_sale ?? null,
       )
       trophyPoints += tier ? (TIER_POINTS[tier] ?? 0) : 0
       trophyTotal += 5
