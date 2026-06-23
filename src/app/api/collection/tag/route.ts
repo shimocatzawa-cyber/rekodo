@@ -7,14 +7,14 @@ export async function PATCH(request: NextRequest) {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  let body: { recordId?: unknown; is_essential?: unknown; feeling?: unknown };
+  let body: { recordId?: unknown; is_essential?: unknown; feeling?: unknown; memory_text?: unknown; memory_shared?: unknown };
   try {
     body = await request.json();
   } catch {
     return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
   }
 
-  const { recordId, is_essential, feeling } = body;
+  const { recordId, is_essential, feeling, memory_text, memory_shared } = body;
   if (typeof recordId !== "string" || !recordId) {
     return NextResponse.json({ error: "Missing recordId" }, { status: 400 });
   }
@@ -34,6 +34,23 @@ export async function PATCH(request: NextRequest) {
     }
     update.feeling = feeling;
     update.feeling_tagged_at = feeling ? new Date().toISOString() : null;
+  }
+
+  if (memory_text !== undefined) {
+    if (memory_text !== null && typeof memory_text !== "string") {
+      return NextResponse.json({ error: "memory_text must be a string or null" }, { status: 400 });
+    }
+    if (typeof memory_text === "string" && memory_text.length > 5000) {
+      return NextResponse.json({ error: "memory_text is too long" }, { status: 400 });
+    }
+    update.memory_text = memory_text;
+  }
+
+  if (memory_shared !== undefined) {
+    if (typeof memory_shared !== "boolean") {
+      return NextResponse.json({ error: "memory_shared must be boolean" }, { status: 400 });
+    }
+    update.memory_shared = memory_shared;
   }
 
   if (Object.keys(update).length === 0) {

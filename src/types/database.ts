@@ -119,6 +119,8 @@ export type Database = {
           is_essential:      boolean;
           feeling:           string | null;
           feeling_tagged_at: string | null;
+          memory_text:       string | null;
+          memory_shared:     boolean;
         };
         Insert: {
           id?: string;
@@ -141,6 +143,8 @@ export type Database = {
           is_essential?:      boolean;
           feeling?:           string | null;
           feeling_tagged_at?: string | null;
+          memory_text?:       string | null;
+          memory_shared?:     boolean;
         };
         Update: {
           value?: number | null;
@@ -159,6 +163,8 @@ export type Database = {
           is_essential?:      boolean;
           feeling?:           string | null;
           feeling_tagged_at?: string | null;
+          memory_text?:       string | null;
+          memory_shared?:     boolean;
         };
         Relationships: [];
       };

@@ -343,6 +343,8 @@ const [filterFormat,       setFilterFormat]       = useState("");
         open_to_offers:   boolean | null;
         is_essential:     boolean | null;
         feeling:          string | null;
+        memory_text:      string | null;
+        memory_shared:    boolean | null;
       };
       const allLinks: LinkRow[] = [];
       const PAGE = 1000;
@@ -350,7 +352,7 @@ const [filterFormat,       setFilterFormat]       = useState("");
         const { data, error } = await supabase
           .from("user_records")
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          .select("record_id, value, price_low, price_median, price_currency, media_condition, sleeve_condition, open_to_offers, is_essential, feeling" as any)
+          .select("record_id, value, price_low, price_median, price_currency, media_condition, sleeve_condition, open_to_offers, is_essential, feeling, memory_text, memory_shared" as any)
           .eq("user_id", user.id)
           .range(from, from + PAGE - 1);
         console.log(`[collection] user_records page from=${from}: count=${data?.length ?? 0} error=${JSON.stringify(error)}`);
@@ -369,8 +371,10 @@ const [filterFormat,       setFilterFormat]       = useState("");
       const openToOffersMap    = new Map<string, boolean | null>(allLinks.map((l) => [l.record_id, l.open_to_offers ?? null]));
       const isEssentialMap     = new Map<string, boolean | null>(allLinks.map((l) => [l.record_id, l.is_essential ?? null]));
       const feelingMap         = new Map<string, string | null>(allLinks.map((l) => [l.record_id, l.feeling ?? null]));
+      const memoryTextMap      = new Map<string, string | null>(allLinks.map((l) => [l.record_id, l.memory_text ?? null]));
+      const memorySharedMap    = new Map<string, boolean | null>(allLinks.map((l) => [l.record_id, l.memory_shared ?? null]));
       const BATCH        = 400;
-      const recordsMap   = new Map<string, Omit<CollectionRecord, "value" | "price_low" | "price_low_usd" | "price_median" | "price_currency" | "media_condition" | "sleeve_condition" | "open_to_offers" | "is_essential" | "feeling">>();
+      const recordsMap   = new Map<string, Omit<CollectionRecord, "value" | "price_low" | "price_low_usd" | "price_median" | "price_currency" | "media_condition" | "sleeve_condition" | "open_to_offers" | "is_essential" | "feeling" | "memory_text" | "memory_shared">>();
       for (let i = 0; i < recordIds.length; i += BATCH) {
         const { data, error } = await supabase
           .from("records")
@@ -396,6 +400,8 @@ const [filterFormat,       setFilterFormat]       = useState("");
             open_to_offers:   openToOffersMap.get(id)    ?? null,
             is_essential:     isEssentialMap.get(id)     ?? null,
             feeling:          feelingMap.get(id)         ?? null,
+            memory_text:      memoryTextMap.get(id)      ?? null,
+            memory_shared:    memorySharedMap.get(id)    ?? null,
           };
         })
         .filter((r): r is CollectionRecord => r !== undefined);
@@ -2515,6 +2521,9 @@ function TracklistPanel({ tracks, loading, bandcamp, record }: {
         </div>
       )}
 
+      {/* ── Memory ── */}
+      <MemorySection record={record} />
+
       {/* ── Tracklist ── */}
       <div style={{ padding: "20px 28px 24px" }}>
         {loading ? (
@@ -2607,6 +2616,174 @@ function TracklistPanel({ tracks, loading, bandcamp, record }: {
             </div>
           </div>
         </>
+      )}
+    </div>
+  );
+}
+
+// ─── MemorySection ──────────────────────────────────────────────────────────
+
+function MemorySection({ record }: { record: CollectionRecord | null }) {
+  const [memoryText,   setMemoryText]   = useState<string | null>(record?.memory_text ?? null);
+  const [memoryShared, setMemoryShared] = useState<boolean>(record?.memory_shared ?? false);
+  const [open,    setOpen]    = useState(false);
+  const [editing, setEditing] = useState(false);
+  const [draft,   setDraft]   = useState("");
+  const [saving,  setSaving]  = useState(false);
+  const [sharing, setSharing] = useState(false);
+
+  useEffect(() => {
+    setMemoryText(record?.memory_text ?? null);
+    setMemoryShared(record?.memory_shared ?? false);
+    setOpen(false);
+    setEditing(false);
+    setDraft("");
+  }, [record?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  if (!record) return null;
+
+  const hasMemory = !!memoryText && memoryText.trim().length > 0;
+
+  function startEdit() {
+    setDraft(memoryText ?? "");
+    setEditing(true);
+  }
+
+  async function handleSave() {
+    if (!record?.id || saving) return;
+    const text = draft.trim() || null;
+    setSaving(true);
+    try {
+      const res = await fetch("/api/collection/tag", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ recordId: record.id, memory_text: text }),
+      });
+      if (res.ok) {
+        setMemoryText(text);
+        setEditing(false);
+      }
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function handleToggleShared() {
+    if (!record?.id || sharing) return;
+    const next = !memoryShared;
+    setMemoryShared(next);
+    setSharing(true);
+    try {
+      const res = await fetch("/api/collection/tag", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ recordId: record.id, memory_shared: next }),
+      });
+      if (!res.ok) setMemoryShared(!next);
+    } catch {
+      setMemoryShared(!next);
+    } finally {
+      setSharing(false);
+    }
+  }
+
+  const showForm = !hasMemory || editing;
+
+  return (
+    <div style={{ padding: "0 28px", borderTop: "1px solid #e0e0da" }}>
+      <button
+        onClick={() => setOpen(o => !o)}
+        style={{
+          display: "flex", alignItems: "center", justifyContent: "space-between",
+          width: "100%", background: "none", border: "none", cursor: "pointer",
+          padding: "12px 0", textAlign: "left",
+        }}
+      >
+        {open ? (
+          <span style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.12em", textTransform: "uppercase", color: "#0a0a0a" }}>
+            Memory
+          </span>
+        ) : (
+          <span style={{ display: "inline-flex", alignItems: "center", gap: "6px", fontFamily: MONO, fontSize: "9px", letterSpacing: "0.12em", textTransform: "uppercase", color: hasMemory ? "#0a0a0a" : "#888888" }}>
+            {hasMemory ? "Memory" : "+ Memory"}
+            {hasMemory && (
+              <span style={{ width: "4px", height: "4px", borderRadius: "50%", background: ORANGE, display: "inline-block" }} />
+            )}
+          </span>
+        )}
+
+        {open && hasMemory ? (
+          <span style={{ display: "inline-flex", alignItems: "center", gap: "8px" }}>
+            <span style={{ fontFamily: MONO, fontSize: "8.5px", letterSpacing: "0.08em", textTransform: "uppercase", color: "#aaaaaa" }}>
+              private
+            </span>
+            <span style={{ fontSize: "8px", opacity: 0.7 }}>⌃</span>
+          </span>
+        ) : (
+          <span style={{ fontSize: "8px", opacity: 0.7 }}>{open ? "⌃" : "⌄"}</span>
+        )}
+      </button>
+
+      {open && (
+        <div style={{ paddingBottom: "16px" }}>
+          {showForm ? (
+            <>
+              <textarea
+                value={draft}
+                onChange={(e) => setDraft(e.target.value)}
+                placeholder="Found this at... / Given to me by... / The week this became mine..."
+                style={{
+                  display: "block", width: "100%", minHeight: "60px", resize: "vertical",
+                  fontFamily: SERIF, fontSize: "13.5px", lineHeight: 1.6,
+                  color: "#0a0a0a", background: "#fafafa",
+                  border: "1px solid #e8e8e8", padding: "10px", boxSizing: "border-box",
+                  outline: "none",
+                }}
+              />
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginTop: "8px" }}>
+                <span style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.08em", color: "#aaaaaa" }}>
+                  private to you
+                </span>
+                <button
+                  onClick={handleSave}
+                  disabled={saving}
+                  style={{
+                    fontFamily: MONO, fontSize: "9px", letterSpacing: "0.1em", textTransform: "uppercase",
+                    color: saving ? "#aaaaaa" : ORANGE, background: "transparent",
+                    border: `1px solid ${saving ? "#dddddd" : ORANGE}`,
+                    padding: "5px 12px", cursor: saving ? "default" : "pointer",
+                  }}
+                >
+                  {saving ? "Saving…" : "Save"}
+                </button>
+              </div>
+            </>
+          ) : (
+            <>
+              <p style={{ fontFamily: SERIF, fontSize: "13.5px", lineHeight: 1.6, color: "#0a0a0a", margin: 0, whiteSpace: "pre-wrap" }}>
+                {memoryText}
+              </p>
+              <div style={{ borderTop: "1px solid rgba(0,0,0,0.07)", marginTop: "12px", paddingTop: "10px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                <button
+                  onClick={startEdit}
+                  style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.1em", textTransform: "uppercase", color: "#888888", background: "none", border: "none", cursor: "pointer", padding: 0 }}
+                >
+                  Edit
+                </button>
+                <label style={{ display: "inline-flex", alignItems: "center", gap: "6px", fontFamily: MONO, fontSize: "9px", letterSpacing: "0.06em", color: "#555555", cursor: sharing ? "default" : "pointer" }}>
+                  <input
+                    type="checkbox"
+                    checked={memoryShared}
+                    onChange={handleToggleShared}
+                    disabled={sharing}
+                    style={{ cursor: sharing ? "default" : "pointer" }}
+                  />
+                  Show on shared profile
+                </label>
+              </div>
+            </>
+          )}
+        </div>
       )}
     </div>
   );
