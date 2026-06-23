@@ -1,6 +1,8 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { ARCHETYPES, getNamedPairing } from './archetypeConfig'
 import { getDesirabilityTier } from '@/lib/desirability'
+import { STAR_SIGN_ARCHETYPE_NUDGE, STAR_SIGN_NUDGE_AMOUNT } from './starSignNudges'
+import type { StarSign } from '@/lib/starSigns'
 
 export interface SignalResult {
   score: number
@@ -655,13 +657,13 @@ export async function computeArchetypes(
   }
   const scores: Record<string, number> = {
     keeper: clamp(
-      sig(s.labelLoyalty) * 0.20 +
-      sig(s.conditionStandard) * 0.15 +
-      sig(s.sonicCoherence) * 0.15 +
-      sig(s.historicalDepth) * 0.15 +
-      sig(s.formatFidelity) * 0.10 +
+      sig(s.labelLoyalty) * 0.25 +
+      sig(s.conditionStandard) * 0.10 +
+      sig(s.sonicCoherence) * 0.10 +
+      sig(s.historicalDepth) * 0.10 +
+      sig(s.formatFidelity) * 0.15 +
       (100 - sig(s.acquisitionRhythm)) * 0.10 +
-      sig(s.artistConcentration) * 0.15
+      sig(s.artistConcentration) * 0.20
     ),
     seeker: clamp(
       sig(s.aspirationRatio) * 0.25 +
@@ -673,20 +675,20 @@ export async function computeArchetypes(
       (100 - sig(s.artistConcentration)) * 0.10
     ),
     scholar: clamp(
-      sig(s.styleRange) * 0.20 +
-      sig(s.historicalDepth) * 0.20 +
-      sig(s.sonicCoherence) * 0.15 +
+      sig(s.styleRange) * 0.30 +
+      sig(s.historicalDepth) * 0.15 +
+      sig(s.sonicCoherence) * 0.10 +
       sig(s.geographicRange) * 0.15 +
-      sig(s.conditionStandard) * 0.10 +
-      sig(s.pressingOriginDiversity) * 0.10 +
+      sig(s.conditionStandard) * 0.05 +
+      sig(s.pressingOriginDiversity) * 0.15 +
       (100 - sig(s.canonObscurity)) * 0.10
     ),
     ritualist: clamp(
-      sig(s.conditionStandard) * 0.30 +
-      (100 - sig(s.acquisitionRhythm)) * 0.25 +
-      sig(s.sonicCoherence) * 0.20 +
+      sig(s.conditionStandard) * 0.20 +
+      (100 - sig(s.acquisitionRhythm)) * 0.30 +
+      sig(s.sonicCoherence) * 0.15 +
       (100 - sig(s.aspirationRatio)) * 0.15 +
-      sig(s.listeningIntensity) * 0.10
+      sig(s.listeningIntensity) * 0.20
     ),
     hunter: clamp(
       sig(s.trophyRatio) * 0.35 +
@@ -720,12 +722,12 @@ export async function computeArchetypes(
       (100 - sig(s.labelLoyalty)) * 0.10
     ),
     ruler: clamp(
-      sig(s.labelLoyalty) * 0.25 +
-      (100 - sig(s.styleRange)) * 0.20 +
-      sig(s.conditionStandard) * 0.15 +
-      sig(s.historicalDepth) * 0.15 +
-      sig(s.sonicCoherence) * 0.15 +
-      sig(s.artistConcentration) * 0.10
+      sig(s.labelLoyalty) * 0.30 +
+      (100 - sig(s.styleRange)) * 0.25 +
+      sig(s.conditionStandard) * 0.10 +
+      sig(s.historicalDepth) * 0.10 +
+      sig(s.sonicCoherence) * 0.10 +
+      sig(s.artistConcentration) * 0.15
     ),
     outlaw: clamp(
       sig(s.transgressiveIndex) * 0.35 +
@@ -744,11 +746,26 @@ export async function computeArchetypes(
     ),
   }
 
+  // Star sign is a self-reported, low-weight prior — nudges two thematically-aligned
+  // archetypes, not a substitute for collection signals.
+  const { data: profileRow } = await supabase
+    .from('profiles')
+    .select('star_sign')
+    .eq('id', userId)
+    .maybeSingle()
+  const starSign = profileRow?.star_sign as StarSign | null | undefined
+  const nudgeTargets = starSign ? STAR_SIGN_ARCHETYPE_NUDGE[starSign] : null
+  if (nudgeTargets) {
+    for (const id of nudgeTargets) {
+      if (id in scores) scores[id] = clamp(scores[id] + STAR_SIGN_NUDGE_AMOUNT)
+    }
+  }
+
   const sortedEntries = Object.entries(scores).sort((a, b) => b[1] - a[1])
   const primary = sortedEntries[0][0]
   const primaryScore = sortedEntries[0][1]
   const secondaryEntry = sortedEntries[1]
-  const secondary = secondaryEntry[1] >= 30 ? secondaryEntry[0] : null
+  const secondary = secondaryEntry[1] >= 40 ? secondaryEntry[0] : null
   const secondaryScore = secondaryEntry[1]
   // Shadow = the least-developed archetype (lowest score), excluding primary and secondary.
   // This aligns with Jung: the shadow is what you most suppress, not a fixed thematic opposite.
