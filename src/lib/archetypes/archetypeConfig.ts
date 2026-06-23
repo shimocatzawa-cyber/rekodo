@@ -172,6 +172,7 @@ export const NAMED_PAIRINGS: Record<string, string> = {
   'lover+ritualist': 'The Devotee',
   'lover+caregiver': 'The Empath',
   'lover+alchemist': 'The Poet',
+  'lover+outlaw': 'The Rebel',
   'alchemist+scholar': 'The Critic',
   'alchemist+caregiver': 'The Teacher',
   'alchemist+outlaw': 'The Provocateur',

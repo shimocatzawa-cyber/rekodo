@@ -1,5 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { ARCHETYPES, getNamedPairing } from './archetypeConfig'
+import { getDesirabilityTier } from '@/lib/desirability'
 
 export interface SignalResult {
   score: number
@@ -71,7 +72,7 @@ export async function computeArchetypes(
         feeling,
         records (
           artist, album, year, genre, styles, label, country, format,
-          community_have, community_want
+          community_have, community_want, community_num_for_sale, price_low_usd
         )
       `)
       .eq('user_id', userId)
@@ -91,8 +92,10 @@ export async function computeArchetypes(
     label: string | null
     country: string | null
     format: string | null
-    community_have: number | null
-    community_want: number | null
+    community_have:          number | null
+    community_want:          number | null
+    community_num_for_sale:  number | null
+    price_low_usd:           number | null
   }
 
   type UserRecordRow = {
@@ -114,14 +117,14 @@ export async function computeArchetypes(
   }
 
   // ── B: Wantlist count ────────────────────────────────────────────────────────
-  // Use list_items joined to lists with slug='wantlist'
+  // Use count:exact to avoid the PostgREST 1000-row default cap.
   let wantlistCount = 0
-  const { data: wantlistRows } = await supabase
+  const { count: wantlistCountRaw } = await supabase
     .from('list_items')
-    .select('id, lists!inner(user_id, slug)')
+    .select('id, lists!inner(user_id, slug)', { count: 'exact', head: true })
     .eq('lists.user_id', userId)
     .eq('lists.slug', 'wantlist')
-  wantlistCount = wantlistRows?.length ?? 0
+  wantlistCount = wantlistCountRaw ?? 0
 
   // ── C: Digital imports ───────────────────────────────────────────────────────
   const { data: digitalImportsRaw } = await supabase
@@ -303,18 +306,23 @@ export async function computeArchetypes(
     subtext: topCountryEntry ? `Top: ${topCountryEntry[0]} (${topCountryEntry[1]})` : 'No pressing data',
   }
 
-  // 7. trophyRatio — uses community_want/have ratio as proxy
-  // (desirability_tag column doesn't exist; derive from community demand signal)
+  // 7. trophyRatio — scored via full desirability tier system
+  // Tier points: holy-grail=5, rare=4, cult=3, in-demand=2, widely-loved=1, null=0
+  // Max possible per record is 5, so score = (sum / (records * 5)) * 100
+  const TIER_POINTS: Record<string, number> = {
+    'holy-grail': 5, 'rare': 4, 'cult': 3, 'in-demand': 2, 'widely-loved': 1,
+  }
   let trophyPoints = 0
   let trophyTotal = 0
   for (const row of userRecords) {
     const r = getRecord(row)
-    if (r?.community_want != null && r?.community_have != null && r.community_have > 0) {
-      const ratio = r.community_want / r.community_have
-      if (ratio > 2) trophyPoints += 3
-      else if (ratio > 1) trophyPoints += 2
-      else if (ratio > 0.5) trophyPoints += 1
-      trophyTotal += 3
+    if (r?.community_have != null && r?.community_want != null) {
+      const tier = getDesirabilityTier(
+        r.community_have, r.community_want,
+        r.price_low_usd ?? null, r.community_num_for_sale ?? null,
+      )
+      trophyPoints += tier ? (TIER_POINTS[tier] ?? 0) : 0
+      trophyTotal += 5
     }
   }
   const hasDesirabilityData = trophyTotal > 0
@@ -322,7 +330,7 @@ export async function computeArchetypes(
   const trophyRatio: ComputedSignals['trophyRatio'] = {
     score: trophyScore,
     label: !hasDesirabilityData ? 'No data' : trophyScore > 40 ? 'Obsessive Hunter' : trophyScore >= 20 ? 'Rarity-aware' : 'Music-first',
-    subtext: hasDesirabilityData ? `Based on community demand signals` : 'Sync collection to unlock',
+    subtext: hasDesirabilityData ? 'Based on community desirability tiers' : 'Sync collection to unlock',
     unavailable: !hasDesirabilityData,
   }
 
@@ -603,9 +611,9 @@ export async function computeArchetypes(
       s.pressingOriginDiversity.score * 0.15
     ),
     ritualist: clamp(
-      s.formatFidelity.score * 0.25 +
-      s.conditionStandard.score * 0.20 +
-      (100 - s.acquisitionRhythm.score) * 0.20 +
+      s.formatFidelity.score * 0.10 +
+      s.conditionStandard.score * 0.30 +
+      (100 - s.acquisitionRhythm.score) * 0.25 +
       s.sonicCoherence.score * 0.20 +
       (100 - s.aspirationRatio.score) * 0.15
     ),
