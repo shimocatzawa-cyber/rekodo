@@ -176,22 +176,13 @@ export async function computeArchetypes(
   }
 
   // 2. conditionStandard
-  const GRADE_MAP: Record<string, number> = {
-    'M': 100, 'Mint (M)': 100,
-    'NM': 100, 'Near Mint (NM or M-)': 100, 'Near Mint (NM)': 100,
-    'VG+': 80, 'Very Good Plus (VG+)': 80,
-    'VG': 50, 'Very Good (VG)': 50,
-    'G+': 25, 'Good Plus (G+)': 25,
-    'G': 10, 'Good (G)': 10,
-    'Fair': 10, 'Poor': 10,
-  }
   const NM_MINT_GRADES = new Set([
     'M', 'Mint (M)', 'NM', 'Near Mint (NM or M-)', 'Near Mint (NM)',
   ])
   let nmMintCount = 0
   let conditionTotal = 0
   for (const row of userRecords) {
-    if (row.media_condition && GRADE_MAP[row.media_condition] != null) {
+    if (row.media_condition) {
       conditionTotal++
       if (NM_MINT_GRADES.has(row.media_condition)) nmMintCount++
     }
@@ -587,7 +578,7 @@ export async function computeArchetypes(
   const avgHaveWant = hasCanonData
     ? haveWantRatios.reduce((a, b) => a + b, 0) / haveWantRatios.length
     : 0
-  const canonScore = hasCanonData ? clamp(100 - (Math.min(avgHaveWant, 8) / 8) * 100) : 0
+  const canonScore = hasCanonData ? clamp(100 - (Math.min(avgHaveWant, 15) / 15) * 100) : 0
   const canonObscurity: ComputedSignals['canonObscurity'] = {
     score: canonScore,
     label: !hasCanonData ? 'No data' : canonScore > 66 ? 'Obscurist' : canonScore >= 33 ? 'Mixed' : 'Canonical',
@@ -685,11 +676,11 @@ export async function computeArchetypes(
       (100 - s.canonObscurity.score) * 0.10
     ),
     ritualist: clamp(
-      s.formatFidelity.score * 0.10 +
       s.conditionStandard.score * 0.30 +
       (100 - s.acquisitionRhythm.score) * 0.25 +
       s.sonicCoherence.score * 0.20 +
-      (100 - s.aspirationRatio.score) * 0.15
+      (100 - s.aspirationRatio.score) * 0.15 +
+      s.listeningIntensity.score * 0.10
     ),
     hunter: clamp(
       s.trophyRatio.score * 0.35 +
@@ -718,7 +709,7 @@ export async function computeArchetypes(
     pilgrim: clamp(
       s.pressingOriginDiversity.score * 0.35 +
       s.geographicRange.score * 0.25 +
-      s.transgressiveIndex.score * 0.15 +
+      s.canonObscurity.score * 0.15 +
       s.historicalDepth.score * 0.15 +
       (100 - s.labelLoyalty.score) * 0.10
     ),
@@ -741,7 +732,7 @@ export async function computeArchetypes(
       s.curatorialReach.score * 0.30 +
       s.styleRange.score * 0.20 +
       s.digitalDivergence.score * 0.15 +
-      (100 - s.digitalDivergence.score) * 0.15 +
+      s.listeningIntensity.score * 0.15 +
       s.geographicRange.score * 0.10 +
       (100 - s.sonicCoherence.score) * 0.10
     ),
