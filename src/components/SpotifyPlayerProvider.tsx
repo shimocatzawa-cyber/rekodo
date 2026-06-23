@@ -338,9 +338,13 @@ export function SpotifyPlayerProvider({ children }: { children: React.ReactNode 
       }
       if (s.paused && s.position === 0 && nearEndRef.current) {
         nearEndRef.current = false;
+        const nextTracksLeft = s.track_window?.next_tracks?.length ?? 0;
         if (sourceRef.current?.mode === "dig") {
-          sourceRef.current.onEnded?.();
-        } else if (sourceRef.current?.mode === "playlist" && (s.track_window?.next_tracks?.length ?? 0) > 0) {
+          // Only advance to the next DIG card when the album is truly done.
+          // If next_tracks is non-empty we're at a track boundary mid-album —
+          // Spotify handles the transition automatically; don't jump cards.
+          if (nextTracksLeft === 0) sourceRef.current.onEnded?.();
+        } else if (sourceRef.current?.mode === "playlist" && nextTracksLeft > 0) {
           playerRef.current?.nextTrack().catch(() => {});
         }
       }

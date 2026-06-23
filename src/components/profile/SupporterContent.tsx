@@ -16,6 +16,7 @@ const SUBSCRIPTION_PERKS = [
   { category: "Insights",   description: "Taste Profile" },
   { category: "Archetypes", description: "What your collection says about you" },
   { category: "Discovery",  description: "Dig unlimited regeneration" },
+  { category: "Lists",      description: "Unlimited playlist generations" },
   { category: "Wantlist",   description: "Wantlist Upload feature" },
 ];
 
