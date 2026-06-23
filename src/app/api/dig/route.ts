@@ -64,13 +64,22 @@ export async function POST(request: Request) {
   }
 
   // ── Fetch collection ──────────────────────────────────────────────────────
-  const { data: links } = await supabase
-    .from("user_records")
-    .select("record_id")
-    .eq("user_id", user.id)
-    .limit(5000);
+  // Paginate to avoid the PostgREST 1000-row default cap on large collections.
+  const allLinks: { record_id: string }[] = [];
+  let linkPage = 0;
+  while (true) {
+    const { data: batch } = await supabase
+      .from("user_records")
+      .select("record_id")
+      .eq("user_id", user.id)
+      .range(linkPage * BATCH, (linkPage + 1) * BATCH - 1);
+    if (!batch || batch.length === 0) break;
+    allLinks.push(...batch);
+    if (batch.length < BATCH) break;
+    linkPage++;
+  }
 
-  const recordIds = (links ?? []).map((l) => l.record_id);
+  const recordIds = allLinks.map((l) => l.record_id);
 
   type RecordRow = { id: string; artist: string; album: string; year: number | null; genre: string | null };
   const collectionMap = new Map<string, RecordRow>();
@@ -211,12 +220,21 @@ ${JSON_SCHEMA}`;
       .maybeSingle();
 
     if (wlRow) {
-      const { data: wlItems } = await supabase
-        .from("list_items")
-        .select("record_id, song_artist, song_album")
-        .eq("list_id", wlRow.id);
+      const wlItems: { record_id: string | null; song_artist: string | null; song_album: string | null }[] = [];
+      let wlPage = 0;
+      while (true) {
+        const { data: wlBatch } = await supabase
+          .from("list_items")
+          .select("record_id, song_artist, song_album")
+          .eq("list_id", wlRow.id)
+          .range(wlPage * BATCH, (wlPage + 1) * BATCH - 1);
+        if (!wlBatch || wlBatch.length === 0) break;
+        wlItems.push(...wlBatch);
+        if (wlBatch.length < BATCH) break;
+        wlPage++;
+      }
 
-      const wlRecordIds = (wlItems ?? []).map(i => i.record_id).filter(Boolean) as string[];
+      const wlRecordIds = wlItems.map(i => i.record_id).filter(Boolean) as string[];
 
       // Songs added directly (no record_id)
       for (const i of wlItems ?? []) {
