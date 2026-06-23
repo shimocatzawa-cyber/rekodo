@@ -22,6 +22,18 @@ const SUBSCRIPTION_PERKS = [
 
 const PRESET_AMOUNTS = [5, 10, 20];
 
+// Reusing the USD preset numbers verbatim breaks down for currencies whose
+// unit value differs a lot from the dollar (¥5/¥10/¥20 is pocket change).
+// Override with round, currency-appropriate amounts where that matters;
+// anything not listed here falls back to PRESET_AMOUNTS.
+const PRESET_AMOUNTS_BY_CURRENCY: Record<string, number[]> = {
+  jpy: [500, 1000, 2000],
+};
+
+function presetsForCurrency(currency: string): number[] {
+  return PRESET_AMOUNTS_BY_CURRENCY[currency.toLowerCase()] ?? PRESET_AMOUNTS;
+}
+
 // Currencies Stripe represents in whole units rather than a /100 minor unit
 // https://docs.stripe.com/currencies#zero-decimal
 const ZERO_DECIMAL_CURRENCIES = new Set([
@@ -72,7 +84,13 @@ export default function SupporterContent({ isOwner, isSubscriber, isDonor, userI
       .catch(() => {});
   }, []);
 
-  const donationValue = preset !== null ? preset : (customAmount ? Number(customAmount) : 0);
+  // Presets are denominated per-currency (e.g. jpy uses 500/1000/2000, not
+  // 5/10/20) — if the resolved currency changes the set of valid presets out
+  // from under an already-selected preset, treat it as unselected rather
+  // than silently submitting an amount denominated for the wrong currency.
+  const presets = presetsForCurrency(localPrice?.currency ?? "usd");
+  const activePreset = preset !== null && presets.includes(preset) ? preset : null;
+  const donationValue = activePreset !== null ? activePreset : (customAmount ? Number(customAmount) : 0);
   const donationValid = donationValue >= 1 && Number.isInteger(donationValue);
 
   function selectPreset(amount: number) {
@@ -301,15 +319,15 @@ export default function SupporterContent({ isOwner, isSubscriber, isDonor, userI
           {/* Preset + custom amount */}
           <div style={{ marginBottom: 28 }}>
             <div style={{ display: "flex", gap: 8, marginBottom: 12 }}>
-              {PRESET_AMOUNTS.map(amount => (
+              {presets.map(amount => (
                 <button
                   key={amount}
                   onClick={() => selectPreset(amount)}
                   style={{
                     fontFamily: MONO, fontSize: "0.65rem", letterSpacing: "0.08em",
-                    padding: "9px 16px", border: `1px solid ${preset === amount ? INK : RULE}`,
-                    background: preset === amount ? INK : "#fff",
-                    color: preset === amount ? "#FDF6F0" : INK,
+                    padding: "9px 16px", border: `1px solid ${activePreset === amount ? INK : RULE}`,
+                    background: activePreset === amount ? INK : "#fff",
+                    color: activePreset === amount ? "#FDF6F0" : INK,
                     cursor: "pointer",
                   }}
                 >
@@ -325,7 +343,7 @@ export default function SupporterContent({ isOwner, isSubscriber, isDonor, userI
 
             <div style={{
               display: "inline-flex", alignItems: "center",
-              border: `1px solid ${preset === null && customAmount ? INK : RULE}`,
+              border: `1px solid ${activePreset === null && customAmount ? INK : RULE}`,
               maxWidth: 160,
             }}>
               <span style={{ fontFamily: MONO, fontSize: "0.85rem", color: "#aaaaaa", padding: "9px 6px 9px 12px" }}>
