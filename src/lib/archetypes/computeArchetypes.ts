@@ -26,6 +26,9 @@ export interface ComputedSignals {
   curatorialReach: SignalResult
   digitalDivergence: SignalResult & { digitalOnlyArtists: string[] }
   emotionalRange: SignalResult & { uniqueFeelings: number; taggedCount: number }
+  canonObscurity: SignalResult
+  artistConcentration: SignalResult
+  listeningIntensity: SignalResult
 }
 
 export interface ArchetypeResult {
@@ -68,6 +71,7 @@ export async function computeArchetypes(
         media_condition,
         price_median,
         price_low,
+        play_count,
         created_at,
         date_added,
         feeling,
@@ -102,6 +106,7 @@ export async function computeArchetypes(
     media_condition: string | null
     price_median:    number | null
     price_low:       number | null
+    play_count:      number | null
     created_at:      string | null
     date_added:      string | null
     feeling:         string | null
@@ -180,23 +185,25 @@ export async function computeArchetypes(
     'G': 10, 'Good (G)': 10,
     'Fair': 10, 'Poor': 10,
   }
-  const gradedScores: number[] = []
+  const NM_MINT_GRADES = new Set([
+    'M', 'Mint (M)', 'NM', 'Near Mint (NM or M-)', 'Near Mint (NM)',
+  ])
+  let nmMintCount = 0
+  let conditionTotal = 0
   for (const row of userRecords) {
-    if (row.media_condition) {
-      const score = GRADE_MAP[row.media_condition] ?? null
-      if (score != null) gradedScores.push(score)
+    if (row.media_condition && GRADE_MAP[row.media_condition] != null) {
+      conditionTotal++
+      if (NM_MINT_GRADES.has(row.media_condition)) nmMintCount++
     }
   }
-  const avgCondition = gradedScores.length > 0
-    ? gradedScores.reduce((a, b) => a + b, 0) / gradedScores.length
-    : 50
+  const nmPct = conditionTotal > 0 ? (nmMintCount / conditionTotal) * 100 : 0
   const conditionStandard: ComputedSignals['conditionStandard'] = {
-    score: clamp(avgCondition),
-    label: avgCondition > 80 ? 'Fastidious' : avgCondition >= 60 ? 'Listener' : 'Content-first',
-    subtext: gradedScores.length > 0
-      ? `${gradedScores.length} records with condition data`
+    score: clamp(nmPct),
+    label: nmPct > 60 ? 'Fastidious' : nmPct >= 30 ? 'Quality-conscious' : 'Content-first',
+    subtext: conditionTotal > 0
+      ? `${nmMintCount} of ${conditionTotal} records NM or better`
       : 'No condition data',
-    unavailable: gradedScores.length === 0,
+    unavailable: conditionTotal === 0,
   }
 
   // 3. formatFidelity
@@ -364,17 +371,14 @@ export async function computeArchetypes(
     subtext: modalDecade ? `Modal decade: ${modalDecade}s` : 'No year data',
   }
 
-  // 9. acquisitionRhythm — uses date_added (the actual Discogs collection-add date,
-  // synced per-record) so collectors with real purchase history spread over years
-  // score correctly. Falls back to created_at (rekōdo's own row-insert time) only
-  // for records added before date_added existed or via a path that doesn't set it —
-  // using created_at as the primary signal would otherwise read ANY single bulk
-  // sync (the standard onboarding flow) as a maximally steady "Ritualist" buying
-  // rhythm, since every record gets the same insert timestamp regardless of when
-  // it was actually acquired.
+  // 9. acquisitionRhythm — uses only real date_added values (Discogs collection-add
+  // date per record). Excludes created_at fallback entirely: created_at is rekōdo's
+  // row-insert timestamp and causes every bulk-synced record to land in the same
+  // week, producing a false "Binge" spike. Groups by year (not week) and uses the
+  // coefficient of variation to measure how evenly spread the buying is over time.
   const datedRecords = userRecords
-    .filter(row => row.date_added || row.created_at)
-    .map(row => new Date((row.date_added ?? row.created_at)!))
+    .filter(row => row.date_added)
+    .map(row => new Date(row.date_added!))
 
   let rhythmResult: ComputedSignals['acquisitionRhythm']
   if (datedRecords.length < 10) {
@@ -387,24 +391,28 @@ export async function computeArchetypes(
       unavailable: true,
     }
   } else {
-    // Group by ISO week
-    const weekCounts = new Map<string, number>()
+    const yearCounts = new Map<number, number>()
     for (const d of datedRecords) {
-      const year = d.getFullYear()
-      const startOfYear = new Date(year, 0, 1)
-      const week = Math.ceil(((d.getTime() - startOfYear.getTime()) / 86400000 + startOfYear.getDay() + 1) / 7)
-      const key = `${year}-W${String(week).padStart(2, '0')}`
-      weekCounts.set(key, (weekCounts.get(key) ?? 0) + 1)
+      const yr = d.getFullYear()
+      yearCounts.set(yr, (yearCounts.get(yr) ?? 0) + 1)
     }
-    const weeklyValues = [...weekCounts.values()]
-    const sd = stdDev(weeklyValues)
-    const rhythmType = sd < 0.8 ? 'Ritualist' : sd < 2.5 ? 'Measured' : 'Binge'
+    const activeYears = yearCounts.size
+    const yearValues = [...yearCounts.values()]
+    const mean = yearValues.reduce((a, b) => a + b, 0) / yearValues.length
+    const sd = stdDev(yearValues)
+    // Coefficient of variation: low = even spread, high = bursty
+    const cv = mean > 0 ? sd / mean : 0
+    const rhythmType = activeYears >= 4 && cv < 0.8
+      ? 'Ritualist'
+      : activeYears >= 2 && cv < 1.5
+        ? 'Measured'
+        : 'Binge'
     rhythmResult = {
-      score: clamp(sd * 15),
+      score: clamp(cv * 50),
       label: rhythmType,
       rhythmType,
       stdDev: sd,
-      subtext: `Buying pattern: ${rhythmType.toLowerCase()}`,
+      subtext: `${activeYears} active year${activeYears !== 1 ? 's' : ''} · ${rhythmType.toLowerCase()}`,
     }
   }
   const acquisitionRhythm = rhythmResult
@@ -565,6 +573,65 @@ export async function computeArchetypes(
     unavailable: !hasFeelingData,
   }
 
+  // 16. canonObscurity — average community_have/want ratio across collection,
+  // inverted so that obscure (low ownership) = high score.
+  // Mirrors Insights' Canon ↔ Obscure Taste Profile dimension.
+  const haveWantRatios: number[] = []
+  for (const row of userRecords) {
+    const r = getRecord(row)
+    if (r?.community_have != null && r?.community_want != null && r.community_want > 0) {
+      haveWantRatios.push(r.community_have / r.community_want)
+    }
+  }
+  const hasCanonData = haveWantRatios.length > 0
+  const avgHaveWant = hasCanonData
+    ? haveWantRatios.reduce((a, b) => a + b, 0) / haveWantRatios.length
+    : 0
+  const canonScore = hasCanonData ? clamp(100 - (Math.min(avgHaveWant, 8) / 8) * 100) : 0
+  const canonObscurity: ComputedSignals['canonObscurity'] = {
+    score: canonScore,
+    label: !hasCanonData ? 'No data' : canonScore > 66 ? 'Obscurist' : canonScore >= 33 ? 'Mixed' : 'Canonical',
+    subtext: hasCanonData ? 'Based on community ownership data' : 'Sync collection to unlock',
+    unavailable: !hasCanonData,
+  }
+
+  // 17. artistConcentration — % of owned artists with 3+ records (Broad ↔ Completist).
+  // Mirrors Insights' Completist axis.
+  const artistCountMap = new Map<string, number>()
+  for (const row of userRecords) {
+    const r = getRecord(row)
+    if (r?.artist) artistCountMap.set(r.artist, (artistCountMap.get(r.artist) ?? 0) + 1)
+  }
+  const totalArtists = artistCountMap.size
+  const completistArtists = [...artistCountMap.values()].filter(c => c >= 3).length
+  const completistPct = totalArtists > 0 ? (completistArtists / totalArtists) * 100 : 0
+  const artistConcentration: ComputedSignals['artistConcentration'] = {
+    score: clamp(completistPct),
+    label: completistPct > 30 ? 'Completist' : completistPct >= 10 ? 'Selective depth' : 'Wide-ranging',
+    subtext: `${completistArtists} of ${totalArtists} artists with 3+ records`,
+  }
+
+  // 18. listeningIntensity — how actively the collection is played (play_count on user_records).
+  // Blend of breadth (% of collection played at all) and depth (avg plays per record).
+  let totalPlays = 0
+  let playedCount = 0
+  for (const row of userRecords) {
+    const plays = row.play_count ?? 0
+    if (plays > 0) { playedCount++; totalPlays += plays }
+  }
+  const playedRatio = totalRecords > 0 ? (playedCount / totalRecords) * 100 : 0
+  const avgPlaysPerRecord = totalRecords > 0 ? totalPlays / totalRecords : 0
+  const hasListeningData = totalPlays > 0
+  const intensityScore = clamp(playedRatio * 0.5 + Math.min(avgPlaysPerRecord * 5, 50))
+  const listeningIntensity: ComputedSignals['listeningIntensity'] = {
+    score: hasListeningData ? intensityScore : 0,
+    label: !hasListeningData ? 'No listening data' : intensityScore > 60 ? 'Deep listener' : intensityScore >= 30 ? 'Regular listener' : 'Collector-first',
+    subtext: hasListeningData
+      ? `${totalPlays} total plays across ${playedCount} records`
+      : 'Connect Spotify to track listening',
+    unavailable: !hasListeningData,
+  }
+
   // ── ASSEMBLE SIGNALS ────────────────────────────────────────────────────────
   const signals: ComputedSignals = {
     labelLoyalty,
@@ -582,34 +649,40 @@ export async function computeArchetypes(
     curatorialReach,
     digitalDivergence,
     emotionalRange,
+    canonObscurity,
+    artistConcentration,
+    listeningIntensity,
   }
 
   // ── ARCHETYPE SCORING ────────────────────────────────────────────────────────
   const s = signals
   const scores: Record<string, number> = {
     keeper: clamp(
-      s.labelLoyalty.score * 0.22 +
-      s.conditionStandard.score * 0.20 +
-      s.sonicCoherence.score * 0.18 +
+      s.labelLoyalty.score * 0.20 +
+      s.conditionStandard.score * 0.15 +
+      s.sonicCoherence.score * 0.15 +
       s.historicalDepth.score * 0.15 +
       s.formatFidelity.score * 0.10 +
-      (100 - s.acquisitionRhythm.score) * 0.15
+      (100 - s.acquisitionRhythm.score) * 0.10 +
+      s.artistConcentration.score * 0.15
     ),
     seeker: clamp(
       s.aspirationRatio.score * 0.25 +
       s.geographicRange.score * 0.20 +
-      s.digitalDivergence.score * 0.20 +
+      s.digitalDivergence.score * 0.15 +
       s.styleRange.score * 0.15 +
       (100 - s.labelLoyalty.score) * 0.10 +
-      s.pressingOriginDiversity.score * 0.10
+      s.pressingOriginDiversity.score * 0.05 +
+      (100 - s.artistConcentration.score) * 0.10
     ),
     scholar: clamp(
-      s.styleRange.score * 0.25 +
+      s.styleRange.score * 0.20 +
       s.historicalDepth.score * 0.20 +
       s.sonicCoherence.score * 0.15 +
       s.geographicRange.score * 0.15 +
       s.conditionStandard.score * 0.10 +
-      s.pressingOriginDiversity.score * 0.15
+      s.pressingOriginDiversity.score * 0.10 +
+      (100 - s.canonObscurity.score) * 0.10
     ),
     ritualist: clamp(
       s.formatFidelity.score * 0.10 +
@@ -622,16 +695,18 @@ export async function computeArchetypes(
       s.trophyRatio.score * 0.35 +
       s.conditionStandard.score * 0.15 +
       s.acquisitionRhythm.score * 0.15 +
-      s.aspirationRatio.score * 0.20 +
-      s.pressingOriginDiversity.score * 0.15
+      s.aspirationRatio.score * 0.15 +
+      s.pressingOriginDiversity.score * 0.10 +
+      (100 - s.listeningIntensity.score) * 0.10
     ),
     lover: clamp(
-      s.acquisitionRhythm.score * 0.25 +
-      (100 - s.sonicCoherence.score) * 0.20 +
-      s.aspirationRatio.score * 0.15 +
+      s.acquisitionRhythm.score * 0.20 +
+      (100 - s.sonicCoherence.score) * 0.15 +
+      s.aspirationRatio.score * 0.10 +
       (100 - s.labelLoyalty.score) * 0.15 +
       s.styleRange.score * 0.10 +
-      s.emotionalRange.score * 0.15
+      s.emotionalRange.score * 0.15 +
+      s.listeningIntensity.score * 0.15
     ),
     alchemist: clamp(
       s.curatorialReach.score * 0.35 +
@@ -648,15 +723,16 @@ export async function computeArchetypes(
       (100 - s.labelLoyalty.score) * 0.10
     ),
     ruler: clamp(
-      s.labelLoyalty.score * 0.30 +
+      s.labelLoyalty.score * 0.25 +
       (100 - s.styleRange.score) * 0.20 +
       s.conditionStandard.score * 0.15 +
       s.historicalDepth.score * 0.15 +
-      s.sonicCoherence.score * 0.20
+      s.sonicCoherence.score * 0.15 +
+      s.artistConcentration.score * 0.10
     ),
     outlaw: clamp(
-      s.transgressiveIndex.score * 0.40 +
-      (100 - s.trophyRatio.score) * 0.20 +
+      s.transgressiveIndex.score * 0.35 +
+      s.canonObscurity.score * 0.25 +
       (100 - s.labelLoyalty.score) * 0.15 +
       s.styleRange.score * 0.15 +
       s.geographicRange.score * 0.10

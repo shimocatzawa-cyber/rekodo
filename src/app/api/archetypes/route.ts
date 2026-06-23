@@ -66,7 +66,7 @@ export async function GET() {
   // Cached signals predating the emotionalRange signal (added below) lack that key —
   // treat as stale so existing users get it on their next load instead of waiting
   // out the full 30-day cache window.
-  const cacheHasCurrentSignals = (cache?.signals as Record<string, unknown> | null)?.emotionalRange != null;
+  const cacheHasCurrentSignals = (cache?.signals as Record<string, unknown> | null)?.listeningIntensity != null;
 
   if (
     cache &&

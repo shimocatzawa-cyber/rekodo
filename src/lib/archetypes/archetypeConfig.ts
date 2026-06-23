@@ -152,39 +152,70 @@ export const JUNG_CORE_DESIRES: Record<string, string> = {
 }
 
 export const NAMED_PAIRINGS: Record<string, string> = {
+  // Keeper pairings
   'keeper+scholar': 'The Conservator',
   'keeper+pilgrim': 'The Purist',
   'keeper+ruler': 'The Custodian',
+  'keeper+seeker': 'The Completist',
+  'keeper+hunter': 'The Registrar',
+  'keeper+lover': 'The Diarist',
+  'keeper+alchemist': 'The Curator',
+  'keeper+outlaw': 'The Preservationist',
+  'keeper+caregiver': 'The Librarian',
+  // Seeker pairings
   'seeker+scholar': 'The Etymologist',
   'seeker+outlaw': 'The Dissident',
   'seeker+pilgrim': 'The Anthropologist',
+  'seeker+ritualist': 'The Pathfinder',
+  'seeker+hunter': 'The Prospector',
+  'seeker+alchemist': 'The Tastemaker',
+  'seeker+ruler': 'The Arbiter',
+  'seeker+caregiver': 'The Evangelist',
+  // Scholar pairings
   'scholar+pilgrim': 'The Archaeologist',
   'scholar+ruler': 'The Taxonomist',
   'scholar+outlaw': 'The Revisionist',
+  'scholar+lover': 'The Connoisseur',
+  // Ritualist pairings
   'ritualist+lover': 'The Devotee',
   'ritualist+keeper': 'The Monk',
   'ritualist+scholar': 'The Contemplative',
   'ritualist+outlaw': 'The Heretic',
-  'outlaw+ritualist': 'The Heretic',
+  'ritualist+hunter': 'The Perfectionist',
+  'ritualist+alchemist': 'The Maestro',
+  'ritualist+pilgrim': 'The Disciple',
+  'ritualist+ruler': 'The Steward',
+  'ritualist+caregiver': 'The Sensei',
+  // Hunter pairings
   'hunter+ruler': 'The Sovereign',
   'hunter+scholar': 'The Authenticator',
   'hunter+pilgrim': 'The Expeditionist',
-  'lover+ritualist': 'The Devotee',
-  'lover+caregiver': 'The Empath',
+  'hunter+lover': 'The Romantic',
+  'hunter+alchemist': 'The Forager',
+  'hunter+outlaw': 'The Iconoclast',
+  'hunter+caregiver': 'The Patron',
+  // Lover pairings
   'lover+alchemist': 'The Poet',
   'lover+outlaw': 'The Rebel',
+  'lover+seeker': 'The Dreamer',
+  'lover+caregiver': 'The Empath',
+  'lover+pilgrim': 'The Wanderer',
+  'lover+ruler': 'The Idealist',
+  // Alchemist pairings
   'alchemist+scholar': 'The Critic',
   'alchemist+caregiver': 'The Teacher',
   'alchemist+outlaw': 'The Provocateur',
-  'pilgrim+seeker': 'The Anthropologist',
+  'alchemist+pilgrim': 'The Ambassador',
+  'alchemist+ruler': 'The Auteur',
+  // Pilgrim pairings
   'pilgrim+outlaw': 'The Exile',
-  'ruler+hunter': 'The Sovereign',
-  'ruler+keeper': 'The Custodian',
-  'outlaw+seeker': 'The Dissident',
-  'outlaw+alchemist': 'The Provocateur',
-  'caregiver+alchemist': 'The Teacher',
-  'caregiver+lover': 'The Empath',
-  'caregiver+scholar': 'The Guide',
+  'pilgrim+ruler': 'The Oracle',
+  'pilgrim+caregiver': 'The Emissary',
+  // Ruler pairings
+  'ruler+outlaw': 'The Revolutionary',
+  'ruler+caregiver': 'The Elder',
+  // Outlaw pairings
+  'outlaw+caregiver': 'The Liberator',
 }
 
 export function getNamedPairing(primary: string, secondary: string): string | null {
