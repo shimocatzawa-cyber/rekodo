@@ -1,3 +1,7 @@
+// One-off backfill: re-parses already-ingested label_feed emails so buy_url picks up
+// product links that the old (link-stripping) body extractor lost. Matches re-parsed
+// releases back to existing rows by gmail_message_id + artist/album and fills buy_url
+// only where it's currently null — never touches rows that already have a buy_url.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
@@ -5,17 +9,13 @@ const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const ANTHROPIC_API_KEY = Deno.env.get("ANTHROPIC_API_KEY")!;
 const GMAIL_CLIENT_EMAIL = Deno.env.get("GMAIL_CLIENT_EMAIL")!;
 const GMAIL_PRIVATE_KEY = Deno.env.get("GMAIL_PRIVATE_KEY")!;
-const GMAIL_SUBJECT = Deno.env.get("GMAIL_SUBJECT")!; // labels@rekodo.co
-
-// ─── Base64url ─────────────────────────────────────────────────────────────
+const GMAIL_SUBJECT = Deno.env.get("GMAIL_SUBJECT")!;
 
 function base64url(bytes: Uint8Array): string {
   let bin = "";
   for (const b of bytes) bin += String.fromCharCode(b);
   return btoa(bin).replace(/\+/g, "-").replace(/\//g, "_").replace(/=/g, "");
 }
-
-// ─── Gmail JWT auth ─────────────────────────────────────────────────────────
 
 async function getGmailAccessToken(): Promise<string> {
   const privateKey = GMAIL_PRIVATE_KEY.replace(/\\n/g, "\n");
@@ -66,8 +66,6 @@ async function getGmailAccessToken(): Promise<string> {
   return data.access_token;
 }
 
-// ─── Gmail helpers ──────────────────────────────────────────────────────────
-
 interface GmailMessage {
   id: string;
   payload?: {
@@ -76,7 +74,6 @@ interface GmailMessage {
     parts?: GmailPart[];
     mimeType?: string;
   };
-  internalDate?: string;
 }
 
 interface GmailPart {
@@ -95,8 +92,6 @@ function decodeBase64url(s: string): string {
   );
 }
 
-// Converts HTML to plain text while keeping link destinations inline (e.g. "Buy now (https://...)"),
-// since Claude only sees this flattened text and needs the URLs to extract per-release buy_url.
 function htmlToTextWithLinks(html: string): string {
   return html
     .replace(/<a\b[^>]*href=["']([^"']+)["'][^>]*>(.*?)<\/a>/gis, (_m, href, text) => {
@@ -110,20 +105,16 @@ function htmlToTextWithLinks(html: string): string {
 
 function extractBody(part: GmailPart | GmailMessage["payload"]): string {
   if (!part) return "";
-  // Prefer text/plain
   if (part.mimeType === "text/plain" && part.body?.data) {
     return decodeBase64url(part.body.data);
   }
-  // Recurse into multipart
   if (part.parts) {
     const plain = part.parts.find((p) => p.mimeType === "text/plain");
     if (plain?.body?.data) return decodeBase64url(plain.body.data);
-    // Fall back to HTML, preserving link URLs
     const html = part.parts.find((p) => p.mimeType === "text/html");
     if (html?.body?.data) {
       return htmlToTextWithLinks(decodeBase64url(html.body.data));
     }
-    // Recurse deeper
     for (const p of part.parts) {
       const body = extractBody(p);
       if (body) return body;
@@ -139,16 +130,6 @@ function getHeader(msg: GmailMessage, name: string): string {
   )?.value ?? "";
 }
 
-async function listMessageIds(token: string, maxResults = 200): Promise<string[]> {
-  const url = new URL("https://gmail.googleapis.com/gmail/v1/users/me/messages");
-  url.searchParams.set("maxResults", String(maxResults));
-  // newer_than:3d ensures we always catch overnight emails regardless of inbox size
-  url.searchParams.set("q", "newer_than:3d");
-  const res = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
-  const data = await res.json();
-  return (data.messages ?? []).map((m: { id: string }) => m.id);
-}
-
 async function fetchMessage(token: string, id: string): Promise<GmailMessage> {
   const res = await fetch(
     `https://gmail.googleapis.com/gmail/v1/users/me/messages/${id}?format=full`,
@@ -157,39 +138,13 @@ async function fetchMessage(token: string, id: string): Promise<GmailMessage> {
   return res.json();
 }
 
-// ─── Claude extraction ──────────────────────────────────────────────────────
-
 interface ParsedRelease {
   artist: string | null;
   album: string | null;
-  release_type: "new_release" | "repress" | "preorder" | "announcement" | "unknown";
-  format: string | null;
-  label: string | null;
-  description: string | null;
-  tags: string[];
   buy_url: string | null;
-  price: string | null;
-  release_date: string | null;
 }
 
-const FALLBACK: ParsedRelease = {
-  artist: null,
-  album: null,
-  release_type: "unknown",
-  format: null,
-  label: null,
-  description: null,
-  tags: [],
-  buy_url: null,
-  price: null,
-  release_date: null,
-};
-
-async function parseWithClaude(
-  subject: string,
-  sender: string,
-  body: string,
-): Promise<ParsedRelease[]> {
+async function parseWithClaude(subject: string, sender: string, body: string): Promise<ParsedRelease[]> {
   const prompt = `You are parsing a record label or record shop newsletter email to extract release information.
 
 Email subject: ${subject}
@@ -205,19 +160,11 @@ Many newsletters list multiple records — include every one you can identify.
 IMPORTANT parsing rules:
 - Newsletters often prefix entries with the format, e.g. "LP Swim Deep - Hum" or "12\" Artist - Title". Always strip the format prefix and place it in the "format" field — never include it in artist.
 - The pattern is typically: [FORMAT] [ARTIST] - [ALBUM TITLE]. Split on " - " to separate artist from album.
-- Do not include format tokens (LP, EP, 12", 7", CD, etc.) in the artist field.
 
 Return a JSON array where each element has:
 - artist: string or null — the artist/band name only, no format prefix
 - album: string or null — the album/release title only
-- release_type: one of "new_release", "repress", "preorder", "announcement", "unknown"
-- format: e.g. "LP", "12\\"", "7\\"", "CD", "Digital", or null
-- label: record label name or null
-- description: one sentence about this specific release or null
-- tags: array of relevant tags (genre, mood, style — max 5)
 - buy_url: the direct URL to buy or view this specific release (e.g. a product page or Bandcamp link), or null if not found. Prefer specific album/product page URLs over generic store homepages.
-- price: the price of this release as shown in the email (e.g. "£18.99", "$25.00"), or null if not mentioned.
-- release_date: the release or shipping date in ISO 8601 format (YYYY-MM-DD), or null if not mentioned. Use the email's received date as context for relative dates like "out now" or "available Friday".
 
 If no releases can be identified return an empty array [].
 Return ONLY a valid JSON array, no markdown, no explanation.`;
@@ -238,123 +185,87 @@ Return ONLY a valid JSON array, no markdown, no explanation.`;
 
   if (!res.ok) {
     console.error("Claude API error:", res.status, await res.text());
-    return [FALLBACK];
+    return [];
   }
 
   const data = await res.json();
   const text: string = data.content?.[0]?.text ?? "";
-
   try {
     const cleaned = text.replace(/```json?\n?/g, "").replace(/```/g, "").trim();
     const parsed = JSON.parse(cleaned);
-    if (Array.isArray(parsed) && parsed.length > 0) return parsed as ParsedRelease[];
-    return [];
+    return Array.isArray(parsed) ? (parsed as ParsedRelease[]) : [];
   } catch {
     console.error("Failed to parse Claude response:", text);
-    return [FALLBACK];
+    return [];
   }
 }
 
-// ─── Main handler ────────────────────────────────────────────────────────────
+function norm(s: string | null): string {
+  return (s ?? "").trim().toLowerCase();
+}
 
 Deno.serve(async (_req) => {
   try {
     const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
-    // 1. Get all message IDs from inbox
-    const token = await getGmailAccessToken();
-    const allIds = await listMessageIds(token, 50);
-
-    if (allIds.length === 0) {
-      return new Response(JSON.stringify({ processed: 0, skipped: 0, message: "Inbox empty" }), {
-        headers: { "Content-Type": "application/json" },
-      });
-    }
-
-    // 2. Find already-processed IDs
-    const { data: existing, error: fetchErr } = await supabase
+    const { data: rows, error: fetchErr } = await supabase
       .from("label_feed")
-      .select("gmail_message_id")
-      .in("gmail_message_id", allIds);
+      .select("id, gmail_message_id, subject, sender, artist, album")
+      .is("buy_url", null)
+      .not("gmail_message_id", "is", null)
+      .not("artist", "is", null);
 
     if (fetchErr) throw new Error(`Supabase fetch error: ${fetchErr.message}`);
-
-    const seen = new Set((existing ?? []).map((r: { gmail_message_id: string }) => r.gmail_message_id));
-    const newIds = allIds.filter((id) => !seen.has(id));
-
-    console.log(`Total: ${allIds.length}, already seen: ${seen.size}, new: ${newIds.length}`);
-
-    if (newIds.length === 0) {
-      return new Response(JSON.stringify({ processed: 0, skipped: allIds.length, message: "All up to date" }), {
+    if (!rows || rows.length === 0) {
+      return new Response(JSON.stringify({ messages: 0, updated: 0 }), {
         headers: { "Content-Type": "application/json" },
       });
     }
 
-    // 3. Process each new message
-    let processed = 0;
+    const byMessage = new Map<string, typeof rows>();
+    for (const row of rows) {
+      const key = row.gmail_message_id as string;
+      if (!byMessage.has(key)) byMessage.set(key, []);
+      byMessage.get(key)!.push(row);
+    }
+
+    const token = await getGmailAccessToken();
+    let updated = 0;
     const errors: string[] = [];
 
-    for (const id of newIds) {
+    for (const [messageId, dbRows] of byMessage) {
       try {
-        const msg = await fetchMessage(token, id);
+        const msg = await fetchMessage(token, messageId);
         const subject = getHeader(msg, "subject");
         const sender = getHeader(msg, "from");
         const body = extractBody(msg.payload);
-        const receivedAt = msg.internalDate
-          ? new Date(Number(msg.internalDate)).toISOString()
-          : new Date().toISOString();
 
-        const releases = await parseWithClaude(subject, sender, body);
+        const parsed = await parseWithClaude(subject, sender, body);
+        if (parsed.length === 0) continue;
 
-        if (releases.length === 0) {
-          console.log(`No releases found in message ${id} (${subject})`);
-          // Insert a placeholder row so we don't reprocess this email
-          await supabase.from("label_feed").insert({
-            gmail_message_id: id, sender, subject, received_at: receivedAt,
-            artist: null, album: null, release_type: "unknown",
-            format: null, label: null, description: null, tags: [],
-          });
-          continue;
-        }
+        for (const dbRow of dbRows) {
+          const match = parsed.find((p) =>
+            norm(p.artist) === norm(dbRow.artist) && norm(p.album) === norm(dbRow.album)
+          ) ?? parsed.find((p) => norm(p.artist) === norm(dbRow.artist));
 
-        for (const parsed of releases) {
-          const { error: insertErr } = await supabase.from("label_feed").insert({
-            gmail_message_id: id,
-            sender,
-            subject,
-            received_at: receivedAt,
-            artist: parsed.artist,
-            album: parsed.album,
-            release_type: parsed.release_type,
-            format: parsed.format,
-            label: parsed.label,
-            description: parsed.description,
-            tags: parsed.tags,
-            buy_url: parsed.buy_url ?? null,
-            price: parsed.price ?? null,
-            release_date: parsed.release_date ?? null,
-          });
-          if (insertErr) {
-            errors.push(`${id}/${parsed.artist}: ${insertErr.message}`);
-          } else {
-            processed++;
+          if (match?.buy_url) {
+            const { error: updateErr } = await supabase
+              .from("label_feed")
+              .update({ buy_url: match.buy_url })
+              .eq("id", dbRow.id)
+              .is("buy_url", null);
+            if (updateErr) errors.push(`${dbRow.id}: ${updateErr.message}`);
+            else updated++;
           }
         }
       } catch (err) {
-        errors.push(`${id}: ${err instanceof Error ? err.message : String(err)}`);
+        errors.push(`${messageId}: ${err instanceof Error ? err.message : String(err)}`);
       }
     }
 
-    const result = {
-      processed,
-      skipped: seen.size,
-      errors: errors.length > 0 ? errors : undefined,
-    };
+    const result = { messages: byMessage.size, rows: rows.length, updated, errors: errors.length > 0 ? errors : undefined };
     console.log(JSON.stringify(result));
-
-    return new Response(JSON.stringify(result), {
-      headers: { "Content-Type": "application/json" },
-    });
+    return new Response(JSON.stringify(result), { headers: { "Content-Type": "application/json" } });
   } catch (err) {
     console.error("Fatal error:", err);
     return new Response(
