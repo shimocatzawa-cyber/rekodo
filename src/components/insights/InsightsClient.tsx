@@ -922,7 +922,7 @@ export default function InsightsClient({
         <main className="rk-arch-main" style={{ padding: "48px 32px 80px", maxWidth: "960px", margin: "0 auto" }}>
 
           {/* ── Lunar Listening Ritual + On This Month ── */}
-          <div style={{ marginTop: "16px", display: "grid", gridTemplateColumns: onThisDay ? "1fr 1px 1fr" : "1fr", gap: onThisDay ? "16px" : undefined }}>
+          <div className="rk-grid-2" style={{ marginTop: "16px", display: "grid", gridTemplateColumns: onThisDay ? "1fr 1px 1fr" : "1fr", gap: onThisDay ? "16px" : undefined }}>
             <LunarListeningRitual />
             {onThisDay && <div style={{ background: RULE }} />}
             <OnThisDay pick={onThisDay} />

@@ -52,8 +52,9 @@ export default function DailyPick({ dailyPick }: { dailyPick: DailyPickData | nu
       </div>
 
       {/* Gatefold spread */}
-      <div style={{ padding: "0 0 18px", display: "grid", gridTemplateColumns: "240px 1fr", gap: "20px" }}>
+      <div className="rk-daily-pick-grid" style={{ padding: "0 0 18px", display: "grid", gridTemplateColumns: "240px 1fr", gap: "20px" }}>
         <div
+          className="rk-daily-pick-cover"
           style={{
             width: "240px",
             height: "240px",
@@ -65,19 +66,19 @@ export default function DailyPick({ dailyPick }: { dailyPick: DailyPickData | nu
             <img
               src={dailyPick.coverUrl}
               alt={dailyPick.album}
-              style={{ width: "240px", height: "240px", objectFit: "cover", display: "block" }}
+              style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
             />
           )}
         </div>
         <div>
+          <p style={{ fontFamily: SERIF, fontStyle: "italic", fontSize: "1rem", lineHeight: 1.5, color: INK, margin: "0 0 12px 0" }}>
+            {dailyPick.blurb}
+          </p>
           <p style={{ fontFamily: SERIF, fontSize: "1.05rem", fontWeight: 600, letterSpacing: "-0.02em", margin: "0 0 5px 0", lineHeight: 1.2 }}>
             {dailyPick.artist}
           </p>
-          <p style={{ fontFamily: SERIF, fontSize: "0.9rem", fontWeight: 500, lineHeight: 1.4, margin: "0 0 7px 0" }}>
+          <p style={{ fontFamily: SERIF, fontSize: "0.9rem", fontWeight: 500, lineHeight: 1.4, margin: "0 0 12px 0" }}>
             {dailyPick.album}
-          </p>
-          <p style={{ fontSize: "0.85rem", lineHeight: 1.7, opacity: 0.65, margin: "0 0 12px 0" }}>
-            {dailyPick.blurb}
           </p>
 
           {/* Liner notes */}

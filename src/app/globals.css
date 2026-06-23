@@ -187,6 +187,17 @@ h1, h2, h3, h4, h5, h6 {
     grid-template-columns: repeat(2, 1fr) !important;
   }
 
+  /* ── Insights / taste profile ───────────────────────────────────────── */
+  /* Daily Pick gatefold: fixed 240px cover next to text → stack, shrink   */
+  .rk-daily-pick-grid {
+    grid-template-columns: 1fr !important;
+    gap: 14px !important;
+  }
+  .rk-daily-pick-cover {
+    width: 140px !important;
+    height: 140px !important;
+  }
+
   /* ── Selects sub-nav tabs ────────────────────────────────────────────── */
   .rk-selects-tabs {
     flex-wrap: wrap !important;
