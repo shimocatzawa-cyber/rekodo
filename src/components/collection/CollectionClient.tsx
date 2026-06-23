@@ -2690,7 +2690,7 @@ function MemorySection({ record }: { record: CollectionRecord | null }) {
   const showForm = !hasMemory || editing;
 
   return (
-    <div style={{ padding: "0 28px", borderTop: "1px solid #e0e0da" }}>
+    <div style={{ padding: "0 28px", marginTop: "12px", borderTop: "1px solid #e0e0da" }}>
       <button
         onClick={() => setOpen(o => !o)}
         style={{
@@ -2700,11 +2700,11 @@ function MemorySection({ record }: { record: CollectionRecord | null }) {
         }}
       >
         {open ? (
-          <span style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.12em", textTransform: "uppercase", color: "#0a0a0a" }}>
+          <span style={{ fontFamily: MONO, fontSize: "10.5px", letterSpacing: "0.12em", textTransform: "uppercase", color: "#0a0a0a" }}>
             Memory
           </span>
         ) : (
-          <span style={{ display: "inline-flex", alignItems: "center", gap: "6px", fontFamily: MONO, fontSize: "9px", letterSpacing: "0.12em", textTransform: "uppercase", color: hasMemory ? "#0a0a0a" : "#888888" }}>
+          <span style={{ display: "inline-flex", alignItems: "center", gap: "6px", fontFamily: MONO, fontSize: "10.5px", letterSpacing: "0.12em", textTransform: "uppercase", color: hasMemory ? "#0a0a0a" : "#888888" }}>
             {hasMemory ? "Memory" : "+ Memory"}
             {hasMemory && (
               <span style={{ width: "4px", height: "4px", borderRadius: "50%", background: ORANGE, display: "inline-block" }} />
