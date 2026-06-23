@@ -1,4 +1,5 @@
 import { feelingLabel } from "@/lib/feelings";
+import { seededRandom, dayKey } from "@/lib/dailyRotation";
 
 type LinkRow = {
   record_id: string;
@@ -6,24 +7,6 @@ type LinkRow = {
   play_count: number;
   last_played_at: string | null;
 };
-
-function hashSeed(key: string): number {
-  let h = 0;
-  for (let i = 0; i < key.length; i++) {
-    h = (Math.imul(h, 31) + key.charCodeAt(i)) | 0;
-  }
-  return h >>> 0;
-}
-
-function mulberry32(seed: number): () => number {
-  let a = seed;
-  return function () {
-    a |= 0; a = (a + 0x6D2B79F5) | 0;
-    let t = Math.imul(a ^ (a >>> 15), 1 | a);
-    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
-    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
-  };
-}
 
 // Treat "never played" as roughly 3 years stale for weighting purposes —
 // high priority, but not so dominant that a record played once 8 months
@@ -53,9 +36,7 @@ export function selectDailyPick(
   });
   const totalWeight = weights.reduce((a, b) => a + b, 0);
 
-  const dateKey = now.toISOString().slice(0, 10); // YYYY-MM-DD
-  const rand = mulberry32(hashSeed(`${userId}:${dateKey}`));
-  let draw = rand() * totalWeight;
+  let draw = seededRandom(`dailyPick:${userId}:${dayKey(now)}`) * totalWeight;
 
   let chosenIndex = pool.length - 1;
   for (let i = 0; i < pool.length; i++) {

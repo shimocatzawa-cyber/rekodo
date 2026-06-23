@@ -6,15 +6,16 @@ const ORANGE = "#CC5500";
 const INK    = "#0a0a0a";
 const RULE   = "#e0e0da";
 
-export type OnThisDayItem = {
+export type OnThisDayPick = {
   artist: string;
   album: string;
   coverUrl: string | null;
   yearsAgo: number;
+  dateAddedLabel: string; // e.g. "Jun 15"
 };
 
-export default function OnThisDay({ items }: { items: OnThisDayItem[] }) {
-  if (items.length === 0) return null;
+export default function OnThisDay({ pick }: { pick: OnThisDayPick | null }) {
+  if (!pick) return null;
 
   return (
     <div style={{ fontFamily: MONO, color: INK, borderTop: `1px solid ${RULE}` }}>
@@ -24,43 +25,29 @@ export default function OnThisDay({ items }: { items: OnThisDayItem[] }) {
           On This Day
         </span>
         <span style={{ fontSize: "0.52rem", letterSpacing: "0.08em", textTransform: "uppercase", opacity: 0.35 }}>
-          Added to your collection
+          This month in your collection
         </span>
       </div>
 
-      {/* Rows */}
-      <div style={{ padding: "4px 0 18px" }}>
-        {items.map((item, i) => (
-          <div
-            key={i}
-            style={{
-              display: "grid",
-              gridTemplateColumns: "40px 1fr",
-              gap: "14px",
-              alignItems: "center",
-              padding: "9px 0",
-            }}
-          >
-            <div style={{ width: "40px", height: "40px", background: item.coverUrl ? undefined : "#f0ede8" }}>
-              {item.coverUrl && (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img
-                  src={item.coverUrl}
-                  alt={item.album}
-                  style={{ width: "40px", height: "40px", objectFit: "cover", display: "block" }}
-                />
-              )}
-            </div>
-            <div>
-              <p style={{ fontFamily: SERIF, fontSize: "0.9rem", fontWeight: 600, letterSpacing: "-0.01em", margin: "0 0 2px 0", lineHeight: 1.25 }}>
-                {item.artist} — {item.album}
-              </p>
-              <p style={{ fontSize: "0.72rem", letterSpacing: "0.04em", opacity: 0.5, margin: 0 }}>
-                {item.yearsAgo} year{item.yearsAgo === 1 ? "" : "s"} ago today
-              </p>
-            </div>
-          </div>
-        ))}
+      {/* Body */}
+      <div style={{ padding: "22px 0", display: "grid", gridTemplateColumns: "56px 1fr", gap: "18px", alignItems: "start" }}>
+        <div style={{ paddingTop: "2px", width: "56px", height: "56px", background: pick.coverUrl ? undefined : "#f0ede8" }}>
+          {pick.coverUrl && (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={pick.coverUrl} alt={pick.album} style={{ width: "56px", height: "56px", objectFit: "cover", display: "block" }} />
+          )}
+        </div>
+        <div>
+          <p style={{ fontFamily: SERIF, fontSize: "1.05rem", fontWeight: 600, letterSpacing: "-0.02em", marginBottom: "5px" }}>
+            {pick.artist}
+          </p>
+          <p style={{ fontFamily: SERIF, fontSize: "0.9rem", fontWeight: 500, lineHeight: 1.4, marginBottom: "7px" }}>
+            {pick.album}
+          </p>
+          <p style={{ fontSize: "0.85rem", lineHeight: 1.7, opacity: 0.65 }}>
+            {pick.yearsAgo} year{pick.yearsAgo === 1 ? "" : "s"} ago this month ({pick.dateAddedLabel}), you brought this into the collection.
+          </p>
+        </div>
       </div>
     </div>
   );

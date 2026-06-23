@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import InsightsClient, { type InsightsProps } from "@/components/insights/InsightsClient";
 import { getDesirabilityTier, type DesirabilityTier } from "@/lib/desirability";
 import { selectDailyPick, dailyPickBlurb } from "@/lib/dailyPick";
+import { seededRandom, dayKey } from "@/lib/dailyRotation";
 
 export const metadata: Metadata = {
   title: "Insights",
@@ -140,30 +141,46 @@ export default async function InsightsPage() {
     if (!pickResult) return null;
     const rec = recordsMap.get(pickResult.record_id);
     if (!rec) return null;
+    const link = allLinks.find((l) => l.record_id === pickResult.record_id);
     return {
-      artist:   rec.artist,
-      album:    rec.album,
-      coverUrl: rec.cover_url ?? null,
-      feeling:  pickResult.feeling,
-      blurb:    dailyPickBlurb(pickResult.feeling, pickResult.daysSinceLastPlayed),
+      artist:    rec.artist,
+      album:     rec.album,
+      coverUrl:  rec.cover_url ?? null,
+      feeling:   pickResult.feeling,
+      blurb:     dailyPickBlurb(pickResult.feeling, pickResult.daysSinceLastPlayed),
+      label:     rec.label ?? null,
+      country:   rec.country ?? null,
+      year:      rec.year ?? null,
+      genre:     rec.genre ?? null,
+      style:     rec.styles?.length ? rec.styles.join(", ") : null,
+      format:    rec.format ?? null,
+      producers: rec.producers?.length ? rec.producers.join(", ") : null,
+      playCount: link?.play_count ?? 0,
     };
   })();
 
-  // ── On this day ─────────────────────────────────────────────────────────────
-  const onThisDay: InsightsProps["onThisDay"] = allLinks
+  // ── On this day (rotates daily through this month's anniversaries) ─────────
+  const SHORT_MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+  const onThisDayPool = allLinks
     .map((l) => {
       if (!l.date_added) return null;
       const added = new Date(l.date_added);
       if (isNaN(added.getTime())) return null;
-      if (added.getMonth() !== pickNow.getMonth() || added.getDate() !== pickNow.getDate()) return null;
+      if (added.getMonth() !== pickNow.getMonth()) return null;
       const yearsAgo = pickNow.getFullYear() - added.getFullYear();
       if (yearsAgo <= 0) return null;
       const rec = recordsMap.get(l.record_id);
       if (!rec) return null;
-      return { artist: rec.artist, album: rec.album, coverUrl: rec.cover_url ?? null, yearsAgo };
+      return {
+        artist: rec.artist, album: rec.album, coverUrl: rec.cover_url ?? null, yearsAgo,
+        dateAddedLabel: `${SHORT_MONTHS[added.getMonth()]} ${added.getDate()}`,
+      };
     })
-    .filter((x): x is NonNullable<typeof x> => x !== null)
-    .sort((a, b) => b.yearsAgo - a.yearsAgo);
+    .filter((x): x is NonNullable<typeof x> => x !== null);
+
+  const onThisDay: InsightsProps["onThisDay"] = onThisDayPool.length > 0
+    ? onThisDayPool[Math.floor(seededRandom(`onThisDay:${user.id}:${dayKey(pickNow)}`) * onThisDayPool.length)]
+    : null;
 
   // ── Collection value totals ────────────────────────────────────────────────
   // Prefer official Discogs values (stored in profiles after each sync).

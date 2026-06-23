@@ -8,7 +8,7 @@ import LunarListeningRitual from "@/components/LunarListeningRitual";
 import InsightsShareModal from "@/components/insights/InsightsShareModal";
 import EssentialsWallModal from "@/components/insights/EssentialsWallModal";
 import DailyPick, { type DailyPickData } from "@/components/DailyPick";
-import OnThisDay, { type OnThisDayItem } from "@/components/OnThisDay";
+import OnThisDay, { type OnThisDayPick } from "@/components/OnThisDay";
 import type { DesirabilityTier } from "@/lib/desirability";
 import { feelingLabel } from "@/lib/feelings";
 
@@ -58,7 +58,7 @@ export interface InsightsProps {
   topPlayedRecords:   { artist: string; album: string; coverUrl: string | null; lastPlayedAt: string; playCount: number }[];
   playedStyleBreakdown: { style: string; count: number; pct: number }[];
   dailyPick:    DailyPickData | null;
-  onThisDay:    OnThisDayItem[];
+  onThisDay:    OnThisDayPick | null;
   isSupporter:  boolean;
   usageStats:   {
     digDiscover:   number;
@@ -247,7 +247,7 @@ export default function InsightsClient({
 }: InsightsProps) {
 
   const [oneLiner, setOneLiner] = useState<string | null>(null);
-  const [insightsTab, setInsightsTab] = useState<"collection" | "taste-profile">("collection");
+  const [insightsTab, setInsightsTab] = useState<"collection" | "taste-profile">(isSupporter ? "taste-profile" : "collection");
   const [showShare, setShowShare] = useState(false);
   const [showEssentialsShare, setShowEssentialsShare] = useState(false);
 
@@ -290,7 +290,7 @@ export default function InsightsClient({
 
       {/* ── Tab bar ── */}
       <div className="rk-profile-tabs" style={{ display: "flex", justifyContent: "center", gap: "24px", paddingTop: "14px", paddingBottom: "2px", background: "#ffffff" }}>
-        {(["collection", "taste-profile"] as const).map((tab) => {
+        {(["taste-profile", "collection"] as const).map((tab) => {
           const label = tab === "collection" ? "Collection" : "Taste Profile";
           return (
             <button
@@ -933,7 +933,7 @@ export default function InsightsClient({
 
           {/* ── On this day ── */}
           <div style={{ marginTop: "16px" }}>
-            <OnThisDay items={onThisDay} />
+            <OnThisDay pick={onThisDay} />
           </div>
 
           <div style={{ marginTop: "40px" }}>
