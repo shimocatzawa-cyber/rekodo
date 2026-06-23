@@ -921,19 +921,15 @@ export default function InsightsClient({
       {insightsTab === "taste-profile" && isSupporter && (
         <main className="rk-arch-main" style={{ padding: "48px 32px 80px", maxWidth: "960px", margin: "0 auto" }}>
 
-          {/* ── Lunar Listening Ritual ── */}
-          <div style={{ marginTop: "16px" }}>
+          {/* ── Lunar Listening Ritual + On This Month ── */}
+          <div style={{ marginTop: "16px", display: "grid", gridTemplateColumns: onThisDay ? "1fr 1fr" : "1fr", gap: "32px" }}>
             <LunarListeningRitual />
+            <OnThisDay pick={onThisDay} />
           </div>
 
           {/* ── Daily pick ── */}
           <div style={{ marginTop: "16px" }}>
             <DailyPick dailyPick={dailyPick} />
-          </div>
-
-          {/* ── On this day ── */}
-          <div style={{ marginTop: "16px" }}>
-            <OnThisDay pick={onThisDay} />
           </div>
 
           <div style={{ marginTop: "40px" }}>

@@ -18,7 +18,7 @@ export default function OnThisDay({ pick }: { pick: OnThisDayPick | null }) {
   if (!pick) return null;
 
   return (
-    <div style={{ fontFamily: MONO, color: INK, borderTop: `1px solid ${RULE}`, borderBottom: `1px solid ${RULE}` }}>
+    <div style={{ fontFamily: MONO, color: INK, borderTop: `1px solid ${RULE}` }}>
       {/* Eyebrow row */}
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "10px 0" }}>
         <span style={{ fontSize: "11px", letterSpacing: "0.12em", textTransform: "uppercase", color: ORANGE }}>
