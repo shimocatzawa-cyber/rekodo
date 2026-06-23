@@ -492,10 +492,22 @@ ${JSON_SCHEMA}`;
     }
 
     const raw = content.text.trim().replace(/^```json\n?/, "").replace(/\n?```$/, "").trim();
-    const recommendations = JSON.parse(raw);
+    let recommendations = JSON.parse(raw);
 
     if (!Array.isArray(recommendations) || recommendations.length === 0) {
       return Response.json({ error: "Invalid recommendations format" }, { status: 500 });
+    }
+
+    // Post-filter: remove any picks Claude returned that belong to artists already
+    // in the collection — the prompt instruction alone isn't reliable enough.
+    if (mode === "discover" || mode === "style") {
+      const ownedArtistSet = new Set(collection.map(r => r.artist.toLowerCase().trim()));
+      recommendations = recommendations.filter(
+        (r: { artist?: string }) => r.artist && !ownedArtistSet.has(r.artist.toLowerCase().trim())
+      );
+      if (recommendations.length === 0) {
+        return Response.json({ error: "Invalid recommendations format" }, { status: 500 });
+      }
     }
 
     // Atomically increment daily dig count for all users (fire-and-forget)
