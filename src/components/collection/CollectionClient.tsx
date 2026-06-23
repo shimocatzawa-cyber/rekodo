@@ -154,9 +154,13 @@ function sym(code: string): string {
   return map[code] ?? `${code} `;
 }
 
+// Currencies with no minor unit (e.g. yen has no subunit equivalent to cents)
+const ZERO_DECIMAL_CURRENCIES = new Set(["JPY", "KRW", "VND", "CLP", "ISK"]);
+
 function formatPrice(value: number | null | undefined, currency: string): string | null {
   if (value == null || value <= 0) return null;
-  return `${sym(currency)}${value.toFixed(2)}`;
+  const decimals = ZERO_DECIMAL_CURRENCIES.has(currency) ? 0 : 2;
+  return `${sym(currency)}${value.toLocaleString(undefined, { minimumFractionDigits: decimals, maximumFractionDigits: decimals })}`;
 }
 
 function formatDate(dateStr: string | null | undefined): string | null {
@@ -164,7 +168,7 @@ function formatDate(dateStr: string | null | undefined): string | null {
   try {
     const d = new Date(dateStr);
     if (isNaN(d.getTime())) return null;
-    return d.toLocaleDateString("en-US", { month: "short", year: "numeric" });
+    return d.toLocaleDateString(undefined, { month: "short", year: "numeric" });
   } catch { return null; }
 }
 
@@ -221,8 +225,8 @@ function formatSyncDisplayTime(isoString: string | null | undefined): string {
   try {
     const d = new Date(isoString);
     if (isNaN(d.getTime())) return "—";
-    const date = d.toLocaleDateString("en-US", { day: "numeric", month: "short" });
-    const time = d.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", hour12: true });
+    const date = d.toLocaleDateString(undefined, { day: "numeric", month: "short" });
+    const time = d.toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" });
     return `${date}, ${time}`;
   } catch { return "—"; }
 }
@@ -235,7 +239,7 @@ function formatSyncTime(isoString: string): string {
     if (diffMs < 60_000)         return "just now";
     if (diffMs < 3_600_000)      return `${Math.floor(diffMs / 60_000)}m ago`;
     if (diffMs < 86_400_000)     return `${Math.floor(diffMs / 3_600_000)}h ago`;
-    return d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+    return d.toLocaleDateString(undefined, { month: "short", day: "numeric" });
   } catch { return "just now"; }
 }
 
@@ -1672,7 +1676,7 @@ function InsightsPanel({
   // 8. Collection value — Discogs' own calculation when available, local fallback otherwise
   const fmtV = (n: number, c: string) => {
     const s = sym(c);
-    return n >= 1000 ? `${s}${(n / 1000).toFixed(1)}k` : `${s}${Math.round(n).toLocaleString("en-US")}`;
+    return n >= 1000 ? `${s}${(n / 1000).toFixed(1)}k` : `${s}${Math.round(n).toLocaleString()}`;
   };
 
   if (discogsValue?.med != null) {
@@ -1684,7 +1688,7 @@ function InsightsPanel({
   } else {
     const currSym = sym(valueCurrency);
     const fmtFallback = (n: number) =>
-      n >= 1000 ? `${currSym}${(n / 1000).toFixed(1)}k` : `${currSym}${Math.round(n).toLocaleString("en-US")}`;
+      n >= 1000 ? `${currSym}${(n / 1000).toFixed(1)}k` : `${currSym}${Math.round(n).toLocaleString()}`;
     stats.push(
       estimatedValue > 0
         ? { hero: fmtFallback(estimatedValue), label: "Est. Collection Value" }
@@ -1736,9 +1740,9 @@ function InsightsPanel({
         <div style={{ padding: "16px" }}>
           <div style={{ fontSize: "clamp(1.4rem, 8vw, 2rem)", fontWeight: 600, fontFamily: SERIF, lineHeight: 1 }}>
             {discogsValue?.med != null
-              ? `${sym(discogsValue.currency)}${discogsValue.med >= 1000 ? `${(discogsValue.med / 1000).toFixed(1)}k` : Math.round(discogsValue.med).toLocaleString("en-US")}`
+              ? `${sym(discogsValue.currency)}${discogsValue.med >= 1000 ? `${(discogsValue.med / 1000).toFixed(1)}k` : Math.round(discogsValue.med).toLocaleString()}`
               : estimatedValue > 0
-                ? `${sym(valueCurrency)}${estimatedValue >= 1000 ? `${(estimatedValue / 1000).toFixed(1)}k` : Math.round(estimatedValue).toLocaleString("en-US")}`
+                ? `${sym(valueCurrency)}${estimatedValue >= 1000 ? `${(estimatedValue / 1000).toFixed(1)}k` : Math.round(estimatedValue).toLocaleString()}`
                 : "—"}
           </div>
           <div style={{ fontSize: "11px", fontFamily: MONO, letterSpacing: "0.1em", textTransform: "uppercase", color: "#888888", marginTop: "6px" }}>

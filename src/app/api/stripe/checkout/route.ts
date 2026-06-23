@@ -4,6 +4,13 @@ import { createClient } from "@/lib/supabase/server";
 
 export const dynamic = "force-dynamic";
 
+// Currencies Stripe represents in whole units rather than a /100 minor unit
+// https://docs.stripe.com/currencies#zero-decimal
+const ZERO_DECIMAL_CURRENCIES = new Set([
+  "bif", "clp", "djf", "gnf", "jpy", "kmf", "krw", "mga", "pyg",
+  "rwf", "ugx", "vnd", "vuv", "xaf", "xof", "xpf",
+]);
+
 export async function POST(request: NextRequest) {
   const supabase = await createClient();
   const {
@@ -31,10 +38,11 @@ export async function POST(request: NextRequest) {
   }
 
   if (body.type === "donation") {
-    const dollars = Number(body.amount ?? 0);
-    const cents = Math.round(dollars * 100);
     const currency = (body.currency ?? "usd").toLowerCase();
-    if (cents < 100) {
+    const isZeroDecimal = ZERO_DECIMAL_CURRENCIES.has(currency);
+    const amount = Number(body.amount ?? 0);
+    const unitAmount = Math.round(isZeroDecimal ? amount : amount * 100);
+    if (unitAmount < (isZeroDecimal ? 1 : 100)) {
       return NextResponse.json(
         { error: "Minimum donation is 1 unit of your local currency" },
         { status: 400 }
@@ -47,7 +55,7 @@ export async function POST(request: NextRequest) {
         {
           price_data: {
             currency,
-            unit_amount: cents,
+            unit_amount: unitAmount,
             product_data: {
               name: "rekōdo Donation",
               description: "One-off donation — golden ō badge",

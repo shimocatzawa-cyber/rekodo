@@ -6,6 +6,10 @@ import { SpotifyPlayerProvider } from "@/components/SpotifyPlayerProvider";
 import PageViewTracker from "@/components/PageViewTracker";
 import "./globals.css";
 
+// Next's bundled font metadata doesn't yet list a "japanese" subset for
+// Shippori Mincho even though Google Fonts serves one, so its Japanese
+// glyphs are loaded separately below via a direct stylesheet link (same
+// approach already used for Noto Sans JP) and layered in as a CSS fallback.
 const shipporiMincho = Shippori_Mincho({
   variable: "--font-shippori",
   subsets: ["latin"],
@@ -104,7 +108,7 @@ export default function RootLayout({
         <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
-        <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400&display=swap" rel="stylesheet" />
+        <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400&family=Shippori+Mincho:wght@400;500;600;700;800&family=Yomogi&display=swap" rel="stylesheet" />
       </head>
       <body className="min-h-full flex flex-col bg-white text-black antialiased">
         <PageViewTracker />

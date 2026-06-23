@@ -17,9 +17,11 @@
   --color-grey-900: #0d0d0d;
 
   /* Fonts */
-  --font-editorial: var(--font-shippori), "Georgia", serif;
+  /* Shippori Mincho/Caveat above only carry latin glyphs (see layout.tsx); the
+     fallback link-loaded families below cover Japanese characters per-glyph. */
+  --font-editorial: var(--font-shippori), "Shippori Mincho", "Georgia", serif;
   --font-mono: var(--font-dm-mono), "Courier New", monospace;
-  --font-script: var(--font-caveat), "cursive";
+  --font-script: var(--font-caveat), "Yomogi", "cursive";
 
   /* Spacing extras */
   --spacing-18: 4.5rem;

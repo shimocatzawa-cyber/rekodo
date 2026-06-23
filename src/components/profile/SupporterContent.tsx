@@ -22,6 +22,13 @@ const SUBSCRIPTION_PERKS = [
 
 const PRESET_AMOUNTS = [5, 10, 20];
 
+// Currencies Stripe represents in whole units rather than a /100 minor unit
+// https://docs.stripe.com/currencies#zero-decimal
+const ZERO_DECIMAL_CURRENCIES = new Set([
+  "bif", "clp", "djf", "gnf", "jpy", "kmf", "krw", "mga", "pyg",
+  "rwf", "ugx", "vnd", "vuv", "xaf", "xof", "xpf",
+]);
+
 interface Props {
   isOwner:      boolean;
   isSubscriber: boolean;
@@ -36,7 +43,7 @@ interface LocalPrice {
 }
 
 function formatLocalPrice({ unit_amount, currency }: LocalPrice): string {
-  const major = unit_amount / 100;
+  const major = ZERO_DECIMAL_CURRENCIES.has(currency.toLowerCase()) ? unit_amount : unit_amount / 100;
   const isWhole = major === Math.floor(major);
   const formatted = new Intl.NumberFormat("en", {
     style: "currency",
@@ -307,7 +314,10 @@ export default function SupporterContent({ isOwner, isSubscriber, isDonor, userI
                   }}
                 >
                   {localPrice
-                    ? formatLocalPrice({ unit_amount: amount * 100, currency: localPrice.currency })
+                    ? formatLocalPrice({
+                        unit_amount: ZERO_DECIMAL_CURRENCIES.has(localPrice.currency.toLowerCase()) ? amount : amount * 100,
+                        currency: localPrice.currency,
+                      })
                     : `$${amount}`}
                 </button>
               ))}
