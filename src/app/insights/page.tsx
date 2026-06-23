@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import InsightsClient, { type InsightsProps } from "@/components/insights/InsightsClient";
 import { getDesirabilityTier, type DesirabilityTier } from "@/lib/desirability";
+import { selectDailyPick, dailyPickBlurb } from "@/lib/dailyPick";
 
 export const metadata: Metadata = {
   title: "Insights",
@@ -22,7 +23,7 @@ export default async function InsightsPage() {
   const emailPrefix = (user.email ?? "").split("@")[0] || "user";
   const { data: profile } = await (supabase as any)
     .from("profiles")
-    .select("username, display_name, avatar_url, country_code, collection_value_low, collection_value_med, collection_value_high, collection_value_currency, is_supporter, role, star_sign, taste_summary")
+    .select("username, display_name, avatar_url, country_code, collection_value_low, collection_value_med, collection_value_high, collection_value_currency, is_supporter, role")
     .eq("id", user.id)
     .maybeSingle() as {
       data: {
@@ -36,8 +37,6 @@ export default async function InsightsPage() {
         collection_value_currency?: string | null;
         is_supporter?: boolean | null;
         role?: string | null;
-        star_sign?: string | null;
-        taste_summary?: string | null;
       } | null;
       error: unknown;
     };
@@ -133,6 +132,38 @@ export default async function InsightsPage() {
       .in("id", recordIds.slice(i, i + BATCH));
     if (!error) for (const r of data ?? []) recordsMap.set(r.id, r as RecordRow);
   }
+
+  // ── Daily pick ──────────────────────────────────────────────────────────────
+  const pickNow = new Date();
+  const pickResult = selectDailyPick(allLinks, user.id, pickNow);
+  const dailyPick: InsightsProps["dailyPick"] = (() => {
+    if (!pickResult) return null;
+    const rec = recordsMap.get(pickResult.record_id);
+    if (!rec) return null;
+    return {
+      artist:   rec.artist,
+      album:    rec.album,
+      coverUrl: rec.cover_url ?? null,
+      feeling:  pickResult.feeling,
+      blurb:    dailyPickBlurb(pickResult.feeling, pickResult.daysSinceLastPlayed),
+    };
+  })();
+
+  // ── On this day ─────────────────────────────────────────────────────────────
+  const onThisDay: InsightsProps["onThisDay"] = allLinks
+    .map((l) => {
+      if (!l.date_added) return null;
+      const added = new Date(l.date_added);
+      if (isNaN(added.getTime())) return null;
+      if (added.getMonth() !== pickNow.getMonth() || added.getDate() !== pickNow.getDate()) return null;
+      const yearsAgo = pickNow.getFullYear() - added.getFullYear();
+      if (yearsAgo <= 0) return null;
+      const rec = recordsMap.get(l.record_id);
+      if (!rec) return null;
+      return { artist: rec.artist, album: rec.album, coverUrl: rec.cover_url ?? null, yearsAgo };
+    })
+    .filter((x): x is NonNullable<typeof x> => x !== null)
+    .sort((a, b) => b.yearsAgo - a.yearsAgo);
 
   // ── Collection value totals ────────────────────────────────────────────────
   // Prefer official Discogs values (stored in profiles after each sync).
@@ -749,9 +780,8 @@ export default async function InsightsPage() {
       spectrum={spectrum}
       topPlayedRecords={topPlayedRecords}
       playedStyleBreakdown={playedStyleBreakdown}
-      starSign={profile?.star_sign ?? null}
-      tasteSummary={profile?.taste_summary ?? null}
-      profileId={user.id}
+      dailyPick={dailyPick}
+      onThisDay={onThisDay}
       isSupporter={isSupporter}
       usageStats={usageStats}
     />

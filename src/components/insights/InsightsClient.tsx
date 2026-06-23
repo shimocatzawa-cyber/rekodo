@@ -1,13 +1,14 @@
 "use client";
 
-import { useState, useEffect, useTransition, type ReactNode } from "react";
+import { useState, useEffect, type ReactNode } from "react";
 import { BarChart, type CustomTooltipProps } from "@tremor/react";
 import AppNav from "@/components/AppNav";
 import TasteProfile, { type SpectrumData } from "@/components/insights/TasteProfile";
 import LunarListeningRitual from "@/components/LunarListeningRitual";
 import InsightsShareModal from "@/components/insights/InsightsShareModal";
 import EssentialsWallModal from "@/components/insights/EssentialsWallModal";
-import { generateTasteSummary } from "@/app/[username]/actions";
+import DailyPick, { type DailyPickData } from "@/components/DailyPick";
+import OnThisDay, { type OnThisDayItem } from "@/components/OnThisDay";
 import type { DesirabilityTier } from "@/lib/desirability";
 import { feelingLabel } from "@/lib/feelings";
 
@@ -16,21 +17,6 @@ const MONO   = "var(--font-mono)";
 const ORANGE = "#CC5500";
 const INK    = "#0a0a0a";
 const RULE   = "#e0e0da";
-
-const SIGN_SYMBOL: Record<string, string> = {
-  Aries:       "https://upload.wikimedia.org/wikipedia/commons/0/00/Aries_symbol_%28fixed_width%29.svg",
-  Taurus:      "https://upload.wikimedia.org/wikipedia/commons/0/0b/Taurus_symbol_%28fixed_width%29.svg",
-  Gemini:      "https://upload.wikimedia.org/wikipedia/commons/0/0c/Gemini_symbol_%28fixed_width%29.svg",
-  Cancer:      "https://upload.wikimedia.org/wikipedia/commons/e/ec/Cancer_symbol_%28fixed_width%29.svg",
-  Leo:         "https://upload.wikimedia.org/wikipedia/commons/2/2c/Leo_symbol_%28fixed_width%29.svg",
-  Virgo:       "https://upload.wikimedia.org/wikipedia/commons/a/a8/Virgo_symbol_%28fixed_width%29.svg",
-  Libra:       "https://upload.wikimedia.org/wikipedia/commons/0/07/Libra_symbol_%28fixed_width%29.svg",
-  Scorpio:     "https://upload.wikimedia.org/wikipedia/commons/7/7c/Scorpius_symbol_%28fixed_width%29.svg",
-  Sagittarius: "https://upload.wikimedia.org/wikipedia/commons/5/52/Sagittarius_symbol_%28fixed_width%29.svg",
-  Capricorn:   "https://upload.wikimedia.org/wikipedia/commons/a/a9/Capricornus_symbol_%28fixed_width%29.svg",
-  Aquarius:    "https://upload.wikimedia.org/wikipedia/commons/f/fd/Aquarius_symbol_%28fixed_width%29.svg",
-  Pisces:      "https://upload.wikimedia.org/wikipedia/commons/2/21/Pisces_symbol_%28fixed_width%29.svg",
-};
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
@@ -71,9 +57,8 @@ export interface InsightsProps {
   spectrum:           SpectrumData;
   topPlayedRecords:   { artist: string; album: string; coverUrl: string | null; lastPlayedAt: string; playCount: number }[];
   playedStyleBreakdown: { style: string; count: number; pct: number }[];
-  starSign:     string | null;
-  tasteSummary: string | null;
-  profileId:    string;
+  dailyPick:    DailyPickData | null;
+  onThisDay:    OnThisDayItem[];
   isSupporter:  boolean;
   usageStats:   {
     digDiscover:   number;
@@ -258,43 +243,13 @@ export default function InsightsClient({
   essentials, feelingBreakdown,
   collectionLifespan, collectionByMonth, spectrum,
   topPlayedRecords, playedStyleBreakdown,
-  starSign, tasteSummary, profileId, isSupporter, usageStats,
+  dailyPick, onThisDay, isSupporter, usageStats,
 }: InsightsProps) {
 
   const [oneLiner, setOneLiner] = useState<string | null>(null);
   const [insightsTab, setInsightsTab] = useState<"collection" | "taste-profile">("collection");
   const [showShare, setShowShare] = useState(false);
   const [showEssentialsShare, setShowEssentialsShare] = useState(false);
-
-  // ── Album recommendation state ─────────────────────────────────────────────
-  type RecData = { artist: string; album: string; description: string };
-  function parseRec(raw: string | null): RecData | null {
-    if (!raw) return null;
-    try { return JSON.parse(raw) as RecData; } catch { return null; }
-  }
-  const [localTasteSummary, setLocalTasteSummary] = useState<string | null>(tasteSummary);
-  const [recCoverUrl, setRecCoverUrl] = useState<string | null>(null);
-  const [summaryPending, startSummaryTransition] = useTransition();
-  const [summaryError, setSummaryError] = useState<string | null>(null);
-
-  useEffect(() => {
-    const rec = parseRec(localTasteSummary);
-    if (!rec?.artist || !rec?.album) return;
-    setRecCoverUrl(null);
-    fetch(`/api/deep-dive/album-art?artist=${encodeURIComponent(rec.artist)}&album=${encodeURIComponent(rec.album)}`)
-      .then(r => r.ok ? r.json() : null)
-      .then((d: { url?: string | null } | null) => { if (d?.url) setRecCoverUrl(d.url); })
-      .catch(() => {});
-  }, [localTasteSummary]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  function handleGenerateSummary() {
-    setSummaryError(null);
-    startSummaryTransition(async () => {
-      const result = await generateTasteSummary(profileId, starSign ?? "");
-      if ("error" in result) { setSummaryError(result.error); return; }
-      setLocalTasteSummary(result.summary);
-    });
-  }
 
   useEffect(() => {
     if (totalRecords < 5) return;
@@ -971,70 +926,15 @@ export default function InsightsClient({
             <LunarListeningRitual />
           </div>
 
-          {/* ── Album recommendation ── */}
-          {starSign && (
-            <div style={{ fontFamily: MONO, color: INK }}>
-              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "10px 0" }}>
-                <span style={{ fontSize: "0.56rem", letterSpacing: "0.14em", textTransform: "uppercase", color: ORANGE }}>
-                  Album Recommendation
-                </span>
-                {SIGN_SYMBOL[starSign] && (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img src={SIGN_SYMBOL[starSign]} alt={starSign} style={{ height: "14px", width: "auto", opacity: 0.3 }} />
-                )}
-              </div>
-              {localTasteSummary ? (() => {
-                const rec = parseRec(localTasteSummary);
-                return (
-                  <>
-                    <div style={{ padding: "0 0 18px", display: "grid", gridTemplateColumns: "56px 1fr", gap: "18px", alignItems: "start" }}>
-                      <div style={{ paddingTop: "2px" }}>
-                        {recCoverUrl ? (
-                          // eslint-disable-next-line @next/next/no-img-element
-                          <img src={recCoverUrl} alt={rec?.album ?? ""} style={{ width: "52px", height: "52px", objectFit: "cover", display: "block" }} />
-                        ) : (
-                          <div style={{ width: "52px", height: "52px", background: "#f0ede8" }} />
-                        )}
-                      </div>
-                      <div>
-                        {rec ? (
-                          <>
-                            <p style={{ fontFamily: SERIF, fontSize: "1.05rem", fontWeight: 600, letterSpacing: "-0.02em", color: INK, margin: "0 0 5px 0", lineHeight: 1.2 }}>
-                              {rec.artist}
-                            </p>
-                            <p style={{ fontFamily: SERIF, fontSize: "0.9rem", fontWeight: 500, color: INK, lineHeight: 1.4, margin: "0 0 7px 0" }}>
-                              {rec.album}
-                            </p>
-                            <p style={{ fontSize: "0.85rem", lineHeight: 1.7, opacity: 0.65, margin: 0 }}>
-                              {rec.description}
-                            </p>
-                          </>
-                        ) : (
-                          <p style={{ fontSize: "0.85rem", lineHeight: 1.7, opacity: 0.65, margin: 0 }}>
-                            {tasteSummary}
-                          </p>
-                        )}
-                      </div>
-                    </div>
-                    <div style={{ padding: "0 0 12px" }}>
-                      <button onClick={handleGenerateSummary} disabled={summaryPending} style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.1em", textTransform: "uppercase", color: summaryPending ? "#ccc" : "#bbb", background: "none", border: "none", cursor: summaryPending ? "default" : "pointer", padding: 0 }}>
-                        {summaryPending ? "Generating…" : "Regenerate →"}
-                      </button>
-                      {summaryError && <p style={{ fontFamily: MONO, fontSize: "10px", color: "#cc3300", margin: "4px 0 0" }}>{summaryError}</p>}
-                    </div>
-                  </>
-                );
-              })() : (
-                <div style={{ padding: "0 0 18px" }}>
-                  <button onClick={handleGenerateSummary} disabled={summaryPending} style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.1em", textTransform: "uppercase", color: summaryPending ? "#ccc" : ORANGE, background: "none", border: "none", cursor: summaryPending ? "default" : "pointer", padding: 0 }}>
-                    {summaryPending ? "Generating…" : "Generate →"}
-                  </button>
-                  {summaryError && <p style={{ fontFamily: MONO, fontSize: "10px", color: "#cc3300", margin: "4px 0 0" }}>{summaryError}</p>}
-                </div>
-              )}
-              <div style={{ borderTop: `1px solid ${RULE}` }} />
-            </div>
-          )}
+          {/* ── Daily pick ── */}
+          <div style={{ marginTop: "16px" }}>
+            <DailyPick dailyPick={dailyPick} />
+          </div>
+
+          {/* ── On this day ── */}
+          <div style={{ marginTop: "16px" }}>
+            <OnThisDay items={onThisDay} />
+          </div>
 
           <div style={{ marginTop: "40px" }}>
             <TasteProfile
