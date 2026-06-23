@@ -2,7 +2,7 @@
 
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import { sendSignupNotification } from "@/lib/email";
+import { sendSignupNotification, sendWelcomeEmail } from "@/lib/email";
 
 export type AuthState =
   | { error?: string; message?: string }
@@ -46,6 +46,7 @@ export async function signup(
       { onConflict: "id" }
     );
     await sendSignupNotification(email, username);
+    await sendWelcomeEmail(email, username);
     redirect("/onboarding");
   }
 
