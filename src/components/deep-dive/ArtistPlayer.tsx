@@ -123,6 +123,7 @@ export default function ArtistPlayer({ artist }: Props) {
     ? (playError === 403 ? "Premium required or unavailable in your region"
       : playError === 401 ? "Auth error — reconnect Spotify in Settings"
       : playError === 429 ? "Rate limited — wait a moment"
+      : playError === 404 ? "Device unavailable — tap to reconnect"
       : `Spotify error ${playError}`)
     : fetchError    ? fetchError
     : sdkConnecting ? "Connecting to Spotify…"

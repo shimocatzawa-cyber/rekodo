@@ -118,6 +118,7 @@ export default function SpotifyPlayer({
     : playError === 403 ? "Spotify: Premium required or not available in your region (403)"
     : playError === 401 ? "Spotify: Auth failed — try reconnecting Spotify in Settings (401)"
     : playError === 429 ? "Spotify: Rate limited — wait a moment and try again (429)"
+    : playError === 404 ? "Spotify device unavailable — tap to reconnect"
     : playError ===   0 ? "Network error — check your connection"
     : playError ===  -1 ? "Could not get Spotify token — try reconnecting in Settings"
     : `Spotify error ${playError}`;

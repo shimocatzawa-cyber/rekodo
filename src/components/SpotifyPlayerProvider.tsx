@@ -531,7 +531,12 @@ export function SpotifyPlayerProvider({ children }: { children: React.ReactNode 
                   : null;
           if (!body) return;
           setPlayError(null);
-          const err = await sendSpotifyPlay(activeDeviceId, body);
+          let err = await sendSpotifyPlay(activeDeviceId, body);
+          if (err === 404) {
+            // Device evicted after all server-side retries — reconnect and try once more.
+            const freshId = await reconnectAndWaitForDevice();
+            err = freshId ? await sendSpotifyPlay(freshId, body) : 0;
+          }
           if (err !== null) {
             setPlayError(err);
           } else {

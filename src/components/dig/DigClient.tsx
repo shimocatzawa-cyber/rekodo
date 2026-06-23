@@ -395,6 +395,7 @@ function DigCompactPlayer({ previewUrl, albumUri, trackUri, artist, album, recId
   const nowPlayingText = playError === 403 ? "Spotify: Premium required or unavailable in your region"
     : playError === 401 ? "Spotify auth failed — try reconnecting in Settings"
     : playError === 429 ? "Spotify: rate limited — wait a moment and try again"
+    : playError === 404 ? "Spotify device unavailable — tap to reconnect"
     : playError === 0   ? "Network error — check your connection"
     : playError         ? `Spotify error ${playError}`
     : sdkConnecting ? "Connecting to Spotify…"
@@ -806,7 +807,7 @@ function ModeToggle({ mode, onChange, disabled }: {
       {item("discover", "Outside Collection")}
       {item("explore",  "Inside Collection")}
       {item("style",    "Style Dig")}
-      {item("history",  "Dig History · Last 7 Days")}
+      {item("history",  "Dig History")}
     </div>
   );
 }
