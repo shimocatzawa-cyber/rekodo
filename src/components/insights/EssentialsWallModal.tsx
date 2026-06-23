@@ -176,6 +176,7 @@ export default function EssentialsWallModal({ onClose, username, covers, total, 
 
   const [coverSrcs,    setCoverSrcs]    = useState<CoverSrcs>({});
   const [coversLoaded, setCoversLoaded] = useState(shownCovers.length === 0);
+  const [cardH,        setCardH]        = useState<number | null>(null);
   const [exporting,    setExporting]    = useState(false);
   const [copyState,    setCopyState]    = useState<"idle" | "copied" | "failed">("idle");
   const exportRef = useRef<HTMLDivElement>(null);
@@ -184,6 +185,16 @@ export default function EssentialsWallModal({ onClose, username, covers, total, 
     if (shownCovers.length === 0) return;
     loadCovers(shownCovers).then((c) => { setCoverSrcs(c); setCoversLoaded(true); });
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    // Measure the real off-screen export card instead of estimating the
+    // preview frame height by hand — hand-rolled line-height/border math
+    // drifts from the actual DOM (e.g. font metrics), clipping or leaving
+    // dead space at the bottom of the on-screen preview.
+    document.fonts.ready.then(() => {
+      if (exportRef.current) setCardH(exportRef.current.offsetHeight);
+    });
+  }, []);
 
   async function buildCanvas(): Promise<HTMLCanvasElement | null> {
     if (!exportRef.current) return null;
@@ -263,12 +274,12 @@ export default function EssentialsWallModal({ onClose, username, covers, total, 
     }
   }
 
-  const CARD_H = 28 + 46 + (shownCovers.length === 0 ? 200 : gridLayout(shownCovers.length).gridH) + 24 + 58 + 36 + 24;
-  const SCALE  = Math.min(1, 508 / CARD_W);
-  const PRV_W  = Math.round(CARD_W * SCALE);
-  const PRV_H  = Math.round(CARD_H * SCALE);
+  const SCALE = Math.min(1, 508 / CARD_W);
+  const PRV_W = Math.round(CARD_W * SCALE);
+  const PRV_H = cardH != null ? Math.round(cardH * SCALE) : 0;
 
-  const busy = exporting || !coversLoaded;
+  const ready = coversLoaded && cardH != null;
+  const busy  = exporting || !ready;
   const cardProps = { username, total, primaryGenre, primaryGenrePct, covers: shownCovers, coverSrcs };
 
   return (
@@ -291,7 +302,7 @@ export default function EssentialsWallModal({ onClose, username, covers, total, 
         </div>
 
         <div style={{ flex: 1, overflowY: "auto", padding: "20px", display: "flex", justifyContent: "center", alignItems: "flex-start" }}>
-          {!coversLoaded ? (
+          {!ready ? (
             <p style={{ fontFamily: UI_MONO, fontSize: "10px", color: "#aaa", letterSpacing: "0.06em", alignSelf: "center" }}>Loading artwork…</p>
           ) : (
             <div style={{ width: PRV_W, height: PRV_H, overflow: "hidden", flexShrink: 0, outline: "1px solid rgba(0,0,0,0.07)" }}>
@@ -309,7 +320,7 @@ export default function EssentialsWallModal({ onClose, username, covers, total, 
               disabled={busy}
               style={{ flex: 1, fontFamily: UI_MONO, fontSize: "9px", letterSpacing: "0.1em", textTransform: "uppercase", background: INK, color: "#fff", border: "none", cursor: busy ? "wait" : "pointer", padding: "10px 0", opacity: busy ? 0.5 : 1 }}
             >
-              {exporting ? "Exporting…" : !coversLoaded ? "Loading…" : "Download PNG"}
+              {exporting ? "Exporting…" : !ready ? "Loading…" : "Download PNG"}
             </button>
             <button
               onClick={handleCopyImage}
