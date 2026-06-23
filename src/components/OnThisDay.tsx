@@ -20,9 +20,9 @@ export default function OnThisDay({ pick }: { pick: OnThisDayPick | null }) {
   return (
     <div style={{ fontFamily: MONO, color: INK, borderTop: `1px solid ${RULE}` }}>
       {/* Eyebrow row */}
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "10px 0" }}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "10px 0", borderBottom: `1px solid ${RULE}` }}>
         <span style={{ fontSize: "11px", letterSpacing: "0.12em", textTransform: "uppercase", color: ORANGE }}>
-          On This Day
+          On This Month
         </span>
         <span style={{ fontSize: "0.52rem", letterSpacing: "0.08em", textTransform: "uppercase", opacity: 0.35 }}>
           This month in your collection

@@ -52,12 +52,12 @@ export default function DailyPick({ dailyPick }: { dailyPick: DailyPickData | nu
       </div>
 
       {/* Gatefold spread */}
-      <div style={{ padding: "0 0 18px", display: "grid", gridTemplateColumns: "1fr 1fr", position: "relative" }}>
+      <div style={{ padding: "0 0 18px", display: "grid", gridTemplateColumns: "120px 1fr", gap: "20px" }}>
         <div
           style={{
-            aspectRatio: "1 / 1",
+            width: "120px",
+            height: "120px",
             background: dailyPick.coverUrl ? undefined : "#f0ede8",
-            boxShadow: "inset -8px 0 8px -8px rgba(0,0,0,0.15)",
           }}
         >
           {dailyPick.coverUrl && (
@@ -65,16 +65,11 @@ export default function DailyPick({ dailyPick }: { dailyPick: DailyPickData | nu
             <img
               src={dailyPick.coverUrl}
               alt={dailyPick.album}
-              style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
+              style={{ width: "120px", height: "120px", objectFit: "cover", display: "block" }}
             />
           )}
         </div>
-        <div
-          style={{
-            padding: "16px 0 0 20px",
-            boxShadow: "inset 8px 0 8px -8px rgba(0,0,0,0.15)",
-          }}
-        >
+        <div>
           <p style={{ fontFamily: SERIF, fontSize: "1.05rem", fontWeight: 600, letterSpacing: "-0.02em", margin: "0 0 5px 0", lineHeight: 1.2 }}>
             {dailyPick.artist}
           </p>
