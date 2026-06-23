@@ -188,9 +188,7 @@ export async function sendWelcomeEmail(email: string, username: string) {
         <!-- SIGNOFF -->
         <tr>
           <td style="padding: 0 0 40px 0; font-family: 'Courier New', Courier, monospace; font-size: 14px; line-height: 1.7; color: #0a0a0a;">
-            Enjoy the mirror,<br>
-            Jason<br>
-            <span style="color:#666;">Founder, rekōdo</span>
+            Thanks
           </td>
         </tr>
 
