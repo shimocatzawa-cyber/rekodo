@@ -647,94 +647,100 @@ export async function computeArchetypes(
 
   // ── ARCHETYPE SCORING ────────────────────────────────────────────────────────
   const s = signals
+  // Unavailable signals return score=0, but 0 isn't neutral — inverted terms like
+  // (100 - listeningIntensity) would award max points to users with no Spotify data.
+  // Use 50 (midpoint) for any signal marked unavailable so missing data is genuinely neutral.
+  function sig(signal: SignalResult): number {
+    return signal.unavailable ? 50 : signal.score
+  }
   const scores: Record<string, number> = {
     keeper: clamp(
-      s.labelLoyalty.score * 0.20 +
-      s.conditionStandard.score * 0.15 +
-      s.sonicCoherence.score * 0.15 +
-      s.historicalDepth.score * 0.15 +
-      s.formatFidelity.score * 0.10 +
-      (100 - s.acquisitionRhythm.score) * 0.10 +
-      s.artistConcentration.score * 0.15
+      sig(s.labelLoyalty) * 0.20 +
+      sig(s.conditionStandard) * 0.15 +
+      sig(s.sonicCoherence) * 0.15 +
+      sig(s.historicalDepth) * 0.15 +
+      sig(s.formatFidelity) * 0.10 +
+      (100 - sig(s.acquisitionRhythm)) * 0.10 +
+      sig(s.artistConcentration) * 0.15
     ),
     seeker: clamp(
-      s.aspirationRatio.score * 0.25 +
-      s.geographicRange.score * 0.20 +
-      s.digitalDivergence.score * 0.15 +
-      s.styleRange.score * 0.15 +
-      (100 - s.labelLoyalty.score) * 0.10 +
-      s.pressingOriginDiversity.score * 0.05 +
-      (100 - s.artistConcentration.score) * 0.10
+      sig(s.aspirationRatio) * 0.25 +
+      sig(s.geographicRange) * 0.20 +
+      sig(s.digitalDivergence) * 0.15 +
+      sig(s.styleRange) * 0.15 +
+      (100 - sig(s.labelLoyalty)) * 0.10 +
+      sig(s.pressingOriginDiversity) * 0.05 +
+      (100 - sig(s.artistConcentration)) * 0.10
     ),
     scholar: clamp(
-      s.styleRange.score * 0.20 +
-      s.historicalDepth.score * 0.20 +
-      s.sonicCoherence.score * 0.15 +
-      s.geographicRange.score * 0.15 +
-      s.conditionStandard.score * 0.10 +
-      s.pressingOriginDiversity.score * 0.10 +
-      (100 - s.canonObscurity.score) * 0.10
+      sig(s.styleRange) * 0.20 +
+      sig(s.historicalDepth) * 0.20 +
+      sig(s.sonicCoherence) * 0.15 +
+      sig(s.geographicRange) * 0.15 +
+      sig(s.conditionStandard) * 0.10 +
+      sig(s.pressingOriginDiversity) * 0.10 +
+      (100 - sig(s.canonObscurity)) * 0.10
     ),
     ritualist: clamp(
-      s.conditionStandard.score * 0.30 +
-      (100 - s.acquisitionRhythm.score) * 0.25 +
-      s.sonicCoherence.score * 0.20 +
-      (100 - s.aspirationRatio.score) * 0.15 +
-      s.listeningIntensity.score * 0.10
+      sig(s.conditionStandard) * 0.30 +
+      (100 - sig(s.acquisitionRhythm)) * 0.25 +
+      sig(s.sonicCoherence) * 0.20 +
+      (100 - sig(s.aspirationRatio)) * 0.15 +
+      sig(s.listeningIntensity) * 0.10
     ),
     hunter: clamp(
-      s.trophyRatio.score * 0.35 +
-      s.conditionStandard.score * 0.15 +
-      s.acquisitionRhythm.score * 0.15 +
-      s.aspirationRatio.score * 0.15 +
-      s.pressingOriginDiversity.score * 0.10 +
-      (100 - s.listeningIntensity.score) * 0.10
+      sig(s.trophyRatio) * 0.35 +
+      sig(s.conditionStandard) * 0.15 +
+      sig(s.acquisitionRhythm) * 0.15 +
+      sig(s.aspirationRatio) * 0.15 +
+      sig(s.pressingOriginDiversity) * 0.10 +
+      (100 - sig(s.listeningIntensity)) * 0.10
     ),
     lover: clamp(
-      s.acquisitionRhythm.score * 0.20 +
-      (100 - s.sonicCoherence.score) * 0.15 +
-      s.aspirationRatio.score * 0.10 +
-      (100 - s.labelLoyalty.score) * 0.15 +
-      s.styleRange.score * 0.10 +
-      s.emotionalRange.score * 0.15 +
-      s.listeningIntensity.score * 0.15
+      sig(s.acquisitionRhythm) * 0.20 +
+      sig(s.artistConcentration) * 0.15 +
+      sig(s.aspirationRatio) * 0.10 +
+      (100 - sig(s.labelLoyalty)) * 0.15 +
+      sig(s.styleRange) * 0.10 +
+      sig(s.emotionalRange) * 0.15 +
+      sig(s.listeningIntensity) * 0.15
     ),
     alchemist: clamp(
-      s.curatorialReach.score * 0.35 +
-      s.styleRange.score * 0.20 +
-      s.digitalDivergence.score * 0.15 +
-      s.geographicRange.score * 0.15 +
-      (100 - s.sonicCoherence.score) * 0.15
+      sig(s.curatorialReach) * 0.35 +
+      sig(s.styleRange) * 0.20 +
+      sig(s.digitalDivergence) * 0.15 +
+      sig(s.geographicRange) * 0.15 +
+      (100 - sig(s.sonicCoherence)) * 0.15
     ),
     pilgrim: clamp(
-      s.pressingOriginDiversity.score * 0.35 +
-      s.geographicRange.score * 0.25 +
-      s.canonObscurity.score * 0.15 +
-      s.historicalDepth.score * 0.15 +
-      (100 - s.labelLoyalty.score) * 0.10
+      sig(s.pressingOriginDiversity) * 0.35 +
+      sig(s.geographicRange) * 0.25 +
+      sig(s.canonObscurity) * 0.15 +
+      sig(s.historicalDepth) * 0.15 +
+      (100 - sig(s.labelLoyalty)) * 0.10
     ),
     ruler: clamp(
-      s.labelLoyalty.score * 0.25 +
-      (100 - s.styleRange.score) * 0.20 +
-      s.conditionStandard.score * 0.15 +
-      s.historicalDepth.score * 0.15 +
-      s.sonicCoherence.score * 0.15 +
-      s.artistConcentration.score * 0.10
+      sig(s.labelLoyalty) * 0.25 +
+      (100 - sig(s.styleRange)) * 0.20 +
+      sig(s.conditionStandard) * 0.15 +
+      sig(s.historicalDepth) * 0.15 +
+      sig(s.sonicCoherence) * 0.15 +
+      sig(s.artistConcentration) * 0.10
     ),
     outlaw: clamp(
-      s.transgressiveIndex.score * 0.35 +
-      s.canonObscurity.score * 0.25 +
-      (100 - s.labelLoyalty.score) * 0.15 +
-      s.styleRange.score * 0.15 +
-      s.geographicRange.score * 0.10
+      sig(s.transgressiveIndex) * 0.35 +
+      sig(s.canonObscurity) * 0.25 +
+      (100 - sig(s.labelLoyalty)) * 0.15 +
+      sig(s.styleRange) * 0.15 +
+      sig(s.geographicRange) * 0.10
     ),
     caregiver: clamp(
-      s.curatorialReach.score * 0.30 +
-      s.styleRange.score * 0.20 +
-      s.digitalDivergence.score * 0.15 +
-      s.listeningIntensity.score * 0.15 +
-      s.geographicRange.score * 0.10 +
-      (100 - s.sonicCoherence.score) * 0.10
+      sig(s.curatorialReach) * 0.30 +
+      sig(s.styleRange) * 0.20 +
+      sig(s.digitalDivergence) * 0.15 +
+      sig(s.listeningIntensity) * 0.15 +
+      sig(s.geographicRange) * 0.10 +
+      (100 - sig(s.sonicCoherence)) * 0.10
     ),
   }
 
