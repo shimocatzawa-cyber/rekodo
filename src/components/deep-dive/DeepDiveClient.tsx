@@ -980,12 +980,16 @@ export default function DeepDiveClient({
 
     try {
       const supabase = createClient() as any;
-      if (wasFavorite) {
-        await supabase.from("deep_dive_favorites").delete().eq("user_id", userId).eq("artist", artist);
-      } else {
-        await supabase.from("deep_dive_favorites").insert({ user_id: userId, artist });
-      }
-    } catch {
+      // insert()/delete() resolve with { data, error } rather than throwing on
+      // a DB-level failure (RLS rejection, constraint violation, etc.) — a
+      // bare try/catch never sees that, so the optimistic state looked saved
+      // even when nothing actually landed in the table. Check error explicitly.
+      const { error } = wasFavorite
+        ? await supabase.from("deep_dive_favorites").delete().eq("user_id", userId).eq("artist", artist)
+        : await supabase.from("deep_dive_favorites").insert({ user_id: userId, artist });
+      if (error) throw error;
+    } catch (err) {
+      console.error("toggleFavorite failed:", err);
       // Revert on failure
       setFavorites((prev) => {
         const next = new Set(prev);
