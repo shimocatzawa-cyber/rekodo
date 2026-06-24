@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import Anthropic from "@anthropic-ai/sdk";
+import { after } from "next/server";
 
 export const dynamic = "force-dynamic";
 
@@ -155,7 +156,10 @@ ${JSON_SCHEMA}`;
           return Response.json({ error: "Invalid recommendations format" }, { status: 500 });
         }
         const today = new Date().toISOString().slice(0, 10);
-        void (supabase as any).rpc("increment_dig_count", { p_user_id: user.id, p_date: today, p_mode: mode });
+        // after() keeps the function alive until this completes — a bare
+        // unawaited rpc() call gets killed mid-flight as soon as the response
+        // below is sent, which is why dig counts weren't landing.
+        after(() => (supabase as any).rpc("increment_dig_count", { p_user_id: user.id, p_date: today, p_mode: mode }));
         return Response.json({ recommendations, quiz: true });
       } catch (err) {
         const msg = err instanceof Error ? err.message : "Unknown error";
@@ -528,9 +532,11 @@ ${JSON_SCHEMA}`;
       }
     }
 
-    // Atomically increment daily dig count for all users (fire-and-forget)
+    // Atomically increment daily dig count for all users (fire-and-forget,
+    // kept alive via after() — a bare unawaited call gets killed mid-flight
+    // once the response below is sent).
     const today = new Date().toISOString().slice(0, 10);
-    void (supabase as any).rpc("increment_dig_count", { p_user_id: user.id, p_date: today, p_mode: mode });
+    after(() => (supabase as any).rpc("increment_dig_count", { p_user_id: user.id, p_date: today, p_mode: mode }));
 
     // Persist outside-collection picks (with genre/region tags) so future digs
     // (any session/device) don't repeat them and can learn from what's accepted
@@ -541,7 +547,7 @@ ${JSON_SCHEMA}`;
           user_id: user.id, artist: r.artist, album: r.album, mode,
           genre: r.genre ?? null, region: r.region ?? null,
         }));
-      if (rows.length > 0) void (supabase as any).from("dig_history").insert(rows);
+      if (rows.length > 0) after(() => (supabase as any).from("dig_history").insert(rows));
     }
 
     return Response.json({ recommendations });

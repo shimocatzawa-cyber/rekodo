@@ -1,4 +1,4 @@
-import { type NextRequest, NextResponse } from "next/server";
+import { type NextRequest, NextResponse, after } from "next/server";
 import Anthropic from "@anthropic-ai/sdk";
 import { createClient } from "@supabase/supabase-js";
 import { createClient as createAuthClient } from "@/lib/supabase/server";
@@ -393,8 +393,10 @@ export async function POST(request: NextRequest) {
       void writeCache(artist, section, data);
     }
 
-    // ── Track per-user deep dive (fire-and-forget) ─────────────────────────────
-    void (async () => {
+    // ── Track per-user deep dive (fire-and-forget, kept alive via after() —
+    // a bare unawaited async IIFE gets killed mid-flight as soon as the
+    // response below is sent, which is why deep dive sessions weren't landing) ──
+    after(async () => {
       try {
         const authClient = await createAuthClient();
         const { data: { user } } = await authClient.auth.getUser();
@@ -408,7 +410,7 @@ export async function POST(request: NextRequest) {
           )
         );
       } catch { /* non-critical */ }
-    })();
+    });
 
     return NextResponse.json({ data });
   } catch (error) {
