@@ -8,16 +8,17 @@ export const maxDuration = 120;
 
 const client = new Anthropic();
 
-// Per-section cache TTL in days. "rankings"/"books"/"related" are long-lived —
-// an artist's essential albums, bibliography, and stylistic neighbors rarely
-// change. "podcasts"/"interviews" stay on a shorter cycle since new episodes
-// and features genuinely keep appearing.
+// Per-section cache TTL in days. 0 = never expire. "rankings"/"books" are
+// long-lived — an artist's essential albums and bibliography rarely change.
+// "related" never expires — stylistic neighbors don't change at all.
+// "podcasts"/"interviews" stay on a shorter cycle since new episodes and
+// features genuinely keep appearing.
 const CACHE_TTL_DAYS: Record<string, number> = {
   rankings:   180,
   podcasts:   60,
   books:      180,
   interviews: 60,
-  related:    365,
+  related:    0,
 };
 
 // The JSON field holding each section's primary result array.
@@ -146,16 +147,19 @@ async function readCache(artist: string, section: string): Promise<unknown | nul
     const supabase = getSupabase();
     if (!supabase) return null;
     const ttlDays = CACHE_TTL_DAYS[section] ?? 30;
-    const staleAfter = new Date(Date.now() - ttlDays * 24 * 60 * 60 * 1000).toISOString();
-    const result = await withDbTimeout(() =>
-      supabase
-        .from("deep_dive_cache")
-        .select("data")
-        .eq("artist", artist)
-        .eq("section", section)
-        .gt("refreshed_at", staleAfter)
-        .maybeSingle()
-    );
+    // ttlDays === 0 means "never expire" — skip the staleness filter entirely
+    // rather than computing a cutoff of "now", which would make every row
+    // look stale (the opposite of permanent).
+    let query = supabase
+      .from("deep_dive_cache")
+      .select("data")
+      .eq("artist", artist)
+      .eq("section", section);
+    if (ttlDays > 0) {
+      const staleAfter = new Date(Date.now() - ttlDays * 24 * 60 * 60 * 1000).toISOString();
+      query = query.gt("refreshed_at", staleAfter);
+    }
+    const result = await withDbTimeout(() => query.maybeSingle());
     if (result === null) {
       console.warn(`[deep-dive] cache read timed out — ${artist}/${section}`);
       return null;
@@ -231,7 +235,7 @@ INSTRUCTIONS:
 - If search only turns up the show's page and not an episode-specific URL matching the patterns above, OMIT that URL field entirely — do NOT substitute the show URL. A downstream lookup will try harder to find the exact episode; a wrong-precision link is worse than none.
 - Always provide a specific episode title. Never use "Various episodes" or vague placeholders — if you cannot name and verify a specific episode, omit that show entirely.
 - Include the year of the specific episode, not the show's launch year.
-- Aim for 8–10 results maximum. Quality over quantity — only include episodes you verified via search.
+- Aim for 5–6 results maximum. Quality over quantity — only include episodes you verified via search.
 
 Return ONLY valid JSON, no markdown, no backticks, no preamble:
 {"episodes":[{"show":"Show Name","episode":"Exact episode title","year":2021,"type":"interview","note":"One sentence on why worth listening","appleUrl":"https://podcasts.apple.com/...","spotifyUrl":"https://open.spotify.com/..."}]}
@@ -252,7 +256,7 @@ INSTRUCTIONS:
 - For the "format" field: use "audiobook" if only available as audio. Use "both" if it exists as both print and audiobook. Use "book" if no audiobook edition is known. This field controls which store links appear — be accurate.
 - For the "isbn13" field: include the ISBN-13 if you are confident (13 digits, starts with 978 or 979). Omit if uncertain — a wrong ISBN is worse than none.
 - For the "written_by_artist" field: set true if ${artist} is the author or primary narrator. Set false for all other items.
-- Return up to 10 items total, sorted by year ascending within each group.
+- Return up to 6 items total, sorted by year ascending within each group.
 
 Return ONLY valid JSON, no markdown, no backticks, no preamble:
 {"items":[{"title":"Book Title","author":"Author Name","year":2003,"type":"memoir","format":"both","isbn13":"9780571234567","written_by_artist":true,"note":"One sentence on why essential","amazonUrl":"https://www.amazon.com/dp/...","audibleUrl":"https://www.audible.com/pd/..."}]}
@@ -274,7 +278,7 @@ INSTRUCTIONS:
 3. Only include interviews with a confirmed direct URL — omit any you cannot find a URL for.
 4. The "domain" field is the bare domain (e.g. "pitchfork.com") as a fallback display label.
 
-Return up to 10 results, sorted by publication date descending (most recent first).
+Return up to 6 results, sorted by publication date descending (most recent first).
 Return ONLY valid JSON, no markdown, no backticks, no preamble:
 {"interviews":[{"publication":"Pitchfork","domain":"pitchfork.com","title":"Interview title or description","year":2019,"date":"2019-03","url":"https://pitchfork.com/features/interview/artist-name/","note":"What makes it worth reading"}]}
 "date" is optional — YYYY-MM or YYYY-MM-DD when known. "year" is always required.
