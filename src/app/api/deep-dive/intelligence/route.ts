@@ -388,9 +388,11 @@ export async function POST(request: NextRequest) {
     if (section === "podcasts") stripUnverifiedPodcastUrls(data);
     if (section === "books") stripUnverifiedBookUrls(data);
 
-    // ── Cache write (fire-and-forget, 3 s hard timeout) ────────────────────────
+    // ── Cache write (fire-and-forget via after(), 3 s hard timeout) ────────────
+    // Same Vercel mid-flight-kill issue as the deep-dive-session tracking below —
+    // a bare unawaited call was likely losing the write before it landed.
     if (CACHED_SECTIONS.has(section)) {
-      void writeCache(artist, section, data);
+      after(() => writeCache(artist, section, data));
     }
 
     // ── Track per-user deep dive (fire-and-forget, kept alive via after() —
