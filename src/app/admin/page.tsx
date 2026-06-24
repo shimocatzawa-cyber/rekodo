@@ -76,26 +76,54 @@ export default async function AdminPage() {
   const adminDb = getAdminDb();
 
   // Fetch profiles and auth users — paginated past Supabase's 1000-row/page caps
-  const [profiles, authUsers, wantlistRows, discogsRows, archetypeRows, paymentRows, pageViewRows] = await Promise.all([
+  const [profiles, authUsers, listRows, discogsRows, archetypeRows, paymentRows, pageViewRows, digRows] = await Promise.all([
     fetchPaged(
       adminDb,
       "profiles",
       "id, username, display_name, subscription_tier, role, created_at, last_synced_at, last_active_at, city, country, is_donor, spotify_connected, bandcamp_username"
     ),
     fetchAllAuthUsers(adminDb),
-    fetchPaged(adminDb, "lists", "user_id", { column: "slug", value: "wantlist" }),
+    fetchPaged(adminDb, "lists", "user_id, list_type, slug"),
     fetchPaged(adminDb, "discogs_tokens", "user_id, discogs_username"),
     fetchPaged(adminDb, "archetype_cache", "user_id, primary_archetype"),
     fetchPaged(adminDb, "payments", "user_id, type, amount_cents, currency"),
     fetchPaged(adminDb, "page_views", "user_id, section"),
+    fetchPaged(adminDb, "dig_daily_count", "user_id, count"),
   ]);
 
   const profileById = new Map(profiles.map(p => [p.id as string, p as unknown as ProfileRow]));
 
-  const wantlistIds  = new Set(wantlistRows.map(r => r.user_id as string));
+  // "wantlist" and "want-to-buy" are both legacy slugs for the same special list
+  const isWantlistSlug = (slug: string) => slug === "wantlist" || slug === "want-to-buy";
+
+  const wantlistIds  = new Set(
+    listRows.filter(r => isWantlistSlug(r.slug as string)).map(r => r.user_id as string)
+  );
   const discogsIds   = new Set(discogsRows.map(r => r.user_id as string));
   const discogsUsernameMap = new Map(discogsRows.map(r => [r.user_id as string, r.discogs_username as string | null]));
   const archetypeMap = new Map(archetypeRows.map(r => [r.user_id as string, r.primary_archetype as string | null]));
+
+  // Lists created: the curated "Top 5" lists feature (list_type defaults to "top5" for rows predating that column)
+  const listsCreatedMap = new Map<string, number>();
+  // Playlists generated: personal lists saved from the AI playlist generator, excluding the wantlist
+  const playlistsGeneratedMap = new Map<string, number>();
+  for (const row of listRows) {
+    const uid = row.user_id as string;
+    const listType = (row.list_type as string | null) ?? "top5";
+    const slug = row.slug as string;
+    if (listType === "top5") {
+      listsCreatedMap.set(uid, (listsCreatedMap.get(uid) ?? 0) + 1);
+    } else if (listType === "personal" && !isWantlistSlug(slug)) {
+      playlistsGeneratedMap.set(uid, (playlistsGeneratedMap.get(uid) ?? 0) + 1);
+    }
+  }
+
+  // Digs: dig_daily_count holds one row per user per day with a running count for that day
+  const digCountMap = new Map<string, number>();
+  for (const row of digRows) {
+    const uid = row.user_id as string;
+    digCountMap.set(uid, (digCountMap.get(uid) ?? 0) + (row.count as number));
+  }
 
   // Aggregate payments per user
   const subSpendMap  = new Map<string, { cents: number; currency: string }>();
@@ -169,6 +197,9 @@ export default async function AdminPage() {
       discogs_username:  discogsUsernameMap.get(u.id) ?? null,
       subscription_spend: subSpend,
       donation_total:     donation,
+      lists_created:       listsCreatedMap.get(u.id) ?? 0,
+      playlists_generated: playlistsGeneratedMap.get(u.id) ?? 0,
+      digs_count:          digCountMap.get(u.id) ?? 0,
       top_sections: [...(userSectionCounts.get(u.id) ?? new Map<string, number>()).entries()]
         .sort((a, b) => b[1] - a[1])
         .slice(0, 3)

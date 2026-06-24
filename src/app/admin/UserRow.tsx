@@ -30,6 +30,9 @@ export interface AdminUser {
   discogs_username: string | null;
   subscription_spend: { cents: number; currency: string } | null;
   donation_total: { cents: number; currency: string } | null;
+  lists_created: number;
+  playlists_generated: number;
+  digs_count: number;
   top_sections: { section: string; count: number }[];
   connections: {
     collection: boolean;
@@ -218,6 +221,18 @@ export default function UserRow({ user, showFinancial, columnCount }: { user: Ad
 
         <td style={{ ...cellSt, color: MUTED, textAlign: "right" as const }}>
           {user.record_count > 0 ? user.record_count.toLocaleString() : "—"}
+        </td>
+
+        <td style={{ ...cellSt, color: user.lists_created > 0 ? INK : MUTED, textAlign: "right" as const }}>
+          {user.lists_created > 0 ? user.lists_created.toLocaleString() : "—"}
+        </td>
+
+        <td style={{ ...cellSt, color: user.playlists_generated > 0 ? INK : MUTED, textAlign: "right" as const }}>
+          {user.playlists_generated > 0 ? user.playlists_generated.toLocaleString() : "—"}
+        </td>
+
+        <td style={{ ...cellSt, color: user.digs_count > 0 ? INK : MUTED, textAlign: "right" as const }}>
+          {user.digs_count > 0 ? user.digs_count.toLocaleString() : "—"}
         </td>
 
         {/* Subscription spend / Donated / Discogs username — hidden by default behind "show all columns" */}

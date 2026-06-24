@@ -11,6 +11,7 @@ const INK    = "#0d0d0d";
 
 type SortKey =
   | "username" | "email" | "location" | "archetype" | "record_count"
+  | "lists_created" | "playlists_generated" | "digs_count"
   | "subscription_spend" | "donation_total" | "connected" | "discogs_username"
   | "subscription_tier" | "joined" | "last_active" | "status";
 
@@ -22,6 +23,9 @@ const ALL_COLUMNS: { label: string; key: SortKey | null; optional?: boolean }[] 
   { label: "Location",         key: "location" },
   { label: "Archetype",        key: "archetype" },
   { label: "Collection",       key: "record_count" },
+  { label: "Lists",            key: "lists_created" },
+  { label: "Playlists",        key: "playlists_generated" },
+  { label: "Digs",             key: "digs_count" },
   { label: "Sub. spend",       key: "subscription_spend", optional: true },
   { label: "Donated",          key: "donation_total",     optional: true },
   { label: "Connected",        key: "connected" },
@@ -58,6 +62,9 @@ function getSortValue(u: AdminUser, key: SortKey): string | number {
     case "location":             return `${u.city ?? ""} ${u.country ?? ""}`.trim().toLowerCase();
     case "archetype":            return (u.archetype ?? "").toLowerCase();
     case "record_count":         return u.record_count;
+    case "lists_created":        return u.lists_created;
+    case "playlists_generated":  return u.playlists_generated;
+    case "digs_count":           return u.digs_count;
     case "subscription_spend":   return u.subscription_spend?.cents ?? 0;
     case "donation_total":       return u.donation_total?.cents ?? 0;
     case "connected":            return Object.values(u.connections).filter(Boolean).length;
@@ -80,6 +87,7 @@ function csvAmount(v: { cents: number; currency: string } | null): string {
 function buildCSV(users: AdminUser[]): string {
   const headers = [
     "Username", "Email", "Location", "Archetype", "Collection",
+    "Lists", "Playlists", "Digs",
     "Sub. spend", "Donated", "Connected", "Discogs username",
     "Tier", "Joined", "Last active", "Status",
   ];
@@ -94,6 +102,9 @@ function buildCSV(users: AdminUser[]): string {
       location,
       u.archetype ?? "",
       String(u.record_count),
+      String(u.lists_created),
+      String(u.playlists_generated),
+      String(u.digs_count),
       csvAmount(u.subscription_spend),
       csvAmount(u.donation_total),
       connected,
