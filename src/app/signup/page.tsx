@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useActionState } from "react";
+import { useActionState, useState } from "react";
 import { signup } from "@/app/auth/actions";
 
 const MONO = "var(--font-dm-mono), 'Courier New', monospace";
@@ -29,6 +29,8 @@ const inputStyle: React.CSSProperties = {
 
 export default function SignupPage() {
   const [state, action, pending] = useActionState(signup, undefined);
+  const [agreed, setAgreed] = useState(false);
+  const [attemptedSubmit, setAttemptedSubmit] = useState(false);
 
   return (
     <div className="min-h-screen bg-white flex flex-col px-8 md:px-12">
@@ -164,10 +166,59 @@ export default function SignupPage() {
                 </p>
               )}
 
+              {/* Terms & Privacy consent */}
+              <div>
+                <label style={{ display: "flex", alignItems: "flex-start", gap: "9px", cursor: "pointer" }}>
+                  <input
+                    type="checkbox"
+                    checked={agreed}
+                    onChange={(e) => {
+                      setAgreed(e.target.checked);
+                      if (e.target.checked) setAttemptedSubmit(false);
+                    }}
+                    className="mt-0.5"
+                  />
+                  <span style={{ fontFamily: MONO, fontSize: "11px", color: "#666666", letterSpacing: "0.04em", lineHeight: 1.6 }}>
+                    I agree to the{" "}
+                    <a
+                      href="/terms"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      style={{ color: "#CC5500", textDecoration: "underline" }}
+                    >
+                      Terms of Service
+                    </a>{" "}
+                    and{" "}
+                    <a
+                      href="/privacy"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      style={{ color: "#CC5500", textDecoration: "underline" }}
+                    >
+                      Privacy Policy
+                    </a>
+                  </span>
+                </label>
+                {attemptedSubmit && !agreed && (
+                  <p
+                    className="mt-2"
+                    style={{ fontFamily: MONO, fontSize: "11px", color: "#9a1f1f", letterSpacing: "0.04em" }}
+                  >
+                    Please agree to the Terms of Service and Privacy Policy to continue.
+                  </p>
+                )}
+              </div>
+
               {/* Submit */}
               <button
                 type="submit"
                 disabled={pending}
+                onClick={(e) => {
+                  if (!agreed) {
+                    e.preventDefault();
+                    setAttemptedSubmit(true);
+                  }
+                }}
                 className="w-full bg-black text-white hover:bg-[#CC5500] hover:text-black transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
                 style={{
                   fontFamily: MONO,
@@ -177,6 +228,7 @@ export default function SignupPage() {
                   padding: "15px 0",
                   border: "none",
                   cursor: pending ? "not-allowed" : "pointer",
+                  opacity: !pending && !agreed ? 0.4 : 1,
                 }}
               >
                 {pending ? "Creating account…" : "Create account"}
