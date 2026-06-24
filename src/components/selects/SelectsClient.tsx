@@ -158,11 +158,13 @@ function NewReleasesSection() {
 
   useEffect(() => {
     const supabase = createClient();
+    const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
     supabase
       .from("label_feed")
       .select("*")
       .not("artist", "is", null)
       .neq("artist", "")
+      .gte("received_at", thirtyDaysAgo)
       .order("received_at", { ascending: false })
       .limit(100)
       .then(({ data, error }) => {

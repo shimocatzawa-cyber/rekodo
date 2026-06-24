@@ -97,14 +97,27 @@ function decodeBase64url(s: string): string {
 
 // Converts HTML to plain text while keeping link destinations inline (e.g. "Buy now (https://...)"),
 // since Claude only sees this flattened text and needs the URLs to extract per-release buy_url.
+// Many label/store newsletters lay releases out as cover-art images with the artist/album only
+// in the <img alt> text (visible link text is just a generic "Buy"/"Shop" icon) — inlining alt
+// text recovers that. Block boundaries are turned into newlines (rather than collapsed to a
+// single space like every other tag) so Claude can tell where one release's block ends and the
+// next begins, which is what it needs to match each buy_url to the right release.
 function htmlToTextWithLinks(html: string): string {
   return html
+    .replace(/<img\b[^>]*\balt=["']([^"']*)["'][^>]*>/gi, (_m, alt) => {
+      const text = alt.replace(/\s+/g, " ").trim();
+      return text ? ` [${text}] ` : " ";
+    })
     .replace(/<a\b[^>]*href=["']([^"']+)["'][^>]*>(.*?)<\/a>/gis, (_m, href, text) => {
       const label = text.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
       return `${label} (${href})`;
     })
+    .replace(/<br\s*\/?>/gi, "\n")
+    .replace(/<\/(tr|table|div|p|li|h[1-6])>/gi, "\n")
     .replace(/<[^>]+>/g, " ")
-    .replace(/\s+/g, " ")
+    .replace(/[ \t]+/g, " ")
+    .replace(/ *\n */g, "\n")
+    .replace(/\n{2,}/g, "\n")
     .trim();
 }
 
@@ -117,11 +130,14 @@ function extractBody(part: GmailPart | GmailMessage["payload"]): string {
   // Recurse into multipart
   if (part.parts) {
     const plain = part.parts.find((p) => p.mimeType === "text/plain");
-    if (plain?.body?.data) return decodeBase64url(plain.body.data);
-    // Fall back to HTML, preserving link URLs
-    const html = part.parts.find((p) => p.mimeType === "text/html");
-    if (html?.body?.data) {
-      return htmlToTextWithLinks(decodeBase64url(html.body.data));
+    const html  = part.parts.find((p) => p.mimeType === "text/html");
+    const plainText = plain?.body?.data ? decodeBase64url(plain.body.data) : "";
+    const htmlText  = html?.body?.data ? htmlToTextWithLinks(decodeBase64url(html.body.data)) : "";
+    // Some senders ship a stub plain-text part ("This email was sent as HTML-only,
+    // click here to view") with all the real content only in the HTML part. Prefer
+    // whichever side actually has the substance rather than always trusting plain.
+    if (plainText || htmlText) {
+      return htmlText.length > plainText.length * 1.5 ? htmlText : (plainText || htmlText);
     }
     // Recurse deeper
     for (const p of part.parts) {
@@ -194,8 +210,8 @@ async function parseWithClaude(
 
 Email subject: ${subject}
 From: ${sender}
-Body (first 4000 chars):
-${body.slice(0, 4000)}
+Body (first 20000 chars):
+${body.slice(0, 20000)}
 
 Note: link text is followed by its URL in parentheses, e.g. "Buy now (https://example.com/product/123)" — use these URLs for buy_url, matched to the nearest release they belong to.
 
@@ -231,7 +247,10 @@ Return ONLY a valid JSON array, no markdown, no explanation.`;
     },
     body: JSON.stringify({
       model: "claude-haiku-4-5-20251001",
-      max_tokens: 2048,
+      // Newsletters listing dozens of releases (e.g. Norman Records' daily digest) need
+      // more room than 2048 tokens — once the output gets cut off mid-array, JSON.parse
+      // throws and the whole message silently yields zero releases.
+      max_tokens: 8192,
       messages: [{ role: "user", content: prompt }],
     }),
   });

@@ -1,7 +1,8 @@
-// One-off backfill: re-parses already-ingested label_feed emails so buy_url picks up
-// product links that the old (link-stripping) body extractor lost. Matches re-parsed
-// releases back to existing rows by gmail_message_id + artist/album and fills buy_url
-// only where it's currently null — never touches rows that already have a buy_url.
+// Repair tool: re-parses already-ingested label_feed emails to fill in fields that came
+// back null on first ingest (commonly because the old body extractor lost <img alt> text
+// and collapsed block boundaries, starving Claude of context). Matches re-parsed releases
+// back to existing rows by gmail_message_id + artist/album and only fills currently-null
+// fields — never overwrites a value that's already set.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
@@ -94,12 +95,20 @@ function decodeBase64url(s: string): string {
 
 function htmlToTextWithLinks(html: string): string {
   return html
+    .replace(/<img\b[^>]*\balt=["']([^"']*)["'][^>]*>/gi, (_m, alt) => {
+      const text = alt.replace(/\s+/g, " ").trim();
+      return text ? ` [${text}] ` : " ";
+    })
     .replace(/<a\b[^>]*href=["']([^"']+)["'][^>]*>(.*?)<\/a>/gis, (_m, href, text) => {
       const label = text.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
       return `${label} (${href})`;
     })
+    .replace(/<br\s*\/?>/gi, "\n")
+    .replace(/<\/(tr|table|div|p|li|h[1-6])>/gi, "\n")
     .replace(/<[^>]+>/g, " ")
-    .replace(/\s+/g, " ")
+    .replace(/[ \t]+/g, " ")
+    .replace(/ *\n */g, "\n")
+    .replace(/\n{2,}/g, "\n")
     .trim();
 }
 
@@ -110,10 +119,14 @@ function extractBody(part: GmailPart | GmailMessage["payload"]): string {
   }
   if (part.parts) {
     const plain = part.parts.find((p) => p.mimeType === "text/plain");
-    if (plain?.body?.data) return decodeBase64url(plain.body.data);
-    const html = part.parts.find((p) => p.mimeType === "text/html");
-    if (html?.body?.data) {
-      return htmlToTextWithLinks(decodeBase64url(html.body.data));
+    const html  = part.parts.find((p) => p.mimeType === "text/html");
+    const plainText = plain?.body?.data ? decodeBase64url(plain.body.data) : "";
+    const htmlText  = html?.body?.data ? htmlToTextWithLinks(decodeBase64url(html.body.data)) : "";
+    // Some senders ship a stub plain-text part ("This email was sent as HTML-only,
+    // click here to view") with all the real content only in the HTML part. Prefer
+    // whichever side actually has the substance rather than always trusting plain.
+    if (plainText || htmlText) {
+      return htmlText.length > plainText.length * 1.5 ? htmlText : (plainText || htmlText);
     }
     for (const p of part.parts) {
       const body = extractBody(p);
@@ -141,7 +154,14 @@ async function fetchMessage(token: string, id: string): Promise<GmailMessage> {
 interface ParsedRelease {
   artist: string | null;
   album: string | null;
+  release_type: "new_release" | "repress" | "preorder" | "announcement" | "unknown";
+  format: string | null;
+  label: string | null;
+  description: string | null;
+  tags: string[];
   buy_url: string | null;
+  price: string | null;
+  release_date: string | null;
 }
 
 async function parseWithClaude(subject: string, sender: string, body: string): Promise<ParsedRelease[]> {
@@ -149,10 +169,11 @@ async function parseWithClaude(subject: string, sender: string, body: string): P
 
 Email subject: ${subject}
 From: ${sender}
-Body (first 4000 chars):
-${body.slice(0, 4000)}
+Body (first 20000 chars):
+${body.slice(0, 20000)}
 
 Note: link text is followed by its URL in parentheses, e.g. "Buy now (https://example.com/product/123)" — use these URLs for buy_url, matched to the nearest release they belong to.
+Cover-art image alt text appears inline as [Artist - Album] — use it to identify releases when there's no other surrounding text.
 
 Extract ALL individual releases mentioned (new releases, represses, preorders, etc).
 Many newsletters list multiple records — include every one you can identify.
@@ -160,11 +181,19 @@ Many newsletters list multiple records — include every one you can identify.
 IMPORTANT parsing rules:
 - Newsletters often prefix entries with the format, e.g. "LP Swim Deep - Hum" or "12\" Artist - Title". Always strip the format prefix and place it in the "format" field — never include it in artist.
 - The pattern is typically: [FORMAT] [ARTIST] - [ALBUM TITLE]. Split on " - " to separate artist from album.
+- Do not include format tokens (LP, EP, 12", 7", CD, etc.) in the artist field.
 
 Return a JSON array where each element has:
 - artist: string or null — the artist/band name only, no format prefix
 - album: string or null — the album/release title only
+- release_type: one of "new_release", "repress", "preorder", "announcement", "unknown"
+- format: e.g. "LP", "12\\"", "7\\"", "CD", "Digital", or null
+- label: record label name or null
+- description: one sentence about this specific release or null
+- tags: array of relevant tags (genre, mood, style — max 5)
 - buy_url: the direct URL to buy or view this specific release (e.g. a product page or Bandcamp link), or null if not found. Prefer specific album/product page URLs over generic store homepages.
+- price: the price of this release as shown in the email (e.g. "£18.99", "$25.00"), or null if not mentioned.
+- release_date: the release or shipping date in ISO 8601 format (YYYY-MM-DD), or null if not mentioned. Use the email's received date as context for relative dates like "out now" or "available Friday".
 
 If no releases can be identified return an empty array [].
 Return ONLY a valid JSON array, no markdown, no explanation.`;
@@ -178,7 +207,10 @@ Return ONLY a valid JSON array, no markdown, no explanation.`;
     },
     body: JSON.stringify({
       model: "claude-haiku-4-5-20251001",
-      max_tokens: 2048,
+      // Newsletters listing dozens of releases (e.g. Norman Records' daily digest) need
+      // more room than 2048 tokens — once the output gets cut off mid-array, JSON.parse
+      // throws and the whole message silently yields zero releases.
+      max_tokens: 8192,
       messages: [{ role: "user", content: prompt }],
     }),
   });
@@ -204,16 +236,32 @@ function norm(s: string | null): string {
   return (s ?? "").trim().toLowerCase();
 }
 
-Deno.serve(async (_req) => {
+Deno.serve(async (req) => {
   try {
+    // dryRun: true skips DB writes and instead returns what Claude extracted per message,
+    // so a stuck repair (e.g. updated: 0) can be diagnosed without guessing blind.
+    let dryRun = false;
+    try {
+      const body = await req.json();
+      dryRun = body?.dryRun === true;
+    } catch {
+      // no/invalid JSON body — default to a real run
+    }
+
     const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+
+    // Scoped to the last 5 days — this repairs recent ingest misses, not the whole historical
+    // backlog. Without a cutoff, a single invocation re-fetches + re-parses every incomplete
+    // row ever ingested, which blows past the edge function's compute/time limit.
+    const cutoff = new Date(Date.now() - 5 * 24 * 60 * 60 * 1000).toISOString();
 
     const { data: rows, error: fetchErr } = await supabase
       .from("label_feed")
-      .select("id, gmail_message_id, subject, sender, artist, album")
-      .is("buy_url", null)
+      .select("id, gmail_message_id, subject, sender, artist, album, format, label, description, tags, buy_url, price, release_date")
       .not("gmail_message_id", "is", null)
-      .not("artist", "is", null);
+      .not("artist", "is", null)
+      .gte("received_at", cutoff)
+      .or("album.is.null,buy_url.is.null,format.is.null,label.is.null,price.is.null,release_date.is.null");
 
     if (fetchErr) throw new Error(`Supabase fetch error: ${fetchErr.message}`);
     if (!rows || rows.length === 0) {
@@ -232,6 +280,7 @@ Deno.serve(async (_req) => {
     const token = await getGmailAccessToken();
     let updated = 0;
     const errors: string[] = [];
+    const debug: unknown[] = [];
 
     for (const [messageId, dbRows] of byMessage) {
       try {
@@ -241,6 +290,20 @@ Deno.serve(async (_req) => {
         const body = extractBody(msg.payload);
 
         const parsed = await parseWithClaude(subject, sender, body);
+
+        if (dryRun) {
+          debug.push({
+            messageId,
+            subject,
+            sender,
+            bodyLength: body.length,
+            bodyPreview: body.slice(0, 1500),
+            parsed,
+            dbRows: dbRows.map((r) => ({ id: r.id, artist: r.artist, album: r.album })),
+          });
+          continue;
+        }
+
         if (parsed.length === 0) continue;
 
         for (const dbRow of dbRows) {
@@ -248,12 +311,24 @@ Deno.serve(async (_req) => {
             norm(p.artist) === norm(dbRow.artist) && norm(p.album) === norm(dbRow.album)
           ) ?? parsed.find((p) => norm(p.artist) === norm(dbRow.artist));
 
-          if (match?.buy_url) {
+          if (!match) continue;
+
+          // Only fill fields that are currently empty — never overwrite an existing value.
+          const patch: Record<string, unknown> = {};
+          if (!dbRow.album && match.album) patch.album = match.album;
+          if (!dbRow.format && match.format) patch.format = match.format;
+          if (!dbRow.label && match.label) patch.label = match.label;
+          if (!dbRow.description && match.description) patch.description = match.description;
+          if (!dbRow.buy_url && match.buy_url) patch.buy_url = match.buy_url;
+          if (!dbRow.price && match.price) patch.price = match.price;
+          if (!dbRow.release_date && match.release_date) patch.release_date = match.release_date;
+          if ((!dbRow.tags || (dbRow.tags as string[]).length === 0) && match.tags?.length) patch.tags = match.tags;
+
+          if (Object.keys(patch).length > 0) {
             const { error: updateErr } = await supabase
               .from("label_feed")
-              .update({ buy_url: match.buy_url })
-              .eq("id", dbRow.id)
-              .is("buy_url", null);
+              .update(patch)
+              .eq("id", dbRow.id);
             if (updateErr) errors.push(`${dbRow.id}: ${updateErr.message}`);
             else updated++;
           }
@@ -263,7 +338,9 @@ Deno.serve(async (_req) => {
       }
     }
 
-    const result = { messages: byMessage.size, rows: rows.length, updated, errors: errors.length > 0 ? errors : undefined };
+    const result = dryRun
+      ? { messages: byMessage.size, rows: rows.length, debug }
+      : { messages: byMessage.size, rows: rows.length, updated, errors: errors.length > 0 ? errors : undefined };
     console.log(JSON.stringify(result));
     return new Response(JSON.stringify(result), { headers: { "Content-Type": "application/json" } });
   } catch (err) {
