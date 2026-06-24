@@ -89,3 +89,23 @@ export async function blockUser(
   revalidatePath("/admin");
   return { success: true };
 }
+
+// Test accounts are excluded from Community discovery (All Collectors, Top
+// Matches candidates) but otherwise behave like any normal account.
+export async function setTestAccount(
+  userId: string,
+  isTest: boolean
+): Promise<{ success: boolean; error?: string }> {
+  if (!await verifyAdmin()) return { success: false, error: "Forbidden" };
+
+  const adminDb = getAdminDb();
+  const { error } = await adminDb
+    .from("profiles")
+    .update({ is_test: isTest })
+    .eq("id", userId);
+
+  if (error) return { success: false, error: error.message };
+
+  revalidatePath("/admin");
+  return { success: true };
+}

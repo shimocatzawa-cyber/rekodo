@@ -135,7 +135,11 @@ export function buildProfile(records: RecRow[], listRows: ListRow[]): UserProfil
 // computed this way are directionally consistent with Top Matches but not
 // guaranteed bit-identical for the same pair.
 
-const CACHE_TTL_MS = 24 * 60 * 60 * 1000;
+// Shared by /api/collectors/matches too. Short enough that a newly-connected
+// user (or a big collection sync) shows up in Top Matches within a reasonable
+// wait rather than up to a day later, while still keeping most profile views
+// served from a warm cache instead of re-running the full scoring pass.
+export const CACHE_TTL_MS = 20 * 60 * 1000;
 
 async function fetchUserProfile(supabase: SupabaseClient, userId: string): Promise<UserProfile> {
   const PAGE = 1000;

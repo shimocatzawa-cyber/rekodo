@@ -8,6 +8,7 @@ import {
   computeScore,
   buildSharedTags,
   compatibilityLabel,
+  CACHE_TTL_MS,
 } from "@/lib/compatibility";
 
 export const dynamic = "force-dynamic";
@@ -28,8 +29,8 @@ export async function GET(request: NextRequest) {
   // by anonymous, unauthenticated traffic.
   if (!viewer) return Response.json({ error: "Unauthorized" }, { status: 401 });
 
-  // ── Check cache (24h) ─────────────────────────────────────────────────────
-  const cacheExpiry = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+  // ── Check cache ───────────────────────────────────────────────────────────
+  const cacheExpiry = new Date(Date.now() - CACHE_TTL_MS).toISOString();
   const { data: cachedRows } = await supabase
     .from("compatibility_scores")
     .select("user_id_b, score, shared_tags")
@@ -47,7 +48,7 @@ export async function GET(request: NextRequest) {
     // single .in() select can silently truncate at PostgREST's default row
     // cap when the matched users have large collections.
     const [profilesRes, followerRes, followingRes] = await Promise.all([
-      supabase.from("profiles").select("id, username, display_name, avatar_url, city, country, is_donor").in("id", ids),
+      supabase.from("profiles").select("id, username, display_name, avatar_url, city, country, is_donor, is_test").in("id", ids),
       supabase.from("follows").select("following_id").in("following_id", ids),
       viewer
         ? supabase.from("follows").select("following_id").eq("follower_id", viewer.id).in("following_id", ids)
@@ -75,7 +76,9 @@ export async function GET(request: NextRequest) {
 
     return rows.map(row => {
       const p = profileMap.get(row.user_id_b);
-      if (!p) return null;
+      // Covers rows already cached before test accounts were excluded from
+      // candidacy — never surface one even if it's still sitting in the cache.
+      if (!p || p.is_test) return null;
       const { label, description } = compatibilityLabel(row.score);
       return {
         userId:        p.id,
@@ -102,16 +105,24 @@ export async function GET(request: NextRequest) {
 
   // ── Fresh computation ─────────────────────────────────────────────────────
 
-  // 1. Find eligible users (≥20 records, not the target)
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: eligibleLinks } = await (supabase as any)
-    .from("public_collection_summary")
-    .select("user_id")
-    .neq("user_id", userId)
-    .limit(200000);
+  // 1. Find eligible users (≥20 records, not the target, not a test account)
+  const [{ data: eligibleLinks }, { data: testRows }] = await Promise.all([
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (supabase as any)
+      .from("public_collection_summary")
+      .select("user_id")
+      .neq("user_id", userId)
+      .limit(200000),
+    supabase.from("profiles").select("id").eq("is_test", true),
+  ]);
+
+  const testIds = new Set((testRows ?? []).map(r => r.id));
 
   const countPerUser = new Map<string, number>();
-  for (const l of eligibleLinks ?? []) countPerUser.set(l.user_id, (countPerUser.get(l.user_id) ?? 0) + 1);
+  for (const l of eligibleLinks ?? []) {
+    if (testIds.has(l.user_id)) continue;
+    countPerUser.set(l.user_id, (countPerUser.get(l.user_id) ?? 0) + 1);
+  }
 
   const eligibleIds = [...countPerUser.entries()]
     .filter(([, n]) => n >= 20)

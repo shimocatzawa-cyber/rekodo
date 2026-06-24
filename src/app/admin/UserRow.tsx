@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { updateUserAdmin, updateUserIdentity, blockUser } from "./actions";
+import { updateUserAdmin, updateUserIdentity, blockUser, setTestAccount } from "./actions";
 
 const MONO   = "var(--font-mono)";
 const ORANGE = "#CC5500";
@@ -26,6 +26,7 @@ export interface AdminUser {
   city: string | null;
   country: string | null;
   is_donor: boolean;
+  is_test: boolean;
   archetype: string | null;
   discogs_username: string | null;
   subscription_spend: { cents: number; currency: string } | null;
@@ -125,6 +126,8 @@ export default function UserRow({ user, showFinancial, columnCount }: { user: Ad
   const [savePending, startSave]     = useTransition();
   const [idPending,   startId]       = useTransition();
   const [blockPend,   startBlock]    = useTransition();
+  const [testPend,    startTest]     = useTransition();
+  const [isTest,      setIsTestState] = useState(user.is_test);
 
   const blocked = isBlocked(user.banned_until);
 
@@ -159,6 +162,16 @@ export default function UserRow({ user, showFinancial, columnCount }: { user: Ad
     startBlock(async () => {
       const result = await blockUser(user.id, !blocked);
       if (!result.success) setError(result.error ?? "Failed");
+    });
+  }
+
+  function handleToggleTest() {
+    setError(null);
+    const next = !isTest;
+    startTest(async () => {
+      const result = await setTestAccount(user.id, next);
+      if (result.success) setIsTestState(next);
+      else setError(result.error ?? "Failed");
     });
   }
 
@@ -209,6 +222,11 @@ export default function UserRow({ user, showFinancial, columnCount }: { user: Ad
           {user.is_donor && (
             <span style={{ fontFamily: MONO, fontSize: "8px", letterSpacing: "0.1em", color: ORANGE, marginLeft: "8px", textTransform: "uppercase" }}>
               donor
+            </span>
+          )}
+          {isTest && (
+            <span style={{ fontFamily: MONO, fontSize: "8px", letterSpacing: "0.1em", color: MUTED, marginLeft: "8px", textTransform: "uppercase" }}>
+              test
             </span>
           )}
         </td>
@@ -373,6 +391,29 @@ export default function UserRow({ user, showFinancial, columnCount }: { user: Ad
                     }}
                   >
                     {blockPend ? "…" : blocked ? "Unblock" : "Block"}
+                  </button>
+                </div>
+
+                {/* Test account flag — excluded from Community discovery (All Collectors, Top Matches) */}
+                <div>
+                  <label style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.1em", textTransform: "uppercase", color: MUTED, display: "block", marginBottom: "6px" }}>
+                    Test account
+                  </label>
+                  <button
+                    onClick={handleToggleTest}
+                    disabled={testPend}
+                    style={{
+                      fontFamily: MONO, fontSize: "9px", letterSpacing: "0.1em",
+                      textTransform: "uppercase",
+                      color: isTest ? "#fff" : INK,
+                      background: isTest ? ORANGE : "none",
+                      border: isTest ? "none" : `1px solid ${RULE}`,
+                      cursor: testPend ? "default" : "pointer",
+                      opacity: testPend ? 0.5 : 1,
+                      padding: "8px 16px",
+                    }}
+                  >
+                    {testPend ? "…" : isTest ? "Unmark" : "Mark as test"}
                   </button>
                 </div>
               </div>

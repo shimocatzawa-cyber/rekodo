@@ -482,6 +482,7 @@ export default function CommunityTab({ profileOwnerId }: { profileOwnerId: strin
         .from("profiles")
         .select("id, username, display_name, avatar_url, city, country, is_donor")
         .eq("is_public", true)
+        .eq("is_test", false)
         .limit(50);
       if (query.trim()) {
         q = q.or(`username.ilike.%${query.trim()}%,display_name.ilike.%${query.trim()}%`);
