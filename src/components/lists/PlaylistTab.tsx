@@ -7,6 +7,7 @@ import PlaylistPromptPanel, { type Mood, type MatchStatus } from "@/components/l
 import PlaylistPlayer from "@/components/lists/playlist/PlaylistPlayer";
 import PlaylistTrackList from "@/components/lists/playlist/PlaylistTrackList";
 import SavedPlaylistsPanel, { type SavedPlaylistSummary } from "@/components/lists/playlist/SavedPlaylistsPanel";
+import PlaylistShareModal from "@/components/lists/playlist/PlaylistShareModal";
 import RecordSpinner from "@/components/RecordSpinner";
 
 const SERIF  = "var(--font-editorial)";
@@ -36,7 +37,7 @@ const RESEQUENCE_DEBOUNCE_MS = 400;
 // eager-background-sync behavior.
 const BACKGROUND_MATCH_ENABLED = false;
 
-export default function PlaylistTab() {
+export default function PlaylistTab({ username }: { username: string }) {
   const router = useRouter();
 
   const [mood,                    setMood]                    = useState<Mood | null>(null);
@@ -60,6 +61,8 @@ export default function PlaylistTab() {
   const [savedPlaylists, setSavedPlaylists] = useState<SavedPlaylistSummary[]>([]);
   const [loadingSaved,   setLoadingSaved]   = useState(true);
   const [activeSavedId,  setActiveSavedId]  = useState<string | null>(null);
+
+  const [showShare, setShowShare] = useState(false);
 
   const matchPollRef     = useRef<ReturnType<typeof setInterval> | null>(null);
   const resequenceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -283,8 +286,8 @@ export default function PlaylistTab() {
   }
 
   return (
-    <div style={{ padding: "3rem 3.5rem", maxWidth: 1400, margin: "0 auto" }}>
-      <div style={{ display: "grid", gridTemplateColumns: "320px 1fr 300px", gap: "32px", alignItems: "flex-start" }}>
+    <div className="rk-playlist-outer" style={{ padding: "3rem 3.5rem", maxWidth: 1400, margin: "0 auto" }}>
+      <div className="rk-playlist-grid" style={{ display: "grid", gridTemplateColumns: "320px 1fr 300px", gap: "32px", alignItems: "flex-start" }}>
         <PlaylistPromptPanel
           mood={mood} setMood={setMood}
           refinement={refinement} setRefinement={setRefinement}
@@ -326,6 +329,18 @@ export default function PlaylistTab() {
             </div>
           ) : tracks.length > 0 ? (
             <>
+              <div className="rk-playlist-header" style={{ display: "flex", alignItems: "center", gap: "12px", marginBottom: "12px" }}>
+                <h2 style={{ fontFamily: SERIF, fontSize: "18px", fontWeight: 400, color: "#0d0d0d", margin: 0, lineHeight: 1.2, flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                  {titleDraft || (mood ? `${mood[0].toUpperCase()}${mood.slice(1)} Mix` : "Playlist")}
+                </h2>
+                <button
+                  onClick={() => setShowShare(true)}
+                  style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.1em", textTransform: "uppercase", color: "#CC5500", background: "none", border: "none", cursor: "pointer", padding: 0, flexShrink: 0 }}
+                >
+                  Share ↗
+                </button>
+              </div>
+
               <div style={{ marginBottom: "16px" }}>
                 <PlaylistPlayer tracks={tracks} moodLabel={mood ?? titleDraft} />
               </div>
@@ -351,6 +366,15 @@ export default function PlaylistTab() {
           onDeleteSaved={handleDeleteSaved}
         />
       </div>
+
+      {showShare && (
+        <PlaylistShareModal
+          onClose={() => setShowShare(false)}
+          title={titleDraft || (mood ? `${mood[0].toUpperCase()}${mood.slice(1)} Mix` : "Playlist")}
+          tracks={tracks}
+          username={username}
+        />
+      )}
     </div>
   );
 }

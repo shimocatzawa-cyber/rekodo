@@ -65,6 +65,7 @@ export default function PlaylistTrackList({ tracks, onReorder, resequencing }: P
             onDragOver={e => { e.preventDefault(); setOverIndex(i); }}
             onDragEnd={() => { setDragIndex(null); setOverIndex(null); }}
             onDrop={() => handleDrop(i)}
+            className="rk-playlist-track-row"
             style={{
               display: "flex", alignItems: "flex-start", gap: "12px",
               padding: "12px 16px",
@@ -122,7 +123,7 @@ export default function PlaylistTrackList({ tracks, onReorder, resequencing }: P
         );
       })}
 
-      <div style={{ padding: "10px 16px", background: "#fafafa", display: "flex", justifyContent: "space-between", gap: "12px" }}>
+      <div className="rk-playlist-track-footer" style={{ padding: "10px 16px", background: "#fafafa", display: "flex", justifyContent: "space-between", gap: "12px" }}>
         <span style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.04em", color: MUTED }}>
           {fromCollection} from your collection{fromWantlist > 0 ? ` · ${fromWantlist} from your wantlist` : ""}{fromDiscover > 0 ? ` · ${fromDiscover} discovered for you` : ""}
         </span>

@@ -83,7 +83,7 @@ export default function ListsHub({ profileId, username, displayLabel, avatarUrl,
             "pick a mood" placeholder with no way to resume what was still
             playing in the background via the persistent SpotifyPlayerProvider. */}
         <div style={{ display: activeTab === "playlist" ? "block" : "none" }}>
-          <PlaylistTab />
+          <PlaylistTab username={username} />
         </div>
         {activeTab === "community" && (
           <CommunityTab profileOwnerId={profileId} />

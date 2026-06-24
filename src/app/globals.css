@@ -359,6 +359,36 @@ h1, h2, h3, h4, h5, h6 {
   .rk-supporter-grid {
     grid-template-columns: 1fr !important;
   }
+
+  /* ── Playlist generator ──────────────────────────────────────────────── */
+  /* Outer page padding */
+  .rk-playlist-outer {
+    padding: 1.5rem 1rem !important;
+  }
+  /* 320px / 1fr / 300px three-column grid → stacked single column          */
+  .rk-playlist-grid {
+    grid-template-columns: 1fr !important;
+    gap: 20px !important;
+  }
+  /* Track-count stepper buttons: bigger touch targets                     */
+  .rk-playlist-stepper button {
+    width: 32px !important;
+    height: 32px !important;
+  }
+  /* Track rows: tighter horizontal padding                                */
+  .rk-playlist-track-row {
+    padding: 12px 12px !important;
+  }
+  /* Track list footer (source breakdown + total): stack instead of squeeze */
+  .rk-playlist-track-footer {
+    flex-direction: column !important;
+    align-items: flex-start !important;
+    gap: 4px !important;
+  }
+  /* Generated playlist header: allow title + Share to wrap on narrow screens */
+  .rk-playlist-header {
+    flex-wrap: wrap !important;
+  }
 }
 
 /* ── Safe-area insets (notch / home-bar aware, viewport-fit=cover) ──────────

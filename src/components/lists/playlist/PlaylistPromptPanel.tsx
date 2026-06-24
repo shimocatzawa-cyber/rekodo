@@ -127,7 +127,7 @@ export default function PlaylistPromptPanel({
           Include tracks outside my collection
         </button>
 
-        <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+        <div className="rk-playlist-stepper" style={{ display: "flex", alignItems: "center", gap: "10px" }}>
           <span style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.1em", textTransform: "uppercase", color: MUTED }}>
             Tracks
           </span>
