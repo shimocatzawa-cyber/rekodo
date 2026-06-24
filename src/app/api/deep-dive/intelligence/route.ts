@@ -8,15 +8,36 @@ export const maxDuration = 120;
 
 const client = new Anthropic();
 
-// Per-section cache TTL in days. "related" uses 365 days (effectively indefinite —
-// artist relationships don't change). 0 = no expiry check (cache forever).
+// Per-section cache TTL in days. "rankings" and "related" use long TTLs since
+// an artist's essential albums / stylistic neighbors don't change — only
+// time-sensitive sections (new episodes/books/interviews keep appearing) stay
+// on a 30-day cycle.
 const CACHE_TTL_DAYS: Record<string, number> = {
-  rankings:   30,
+  rankings:   180,
   podcasts:   30,
   books:      30,
   interviews: 30,
   related:    365,
 };
+
+// The JSON field holding each section's primary result array.
+const RESULT_ARRAY_KEY: Record<string, string> = {
+  rankings:   "albums",
+  podcasts:   "episodes",
+  books:      "items",
+  interviews: "interviews",
+  related:    "artists",
+};
+
+// Don't cache an empty result — a transient parse/verification failure
+// returning zero items would otherwise freeze "No information available"
+// for the full TTL, with no way for a client-side Retry to ever see fresh data.
+function isEmptyResult(section: string, data: unknown): boolean {
+  const key = RESULT_ARRAY_KEY[section];
+  if (!key || !data || typeof data !== "object") return false;
+  const arr = (data as Record<string, unknown>)[key];
+  return Array.isArray(arr) && arr.length === 0;
+}
 
 // Hard timeout on every Supabase operation — a hanging DB call (slow connection,
 // missing table, cold pool) would otherwise consume the entire Vercel budget
@@ -285,6 +306,100 @@ List at most 6 albums.`;
   },
 };
 
+// Shared by the live POST handler and the prewarm cron route: serves a fresh
+// cache hit if one exists, otherwise calls Claude, parses/cleans the result,
+// and writes it back to the shared cache (skipping empty results — see
+// isEmptyResult). Throws on invalid input or a JSON parse failure.
+export async function getOrGenerateSection(
+  artist: string,
+  section: string,
+  ownedAlbums?: string[]
+): Promise<{ data: unknown; cached: boolean }> {
+  if (!artist || !section || !PROMPTS[section]) {
+    throw new Error("Invalid request");
+  }
+
+  // ── Cache read (3 s hard timeout — hangs must not block Claude) ────────────
+  if (CACHED_SECTIONS.has(section)) {
+    const cached = await readCache(artist, section);
+    if (cached) {
+      // Cached podcasts/books entries from before product-vs-page URL validation
+      // existed may still have a non-product URL mislabeled as verified — strip
+      // it on read so the client's fallback lookup gets a real shot, without
+      // paying for regeneration.
+      if (section === "podcasts") stripUnverifiedPodcastUrls(cached);
+      if (section === "books") stripUnverifiedBookUrls(cached);
+      return { data: cached, cached: true };
+    }
+  }
+
+  // ── Model + token budget ───────────────────────────────────────────────────
+  const model     = SONNET_SECTIONS.has(section) ? "claude-sonnet-4-6" : "claude-haiku-4-5-20251001";
+  const maxTokens = MAX_TOKENS[section] ?? 1500;
+
+  // Pass up to 5 owned albums for sections that use them; keeps prompt concise.
+  const promptAlbums = (section === "rankings" || section === "blindspot") && ownedAlbums?.length
+    ? ownedAlbums.slice(0, 5)
+    : ownedAlbums;
+
+  console.log(`[deep-dive] calling ${model} — ${artist}/${section} max_tokens=${maxTokens}`);
+
+  // Interviews, podcasts, and books use Anthropic's built-in web search tool
+  // (server-side, no extra API key) so Claude verifies real URLs instead of
+  // relying on training-data recall, which produces hallucinated episode
+  // titles / ISBNs that never resolve on the actual platform.
+  // The `as any` casts are needed because the SDK typings may not yet include this tool type.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const message = (await (client.messages.create as any)({
+    model,
+    max_tokens: maxTokens,
+    messages: [{ role: "user", content: PROMPTS[section](artist, promptAlbums) }],
+    ...(WEB_SEARCH_SECTIONS.has(section) && {
+      tools: [{ type: "web_search_20250305", name: "web_search" }],
+    }),
+  })) as Anthropic.Message;
+
+  console.log(`[deep-dive] done — ${artist}/${section} stop_reason=${message.stop_reason} tokens=${message.usage.output_tokens}`);
+
+  // Use the last text block, not the first — with web search enabled, Claude
+  // sometimes prefaces the JSON with a text block discussing what it found
+  // before settling on a final answer.
+  const textBlocks = message.content.filter((b) => b.type === "text");
+  const text  = textBlocks[textBlocks.length - 1]?.text ?? "";
+  let clean = text.replace(/```json\n?/g, "").replace(/```\n?/g, "").trim();
+
+  // Claude occasionally adds a disclaimer sentence before or after the JSON
+  // despite "no preamble" instructions — fall back to extracting the
+  // outermost {...} object rather than failing the whole section.
+  if (!clean.startsWith("{")) {
+    const start = clean.indexOf("{");
+    const end = clean.lastIndexOf("}");
+    if (start !== -1 && end > start) clean = clean.slice(start, end + 1);
+  }
+
+  let data: unknown;
+  try {
+    data = JSON.parse(clean);
+  } catch {
+    console.error(`[deep-dive] parse error — ${artist}/${section} stop=${message.stop_reason} raw=${clean.slice(0, 400)}`);
+    throw new Error("Parse error");
+  }
+
+  if (section === "podcasts") stripUnverifiedPodcastUrls(data);
+  if (section === "books") stripUnverifiedBookUrls(data);
+
+  // ── Cache write (fire-and-forget via after(), 3 s hard timeout) ────────────
+  // Same Vercel mid-flight-kill issue as the deep-dive-session tracking below —
+  // a bare unawaited call was likely losing the write before it landed.
+  // Skipped for empty results so a transient failure can't freeze "No
+  // information available" in the shared cache for the full TTL.
+  if (CACHED_SECTIONS.has(section) && !isEmptyResult(section, data)) {
+    after(() => writeCache(artist, section, data));
+  }
+
+  return { data, cached: false };
+}
+
 export async function POST(request: NextRequest) {
   let artist = "";
   let section = "";
@@ -315,85 +430,7 @@ export async function POST(request: NextRequest) {
     section = body.section ?? "";
     const ownedAlbums = body.ownedAlbums;
 
-    if (!artist || !section || !PROMPTS[section]) {
-      return NextResponse.json({ error: "Invalid request" }, { status: 400 });
-    }
-
-    // ── Cache read (3 s hard timeout — hangs must not block Claude) ────────────
-    if (CACHED_SECTIONS.has(section)) {
-      const cached = await readCache(artist, section);
-      if (cached) {
-        // Cached podcasts/books entries from before product-vs-page URL validation
-        // existed may still have a non-product URL mislabeled as verified — strip
-        // it on read so the client's fallback lookup gets a real shot, without
-        // paying for regeneration.
-        if (section === "podcasts") stripUnverifiedPodcastUrls(cached);
-        if (section === "books") stripUnverifiedBookUrls(cached);
-        return NextResponse.json({ data: cached, cached: true });
-      }
-    }
-
-    // ── Model + token budget ───────────────────────────────────────────────────
-    const model     = SONNET_SECTIONS.has(section) ? "claude-sonnet-4-6" : "claude-haiku-4-5-20251001";
-    const maxTokens = MAX_TOKENS[section] ?? 1500;
-
-    // Pass up to 5 owned albums for sections that use them; keeps prompt concise.
-    const promptAlbums = (section === "rankings" || section === "blindspot") && ownedAlbums?.length
-      ? ownedAlbums.slice(0, 5)
-      : ownedAlbums;
-
-    console.log(`[deep-dive] calling ${model} — ${artist}/${section} max_tokens=${maxTokens}`);
-
-    // Interviews, podcasts, and books use Anthropic's built-in web search tool
-    // (server-side, no extra API key) so Claude verifies real URLs instead of
-    // relying on training-data recall, which produces hallucinated episode
-    // titles / ISBNs that never resolve on the actual platform.
-    // The `as any` casts are needed because the SDK typings may not yet include this tool type.
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const message = (await (client.messages.create as any)({
-      model,
-      max_tokens: maxTokens,
-      messages: [{ role: "user", content: PROMPTS[section](artist, promptAlbums) }],
-      ...(WEB_SEARCH_SECTIONS.has(section) && {
-        tools: [{ type: "web_search_20250305", name: "web_search" }],
-      }),
-    })) as Anthropic.Message;
-
-    console.log(`[deep-dive] done — ${artist}/${section} stop_reason=${message.stop_reason} tokens=${message.usage.output_tokens}`);
-
-    // Use the last text block, not the first — with web search enabled, Claude
-    // sometimes prefaces the JSON with a text block discussing what it found
-    // before settling on a final answer.
-    const textBlocks = message.content.filter((b) => b.type === "text");
-    const text  = textBlocks[textBlocks.length - 1]?.text ?? "";
-    let clean = text.replace(/```json\n?/g, "").replace(/```\n?/g, "").trim();
-
-    // Claude occasionally adds a disclaimer sentence before or after the JSON
-    // despite "no preamble" instructions — fall back to extracting the
-    // outermost {...} object rather than failing the whole section.
-    if (!clean.startsWith("{")) {
-      const start = clean.indexOf("{");
-      const end = clean.lastIndexOf("}");
-      if (start !== -1 && end > start) clean = clean.slice(start, end + 1);
-    }
-
-    let data: unknown;
-    try {
-      data = JSON.parse(clean);
-    } catch {
-      console.error(`[deep-dive] parse error — ${artist}/${section} stop=${message.stop_reason} raw=${clean.slice(0, 400)}`);
-      return NextResponse.json({ error: "Parse error" }, { status: 500 });
-    }
-
-    if (section === "podcasts") stripUnverifiedPodcastUrls(data);
-    if (section === "books") stripUnverifiedBookUrls(data);
-
-    // ── Cache write (fire-and-forget via after(), 3 s hard timeout) ────────────
-    // Same Vercel mid-flight-kill issue as the deep-dive-session tracking below —
-    // a bare unawaited call was likely losing the write before it landed.
-    if (CACHED_SECTIONS.has(section)) {
-      after(() => writeCache(artist, section, data));
-    }
+    const { data, cached } = await getOrGenerateSection(artist, section, ownedAlbums);
 
     // ── Track per-user deep dive (fire-and-forget, kept alive via after() —
     // a bare unawaited async IIFE gets killed mid-flight as soon as the
@@ -414,8 +451,14 @@ export async function POST(request: NextRequest) {
       } catch { /* non-critical */ }
     });
 
-    return NextResponse.json({ data });
+    return NextResponse.json({ data, cached });
   } catch (error) {
+    if (error instanceof Error && error.message === "Invalid request") {
+      return NextResponse.json({ error: "Invalid request" }, { status: 400 });
+    }
+    if (error instanceof Error && error.message === "Parse error") {
+      return NextResponse.json({ error: "Parse error" }, { status: 500 });
+    }
     console.error(`[deep-dive] unhandled error — ${artist}/${section}:`, error);
     return NextResponse.json({ error: "Claude API error" }, { status: 500 });
   }
