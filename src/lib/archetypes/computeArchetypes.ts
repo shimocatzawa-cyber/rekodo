@@ -308,10 +308,10 @@ export async function computeArchetypes(
   }
 
   // 7. trophyRatio — scored via full desirability tier system
-  // Tier points: holy-grail=5, rare=4, cult=3, in-demand=2, widely-loved=1, null=0
+  // Tier points: rare=5, cult=3, in-demand=2, widely-loved=1, null=0
   // Max possible per record is 5, so score = (sum / (records * 5)) * 100
   const TIER_POINTS: Record<string, number> = {
-    'holy-grail': 5, 'rare': 4, 'cult': 3, 'in-demand': 2, 'widely-loved': 1,
+    'rare': 5, 'cult': 3, 'in-demand': 2, 'widely-loved': 1,
   }
   let trophyPoints = 0
   let trophyTotal = 0

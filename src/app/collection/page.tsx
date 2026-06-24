@@ -51,7 +51,7 @@ export type CollectionInsights = {
   countryCount: number;
   topDecade:    string | null;
   rarestRecord: { artist: string; album: string; price: number; currency: string } | null;
-  holyGrailCount: number;
+  rareCount: number;
 };
 
 type SearchParams = Promise<{
@@ -342,11 +342,11 @@ export default async function CollectionPage({
       }
     }
 
-    const holyGrailCount = collection.filter(r =>
-      getDesirabilityTier(r.community_have, r.community_want, r.price_low_usd, r.community_num_for_sale) === "holy-grail"
+    const rareCount = collection.filter(r =>
+      getDesirabilityTier(r.community_have, r.community_want, r.price_low_usd, r.community_num_for_sale) === "rare"
     ).length;
 
-    return { topFormat, topGenres, topArtist, topLabel, yearRange, mostPopularYear, countryCount, topDecade, rarestRecord, holyGrailCount };
+    return { topFormat, topGenres, topArtist, topLabel, yearRange, mostPopularYear, countryCount, topDecade, rarestRecord, rareCount };
   })();
 
   return (

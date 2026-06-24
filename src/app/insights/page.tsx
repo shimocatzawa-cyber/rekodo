@@ -423,7 +423,7 @@ export default async function InsightsPage() {
     }));
 
   // ── Desirability breakdown ────────────────────────────────────────────────
-  const TIER_ORDER: DesirabilityTier[] = ["holy-grail", "rare", "cult", "widely-loved", "in-demand"];
+  const TIER_ORDER: DesirabilityTier[] = ["rare", "cult", "widely-loved", "in-demand"];
   const desirabilityGroups = new Map<DesirabilityTier, { count: number; valueSum: number }>();
   for (const link of allLinks) {
     const rec  = recordsMap.get(link.record_id);

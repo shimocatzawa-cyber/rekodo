@@ -73,7 +73,6 @@ export interface InsightsProps {
 // ── Tier metadata ──────────────────────────────────────────────────────────────
 
 const TIER_META: Record<DesirabilityTier, { label: string; bg: string; color: string }> = {
-  "holy-grail":   { label: "Holy Grail",    bg: "#FAC775", color: "#633806" },
   "rare":         { label: "Rare",          bg: "#F0997B", color: "#712B13" },
   "cult":         { label: "Cult Pressing", bg: "#CECBF6", color: "#3C3489" },
   "widely-loved": { label: "Widely Loved",  bg: "#C0DD97", color: "#27500A" },
@@ -264,7 +263,7 @@ export default function InsightsClient({
   const maxFeelingPct   = feelingBreakdown[0]?.pct    ?? 100;
 
   // Derive stats bar tiles from available data
-  const holyGrailCount  = desirabilityBreakdown.find((d) => d.tier === "holy-grail")?.count ?? 0;
+  const rareCount       = desirabilityBreakdown.find((d) => d.tier === "rare")?.count ?? 0;
   const topRealGenre    = genreBreakdown.find((g) => g.genre !== "Unknown" && g.genre !== "");
   const topPressOrigin  = countryBreakdown[0] ?? null;
   const topArtist       = topArtists[0] ?? null;
@@ -280,7 +279,7 @@ export default function InsightsClient({
     ...(topLabel ? [{ hero: topLabel.label, label: `${topLabel.count} label items` }] : []),
     ...(yearRange ? [{ hero: yearRange.oldest !== yearRange.newest ? `${yearRange.oldest} → ${yearRange.newest}` : String(yearRange.oldest), label: "Collection span" }] : []),
     ...(mostPopularYear ? [{ hero: String(mostPopularYear), label: "Most collected year" }] : []),
-    ...(holyGrailCount > 0 ? [{ hero: holyGrailCount.toLocaleString(), label: "Holy Grail" }] : []),
+    ...(rareCount > 0 ? [{ hero: rareCount.toLocaleString(), label: "Rare" }] : []),
     { hero: totalMed > 0 ? fmtValueShort(totalMed, currency) : "—", label: "Median collection value" },
   ];
 
@@ -903,7 +902,7 @@ export default function InsightsClient({
           topLabel={topLabel?.label ?? null}
           topCountry={topPressOrigin?.country ?? null}
           countryCount={countryBreakdown.length}
-          holyGrails={holyGrailCount}
+          rareCount={rareCount}
         />
       )}
 

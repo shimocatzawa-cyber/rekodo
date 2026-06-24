@@ -19,7 +19,6 @@ const ORANGE = "#CC5500";
 
 const TIERS: Record<DesirabilityTier, { label: string; bg: string; color: string }> = {
   "rare":         { label: "Rare",          bg: "#F0997B", color: "#712B13" },
-  "holy-grail":   { label: "Holy Grail",    bg: "#FAC775", color: "#633806" },
   "cult":         { label: "Cult Pressing", bg: "#CECBF6", color: "#3C3489" },
   "widely-loved": { label: "Widely Loved",  bg: "#C0DD97", color: "#27500A" },
   "in-demand":    { label: "In Demand",     bg: "#9FE1CB", color: "#085041" },
@@ -189,7 +188,6 @@ function matchesDecade(year: number | null, decade: string): boolean {
 // ─── Desirability filter options ─────────────────────────────────────────────
 
 const DESIRABILITY_FILTER_OPTIONS: { value: DesirabilityTier; label: string }[] = [
-  { value: "holy-grail",   label: "Holy Grail"    },
   { value: "rare",         label: "Rare"          },
   { value: "cult",         label: "Cult Pressing" },
   { value: "widely-loved", label: "Widely Loved"  },
@@ -1618,12 +1616,12 @@ function InsightsPanel({
     });
   }
 
-  // 3. Holy Grail count — only shown when at least one exists
-  if (insights.holyGrailCount > 0) {
+  // 3. Rare count — only shown when at least one exists
+  if (insights.rareCount > 0) {
     stats.push({
-      hero:      insights.holyGrailCount.toLocaleString(),
-      label:     "Holy Grail",
-      heroColor: "#633806",
+      hero:      insights.rareCount.toLocaleString(),
+      label:     "Rare",
+      heroColor: "#712B13",
     });
   }
 

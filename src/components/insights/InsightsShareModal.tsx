@@ -27,7 +27,7 @@ interface CardProps {
   topLabel:        string | null;
   topCountry:      string | null;
   countryCount:    number;
-  holyGrails:      number;
+  rareCount:       number;
   forExport?:      boolean;
 }
 interface Props {
@@ -41,7 +41,7 @@ interface Props {
   topLabel:        string | null;
   topCountry:      string | null;
   countryCount:    number;
-  holyGrails:      number;
+  rareCount:       number;
 }
 
 async function blobToDataUrl(blob: Blob): Promise<string> {
@@ -82,7 +82,7 @@ function Anchor({
 // ── Card ─────────────────────────────────────────────────────────────────
 // DOM: 560 wide, natural height → export: 1120px wide at pixelRatio 2
 
-function ProfileCard({ username, avatarSrc, totalRecords, topGenre, mostPopularYear, topArtist, topLabel, topCountry, countryCount, holyGrails, forExport = false }: CardProps) {
+function ProfileCard({ username, avatarSrc, totalRecords, topGenre, mostPopularYear, topArtist, topLabel, topCountry, countryCount, rareCount, forExport = false }: CardProps) {
   const mostCollectedYear = mostPopularYear ? String(mostPopularYear) : "—";
 
   return (
@@ -170,8 +170,8 @@ function ProfileCard({ username, avatarSrc, totalRecords, topGenre, mostPopularY
         <Anchor label="Most Collected Artist" value={topArtist ?? "—"}
           style={{ top: CY + D45, left: CX + D45 + 8, width: 115, textAlign: "left" }} />
 
-        {/* ── S: Holy Grails — value then label (labelBelow), top at y=426 ── */}
-        <Anchor label="Holy Grails" value={holyGrails > 0 ? holyGrails.toLocaleString() : "—"}
+        {/* ── S: Rare — value then label (labelBelow), top at y=426 ── */}
+        <Anchor label="Rare" value={rareCount > 0 ? rareCount.toLocaleString() : "—"}
           valSize="1.6rem" valColor={ORANGE} labelBelow
           style={{ top: CY + R + 6, left: "50%", transform: "translateX(-50%)", width: 200, textAlign: "center" }} />
 

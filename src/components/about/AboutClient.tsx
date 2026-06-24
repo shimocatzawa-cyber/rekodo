@@ -210,7 +210,7 @@ const FAQ_SECTIONS: { section: string; items: { q: string; a: string }[] }[] = [
       },
       {
         q: "What are the desirability tiers?",
-        a: "Desirability is calculated from Discogs community data — how many people have it vs. want it, current for-sale listings, and median sale price. Tiers run from Holy Grail (extremely rare, highly sought) through Rare, Cult Pressing, In Demand, and Widely Loved.",
+        a: "Desirability is calculated from Discogs community data — how many people have it vs. want it, current for-sale listings, and median sale price. Tiers run from Rare (extremely sought, low supply) through Cult Pressing, In Demand, and Widely Loved.",
       },
       {
         q: "What does 'Played Today' do?",
