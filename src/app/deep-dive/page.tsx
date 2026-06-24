@@ -221,6 +221,13 @@ export default async function DeepDivePage() {
     ...wantlistOnlyArtists,
   ].sort((a, b) => b.count - a.count || a.name.localeCompare(b.name));
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: favoriteRows } = await (supabase as any)
+    .from("deep_dive_favorites")
+    .select("artist")
+    .eq("user_id", user.id) as { data: { artist: string }[] | null };
+  const favoriteArtists = (favoriteRows ?? []).map((r) => r.artist);
+
   return (
     <>
       <AppNav username={username} displayLabel={displayLabel} avatarUrl={avatarUrl} />
@@ -228,6 +235,7 @@ export default async function DeepDivePage() {
         artists={artists}
         userId={user.id}
         wantlistListId={wantlistListId}
+        initialFavorites={favoriteArtists}
       />
     </>
   );

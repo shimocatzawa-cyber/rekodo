@@ -790,13 +790,18 @@ export default function DeepDiveClient({
   artists,
   userId,
   wantlistListId,
+  initialFavorites = [],
 }: {
   artists: ArtistData[];
   userId: string;
   wantlistListId: string | null;
+  initialFavorites?: string[];
 }) {
   const [query, setQuery] = useState("");
   const [selectedArtist, setSelectedArtist] = useState<string | null>(null);
+  const [favorites, setFavorites] = useState<Set<string>>(() => new Set(initialFavorites));
+  const [favoritesOnly, setFavoritesOnly] = useState(false);
+  const favoriteTogglingRef = useRef(new Set<string>());
   const [activeTab, setActiveTab] = useUrlTab<Section>("tab", TABS.map(t => t.id), "rankings");
   const [imageMap, setImageMap] = useState<Record<string, string>>({});
   const [cache, setCache] = useState<Record<string, Record<string, unknown>>>({});
@@ -888,9 +893,9 @@ export default function DeepDiveClient({
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [userId, wantlistListId]);
 
-  const filtered = query.trim()
-    ? mergedArtists.filter((a) => a.name.toLowerCase().includes(query.trim().toLowerCase()))
-    : mergedArtists;
+  const filtered = mergedArtists
+    .filter((a) => !favoritesOnly || favorites.has(a.name))
+    .filter((a) => !query.trim() || a.name.toLowerCase().includes(query.trim().toLowerCase()));
 
   // Auto-select a random artist on first load
   useEffect(() => {
@@ -959,6 +964,36 @@ export default function DeepDiveClient({
     if (selectedArtist !== name) {
       setSelectedArtist(name);
       setActiveTab("rankings");
+    }
+  }
+
+  async function toggleFavorite(artist: string) {
+    if (favoriteTogglingRef.current.has(artist)) return;
+    favoriteTogglingRef.current.add(artist);
+    const wasFavorite = favorites.has(artist);
+
+    setFavorites((prev) => {
+      const next = new Set(prev);
+      if (wasFavorite) next.delete(artist); else next.add(artist);
+      return next;
+    });
+
+    try {
+      const supabase = createClient() as any;
+      if (wasFavorite) {
+        await supabase.from("deep_dive_favorites").delete().eq("user_id", userId).eq("artist", artist);
+      } else {
+        await supabase.from("deep_dive_favorites").insert({ user_id: userId, artist });
+      }
+    } catch {
+      // Revert on failure
+      setFavorites((prev) => {
+        const next = new Set(prev);
+        if (wasFavorite) next.add(artist); else next.delete(artist);
+        return next;
+      });
+    } finally {
+      favoriteTogglingRef.current.delete(artist);
     }
   }
 
@@ -1060,6 +1095,18 @@ export default function DeepDiveClient({
               <h2 className="dd-artist-name" style={{ fontFamily: SERIF, fontSize: "2rem", fontWeight: 600, color: INK, letterSpacing: "-0.025em", lineHeight: 1.1, margin: 0 }}>
                 {selectedArtist}
               </h2>
+              <button
+                type="button"
+                onClick={() => toggleFavorite(selectedArtist)}
+                title={favorites.has(selectedArtist) ? "Remove from favourites" : "Add to favourites"}
+                style={{
+                  background: "none", border: "none", cursor: "pointer", padding: 0,
+                  lineHeight: 1, fontSize: "1.6rem",
+                  color: favorites.has(selectedArtist) ? ORANGE : "#cccccc",
+                }}
+              >
+                {favorites.has(selectedArtist) ? "♥" : "♡"}
+              </button>
               {selectedData?.fromBandcamp && <BandcampIcon size={16} />}
             </div>
             <p style={{ fontFamily: MONO, fontSize: "0.7rem", letterSpacing: "0.06em", color: INK, margin: "0 0 12px" }}>
@@ -1193,6 +1240,22 @@ export default function DeepDiveClient({
               </button>
             </div>
           )}
+          <div style={{ padding: "8px 1rem", borderBottom: `1px solid ${RULE}` }}>
+            <button
+              type="button"
+              onClick={() => setFavoritesOnly((v) => !v)}
+              style={{
+                display: "flex", alignItems: "center", gap: "5px",
+                fontFamily: MONO, fontSize: "10px", letterSpacing: "0.06em",
+                color: favoritesOnly ? ORANGE : "#aaa",
+                background: "none", border: `1px solid ${favoritesOnly ? ORANGE : RULE}`,
+                cursor: "pointer", padding: "4px 9px",
+              }}
+            >
+              <span style={{ fontSize: "11px", lineHeight: 1 }}>{favoritesOnly ? "♥" : "♡"}</span>
+              Favourites only
+            </button>
+          </div>
           <input
             type="text"
             value={query}
@@ -1225,6 +1288,11 @@ export default function DeepDiveClient({
           {filtered.length === 0 && query && (
             <p style={{ fontFamily: MONO, fontSize: "0.68rem", letterSpacing: "0.06em", color: INK, padding: "1rem" }}>
               No artists match &ldquo;{query}&rdquo;
+            </p>
+          )}
+          {filtered.length === 0 && !query && favoritesOnly && (
+            <p style={{ fontFamily: MONO, fontSize: "0.68rem", letterSpacing: "0.06em", color: INK, padding: "1rem" }}>
+              No favourites yet — click ♡ next to an artist&rsquo;s name to add one.
             </p>
           )}
           {mergedArtists.length === 0 && (
