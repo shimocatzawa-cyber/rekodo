@@ -68,6 +68,19 @@ export default function PlaylistTab({ username }: { username: string }) {
   const resequenceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lastMatchTriggerRef = useRef(0);
 
+  // Accumulates what's already been served so repeated Generate clicks for the
+  // same mood reach further into the collection instead of converging on the
+  // same safe picks every time. Reset whenever the mood or collection scope
+  // changes, since those meaningfully change what "already seen" should mean.
+  const excludedUrisRef    = useRef<Set<string>>(new Set());
+  const excludedArtistsRef = useRef<Set<string>>(new Set());
+
+  // Mood/scope change — start the "already seen" tracking fresh.
+  useEffect(() => {
+    excludedUrisRef.current = new Set();
+    excludedArtistsRef.current = new Set();
+  }, [mood, includeOutsideCollection]);
+
   // ── Spotify connection check ──────────────────────────────────────────────
   useEffect(() => {
     fetch("/api/spotify/token")
@@ -201,7 +214,11 @@ export default function PlaylistTab({ username }: { username: string }) {
       const res = await fetch("/api/playlist/generate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ mood, includeOutsideCollection, trackCount, refinement }),
+        body: JSON.stringify({
+          mood, includeOutsideCollection, trackCount, refinement,
+          excludeUris: [...excludedUrisRef.current],
+          excludeArtists: [...excludedArtistsRef.current],
+        }),
       });
       const data = await res.json() as { tracks?: GeneratedTrack[]; error?: string };
       if (res.status === 429 && data.error === "daily_limit_reached") {
@@ -211,6 +228,10 @@ export default function PlaylistTab({ username }: { username: string }) {
         setError(data.error ?? "Failed to generate playlist.");
         setTracks([]);
       } else {
+        for (const t of data.tracks) {
+          excludedUrisRef.current.add(t.spotify_uri);
+          excludedArtistsRef.current.add(t.artist.toLowerCase().trim());
+        }
         setTracks(data.tracks);
         setTitleDraft(`${mood[0].toUpperCase()}${mood.slice(1)} Mix`);
       }

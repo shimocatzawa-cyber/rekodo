@@ -289,7 +289,7 @@ async function discoverOutsideCollection(
 const MOOD_RELEVANCE_THRESHOLD = 60; // below this, just include everything — not worth filtering a small pool
 const MOOD_RELEVANCE_LIMIT     = 80;
 
-type OwnedAlbumMeta = { id: string; artist: string; album: string; year: number | null; genre: string | null; feeling: string | null };
+type OwnedAlbumMeta = { id: string; artist: string; album: string; year: number | null; genre: string | null; styles: string[] | null; feeling: string | null };
 
 async function shortlistMoodRelevantAlbums(
   pool: OwnedAlbumMeta[], mood: string, refinement: string,
@@ -298,13 +298,13 @@ async function shortlistMoodRelevantAlbums(
   const allIds = new Set(pool.map(p => p.id));
 
   const listText = prioritized
-    .map(p => `${p.id} :: ${p.artist} — ${p.album}${p.year ? ` (${p.year})` : ""}${p.genre ? `, genre: ${p.genre}` : ""}${p.feeling ? `, tagged feeling: ${p.feeling}` : ""}`)
+    .map(p => `${p.id} :: ${p.artist} — ${p.album}${p.year ? ` (${p.year})` : ""}${p.genre ? `, genre: ${p.genre}` : ""}${p.styles?.length ? `, styles: ${p.styles.join("/")}` : ""}${p.feeling ? `, tagged feeling: ${p.feeling}` : ""}`)
     .join("\n");
 
   const userPrompt = [
     `Mood: ${mood}`,
     refinement && `Refinement: ${refinement}`,
-    `None of these albums are explicitly tagged with the "${mood}" feeling. From artist/album/year/genre alone, pick up to ${MOOD_RELEVANCE_LIMIT} that genuinely plausibly fit this mood — be decisive, most albums in any collection don't fit most moods equally well. If an album is tagged with a different feeling, only include it if it's still a strong fit for this mood too.`,
+    `None of these albums are explicitly tagged with the "${mood}" feeling. From artist/album/year/genre/styles alone, pick up to ${MOOD_RELEVANCE_LIMIT} that genuinely plausibly fit this mood — be decisive, most albums in any collection don't fit most moods equally well. If an album is tagged with a different feeling, only include it if it's still a strong fit for this mood too.`,
     "",
     "Candidate albums (you may ONLY choose ids that appear verbatim in this list):",
     listText,
@@ -359,6 +359,7 @@ export async function POST(request: NextRequest) {
 
   const body = await request.json().catch(() => ({})) as {
     mood?: string; includeOutsideCollection?: boolean; trackCount?: number; refinement?: string;
+    excludeUris?: string[]; excludeArtists?: string[];
   };
 
   const mood = (body.mood ?? "").toLowerCase().trim();
@@ -368,6 +369,12 @@ export async function POST(request: NextRequest) {
   const trackCount = Math.max(5, Math.min(15, Math.round(body.trackCount ?? 10)));
   const includeOutsideCollection = !!body.includeOutsideCollection;
   const refinement = (body.refinement ?? "").trim().slice(0, 300);
+  // Tracks/artists already served earlier in this regenerate session (client
+  // accumulates these across repeated "Generate" clicks for the same mood) —
+  // excluded below so reaching for more variety pulls from deeper in the
+  // collection instead of converging on the same safe picks every time.
+  const excludeUris    = new Set((body.excludeUris ?? []).slice(0, 500));
+  const excludeArtists = new Set((body.excludeArtists ?? []).slice(0, 200).map(a => a.toLowerCase().trim()));
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const db = supabase as any;
@@ -388,10 +395,20 @@ export async function POST(request: NextRequest) {
   );
   const ownedRecordIds = [...feelingByRecordId.keys()];
 
-  const ownedMatchedRecords = await selectInBatches<{ id: string; artist: string; album: string; year: number | null; genre: string | null; cover_url: string | null; spotify_tracks: SpotifyTrackJson[] | null }>(
-    db, "records", "id, artist, album, year, genre, cover_url, spotify_tracks", "id", ownedRecordIds,
+  let ownedMatchedRecords = await selectInBatches<{ id: string; artist: string; album: string; year: number | null; genre: string | null; styles: string[] | null; cover_url: string | null; spotify_tracks: SpotifyTrackJson[] | null }>(
+    db, "records", "id, artist, album, year, genre, styles, cover_url, spotify_tracks", "id", ownedRecordIds,
     (q) => q.eq("spotify_matched", true),
   );
+
+  if (excludeArtists.size > 0) {
+    const withoutExcluded = ownedMatchedRecords.filter(r => !excludeArtists.has(r.artist.toLowerCase().trim()));
+    const remainingArtists = new Set(withoutExcluded.map(r => r.artist.toLowerCase().trim())).size;
+    // Only enforce the exclusion if enough of the matched collection remains —
+    // never let "avoid repeats" make a thin collection fail to generate at all.
+    // A thinned pool here also naturally widens the on-demand top-up further
+    // into the unmatched part of the collection below.
+    if (remainingArtists >= trackCount) ownedMatchedRecords = withoutExcluded;
+  }
 
   const taggedOwned   = ownedMatchedRecords.filter(r => feelingByRecordId.get(r.id) === mood);
   let untaggedOwned   = ownedMatchedRecords.filter(r => feelingByRecordId.get(r.id) !== mood);
@@ -406,7 +423,7 @@ export async function POST(request: NextRequest) {
     // regardless of which mood was actually requested.
     if (untaggedOwned.length > MOOD_RELEVANCE_THRESHOLD) {
       const pool: OwnedAlbumMeta[] = untaggedOwned.map(r => ({
-        id: r.id, artist: r.artist, album: r.album, year: r.year, genre: r.genre,
+        id: r.id, artist: r.artist, album: r.album, year: r.year, genre: r.genre, styles: r.styles,
         feeling: feelingByRecordId.get(r.id) ?? null,
       }));
       const relevantIds = await shortlistMoodRelevantAlbums(pool, mood, refinement);
@@ -616,9 +633,19 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "No Spotify-matched tracks available yet. Wait for matching to finish, or sync more records." }, { status: 422 });
   }
 
+  // Catch any already-served tracks the artist-level exclusion above didn't
+  // (e.g. a different track off an album that wasn't fully excluded, or the
+  // artist-level pass was skipped for being too thin) — same "don't break a
+  // thin pool" guard as above.
+  if (excludeUris.size > 0) {
+    const withoutExcluded = candidates.filter(c => !excludeUris.has(c.spotify_uri));
+    const remainingArtists = new Set(withoutExcluded.map(c => c.artist.toLowerCase().trim())).size;
+    if (remainingArtists >= trackCount) candidates = withoutExcluded;
+  }
+
   // Cap prompt size — tagged/high-confidence first, then a slice of the rest.
   const MAX_CANDIDATES = 150;
-  if (candidates.length > MAX_CANDIDATES) {
+  {
     const tagged   = candidates.filter(c => c.confidence === "tagged");
     // Discover-sourced candidates were getting silently dropped here: they're
     // appended to the candidate array near the end of the pipeline, after the
@@ -628,13 +655,13 @@ export async function POST(request: NextRequest) {
     // picks ever survived to reach Claude. Always keep them.
     const discover = candidates.filter(c => c.confidence !== "tagged" && c.source === "discover");
     const rest     = candidates.filter(c => c.confidence !== "tagged" && c.source !== "discover");
-    // Shuffle the bulk pool instead of always slicing the same deterministic
-    // DB-order head — otherwise every mood that falls back to the untagged
-    // collection (most moods, once the explicitly-tagged pool is thin) gets
-    // fed the exact same first-150 tracks every time, and the final picks
-    // converge on the same songs regardless of which mood was requested.
-    // This also gives the few freshly top-up-matched tracks mixed into `rest`
-    // a fair chance of surviving the cut instead of being reliably excluded.
+    // Always shuffle the bulk pool's order, even under the cap — Claude sees
+    // the same deterministic DB-order list otherwise, and a fixed presentation
+    // order nudges it toward picking (and sequencing) the same tracks on
+    // repeated generations for the same mood, independent of the explicit
+    // exclude list above. This also gives freshly top-up-matched tracks mixed
+    // into `rest` a fair chance of surviving the cut instead of being
+    // reliably excluded.
     candidates = tagged.concat(discover, shuffle(rest)).slice(0, MAX_CANDIDATES);
   }
 
