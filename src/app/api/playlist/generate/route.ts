@@ -507,9 +507,9 @@ export async function POST(request: NextRequest) {
   // "thick enough" and skipping the top-up, then consistently truncating the
   // playlist short of the requested track count.
   const MIN_DESIRED = trackCount * 2;
-  const distinctArtistCount = new Set(candidates.map(c => c.artist.toLowerCase().trim())).size;
+  let distinctArtistCount = new Set(candidates.map(c => c.artist.toLowerCase().trim())).size;
   if ((candidates.length < MIN_DESIRED || distinctArtistCount < trackCount) && !(await getSpotifySearchCooldownUntil())) {
-    const unmatchedPool: UnmatchedItem[] = [];
+    let unmatchedPool: UnmatchedItem[] = [];
 
     if (ownedRecordIds.length > 0) {
       const rows = await selectInBatches<{ id: string; artist: string; album: string; year: number | null; genre: string | null }>(
@@ -549,33 +549,66 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    if (unmatchedPool.length > 0) {
+    // A single fixed-size (12-album) shortlist was a hard ceiling on how many
+    // new artists a thin collection could ever surface per generate call —
+    // once those 12 ran out (many fail not_found/transient on Spotify), the
+    // request just shipped whatever was already matched, which for a
+    // lightly-matched collection meant the same handful of tracks every time.
+    // Keep shortlisting fresh batches from what's left of the unmatched pool
+    // — excluding anything already tried this request — until the pool
+    // actually satisfies the requested track count, the pool runs dry, a
+    // global cooldown kicks in, or a sane attempt budget is spent (stays well
+    // inside the route's 60s ceiling alongside the LLM calls).
+    const MAX_TOPUP_ATTEMPTS = 36;
+    const MAX_TOPUP_ROUNDS   = 4;
+    let topupAttempts = 0;
+    let round = 0;
+    const token = unmatchedPool.length > 0 ? await getSpotifyAccessToken(db, user.id) : null;
+
+    while (
+      token
+      && unmatchedPool.length > 0
+      && distinctArtistCount < trackCount
+      && topupAttempts < MAX_TOPUP_ATTEMPTS
+      && round < MAX_TOPUP_ROUNDS
+      && !(await getSpotifySearchCooldownUntil())
+    ) {
+      round++;
       const shortlist = await shortlistUnmatched(unmatchedPool, mood, refinement);
-      if (shortlist.length > 0) {
-        const token = await getSpotifyAccessToken(db, user.id);
-        if (token) {
-          for (const item of shortlist) {
-            const result = await searchAlbum(token, item.artist, item.album);
-            if (result.kind === "blocked") break; // global cooldown just kicked in — stop immediately
-            if (result.kind === "transient") continue; // leave unmatched, background worker will retry
-            const now = new Date().toISOString();
-            if (result.kind === "not_found") {
-              await db.from(item.table).update({ spotify_matched: false, spotify_matched_at: now }).eq("id", item.refId);
-              continue;
-            }
-            const tracks = await fetchAlbumTracks(token, result.id);
-            if (tracks === "blocked") break;
-            if (tracks === null) continue; // transient — leave unmatched
-            await db.from(item.table).update({
-              spotify_album_id: result.id, spotify_matched: true, spotify_tracks: tracks, spotify_matched_at: now,
-            }).eq("id", item.refId);
-            candidates = candidates.concat(flattenCandidates(
-              [{ artist: item.artist, album: item.album, year: item.year, cover_url: null, spotify_tracks: tracks }],
-              item.source, item.feeling === mood ? "tagged" : "inferred",
-            ));
-          }
+      if (shortlist.length === 0) break; // nothing more worth trying from what's left
+      const triedRefIds = new Set<string>();
+      let blocked = false;
+
+      for (const item of shortlist) {
+        if (topupAttempts >= MAX_TOPUP_ATTEMPTS) break;
+        triedRefIds.add(item.refId);
+        topupAttempts++;
+        const result = await searchAlbum(token, item.artist, item.album);
+        if (result.kind === "blocked") { blocked = true; break; } // global cooldown just kicked in — stop immediately
+        if (result.kind === "transient") continue; // leave unmatched, background worker will retry
+        const now = new Date().toISOString();
+        if (result.kind === "not_found") {
+          await db.from(item.table).update({ spotify_matched: false, spotify_matched_at: now }).eq("id", item.refId);
+          continue;
         }
+        const tracks = await fetchAlbumTracks(token, result.id);
+        if (tracks === "blocked") { blocked = true; break; }
+        if (tracks === null) continue; // transient — leave unmatched
+        await db.from(item.table).update({
+          spotify_album_id: result.id, spotify_matched: true, spotify_tracks: tracks, spotify_matched_at: now,
+        }).eq("id", item.refId);
+        candidates = candidates.concat(flattenCandidates(
+          [{ artist: item.artist, album: item.album, year: item.year, cover_url: null, spotify_tracks: tracks }],
+          item.source, item.feeling === mood ? "tagged" : "inferred",
+        ));
       }
+
+      // Drop everything this round tried (matched, not-found, or transient
+      // and skipped) so the next round's shortlist only sees genuinely
+      // untried items instead of re-picking the same ones again.
+      unmatchedPool = unmatchedPool.filter(p => !triedRefIds.has(p.refId));
+      distinctArtistCount = new Set(candidates.map(c => c.artist.toLowerCase().trim())).size;
+      if (blocked) break;
     }
   }
 
@@ -695,6 +728,36 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Generation failed — no valid tracks returned." }, { status: 502 });
     }
 
+    // Top up short of the requested count directly from whatever's left in
+    // the candidate pool. The model was asked for exactly `trackCount`
+    // tracks, but a thin pool — or the model simply under-delivering — used
+    // to ship a playlist noticeably shorter than requested with no
+    // acknowledgment (e.g. asking for 10 and getting back 3). Prefer tagged
+    // confidence and collection source first, same preference order given to
+    // the model itself, and never repeat an artist already used.
+    if (validated.length < trackCount) {
+      const usedArtists = new Set(validated.map(t => t.artist.toLowerCase().trim()));
+      const usedUris    = new Set(validated.map(t => t.spotify_uri));
+      const sourceOrder: Record<Candidate["source"], number> = { collection: 0, wantlist: 1, discover: 2 };
+      const leftover = candidates
+        .filter(c => !usedUris.has(c.spotify_uri) && !usedArtists.has(c.artist.toLowerCase().trim()))
+        .sort((a, b) => {
+          if (a.confidence !== b.confidence) return a.confidence === "tagged" ? -1 : 1;
+          return sourceOrder[a.source] - sourceOrder[b.source];
+        });
+      for (const extra of leftover) {
+        if (validated.length >= trackCount) break;
+        const artistKey = extra.artist.toLowerCase().trim();
+        if (usedArtists.has(artistKey)) continue; // another extra for the same artist already added this pass
+        validated.push({
+          spotify_uri: extra.spotify_uri, artist: extra.artist, title: extra.title, album: extra.album,
+          year: extra.year, cover_url: extra.cover_url, duration_ms: extra.duration_ms, preview_url: extra.preview_url,
+          rationale: "fills out the set", source: extra.source,
+        });
+        usedArtists.add(artistKey);
+      }
+    }
+
     // Enforce the inside/outside ratio here too — the prompt asks for a
     // collection floor, but the same "don't rely on the model alone" rule
     // applies as for the artist-dedup above. Swap from the tail first (the
@@ -727,6 +790,20 @@ export async function POST(request: NextRequest) {
           collectionCount++;
         }
       }
+    }
+
+    // Never silently ship a degenerate handful of tracks when meaningfully
+    // more were asked for — a thin matched pool (or sparse top-up results)
+    // used to surface as a valid-looking but tiny "playlist" with no
+    // indication anything was short. Surface it as an error instead so the
+    // user knows to wait for more matching, try a different mood, or widen
+    // the search, rather than wondering why a 10-track request came back
+    // with 3.
+    const MIN_RESULT_TRACKS = Math.min(trackCount, 5);
+    if (validated.length < MIN_RESULT_TRACKS) {
+      return NextResponse.json({
+        error: `Only ${validated.length} track${validated.length === 1 ? "" : "s"} could be matched on Spotify for "${mood}" right now — try again in a bit while matching continues in the background, pick a different mood, or enable "Include tracks outside my collection".`,
+      }, { status: 422 });
     }
 
     return NextResponse.json({ tracks: validated });
