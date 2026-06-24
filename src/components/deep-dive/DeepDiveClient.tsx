@@ -784,6 +784,22 @@ function EmptyPanel() {
   );
 }
 
+// ── Error classification ────────────────────────────────────────────────────
+// Distinguishes "you've hit today's Deep Dive cap" from a genuine failure —
+// both used to collapse into the same generic "No information available"
+// message, which was actively misleading once the cap was hit (every artist
+// and every tab would show it, with Retry just burning another blocked call).
+
+type TabErrorKind = { kind: "rate_limit"; used: number; limit: number } | { kind: "error" };
+
+async function classifyFetchError(res: Response): Promise<TabErrorKind> {
+  const body = await res.json().catch(() => ({} as Record<string, unknown>));
+  if (res.status === 429 && body?.error === "daily_limit_reached") {
+    return { kind: "rate_limit", used: Number(body.used) || 0, limit: Number(body.limit) || 0 };
+  }
+  return { kind: "error" };
+}
+
 // ── Main component ─────────────────────────────────────────────────────────────
 
 export default function DeepDiveClient({
@@ -806,7 +822,7 @@ export default function DeepDiveClient({
   const [imageMap, setImageMap] = useState<Record<string, string>>({});
   const [cache, setCache] = useState<Record<string, Record<string, unknown>>>({});
   const [loadingTabs, setLoadingTabs] = useState<Record<string, boolean>>({});
-  const [errorTabs, setErrorTabs] = useState<Record<string, boolean>>({});
+  const [errorTabs, setErrorTabs] = useState<Record<string, TabErrorKind>>({});
 
   // Track which artist:section combos have been requested to prevent duplicates
   const startedRef = useRef(new Set<string>());
@@ -943,16 +959,16 @@ export default function DeepDiveClient({
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ artist, section, ...(ownedAlbums && { ownedAlbums }) }),
     })
-      .then((r) => (r.ok ? r.json() : Promise.reject(new Error("API error"))))
-      .then((json: { data: unknown }) => {
+      .then(async (r) => (r.ok ? (r.json() as Promise<{ data: unknown }>) : Promise.reject(await classifyFetchError(r))))
+      .then((json) => {
         setCache((prev) => ({
           ...prev,
           [artist]: { ...(prev[artist] ?? {}), [section]: json.data ?? {} },
         }));
       })
-      .catch(() => {
+      .catch((err: TabErrorKind | undefined) => {
         startedRef.current.delete(key); // allow retry
-        setErrorTabs((prev) => ({ ...prev, [key]: true }));
+        setErrorTabs((prev) => ({ ...prev, [key]: err?.kind ? err : { kind: "error" } }));
       })
       .finally(() => {
         setLoadingTabs((prev) => { const n = { ...prev }; delete n[key]; return n; });
@@ -1019,16 +1035,16 @@ export default function DeepDiveClient({
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ artist, section, ...(ownedAlbums && { ownedAlbums }) }),
     })
-      .then((r) => (r.ok ? r.json() : Promise.reject(new Error("API error"))))
-      .then((json: { data: unknown }) => {
+      .then(async (r) => (r.ok ? (r.json() as Promise<{ data: unknown }>) : Promise.reject(await classifyFetchError(r))))
+      .then((json) => {
         setCache((prev) => ({
           ...prev,
           [artist]: { ...(prev[artist] ?? {}), [section]: json.data ?? {} },
         }));
       })
-      .catch(() => {
+      .catch((err: TabErrorKind | undefined) => {
         startedRef.current.delete(key);
-        setErrorTabs((prev) => ({ ...prev, [key]: true }));
+        setErrorTabs((prev) => ({ ...prev, [key]: err?.kind ? err : { kind: "error" } }));
       })
       .finally(() => {
         setLoadingTabs((prev) => { const n = { ...prev }; delete n[key]; return n; });
@@ -1043,7 +1059,17 @@ export default function DeepDiveClient({
 
     if (loadingTabs[key]) return <SkeletonRows />;
 
-    if (errorTabs[key]) {
+    const tabError = errorTabs[key];
+    if (tabError?.kind === "rate_limit") {
+      return (
+        <div style={{ padding: "2rem 0" }}>
+          <span style={{ fontFamily: MONO, fontSize: "0.72rem", letterSpacing: "0.04em", color: INK }}>
+            You&rsquo;ve reached today&rsquo;s Deep Dive limit ({tabError.used}/{tabError.limit}) — try again tomorrow.
+          </span>
+        </div>
+      );
+    }
+    if (tabError) {
       return (
         <div style={{ padding: "2rem 0" }}>
           <span style={{ fontFamily: MONO, fontSize: "0.72rem", letterSpacing: "0.04em", color: INK }}>

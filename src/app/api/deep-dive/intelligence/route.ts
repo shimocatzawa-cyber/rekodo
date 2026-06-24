@@ -419,8 +419,12 @@ export async function POST(request: NextRequest) {
     if (!(await isSupporter(authClient, user.id))) {
       return NextResponse.json({ error: "Supporter access required" }, { status: 403 });
     }
-    const FREE_INTELLIGENCE_LIMIT = 30;
-    const { allowed, used, limit } = await checkDailyLimit(authClient, user.id, "deep_dive_intelligence", FREE_INTELLIGENCE_LIMIT);
+    // Every caller here has already passed the supporter check above — this
+    // route has no free tier — so this is really a supporter daily cap, not a
+    // free-tier one. Sized generously (≈25 artists at all 6 tabs each) since
+    // it exists to stop runaway/scripted spend, not to ration normal usage.
+    const SUPPORTER_INTELLIGENCE_LIMIT = 150;
+    const { allowed, used, limit } = await checkDailyLimit(authClient, user.id, "deep_dive_intelligence", SUPPORTER_INTELLIGENCE_LIMIT);
     if (!allowed) {
       return NextResponse.json({ error: "daily_limit_reached", used, limit }, { status: 429 });
     }
