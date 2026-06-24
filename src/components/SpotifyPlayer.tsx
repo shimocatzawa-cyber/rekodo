@@ -97,8 +97,11 @@ export default function SpotifyPlayer({
 
   // Now Playing strip text
   const isPreviewMode = !useSDK && usePreview;
-  const sdkConnecting = useSDK && !deviceId; // SDK recognised as Premium but not yet registered
-  const playDisabled  = sdkConnecting;
+  // Cosmetic only — doesn't gate the Play button. A null deviceId here just
+  // means the SDK is mid-(re)connect (e.g. after the tab was idle); clicking
+  // Play still has to work in that state since handlePlayPause itself
+  // reconnects and waits for a device before sending the play command.
+  const sdkConnecting = useSDK && !deviceId;
   const eyebrow        = sdkConnecting ? "Connecting" : isPreviewMode ? "Preview" : "Now Playing";
 
   let nowPlayingText = "";
@@ -192,19 +195,18 @@ export default function SpotifyPlayer({
           </CtrlBtn>
 
           <button
-            onClick={playDisabled ? undefined : handlePlayPause}
+            onClick={handlePlayPause}
             aria-label={playing ? "Pause" : "Play"}
-            disabled={playDisabled}
             style={{
               width: "44px", height: "44px", flexShrink: 0,
-              background: playDisabled ? "#cccccc" : INK,
+              background: sdkConnecting ? "#cccccc" : INK,
               color: "#ffffff", border: "none",
-              cursor: playDisabled ? "default" : "pointer",
+              cursor: "pointer",
               display: "flex", alignItems: "center", justifyContent: "center",
-              opacity: playDisabled ? 0.5 : 1,
+              opacity: sdkConnecting ? 0.5 : 1,
             }}
-            onMouseEnter={e => { if (!playDisabled) (e.currentTarget as HTMLButtonElement).style.background = ORANGE; }}
-            onMouseLeave={e => { if (!playDisabled) (e.currentTarget as HTMLButtonElement).style.background = INK; }}
+            onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background = ORANGE; }}
+            onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = sdkConnecting ? "#cccccc" : INK; }}
           >
             {playing ? <IconPause /> : <IconPlay />}
           </button>

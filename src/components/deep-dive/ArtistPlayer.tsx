@@ -82,8 +82,12 @@ export default function ArtistPlayer({ artist }: Props) {
   // has propagated through the provider and the handlePlayPause closure is current.
   const sdkLive      = useSDK && !!deviceId;
   const sdkConnecting = sdkWanted && !sdkLive && !playError && !loading && tracks.length > 0;
-  // usePreview from provider is the authoritative flag for preview mode
-  const canPlay      = (sdkLive || usePreview) && !loading;
+  // usePreview from provider is the authoritative flag for preview mode.
+  // Deliberately NOT requiring deviceId (sdkLive) here — a null deviceId just
+  // means the SDK is mid-(re)connect (e.g. after the tab was idle), and the
+  // button needs to stay clickable so handlePlayPause's own reconnect-and-wait
+  // logic gets a chance to run instead of being unreachable behind `disabled`.
+  const canPlay      = (useSDK || usePreview) && !loading;
 
   const fmt = (ms: number) => {
     const s = Math.floor(ms / 1000);

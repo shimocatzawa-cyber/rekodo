@@ -67,6 +67,10 @@ export default function PlaylistPlayer({ tracks, moodLabel }: { tracks: Generate
     );
   }
 
+  // Cosmetic only — doesn't gate the Play button. A null deviceId here just
+  // means the SDK is mid-(re)connect (e.g. after the tab was idle); clicking
+  // Play still has to work in that state since handlePlayPause itself
+  // reconnects and waits for a device before sending the play command.
   const sdkConnecting = useSDK && !deviceId;
   const progressPct = duration > 0 ? Math.min(100, (position / duration) * 100) : 0;
 
@@ -85,18 +89,17 @@ export default function PlaylistPlayer({ tracks, moodLabel }: { tracks: Generate
     <div style={{ background: "#ffffff", border: `1px solid ${RULE}` }}>
       <div style={{ padding: "12px 16px", display: "flex", alignItems: "center", gap: "14px" }}>
         <button
-          onClick={sdkConnecting ? undefined : handlePlayPause}
-          disabled={sdkConnecting}
+          onClick={handlePlayPause}
           aria-label={playing ? "Pause" : "Play"}
           style={{
             width: "36px", height: "36px", flexShrink: 0,
             background: sdkConnecting ? "#cccccc" : INK, color: "#ffffff", border: "none",
             display: "flex", alignItems: "center", justifyContent: "center",
-            cursor: sdkConnecting ? "default" : "pointer", opacity: sdkConnecting ? 0.5 : 1,
+            cursor: "pointer", opacity: sdkConnecting ? 0.5 : 1,
             transition: "background 0.15s",
           }}
-          onMouseEnter={e => { if (!sdkConnecting) (e.currentTarget as HTMLButtonElement).style.background = ORANGE; }}
-          onMouseLeave={e => { if (!sdkConnecting) (e.currentTarget as HTMLButtonElement).style.background = INK; }}
+          onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background = ORANGE; }}
+          onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = sdkConnecting ? "#cccccc" : INK; }}
         >
           {playing ? <IconPause /> : <IconPlay />}
         </button>
