@@ -4,6 +4,8 @@ import { createClient } from "@/lib/supabase/server";
 import ProfileClient from "./ProfileClient";
 import { UsernameSetupForm } from "./ProfilePageClient";
 import type { UserList, ListSlot, SlotItem, DiscoverList } from "@/app/lists/types";
+import { getOrComputeCompatibility } from "@/lib/compatibility";
+import { getPublicEssentials } from "@/lib/essentials";
 
 const SERIF  = "var(--font-editorial)";
 const ORANGE = "#CC5500";
@@ -96,8 +98,8 @@ export default async function PublicProfilePage({ params }: { params: Params }) 
     }
   }
 
-  // Parallel: user records + lists + follow counts
-  const [userRecordsResult, listsResult, followerRes, followingRes] = await Promise.all([
+  // Parallel: user records + lists + follow counts + collection photo
+  const [userRecordsResult, listsResult, followerRes, followingRes, collectionPhotoRes] = await Promise.all([
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (supabase as any).from("public_collection_summary").select("record_id").eq("user_id", profile.id),
     supabase.from("lists")
@@ -107,6 +109,7 @@ export default async function PublicProfilePage({ params }: { params: Params }) 
       .order("created_at"),
     supabase.from("follows").select("id", { count: "exact", head: true }).eq("following_id", profile.id),
     supabase.from("follows").select("id", { count: "exact", head: true }).eq("follower_id",  profile.id),
+    supabase.from("collection_photos").select("storage_path").eq("user_id", profile.id).eq("display_order", 1).maybeSingle(),
   ]);
 
   const userRecords    = userRecordsResult.data ?? [];
@@ -114,6 +117,13 @@ export default async function PublicProfilePage({ params }: { params: Params }) 
   const lists          = sortListsByPriority(listsResult.data ?? []);
   const followerCount  = followerRes.count  ?? 0;
   const followingCount = followingRes.count ?? 0;
+
+  const collectionPhotoPath = collectionPhotoRes.data?.storage_path ?? null;
+  let collectionPhoto: string | null = null;
+  if (collectionPhotoPath) {
+    const { data: { publicUrl } } = supabase.storage.from("collection-photos").getPublicUrl(collectionPhotoPath);
+    collectionPhoto = publicUrl;
+  }
   const totalRecords   = userRecords.length;
   const recordIds      = userRecords.map((r: { record_id: string }) => r.record_id).filter(Boolean) as string[];
   const listIds        = lists.map(l => l.id);
@@ -358,6 +368,11 @@ export default async function PublicProfilePage({ params }: { params: Params }) 
     }
   } catch { /* non-fatal */ }
 
+  const [compatibility, essentials] = await Promise.all([
+    viewer && !isOwner ? getOrComputeCompatibility(supabase, viewer.id, profile.id) : Promise.resolve(null),
+    getPublicEssentials(supabase, profile.id),
+  ]);
+
   return (
     <ProfileClient
       profile={{
@@ -387,6 +402,9 @@ export default async function PublicProfilePage({ params }: { params: Params }) 
       followerCount={followerCount}
       followingCount={followingCount}
       viewer={viewerNav}
+      collectionPhoto={collectionPhoto}
+      compatibility={compatibility ? { score: compatibility.score, label: compatibility.label } : null}
+      essentials={essentials}
       bcSyncTotal={bcSyncTotal}
       bcSyncDuplicates={bcSyncDuplicates}
       bcSyncDate={bcSyncDate}

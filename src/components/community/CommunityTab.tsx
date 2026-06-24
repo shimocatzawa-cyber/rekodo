@@ -12,7 +12,7 @@ const INK    = "#0a0a0a";
 const MUTED  = "#aaaaaa";
 const GOLD   = "#C9A84C";
 
-type SubTab = "matches" | "collectors" | "lists" | "saved";
+type SubTab = "matches" | "following" | "collectors" | "lists" | "saved";
 
 type Follower = {
   id: string;
@@ -26,6 +26,7 @@ type Match = {
   userId: string;
   username: string;
   displayName: string | null;
+  avatarUrl: string | null;
   location: string | null;
   recordCount: number;
   score: number;
@@ -46,6 +47,15 @@ type Collector = {
   is_donor: boolean | null;
 };
 
+type ActivityItem = {
+  id: string;
+  eventType: "play" | "wantlist_add" | "collection_add";
+  createdAt: string;
+  actor: { id: string; username: string; displayName: string | null; avatarUrl: string | null };
+  record: { id: string; artist: string; album: string; coverUrl: string | null };
+  match: { score: number; label: string } | null;
+};
+
 type ListEntry = {
   id: string;
   title: string;
@@ -60,6 +70,18 @@ type ListEntry = {
   matchScore?: number;
   matchLabel?: string;
 };
+
+function relativeTime(iso: string): string {
+  const diffMs = Date.now() - new Date(iso).getTime();
+  const mins = Math.floor(diffMs / 60_000);
+  if (mins < 1) return "just now";
+  if (mins < 60) return `${mins}m ago`;
+  const hours = Math.floor(mins / 60);
+  if (hours < 24) return `${hours}h ago`;
+  const days = Math.floor(hours / 24);
+  if (days < 7) return `${days}d ago`;
+  return new Date(iso).toLocaleDateString();
+}
 
 function initials(name: string | null, username: string): string {
   if (!name) return (username[0] ?? "?").toUpperCase();
@@ -89,14 +111,11 @@ function Avatar({ avatarUrl, name, username, size = 36 }: {
 function MatchCard({ match, isFollowing, canFollow, onFollow }: {
   match: Match; isFollowing: boolean; canFollow: boolean; onFollow: () => void;
 }) {
-  const init = (match.displayName || match.username).charAt(0).toUpperCase();
   return (
     <div style={{ border: `1px solid ${RULE}`, padding: "20px 18px 16px", display: "flex", flexDirection: "column", gap: "10px" }}>
       <div style={{ display: "flex", alignItems: "center" }}>
         <Link href={`/@${match.username}`} style={{ display: "flex", alignItems: "center", gap: "9px", textDecoration: "none" }}>
-          <span style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", width: 28, height: 28, borderRadius: "50%", background: ORANGE, color: "#fff", fontFamily: MONO, fontSize: "10px", fontWeight: 600, flexShrink: 0 }}>
-            {init}
-          </span>
+          <Avatar avatarUrl={match.avatarUrl} name={match.displayName} username={match.username} size={28} />
           <span style={{ display: "flex", alignItems: "center", gap: "4px" }}>
             <span style={{ fontFamily: MONO, fontSize: "0.65rem", letterSpacing: "0.05em", color: INK }}>@{match.username}</span>
             {match.isDonor && <span style={{ fontFamily: SERIF, fontSize: "0.75rem", color: GOLD }} title="rekōdo supporter">ō</span>}
@@ -222,6 +241,46 @@ function ListCard({ list, isSaved, canSave, onSave }: {
   );
 }
 
+function activityVerb(eventType: ActivityItem["eventType"]): string {
+  if (eventType === "play") return "just logged a play of";
+  if (eventType === "wantlist_add") return "added";
+  return "added";
+}
+
+function ActivityRow({ item }: { item: ActivityItem }) {
+  const name = item.actor.displayName ?? item.actor.username;
+  const suffix = item.eventType === "wantlist_add" ? " to their wantlist"
+    : item.eventType === "collection_add" ? " to their collection"
+    : "";
+  return (
+    <div style={{ display: "flex", alignItems: "flex-start", gap: "12px", padding: "14px 0", borderBottom: `1px solid ${RULE}` }}>
+      <Link href={`/@${item.actor.username}`} style={{ flexShrink: 0 }}>
+        <Avatar avatarUrl={item.actor.avatarUrl} name={item.actor.displayName} username={item.actor.username} size={36} />
+      </Link>
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <p style={{ fontFamily: SERIF, fontSize: "0.88rem", color: INK, margin: "0 0 4px", lineHeight: 1.45 }}>
+          <Link href={`/@${item.actor.username}`} style={{ textDecoration: "none", color: INK, fontWeight: 600 }}>{name}</Link>
+          {item.match && (
+            <span style={{ fontFamily: MONO, fontSize: "0.55rem", color: ORANGE, marginLeft: "6px" }}>
+              ({item.match.score}% match)
+            </span>
+          )}
+          {" "}{activityVerb(item.eventType)}{" "}
+          <span style={{ fontStyle: "italic" }}>{item.record.album}</span>
+          {" by "}{item.record.artist}{suffix}
+        </p>
+        <p style={{ fontFamily: MONO, fontSize: "0.5rem", letterSpacing: "0.06em", color: MUTED, margin: 0, textTransform: "uppercase" }}>
+          {relativeTime(item.createdAt)}
+        </p>
+      </div>
+      {item.record.coverUrl && (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img src={item.record.coverUrl} alt="" style={{ width: 40, height: 40, objectFit: "cover", flexShrink: 0, background: "#f0ede8" }} />
+      )}
+    </div>
+  );
+}
+
 // ── Main component ─────────────────────────────────────────────────────────────
 
 export default function CommunityTab({ profileOwnerId }: { profileOwnerId: string }) {
@@ -240,6 +299,12 @@ export default function CommunityTab({ profileOwnerId }: { profileOwnerId: strin
   // Matches
   const [matches,        setMatches]        = useState<Match[] | null>(null);
   const [matchesLoading, setMatchesLoading] = useState(false);
+
+  // Collectors I Follow — activity feed
+  const [activityItems,     setActivityItems]     = useState<ActivityItem[]>([]);
+  const [activityState,     setActivityState]     = useState<"idle" | "loading" | "done">("idle");
+  const [activityCursor,    setActivityCursor]    = useState<string | null>(null);
+  const [activityLoadingMore, setActivityLoadingMore] = useState(false);
 
   // All collectors
   const [collectors,        setCollectors]        = useState<Collector[]>([]);
@@ -326,6 +391,33 @@ export default function CommunityTab({ profileOwnerId }: { profileOwnerId: strin
       .catch(() => setMatches([]))
       .finally(() => setMatchesLoading(false));
   }, [subTab, profileOwnerId, matches]);
+
+  // Load Collectors I Follow activity feed when tab is active (lazy)
+  useEffect(() => {
+    if (subTab !== "following" || activityState !== "idle") return;
+    setActivityState("loading");
+    fetch("/api/community/following-activity")
+      .then(r => r.ok ? r.json() : { items: [], nextCursor: null })
+      .then(d => {
+        setActivityItems(d.items ?? []);
+        setActivityCursor(d.nextCursor ?? null);
+        setActivityState("done");
+      })
+      .catch(() => setActivityState("done"));
+  }, [subTab, activityState]);
+
+  async function loadMoreActivity() {
+    if (!activityCursor || activityLoadingMore) return;
+    setActivityLoadingMore(true);
+    try {
+      const res = await fetch(`/api/community/following-activity?cursor=${encodeURIComponent(activityCursor)}`);
+      const data = await res.json() as { items?: ActivityItem[]; nextCursor?: string | null };
+      setActivityItems(prev => [...prev, ...(data.items ?? [])]);
+      setActivityCursor(data.nextCursor ?? null);
+    } finally {
+      setActivityLoadingMore(false);
+    }
+  }
 
   // Load lists when tab is active (lazy)
   useEffect(() => {
@@ -500,6 +592,7 @@ export default function CommunityTab({ profileOwnerId }: { profileOwnerId: strin
 
   const TABS: Array<{ key: SubTab; label: string }> = [
     { key: "matches",    label: "Top Matches" },
+    { key: "following",  label: "Collectors I Follow" },
     { key: "collectors", label: "All Collectors" },
     { key: "lists",      label: "Lists" },
     { key: "saved",      label: "Saved Lists" },
@@ -626,9 +719,46 @@ export default function CommunityTab({ profileOwnerId }: { profileOwnerId: strin
                     match={m}
                     isFollowing={followState[m.userId] ?? m.isFollowing}
                     canFollow={!!viewerUserId && viewerUserId !== m.userId}
-                    onFollow={() => toggleFollow(m.userId, { id: m.userId, username: m.username, display_name: m.displayName, avatar_url: null, is_donor: null })}
+                    onFollow={() => toggleFollow(m.userId, { id: m.userId, username: m.username, display_name: m.displayName, avatar_url: m.avatarUrl, is_donor: null })}
                   />
                 ))}
+              </div>
+            )}
+          </>
+        )}
+
+        {/* ── Collectors I Follow ────────────────────────────────────────────── */}
+        {subTab === "following" && (
+          <>
+            {activityState === "loading" && (
+              <p style={{ fontFamily: MONO, fontSize: "0.55rem", color: MUTED, letterSpacing: "0.08em" }}>Loading…</p>
+            )}
+            {activityState === "done" && activityItems.length === 0 && (
+              <div style={{ paddingTop: "16px" }}>
+                <p style={{ fontFamily: SERIF, fontSize: "1.1rem", color: INK, marginBottom: "8px" }}>No activity yet.</p>
+                <p style={{ fontFamily: MONO, fontSize: "0.65rem", color: MUTED, lineHeight: 1.7 }}>
+                  Follow some collectors to see when they log a play, or add to their wantlist or collection. Check All Collectors or Top Matches to find people to follow.
+                </p>
+              </div>
+            )}
+            {activityState === "done" && activityItems.length > 0 && (
+              <div>
+                {activityItems.map(item => <ActivityRow key={item.id} item={item} />)}
+                {activityCursor && (
+                  <div style={{ textAlign: "center", paddingTop: "18px" }}>
+                    <button
+                      onClick={loadMoreActivity}
+                      disabled={activityLoadingMore}
+                      style={{
+                        fontFamily: MONO, fontSize: "0.55rem", letterSpacing: "0.08em", textTransform: "uppercase",
+                        background: "none", border: `1px solid ${RULE}`, color: ORANGE,
+                        cursor: activityLoadingMore ? "default" : "pointer", padding: "8px 18px",
+                      }}
+                    >
+                      {activityLoadingMore ? "Loading…" : "Load more"}
+                    </button>
+                  </div>
+                )}
               </div>
             )}
           </>

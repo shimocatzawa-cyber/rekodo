@@ -1,6 +1,7 @@
 import { cookies } from "next/headers";
 import { createClient } from "@/lib/supabase/server";
 import { fetchCollectionReleases } from "@/lib/discogs/oauth";
+import { logCollectionAddActivity } from "@/lib/activity";
 
 export async function POST() {
   const supabase = await createClient();
@@ -129,6 +130,8 @@ export async function POST() {
         .insert(newLinks.slice(i, i + BATCH));
       if (error) console.error("user_records insert error:", error.message);
     }
+
+    await logCollectionAddActivity(supabase, user.id, newLinks.map((l) => l.record_id));
 
     // Clear import cookies
     cookieStore.delete("dg_at");

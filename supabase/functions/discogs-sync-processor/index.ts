@@ -406,6 +406,23 @@ async function processSync(supabase: SB, jobId: string, userId: string) {
       if (linkErr) throw new Error(`user_records insert failed: ${linkErr.message}`);
     }
 
+    // Log to the activity feed, unless this run *is* the user's first-ever
+    // collection population — only additions after that initial import should
+    // show up for followers. Mirrors logCollectionAddActivity in src/lib/activity.ts
+    // (duplicated here since this Deno edge function can't import from the Next app).
+    if (newLinks.length > 0) {
+      const { count } = await supabase
+        .from("user_records")
+        .select("id", { count: "exact", head: true })
+        .eq("user_id", userId);
+      if ((count ?? 0) > newLinks.length) {
+        const { error: activityErr } = await supabase.from("activity_events").insert(
+          newLinks.map((l) => ({ user_id: userId, event_type: "collection_add", record_id: l.record_id }))
+        );
+        if (activityErr) console.error("activity_events insert error:", activityErr.message);
+      }
+    }
+
     // ── Phase 4: Persist condition ratings ────────────────────────────────────
     await updateJob(supabase, jobId, { phase: "conditions" });
 

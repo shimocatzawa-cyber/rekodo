@@ -4,6 +4,8 @@ import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import ProfileClient from "@/app/[username]/ProfileClient";
 import { UsernameSetupForm } from "@/app/[username]/ProfilePageClient";
+import { getOrComputeCompatibility } from "@/lib/compatibility";
+import { getPublicEssentials } from "@/lib/essentials";
 
 const SERIF  = "var(--font-editorial)";
 const ORANGE = "#CC5500";
@@ -176,6 +178,11 @@ export default async function PublicProfilePage({ params }: { params: Params }) 
     ? await supabase.from("records").select("id, cover_url, artist, album").in("id", itemRecordIds)
     : { data: [] };
 
+  const [compatibility, essentials] = await Promise.all([
+    viewer && !isOwner ? getOrComputeCompatibility(supabase, viewer.id, profile.id) : Promise.resolve(null),
+    getPublicEssentials(supabase, profile.id),
+  ]);
+
   return (
     <ProfileClient
       profile={{
@@ -206,6 +213,8 @@ export default async function PublicProfilePage({ params }: { params: Params }) 
       followingCount={followingCount}
       viewer={viewerInfo}
       collectionPhoto={collectionPhoto}
+      compatibility={compatibility ? { score: compatibility.score, label: compatibility.label } : null}
+      essentials={essentials}
     />
   );
 }

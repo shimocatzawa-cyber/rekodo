@@ -258,6 +258,12 @@ export type Database = {
         Update: never;
         Relationships: [];
       };
+      activity_events: {
+        Row: { id: string; user_id: string; event_type: "play" | "wantlist_add" | "collection_add"; record_id: string; created_at: string };
+        Insert: { id?: string; user_id: string; event_type: "play" | "wantlist_add" | "collection_add"; record_id: string; created_at?: string };
+        Update: never;
+        Relationships: [];
+      };
       saved_lists: {
         Row: { id: string; user_id: string; list_id: string; saved_at: string };
         Insert: { id?: string; user_id: string; list_id: string; saved_at?: string };

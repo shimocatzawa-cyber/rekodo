@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
+import { logActivityEvent } from "@/lib/activity";
 
 export const dynamic = "force-dynamic";
 
@@ -52,5 +53,8 @@ export async function POST(request: Request) {
     .insert({ list_id: wantlist.id, record_id: recordId, position: (lastItem?.position ?? 0) + 1 });
 
   if (error) return Response.json({ error: error.message }, { status: 500 });
+
+  await logActivityEvent(supabase, user.id, "wantlist_add", recordId);
+
   return Response.json({ added: true });
 }

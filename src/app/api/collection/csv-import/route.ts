@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { logCollectionAddActivity } from "@/lib/activity";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
@@ -88,6 +89,10 @@ export async function POST(request: NextRequest) {
   let skipped = 0;
   let failed = 0;
   let enrichmentPending = 0;
+  // Accumulated across all batches so the first-ever-import check (in
+  // logCollectionAddActivity, called once after the loop) sees the whole
+  // import as a single unit rather than re-evaluating per 100-row batch.
+  const allNewRecordIds: string[] = [];
 
   const BATCH = 100;
 
@@ -215,12 +220,15 @@ export async function POST(request: NextRequest) {
       if (!linkErr) {
         imported += toLink.length;
         enrichmentPending += toLink.length;
+        allNewRecordIds.push(...linkRows.map(r => r.record_id));
       } else {
         console.error("[csv-import] user_records insert error:", linkErr.message);
         failed += toLink.length;
       }
     }
   }
+
+  await logCollectionAddActivity(supabase, user.id, allNewRecordIds);
 
   // Fire-and-forget enrichment trigger (best-effort)
   const enrichUrl = new URL("/api/collection/csv-enrich", request.url).toString();

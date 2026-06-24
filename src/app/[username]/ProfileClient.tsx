@@ -9,6 +9,7 @@ import { saveAvatarUrl, saveDisplayName, saveProfileSettings } from "@/app/setti
 import AppNav from "@/components/AppNav";
 import CollectionPhotos from "@/app/p/[username]/CollectionPhotos";
 import WantlistClient from "@/components/wantlist/WantlistClient";
+import EssentialsWallModal from "@/components/insights/EssentialsWallModal";
 
 const SERIF  = "var(--font-editorial)";
 const MONO   = "var(--font-mono)";
@@ -50,6 +51,8 @@ interface Props {
   followingCount: number;
   viewer?: { username: string; displayName: string | null; avatarUrl: string | null } | null;
   collectionPhoto?: string | null;
+  compatibility?: { score: number; label: string } | null;
+  essentials?: { total: number; primaryGenre: string | null; primaryGenrePct: number; covers: { artist: string; album: string; coverUrl: string | null }[] } | null;
   bcSyncTotal?: number;
   bcSyncDuplicates?: number;
   bcSyncDate?: string | null;
@@ -61,10 +64,13 @@ export default function ProfileClient({
   profile, isOwner, isSupporter, totalRecords, topGenre, topCountry, topLabel,
   followerCount, followingCount, viewer,
   collectionPhoto = null,
+  compatibility = null,
+  essentials = null,
   bcSyncTotal = 0, bcSyncDuplicates = 0, bcSyncDate = null,
 }: Props) {
   const router       = useRouter();
   const searchParams = useSearchParams();
+  const [essentialsModalOpen, setEssentialsModalOpen] = useState(false);
 
   // ── Avatar ────────────────────────────────────────────────────────────────
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -367,6 +373,17 @@ export default function ProfileClient({
                   </p>
                 )}
 
+                {!isOwner && compatibility && (
+                  <div style={{ margin: "0 0 12px 0" }}>
+                    <span style={{ fontFamily: MONO, fontSize: "0.65rem", letterSpacing: "0.08em", textTransform: "uppercase", color: ORANGE }}>
+                      {compatibility.score}% Collection Similarity
+                    </span>
+                    <p style={{ fontFamily: SERIF, fontStyle: "italic", fontSize: "0.9rem", color: "#505050", lineHeight: 1.4, margin: "4px 0 0" }}>
+                      {compatibility.label}
+                    </p>
+                  </div>
+                )}
+
                 {(cityValue || countryValue) && (
                   <p style={{ fontFamily: MONO, fontSize: "12px", letterSpacing: "0.04em", color: MUTED, margin: "0 0 12px 0" }}>
                     {[cityValue || profile.city, countryValue || profile.country].filter(Boolean).join(", ")}
@@ -407,9 +424,43 @@ export default function ProfileClient({
                 )}
 
                 {/* ── Collection photo ── */}
-                {isOwner && (
+                {/* CollectionPhotos self-guards (returns null for non-owners with no photo set) */}
+                <div style={{ marginTop: "16px", marginBottom: "16px" }}>
+                  <CollectionPhotos initialPhoto={collectionPhoto} isOwner={isOwner} />
+                </div>
+
+                {/* ── Essentials wall ── */}
+                {essentials && essentials.total > 0 && (
                   <div style={{ marginTop: "16px", marginBottom: "16px" }}>
-                    <CollectionPhotos initialPhoto={collectionPhoto} isOwner={isOwner} />
+                    <p style={{ fontFamily: MONO, fontSize: "0.55rem", letterSpacing: "0.14em", textTransform: "uppercase", color: ORANGE, margin: "0 0 10px 0" }}>
+                      Essentials Wall
+                    </p>
+                    <div style={{ display: "grid", gridTemplateColumns: "repeat(9, 1fr)", gap: "3px", maxWidth: 360, marginBottom: "10px" }}>
+                      {essentials.covers.slice(0, 9).map((c, i) => (
+                        <div key={i} style={{ aspectRatio: "1 / 1", background: "#f0ede8", overflow: "hidden" }}>
+                          {c.coverUrl && (
+                            // eslint-disable-next-line @next/next/no-img-element
+                            <img src={c.coverUrl} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                    <button
+                      onClick={() => setEssentialsModalOpen(true)}
+                      style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.1em", textTransform: "uppercase", color: INK, background: "none", border: "none", cursor: "pointer", padding: 0 }}
+                    >
+                      View Essentials Wall →
+                    </button>
+                    {essentialsModalOpen && (
+                      <EssentialsWallModal
+                        onClose={() => setEssentialsModalOpen(false)}
+                        username={profile.username}
+                        covers={essentials.covers}
+                        total={essentials.total}
+                        primaryGenre={essentials.primaryGenre}
+                        primaryGenrePct={essentials.primaryGenrePct}
+                      />
+                    )}
                   </div>
                 )}
 
