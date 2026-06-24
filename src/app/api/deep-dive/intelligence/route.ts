@@ -8,15 +8,15 @@ export const maxDuration = 120;
 
 const client = new Anthropic();
 
-// Per-section cache TTL in days. "rankings" and "related" use long TTLs since
-// an artist's essential albums / stylistic neighbors don't change — only
-// time-sensitive sections (new episodes/books/interviews keep appearing) stay
-// on a 30-day cycle.
+// Per-section cache TTL in days. "rankings"/"books"/"related" are long-lived —
+// an artist's essential albums, bibliography, and stylistic neighbors rarely
+// change. "podcasts"/"interviews" stay on a shorter cycle since new episodes
+// and features genuinely keep appearing.
 const CACHE_TTL_DAYS: Record<string, number> = {
   rankings:   180,
-  podcasts:   30,
-  books:      30,
-  interviews: 30,
+  podcasts:   60,
+  books:      180,
+  interviews: 60,
   related:    365,
 };
 
