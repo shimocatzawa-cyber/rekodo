@@ -44,7 +44,7 @@ async function blobToDataUrl(blob: Blob): Promise<string> {
 
 async function loadCovers(tracks: GeneratedTrack[]): Promise<Covers> {
   const entries = await Promise.all(
-    tracks.slice(0, 5).map(async (t, i): Promise<[number, string | null]> => {
+    tracks.map(async (t, i): Promise<[number, string | null]> => {
       const pos = i + 1;
       const url = t.cover_url;
       if (!url) return [pos, null];
@@ -63,9 +63,19 @@ async function loadCovers(tracks: GeneratedTrack[]): Promise<Covers> {
 
 // ── Portrait card ─────────────────────────────────────────────────────────
 // DOM: 540×675  →  export: 1080×1350 (pixelRatio 2)
+// Row height shrinks as the track count grows so the full playlist always
+// fits in the same fixed card — cover size and font sizes scale down with it.
 
 function PortraitCard({ title, tracks, username, covers, forExport }: CardProps) {
-  const ART = 80;
+  const n = Math.max(tracks.length, 1);
+  // ≈675 total − 40 vertical padding − 56 header − 30 footer
+  const rowH       = 549 / n;
+  const ART        = Math.max(18, Math.min(80, Math.round(rowH - 12)));
+  const numFont    = Math.max(7,  Math.min(15, Math.round(ART * 15 / 80)));
+  const artistFont = Math.max(6,  Math.min(11, Math.round(ART * 11 / 80)));
+  const titleFont  = Math.max(7,  Math.min(14, Math.round(ART * 14 / 80)));
+  const rowGap     = Math.max(6,  Math.min(16, Math.round(ART * 16 / 80)));
+  const textGap    = Math.max(2,  Math.min(5,  Math.round(ART * 5  / 80)));
 
   return (
     <div style={{
@@ -90,14 +100,14 @@ function PortraitCard({ title, tracks, username, covers, forExport }: CardProps)
         </div>
       </div>
 
-      {/* 5 rows — space-around for even breathing room */}
+      {/* One row per track — space-around for even breathing room */}
       <div style={{ flex: 1, display: "flex", flexDirection: "column", justifyContent: "space-around" }}>
-        {[1, 2, 3, 4, 5].map(pos => {
-          const t   = tracks[pos - 1] ?? null;
+        {tracks.map((t, i) => {
+          const pos = i + 1;
           const src = covers[pos] ?? null;
           return (
-            <div key={pos} style={{ display: "flex", alignItems: "center", gap: 16 }}>
-              <span style={{ fontFamily: MONO, fontSize: 15, fontWeight: 400, color: ORANGE, width: 22, flexShrink: 0, lineHeight: 1 }}>
+            <div key={pos} style={{ display: "flex", alignItems: "center", gap: rowGap }}>
+              <span style={{ fontFamily: MONO, fontSize: numFont, fontWeight: 400, color: ORANGE, width: numFont + 7, flexShrink: 0, lineHeight: 1 }}>
                 {pos}
               </span>
               {/* Cover slot: plain div in preview (bg-image), data-attr div for export */}
@@ -114,18 +124,14 @@ function PortraitCard({ title, tracks, username, covers, forExport }: CardProps)
                   backgroundColor: "#e5e2dc",
                 }} />
               )}
-              {t ? (
-                <div style={{ minWidth: 0, flex: 1 }}>
-                  <div style={{ fontFamily: MONO, fontSize: 11, letterSpacing: "0.1em", textTransform: "uppercase", color: MUTED, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", marginBottom: 5 }}>
-                    {t.artist}
-                  </div>
-                  <div style={{ fontFamily: SERIF, fontSize: 14, fontWeight: 600, color: INK, lineHeight: 1.2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                    {t.title}
-                  </div>
+              <div style={{ minWidth: 0, flex: 1 }}>
+                <div style={{ fontFamily: MONO, fontSize: artistFont, letterSpacing: "0.1em", textTransform: "uppercase", color: MUTED, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", marginBottom: textGap }}>
+                  {t.artist}
                 </div>
-              ) : (
-                <span style={{ fontFamily: MONO, fontSize: 9, color: "#ccc", letterSpacing: "0.06em" }}>—</span>
-              )}
+                <div style={{ fontFamily: SERIF, fontSize: titleFont, fontWeight: 600, color: INK, lineHeight: 1.2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                  {t.title}
+                </div>
+              </div>
             </div>
           );
         })}
@@ -142,10 +148,22 @@ function PortraitCard({ title, tracks, username, covers, forExport }: CardProps)
 
 // ── Landscape card ────────────────────────────────────────────────────────
 // DOM: 600×314  →  export: 1200×628 (pixelRatio 2)
+// Same shrink-to-fit approach as the portrait card, scaled to its tighter
+// right-column height.
 
 function LandscapeCard({ title, tracks, username, covers, forExport }: CardProps) {
   const LEFT_W = 172;
-  const ART    = 42;
+
+  const n          = Math.max(tracks.length, 1);
+  // ≈314 total − 32 vertical padding on the right column
+  const rowH       = 282 / n;
+  const ART        = Math.max(14, Math.min(42, Math.round(rowH - 6)));
+  const numFont    = Math.max(7, Math.min(11, Math.round(ART * 11 / 42)));
+  const artistFont = Math.max(6, Math.min(8,  Math.round(ART * 8  / 42)));
+  const titleFont  = Math.max(7, Math.min(12, Math.round(ART * 12 / 42)));
+  const rowPadX    = Math.max(8, Math.min(16, Math.round(ART * 16 / 42)));
+  const rowGap     = Math.max(6, Math.min(10, Math.round(ART * 10 / 42)));
+  const textGap    = Math.max(1, Math.min(3,  Math.round(ART * 3  / 42)));
 
   return (
     <div style={{
@@ -174,14 +192,14 @@ function LandscapeCard({ title, tracks, username, covers, forExport }: CardProps
         </div>
       </div>
 
-      {/* Right column: 5 rows */}
+      {/* Right column: one row per track */}
       <div style={{ flex: 1, display: "flex", flexDirection: "column", justifyContent: "space-around", padding: "16px 0" }}>
-        {[1, 2, 3, 4, 5].map(pos => {
-          const t   = tracks[pos - 1] ?? null;
+        {tracks.map((t, i) => {
+          const pos = i + 1;
           const src = covers[pos] ?? null;
           return (
-            <div key={pos} style={{ display: "flex", alignItems: "center", padding: "0 16px", gap: 10 }}>
-              <span style={{ fontFamily: MONO, fontSize: 11, color: ORANGE, width: 18, flexShrink: 0, lineHeight: 1 }}>
+            <div key={pos} style={{ display: "flex", alignItems: "center", padding: `0 ${rowPadX}px`, gap: rowGap }}>
+              <span style={{ fontFamily: MONO, fontSize: numFont, color: ORANGE, width: numFont + 7, flexShrink: 0, lineHeight: 1 }}>
                 {pos}
               </span>
               {forExport ? (
@@ -197,16 +215,14 @@ function LandscapeCard({ title, tracks, username, covers, forExport }: CardProps
                   backgroundColor: "#e5e2dc",
                 }} />
               )}
-              {t && (
-                <div style={{ minWidth: 0, flex: 1 }}>
-                  <div style={{ fontFamily: MONO, fontSize: 8, letterSpacing: "0.09em", textTransform: "uppercase", color: MUTED, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", marginBottom: 3 }}>
-                    {t.artist}
-                  </div>
-                  <div style={{ fontFamily: SERIF, fontSize: 12, fontWeight: 600, color: INK, lineHeight: 1.2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                    {t.title}
-                  </div>
+              <div style={{ minWidth: 0, flex: 1 }}>
+                <div style={{ fontFamily: MONO, fontSize: artistFont, letterSpacing: "0.09em", textTransform: "uppercase", color: MUTED, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", marginBottom: textGap }}>
+                  {t.artist}
                 </div>
-              )}
+                <div style={{ fontFamily: SERIF, fontSize: titleFont, fontWeight: 600, color: INK, lineHeight: 1.2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                  {t.title}
+                </div>
+              </div>
             </div>
           );
         })}
@@ -388,12 +404,6 @@ export default function PlaylistShareModal({ onClose, title, tracks, username }:
             </button>
           ))}
         </div>
-
-        {tracks.length > 5 && (
-          <p style={{ fontFamily: UI_MONO, fontSize: "8.5px", letterSpacing: "0.04em", color: MUTED, margin: 0, padding: "8px 16px 0", flexShrink: 0 }}>
-            Showing the first 5 of {tracks.length} tracks.
-          </p>
-        )}
 
         {/* Preview — scaled for display only, not used for export */}
         <div style={{ flex: 1, overflowY: "auto", padding: "16px", display: "flex", justifyContent: "center" }}>
