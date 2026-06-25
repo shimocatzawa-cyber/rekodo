@@ -1447,7 +1447,7 @@ export default function DeepDiveClient({
               onClick={() => setFavoritesOnly((v) => !v)}
               title={favoritesOnly ? "Show all artists" : "Favourites only"}
               style={{
-                fontFamily: MONO, fontSize: "14px", lineHeight: 1,
+                fontSize: "1.6rem", lineHeight: 1,
                 color: favoritesOnly ? ORANGE : "#666",
                 background: "none", border: "none", cursor: "pointer", padding: 0,
               }}
