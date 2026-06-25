@@ -771,6 +771,12 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Generation failed — no valid tracks returned." }, { status: 502 });
     }
 
+    // Tracks added below by deterministic top-up/swap logic rather than
+    // Claude's own selection start with an empty rationale — backfilled by
+    // a follow-up call further down so every shipped track gets a real
+    // written reason instead of a hardcoded placeholder.
+    const needsRationale = new Set<string>();
+
     // Top up short of the requested count directly from whatever's left in
     // the candidate pool. The model was asked for exactly `trackCount`
     // tracks, but a thin pool — or the model simply under-delivering — used
@@ -795,8 +801,9 @@ export async function POST(request: NextRequest) {
         validated.push({
           spotify_uri: extra.spotify_uri, artist: extra.artist, title: extra.title, album: extra.album,
           year: extra.year, cover_url: extra.cover_url, duration_ms: extra.duration_ms, preview_url: extra.preview_url,
-          rationale: "fills out the set", source: extra.source,
+          rationale: "", source: extra.source,
         });
+        needsRationale.add(extra.spotify_uri);
         usedArtists.add(artistKey);
       }
     }
@@ -821,14 +828,15 @@ export async function POST(request: NextRequest) {
           const replacement: GeneratedTrack = {
             spotify_uri: extra.spotify_uri, artist: extra.artist, title: extra.title, album: extra.album,
             year: extra.year, cover_url: extra.cover_url, duration_ms: extra.duration_ms, preview_url: extra.preview_url,
-            rationale: "from your collection", source: extra.source,
+            rationale: "", source: extra.source,
           };
           let swapIdx = -1;
           for (let i = validated.length - 1; i >= 0; i--) {
             if (validated[i].source !== "collection") { swapIdx = i; break; }
           }
-          if (swapIdx >= 0) validated[swapIdx] = replacement;
+          if (swapIdx >= 0) { needsRationale.delete(validated[swapIdx].spotify_uri); validated[swapIdx] = replacement; }
           else validated.push(replacement);
+          needsRationale.add(extra.spotify_uri);
           usedArtists.add(extra.artist.toLowerCase().trim());
           collectionCount++;
         }
@@ -847,6 +855,70 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({
         error: `Only ${validated.length} track${validated.length === 1 ? "" : "s"} could be matched on Spotify for "${mood}" right now — try again in a bit while matching continues in the background, pick a different mood, or enable "Include tracks outside my collection".`,
       }, { status: 422 });
+    }
+
+    // Tracks that the top-up/ratio-swap logic above added (rather than Claude
+    // picking and sequencing them itself) had no rationale — used to ship as
+    // the hardcoded "fills out the set" / "from your collection". Ask for an
+    // actual written reason for just those, in the context of the full
+    // sequence Claude already built, instead of a generic placeholder.
+    if (needsRationale.size > 0) {
+      const sequenceText = validated
+        .map((t, i) => `${i + 1}. ${t.spotify_uri} :: ${t.artist} — ${t.title}${t.rationale ? ` (existing rationale: "${t.rationale}")` : " (NEEDS RATIONALE)"}`)
+        .join("\n");
+      try {
+        const rationaleMsg = await anthropic.messages.create({
+          model: "claude-sonnet-4-6",
+          max_tokens: 800,
+          system: [{
+            type: "text",
+            text: `You are rekōdo's DJ. You're given a sequenced ${mood} playlist where some tracks already have a written rationale and some are marked NEEDS RATIONALE. Write a rationale (max 20 words, plain English, same voice as the existing ones — texture/atmosphere/emotional territory, not genre tags) for ONLY the tracks marked NEEDS RATIONALE, considering their actual position in the sequence relative to their neighbors. Never invent a spotify_uri — only return the ones marked NEEDS RATIONALE.`,
+          }],
+          tools: [{
+            name: "return_rationales",
+            description: "Return a rationale for each track that needs one.",
+            input_schema: {
+              type: "object",
+              properties: {
+                rationales: {
+                  type: "array",
+                  items: {
+                    type: "object",
+                    properties: {
+                      spotify_uri: { type: "string" },
+                      rationale:   { type: "string" },
+                    },
+                    required: ["spotify_uri", "rationale"],
+                  },
+                },
+              },
+              required: ["rationales"],
+            },
+          }],
+          tool_choice: { type: "tool", name: "return_rationales" },
+          messages: [{ role: "user", content: `Mood: ${mood}\n\nSequence:\n${sequenceText}` }],
+        });
+        const rBlock = rationaleMsg.content.find(b => b.type === "tool_use");
+        if (rBlock && rBlock.type === "tool_use") {
+          const rParsed = rBlock.input as { rationales: Array<{ spotify_uri: string; rationale: string }> };
+          const rationaleByUri = new Map(rParsed.rationales.map(r => [r.spotify_uri, r.rationale]));
+          for (const t of validated) {
+            const r = rationaleByUri.get(t.spotify_uri);
+            if (r) needsRationale.delete(t.spotify_uri);
+            if (r) t.rationale = r;
+          }
+        }
+      } catch {
+        // Best-effort — fall through to the generic fallback below for
+        // whatever didn't come back rather than failing the whole playlist.
+      }
+      // Anything the follow-up call didn't cover (request failure, or Claude
+      // skipping a uri) still needs *something* shown rather than blank text.
+      for (const t of validated) {
+        if (needsRationale.has(t.spotify_uri) && !t.rationale) {
+          t.rationale = t.source === "collection" ? "a deeper cut from your shelves to round out the set" : "extends the set in the same feeling";
+        }
+      }
     }
 
     return NextResponse.json({ tracks: validated });
