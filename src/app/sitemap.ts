@@ -31,7 +31,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       priority: 0.8,
     }));
 
-    // Public lists
+    // Public lists — served at /p/username/slug
     const { data: lists } = await supabase
       .from("lists")
       .select("slug, user_id, profiles!inner(username)")
@@ -42,7 +42,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       const profile = l.profiles as unknown as { username: string } | null;
       if (!profile?.username) return [];
       return [{
-        url: `${base}/@${profile.username}/${l.slug}`,
+        url: `${base}/p/${profile.username}/${l.slug}`,
         changeFrequency: "monthly" as const,
         priority: 0.7,
       }];

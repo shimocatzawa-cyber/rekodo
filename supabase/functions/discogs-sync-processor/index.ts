@@ -98,11 +98,11 @@ function extractMatrix(identifiers?: Array<{ type?: string; value?: string }>): 
 // Regex patterns for edition size, ordered most-specific first.
 // Only high-confidence matches stored — returns null on ambiguous input.
 const EDITION_RE = [
-  /\/\s*(\d{2,6})\b/,                          // /500  /1000
-  /\blimited\s+(?:edition\s+)?(?:of\s+)?(\d{2,6})\b/i,  // Limited edition of 500
-  /\bnumbered\s+(?:\/\s*)?(\d{2,6})\b/i,       // Numbered /500
-  /\b(\d{2,6})\s+cop(?:y|ies)\b/i,             // 500 copies
-  /\b(\d{2,6})\s+pressed\b/i,                  // 500 pressed
+  /\/\s*(\d{2,6})\b(?!\s*-?\s*(?:page|pages|track|tracks|section|sections|sided|panel|panels|fold|disc|discs|sheet|sheets))/i,
+  /\blimited\s+(?:edition\s+)?(?:of\s+)?(\d{2,6})\b/i,
+  /\bnumbered\s+(?:\/\s*)?(\d{2,6})\b/i,
+  /\b(\d{2,6})\s+cop(?:y|ies)\b/i,
+  /\b(\d{2,6})\s+pressed\b/i,
 ];
 
 function extractEditionSize(

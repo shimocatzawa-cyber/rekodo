@@ -30,11 +30,11 @@ export async function generateMetadata({ params }: { params: Params }): Promise<
   return {
     title: list.title,
     description,
-    alternates: { canonical: `https://rekodo.co/@${username}/${slug}` },
+    alternates: { canonical: `https://rekodo.co/p/${username}/${slug}` },
     openGraph: {
       title: `${list.title} — ${name} on rekōdo`,
       description,
-      url: `https://rekodo.co/@${username}/${slug}`,
+      url: `https://rekodo.co/p/${username}/${slug}`,
       type: "article",
     },
     twitter: { card: "summary", title: `${list.title} — ${name} on rekōdo`, description },

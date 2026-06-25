@@ -120,7 +120,15 @@ function SkeletonRows() {
 
 type Album = { rank: number; title: string; year: number; review: string; collectorNote: string };
 
-function RankingsContent({ data }: { data: { albums?: Album[] } }) {
+function RankingsContent({
+  data,
+  onAddToWantlist,
+  wantlistAdded,
+}: {
+  data: { albums?: Album[] };
+  onAddToWantlist?: (album: Album) => void;
+  wantlistAdded?: Set<string>;
+}) {
   const albums = data.albums ?? [];
   if (albums.length === 0) {
     return (
@@ -131,33 +139,53 @@ function RankingsContent({ data }: { data: { albums?: Album[] } }) {
   }
   return (
     <div>
-      {albums.map((a) => (
-        <div key={a.rank} style={{ padding: "1.5rem 0", borderBottom: `1px solid ${RULE}` }}>
-          <div style={{ display: "flex", gap: 20, alignItems: "flex-start" }}>
-            <span style={{ fontFamily: MONO, fontSize: "1.4rem", fontWeight: 500, color: ORANGE, lineHeight: 1, minWidth: 42, flexShrink: 0 }}>
-              {String(a.rank).padStart(2, "0")}
-            </span>
-            <div style={{ flex: 1 }}>
-              <div style={{ display: "flex", gap: 12, alignItems: "baseline", flexWrap: "wrap", marginBottom: 10 }}>
-                <span style={{ fontFamily: SERIF, fontSize: "1rem", fontWeight: 600, color: INK, letterSpacing: "-0.01em" }}>
-                  {a.title}
-                </span>
-                <span style={{ fontFamily: MONO, fontSize: "0.7rem", letterSpacing: "0.04em", color: INK }}>
-                  · {a.year}
-                </span>
+      {albums.map((a) => {
+        const added = wantlistAdded?.has(a.title) ?? false;
+        return (
+          <div key={a.rank} style={{ padding: "1.5rem 0", borderBottom: `1px solid ${RULE}` }}>
+            <div style={{ display: "flex", gap: 20, alignItems: "flex-start" }}>
+              <span style={{ fontFamily: MONO, fontSize: "1.4rem", fontWeight: 500, color: ORANGE, lineHeight: 1, minWidth: 42, flexShrink: 0 }}>
+                {String(a.rank).padStart(2, "0")}
+              </span>
+              <div style={{ flex: 1 }}>
+                <div style={{ display: "flex", gap: 12, alignItems: "baseline", flexWrap: "wrap", marginBottom: 10 }}>
+                  <span style={{ fontFamily: SERIF, fontSize: "1rem", fontWeight: 600, color: INK, letterSpacing: "-0.01em" }}>
+                    {a.title}
+                  </span>
+                  <span style={{ fontFamily: MONO, fontSize: "0.7rem", letterSpacing: "0.04em", color: INK }}>
+                    · {a.year}
+                  </span>
+                  {onAddToWantlist && (
+                    <button
+                      type="button"
+                      onClick={() => { if (!added) onAddToWantlist(a); }}
+                      disabled={added}
+                      style={{
+                        fontFamily: MONO, fontSize: "0.65rem", letterSpacing: "0.06em",
+                        color: added ? "#aaa" : ORANGE,
+                        background: "none",
+                        border: `1px ${added ? "solid" : "dashed"} ${added ? "#aaa" : ORANGE}`,
+                        padding: "2px 7px", cursor: added ? "default" : "pointer",
+                        flexShrink: 0,
+                      }}
+                    >
+                      {added ? "Added ✓" : "+ Wantlist"}
+                    </button>
+                  )}
+                </div>
+                <div style={{ borderTop: `1px solid ${RULE}`, margin: "0 0 10px" }} />
+                <p style={{ fontFamily: MONO, fontSize: "0.72rem", letterSpacing: "0.04em", color: INK, lineHeight: 1.7, margin: "0 0 10px" }}>
+                  {a.review}
+                </p>
+                <div style={{ borderTop: `1px solid ${RULE}`, margin: "0 0 10px" }} />
+                <p style={{ fontFamily: MONO, fontSize: "0.68rem", letterSpacing: "0.04em", color: INK, fontStyle: "italic", lineHeight: 1.6, margin: 0 }}>
+                  {a.collectorNote}
+                </p>
               </div>
-              <div style={{ borderTop: `1px solid ${RULE}`, margin: "0 0 10px" }} />
-              <p style={{ fontFamily: MONO, fontSize: "0.72rem", letterSpacing: "0.04em", color: INK, lineHeight: 1.7, margin: "0 0 10px" }}>
-                {a.review}
-              </p>
-              <div style={{ borderTop: `1px solid ${RULE}`, margin: "0 0 10px" }} />
-              <p style={{ fontFamily: MONO, fontSize: "0.68rem", letterSpacing: "0.04em", color: INK, fontStyle: "italic", lineHeight: 1.6, margin: 0 }}>
-                {a.collectorNote}
-              </p>
             </div>
           </div>
-        </div>
-      ))}
+        );
+      })}
     </div>
   );
 }
@@ -824,6 +852,17 @@ export default function DeepDiveClient({
   const [loadingTabs, setLoadingTabs] = useState<Record<string, boolean>>({});
   const [errorTabs, setErrorTabs] = useState<Record<string, TabErrorKind>>({});
 
+  // Outside Collection mode
+  const [searchMode, setSearchMode] = useState<"inside" | "outside">("inside");
+  const [isExternalArtist, setIsExternalArtist] = useState(false);
+  const [discogsResults, setDiscogsResults] = useState<{ id: number; name: string; thumb: string | null }[]>([]);
+  const [discogsSearching, setDiscogsSearching] = useState(false);
+  const discogsTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Wantlist additions from Essential Albums
+  const [wantlistAdded, setWantlistAdded] = useState<Set<string>>(new Set());
+  const [wantlistError, setWantlistError] = useState<string | null>(null);
+
   // Track which artist:section combos have been requested to prevent duplicates
   const startedRef = useRef(new Set<string>());
 
@@ -978,8 +1017,101 @@ export default function DeepDiveClient({
 
   function selectArtist(name: string) {
     if (selectedArtist !== name) {
+      setIsExternalArtist(false);
       setSelectedArtist(name);
       setActiveTab("rankings");
+    }
+  }
+
+  function selectExternalArtist(name: string) {
+    setIsExternalArtist(true);
+    setSelectedArtist(name);
+    setActiveTab("rankings");
+    setDiscogsResults([]);
+    setQuery("");
+    if (!imageMap[name]) {
+      fetch(`/api/deep-dive/artist-image?artist=${encodeURIComponent(name)}`)
+        .then((r) => (r.ok ? r.json() : null))
+        .then((d: { url?: string } | null) => {
+          if (d?.url) setImageMap((prev) => ({ ...prev, [name]: d.url! }));
+        })
+        .catch(() => {});
+    }
+  }
+
+  function handleSearchModeSwitch(mode: "inside" | "outside") {
+    setSearchMode(mode);
+    setQuery("");
+    setDiscogsResults([]);
+    if (discogsTimerRef.current) clearTimeout(discogsTimerRef.current);
+  }
+
+  function handleQueryChange(val: string) {
+    setQuery(val);
+    if (searchMode === "outside") {
+      if (discogsTimerRef.current) clearTimeout(discogsTimerRef.current);
+      if (!val.trim() || val.trim().length < 2) { setDiscogsResults([]); return; }
+      setDiscogsSearching(true);
+      discogsTimerRef.current = setTimeout(() => {
+        fetch(`/api/deep-dive/artist-search?q=${encodeURIComponent(val.trim())}`)
+          .then((r) => (r.ok ? r.json() : { results: [] }))
+          .then((d: { results?: { id: number; name: string; thumb: string | null }[] }) => {
+            setDiscogsResults(d.results ?? []);
+          })
+          .catch(() => setDiscogsResults([]))
+          .finally(() => setDiscogsSearching(false));
+      }, 400);
+    }
+  }
+
+  async function addAlbumToWantlist(album: Album) {
+    if (!selectedArtist) return;
+    const key = album.title;
+    setWantlistAdded((prev) => new Set(prev).add(key));
+
+    // Fetch cover art best-effort
+    let coverUrl: string | null = null;
+    try {
+      const r = await fetch(`/api/deep-dive/album-art?artist=${encodeURIComponent(selectedArtist)}&album=${encodeURIComponent(album.title)}`);
+      if (r.ok) { const d = await r.json() as { url?: string }; coverUrl = d.url ?? null; }
+    } catch { /* no cover — fine */ }
+
+    const supabase = createClient();
+    try {
+      // Find or create wantlist
+      let listId = wantlistListId;
+      if (!listId) {
+        const { data: existing, error: findErr } = await supabase
+          .from("lists").select("id").eq("user_id", userId).eq("slug", "wantlist").single();
+        if (findErr && findErr.code !== "PGRST116") throw new Error(findErr.message);
+        if (existing) {
+          listId = existing.id;
+        } else {
+          const { data: created, error: createErr } = await supabase
+            .from("lists")
+            .insert({ user_id: userId, title: "Wantlist", slug: "wantlist", is_public: true, list_type: "personal" })
+            .select("id").single();
+          if (createErr || !created) throw new Error(createErr?.message ?? "Could not create wantlist");
+          listId = created.id;
+        }
+      }
+      // Next position
+      const { data: posRow } = await supabase
+        .from("list_items").select("position").eq("list_id", listId)
+        .order("position", { ascending: false }).limit(1).maybeSingle();
+      const nextPos = (posRow?.position ?? 0) + 1;
+      // Insert
+      const { error: insertErr } = await supabase.from("list_items").insert({
+        list_id: listId, position: nextPos, item_type: "song",
+        song_title: album.title, song_artist: selectedArtist,
+        song_album: album.title, song_year: album.year ?? null,
+        song_cover_url: coverUrl, source: "deep-dive",
+      });
+      if (insertErr) throw new Error(insertErr.message);
+    } catch (e) {
+      setWantlistAdded((prev) => { const s = new Set(prev); s.delete(key); return s; });
+      setWantlistError(e instanceof Error ? e.message : "Failed to add to wantlist");
+      setTimeout(() => setWantlistError(null), 5000);
     }
   }
 
@@ -1088,7 +1220,7 @@ export default function DeepDiveClient({
     const data = cache[selectedArtist]?.[activeTab];
     if (!data) return <SkeletonRows />;
 
-    if (tab === "rankings")   return <RankingsContent   data={data as { albums?: Album[] }} />;
+    if (tab === "rankings")   return <RankingsContent   data={data as { albums?: Album[] }} onAddToWantlist={addAlbumToWantlist} wantlistAdded={wantlistAdded} />;
     if (tab === "podcasts")   return <PodcastsContent   data={data as { episodes?: Episode[] }} artist={selectedArtist} />;
     if (tab === "books")      return <BooksContent      data={data as { items?: BookItem[] }} />;
     if (tab === "interviews") return <InterviewsContent data={data as { interviews?: InterviewItem[] }} artist={selectedArtist} />;
@@ -1100,7 +1232,44 @@ export default function DeepDiveClient({
   const selectedData = mergedArtists.find((a) => a.name === selectedArtist);
 
   function RightPanelContent() {
-    if (!selectedArtist || !selectedData) return <EmptyPanel />;
+    if (!selectedArtist) return <EmptyPanel />;
+
+    // External artist — no collection data, Essential Albums only
+    if (isExternalArtist && !selectedData) {
+      const imgUrl = imageMap[selectedArtist];
+      return (
+        <div>
+          <div className="hidden md:block"><ArtistPlayer artist={selectedArtist} /></div>
+          <div className="dd-panel-content" style={{ padding: "2.5rem" }}>
+            <div style={{ display: "flex", gap: 20, alignItems: "flex-start", marginBottom: 24 }}>
+              {imgUrl
+                // eslint-disable-next-line @next/next/no-img-element
+                ? <img src={imgUrl} alt="" aria-hidden style={{ width: 96, height: 96, objectFit: "cover", flexShrink: 0, display: "block" }} />
+                : <ArtistInitial name={selectedArtist} size={96} />
+              }
+              <div style={{ minWidth: 0, flex: 1 }}>
+                <h2 className="dd-artist-name" style={{ fontFamily: SERIF, fontSize: "2rem", fontWeight: 600, color: INK, letterSpacing: "-0.025em", lineHeight: 1.1, margin: "0 0 6px" }}>
+                  {selectedArtist}
+                </h2>
+                <p style={{ fontFamily: MONO, fontSize: "0.7rem", letterSpacing: "0.06em", color: "#aaa", margin: 0 }}>
+                  Outside your collection
+                </p>
+              </div>
+            </div>
+            <div style={{ borderBottom: `1px solid ${RULE}`, marginBottom: "1.5rem" }} />
+            <p style={{ fontFamily: MONO, fontSize: "0.7rem", letterSpacing: "0.08em", textTransform: "uppercase", color: ORANGE, margin: "0 0 1rem" }}>
+              Essential Albums
+            </p>
+            {wantlistError && (
+              <p style={{ fontFamily: MONO, fontSize: "0.7rem", color: "red", margin: "0 0 1rem" }}>{wantlistError}</p>
+            )}
+            {renderTabContent()}
+          </div>
+        </div>
+      );
+    }
+
+    if (!selectedData) return <EmptyPanel />;
 
     const imgUrl = imageMap[selectedArtist];
 
@@ -1162,6 +1331,10 @@ export default function DeepDiveClient({
             .dd-tab-select    { display: block !important; }
           }
         `}</style>
+
+        {wantlistError && (
+          <p style={{ fontFamily: MONO, fontSize: "0.7rem", color: "red", margin: "0 0 1rem" }}>{wantlistError}</p>
+        )}
 
         {/* Desktop tab bar */}
         <div
@@ -1251,14 +1424,27 @@ export default function DeepDiveClient({
           overflowY: "auto",
           alignSelf: "flex-start",
         }}>
-          {/* Randomiser */}
-          {mergedArtists.length > 0 && (
-            <div style={{ padding: "8px 1rem", borderBottom: `1px solid ${RULE}` }}>
+          {/* Top row: ♥ favourites + randomiser */}
+          <div style={{ padding: "8px 1rem", borderBottom: `1px solid ${RULE}`, display: "flex", alignItems: "center", gap: 12 }}>
+            <button
+              type="button"
+              onClick={() => setFavoritesOnly((v) => !v)}
+              title={favoritesOnly ? "Show all artists" : "Favourites only"}
+              style={{
+                fontFamily: MONO, fontSize: "14px", lineHeight: 1,
+                color: favoritesOnly ? ORANGE : "#ccc",
+                background: "none", border: "none", cursor: "pointer", padding: 0,
+              }}
+            >
+              {favoritesOnly ? "♥" : "♡"}
+            </button>
+            {mergedArtists.length > 0 && (
               <button
                 type="button"
                 onClick={() => {
-                  const idx = Math.floor(Math.random() * mergedArtists.length);
-                  selectArtist(mergedArtists[idx].name);
+                  const pool = searchMode === "inside" ? mergedArtists : mergedArtists;
+                  const idx = Math.floor(Math.random() * pool.length);
+                  selectArtist(pool[idx].name);
                 }}
                 style={{
                   fontFamily: MONO, fontSize: "10px", letterSpacing: "0.06em",
@@ -1268,29 +1454,40 @@ export default function DeepDiveClient({
               >
                 ↺ Randomiser
               </button>
-            </div>
-          )}
-          <div style={{ padding: "8px 1rem", borderBottom: `1px solid ${RULE}` }}>
-            <button
-              type="button"
-              onClick={() => setFavoritesOnly((v) => !v)}
-              style={{
-                display: "flex", alignItems: "center", gap: "5px",
-                fontFamily: MONO, fontSize: "10px", letterSpacing: "0.06em",
-                color: favoritesOnly ? ORANGE : "#aaa",
-                background: "none", border: `1px solid ${favoritesOnly ? ORANGE : RULE}`,
-                cursor: "pointer", padding: "4px 9px",
-              }}
-            >
-              <span style={{ fontSize: "11px", lineHeight: 1 }}>{favoritesOnly ? "♥" : "♡"}</span>
-              Favourites only
-            </button>
+            )}
           </div>
+
+          {/* Inside / Outside Collection toggle */}
+          <div style={{ padding: "8px 1rem", borderBottom: `1px solid ${RULE}`, display: "flex", gap: 16 }}>
+            {(["inside", "outside"] as const).map((m) => {
+              const active = searchMode === m;
+              const label  = m === "inside" ? "Inside Collection" : "Outside Collection";
+              return (
+                <button
+                  key={m}
+                  type="button"
+                  onClick={() => handleSearchModeSwitch(m)}
+                  style={{
+                    fontFamily: MONO, fontSize: "10px", letterSpacing: "0.08em",
+                    textTransform: "uppercase",
+                    color: active ? INK : "#bbb",
+                    background: "none", border: "none",
+                    borderBottom: `1.5px solid ${active ? ORANGE : "transparent"}`,
+                    padding: "4px 0", cursor: active ? "default" : "pointer",
+                  }}
+                >
+                  {label}
+                </button>
+              );
+            })}
+          </div>
+
+          {/* Search input */}
           <input
             type="text"
             value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            placeholder="Search artists..."
+            onChange={(e) => handleQueryChange(e.target.value)}
+            placeholder={searchMode === "inside" ? "Search your artists..." : "Search any artist..."}
             style={{
               width: "100%",
               fontFamily: MONO,
@@ -1306,31 +1503,80 @@ export default function DeepDiveClient({
               boxSizing: "border-box",
             }}
           />
-          {filtered.map((a) => (
-            <ArtistRow
-              key={a.name}
-              artist={a}
-              isSelected={selectedArtist === a.name}
-              imageUrl={imageMap[a.name]}
-              onSelect={selectArtist}
-            />
-          ))}
-          {filtered.length === 0 && query && (
-            <p style={{ fontFamily: MONO, fontSize: "0.68rem", letterSpacing: "0.06em", color: INK, padding: "1rem" }}>
-              No artists match &ldquo;{query}&rdquo;
-            </p>
+
+          {/* Outside Collection: Discogs search results */}
+          {searchMode === "outside" && (
+            <>
+              {discogsSearching && (
+                <p style={{ fontFamily: MONO, fontSize: "0.68rem", letterSpacing: "0.06em", color: "#aaa", padding: "0.75rem 1rem", margin: 0 }}>
+                  Searching…
+                </p>
+              )}
+              {!discogsSearching && discogsResults.map((r) => (
+                <button
+                  key={r.id}
+                  type="button"
+                  onClick={() => selectExternalArtist(r.name)}
+                  style={{
+                    display: "flex", alignItems: "center", gap: 10,
+                    width: "100%", textAlign: "left",
+                    padding: "0.6rem 1rem",
+                    background: selectedArtist === r.name ? WARM : "none",
+                    border: "none", borderBottom: `1px solid ${RULE}`,
+                    cursor: "pointer",
+                  }}
+                >
+                  {r.thumb
+                    // eslint-disable-next-line @next/next/no-img-element
+                    ? <img src={r.thumb} alt="" aria-hidden style={{ width: 32, height: 32, objectFit: "cover", flexShrink: 0 }} />
+                    : <div style={{ width: 32, height: 32, background: SUBTLE, flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: MONO, fontSize: "10px", color: "#aaa" }}>{r.name[0]}</div>
+                  }
+                  <span style={{ fontFamily: MONO, fontSize: "0.72rem", letterSpacing: "0.04em", color: INK }}>{r.name}</span>
+                </button>
+              ))}
+              {!discogsSearching && query.trim().length >= 2 && discogsResults.length === 0 && (
+                <p style={{ fontFamily: MONO, fontSize: "0.68rem", letterSpacing: "0.06em", color: INK, padding: "0.75rem 1rem", margin: 0 }}>
+                  No artists found for &ldquo;{query}&rdquo;
+                </p>
+              )}
+              {!query.trim() && (
+                <p style={{ fontFamily: MONO, fontSize: "0.68rem", letterSpacing: "0.06em", color: "#aaa", padding: "0.75rem 1rem", margin: 0, lineHeight: 1.6 }}>
+                  Search any artist to explore their essential albums.
+                </p>
+              )}
+            </>
           )}
-          {filtered.length === 0 && !query && favoritesOnly && (
-            <p style={{ fontFamily: MONO, fontSize: "0.68rem", letterSpacing: "0.06em", color: INK, padding: "1rem" }}>
-              No favourites yet — click ♡ next to an artist&rsquo;s name to add one.
-            </p>
-          )}
-          {mergedArtists.length === 0 && (
-            <div style={{ padding: "1.5rem 1rem" }}>
-              <p style={{ fontFamily: MONO, fontSize: "0.68rem", letterSpacing: "0.06em", color: INK, lineHeight: 1.6, margin: 0 }}>
-                Sync your Discogs collection first to unlock Deep Dive.
-              </p>
-            </div>
+
+          {/* Inside Collection: existing artist list */}
+          {searchMode === "inside" && (
+            <>
+              {filtered.map((a) => (
+                <ArtistRow
+                  key={a.name}
+                  artist={a}
+                  isSelected={selectedArtist === a.name && !isExternalArtist}
+                  imageUrl={imageMap[a.name]}
+                  onSelect={selectArtist}
+                />
+              ))}
+              {filtered.length === 0 && query && (
+                <p style={{ fontFamily: MONO, fontSize: "0.68rem", letterSpacing: "0.06em", color: INK, padding: "1rem" }}>
+                  No artists match &ldquo;{query}&rdquo;
+                </p>
+              )}
+              {filtered.length === 0 && !query && favoritesOnly && (
+                <p style={{ fontFamily: MONO, fontSize: "0.68rem", letterSpacing: "0.06em", color: INK, padding: "1rem" }}>
+                  No favourites yet — click ♡ next to an artist&rsquo;s name to add one.
+                </p>
+              )}
+              {mergedArtists.length === 0 && (
+                <div style={{ padding: "1.5rem 1rem" }}>
+                  <p style={{ fontFamily: MONO, fontSize: "0.68rem", letterSpacing: "0.06em", color: INK, lineHeight: 1.6, margin: 0 }}>
+                    Sync your Discogs collection first to unlock Deep Dive.
+                  </p>
+                </div>
+              )}
+            </>
           )}
         </div>
 
