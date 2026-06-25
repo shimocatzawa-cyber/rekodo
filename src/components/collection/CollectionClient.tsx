@@ -10,6 +10,7 @@ import { getDesirabilityTier, type DesirabilityTier } from "@/lib/desirability";
 import { FEELINGS, feelingLabel } from "@/lib/feelings";
 import { openAppleMusicLink } from "@/lib/openAppleMusic";
 import SpotifyPlayer, { getFreshSpotifyToken } from "@/components/SpotifyPlayer";
+import { isPlausibleAlbumMatch } from "@/lib/spotifyMatchValidation";
 
 const SERIF  = "var(--font-editorial)";
 const MONO   = "var(--font-mono)";
@@ -2295,8 +2296,16 @@ function TracklistPanel({ tracks, loading, bandcamp, record }: {
         // the DB, or a transient Spotify error permanently poisons the record's
         // match status for every future visit.
         if (!r1.ok) { if (!cancelled) setCurrentSpotifyUri(null); return; }
-        const d1 = await r1.json() as { albums?: { items?: Array<{ uri: string }> } };
-        let uri  = d1?.albums?.items?.[0]?.uri ?? null;
+        const d1 = await r1.json() as { albums?: { items?: Array<{ uri: string; name: string; artists: Array<{ name: string }> }> } };
+        const item1 = d1?.albums?.items?.[0] ?? null;
+        // Spotify's text search will confidently return a totally different
+        // artist/album as the #1 hit when there's no real match (e.g. an
+        // obscure release matching on a few shared words) — verify the
+        // artist (and loosely, the album title) before trusting it, instead
+        // of caching/playing whatever came back first.
+        let uri = item1 && isPlausibleAlbumMatch(artist, album, item1.artists.map(a => a.name), item1.name)
+          ? item1.uri
+          : null;
 
         if (!uri) {
           // Fallback: plain-text search handles name variations (e.g. "Various", remaster suffixes)
@@ -2305,8 +2314,11 @@ function TracklistPanel({ tracks, loading, bandcamp, record }: {
             headers: { Authorization: `Bearer ${token}` },
           });
           if (!r2.ok) { if (!cancelled) setCurrentSpotifyUri(null); return; }
-          const d2 = await r2.json() as { albums?: { items?: Array<{ uri: string }> } };
-          uri = d2?.albums?.items?.[0]?.uri ?? null;
+          const d2 = await r2.json() as { albums?: { items?: Array<{ uri: string; name: string; artists: Array<{ name: string }> }> } };
+          const item2 = d2?.albums?.items?.[0] ?? null;
+          uri = item2 && isPlausibleAlbumMatch(artist, album, item2.artists.map(a => a.name), item2.name)
+            ? item2.uri
+            : null;
         }
 
         if (cancelled) return;

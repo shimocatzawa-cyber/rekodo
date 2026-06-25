@@ -5,6 +5,7 @@
 // drifting out of sync with each other.
 
 import { reserveSpotifySearchSlot, recordSpotifySearchRateLimit } from "@/lib/spotify";
+import { isPlausibleAlbumMatch } from "@/lib/spotifyMatchValidation";
 
 export const FETCH_TIMEOUT_MS = 6_000; // hard cap per Spotify request — nothing should hang silently
 export const MAX_TRACK_PAGES = 2; // 100 tracks covers nearly every release; bounds worst-case time
@@ -77,20 +78,29 @@ export type SearchOutcome =
   | { kind: "transient" }
   | { kind: "blocked" };
 
+type AlbumSearchResponse = {
+  albums?: { items?: Array<{ id: string; name: string; artists: Array<{ name: string }> }> };
+};
+
 export async function searchAlbum(token: string, artist: string, album: string): Promise<SearchOutcome> {
   const q1 = encodeURIComponent(`album:"${album}" artist:"${artist}"`);
   const r1 = await spotifyFetch(`https://api.spotify.com/v1/search?q=${q1}&type=album&limit=1`, token);
   if (r1.kind !== "ok") return r1;
-  const d1 = await r1.res.json().catch(() => null) as { albums?: { items?: Array<{ id: string }> } } | null;
-  const id1 = d1?.albums?.items?.[0]?.id ?? null;
-  if (id1) return { kind: "found", id: id1 };
+  const d1 = await r1.res.json().catch(() => null) as AlbumSearchResponse | null;
+  const item1 = d1?.albums?.items?.[0] ?? null;
+  if (item1 && isPlausibleAlbumMatch(artist, album, item1.artists.map(a => a.name), item1.name)) {
+    return { kind: "found", id: item1.id };
+  }
 
   const q2 = encodeURIComponent(`${artist} ${album}`);
   const r2 = await spotifyFetch(`https://api.spotify.com/v1/search?q=${q2}&type=album&limit=1`, token);
   if (r2.kind !== "ok") return r2;
-  const d2 = await r2.res.json().catch(() => null) as { albums?: { items?: Array<{ id: string }> } } | null;
-  const id2 = d2?.albums?.items?.[0]?.id ?? null;
-  return id2 ? { kind: "found", id: id2 } : { kind: "not_found" };
+  const d2 = await r2.res.json().catch(() => null) as AlbumSearchResponse | null;
+  const item2 = d2?.albums?.items?.[0] ?? null;
+  if (item2 && isPlausibleAlbumMatch(artist, album, item2.artists.map(a => a.name), item2.name)) {
+    return { kind: "found", id: item2.id };
+  }
+  return { kind: "not_found" };
 }
 
 // Returns null (instead of a partial list) on any failure/timeout so the

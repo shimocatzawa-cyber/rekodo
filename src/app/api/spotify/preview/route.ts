@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { reserveSpotifySearchSlot, recordSpotifySearchRateLimit, getSpotifySearchCooldownUntil } from "@/lib/spotify";
+import { isPlausibleAlbumMatch } from "@/lib/spotifyMatchValidation";
 
 export const dynamic = "force-dynamic";
 
@@ -69,17 +70,34 @@ export async function GET(request: NextRequest) {
   if (!token) return NextResponse.json(empty);
 
   try {
-    const q = encodeURIComponent(`album:${title} artist:${artist}`);
-    const searchRes = await spotifyFetch(
-      `https://api.spotify.com/v1/search?q=${q}&type=album&limit=1`,
-      token
-    );
-    if (!searchRes?.ok) return NextResponse.json(empty);
+    // Quoted field-filter search first — same Tier 1/Tier 2 pattern as the
+    // Collection page and the server-side matcher, so this card's preview
+    // doesn't get the loosest possible match just because it's a different
+    // call site.
+    const q1 = encodeURIComponent(`album:"${title}" artist:"${artist}"`);
+    const r1 = await spotifyFetch(`https://api.spotify.com/v1/search?q=${q1}&type=album&limit=1`, token);
+    if (!r1?.ok) return NextResponse.json(empty); // blocked/rate-limited/transient
 
-    const searchData = await searchRes.json() as {
-      albums: { items: Array<{ uri: string; id: string }> };
-    };
-    const album = searchData.albums?.items?.[0];
+    type AlbumSearchResponse = { albums?: { items?: Array<{ uri: string; id: string; name: string; artists: Array<{ name: string }> }> } };
+    let album: { uri: string; id: string } | null = null;
+
+    const d1 = await r1.json() as AlbumSearchResponse;
+    const item1 = d1.albums?.items?.[0] ?? null;
+    if (item1 && isPlausibleAlbumMatch(artist, title, item1.artists.map(a => a.name), item1.name)) {
+      album = { uri: item1.uri, id: item1.id };
+    }
+
+    if (!album) {
+      const q2 = encodeURIComponent(`${artist} ${title}`);
+      const r2 = await spotifyFetch(`https://api.spotify.com/v1/search?q=${q2}&type=album&limit=1`, token);
+      if (!r2?.ok) return NextResponse.json(empty);
+      const d2 = await r2.json() as AlbumSearchResponse;
+      const item2 = d2.albums?.items?.[0] ?? null;
+      if (item2 && isPlausibleAlbumMatch(artist, title, item2.artists.map(a => a.name), item2.name)) {
+        album = { uri: item2.uri, id: item2.id };
+      }
+    }
+
     if (!album) return NextResponse.json(empty);
 
     const tracksRes = await spotifyFetch(

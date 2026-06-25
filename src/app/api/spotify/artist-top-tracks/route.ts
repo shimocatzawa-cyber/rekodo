@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { getProfileTokenDb } from "@/lib/spotify";
+import { isPlausibleArtistMatch } from "@/lib/spotifyMatchValidation";
 
 export const dynamic = "force-dynamic";
 
@@ -93,7 +94,10 @@ export async function GET(request: NextRequest) {
     artists: { items: Array<{ id: string; name: string }> };
   };
   const artistItem = searchData.artists?.items?.[0];
-  if (!artistItem) return NextResponse.json({ tracks: [] });
+  // The artist: field filter narrows results but doesn't guarantee an exact
+  // name match — a typo'd or obscure artist can still come back as a
+  // same-ish-named but wrong artist. Reject before fetching/playing their tracks.
+  if (!artistItem || !isPlausibleArtistMatch(artist, artistItem.name)) return NextResponse.json({ tracks: [] });
 
   type RawTrack = { uri: string; name: string; album: { name: string }; preview_url: string | null; artists: Array<{ id: string }> };
 
