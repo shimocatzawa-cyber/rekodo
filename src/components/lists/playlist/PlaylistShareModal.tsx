@@ -16,15 +16,11 @@ const MUTED  = "#888888";
 const RULE   = "#e0e0da";
 
 type Format = "portrait" | "landscape";
-type Covers = Record<number, string | null>;
 
 interface CardProps {
   title:    string;
   tracks:   GeneratedTrack[];
   username: string;
-  covers:   Covers;
-  /** When true, renders cover slots as plain gray divs (for capture) */
-  forExport?: boolean;
 }
 interface Props {
   onClose:  () => void;
@@ -33,49 +29,29 @@ interface Props {
   username: string;
 }
 
-async function blobToDataUrl(blob: Blob): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const r   = new FileReader();
-    r.onload  = () => resolve(r.result as string);
-    r.onerror = reject;
-    r.readAsDataURL(blob);
-  });
-}
-
-async function loadCovers(tracks: GeneratedTrack[]): Promise<Covers> {
-  const entries = await Promise.all(
-    tracks.map(async (t, i): Promise<[number, string | null]> => {
-      const pos = i + 1;
-      const url = t.cover_url;
-      if (!url) return [pos, null];
-      try {
-        const r = await fetch(`/api/image-proxy?url=${encodeURIComponent(url)}`);
-        if (!r.ok) return [pos, null];
-        const dataUrl = await blobToDataUrl(await r.blob());
-        return [pos, dataUrl];
-      } catch {
-        return [pos, null];
-      }
-    }),
-  );
-  return Object.fromEntries(entries);
+function mixDetails(tracks: GeneratedTrack[]): string {
+  const totalMs  = tracks.reduce((sum, t) => sum + (t.duration_ms || 0), 0);
+  const totalMin = Math.round(totalMs / 60_000);
+  const h = Math.floor(totalMin / 60);
+  const m = totalMin % 60;
+  const dur = h > 0 ? `${h}h ${m}m` : `${m} min`;
+  return `${tracks.length} song${tracks.length === 1 ? "" : "s"} · ${dur}`;
 }
 
 // ── Portrait card ─────────────────────────────────────────────────────────
 // DOM: 540×675  →  export: 1080×1350 (pixelRatio 2)
-// Row height shrinks as the track count grows so the full playlist always
-// fits in the same fixed card — cover size and font sizes scale down with it.
+// No artwork — just the track listing and mix details, so row height/font
+// size only need to shrink as track count grows, not balance against a
+// fixed cover size.
 
-function PortraitCard({ title, tracks, username, covers, forExport }: CardProps) {
+function PortraitCard({ title, tracks, username }: CardProps) {
   const n = Math.max(tracks.length, 1);
-  // ≈675 total − 40 vertical padding − 56 header − 30 footer
-  const rowH       = 549 / n;
-  const ART        = Math.max(18, Math.min(80, Math.round(rowH - 12)));
-  const numFont    = Math.max(7,  Math.min(15, Math.round(ART * 15 / 80)));
-  const artistFont = Math.max(6,  Math.min(11, Math.round(ART * 11 / 80)));
-  const titleFont  = Math.max(7,  Math.min(14, Math.round(ART * 14 / 80)));
-  const rowGap     = Math.max(6,  Math.min(16, Math.round(ART * 16 / 80)));
-  const textGap    = Math.max(2,  Math.min(5,  Math.round(ART * 5  / 80)));
+  // ≈675 total − 40 vertical padding − 56 header − 36 footer
+  const rowH       = 543 / n;
+  const numFont    = Math.max(8,  Math.min(16, Math.round(rowH * 0.34)));
+  const artistFont = Math.max(7,  Math.min(12, Math.round(rowH * 0.26)));
+  const titleFont  = Math.max(8,  Math.min(16, Math.round(rowH * 0.34)));
+  const textGap    = Math.max(2,  Math.min(6,  Math.round(rowH * 0.1)));
 
   return (
     <div style={{
@@ -104,26 +80,11 @@ function PortraitCard({ title, tracks, username, covers, forExport }: CardProps)
       <div style={{ flex: 1, display: "flex", flexDirection: "column", justifyContent: "space-around" }}>
         {tracks.map((t, i) => {
           const pos = i + 1;
-          const src = covers[pos] ?? null;
           return (
-            <div key={pos} style={{ display: "flex", alignItems: "center", gap: rowGap }}>
-              <span style={{ fontFamily: MONO, fontSize: numFont, fontWeight: 400, color: ORANGE, width: numFont + 7, flexShrink: 0, lineHeight: 1 }}>
+            <div key={pos} style={{ display: "flex", alignItems: "baseline", gap: 12 }}>
+              <span style={{ fontFamily: MONO, fontSize: numFont, fontWeight: 400, color: ORANGE, width: numFont + 9, flexShrink: 0, lineHeight: 1 }}>
                 {pos}
               </span>
-              {/* Cover slot: plain div in preview (bg-image), data-attr div for export */}
-              {forExport ? (
-                <div
-                  data-cover-slot={pos}
-                  style={{ width: ART, height: ART, flexShrink: 0, backgroundColor: "#e5e2dc" }}
-                />
-              ) : (
-                <div style={{
-                  width: ART, height: ART, flexShrink: 0,
-                  backgroundImage: src ? `url(${src})` : "none",
-                  backgroundSize: "cover", backgroundPosition: "center",
-                  backgroundColor: "#e5e2dc",
-                }} />
-              )}
               <div style={{ minWidth: 0, flex: 1 }}>
                 <div style={{ fontFamily: MONO, fontSize: artistFont, letterSpacing: "0.1em", textTransform: "uppercase", color: MUTED, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", marginBottom: textGap }}>
                   {t.artist}
@@ -137,8 +98,9 @@ function PortraitCard({ title, tracks, username, covers, forExport }: CardProps)
         })}
       </div>
 
-      {/* Footer: @username only */}
+      {/* Footer: mix details + @username */}
       <div style={{ marginTop: 16, textAlign: "center", flexShrink: 0 }}>
+        <div style={{ fontFamily: MONO, fontSize: 10, color: ORANGE, letterSpacing: "0.1em", marginBottom: 4 }}>{mixDetails(tracks)}</div>
         <div style={{ fontFamily: MONO, fontSize: 10, color: MUTED, letterSpacing: "0.1em" }}>@{username}</div>
       </div>
 
@@ -151,19 +113,17 @@ function PortraitCard({ title, tracks, username, covers, forExport }: CardProps)
 // Same shrink-to-fit approach as the portrait card, scaled to its tighter
 // right-column height.
 
-function LandscapeCard({ title, tracks, username, covers, forExport }: CardProps) {
+function LandscapeCard({ title, tracks, username }: CardProps) {
   const LEFT_W = 172;
 
   const n          = Math.max(tracks.length, 1);
   // ≈314 total − 32 vertical padding on the right column
   const rowH       = 282 / n;
-  const ART        = Math.max(14, Math.min(42, Math.round(rowH - 6)));
-  const numFont    = Math.max(7, Math.min(11, Math.round(ART * 11 / 42)));
-  const artistFont = Math.max(6, Math.min(8,  Math.round(ART * 8  / 42)));
-  const titleFont  = Math.max(7, Math.min(12, Math.round(ART * 12 / 42)));
-  const rowPadX    = Math.max(8, Math.min(16, Math.round(ART * 16 / 42)));
-  const rowGap     = Math.max(6, Math.min(10, Math.round(ART * 10 / 42)));
-  const textGap    = Math.max(1, Math.min(3,  Math.round(ART * 3  / 42)));
+  const numFont    = Math.max(7, Math.min(12, Math.round(rowH * 0.32)));
+  const artistFont = Math.max(6, Math.min(9,  Math.round(rowH * 0.22)));
+  const titleFont  = Math.max(7, Math.min(13, Math.round(rowH * 0.32)));
+  const rowPadX    = Math.max(8, Math.min(16, Math.round(rowH * 0.4)));
+  const textGap    = Math.max(1, Math.min(3,  Math.round(rowH * 0.08)));
 
   return (
     <div style={{
@@ -171,7 +131,7 @@ function LandscapeCard({ title, tracks, username, covers, forExport }: CardProps
       display: "flex", overflow: "hidden",
     }}>
 
-      {/* Left column: branding + title + username/rekodo.co */}
+      {/* Left column: branding + title + mix details + username/rekodo.co */}
       <div style={{
         width: LEFT_W, display: "flex", flexDirection: "column",
         justifyContent: "space-between", padding: "20px 18px",
@@ -182,9 +142,10 @@ function LandscapeCard({ title, tracks, username, covers, forExport }: CardProps
           <div style={{ fontFamily: SERIF, fontSize: 21, fontWeight: 600, color: INK, marginBottom: 14, lineHeight: 1 }}>
             rek<span style={{ color: ORANGE }}>ō</span>do
           </div>
-          <div style={{ fontFamily: SERIF, fontSize: 13, fontWeight: 600, color: INK, lineHeight: 1.3, overflow: "hidden" }}>
+          <div style={{ fontFamily: SERIF, fontSize: 13, fontWeight: 600, color: INK, lineHeight: 1.3, overflow: "hidden", marginBottom: 8 }}>
             {title}
           </div>
+          <div style={{ fontFamily: MONO, fontSize: 9, color: ORANGE, letterSpacing: "0.06em" }}>{mixDetails(tracks)}</div>
         </div>
         <div>
           <div style={{ fontFamily: MONO, fontSize: 9, color: MUTED, letterSpacing: "0.07em", marginBottom: 3 }}>@{username}</div>
@@ -196,25 +157,11 @@ function LandscapeCard({ title, tracks, username, covers, forExport }: CardProps
       <div style={{ flex: 1, display: "flex", flexDirection: "column", justifyContent: "space-around", padding: "16px 0" }}>
         {tracks.map((t, i) => {
           const pos = i + 1;
-          const src = covers[pos] ?? null;
           return (
-            <div key={pos} style={{ display: "flex", alignItems: "center", padding: `0 ${rowPadX}px`, gap: rowGap }}>
-              <span style={{ fontFamily: MONO, fontSize: numFont, color: ORANGE, width: numFont + 7, flexShrink: 0, lineHeight: 1 }}>
+            <div key={pos} style={{ display: "flex", alignItems: "baseline", padding: `0 ${rowPadX}px`, gap: 10 }}>
+              <span style={{ fontFamily: MONO, fontSize: numFont, color: ORANGE, width: numFont + 9, flexShrink: 0, lineHeight: 1 }}>
                 {pos}
               </span>
-              {forExport ? (
-                <div
-                  data-cover-slot={pos}
-                  style={{ width: ART, height: ART, flexShrink: 0, backgroundColor: "#e5e2dc" }}
-                />
-              ) : (
-                <div style={{
-                  width: ART, height: ART, flexShrink: 0,
-                  backgroundImage: src ? `url(${src})` : "none",
-                  backgroundSize: "cover", backgroundPosition: "center",
-                  backgroundColor: "#e5e2dc",
-                }} />
-              )}
               <div style={{ minWidth: 0, flex: 1 }}>
                 <div style={{ fontFamily: MONO, fontSize: artistFont, letterSpacing: "0.09em", textTransform: "uppercase", color: MUTED, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", marginBottom: textGap }}>
                   {t.artist}
@@ -236,8 +183,6 @@ function LandscapeCard({ title, tracks, username, covers, forExport }: CardProps
 
 export default function PlaylistShareModal({ onClose, title, tracks, username }: Props) {
   const [format,        setFormat]        = useState<Format>("portrait");
-  const [covers,        setCovers]        = useState<Covers>({});
-  const [coversLoaded,  setCoversLoaded]  = useState(false);
   const [exporting,     setExporting]     = useState(false);
   const [copyImgState,  setCopyImgState]  = useState<"idle" | "copied" | "failed">("idle");
   // Available width for the scaled preview — defaults to the desktop cap (508)
@@ -246,10 +191,6 @@ export default function PlaylistShareModal({ onClose, title, tracks, username }:
 
   // Separate ref for the off-screen export card (natural size, no transform)
   const exportRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    loadCovers(tracks).then(c => { setCovers(c); setCoversLoaded(true); });
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     // Modal: 24px outer padding each side, 16px inner preview padding each side
@@ -261,70 +202,25 @@ export default function PlaylistShareModal({ onClose, title, tracks, username }:
     return () => window.removeEventListener("resize", recalc);
   }, []);
 
-  async function buildCanvas(): Promise<HTMLCanvasElement | null> {
+  // No artwork on this card, so there's nothing cross-origin for html-to-image
+  // to choke on — a single toPng() call is enough (the playlist/record share
+  // cards elsewhere composite cover images onto canvas separately precisely
+  // because they DO have artwork to work around CORS for; this card doesn't).
+  async function captureDataUrl(): Promise<string | null> {
     if (!exportRef.current) return null;
     await document.fonts.ready;
-
-    const PR = 2;
-    const naturalW = exportRef.current.offsetWidth;
-    const naturalH = exportRef.current.offsetHeight;
-
-    // Step 1: capture layout — gray placeholder boxes where covers will go
-    const layoutDataUrl = await toPng(exportRef.current, { pixelRatio: PR });
-
-    // Step 2: measure each cover slot's position relative to the card via BCR
-    const cardBCR = exportRef.current.getBoundingClientRect();
-    const slotRects: { pos: number; x: number; y: number; w: number; h: number }[] = [];
-    exportRef.current.querySelectorAll<HTMLElement>("[data-cover-slot]").forEach(el => {
-      const pos = parseInt(el.dataset.coverSlot!);
-      const r = el.getBoundingClientRect();
-      slotRects.push({
-        pos,
-        x: r.left - cardBCR.left,
-        y: r.top  - cardBCR.top,
-        w: r.width,
-        h: r.height,
-      });
-    });
-
-    // Step 3: build composite canvas
-    const canvas = document.createElement("canvas");
-    canvas.width  = naturalW * PR;
-    canvas.height = naturalH * PR;
-    const ctx = canvas.getContext("2d")!;
-
-    // Step 4: draw the layout PNG
-    await new Promise<void>((resolve, reject) => {
-      const img = new Image();
-      img.onload  = () => { ctx.drawImage(img, 0, 0); resolve(); };
-      img.onerror = reject;
-      img.src = layoutDataUrl;
-    });
-
-    // Step 5: draw each cover image directly from data URL on top
-    await Promise.all(slotRects.map(({ pos, x, y, w, h }) => {
-      const dataUrl = covers[pos];
-      if (!dataUrl) return Promise.resolve();
-      return new Promise<void>(resolve => {
-        const img = new Image();
-        img.onload  = () => { ctx.drawImage(img, x * PR, y * PR, w * PR, h * PR); resolve(); };
-        img.onerror = () => resolve();
-        img.src = dataUrl;
-      });
-    }));
-
-    return canvas;
+    return toPng(exportRef.current, { pixelRatio: 2 });
   }
 
   async function handleDownload() {
     setExporting(true);
     try {
-      const canvas = await buildCanvas();
-      if (!canvas) return;
+      const dataUrl = await captureDataUrl();
+      if (!dataUrl) return;
       const slug = title.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 40);
       const link = document.createElement("a");
       link.download = `rekodo-${slug}-${format === "portrait" ? "portrait" : "landscape"}.png`;
-      link.href = canvas.toDataURL("image/png");
+      link.href = dataUrl;
       link.click();
     } finally {
       setExporting(false);
@@ -337,11 +233,9 @@ export default function PlaylistShareModal({ onClose, title, tracks, username }:
       // ClipboardItem accepts Promise<Blob> — pass it immediately so the
       // clipboard write starts within the user gesture (before any awaits
       // expire the activation context).
-      const blobPromise: Promise<Blob> = buildCanvas().then(canvas => {
-        if (!canvas) throw new Error("capture failed");
-        return new Promise<Blob>((resolve, reject) =>
-          canvas.toBlob(b => b ? resolve(b) : reject(new Error("toBlob failed")), "image/png"),
-        );
+      const blobPromise: Promise<Blob> = captureDataUrl().then(dataUrl => {
+        if (!dataUrl) throw new Error("capture failed");
+        return fetch(dataUrl).then(r => r.blob());
       });
       await navigator.clipboard.write([new ClipboardItem({ "image/png": blobPromise })]);
       await blobPromise; // wait so exporting spinner clears after completion
@@ -360,9 +254,7 @@ export default function PlaylistShareModal({ onClose, title, tracks, username }:
   const PRV_W  = Math.round(CARD_W * SCALE);
   const PRV_H  = Math.round(CARD_H * SCALE);
 
-  const busy = exporting || !coversLoaded;
-
-  const cardProps = { title, tracks, username, covers };
+  const cardProps = { title, tracks, username };
 
   return (
     <div
@@ -373,8 +265,8 @@ export default function PlaylistShareModal({ onClose, title, tracks, username }:
       <div style={{ position: "fixed", left: -9999, top: -9999, zIndex: -1, overflow: "hidden" }}>
         <div ref={exportRef}>
           {format === "portrait"
-            ? <PortraitCard  {...cardProps} forExport />
-            : <LandscapeCard {...cardProps} forExport />
+            ? <PortraitCard  {...cardProps} />
+            : <LandscapeCard {...cardProps} />
           }
         </div>
       </div>
@@ -407,18 +299,14 @@ export default function PlaylistShareModal({ onClose, title, tracks, username }:
 
         {/* Preview — scaled for display only, not used for export */}
         <div style={{ flex: 1, overflowY: "auto", padding: "16px", display: "flex", justifyContent: "center" }}>
-          {!coversLoaded ? (
-            <p style={{ fontFamily: UI_MONO, fontSize: "10px", color: "#aaa", letterSpacing: "0.06em", alignSelf: "center" }}>Loading artwork…</p>
-          ) : (
-            <div style={{ width: PRV_W, height: PRV_H, overflow: "hidden", flexShrink: 0, border: "1px solid rgba(0,0,0,0.08)" }}>
-              <div style={{ transform: `scale(${SCALE})`, transformOrigin: "top left", display: "inline-block" }}>
-                {format === "portrait"
-                  ? <PortraitCard  {...cardProps} />
-                  : <LandscapeCard {...cardProps} />
-                }
-              </div>
+          <div style={{ width: PRV_W, height: PRV_H, overflow: "hidden", flexShrink: 0, border: "1px solid rgba(0,0,0,0.08)" }}>
+            <div style={{ transform: `scale(${SCALE})`, transformOrigin: "top left", display: "inline-block" }}>
+              {format === "portrait"
+                ? <PortraitCard  {...cardProps} />
+                : <LandscapeCard {...cardProps} />
+              }
             </div>
-          )}
+          </div>
         </div>
 
         {/* Actions */}
@@ -426,15 +314,15 @@ export default function PlaylistShareModal({ onClose, title, tracks, username }:
           <div style={{ display: "flex", gap: "8px" }}>
             <button
               onClick={handleDownload}
-              disabled={busy}
-              style={{ flex: 1, fontFamily: UI_MONO, fontSize: "9px", letterSpacing: "0.1em", textTransform: "uppercase", background: INK, color: "#fff", border: "none", cursor: busy ? "wait" : "pointer", padding: "10px 0", opacity: busy ? 0.5 : 1 }}
+              disabled={exporting}
+              style={{ flex: 1, fontFamily: UI_MONO, fontSize: "9px", letterSpacing: "0.1em", textTransform: "uppercase", background: INK, color: "#fff", border: "none", cursor: exporting ? "wait" : "pointer", padding: "10px 0", opacity: exporting ? 0.5 : 1 }}
             >
-              {exporting ? "Exporting…" : !coversLoaded ? "Loading…" : "Download PNG"}
+              {exporting ? "Exporting…" : "Download PNG"}
             </button>
             <button
               onClick={handleCopyImage}
-              disabled={busy}
-              style={{ flex: 1, fontFamily: UI_MONO, fontSize: "9px", letterSpacing: "0.1em", textTransform: "uppercase", background: "none", border: "1px solid rgba(0,0,0,0.18)", cursor: busy ? "wait" : "pointer", padding: "10px 0", color: copyImgState === "copied" ? "#22c55e" : copyImgState === "failed" ? "#ef4444" : INK, opacity: busy ? 0.5 : 1 }}
+              disabled={exporting}
+              style={{ flex: 1, fontFamily: UI_MONO, fontSize: "9px", letterSpacing: "0.1em", textTransform: "uppercase", background: "none", border: "1px solid rgba(0,0,0,0.18)", cursor: exporting ? "wait" : "pointer", padding: "10px 0", color: copyImgState === "copied" ? "#22c55e" : copyImgState === "failed" ? "#ef4444" : INK, opacity: exporting ? 0.5 : 1 }}
             >
               {copyImgState === "copied" ? "Copied ✓" : copyImgState === "failed" ? "Failed" : "Copy Image"}
             </button>
