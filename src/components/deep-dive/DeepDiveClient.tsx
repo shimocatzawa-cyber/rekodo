@@ -124,11 +124,17 @@ function RankingsContent({
   data,
   onAddToWantlist,
   wantlistAdded,
+  collectionSet,
+  wantlistSet,
 }: {
   data: { albums?: Album[] };
   onAddToWantlist?: (album: Album) => void;
   wantlistAdded?: Set<string>;
+  collectionSet?: Set<string>;
+  wantlistSet?: Set<string>;
 }) {
+  const norm = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, "");
+
   const albums = data.albums ?? [];
   if (albums.length === 0) {
     return (
@@ -140,7 +146,31 @@ function RankingsContent({
   return (
     <div>
       {albums.map((a) => {
-        const added = wantlistAdded?.has(a.title) ?? false;
+        const key          = norm(a.title);
+        const inCollection = collectionSet?.has(key) ?? false;
+        const inWantlist   = wantlistSet?.has(key) ?? wantlistAdded?.has(a.title) ?? false;
+
+        const statusTag = inCollection
+          ? <span style={{ fontFamily: MONO, fontSize: "0.65rem", letterSpacing: "0.06em", color: "#aaa", border: "1px solid #ddd", padding: "2px 7px", flexShrink: 0 }}>In Collection</span>
+          : inWantlist
+          ? <span style={{ fontFamily: MONO, fontSize: "0.65rem", letterSpacing: "0.06em", color: ORANGE, border: `1px solid ${ORANGE}`, padding: "2px 7px", flexShrink: 0, opacity: 0.6 }}>In Wantlist</span>
+          : onAddToWantlist
+          ? (
+            <button
+              type="button"
+              onClick={() => onAddToWantlist(a)}
+              style={{
+                fontFamily: MONO, fontSize: "0.65rem", letterSpacing: "0.06em",
+                color: ORANGE, background: "none",
+                border: `1px dashed ${ORANGE}`,
+                padding: "2px 7px", cursor: "pointer", flexShrink: 0,
+              }}
+            >
+              + Wantlist
+            </button>
+          )
+          : null;
+
         return (
           <div key={a.rank} style={{ padding: "1.5rem 0", borderBottom: `1px solid ${RULE}` }}>
             <div style={{ display: "flex", gap: 20, alignItems: "flex-start" }}>
@@ -155,23 +185,7 @@ function RankingsContent({
                   <span style={{ fontFamily: MONO, fontSize: "0.7rem", letterSpacing: "0.04em", color: INK }}>
                     · {a.year}
                   </span>
-                  {onAddToWantlist && (
-                    <button
-                      type="button"
-                      onClick={() => { if (!added) onAddToWantlist(a); }}
-                      disabled={added}
-                      style={{
-                        fontFamily: MONO, fontSize: "0.65rem", letterSpacing: "0.06em",
-                        color: added ? "#aaa" : ORANGE,
-                        background: "none",
-                        border: `1px ${added ? "solid" : "dashed"} ${added ? "#aaa" : ORANGE}`,
-                        padding: "2px 7px", cursor: added ? "default" : "pointer",
-                        flexShrink: 0,
-                      }}
-                    >
-                      {added ? "Added ✓" : "+ Wantlist"}
-                    </button>
-                  )}
+                  {statusTag}
                 </div>
                 <div style={{ borderTop: `1px solid ${RULE}`, margin: "0 0 10px" }} />
                 <p style={{ fontFamily: MONO, fontSize: "0.72rem", letterSpacing: "0.04em", color: INK, lineHeight: 1.7, margin: "0 0 10px" }}>
@@ -1220,7 +1234,22 @@ export default function DeepDiveClient({
     const data = cache[selectedArtist]?.[activeTab];
     if (!data) return <SkeletonRows />;
 
-    if (tab === "rankings")   return <RankingsContent   data={data as { albums?: Album[] }} onAddToWantlist={addAlbumToWantlist} wantlistAdded={wantlistAdded} />;
+    if (tab === "rankings") {
+      const norm = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, "");
+      const artistData = mergedArtists.find((a) => a.name === selectedArtist);
+      const collectionSet = new Set((artistData?.records ?? []).map((r) => norm(r.album)));
+      const wantlistSet   = new Set([
+        ...(artistData?.wantlistRecords ?? []).map((r) => norm(r.album)),
+        ...[...wantlistAdded].map(norm),
+      ]);
+      return <RankingsContent
+        data={data as { albums?: Album[] }}
+        onAddToWantlist={addAlbumToWantlist}
+        wantlistAdded={wantlistAdded}
+        collectionSet={collectionSet}
+        wantlistSet={wantlistSet}
+      />;
+    }
     if (tab === "podcasts")   return <PodcastsContent   data={data as { episodes?: Episode[] }} artist={selectedArtist} />;
     if (tab === "books")      return <BooksContent      data={data as { items?: BookItem[] }} />;
     if (tab === "interviews") return <InterviewsContent data={data as { interviews?: InterviewItem[] }} artist={selectedArtist} />;
