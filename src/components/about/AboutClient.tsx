@@ -162,7 +162,7 @@ export default function AboutClient({
 
 // ─── FAQ tab ──────────────────────────────────────────────────────────────────
 
-const FAQ_SECTIONS: { section: string; items: { q: string; a: string }[] }[] = [
+const FAQ_SECTIONS: { section: string; items: { q: string; a: React.ReactNode }[] }[] = [
   {
     section: "Getting Started",
     items: [
@@ -404,6 +404,23 @@ const FAQ_SECTIONS: { section: string; items: { q: string; a: string }[] }[] = [
       {
         q: "Can I connect Spotify?",
         a: "Yes, from your profile. Once connected, you can preview full tracks inside rekōdo (with a Premium account) and generate mood-based playlists from your collection.",
+      },
+    ],
+  },
+  {
+    section: "Privacy & Data",
+    items: [
+      {
+        q: "What data does rekōdo store about me?",
+        a: <>We store your Discogs collection data (artist, title, label, year, format, condition grades, and market values), your profile information, any Lists or Wantlist entries you create, and AI-generated content like your Taste Profile and Archetypes. Full details of every data category and why we hold it are in our{" "}<Link href="/privacy" style={{ color: ORANGE }}>Privacy Policy</Link>.</>,
+      },
+      {
+        q: "Does rekōdo send my data to AI models?",
+        a: <>Yes — features like Archetypes, Taste Profile, Deep Dive, Dig recommendations, and Playlist generation send a summary of your collection to Claude (Anthropic) to generate results. We send only what's needed for each feature and never sell your data to third parties. See{" "}<Link href="/privacy" style={{ color: ORANGE }}>our Privacy Policy</Link>{" "}for a full breakdown of what each feature sends.</>,
+      },
+      {
+        q: "How do I delete my account or request my data?",
+        a: <>You can delete your account directly from your profile settings — this removes your collection, Lists, Wantlist, Taste Profile, and all personal data from our systems and revokes your Discogs and Spotify connections. If you'd like a copy of your data or have a specific request, use the Contact tab and select "Account or data request". Full details are in{" "}<Link href="/privacy" style={{ color: ORANGE }}>our Privacy Policy</Link>{" "}(§7).</>,
       },
     ],
   },
