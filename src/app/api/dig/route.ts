@@ -504,7 +504,11 @@ ${JSON_SCHEMA}`;
     const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
     const message = await anthropic.messages.create({
       model: "claude-sonnet-4-5",
-      max_tokens: 1024,
+      // Discover/style modes ask for 5 objects (not 3) so post-filtering has
+      // headroom — 1024 was already close to the ceiling for 3 full objects
+      // (reason text + three search URLs each), and routinely truncated mid-
+      // string for 5, surfacing as "Unterminated string in JSON" parse errors.
+      max_tokens: 2048,
       messages: [{ role: "user", content: prompt }],
     });
 
