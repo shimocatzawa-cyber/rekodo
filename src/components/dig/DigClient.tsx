@@ -93,9 +93,10 @@ function PositionIndicator({ idx, total, onNav }: { idx: number; total: number; 
 
 // ─── Sleeve card ──────────────────────────────────────────────────────────────
 
-function SleeveCard({ rec, mode, onAddToWantlist, wantlistAdded, onPreviewReady }: {
+function SleeveCard({ rec, mode, onAddToWantlist, wantlistAdded, onDismiss, dismissed, onPreviewReady }: {
   rec: Recommendation; mode: DigMode;
   onAddToWantlist: () => void; wantlistAdded: boolean;
+  onDismiss: () => void; dismissed: boolean;
   onPreviewReady: (data: { previewUrl: string | null; trackUri: string | null; albumUri: string | null; artist: string; album: string } | null) => void;
 }) {
   // Component remounts on every rec change (key prop), so useState resets naturally.
@@ -198,21 +199,38 @@ function SleeveCard({ rec, mode, onAddToWantlist, wantlistAdded, onPreviewReady 
             )}
           </div>
           {mode !== "explore" && (
-            <button
-              onClick={onAddToWantlist}
-              disabled={wantlistAdded}
-              style={{
-                fontFamily: MONO, fontSize: "9px", letterSpacing: "0.1em", textTransform: "uppercase",
-                color: wantlistAdded ? "#aaaaaa" : ORANGE,
-                background: "none",
-                border: `1px ${wantlistAdded ? "solid" : "dashed"} ${wantlistAdded ? "#aaaaaa" : ORANGE}`,
-                cursor: wantlistAdded ? "default" : "pointer",
-                padding: "5px 10px", flexShrink: 0,
-                transition: "all 0.2s",
-              }}
-            >
-              {wantlistAdded ? "Added ✓" : "+ Wantlist"}
-            </button>
+            <div style={{ display: "flex", alignItems: "center", gap: "10px", flexShrink: 0 }}>
+              <button
+                onClick={onDismiss}
+                disabled={dismissed}
+                style={{
+                  fontFamily: MONO, fontSize: "9px", letterSpacing: "0.06em", textTransform: "uppercase",
+                  color: "#bbbbbb",
+                  background: "none", border: "none",
+                  cursor: dismissed ? "default" : "pointer",
+                  padding: "5px 2px",
+                  textDecoration: dismissed ? "none" : "underline",
+                  textDecorationColor: "#dddddd",
+                }}
+              >
+                {dismissed ? "Noted" : "Not for me"}
+              </button>
+              <button
+                onClick={onAddToWantlist}
+                disabled={wantlistAdded}
+                style={{
+                  fontFamily: MONO, fontSize: "9px", letterSpacing: "0.1em", textTransform: "uppercase",
+                  color: wantlistAdded ? "#aaaaaa" : ORANGE,
+                  background: "none",
+                  border: `1px ${wantlistAdded ? "solid" : "dashed"} ${wantlistAdded ? "#aaaaaa" : ORANGE}`,
+                  cursor: wantlistAdded ? "default" : "pointer",
+                  padding: "5px 10px", flexShrink: 0,
+                  transition: "all 0.2s",
+                }}
+              >
+                {wantlistAdded ? "Added ✓" : "+ Wantlist"}
+              </button>
+            </div>
           )}
         </div>
 
@@ -791,6 +809,7 @@ export default function DigClient({ userId, username, displayLabel, avatarUrl, c
   const [selectedStyle, setSelectedStyle] = useState<string | null>(null);
   const [wantlistAdded, setWantlistAdded] = useState<Set<string>>(new Set());
   const [wantlistError, setWantlistError] = useState<string | null>(null);
+  const [dismissed,     setDismissed]     = useState<Set<string>>(new Set());
   const [digSpotify,    setDigSpotify]    = useState<{
     previewUrl: string | null; trackUri: string | null; albumUri: string | null; artist: string; album: string;
   } | null>(null);
@@ -996,6 +1015,31 @@ export default function DigClient({ userId, username, displayLabel, avatarUrl, c
       setWantlistAdded(prev => { const s = new Set(prev); s.delete(key); return s; });
       setWantlistError(e instanceof Error ? e.message : "Failed to add to wantlist");
       setTimeout(() => setWantlistError(null), 6000);
+    }
+  }
+
+  // Explicit "not for me" — a faster, stronger negative signal than waiting
+  // for the same genre/sub-style to be shown 3 times with no action. Updates
+  // the dig_history row the server already persisted for this pick (best-
+  // effort: if the insert from after() somehow hasn't landed yet, the local
+  // dismissed state below still hides it for this session either way).
+  async function handleDismiss(rec: Recommendation) {
+    const key = `${rec.artist}||${rec.album}`;
+    setDismissed(prev => new Set(prev).add(key));
+    try {
+      const supabase = createClient();
+      // dig_history isn't in the generated Supabase types (same as its other
+      // call sites in api/dig/route.ts) — cast to bypass that, not to skip checks.
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      await (supabase as any)
+        .from("dig_history")
+        .update({ dismissed_at: new Date().toISOString() })
+        .eq("user_id", userId)
+        .eq("artist", rec.artist)
+        .eq("album", rec.album)
+        .is("dismissed_at", null);
+    } catch {
+      // best-effort — local dismissed state already hides it this session
     }
   }
 
@@ -1228,6 +1272,8 @@ export default function DigClient({ userId, username, displayLabel, avatarUrl, c
                       mode={mode}
                       onAddToWantlist={() => handleAddToWantlist(recs[idx])}
                       wantlistAdded={wantlistAdded.has(`${recs[idx].artist}||${recs[idx].album}`)}
+                      onDismiss={() => handleDismiss(recs[idx])}
+                      dismissed={dismissed.has(`${recs[idx].artist}||${recs[idx].album}`)}
                       onPreviewReady={setDigSpotify}
                     />
                   </div>
