@@ -48,7 +48,11 @@ async function fetchPaged(
   for (let from = 0; ; from += BATCH) {
     let query = adminDb.from(table).select(columns).range(from, from + BATCH - 1);
     if (filter) query = query.eq(filter.column, filter.value);
-    const { data } = await query;
+    const { data, error } = await query;
+    // A query error (e.g. a missing grant) looks identical to "no rows" if
+    // not checked — that silently zeroed out an entire admin column before
+    // (see 20260630000001) rather than showing up anywhere.
+    if (error) { console.error(`[admin] fetchPaged(${table}) failed:`, error.message); break; }
     if (!data?.length) break;
     rows.push(...(data as unknown as Record<string, unknown>[]));
     if (data.length < BATCH) break;

@@ -1,0 +1,12 @@
+-- 20260628000001 granted archetype_cache to `authenticated` only, reasoning
+-- that service-role paths "bypass grants entirely" — that's true for RLS,
+-- but GRANT/ACL checks are a separate layer that BYPASSRLS does not skip.
+-- archetype_cache was created outside any tracked migration (see
+-- 20260622000004) and never received a service_role grant at all, so both
+-- read/write paths that intentionally use the service role for this table —
+-- /api/archetypes (the cache itself) and /admin (reading primary_archetype
+-- for the user table) — have been silently failing with "permission denied
+-- for table archetype_cache" since day one. Admin shows every user's
+-- archetype as unmapped because the cache write in /api/archetypes never
+-- actually persists, not because the archetype computation itself is wrong.
+grant select, insert, update, delete on public.archetype_cache to service_role;
