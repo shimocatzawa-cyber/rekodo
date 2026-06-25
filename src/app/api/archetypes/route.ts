@@ -1,6 +1,7 @@
 import { createClient as createServiceClient } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase/server";
 import { computeArchetypes } from "@/lib/archetypes/computeArchetypes";
+import { isSupporter } from "@/lib/rateLimit";
 
 export const dynamic = "force-dynamic";
 
@@ -42,6 +43,14 @@ function isCacheValid(
 export async function GET() {
   const { supabase, user } = await getAuthUser();
   if (!user) return Response.json({ error: "Not authenticated" }, { status: 401 });
+
+  // Archetypes is a supporter-only feature (see src/app/archetypes/page.tsx) —
+  // the page gates access, but this route didn't, so it was callable directly
+  // by anyone with an account, bypassing the paywall (same bug already fixed
+  // on the essay sub-route).
+  if (!(await isSupporter(supabase, user.id))) {
+    return Response.json({ error: "Supporter access required" }, { status: 403 });
+  }
 
   const cacheDb = getCacheDb();
 
@@ -137,6 +146,10 @@ export async function GET() {
 export async function POST() {
   const { supabase, user } = await getAuthUser();
   if (!user) return Response.json({ error: "Not authenticated" }, { status: 401 });
+
+  if (!(await isSupporter(supabase, user.id))) {
+    return Response.json({ error: "Supporter access required" }, { status: 403 });
+  }
 
   const cacheDb = getCacheDb();
 
