@@ -382,7 +382,7 @@ ${JSON_SCHEMA}`;
       ? `\nALREADY RECOMMENDED (avoid the same genre, region, or sonic territory as these):\n${allPrevRecs.map(r => `- ${r.artist} — ${r.album}`).join("\n")}\n`
       : "";
 
-    const angleBlock = `\nEXPLORATION ANGLE — you must satisfy both era constraints:\n- One pick MUST come from the ${digDecadeModern} — modern releases are just as valid on vinyl as classics\n- One pick MUST come from the ${digDecadeClassic}\n- The third pick can come from any era\n${digRegion ? `- Geography: one pick should lean toward music originating from ${digRegion}\n` : ""}- One pick should be: ${digAngle}\n- The other two picks do NOT need to be obscure or regional — well-known, widely loved records that genuinely fit this collector's taste are just as valid a recommendation as a deep cut. Most digs should land mostly on great, findable records; rarity is a bonus, not the goal.\n`;
+    const angleBlock = `\nEXPLORATION ANGLE — you must satisfy both era constraints:\n- One pick MUST come from the ${digDecadeModern} — modern releases are just as valid on vinyl as classics\n- One pick MUST come from the ${digDecadeClassic}\n- Any picks beyond those two can come from any era\n${digRegion ? `- Geography: one pick should lean toward music originating from ${digRegion}\n` : ""}- One pick should be: ${digAngle}\n- The remaining picks do NOT need to be obscure or regional — well-known, widely loved records that genuinely fit this collector's taste are just as valid a recommendation as a deep cut. Most digs should land mostly on great, findable records; rarity is a bonus, not the goal.\n`;
 
     prompt = `You are a vinyl crate-digging assistant with encyclopaedic knowledge of recorded music across all genres, eras, and territories.
 
@@ -400,13 +400,13 @@ Rules:
 - STRICT: Every recommendation must be by an artist NOT in the OWNED ARTISTS list and NOT in the WANTLIST.
 - STRICT: Do not recommend anything from the same genre, regional scene, or sonic territory as the ALREADY RECOMMENDED list above — every "Dig again" must open a genuinely different crate.
 - STRICT: Follow the era constraints in the EXPLORATION ANGLE exactly — one modern pick (post-2000) is mandatory every single time.
-- STRICT: Do not default to the 1960s–1970s classic canon for all three picks. Resist the training bias toward that period.
-- Apply the EXPLORATION ANGLE to one pick only. The other two picks should be whatever genuinely fits this collector's taste best — they can be well-known, even famous, records. The bar is "this collector will love it," not "this collector hasn't heard of it." Do not chase obscurity for its own sake.
+- STRICT: Do not default to the 1960s–1970s classic canon for all picks. Resist the training bias toward that period.
+- Apply the EXPLORATION ANGLE to one pick only. The remaining picks should be whatever genuinely fits this collector's taste best — they can be well-known, even famous, records. The bar is "this collector will love it," not "this collector hasn't heard of it." Do not chase obscurity for its own sake.
 - Each recommendation must have a reason written in plain English that reveals the aesthetic logic — not genre tags, but the texture, atmosphere, and emotional territory. Write it as if pointing at two records already on their shelf and saying "this is where those two shelves collide." Maximum 2 sentences.
 - The picks should feel genuinely surprising but inevitable in hindsight — the kind of record they will wonder how they missed.
 - Prioritise records obtainable on vinyl (original pressings, reissues, or easily available secondhand).
 
-Return ONLY a valid JSON array with exactly 3 objects. No markdown, no explanation outside the JSON.
+Return ONLY a valid JSON array with exactly 5 objects — extra picks give headroom after artists already owned or already recommended get filtered out; only the first 3 surviving picks are shown. No markdown, no explanation outside the JSON.
 
 Schema:
 ${JSON_SCHEMA}`;
@@ -445,7 +445,7 @@ ${JSON_SCHEMA}`;
           "a well-known, obvious-in-hindsight next step from what's already on their shelves",
         ]);
 
-    const angleBlock = `\nEXPLORATION ANGLE — you must satisfy both era constraints:\n- One pick MUST come from the ${digDecadeModern} — modern releases are just as valid on vinyl as classics\n- One pick MUST come from the ${digDecadeClassic}\n- The third pick can come from any era\n- One pick should be: ${digAngle}\n- The other two picks do NOT need to be obscure — well-known, widely loved records within "${style}" are just as valid as a deep cut. Most digs should land mostly on great, findable records; rarity is a bonus, not the goal.\n`;
+    const angleBlock = `\nEXPLORATION ANGLE — you must satisfy both era constraints:\n- One pick MUST come from the ${digDecadeModern} — modern releases are just as valid on vinyl as classics\n- One pick MUST come from the ${digDecadeClassic}\n- Any picks beyond those two can come from any era\n- One pick should be: ${digAngle}\n- The remaining picks do NOT need to be obscure — well-known, widely loved records within "${style}" are just as valid as a deep cut. Most digs should land mostly on great, findable records; rarity is a bonus, not the goal.\n`;
 
     prompt = `You are a vinyl crate-digging assistant with encyclopaedic knowledge of recorded music across all genres, eras, and territories.
 
@@ -463,12 +463,12 @@ Rules:
 - STRICT: Every recommendation must be unambiguously within the "${style}" style, or a very close subgenre of it. Do not drift into adjacent but distinct styles.
 - STRICT: Every recommendation must be by an artist NOT in the OWNED ARTISTS list and NOT in the WANTLIST.
 - STRICT: Do not repeat artists from the ALREADY RECOMMENDED list — every "Dig again" must surface a genuinely different corner of "${style}".
-- Apply the EXPLORATION ANGLE to one pick only. The other two should be whatever genuinely fits this collector's taste best within "${style}" — they can be well-known, even essential, records in the style. The bar is "this collector will love it," not "this collector hasn't heard of it."
+- Apply the EXPLORATION ANGLE to one pick only. The remaining picks should be whatever genuinely fits this collector's taste best within "${style}" — they can be well-known, even essential, records in the style. The bar is "this collector will love it," not "this collector hasn't heard of it."
 - Each reason must explain specifically what makes this pick a great entry point into "${style}" for someone who already collects vinyl in this lane — speak to the texture, atmosphere, and lineage, not genre tags. Maximum 2 sentences.
 - The picks should feel genuinely surprising but inevitable in hindsight — the kind of record they will wonder how they missed.
 - Prioritise records obtainable on vinyl (original pressings, reissues, or easily available secondhand).
 
-Return ONLY a valid JSON array with exactly 3 objects. No markdown, no explanation outside the JSON.
+Return ONLY a valid JSON array with exactly 5 objects — extra picks give headroom after artists already owned or already recommended get filtered out; only the first 3 surviving picks are shown. No markdown, no explanation outside the JSON.
 
 Schema:
 ${JSON_SCHEMA}`;
@@ -521,12 +521,27 @@ ${JSON_SCHEMA}`;
     }
 
     // Post-filter: remove any picks Claude returned that belong to artists already
-    // in the collection — the prompt instruction alone isn't reliable enough.
+    // in the collection, or already recommended in this or an earlier session —
+    // the prompt instructions alone aren't reliable enough for either rule. Only
+    // the owned-artist side had this safety net before; the no-repeat rule had
+    // none, so Claude dropping it silently surfaced as repeated digs with no
+    // server-side catch. Ask the prompt for 5 candidates (see angleBlock/prompt
+    // above) specifically so filtering down to 3 here doesn't shortchange the
+    // response — without the buffer, every filtered pick was a pick never
+    // replaced, so "exactly 3 requested" routinely shipped as 1 or 2 shown.
     if (mode === "discover" || mode === "style") {
       const ownedArtistSet = new Set(collection.map(r => r.artist.toLowerCase().trim()));
-      recommendations = recommendations.filter(
-        (r: { artist?: string }) => r.artist && !ownedArtistSet.has(r.artist.toLowerCase().trim())
-      );
+      const prevArtistSet  = new Set(allPrevArtists.map(a => a.toLowerCase().trim()));
+      const seenThisBatch  = new Set<string>(); // the 5-candidate buffer could repeat an artist across its own picks
+      recommendations = recommendations
+        .filter((r: { artist?: string }) => {
+          if (!r.artist) return false;
+          const key = r.artist.toLowerCase().trim();
+          if (ownedArtistSet.has(key) || prevArtistSet.has(key) || seenThisBatch.has(key)) return false;
+          seenThisBatch.add(key);
+          return true;
+        })
+        .slice(0, 3);
       if (recommendations.length === 0) {
         return Response.json({ error: "Invalid recommendations format" }, { status: 500 });
       }
