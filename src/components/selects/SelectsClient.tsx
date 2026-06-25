@@ -98,12 +98,9 @@ function ReleaseRow({ item }: { item: LabelFeedItem }) {
             {[item.label, item.format].filter(Boolean).join(" · ")}
           </p>
         )}
-        {(item.release_date || item.price) && (
+        {item.release_date && (
           <p style={{ fontFamily: MONO, fontSize: "0.6rem", letterSpacing: "0.06em", color: "#888", margin: "0 0 3px 0" }}>
-            {[
-              item.release_date ? new Date(item.release_date).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" }) : null,
-              item.price,
-            ].filter(Boolean).join(" · ")}
+            {new Date(item.release_date).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })}
           </p>
         )}
         {item.tags && item.tags.length > 0 && (
@@ -115,6 +112,11 @@ function ReleaseRow({ item }: { item: LabelFeedItem }) {
 
       {/* Buy link */}
       <div style={{ flexShrink: 0, textAlign: "right" }}>
+        {item.price && (
+          <p style={{ fontFamily: MONO, fontSize: "0.65rem", letterSpacing: "0.06em", color: INK, margin: "0 0 4px 0" }}>
+            {item.price}
+          </p>
+        )}
         <a
           href={buyHref}
           target="_blank"
