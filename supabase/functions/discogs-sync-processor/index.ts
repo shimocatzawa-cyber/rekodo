@@ -424,23 +424,42 @@ async function processSync(supabase: SB, jobId: string, userId: string) {
     }
 
     // ── Phase 4: Persist condition ratings ────────────────────────────────────
+    // Each field upserted independently, only for items where Discogs
+    // actually returned a value this sync — same "never overwrite good data
+    // with a transient null" rule already applied to vinyl_colour above
+    // (Phase 1c). The previous single combined upsert wrote all three fields
+    // together for any item that had at least one of them — since nearly
+    // every item has a date_added, a sync where Discogs's notes/field-ID
+    // lookup came back empty (transient API hiccup, rate limiting, a user's
+    // custom field naming not matching "media"/"sleeve") silently nulled out
+    // previously-correct condition ratings across the whole collection.
     await updateJob(supabase, jobId, { phase: "conditions" });
 
-    const conditionUpserts = collectionItems
-      .filter((item) => item.media_condition || item.sleeve_condition || item.date_added)
+    const mediaUpserts = collectionItems
+      .filter((item) => item.media_condition && existingMap.get(item.discogs_id))
       .map((item) => ({
-        user_id:          userId,
-        record_id:        existingMap.get(item.discogs_id)!,
-        media_condition:  item.media_condition,
-        sleeve_condition: item.sleeve_condition,
-        date_added:       item.date_added,
-      }))
-      .filter((u) => u.record_id);
+        user_id: userId, record_id: existingMap.get(item.discogs_id)!,
+        media_condition: item.media_condition!,
+      }));
+    const sleeveUpserts = collectionItems
+      .filter((item) => item.sleeve_condition && existingMap.get(item.discogs_id))
+      .map((item) => ({
+        user_id: userId, record_id: existingMap.get(item.discogs_id)!,
+        sleeve_condition: item.sleeve_condition!,
+      }));
+    const dateAddedUpserts = collectionItems
+      .filter((item) => item.date_added && existingMap.get(item.discogs_id))
+      .map((item) => ({
+        user_id: userId, record_id: existingMap.get(item.discogs_id)!,
+        date_added: item.date_added!,
+      }));
 
-    for (let i = 0; i < conditionUpserts.length; i += BATCH) {
-      await supabase
-        .from("user_records")
-        .upsert(conditionUpserts.slice(i, i + BATCH), { onConflict: "user_id,record_id" });
+    for (const upserts of [mediaUpserts, sleeveUpserts, dateAddedUpserts]) {
+      for (let i = 0; i < upserts.length; i += BATCH) {
+        await supabase
+          .from("user_records")
+          .upsert(upserts.slice(i, i + BATCH), { onConflict: "user_id,record_id" });
+      }
     }
 
     // ── Phase 4b: Remove stale user_records ──────────────────────────────────
