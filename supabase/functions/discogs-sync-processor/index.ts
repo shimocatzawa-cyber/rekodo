@@ -121,7 +121,7 @@ function extractEditionSize(
       if (m) {
         const n = parseInt(m[1], 10);
         // Sanity-check: plausible edition sizes only
-        if (n >= 10 && n <= 1_000_000) return n;
+        if (n >= 10 && n <= 25_000) return n;
       }
     }
   }
