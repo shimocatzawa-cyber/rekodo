@@ -25,6 +25,22 @@ function IconPause() {
     </svg>
   );
 }
+function IconPrev() {
+  return (
+    <svg width="11" height="11" viewBox="0 0 16 16" aria-hidden="true">
+      <rect x="2" y="1" width="2" height="14" fill="currentColor" />
+      <polygon points="14,1 14,15 4,8" fill="currentColor" />
+    </svg>
+  );
+}
+function IconNext() {
+  return (
+    <svg width="11" height="11" viewBox="0 0 16 16" aria-hidden="true">
+      <rect x="12" y="1" width="2" height="14" fill="currentColor" />
+      <polygon points="2,1 2,15 12,8" fill="currentColor" />
+    </svg>
+  );
+}
 
 function fmt(ms: number) {
   const s = Math.floor(ms / 1000);
@@ -34,7 +50,7 @@ function fmt(ms: number) {
 export default function PlaylistPlayer({ tracks, moodLabel }: { tracks: GeneratedTrack[]; moodLabel: string }) {
   const {
     tokenData, deviceId, playing, position, duration, currentTrack, playError,
-    useSDK, setActiveSource, handlePlayPause, handleSeek,
+    useSDK, setActiveSource, handlePlayPause, handleSeek, previousTrack, nextTrack,
   } = useSpotifyPlayback();
 
   useEffect(() => {
@@ -89,6 +105,23 @@ export default function PlaylistPlayer({ tracks, moodLabel }: { tracks: Generate
     <div style={{ background: "#ffffff", border: `1px solid ${RULE}` }}>
       <div style={{ padding: "12px 16px", display: "flex", alignItems: "center", gap: "14px" }}>
         <button
+          onClick={previousTrack}
+          aria-label="Previous track"
+          disabled={sdkConnecting}
+          style={{
+            width: "28px", height: "28px", flexShrink: 0,
+            background: "transparent", color: sdkConnecting ? "#cccccc" : INK, border: "none",
+            display: "flex", alignItems: "center", justifyContent: "center",
+            cursor: sdkConnecting ? "default" : "pointer",
+            transition: "color 0.15s",
+          }}
+          onMouseEnter={e => { if (!sdkConnecting) (e.currentTarget as HTMLButtonElement).style.color = ORANGE; }}
+          onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.color = sdkConnecting ? "#cccccc" : INK; }}
+        >
+          <IconPrev />
+        </button>
+
+        <button
           onClick={handlePlayPause}
           aria-label={playing ? "Pause" : "Play"}
           style={{
@@ -102,6 +135,23 @@ export default function PlaylistPlayer({ tracks, moodLabel }: { tracks: Generate
           onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = sdkConnecting ? "#cccccc" : INK; }}
         >
           {playing ? <IconPause /> : <IconPlay />}
+        </button>
+
+        <button
+          onClick={nextTrack}
+          aria-label="Next track"
+          disabled={sdkConnecting}
+          style={{
+            width: "28px", height: "28px", flexShrink: 0,
+            background: "transparent", color: sdkConnecting ? "#cccccc" : INK, border: "none",
+            display: "flex", alignItems: "center", justifyContent: "center",
+            cursor: sdkConnecting ? "default" : "pointer",
+            transition: "color 0.15s",
+          }}
+          onMouseEnter={e => { if (!sdkConnecting) (e.currentTarget as HTMLButtonElement).style.color = ORANGE; }}
+          onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.color = sdkConnecting ? "#cccccc" : INK; }}
+        >
+          <IconNext />
         </button>
 
         <div style={{ flex: 1, minWidth: 0 }}>
