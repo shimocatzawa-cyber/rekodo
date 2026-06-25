@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import type { GeneratedTrack } from "@/components/lists/PlaylistTab";
+import { openAppleMusicLink } from "@/lib/openAppleMusic";
 
 const SERIF  = "var(--font-editorial)";
 const MONO   = "var(--font-mono)";
@@ -25,6 +26,10 @@ function fmtTotal(ms: number) {
 function openInSpotifyUrl(uri: string): string {
   const id = uri.split(":").pop() ?? "";
   return `https://open.spotify.com/track/${id}`;
+}
+
+function appleMusicSearchUrl(artist: string, title: string): string {
+  return `https://music.apple.com/search?term=${encodeURIComponent(`${artist} ${title}`)}`;
 }
 
 interface Props {
@@ -110,13 +115,32 @@ export default function PlaylistTrackList({ tracks, onReorder, resequencing }: P
               <span style={{ fontFamily: MONO, fontSize: "9px", color: MUTED }}>
                 {t.duration_ms ? fmt(t.duration_ms) : ""}
               </span>
+              {/* draggable=false + stopPropagation: this row has draggable=true
+                  for reordering, and a plain click here has just enough mouse
+                  movement to often register as a native HTML5 drag-start on the
+                  row instead of a click — which could reorder tracks (changing
+                  the playlist's lead track key) right as the link opens,
+                  stopping playback via the source-key-changed pause path. */}
               <a
                 href={openInSpotifyUrl(t.spotify_uri)}
                 target="_blank"
                 rel="noopener noreferrer"
+                draggable={false}
+                onMouseDown={e => e.stopPropagation()}
                 style={{ fontFamily: MONO, fontSize: "8px", letterSpacing: "0.04em", color: "#bbbbbb", textDecoration: "none", whiteSpace: "nowrap" }}
               >
                 Spotify ↗
+              </a>
+              <a
+                href={appleMusicSearchUrl(t.artist, t.title)}
+                target="_blank"
+                rel="noopener noreferrer"
+                draggable={false}
+                onMouseDown={e => e.stopPropagation()}
+                onClick={e => { e.preventDefault(); openAppleMusicLink(appleMusicSearchUrl(t.artist, t.title)); }}
+                style={{ fontFamily: MONO, fontSize: "8px", letterSpacing: "0.04em", color: "#bbbbbb", textDecoration: "none", whiteSpace: "nowrap" }}
+              >
+                Apple Music ↗
               </a>
             </div>
           </div>
