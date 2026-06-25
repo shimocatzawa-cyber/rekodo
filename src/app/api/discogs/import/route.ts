@@ -1,6 +1,7 @@
 import { cookies } from "next/headers";
 import { createClient } from "@/lib/supabase/server";
 import { fetchCollectionReleases } from "@/lib/discogs/oauth";
+import { sendLoopsEvent } from "@/lib/loops";
 
 export async function POST() {
   const supabase = await createClient();
@@ -134,6 +135,10 @@ export async function POST() {
     cookieStore.delete("dg_at");
     cookieStore.delete("dg_ts");
     cookieStore.delete("dg_un");
+
+    if (newLinks.length > 0 && user.email) {
+      sendLoopsEvent(user.email, "record_added").catch(() => {});
+    }
 
     return Response.json({
       added: newLinks.length,

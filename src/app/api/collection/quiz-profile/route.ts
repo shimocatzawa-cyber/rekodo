@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
+import { sendLoopsEvent } from "@/lib/loops";
 
 export async function POST(request: Request) {
   const supabase = await createClient();
@@ -25,5 +26,10 @@ export async function POST(request: Request) {
     );
 
   if (error) return Response.json({ error: error.message }, { status: 500 });
+
+  if (user.email) {
+    sendLoopsEvent(user.email, "quiz_completed").catch(() => {});
+  }
+
   return Response.json({ ok: true });
 }

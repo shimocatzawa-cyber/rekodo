@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { sendLoopsEvent } from "@/lib/loops";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
@@ -232,6 +233,10 @@ export async function POST(request: NextRequest) {
     },
     body: JSON.stringify({ userId: user.id }),
   }).catch(() => {});
+
+  if (imported > 0 && user.email) {
+    sendLoopsEvent(user.email, "record_added").catch(() => {});
+  }
 
   return NextResponse.json({ success: true, imported, skipped, failed, enrichmentPending });
 }

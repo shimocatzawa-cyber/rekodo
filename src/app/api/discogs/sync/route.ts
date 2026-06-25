@@ -2,6 +2,7 @@ import { type NextRequest } from "next/server";
 import { cookies } from "next/headers";
 import { createClient } from "@/lib/supabase/server";
 import { enqueueSync } from "@/lib/sync-queue";
+import { sendLoopsEvent } from "@/lib/loops";
 
 export async function GET(request: NextRequest) {
   const supabase = await createClient();
@@ -150,6 +151,10 @@ export async function GET(request: NextRequest) {
       const timestamp = completedData.completed_at ?? new Date().toISOString();
 
       send({ type: "complete", total, newAdded, updated: completedData.records_updated, priceUpdated: 0, timestamp });
+
+      if (newAdded > 0 && user.email) {
+        sendLoopsEvent(user.email, "record_added").catch(() => {});
+      }
 
       // Phase 7: Collection intelligence — recomputes on next Library tab load
       try {
