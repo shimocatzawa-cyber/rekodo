@@ -509,9 +509,10 @@ function FaqTab() {
 
 const SUBJECTS = [
   "Something's broken",
+  "Discogs sync issue",
   "Feature request",
-  "Pressing Intelligence gap",
   "Supporter or billing",
+  "Account or data request",
   "Partnership enquiry",
   "Something else",
 ];
