@@ -172,7 +172,7 @@ const FAQ_SECTIONS: { section: string; items: { q: string; a: string }[] }[] = [
       },
       {
         q: "How do I connect my Discogs collection?",
-        a: "During onboarding you'll be prompted to authorise rekōdo via Discogs OAuth. This grants read access to your collection — rekōdo never writes to or modifies your Discogs data.",
+        a: "The standard method is OAuth — during onboarding you'll be prompted to authorise rekōdo via Discogs. This grants read-only access to your collection and rekōdo never writes to or modifies your Discogs data.\n\nIf the Discogs API is temporarily unavailable, or you'd prefer not to connect via OAuth, you can import using a CSV export instead. To get your CSV: log in to Discogs → go to your Collection → click the gear icon (top right) → Export → Collection CSV. Once downloaded, go to your rekōdo profile page and use the Backup / Bulk Import section to upload the file. rekōdo will add any records missing from your collection and fill in blank condition grades — it never overwrites data you already have.",
       },
       {
         q: "How long does the first sync take?",
@@ -489,6 +489,7 @@ function FaqTab() {
                         fontSize: "clamp(12px, 1.4vw, 13px)",
                         color: "#505050", lineHeight: 1.75,
                         margin: "0 0 18px", paddingRight: "32px",
+                        whiteSpace: "pre-line",
                       }}>
                         {a}
                       </p>
