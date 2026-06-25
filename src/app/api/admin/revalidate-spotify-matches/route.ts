@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createClient as createServiceClient } from "@supabase/supabase-js";
 import { getSpotifyAccessToken } from "@/lib/spotify";
-import { isPlausibleAlbumMatch } from "@/lib/spotifyMatchValidation";
+import { isPlausibleAlbumMatch } from "@/lib/textMatch";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;

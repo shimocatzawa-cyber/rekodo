@@ -11,7 +11,7 @@ import { getDesirabilityTier, type DesirabilityTier } from "@/lib/desirability";
 import { FEELINGS, feelingLabel } from "@/lib/feelings";
 import { openAppleMusicLink } from "@/lib/openAppleMusic";
 import SpotifyPlayer, { getFreshSpotifyToken } from "@/components/SpotifyPlayer";
-import { isPlausibleAlbumMatch } from "@/lib/spotifyMatchValidation";
+import { isPlausibleAlbumMatch } from "@/lib/textMatch";
 
 const SERIF  = "var(--font-editorial)";
 const MONO   = "var(--font-mono)";

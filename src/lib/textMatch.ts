@@ -1,9 +1,12 @@
-// Shared sanity-check for Spotify album-search results. Spotify's text search
-// is fuzzy and will happily return a completely different artist/album as
-// the #1 hit when there's no real match (e.g. "Itasca - Morning Flower /
-// Raindrops on the Balcony" → "Samplestar - Raindrops on Balcony") — both the
-// server-side matcher (spotifyMatch.ts) and the Collection page's live
-// client-side search need to reject those before caching/playing them.
+// Generic fuzzy artist/album text matching — catches case, punctuation, and
+// minor-formatting differences ("Boards Of Canada" vs "Boards of Canada")
+// when comparing a query against a result from an external text search.
+// Originally written for Spotify's album search, which is fuzzy and will
+// happily return a completely different artist/album as the #1 hit when
+// there's no real match (e.g. "Itasca - Morning Flower / Raindrops on the
+// Balcony" → "Samplestar - Raindrops on Balcony") — also used for Discogs
+// existence-checking (dig/route.ts) and anywhere else that needs to sanity-
+// check a fuzzy text-search result before trusting it.
 
 const STRIP_SUFFIXES = [
   "remastered", "deluxe edition", "expanded edition",

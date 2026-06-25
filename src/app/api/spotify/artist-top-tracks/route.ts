@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { getProfileTokenDb } from "@/lib/spotify";
-import { isPlausibleArtistMatch } from "@/lib/spotifyMatchValidation";
+import { isPlausibleArtistMatch } from "@/lib/textMatch";
 
 export const dynamic = "force-dynamic";
 

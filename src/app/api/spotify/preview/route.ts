@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { reserveSpotifySearchSlot, recordSpotifySearchRateLimit, getSpotifySearchCooldownUntil } from "@/lib/spotify";
-import { isPlausibleAlbumMatch } from "@/lib/spotifyMatchValidation";
+import { isPlausibleAlbumMatch } from "@/lib/textMatch";
 
 export const dynamic = "force-dynamic";
 

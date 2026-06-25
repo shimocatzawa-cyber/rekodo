@@ -5,7 +5,7 @@
 // drifting out of sync with each other.
 
 import { reserveSpotifySearchSlot, recordSpotifySearchRateLimit } from "@/lib/spotify";
-import { isPlausibleAlbumMatch } from "@/lib/spotifyMatchValidation";
+import { isPlausibleAlbumMatch } from "@/lib/textMatch";
 
 export const FETCH_TIMEOUT_MS = 6_000; // hard cap per Spotify request — nothing should hang silently
 export const MAX_TRACK_PAGES = 2; // 100 tracks covers nearly every release; bounds worst-case time
