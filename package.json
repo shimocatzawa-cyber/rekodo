@@ -15,6 +15,7 @@
     "@tremor/react": "^3.18.7",
     "@vercel/analytics": "^2.0.1",
     "html-to-image": "^1.11.13",
+    "loops": "^7.0.0",
     "next": "16.2.6",
     "react": "19.2.4",
     "react-dom": "19.2.4",

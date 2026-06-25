@@ -2,7 +2,8 @@
 
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import { sendSignupNotification, sendWelcomeEmail } from "@/lib/email";
+import { sendSignupNotification } from "@/lib/email";
+import { createLoopsContact, sendLoopsEvent } from "@/lib/loops";
 
 export type AuthState =
   | { error?: string; message?: string }
@@ -46,7 +47,8 @@ export async function signup(
       { onConflict: "id" }
     );
     await sendSignupNotification(email, username);
-    await sendWelcomeEmail(email, username);
+    await createLoopsContact(email, username);
+    await sendLoopsEvent(email, "signup");
     redirect("/onboarding");
   }
 
