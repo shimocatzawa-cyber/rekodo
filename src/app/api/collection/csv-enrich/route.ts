@@ -153,19 +153,27 @@ export async function POST(request: NextRequest) {
         ?? data.thumb
         ?? null;
 
-      // Update records table with enriched data
-      const { error: updateErr } = await (supabase as any)
-        .from("records")
-        .update({
-          cover_url:    coverUrl,
-          country:      data.country ?? null,
-          genre:        data.genres?.[0] ?? null,
-          styles:       data.styles ?? null,
-          format:       extractFormat(data.formats),
-          vinyl_colour: extractVinylColour(data.formats) ?? null,
-          producers:    extractProducers(data.extraartists),
-        })
-        .eq("id", link.record_id);
+      // Update records table with enriched data — only include a field when
+      // this fetch actually found a value for it, so an incomplete/partial
+      // Discogs response can't null out an already-good value on a record
+      // (this route currently only ever targets never-enriched records, but
+      // keeping the same "never overwrite good data with empty" discipline
+      // used elsewhere stops that from becoming a problem if that ever changes).
+      const enrichPatch: Record<string, unknown> = {};
+      if (coverUrl) enrichPatch.cover_url = coverUrl;
+      if (data.country) enrichPatch.country = data.country;
+      if (data.genres?.[0]) enrichPatch.genre = data.genres[0];
+      if (data.styles?.length) enrichPatch.styles = data.styles;
+      const format = extractFormat(data.formats);
+      if (format) enrichPatch.format = format;
+      const vinylColour = extractVinylColour(data.formats);
+      if (vinylColour) enrichPatch.vinyl_colour = vinylColour;
+      const producers = extractProducers(data.extraartists);
+      if (producers.length > 0) enrichPatch.producers = producers;
+
+      const { error: updateErr } = Object.keys(enrichPatch).length > 0
+        ? await (supabase as any).from("records").update(enrichPatch).eq("id", link.record_id)
+        : { error: null };
 
       if (updateErr) {
         console.error("[csv-enrich] records update error:", updateErr);

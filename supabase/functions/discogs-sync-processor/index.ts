@@ -541,17 +541,24 @@ async function processSync(supabase: SB, jobId: string, userId: string) {
               country?:     string;
               extraartists?: Array<{ name: string; role: string }>;
             };
-            // Write "" as sentinel when no colour found so this record is
-            // skipped on future syncs — prevents repeated full-release fetches.
-            const colour = extractVinylColour(rd.formats) ?? "";
-            await supabase.from("records")
-              .update({
-                format:    extractFormat(rd.formats),
-                country:   rd.country ?? null,
-                vinyl_colour: colour,
-                producers: extractProducers(rd.extraartists),
-              })
-              .eq("id", record.id);
+            // Only include a field in the patch when this fetch actually found
+            // a value for it — a record only needing producers backfilled (say)
+            // must not have its already-correct format/country/vinyl_colour
+            // overwritten with null/empty just because this particular
+            // full-release response happened to omit one of them. Same rule
+            // as the Phase 4 condition fix above, applied here too.
+            const patch: Record<string, unknown> = {};
+            const format = extractFormat(rd.formats);
+            if (format) patch.format = format;
+            if (rd.country) patch.country = rd.country;
+            // vinyl_colour is the one exception: "" is an intentional sentinel
+            // meaning "checked, no colour found" so this record stops being
+            // re-fetched every sync — always write it, never skip.
+            patch.vinyl_colour = extractVinylColour(rd.formats) ?? "";
+            const producers = extractProducers(rd.extraartists);
+            if (producers.length > 0) patch.producers = producers;
+
+            await supabase.from("records").update(patch).eq("id", record.id);
           }
         } catch (e) { console.warn(`backfill skip ${record.discogs_id}:`, e); }
 
@@ -585,19 +592,20 @@ async function processSync(supabase: SB, jobId: string, userId: string) {
           maximum?: { value?: number };
         };
         const colVal  = await cvRes.json() as ColVal;
-        const valLow  = colVal.minimum?.value  ?? null;
-        const valMed  = colVal.median?.value   ?? null;
-        const valHigh = colVal.maximum?.value  ?? null;
-        const valCurr = colVal.minimum?.currency ?? "USD";
+        // Same rule as Phase 4/5 above: only patch a field when this response
+        // actually has a value for it. A response missing e.g. median (API
+        // hiccup, partial data) must not null out an already-correct low/high/
+        // currency, and a missing currency must not silently downgrade a
+        // collector's real currency to the "USD" default.
+        const valuePatch: Record<string, unknown> = {};
+        if (colVal.minimum?.value != null) valuePatch.collection_value_low  = colVal.minimum.value;
+        if (colVal.median?.value  != null) valuePatch.collection_value_med  = colVal.median.value;
+        if (colVal.maximum?.value != null) valuePatch.collection_value_high = colVal.maximum.value;
+        if (colVal.minimum?.currency)      valuePatch.collection_value_currency = colVal.minimum.currency;
 
-        await supabase.from("profiles")
-          .update({
-            collection_value_low:      valLow,
-            collection_value_med:      valMed,
-            collection_value_high:     valHigh,
-            collection_value_currency: valCurr,
-          })
-          .eq("id", userId);
+        if (Object.keys(valuePatch).length > 0) {
+          await supabase.from("profiles").update(valuePatch).eq("id", userId);
+        }
       }
     } catch (cvErr) {
       console.error("[sync] collection/value fetch threw:", cvErr);
