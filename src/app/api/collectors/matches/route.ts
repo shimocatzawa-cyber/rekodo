@@ -16,6 +16,7 @@ export const dynamic = "force-dynamic";
 // ─── Route ────────────────────────────────────────────────────────────────────
 
 const PAGE = 1000;
+const DISPLAY_COUNT = 6; // how many top matches are shown on the page
 
 export async function GET(request: NextRequest) {
   const userId = request.nextUrl.searchParams.get("userId");
@@ -37,7 +38,7 @@ export async function GET(request: NextRequest) {
     .eq("user_id_a", userId)
     .gt("calculated_at", cacheExpiry)
     .order("score", { ascending: false })
-    .limit(3);
+    .limit(DISPLAY_COUNT);
 
   // ── Helpers used by both cache and fresh paths ────────────────────────────
   async function enrichMatches(rows: { user_id_b: string; score: number; shared_tags: string[] }[]) {
@@ -105,7 +106,7 @@ export async function GET(request: NextRequest) {
 
   // ── Fresh computation ─────────────────────────────────────────────────────
 
-  // 1. Find eligible users (≥20 records, not the target, not a test account)
+  // 1. Find eligible users (any collection, not the target, not a test account)
   // A single .limit(200000) call here used to look like it fetched
   // everything, but PostgREST's db-max-rows server config (1000) silently
   // caps any client-requested limit above that — so it only ever saw the
@@ -143,7 +144,7 @@ export async function GET(request: NextRequest) {
   }
 
   const eligibleIds = [...countPerUser.entries()]
-    .filter(([, n]) => n >= 20)
+    .filter(([, n]) => n >= 1)
     .sort((a, b) => b[1] - a[1])
     .slice(0, 50)                 // cap at 50 candidates for performance
     .map(([id]) => id);
@@ -282,12 +283,12 @@ export async function GET(request: NextRequest) {
     }
   }
 
-  const top3 = scored.slice(0, 3).map(s => ({
+  const topMatches = scored.slice(0, DISPLAY_COUNT).map(s => ({
     user_id_b:   s.userId,
     score:       s.score,
     shared_tags: s.sharedTags,
   }));
 
-  const matches = await enrichMatches(top3);
+  const matches = await enrichMatches(topMatches);
   return Response.json({ matches, cached: false });
 }
