@@ -523,9 +523,25 @@ export async function POST(request: NextRequest) {
   // handful of artists (e.g. a few fully-matched albums) was reporting as
   // "thick enough" and skipping the top-up, then consistently truncating the
   // playlist short of the requested track count.
+  //
+  // Background matching is off (see PlaylistTab.tsx's BACKGROUND_MATCH_ENABLED —
+  // disabled after past Spotify rate-limit bans), so this bounded top-up is the
+  // *only* thing that ever grows matched coverage. Gating purely on `trackCount`
+  // meant a collection that happened to clear today's request (e.g. 20 matched
+  // artists vs. a 10-track ask) stopped growing entirely — every future
+  // generate for that mood kept reusing the same small matched pool forever,
+  // even though 1900+ unmatched records sat right behind it. Always reach for
+  // a higher fixed floor too, so coverage keeps expanding a little on every
+  // generate until there's real variety to draw from, not just enough for
+  // this one request. Same per-call attempt/round caps and rate-limit circuit
+  // breaker below still apply — this only changes when the loop bothers to run.
   const MIN_DESIRED = trackCount * 2;
+  const MIN_MATCHED_ARTIST_FLOOR = 40;
   let distinctArtistCount = new Set(candidates.map(c => c.artist.toLowerCase().trim())).size;
-  if ((candidates.length < MIN_DESIRED || distinctArtistCount < trackCount) && !(await getSpotifySearchCooldownUntil())) {
+  if (
+    (candidates.length < MIN_DESIRED || distinctArtistCount < Math.max(trackCount, MIN_MATCHED_ARTIST_FLOOR))
+    && !(await getSpotifySearchCooldownUntil())
+  ) {
     let unmatchedPool: UnmatchedItem[] = [];
 
     if (ownedRecordIds.length > 0) {
@@ -585,7 +601,7 @@ export async function POST(request: NextRequest) {
     while (
       token
       && unmatchedPool.length > 0
-      && distinctArtistCount < trackCount
+      && distinctArtistCount < Math.max(trackCount, MIN_MATCHED_ARTIST_FLOOR)
       && topupAttempts < MAX_TOPUP_ATTEMPTS
       && round < MAX_TOPUP_ROUNDS
       && !(await getSpotifySearchCooldownUntil())
