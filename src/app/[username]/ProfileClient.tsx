@@ -431,7 +431,13 @@ export default function ProfileClient({
                     <p style={{ fontFamily: MONO, fontSize: "0.55rem", letterSpacing: "0.14em", textTransform: "uppercase", color: ORANGE, margin: "0 0 10px 0" }}>
                       Essentials Wall
                     </p>
-                    <div style={{ display: "grid", gridTemplateColumns: "repeat(9, 1fr)", gap: "3px", maxWidth: 360, marginBottom: "10px" }}>
+                    {/* Was a fixed 9-col/360px box left over from the old 9-cover
+                        teaser cap — now that every cover renders, that squeezed
+                        the whole wall into well under half the page width
+                        instead of using it. auto-fill lets column count scale
+                        with the page's actual width, keeping tiles a consistent
+                        size instead of fixing the count and shrinking the box. */}
+                    <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(48px, 1fr))", gap: "3px", width: "100%", marginBottom: "10px" }}>
                       {essentials.covers.map((c, i) => (
                         <div key={i} style={{ aspectRatio: "1 / 1", background: "#f0ede8", overflow: "hidden" }}>
                           {c.coverUrl && (

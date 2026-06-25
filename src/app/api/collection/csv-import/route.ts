@@ -5,33 +5,40 @@ import { logCollectionAddActivity } from "@/lib/activity";
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
 
-// ── CSV row parser (handles quoted fields with commas and escaped quotes) ─────
-
-function parseCsvRow(line: string): string[] {
-  const cols: string[] = [];
+// ── CSV parser (handles quoted fields with commas, escaped quotes, and
+// embedded newlines) ───────────────────────────────────────────────────────
+// Operates on the whole file, not line-by-line: Discogs's "Collection Notes"
+// column is free text, and a note that itself spans multiple lines means the
+// CSV file has a literal newline INSIDE a quoted field. Pre-splitting the
+// file on \n (as this used to) breaks that single logical row into two
+// fragments wherever that happens — usually surfacing as two rows in the
+// "couldn't be read" count instead of one correctly-parsed row.
+function parseCsv(text: string): string[][] {
+  const rows: string[][] = [];
+  let row: string[] = [];
+  let field = "";
+  let inQuotes = false;
   let i = 0;
-  while (i <= line.length) {
-    if (line[i] === '"') {
-      let val = "";
-      i++;
-      while (i < line.length) {
-        if (line[i] === '"') {
-          if (line[i + 1] === '"') { val += '"'; i += 2; }
-          else { i++; break; }
-        } else {
-          val += line[i++];
-        }
+
+  while (i < text.length) {
+    const ch = text[i];
+    if (inQuotes) {
+      if (ch === '"') {
+        if (text[i + 1] === '"') { field += '"'; i += 2; continue; }
+        inQuotes = false; i++; continue;
       }
-      cols.push(val);
-      if (line[i] === ",") i++;
-    } else {
-      const end = line.indexOf(",", i);
-      if (end === -1) { cols.push(line.slice(i)); break; }
-      cols.push(line.slice(i, end));
-      i = end + 1;
+      field += ch; i++; continue;
     }
+    if (ch === '"') { inQuotes = true; i++; continue; }
+    if (ch === ",") { row.push(field); field = ""; i++; continue; }
+    if (ch === "\r") { i++; continue; } // normalize CRLF — \n (below) ends the row
+    if (ch === "\n") { row.push(field); rows.push(row); row = []; field = ""; i++; continue; }
+    field += ch; i++;
   }
-  return cols;
+  // Final field/row if the file doesn't end with a trailing newline
+  if (field.length > 0 || row.length > 0) { row.push(field); rows.push(row); }
+
+  return rows;
 }
 
 // Discogs standard export columns:
@@ -75,13 +82,13 @@ export async function POST(request: NextRequest) {
   }
 
   const text = await file.text();
-  const lines = text.split(/\r?\n/).filter(Boolean);
+  const rows = parseCsv(text).filter(cols => cols.some(c => c.trim()));
 
-  if (lines.length < 2) {
+  if (rows.length < 2) {
     return NextResponse.json({ error: "CSV has no data rows" }, { status: 400 });
   }
   const MAX_ROWS = 20_000; // a header row plus a generously large collection
-  if (lines.length - 1 > MAX_ROWS) {
+  if (rows.length - 1 > MAX_ROWS) {
     return NextResponse.json({ error: `CSV has too many rows — limit is ${MAX_ROWS.toLocaleString()}.` }, { status: 400 });
   }
 
@@ -98,15 +105,13 @@ export async function POST(request: NextRequest) {
   const BATCH = 100;
 
   // Process in batches to avoid loading all parsed rows at once
-  for (let batchStart = 1; batchStart < lines.length; batchStart += BATCH) {
-    const batchLines = lines.slice(batchStart, batchStart + BATCH);
+  for (let batchStart = 1; batchStart < rows.length; batchStart += BATCH) {
+    const batchRows = rows.slice(batchStart, batchStart + BATCH);
 
-    // Parse each line in this batch
+    // Parse each row in this batch
     const parsedRows: ParsedRow[] = [];
-    for (const line of batchLines) {
-      if (!line.trim()) continue;
+    for (const cols of batchRows) {
       try {
-        const cols = parseCsvRow(line);
         const releaseId = parseInt(cols[7] ?? "", 10);
         if (isNaN(releaseId)) { failed++; continue; }
         const artist = cols[1]?.trim();
