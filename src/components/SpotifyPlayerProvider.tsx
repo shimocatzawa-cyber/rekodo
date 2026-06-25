@@ -213,6 +213,12 @@ export function SpotifyPlayerProvider({ children }: { children: React.ReactNode 
   // handlePlayPause can distinguish "paused on current source → togglePlay"
   // from "paused on old source after tab switch → need fresh play command".
   const lastPlayedKeyRef = useRef("");
+  // Remembers the last known track + position for each source key (album/
+  // playlist URI) so leaving a mode (e.g. switching to Dig or Collection,
+  // which sends a fresh play command for its own source) and coming back
+  // resumes where playback actually was, instead of the fresh-play path
+  // below restarting that source from position 0 every time.
+  const lastPositionByKeyRef = useRef<Map<string, { uri: string; positionMs: number }>>(new Map());
 
   const isPremium  = !!(tokenData?.connected && tokenData.product === "premium");
   const useSDK     = isPremium && (source?.mode === "collection" ? !!source.spotifyUri : !!(source?.albumUri ?? source?.spotifyTrackUris?.length ?? source?.spotifyTrackUri));
@@ -326,6 +332,9 @@ export function SpotifyPlayerProvider({ children }: { children: React.ReactNode 
         artist: t.artists?.[0]?.name ?? "",
         name:   t.name ?? "",
       });
+      if (t?.uri && sourceKeyRef.current) {
+        lastPositionByKeyRef.current.set(sourceKeyRef.current, { uri: t.uri, positionMs: s.position });
+      }
       // Track whether we were near the end while playing, so we can detect
       // a natural track end (paused at position 0 after being near-end) vs
       // a user-initiated pause. Collection mode's context_uri queue and dig's
@@ -418,7 +427,13 @@ export function SpotifyPlayerProvider({ children }: { children: React.ReactNode 
     if (!playing || !playerRef.current) return;
     pollRef.current = setInterval(async () => {
       const s = await playerRef.current?.getCurrentState();
-      if (s) { setPosition(s.position); setDuration(s.duration); }
+      if (!s) return;
+      setPosition(s.position);
+      setDuration(s.duration);
+      const uri = s.track_window?.current_track?.uri;
+      if (uri && sourceKeyRef.current) {
+        lastPositionByKeyRef.current.set(sourceKeyRef.current, { uri, positionMs: s.position });
+      }
     }, 500);
     return () => { if (pollRef.current) clearInterval(pollRef.current); };
   }, [playing]);
@@ -519,19 +534,23 @@ export function SpotifyPlayerProvider({ children }: { children: React.ReactNode 
           }
           if (!activeDeviceId) { setPlayError(0); return; }
 
-          // Always force position 0 explicitly. Spotify's /play endpoint can
-          // otherwise fall back to whatever position it last has cached for
-          // this exact context/track on this device, which surfaces as
-          // playback intermittently starting partway through instead of at
-          // the beginning.
+          // Resume from wherever this exact source last was (e.g. the user
+          // switched to Dig or Collection — which sends its own fresh play
+          // command and clears lastPlayedKeyRef for the old source — then
+          // came back) instead of always restarting at the top. Only a
+          // genuinely never-played-this-session key falls back to position 0.
+          const remembered = currentKey ? lastPositionByKeyRef.current.get(currentKey) : undefined;
+          const resumeMs = remembered?.positionMs ?? 0;
+          const resumeOffset = remembered?.uri ? { uri: remembered.uri } : { position: 0 };
+
           const body = source?.mode === "collection" && source.spotifyUri
-            ? { context_uri: source.spotifyUri, offset: { position: 0 }, position_ms: 0 }
+            ? { context_uri: source.spotifyUri, offset: resumeOffset, position_ms: resumeMs }
             : source?.albumUri
-              ? { context_uri: source.albumUri, offset: { position: 0 }, position_ms: 0 }
+              ? { context_uri: source.albumUri, offset: resumeOffset, position_ms: resumeMs }
               : source?.spotifyTrackUris?.length
-                ? { uris: source.spotifyTrackUris, position_ms: 0 }
+                ? { uris: source.spotifyTrackUris, offset: remembered?.uri ? { uri: remembered.uri } : undefined, position_ms: resumeMs }
                 : source?.spotifyTrackUri
-                  ? { uris: [source.spotifyTrackUri], position_ms: 0 }
+                  ? { uris: [source.spotifyTrackUri], position_ms: resumeMs }
                   : null;
           if (!body) return;
           setPlayError(null);
@@ -549,21 +568,22 @@ export function SpotifyPlayerProvider({ children }: { children: React.ReactNode 
             // honor an explicit position_ms/offset on the initial request —
             // particularly for context_uri (album) playback resuming a
             // context that was recently active on this device, where it can
-            // report position 0 right away and only snap to the stale cached
-            // position a moment later. Keep polling/correcting across the
+            // report a different position right away and only snap to the
+            // intended one a moment later. Keep polling/correcting across the
             // whole window instead of stopping at the first state update —
-            // a single early check can see 0 and miss the late stale-position
-            // override entirely.
+            // a single early check can miss the late correction entirely.
+            // Target resumeMs (not always 0) so a deliberate resume doesn't
+            // get fought back down to the start by this same safety net.
             (async () => {
               for (let i = 0; i < 8; i++) {
                 await new Promise(r => setTimeout(r, 250));
                 const state = await playerRef.current?.getCurrentState().catch(() => null);
                 if (!state) continue;
-                if (state.position > 1500) {
+                if (Math.abs(state.position - resumeMs) > 1500) {
                   fetch("/api/spotify/seek", {
                     method:  "POST",
                     headers: { "Content-Type": "application/json" },
-                    body:    JSON.stringify({ positionMs: 0, deviceId: activeDeviceId }),
+                    body:    JSON.stringify({ positionMs: resumeMs, deviceId: activeDeviceId }),
                   }).catch(() => {});
                 }
               }
@@ -628,9 +648,22 @@ export function SpotifyPlayerProvider({ children }: { children: React.ReactNode 
     // same empty values.
     if (nextKey !== prevKey) {
       // Stop the SDK player so Spotify doesn't keep queuing the old album.
+      // Capture the outgoing source's position under its own key (prevKey,
+      // closed over here) before pausing — the player_state_changed listener
+      // and the position-poll both key off sourceKeyRef.current, which the
+      // "reset transient UI state" effect flips to nextKey as soon as this
+      // setSource call below commits, often before this async pause settles.
+      // Reading state here and attributing it explicitly to prevKey avoids
+      // that race mis-filing the outgoing source's last position under the
+      // new source's key instead.
       if (playerRef.current) {
         playerRef.current.getCurrentState()
-          .then(state => { if (state && !state.paused) playerRef.current?.togglePlay().catch(() => {}); })
+          .then(state => {
+            if (!state) return;
+            const uri = state.track_window?.current_track?.uri;
+            if (uri && prevKey) lastPositionByKeyRef.current.set(prevKey, { uri, positionMs: state.position });
+            if (!state.paused) playerRef.current?.togglePlay().catch(() => {});
+          })
           .catch(() => {});
       }
       // Pause the preview audio element immediately.
