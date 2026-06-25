@@ -1424,27 +1424,14 @@ export default function DeepDiveClient({
           overflowY: "auto",
           alignSelf: "flex-start",
         }}>
-          {/* Top row: ♥ favourites + randomiser */}
-          <div style={{ padding: "8px 1rem", borderBottom: `1px solid ${RULE}`, display: "flex", alignItems: "center", gap: 12 }}>
-            <button
-              type="button"
-              onClick={() => setFavoritesOnly((v) => !v)}
-              title={favoritesOnly ? "Show all artists" : "Favourites only"}
-              style={{
-                fontFamily: MONO, fontSize: "14px", lineHeight: 1,
-                color: favoritesOnly ? ORANGE : "#ccc",
-                background: "none", border: "none", cursor: "pointer", padding: 0,
-              }}
-            >
-              {favoritesOnly ? "♥" : "♡"}
-            </button>
-            {mergedArtists.length > 0 && (
+          {/* Top row: randomiser (left) + ♥ favourites (right) */}
+          <div style={{ padding: "8px 1rem", borderBottom: `1px solid ${RULE}`, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+            {mergedArtists.length > 0 ? (
               <button
                 type="button"
                 onClick={() => {
-                  const pool = searchMode === "inside" ? mergedArtists : mergedArtists;
-                  const idx = Math.floor(Math.random() * pool.length);
-                  selectArtist(pool[idx].name);
+                  const idx = Math.floor(Math.random() * mergedArtists.length);
+                  selectArtist(mergedArtists[idx].name);
                 }}
                 style={{
                   fontFamily: MONO, fontSize: "10px", letterSpacing: "0.06em",
@@ -1454,7 +1441,19 @@ export default function DeepDiveClient({
               >
                 ↺ Randomiser
               </button>
-            )}
+            ) : <span />}
+            <button
+              type="button"
+              onClick={() => setFavoritesOnly((v) => !v)}
+              title={favoritesOnly ? "Show all artists" : "Favourites only"}
+              style={{
+                fontFamily: MONO, fontSize: "14px", lineHeight: 1,
+                color: favoritesOnly ? ORANGE : "#666",
+                background: "none", border: "none", cursor: "pointer", padding: 0,
+              }}
+            >
+              {favoritesOnly ? "♥" : "♡"}
+            </button>
           </div>
 
           {/* Inside / Outside Collection toggle */}
