@@ -1,6 +1,7 @@
 "use client";
 
 import { useRef, useState, useCallback } from "react";
+import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 
 const MONO   = "var(--font-mono)";
@@ -215,12 +216,12 @@ export default function WantlistClient({ isOwner, isSupporter, userId, embedded 
         <p style={{ fontFamily: MONO, fontSize: "0.65rem", color: "#555", margin: "0 0 14px", lineHeight: 1.7 }}>
           Wantlist upload is available to rek<span style={{ color: ORANGE }}>ō</span>do supporters.
         </p>
-        <a
+        <Link
           href="/about#support"
           style={{ fontFamily: MONO, fontSize: "0.6rem", letterSpacing: "0.1em", textTransform: "uppercase", color: "#FDF6F0", background: "#0a0a0a", padding: "10px 20px", textDecoration: "none", display: "inline-block" }}
         >
           Support rek<span style={{ color: ORANGE }}>ō</span>do →
-        </a>
+        </Link>
       </div>
     );
   }

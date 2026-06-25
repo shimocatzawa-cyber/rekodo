@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef, useTransition, useMemo } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import {
   setListRecord, addDiscogsRecordToList, addSongToList,
   appendRecordToList, appendDiscogsRecordToList, appendSongToList,
@@ -12,7 +13,6 @@ import {
 import type { UserList, ListSlot, SlotItem } from "@/app/lists/types";
 import type { CollectionRecord } from "@/app/collection/page";
 import { generateShareCard, downloadCard, copyCardToClipboard } from "@/lib/shareCard";
-import { isAppleMusicUrl, openAppleMusicLink } from "@/lib/openAppleMusic";
 import { createClient } from "@/lib/supabase/client";
 
 const SERIF  = "var(--font-editorial)";
@@ -34,21 +34,6 @@ const PRIORITY_COLORS: Record<Priority, string> = {
   someday:    "#999999",
 };
 // ─── Constants ────────────────────────────────────────────────────────────────
-
-const LIST_SUBTITLES: Record<string, string> = {
-  "Top 5 All Time":                     "The canon. Non-negotiable.",
-  "Top 5 Desert Island Records":        "Only five. You're stranded.",
-  "Top 5 Break Up Records":             "The ones that understood.",
-  "Top 5 Make Up Records":              "Side B of the same story.",
-  "Top 5 Sunday Morning Records":       "Coffee. Slow pace. No plans.",
-  "Top 5 Saturday Night Records":       "The ones that start everything.",
-  "Top 5 Records That Changed My Life": "Before and after.",
-  "Top 5 Gateway Records":              "What I'd play to change their life.",
-  "Top 5 Most Played":                  "Worn grooves. No apologies.",
-  "Top 5 Hidden Gems":                  "Records nobody talks about.",
-  "Wantlist":                           "Records you're hunting for.",
-  "Need to Relisten":                   "Albums that deserve another chance.",
-};
 
 const TOP5_TEMPLATES = [
   { title: "Top 5 All Time",                     subtitle: "The canon. Non-negotiable." },
@@ -121,7 +106,6 @@ export default function ProfileListsTab({ initialLists, username, listTypeFilter
   const router = useRouter();
 
   const [lists,        setLists]       = useState<UserList[]>(initialLists);
-  const [saving,       setSaving]      = useState<string | null>(null);
   const [activePillId, setActivePillId] = useState<string | null>(
     (initialLists.find(l => l.slug === "wantlist" || l.slug === "want-to-buy") ?? initialLists[0])?.id ?? null
   );
@@ -301,9 +285,7 @@ export default function ProfileListsTab({ initialLists, username, listTypeFilter
       const prevLists = lists;
       optimisticSet(listId, position, slotItem);
       closePicker();
-      setSaving(`${listId}-${position}`);
       const res = await setListRecord(listId, position, record.id);
-      setSaving(null);
       if (res?.error) { console.error(res.error); setLists(prevLists); }
     } else {
       closePicker();
@@ -330,9 +312,7 @@ export default function ProfileListsTab({ initialLists, username, listTypeFilter
     if (picker.strategy === "replace") {
       const { position } = picker;
       const prevLists = lists;
-      setSaving(`${listId}-${position}`);
       const res = await addDiscogsRecordToList(listId, position, payload);
-      setSaving(null);
       if (res?.error) { console.error(res.error); setLists(prevLists); }
       else if (res?.item) optimisticSet(listId, position, res.item as SlotItem);
     } else {
@@ -363,9 +343,7 @@ export default function ProfileListsTab({ initialLists, username, listTypeFilter
       const { position } = picker;
       const prevLists = lists;
       optimisticSet(listId, position, tempItem);
-      setSaving(`${listId}-${position}`);
       const res = await addSongToList(listId, position, payload);
-      setSaving(null);
       if (res?.error) { console.error(res.error); setLists(prevLists); }
       else if (res?.item) optimisticSet(listId, position, res.item as SlotItem);
     } else {
@@ -514,7 +492,7 @@ export default function ProfileListsTab({ initialLists, username, listTypeFilter
   // caps how many of the *matching* results get mounted as cards at once.
   useEffect(() => {
     setWantlistVisibleCount(WANTLIST_PAGE_SIZE);
-  }, [wantlistSearch, wantlistFilter, wantlistSourceFilter, wantlistSort, selectedList?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [wantlistSearch, wantlistFilter, wantlistSourceFilter, wantlistSort, selectedList?.id]);
 
   // ── Render ──────────────────────────────────────────────────────────────────
 
@@ -659,9 +637,9 @@ export default function ProfileListsTab({ initialLists, username, listTypeFilter
                             <p style={{ fontFamily: SERIF, fontSize: "14px", color: "#aaaaaa", lineHeight: 1.7, marginBottom: "10px" }}>
                               Your Wantlist is empty. Every record you&apos;ve almost bought, nearly found, or need to own belongs here.
                             </p>
-                            <a href="/dig" style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.1em", textTransform: "uppercase", color: ORANGE, textDecoration: "none" }}>
+                            <Link href="/dig" style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.1em", textTransform: "uppercase", color: ORANGE, textDecoration: "none" }}>
                               Dig for records →
-                            </a>
+                            </Link>
                           </div>
                         )}
 
@@ -873,104 +851,6 @@ export default function ProfileListsTab({ initialLists, username, listTypeFilter
             if (ok) setTimeout(() => setShareCopyState("idle"), 2500);
           }}
         />
-      )}
-    </div>
-  );
-}
-
-// ─── TracklistRow ─────────────────────────────────────────────────────────────
-
-function TracklistRow({ position, item, isSaving, isPickerOpen, onOpen, onRemove,
-  isDragging, isDragOver, onDragStart, onDragOver, onDrop, onDragEnd,
-}: {
-  position: number; item: SlotItem | null; isSaving: boolean; isPickerOpen: boolean;
-  onOpen: () => void; onRemove: () => void;
-  isDragging?: boolean; isDragOver?: boolean;
-  onDragStart?: () => void; onDragOver?: (e: React.DragEvent) => void;
-  onDrop?: () => void; onDragEnd?: () => void;
-}) {
-  const [hovered, setHovered] = useState(false);
-  return (
-    <div
-      draggable={!!item && !!onDragStart}
-      style={{
-        display: "flex", alignItems: "center", gap: "12px",
-        padding: "6px 0", borderBottom: "1px solid rgba(0,0,0,0.05)",
-        borderTop: isDragOver ? `2px solid ${ORANGE}` : undefined,
-        minHeight: "60px",
-        cursor: item ? (isDragging ? "grabbing" : "grab") : "pointer",
-        background: isPickerOpen ? "rgba(204,85,0,0.025)" : "transparent",
-        opacity: isDragging ? 0.4 : 1,
-        transition: "background 0.1s, opacity 0.1s",
-      }}
-      onClick={onOpen}
-      onMouseEnter={() => setHovered(true)}
-      onMouseLeave={() => setHovered(false)}
-      onDragStart={onDragStart}
-      onDragOver={onDragOver}
-      onDrop={onDrop}
-      onDragEnd={onDragEnd}
-    >
-      <span style={{ fontFamily: MONO, fontSize: "10px", color: ORANGE, width: "16px", flexShrink: 0, textAlign: "right" }}>
-        {position}
-      </span>
-      <div style={{
-        width: 48, height: 48, flexShrink: 0, overflow: "hidden",
-        background: "#f0f0f0",
-        border: item ? "none" : "1.5px dashed rgba(0,0,0,0.18)",
-        boxSizing: "border-box",
-      }}>
-        {item?.cover_url && (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img src={item.cover_url} alt="" style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
-        )}
-      </div>
-      {item ? (
-        <>
-          <div style={{ flex: 1, minWidth: 0 }}>
-            <p style={{ fontFamily: SERIF, fontSize: "14px", color: "#0d0d0d", lineHeight: 1.3, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-              {item.song_title ?? item.album}
-            </p>
-            <p style={{ fontFamily: MONO, fontSize: "11px", color: "#aaaaaa", letterSpacing: "0.06em", marginTop: "3px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-              {item.artist}
-            </p>
-            <div style={{ display: "flex", gap: "12px", marginTop: "6px", flexWrap: "wrap" }} onClick={e => e.stopPropagation()}>
-              {[
-                { label: "Discogs",      href: `https://www.discogs.com/search/?q=${encodeURIComponent(`${item.artist} ${item.song_title ?? item.album}`)}&type=release` },
-                { label: "Apple Music",  href: `https://music.apple.com/search?term=${encodeURIComponent(`${item.artist} ${item.song_title ?? item.album}`)}` },
-                { label: "Tidal",        href: `https://tidal.com/search?q=${encodeURIComponent(`${item.artist} ${item.song_title ?? item.album}`)}` },
-              ].map(({ label, href }) => (
-                <a
-                  key={label}
-                  href={href}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  style={{
-                    fontFamily: MONO, fontSize: "10px", letterSpacing: "0.05em",
-                    color: hovered ? "#a34400" : ORANGE, textDecoration: "none",
-                    transition: "color 0.15s", whiteSpace: "nowrap",
-                  }}
-                  onClick={isAppleMusicUrl(href) ? (e) => { e.preventDefault(); openAppleMusicLink(href); } : undefined}
-                >
-                  {label} ↗
-                </a>
-              ))}
-            </div>
-          </div>
-          {isSaving && (
-            <span style={{ fontFamily: MONO, fontSize: "9px", color: "#cccccc", letterSpacing: "0.08em", flexShrink: 0 }}>Saving…</span>
-          )}
-          {!isSaving && hovered && (
-            <button onClick={e => { e.stopPropagation(); onRemove(); }}
-              style={{ fontFamily: MONO, fontSize: "14px", color: "#cccccc", background: "none", border: "none", cursor: "pointer", padding: "0 4px", lineHeight: 1, flexShrink: 0 }}>
-              ×
-            </button>
-          )}
-        </>
-      ) : (
-        <span style={{ fontFamily: SERIF, fontStyle: "italic", fontSize: "12px", color: isPickerOpen ? "#888888" : "#cccccc" }}>
-          + Add a record
-        </span>
       )}
     </div>
   );

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, type ReactNode } from "react";
+import Link from "next/link";
 import { BarChart, type CustomTooltipProps } from "@tremor/react";
 import AppNav from "@/components/AppNav";
 import TasteProfile, { type SpectrumData } from "@/components/insights/TasteProfile";
@@ -268,7 +269,6 @@ export default function InsightsClient({
   const topPressOrigin  = countryBreakdown[0] ?? null;
   const topArtist       = topArtists[0] ?? null;
   const topLabel        = topLabels[0]  ?? null;
-  const topDecade       = mostPopularYear ? `${Math.floor(mostPopularYear / 10) * 10}s` : null;
 
   const statTiles: StatTile[] = [
     { hero: totalRecords.toLocaleString(), label: "Items" },
@@ -318,12 +318,12 @@ export default function InsightsClient({
           <p style={{ fontFamily: MONO, fontSize: "11px", letterSpacing: "0.04em", color: "#aaaaaa", margin: "0 0 28px", lineHeight: 1.7, maxWidth: "360px" }}>
             Import your Discogs collection to unlock genre breakdowns, value analysis, taste spectrum, and more.
           </p>
-          <a
+          <Link
             href="/collection"
             style={{ fontFamily: MONO, fontSize: "10px", letterSpacing: "0.1em", textTransform: "uppercase", background: ORANGE, color: "#ffffff", padding: "11px 24px", textDecoration: "none", display: "inline-block" }}
           >
             Import collection →
-          </a>
+          </Link>
         </div>
       )}
 
@@ -880,12 +880,12 @@ export default function InsightsClient({
             Support the project to unlock it.
           </p>
           <div style={{ borderTop: `1px solid ${RULE}`, paddingTop: 40 }}>
-            <a
+            <Link
               href="/about#support"
               style={{ display: "inline-block", fontFamily: MONO, fontSize: "0.65rem", letterSpacing: "0.12em", textTransform: "uppercase", color: "#FDF6F0", background: INK, padding: "14px 32px", textDecoration: "none" }}
             >
               Support rek<span style={{ color: ORANGE }}>ō</span>do →
-            </a>
+            </Link>
           </div>
         </main>
       )}

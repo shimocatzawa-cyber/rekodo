@@ -1,8 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { ARCHETYPES, SHADOW_PROMPTS, JUNG_CORE_DESIRES } from "@/lib/archetypes/archetypeConfig";
-import type { ComputedSignals } from "@/lib/archetypes/computeArchetypes";
+import { ARCHETYPES, JUNG_CORE_DESIRES } from "@/lib/archetypes/archetypeConfig";
 
 const SERIF = "var(--font-editorial)";
 const MONO  = "var(--font-mono)";
@@ -210,7 +209,7 @@ export default function ArchetypeHero({
             margin: 0,
             paddingLeft: 16,
           }}>
-            "{primaryDef?.sentence ?? ""}"
+            &ldquo;{primaryDef?.sentence ?? ""}&rdquo;
           </blockquote>
         </div>
 

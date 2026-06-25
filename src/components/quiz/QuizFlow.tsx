@@ -2,6 +2,7 @@
 
 import { useState, useRef, useCallback } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 
 const SERIF  = "var(--font-editorial)";
 const MONO   = "var(--font-mono)";
@@ -123,9 +124,9 @@ export default function QuizFlow() {
 
       {/* Header */}
       <div style={{ width: "100%", padding: "28px 32px 0", boxSizing: "border-box" }}>
-        <a href="/collection" style={{ fontFamily: MONO, fontSize: "11px", letterSpacing: "0.15em", textTransform: "uppercase", color: ORANGE, textDecoration: "none" }}>
+        <Link href="/collection" style={{ fontFamily: MONO, fontSize: "11px", letterSpacing: "0.15em", textTransform: "uppercase", color: ORANGE, textDecoration: "none" }}>
           rekōdo
-        </a>
+        </Link>
       </div>
 
       {/* Content */}

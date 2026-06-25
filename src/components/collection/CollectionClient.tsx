@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useMemo, useRef } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import AppNav from "@/components/AppNav";
 import type { CollectionRecord, CollectionInsights } from "@/app/collection/page";
 import { persistRecordPrice } from "@/app/collection/actions";
@@ -277,11 +278,7 @@ export default function CollectionClient({
   username,
   displayLabel,
   avatarUrl      = null,
-  estimatedValue = 0,
   valueCurrency  = "USD",
-  pricedCount    = 0,
-  discogsValue,
-  insights,
   lastSyncedAt   = null,
   lastSyncJob    = null,
   startSync      = false,
@@ -305,7 +302,6 @@ const [filterFormat,       setFilterFormat]       = useState("");
   const [filterFeeling,      setFilterFeeling]      = useState("");
   const [sortBy,             setSortBy]             = useState("artist-az");
 
-  const [filterSheetOpen,  setFilterSheetOpen]  = useState(false);
   const [mobileDetailOpen, setMobileDetailOpen] = useState(false);
 
   const [collection, setCollection] = useState<CollectionRecord[]>(initialCollection);
@@ -313,7 +309,7 @@ const [filterFormat,       setFilterFormat]       = useState("");
   // Re-sync collection state when the server re-renders with fresh data (e.g. after price sync)
   useEffect(() => {
     if (initialCollection.length > 0) setCollection(initialCollection);
-  }, [initialCollection]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [initialCollection]);
 
   // Client-side fallback: fetch user_records joined to records when the server
   // prop is empty (e.g. due to a silent query error on the server).
@@ -487,7 +483,7 @@ const [filterFormat,       setFilterFormat]       = useState("");
         enrichPollRef.current = null;
       }
     };
-  }, [collection.length]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [collection.length]);
 
   // Auto-select a random record on load — fires once when collection is first non-empty
   const autoSelected = useRef(false);
@@ -765,7 +761,6 @@ const [filterFormat,       setFilterFormat]       = useState("");
   const desirabilityOptions = DESIRABILITY_FILTER_OPTIONS;
 
   const hasFilters = !!searchQuery.trim() || !!filterGenre || !!filterYear || !!filterFormat || !!filterDesirability || !!filterFeeling;
-  const activeFilterCount = [filterGenre, filterYear, filterFormat, filterDesirability, filterFeeling].filter(Boolean).length;
 
   function clearAllFilters() {
     setSearchQuery("");
@@ -781,17 +776,6 @@ const [filterFormat,       setFilterFormat]       = useState("");
     { value: "artist-za",         label: "First Z–A" },
     { value: "artist-lastname-az", label: "Last A–Z" },
     { value: "artist-lastname-za", label: "Last Z–A" },
-  ];
-
-  const SORT_OPTIONS = [
-    { value: "artist-az",          label: "Artist A–Z" },
-    { value: "artist-za",          label: "Artist Z–A" },
-    { value: "artist-lastname-az", label: "Last Name A–Z" },
-    { value: "artist-lastname-za", label: "Last Name Z–A" },
-    { value: "value-high-low",     label: "Market Value: High to Low" },
-    { value: "value-low-high",     label: "Market Value: Low to High" },
-    { value: "year-new-old",       label: "Year: Newest First" },
-    { value: "year-old-new",       label: "Year: Oldest First" },
   ];
 
   return (
@@ -935,9 +919,9 @@ const [filterFormat,       setFilterFormat]       = useState("");
             <p style={{ fontFamily: SERIF, fontSize: "17px", fontWeight: 400, color: "#0d0d0d", margin: "0 0 10px", letterSpacing: "-0.01em" }}>
               Don&apos;t have Discogs yet?
             </p>
-            <a href="/quiz" style={{ fontFamily: MONO, fontSize: "11px", letterSpacing: "0.06em", color: ORANGE, textDecoration: "none" }}>
+            <Link href="/quiz" style={{ fontFamily: MONO, fontSize: "11px", letterSpacing: "0.06em", color: ORANGE, textDecoration: "none" }}>
               Answer a few important questions to get started →
-            </a>
+            </Link>
           </div>
         </div>
       )}
@@ -1419,425 +1403,6 @@ const [filterFormat,       setFilterFormat]       = useState("");
       </div>
       )}
 
-      {/* filter bottom sheet removed — inline filters on mobile */}
-      {false && (
-        <>
-          <div
-            className="md:hidden"
-            onClick={() => setFilterSheetOpen(false)}
-            style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.35)", zIndex: 40 }}
-          />
-          <div
-            className="md:hidden"
-            style={{
-              position: "fixed", bottom: 0, left: 0, right: 0,
-              background: "#ffffff", borderRadius: "12px 12px 0 0",
-              zIndex: 50, padding: "20px 20px 40px",
-              boxShadow: "0 -4px 24px rgba(0,0,0,0.12)",
-            }}
-          >
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "20px" }}>
-              <span style={{ fontFamily: SERIF, fontSize: "17px", color: "#0d0d0d" }}>Filter & Sort</span>
-              <button
-                onClick={() => setFilterSheetOpen(false)}
-                style={{ background: "none", border: "none", cursor: "pointer", fontFamily: MONO, fontSize: "20px", color: "#aaaaaa", padding: "4px 8px", lineHeight: 1 }}
-              >
-                ×
-              </button>
-            </div>
-
-            <label style={{ display: "block", fontFamily: MONO, fontSize: "9px", letterSpacing: "0.12em", textTransform: "uppercase", color: "#aaaaaa", marginBottom: "4px" }}>Sort</label>
-            <select
-              value={sortBy}
-              onChange={e => setSortBy(e.target.value)}
-              style={{
-                width: "100%", fontFamily: MONO, fontSize: "13px", letterSpacing: "0.02em",
-                color: sortBy !== "artist-az" ? ORANGE : "#0d0d0d",
-                background: "#ffffff", border: `1px solid ${sortBy !== "artist-az" ? ORANGE : "rgba(0,0,0,0.13)"}`,
-                cursor: "pointer", padding: "10px 8px", outline: "none", marginBottom: "16px",
-              }}
-            >
-              {SORT_OPTIONS.map(o => (
-                <option key={o.value} value={o.value}>{o.label}</option>
-              ))}
-            </select>
-
-            <label style={{ display: "block", fontFamily: MONO, fontSize: "9px", letterSpacing: "0.12em", textTransform: "uppercase", color: "#aaaaaa", marginBottom: "4px" }}>Genre</label>
-            <select
-              value={filterGenre}
-              onChange={e => setFilterGenre(e.target.value)}
-              style={{
-                width: "100%", fontFamily: MONO, fontSize: "13px",
-                color: filterGenre ? ORANGE : "#0d0d0d",
-                background: "#ffffff", border: `1px solid ${filterGenre ? ORANGE : "rgba(0,0,0,0.13)"}`,
-                cursor: "pointer", padding: "10px 8px", outline: "none", marginBottom: "12px",
-              }}
-            >
-              <option value="">All genres</option>
-              {genres.map(g => <option key={g} value={g}>{g}</option>)}
-            </select>
-
-            <label style={{ display: "block", fontFamily: MONO, fontSize: "9px", letterSpacing: "0.12em", textTransform: "uppercase", color: "#aaaaaa", marginBottom: "4px" }}>Year</label>
-            <select
-              value={filterYear}
-              onChange={e => setFilterYear(e.target.value)}
-              style={{
-                width: "100%", fontFamily: MONO, fontSize: "13px",
-                color: filterYear ? ORANGE : "#0d0d0d",
-                background: "#ffffff", border: `1px solid ${filterYear ? ORANGE : "rgba(0,0,0,0.13)"}`,
-                cursor: "pointer", padding: "10px 8px", outline: "none", marginBottom: "12px",
-              }}
-            >
-              <option value="">All years</option>
-              {decades.map(d => <option key={d} value={d}>{d}</option>)}
-            </select>
-
-            <label style={{ display: "block", fontFamily: MONO, fontSize: "9px", letterSpacing: "0.12em", textTransform: "uppercase", color: "#aaaaaa", marginBottom: "4px" }}>Format</label>
-            <select
-              value={filterFormat}
-              onChange={e => setFilterFormat(e.target.value)}
-              style={{
-                width: "100%", fontFamily: MONO, fontSize: "13px",
-                color: filterFormat ? ORANGE : "#0d0d0d",
-                background: "#ffffff", border: `1px solid ${filterFormat ? ORANGE : "rgba(0,0,0,0.13)"}`,
-                cursor: "pointer", padding: "10px 8px", outline: "none", marginBottom: "12px",
-              }}
-            >
-              <option value="">All formats</option>
-              {formats.map(f => <option key={f} value={f}>{f}</option>)}
-            </select>
-
-            <label style={{ display: "block", fontFamily: MONO, fontSize: "9px", letterSpacing: "0.12em", textTransform: "uppercase", color: "#aaaaaa", marginBottom: "4px" }}>Desirability</label>
-            <select
-              value={filterDesirability}
-              onChange={e => setFilterDesirability(e.target.value)}
-              style={{
-                width: "100%", fontFamily: MONO, fontSize: "13px",
-                color: filterDesirability ? ORANGE : "#0d0d0d",
-                background: "#ffffff", border: `1px solid ${filterDesirability ? ORANGE : "rgba(0,0,0,0.13)"}`,
-                cursor: "pointer", padding: "10px 8px", outline: "none", marginBottom: "24px",
-              }}
-            >
-              <option value="">All</option>
-              {desirabilityOptions.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
-            </select>
-
-            <div style={{ display: "flex", gap: "12px" }}>
-              {hasFilters && (
-                <button
-                  onClick={() => { clearAllFilters(); setFilterSheetOpen(false); }}
-                  style={{
-                    flex: 1, fontFamily: MONO, fontSize: "11px", letterSpacing: "0.08em", textTransform: "uppercase",
-                    color: ORANGE, background: "none", border: `1px solid ${ORANGE}`,
-                    cursor: "pointer", padding: "13px",
-                  }}
-                >
-                  Clear all
-                </button>
-              )}
-              <button
-                onClick={() => setFilterSheetOpen(false)}
-                style={{
-                  flex: 1, fontFamily: MONO, fontSize: "11px", letterSpacing: "0.08em", textTransform: "uppercase",
-                  color: "#ffffff", background: ORANGE, border: "none",
-                  cursor: "pointer", padding: "13px",
-                }}
-              >
-                Done
-              </button>
-            </div>
-          </div>
-        </>
-      )}
-
-    </div>
-  );
-}
-
-// ─── InsightsPanel ───────────────────────────────────────────────────────────
-
-function fmtLabel(name: string): string {
-  const u = name.toUpperCase();
-  if (u === "LP")       return "Vinyl LPs";
-  if (u === "VINYL")    return "Vinyl";
-  if (u === "CD")       return "CDs";
-  if (u === "CASSETTE") return "Cassettes";
-  if (u === '7"')       return '7" Singles';
-  if (u === '10"')      return '10" Singles';
-  if (u === '12"')      return '12" Singles';
-  if (u === "EP")       return "EPs";
-  return name;
-}
-
-type StatDef = {
-  hero:        string;
-  label:       string;
-  sub?:        string;
-  heroItalic?: boolean;
-  heroColor?:  string;
-};
-
-function InsightsPanel({
-  insights,
-  total,
-  estimatedValue,
-  valueCurrency,
-  pricedCount,
-  discogsValue,
-}: {
-  insights: CollectionInsights;
-  total: number;
-  estimatedValue: number;
-  valueCurrency: string;
-  pricedCount: number;
-  discogsValue?: DiscogsValue;
-}) {
-  const [oneLiner, setOneLiner] = useState<string | null>(null);
-
-  useEffect(() => {
-    if (total < 5) return;
-    fetch("/api/insights", { method: "POST" })
-      .then(r => r.ok ? r.json() : null)
-      .then(d => { if (d?.oneLiner) setOneLiner(d.oneLiner); })
-      .catch(() => {});
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
-
-  if (total < 5) return null;
-
-  const stats: StatDef[] = [];
-
-  // 1. Total collection count — always first
-  stats.push({ hero: total.toLocaleString(), label: "Items" });
-
-  // 2. Format count
-  if (insights.topFormat) {
-    stats.push({
-      hero:  insights.topFormat.count.toLocaleString(),
-      label: fmtLabel(insights.topFormat.name),
-    });
-  }
-
-  // 3. Rare count — only shown when at least one exists
-  if (insights.rareCount > 0) {
-    stats.push({
-      hero:      insights.rareCount.toLocaleString(),
-      label:     "Rare",
-      heroColor: "#712B13",
-    });
-  }
-
-  // 4. Genre — top genre as a single tile
-  if (insights.topGenres.length > 0) {
-    const shortName = (g: string) => g.split(",")[0].trim();
-    stats.push({
-      hero:  `${insights.topGenres[0].pct}%`,
-      label: shortName(insights.topGenres[0].genre),
-    });
-  }
-
-  // 4. Most collected artist (vinyl count)
-  if (insights.topArtist) {
-    stats.push({
-      hero:  insights.topArtist.name,
-      label: `${insights.topArtist.count} vinyl items`,
-    });
-  }
-
-  // 5. Most represented label
-  if (insights.topLabel && insights.topLabel.count > 1) {
-    stats.push({
-      hero:  insights.topLabel.name,
-      label: `${insights.topLabel.count} label items`,
-    });
-  }
-
-  // 6. Collection span — "1959 → 2026"
-  if (insights.yearRange) {
-    const { oldest, newest } = insights.yearRange;
-    stats.push({
-      hero:  oldest !== newest ? `${oldest} → ${newest}` : String(oldest),
-      label: "collection span",
-    });
-  }
-
-  // 7. Most popular year — sits immediately after collection span
-  if (insights.mostPopularYear) {
-    stats.push({
-      hero:  String(insights.mostPopularYear),
-      label: "Most collected year",
-    });
-  }
-
-  // 8. Collection value — Discogs' own calculation when available, local fallback otherwise
-  const fmtV = (n: number, c: string) => {
-    const s = sym(c);
-    return n >= 1000 ? `${s}${(n / 1000).toFixed(1)}k` : `${s}${Math.round(n).toLocaleString("en-US")}`;
-  };
-
-  if (discogsValue?.med != null) {
-    const c = discogsValue.currency;
-    stats.push({
-      hero:  fmtV(discogsValue.med, c),
-      label: "Median Collection Value",
-    });
-  } else {
-    const currSym = sym(valueCurrency);
-    const fmtFallback = (n: number) =>
-      n >= 1000 ? `${currSym}${(n / 1000).toFixed(1)}k` : `${currSym}${Math.round(n).toLocaleString("en-US")}`;
-    stats.push(
-      estimatedValue > 0
-        ? { hero: fmtFallback(estimatedValue), label: "Est. Collection Value" }
-        : { hero: "—", label: "Est. Collection Value" }
-    );
-  }
-
-  if (stats.length === 0) return null;
-
-  return (
-    <div style={{ borderBottom: "1px solid rgba(0,0,0,0.08)", flexShrink: 0, overflow: "hidden" }}>
-      {/* Desktop — all stats horizontal */}
-      <div className="hidden md:flex" style={{ overflow: "hidden", background: "#FEFBF8", alignItems: "stretch" }}>
-        {stats.map((s, i) => (
-          <DashStat
-            key={i}
-            stat={s}
-            first={i === 0}
-            last={i === stats.length - 1}
-          />
-        ))}
-      </div>
-      {/* Mobile — 2×2 grid, 4 hardcoded cells */}
-      <div className="grid grid-cols-2 md:hidden" style={{ background: "#FEFBF8" }}>
-        <div style={{ padding: "16px", borderRight: "0.5px solid #e8e8e8", borderBottom: "0.5px solid #e8e8e8" }}>
-          <div style={{ fontSize: "clamp(1.8rem, 10vw, 2.4rem)", fontWeight: 600, fontFamily: SERIF, lineHeight: 1 }}>
-            {total.toLocaleString()}
-          </div>
-          <div style={{ fontSize: "11px", fontFamily: MONO, letterSpacing: "0.1em", textTransform: "uppercase", color: "#888888", marginTop: "6px" }}>
-            Items
-          </div>
-        </div>
-        <div style={{ padding: "16px", borderBottom: "0.5px solid #e8e8e8" }}>
-          <div style={{ fontSize: "clamp(1.4rem, 8vw, 2rem)", fontWeight: 600, fontFamily: SERIF, lineHeight: 1 }}>
-            {insights.topGenres[0]?.genre.split(",")[0].trim() ?? "—"}
-          </div>
-          <div style={{ fontSize: "11px", fontFamily: MONO, letterSpacing: "0.1em", textTransform: "uppercase", color: "#888888", marginTop: "6px" }}>
-            Top genre
-          </div>
-        </div>
-        <div style={{ padding: "16px", borderRight: "0.5px solid #e8e8e8" }}>
-          <div style={{ fontSize: "clamp(1.2rem, 7vw, 1.8rem)", fontWeight: 600, fontFamily: SERIF, lineHeight: 1 }}>
-            {insights.topArtist?.name ?? "—"}
-          </div>
-          <div style={{ fontSize: "11px", fontFamily: MONO, letterSpacing: "0.1em", textTransform: "uppercase", color: "#888888", marginTop: "6px" }}>
-            Top artist
-          </div>
-        </div>
-        <div style={{ padding: "16px" }}>
-          <div style={{ fontSize: "clamp(1.4rem, 8vw, 2rem)", fontWeight: 600, fontFamily: SERIF, lineHeight: 1 }}>
-            {discogsValue?.med != null
-              ? `${sym(discogsValue.currency)}${discogsValue.med >= 1000 ? `${(discogsValue.med / 1000).toFixed(1)}k` : Math.round(discogsValue.med).toLocaleString("en-US")}`
-              : estimatedValue > 0
-                ? `${sym(valueCurrency)}${estimatedValue >= 1000 ? `${(estimatedValue / 1000).toFixed(1)}k` : Math.round(estimatedValue).toLocaleString("en-US")}`
-                : "—"}
-          </div>
-          <div style={{ fontSize: "11px", fontFamily: MONO, letterSpacing: "0.1em", textTransform: "uppercase", color: "#888888", marginTop: "6px" }}>
-            Est. value
-          </div>
-        </div>
-      </div>
-      <div className="hidden md:block" style={oneLiner ? { borderTop: "1px solid rgba(0,0,0,0.08)" } : undefined}>
-        {oneLiner && (
-          <div style={{
-            margin: "0 0 14px",
-            paddingLeft: "10px",
-            borderLeft: `2px solid ${ORANGE}`,
-          }}>
-            <p style={{
-              fontFamily: SERIF,
-              fontStyle: "italic",
-              fontSize: "13px",
-              color: "#888888",
-              letterSpacing: "0.01em",
-              lineHeight: 1.5,
-              margin: 0,
-              display: "-webkit-box",
-              WebkitLineClamp: 2,
-              WebkitBoxOrient: "vertical",
-              overflow: "hidden",
-            }}>
-              {oneLiner}
-            </p>
-          </div>
-        )}
-      </div>
-    </div>
-  );
-}
-
-function DashStat({ stat, first, last }: { stat: StatDef; first: boolean; last: boolean }) {
-  const len = stat.hero.length;
-  const heroFontSize =
-    len > 12 ? "clamp(0.82rem, 1.3vw, 1.05rem)" :
-    len > 8  ? "clamp(0.9rem, 1.5vw, 1.25rem)"  :
-               "1.5rem";
-
-  return (
-    <div style={{
-      flex:          "1 1 0",
-      minWidth:      0,
-      padding:       `10px ${last ? "20px" : "12px"} 10px ${first ? "20px" : "12px"}`,
-      borderRight:   last ? "none" : "1px solid #e0e0da",
-      boxSizing:     "border-box",
-      display:       "flex",
-      flexDirection: "column",
-      alignItems:    "flex-start",
-    }}>
-      <p
-        title={stat.hero}
-        style={{
-          fontFamily:    SERIF,
-          fontSize:      heroFontSize,
-          fontWeight:    400,
-          fontStyle:     stat.heroItalic ? "italic" : "normal",
-          color:         stat.heroColor ?? "#0d0d0d",
-          lineHeight:    1.2,
-          margin:        "0 0 5px 0",
-          letterSpacing: "-0.01em",
-          wordBreak:     "break-word",
-          maxWidth:      "100%",
-        }}
-      >
-        {stat.hero}
-      </p>
-      <p style={{
-        fontFamily:    MONO,
-        fontSize:      "0.6rem",
-        letterSpacing: "0.08em",
-        textTransform: "uppercase",
-        color:         "#aaaaaa",
-        lineHeight:    1.2,
-        margin:        0,
-        whiteSpace:    "nowrap",
-        overflow:      "hidden",
-        textOverflow:  "ellipsis",
-        maxWidth:      "100%",
-      }}>
-        {stat.label}
-      </p>
-      {stat.sub && (
-        <p style={{
-          fontFamily:    MONO,
-          fontSize:      "0.55rem",
-          letterSpacing: "0.04em",
-          color:         "#cccccc",
-          lineHeight:    1.3,
-          margin:        "3px 0 0",
-          wordBreak:     "break-word",
-          maxWidth:      "100%",
-        }}>
-          {stat.sub}
-        </p>
-      )}
     </div>
   );
 }
@@ -1946,11 +1511,11 @@ function RecordRow({ record, selected, onClick }: {
 
 // ─── AlbumDetail ─────────────────────────────────────────────────────────────
 
-function AlbumDetail({ record, detail, price, loading, valueCurrency }: {
+function AlbumDetail({ record, detail, price, valueCurrency }: {
   record: CollectionRecord;
   detail: ReleaseDetail | null;
   price: PriceData | null;
-  loading: boolean;
+  loading?: boolean;
   valueCurrency?: string;
 }) {
   const [openToOffers, setOpenToOffers] = useState<boolean>(record?.open_to_offers ?? false);
@@ -2196,7 +1761,6 @@ function TracklistPanel({ tracks, loading, bandcamp, record }: {
 }) {
   const artist      = record?.artist ?? "";
   const album       = record?.album  ?? "";
-  const discogsId   = record?.discogs_id ?? null;
   const bcSearch    = bandcamp?.searchUrl ?? `https://bandcamp.com/search?q=${encodeURIComponent(`${artist} ${album}`)}`;
   const amSearch    = `https://music.apple.com/search?term=${encodeURIComponent(`${artist} ${album}`)}`;
   const tidalSearch = `https://tidal.com/search?q=${encodeURIComponent(`${artist} ${album}`)}`;
@@ -2403,7 +1967,6 @@ function TracklistPanel({ tracks, loading, bandcamp, record }: {
   const baseLinkStyle: React.CSSProperties = {
     fontFamily: MONO, fontSize: "10px", letterSpacing: "0.08em", textDecoration: "none",
   };
-  const linkStyle: React.CSSProperties = { ...baseLinkStyle, color: ORANGE };
   const secondaryLinkStyle: React.CSSProperties = { ...baseLinkStyle, color: "#555555" };
 
   return (
@@ -2585,7 +2148,6 @@ function TracklistPanel({ tracks, loading, bandcamp, record }: {
 
             {/* Embed player — only when a Bandcamp album was found */}
             {bandcamp?.embedUrl && (
-              // eslint-disable-next-line jsx-a11y/iframe-has-title
               <iframe
                 src={bandcamp.embedUrl}
                 style={{ border: 0, width: "100%", height: 120, display: "block", marginBottom: "14px" }}

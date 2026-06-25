@@ -155,7 +155,7 @@ export default function SellListClient({
               <Link href="/collection" style={{ color: ORANGE, textDecoration: "none", borderBottom: `1px solid ${ORANGE}` }}>
                 Collection
               </Link>
-              {" "}and they'll appear here.
+              {" "}and they&apos;ll appear here.
             </p>
           )}
         </div>

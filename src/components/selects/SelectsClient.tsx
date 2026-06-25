@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import Link from "next/link";
 import AppNav from "@/components/AppNav";
 import { createClient } from "@/lib/supabase/client";
 import { useUrlTab } from "@/lib/useUrlTab";
@@ -289,9 +290,9 @@ function LiveSection() {
         ) : !data?.city ? (
           <div style={{ fontFamily: SERIF, fontSize: "clamp(22px, 3vw, 38px)", lineHeight: 1.2, color: INK, fontWeight: 600 }}>
             Add your city in{" "}
-            <a href="/settings/profile" style={{ color: ORANGE, textDecoration: "none", borderBottom: `1.5px solid ${ORANGE}` }}>
+            <Link href="/settings/profile" style={{ color: ORANGE, textDecoration: "none", borderBottom: `1.5px solid ${ORANGE}` }}>
               profile settings
-            </a>
+            </Link>
             {" "}to see local gigs.
           </div>
         ) : data.artistCount > 0 ? (

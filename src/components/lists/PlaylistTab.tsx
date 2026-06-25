@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { createList, appendSongToList } from "@/app/lists/actions";
 import PlaylistPromptPanel, { type Mood, type MatchStatus } from "@/components/lists/playlist/PlaylistPromptPanel";
 import PlaylistPlayer from "@/components/lists/playlist/PlaylistPlayer";
@@ -331,12 +332,12 @@ export default function PlaylistTab({ username }: { username: string }) {
                 Free accounts get 2 playlist generations per day.<br />
                 Support rek<span style={{ color: "#CC5500" }}>ō</span>do for unlimited access.
               </p>
-              <a
+              <Link
                 href="/about#support"
                 style={{ fontFamily: MONO, fontSize: "0.6rem", letterSpacing: "0.12em", textTransform: "uppercase", color: "#FDF6F0", background: "#0a0a0a", padding: "12px 24px", textDecoration: "none", display: "inline-block" }}
               >
                 Support rek<span style={{ color: "#CC5500" }}>ō</span>do →
-              </a>
+              </Link>
             </div>
           )}
 

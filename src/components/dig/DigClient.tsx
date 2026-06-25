@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
+import Link from "next/link";
 import AppNav from "@/components/AppNav";
 import RecordSpinner from "@/components/RecordSpinner";
 import { isAppleMusicUrl, openAppleMusicLink } from "@/lib/openAppleMusic";
@@ -61,40 +62,6 @@ function VinylDisc() {
       {/* Spindle */}
       <circle cx="210" cy="210" r="6"   fill="#080808" />
     </svg>
-  );
-}
-
-// ─── Loading — vinyl + tonearm ────────────────────────────────────────────────
-
-function LoadingState({ text }: { text: string }) {
-  return (
-    <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", flex: 1, gap: "32px" }}>
-      <svg viewBox="0 0 240 196" width="180" height="147" style={{ display: "block", overflow: "visible" }} aria-hidden="true">
-        <g className="dig-vinyl-spin">
-          <circle cx="95"  cy="115" r="80" fill="#111111" />
-          <circle cx="95"  cy="115" r="74" fill="none" stroke="#222222" strokeWidth="1" />
-          <circle cx="95"  cy="115" r="67" fill="none" stroke="#1e1e1e" strokeWidth="1" />
-          <circle cx="95"  cy="115" r="60" fill="none" stroke="#1d1d1d" strokeWidth="1" />
-          <circle cx="95"  cy="115" r="53" fill="none" stroke="#1c1c1c" strokeWidth="1" />
-          <circle cx="95"  cy="115" r="45" fill="none" stroke="#1b1b1b" strokeWidth="1" />
-          <circle cx="95"  cy="115" r="37" fill="none" stroke="#1b1b1b" strokeWidth="0.8" />
-          <circle cx="95"  cy="115" r="23" fill="#1a1a1a" />
-          <circle cx="95"  cy="115" r="15" fill="none" stroke="#2b2b2b" strokeWidth="0.5" />
-          <circle cx="95"  cy="115" r="2.5" fill="#060606" />
-        </g>
-        <g className="dig-arm-lower">
-          <circle cx="210" cy="30" r="9"   fill="#333333" />
-          <circle cx="210" cy="30" r="4"   fill="#1a1a1a" />
-          <line x1="207" y1="37" x2="162" y2="78" stroke="#454545" strokeWidth="4.5" strokeLinecap="round" />
-          <line x1="162" y1="78" x2="153" y2="91" stroke="#414141" strokeWidth="3.5" strokeLinecap="round" />
-          <rect x="148" y="87" width="11" height="6" rx="1.5" fill="#373737" />
-          <circle cx="151" cy="95" r="3.5" fill={ORANGE} />
-        </g>
-      </svg>
-      <p style={{ fontFamily: SERIF, fontSize: "15px", fontStyle: "italic", color: "#888888", margin: 0 }}>
-        {text}
-      </p>
-    </div>
   );
 }
 
@@ -814,7 +781,7 @@ function ModeToggle({ mode, onChange, disabled }: {
 
 // ─── Main client ──────────────────────────────────────────────────────────────
 
-export default function DigClient({ userId, username, displayLabel, avatarUrl, collectionCount, listsCount, availableStyles, hasQuizProfile }: Props) {
+export default function DigClient({ userId, username, displayLabel, avatarUrl, collectionCount, availableStyles, hasQuizProfile }: Props) {
   const [recs,              setRecs]              = useState<Recommendation[] | null>(null);
   const [loading,           setLoading]           = useState(true);
   const [error,             setError]             = useState<string | null>(null);
@@ -1037,13 +1004,6 @@ export default function DigClient({ userId, username, displayLabel, avatarUrl, c
     setIdx(i => Math.min(Math.max(i + dir, 0), total - 1));
   }
 
-  const statNum: React.CSSProperties = {
-    fontFamily: SERIF, fontSize: "24px", fontWeight: 400, color: "#0d0d0d",
-  };
-  const statLbl: React.CSSProperties = {
-    fontFamily: MONO, fontSize: "10px", letterSpacing: "0.08em", color: "#aaaaaa", marginLeft: "9px",
-  };
-
   return (
     <div className="dig-outer" style={{ height: "100vh", display: "flex", flexDirection: "column", background: "#ffffff", overflow: "hidden" }}>
 
@@ -1182,7 +1142,7 @@ export default function DigClient({ userId, username, displayLabel, avatarUrl, c
           {collectionCount === 0 && hasQuizProfile && activeTab === "discover" && (
             <p style={{ fontFamily: MONO, fontSize: "10px", letterSpacing: "0.05em", color: "#aaaaaa", margin: "8px 0 0" }}>
               Starter picks based on your taste profile ·{" "}
-              <a href="/collection" style={{ color: ORANGE, textDecoration: "none" }}>Sync Discogs to unlock your full collection →</a>
+              <Link href="/collection" style={{ color: ORANGE, textDecoration: "none" }}>Sync Discogs to unlock your full collection →</Link>
             </p>
           )}
 
@@ -1224,12 +1184,12 @@ export default function DigClient({ userId, username, displayLabel, avatarUrl, c
                     Free accounts get 3 digs per day.<br />
                     Support rek<span style={{ color: ORANGE }}>ō</span>do for unlimited access.
                   </p>
-                  <a
+                  <Link
                     href="/about#support"
                     style={{ fontFamily: MONO, fontSize: "0.6rem", letterSpacing: "0.12em", textTransform: "uppercase", color: "#FDF6F0", background: "#0a0a0a", padding: "12px 24px", textDecoration: "none", display: "inline-block" }}
                   >
                     Support rek<span style={{ color: ORANGE }}>ō</span>do →
-                  </a>
+                  </Link>
                 </div>
               )}
 

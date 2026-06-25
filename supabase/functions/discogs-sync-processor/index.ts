@@ -623,7 +623,7 @@ Deno.serve(async (req) => {
 
   // Keep the function alive after responding
   if (typeof EdgeRuntime !== "undefined") {
-    // @ts-ignore — EdgeRuntime is a Deno Deploy global
+    // @ts-expect-error — EdgeRuntime is a Deno Deploy global
     EdgeRuntime.waitUntil(syncPromise);
   }
 

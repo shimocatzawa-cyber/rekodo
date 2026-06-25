@@ -212,7 +212,7 @@ export default function Top5Editor({ listId, listTitle, initialSlots, onClose }:
             return (
               <div key={slot.position} style={{ minWidth: 0 }}>
                 <div
-                  onClick={() => { if (!busy) isActive ? closeSearch() : openSlot(slot.position); }}
+                  onClick={() => { if (!busy) { if (isActive) closeSearch(); else openSlot(slot.position); } }}
                   style={{
                     position: "relative", overflow: "hidden", lineHeight: 0,
                     border: isActive ? `2px solid ${ORANGE}` : slot.coverUrl ? "none" : `1px dashed ${RULE}`,

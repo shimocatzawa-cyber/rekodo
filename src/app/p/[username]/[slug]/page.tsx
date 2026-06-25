@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import type { SlotItem, ListSlot } from "@/app/lists/types";
@@ -132,18 +133,18 @@ export default async function PublicListPage({ params }: { params: Params }) {
         className="flex items-center justify-between px-8 md:px-12 py-6"
         style={{ borderBottom: "1px solid rgba(0,0,0,0.08)" }}
       >
-        <a href="/" aria-label="rekōdo home" style={{ fontFamily: SERIF, fontWeight: 700, fontSize: "24px", color: "#CC5500", textDecoration: "none" }}>
+        <Link href="/" aria-label="rekōdo home" style={{ fontFamily: SERIF, fontWeight: 700, fontSize: "24px", color: "#CC5500", textDecoration: "none" }}>
           ō
-        </a>
+        </Link>
         <div style={{ display: "flex", alignItems: "center", gap: "20px" }}>
           {isOwner ? (
-            <a href="/lists" style={{ fontFamily: MONO, fontSize: "10px", letterSpacing: "0.08em", color: "#aaa", textDecoration: "none" }}>
+            <Link href="/lists" style={{ fontFamily: MONO, fontSize: "10px", letterSpacing: "0.08em", color: "#aaa", textDecoration: "none" }}>
               ← My Lists
-            </a>
+            </Link>
           ) : viewerUsername ? (
-            <a href="/lists?tab=community" style={{ fontFamily: MONO, fontSize: "10px", letterSpacing: "0.08em", color: "#aaa", textDecoration: "none" }}>
+            <Link href="/lists?tab=community" style={{ fontFamily: MONO, fontSize: "10px", letterSpacing: "0.08em", color: "#aaa", textDecoration: "none" }}>
               ← Community
-            </a>
+            </Link>
           ) : null}
           <a href={`/@${profile.username}`} style={{ fontFamily: MONO, fontSize: "10px", letterSpacing: "0.08em", color: "#aaa", textDecoration: "none" }}>
             @{profile.username}

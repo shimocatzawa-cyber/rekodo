@@ -61,7 +61,7 @@ interface Props {
 // ─── Main component ───────────────────────────────────────────────────────────
 
 export default function ProfileClient({
-  profile, isOwner, isSupporter, totalRecords, topGenre, topCountry, topLabel,
+  profile, isOwner, isSupporter,
   followerCount, followingCount, viewer,
   collectionPhoto = null,
   compatibility = null,
@@ -260,11 +260,6 @@ export default function ProfileClient({
     borderBottom: "1px solid rgba(0,0,0,0.14)",
     outline: "none", padding: "8px 0 10px", boxSizing: "border-box",
   };
-  const eyebrowSt: React.CSSProperties = {
-    fontFamily: MONO, fontSize: "0.55rem", letterSpacing: "0.14em",
-    textTransform: "uppercase", color: ORANGE, margin: "0 0 20px 0",
-  };
-
   return (
     <div style={{ minHeight: "100vh", background: "#ffffff", display: "flex", flexDirection: "column" }}>
 
@@ -509,6 +504,7 @@ export default function ProfileClient({
                           <p style={{ fontFamily: MONO, fontSize: "11px", letterSpacing: "0.04em", color: MUTED, margin: "0 0 10px 0", lineHeight: 1.6 }}>
                             Connect Spotify to enable playback on your Collection and Dig pages.
                           </p>
+                          {/* eslint-disable-next-line @next/next/no-html-link-for-pages -- /api/auth/spotify is an OAuth-kickoff route, not a page; needs a real navigation, not client-side routing */}
                           <a
                             href="/api/auth/spotify"
                             style={{

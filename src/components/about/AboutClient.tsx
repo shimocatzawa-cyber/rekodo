@@ -648,7 +648,7 @@ function ContactTab() {
         {/* Status messages */}
         {status === "success" && (
           <p style={{ fontFamily: MONO, fontSize: "0.65rem", letterSpacing: "0.04em", color: "#0a0a0a", marginBottom: "20px" }}>
-            Message sent. We'll be in touch.
+            Message sent. We&apos;ll be in touch.
           </p>
         )}
         {status === "error" && (
