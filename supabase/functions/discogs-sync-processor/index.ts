@@ -81,6 +81,53 @@ const COLOUR_KW = [
   "Translucent", "Transparent", "Picture Disc", "Etched",
 ];
 
+function extractBarcode(identifiers?: Array<{ type?: string; value?: string }>): string | null {
+  if (!identifiers?.length) return null;
+  const bc = identifiers.find((i) => i.type?.toLowerCase() === "barcode");
+  return bc?.value?.trim() || null;
+}
+
+function extractMatrix(identifiers?: Array<{ type?: string; value?: string }>): string[] {
+  if (!identifiers?.length) return [];
+  return identifiers
+    .filter((i) => i.type?.toLowerCase().includes("matrix"))
+    .map((i) => i.value?.trim())
+    .filter((v): v is string => !!v);
+}
+
+// Regex patterns for edition size, ordered most-specific first.
+// Only high-confidence matches stored — returns null on ambiguous input.
+const EDITION_RE = [
+  /\/\s*(\d{2,6})\b/,                          // /500  /1000
+  /\blimited\s+(?:edition\s+)?(?:of\s+)?(\d{2,6})\b/i,  // Limited edition of 500
+  /\bnumbered\s+(?:\/\s*)?(\d{2,6})\b/i,       // Numbered /500
+  /\b(\d{2,6})\s+cop(?:y|ies)\b/i,             // 500 copies
+  /\b(\d{2,6})\s+pressed\b/i,                  // 500 pressed
+];
+
+function extractEditionSize(
+  formats?: Array<{ text?: string; descriptions?: string[] }>,
+  notes?: string
+): number | null {
+  const candidates = [
+    ...(formats ?? []).map((f) => f.text ?? ""),
+    ...(formats ?? []).flatMap((f) => f.descriptions ?? []),
+    notes ?? "",
+  ];
+  for (const text of candidates) {
+    if (!text) continue;
+    for (const re of EDITION_RE) {
+      const m = text.match(re);
+      if (m) {
+        const n = parseInt(m[1], 10);
+        // Sanity-check: plausible edition sizes only
+        if (n >= 10 && n <= 1_000_000) return n;
+      }
+    }
+  }
+  return null;
+}
+
 function extractProducers(extraartists?: Array<{ name: string; role: string }>): string[] {
   if (!extraartists?.length) return [];
   return extraartists
@@ -521,12 +568,15 @@ async function processSync(supabase: SB, jobId: string, userId: string) {
       for (let i = 0; i < savedRecordIds.length; i += BATCH) {
         const { data } = await supabase
           .from("records")
-          .select("id, discogs_id, format, country, vinyl_colour, producers")
+          .select("id, discogs_id, format, country, vinyl_colour, producers, barcode, matrix, edition_size")
           .in("id", savedRecordIds.slice(i, i + BATCH))
           .not("discogs_id", "is", null);
         for (const r of data ?? []) {
           if (!r.discogs_id) continue;
-          if (r.format === null || r.country === null || r.vinyl_colour === null || r.producers === null) {
+          if (
+            r.format === null || r.country === null || r.vinyl_colour === null ||
+            r.producers === null || r.barcode === null || r.matrix === null
+          ) {
             needingBackfill.push({ id: r.id, discogs_id: r.discogs_id as string });
           }
         }
@@ -544,26 +594,30 @@ async function processSync(supabase: SB, jobId: string, userId: string) {
           const res = await fetch(releaseUrl, { headers: { "User-Agent": UA } });
           if (res.ok) {
             const rd = await res.json() as {
-              formats?:     Array<{ name?: string; descriptions?: string[]; text?: string }>;
-              country?:     string;
+              formats?:      Array<{ name?: string; descriptions?: string[]; text?: string }>;
+              country?:      string;
               extraartists?: Array<{ name: string; role: string }>;
+              identifiers?:  Array<{ type?: string; value?: string }>;
+              notes?:        string;
             };
-            // Only include a field in the patch when this fetch actually found
-            // a value for it — a record only needing producers backfilled (say)
-            // must not have its already-correct format/country/vinyl_colour
-            // overwritten with null/empty just because this particular
-            // full-release response happened to omit one of them. Same rule
-            // as the Phase 4 condition fix above, applied here too.
+            // Only write a field when this fetch found a value — never overwrite
+            // good data with null/empty from a partial response.
             const patch: Record<string, unknown> = {};
             const format = extractFormat(rd.formats);
             if (format) patch.format = format;
             if (rd.country) patch.country = rd.country;
-            // vinyl_colour is the one exception: "" is an intentional sentinel
-            // meaning "checked, no colour found" so this record stops being
-            // re-fetched every sync — always write it, never skip.
+            // vinyl_colour: "" sentinel means "checked, no colour" — always write.
             patch.vinyl_colour = extractVinylColour(rd.formats) ?? "";
             const producers = extractProducers(rd.extraartists);
             if (producers.length > 0) patch.producers = producers;
+            // Pressing identifiers — only write when found; "" sentinel for
+            // barcode marks "checked, no barcode" so it's skipped on future syncs.
+            const barcode = extractBarcode(rd.identifiers);
+            patch.barcode = barcode ?? "";
+            // matrix: always write (even [] as sentinel) so null = not yet checked.
+            patch.matrix = extractMatrix(rd.identifiers);
+            const editionSize = extractEditionSize(rd.formats, rd.notes);
+            if (editionSize !== null) patch.edition_size = editionSize;
 
             await supabase.from("records").update(patch).eq("id", record.id);
           }

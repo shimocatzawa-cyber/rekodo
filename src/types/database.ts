@@ -54,6 +54,9 @@ export type Database = {
           community_fetched_at:   string | null;
           discogs_artist_id:      number | null;
           producers:              string[] | null;
+          barcode:                string | null;
+          matrix:                 string[] | null;
+          edition_size:           number | null;
         };
         Insert: {
           id?: string;
@@ -75,6 +78,9 @@ export type Database = {
           community_fetched_at?:   string | null;
           discogs_artist_id?:      number | null;
           producers?:              string[] | null;
+          barcode?:                string | null;
+          matrix?:                 string[] | null;
+          edition_size?:           number | null;
         };
         Update: {
           discogs_id?: string | null;
@@ -94,6 +100,9 @@ export type Database = {
           community_fetched_at?:   string | null;
           discogs_artist_id?:      number | null;
           producers?:              string[] | null;
+          barcode?:                string | null;
+          matrix?:                 string[] | null;
+          edition_size?:           number | null;
         };
         Relationships: [];
       };

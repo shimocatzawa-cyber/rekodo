@@ -1627,6 +1627,9 @@ function AlbumDetail({ record, detail, price, valueCurrency }: {
         {styles   && <MetaRow label="Style"   value={styles} />}
         {catno     && <MetaRow label="Cat #"     value={catno} />}
         {producers && <MetaRow label="Producers" value={producers} />}
+        {record.edition_size && <MetaRow label="Edition"   value={`/${record.edition_size.toLocaleString()}`} />}
+        {record.barcode      && <MetaRow label="Barcode"   value={record.barcode} />}
+        {record.matrix && record.matrix.length > 0 && <MetaRow label="Matrix" value={record.matrix.join(" / ")} />}
 
         {/* Marketplace pricing */}
         {price && (
