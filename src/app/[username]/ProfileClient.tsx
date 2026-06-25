@@ -9,6 +9,7 @@ import { saveAvatarUrl, saveDisplayName, saveProfileSettings } from "@/app/setti
 import AppNav from "@/components/AppNav";
 import CollectionPhotos from "@/app/p/[username]/CollectionPhotos";
 import WantlistClient from "@/components/wantlist/WantlistClient";
+import CollectionCsvUpload from "@/components/collection/CollectionCsvUpload";
 import EssentialsWallModal from "@/components/insights/EssentialsWallModal";
 
 const SERIF  = "var(--font-editorial)";
@@ -431,7 +432,7 @@ export default function ProfileClient({
                       Essentials Wall
                     </p>
                     <div style={{ display: "grid", gridTemplateColumns: "repeat(9, 1fr)", gap: "3px", maxWidth: 360, marginBottom: "10px" }}>
-                      {essentials.covers.slice(0, 9).map((c, i) => (
+                      {essentials.covers.map((c, i) => (
                         <div key={i} style={{ aspectRatio: "1 / 1", background: "#f0ede8", overflow: "hidden" }}>
                           {c.coverUrl && (
                             // eslint-disable-next-line @next/next/no-img-element
@@ -606,6 +607,8 @@ export default function ProfileClient({
 
                   </div>
                 )}
+
+                {isOwner && <CollectionCsvUpload isOwner={isOwner} />}
 
               </>
             )}
