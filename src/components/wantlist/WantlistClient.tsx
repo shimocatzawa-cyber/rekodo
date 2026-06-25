@@ -24,49 +24,54 @@ type ParsedRow = {
   discogs_release_id: number;
 };
 
-function parseCsvRow(line: string): string[] {
-  const cols: string[] = [];
+// Parses the whole file in one pass rather than splitting into lines first —
+// Discogs's "Collection Notes" column is free text, and a note spanning
+// multiple lines means the CSV has a literal newline inside a quoted field.
+// Splitting on \n before parsing quotes (the old approach) broke that one
+// logical row into two malformed fragments, each then failing to parse.
+function parseCsv(text: string): string[][] {
+  const rows: string[][] = [];
+  let row: string[] = [];
+  let field = "";
+  let inQuotes = false;
   let i = 0;
-  while (i <= line.length) {
-    if (line[i] === '"') {
-      let val = "";
-      i++;
-      while (i < line.length) {
-        if (line[i] === '"') {
-          if (line[i + 1] === '"') { val += '"'; i += 2; }
-          else { i++; break; }
-        } else {
-          val += line[i++];
-        }
+
+  while (i < text.length) {
+    const ch = text[i];
+    if (inQuotes) {
+      if (ch === '"') {
+        if (text[i + 1] === '"') { field += '"'; i += 2; continue; }
+        inQuotes = false; i++; continue;
       }
-      cols.push(val);
-      if (line[i] === ",") i++;
-    } else {
-      const end = line.indexOf(",", i);
-      if (end === -1) { cols.push(line.slice(i)); break; }
-      cols.push(line.slice(i, end));
-      i = end + 1;
+      field += ch; i++; continue;
     }
+    if (ch === '"') { inQuotes = true; i++; continue; }
+    if (ch === ",") { row.push(field); field = ""; i++; continue; }
+    if (ch === "\r") { i++; continue; } // normalize CRLF — \n (below) ends the row
+    if (ch === "\n") { row.push(field); rows.push(row); row = []; field = ""; i++; continue; }
+    field += ch; i++;
   }
-  return cols;
+  if (field.length > 0 || row.length > 0) { row.push(field); rows.push(row); }
+
+  return rows;
 }
 
 function parseWantlistCsv(text: string): { rows: ParsedRow[]; errors: string[] } {
-  const lines  = text.split(/\r?\n/).filter(Boolean);
+  const allRows = parseCsv(text).filter(cols => cols.some(c => c.trim()));
   const errors: string[] = [];
   const rows: ParsedRow[] = [];
 
-  for (let li = 1; li < lines.length; li++) {
-    const cols = parseCsvRow(lines[li]);
+  for (let ri = 1; ri < allRows.length; ri++) {
+    const cols = allRows[ri];
     const releaseId = parseInt(cols[7] ?? "", 10);
     if (isNaN(releaseId)) {
-      errors.push(`Row ${li + 1}: invalid release_id "${cols[7] ?? ""}"`);
+      errors.push(`Row ${ri + 1}: invalid release_id "${cols[7] ?? ""}"`);
       continue;
     }
     const artist = (cols[1] ?? "").trim();
     const title  = (cols[2] ?? "").trim();
     if (!artist || !title) {
-      errors.push(`Row ${li + 1}: missing artist or title`);
+      errors.push(`Row ${ri + 1}: missing artist or title`);
       continue;
     }
     rows.push({
