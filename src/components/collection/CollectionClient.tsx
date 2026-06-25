@@ -1618,6 +1618,7 @@ function AlbumDetail({ record, detail, price, valueCurrency }: {
       <div style={{ borderTop: "1px solid rgba(0,0,0,0.07)" }}>
         <MetaRow label="Label"   value={displayLabel} />
         {format       && <MetaRow label="Format"  value={format} />}
+        {record.edition_size && <MetaRow label="Edition" value={`/${record.edition_size.toLocaleString()}`} />}
         {vinylColour  && <MetaRow label="Vinyl"   value={vinylColour} />}
         {record.media_condition  && <MetaRow label="Media"  value={record.media_condition} />}
         {record.sleeve_condition && <MetaRow label="Sleeve" value={record.sleeve_condition} />}
@@ -1627,9 +1628,6 @@ function AlbumDetail({ record, detail, price, valueCurrency }: {
         {styles   && <MetaRow label="Style"   value={styles} />}
         {catno     && <MetaRow label="Cat #"     value={catno} />}
         {producers && <MetaRow label="Producers" value={producers} />}
-        {record.edition_size && <MetaRow label="Edition"   value={`/${record.edition_size.toLocaleString()}`} />}
-        {record.barcode      && <MetaRow label="Barcode"   value={record.barcode} />}
-        {record.matrix && record.matrix.length > 0 && <MetaRow label="Matrix" value={record.matrix.join(" / ")} />}
 
         {/* Marketplace pricing */}
         {price && (
