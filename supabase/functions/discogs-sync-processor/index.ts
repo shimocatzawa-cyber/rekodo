@@ -186,8 +186,9 @@ async function processSync(supabase: SB, jobId: string, userId: string) {
       discogs_artist_id: number | null; date_added: string | null;
     }
 
-    let totalPages   = 1;
-    let totalItems   = 0;
+    let totalPages      = 1;
+    let totalItems      = 0;
+    let allPagesFetched = false;
     const allReleases: DiscogsRelease[] = [];
 
     for (let page = 1; page <= totalPages; page++) {
@@ -196,7 +197,12 @@ async function processSync(supabase: SB, jobId: string, userId: string) {
       const res  = await rateFetch(url, auth);
 
       if (!res.ok) {
-        if (page === 1) throw new Error(`Discogs collection fetch failed: ${res.status}`);
+        if (page === 1) {
+          const msg = res.status === 403
+            ? "Discogs is temporarily unavailable — your collection is safe. Try again in a few minutes."
+            : `Discogs returned an error (${res.status}) — try again shortly.`;
+          throw new Error(msg);
+        }
         break;
       }
 
@@ -219,6 +225,7 @@ async function processSync(supabase: SB, jobId: string, userId: string) {
 
       if (page < totalPages) await new Promise((r) => setTimeout(r, RATE_MS));
     }
+    allPagesFetched = true;
 
     // Map to CollectionItem shape (mirrors sync/route.ts exactly)
     const collectionItems: CollectionItem[] = allReleases.map((item) => {
@@ -466,7 +473,7 @@ async function processSync(supabase: SB, jobId: string, userId: string) {
     // Delete links to records no longer in the user's Discogs collection.
     // Safety guard: only run if we have a valid collection (savedRecordIds
     // being empty would mean something went wrong and we must not delete anything).
-    if (savedRecordIds.length > 0) {
+    if (savedRecordIds.length > 0 && allPagesFetched) {
       await updateJob(supabase, jobId, { phase: "cleanup" });
 
       const currentIds = new Set(savedRecordIds);

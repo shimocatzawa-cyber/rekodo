@@ -145,6 +145,7 @@ export async function POST() {
     });
   } catch (err) {
     console.error("Discogs import:", err);
-    return Response.json({ error: "Import failed" }, { status: 500 });
+    const msg = err instanceof Error ? err.message : "Import failed";
+    return Response.json({ error: msg }, { status: 500 });
   }
 }

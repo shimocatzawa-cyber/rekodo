@@ -414,6 +414,7 @@ const [filterFormat,       setFilterFormat]       = useState("");
   // Pre-populate from a recently completed job so returning users see the result
   // rather than a blank idle state. Capped to 2 hours — older jobs are already
   // reflected in the "Last sync: date" line via lastSyncedAt.
+  const [syncErrorMessage, setSyncErrorMessage] = useState<string | null>(null);
   const [syncState, setSyncState] = useState<SyncState>(() => {
     if (!lastSyncJob?.completed_at) return "idle";
     const age = Date.now() - new Date(lastSyncJob.completed_at).getTime();
@@ -511,6 +512,7 @@ const [filterFormat,       setFilterFormat]       = useState("");
 
   async function runSync() {
     setSyncState("syncing");
+    setSyncErrorMessage(null);
     setSyncProgress({ message: "Connecting to Discogs...", done: 0, total: 0 });
 
     const ctrl = new AbortController();
@@ -592,6 +594,7 @@ const [filterFormat,       setFilterFormat]       = useState("");
               runPriceLoop(ev.total ?? 0);
 
             } else if (ev.type === "error") {
+              setSyncErrorMessage(ev.message ?? null);
               setSyncState("error");
             }
           } catch { /* ignore parse errors */ }
@@ -819,7 +822,9 @@ const [filterFormat,       setFilterFormat]       = useState("");
         </StatusBanner>
       )}
       {syncState === "error" && (
-        <StatusBanner color="#cc2200" bg="#fff5f5">Sync failed — please try again</StatusBanner>
+        <StatusBanner color="#cc2200" bg="#fff5f5">
+          {syncErrorMessage ?? "Sync failed — please try again"}
+        </StatusBanner>
       )}
 
 

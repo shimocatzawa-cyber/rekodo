@@ -205,7 +205,10 @@ export async function fetchCollectionReleases(
       const errorText = await res.text().catch(() => "");
       console.error(`Discogs collection page ${page} failed ${res.status}: ${errorText}`);
       if (page === 1) {
-        throw new Error(`Discogs collection ${res.status}: ${errorText}`);
+        const msg = res.status === 403
+          ? "Discogs is temporarily unavailable — your collection is safe. Try again in a few minutes."
+          : `Discogs returned an error (${res.status}) — try again shortly.`;
+        throw new Error(msg);
       }
       break;
     }
