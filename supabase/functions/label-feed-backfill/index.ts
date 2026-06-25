@@ -164,7 +164,45 @@ interface ParsedRelease {
   release_date: string | null;
 }
 
-async function parseWithClaude(subject: string, sender: string, body: string): Promise<ParsedRelease[]> {
+type ParseDebug = { httpStatus?: number; stopReason?: string; textLength?: number; parseError?: string };
+
+// A response cut off by max_tokens still has every release up to the cut as
+// complete, valid JSON objects — only the last (in-progress) one is broken.
+// Recovers everything before that instead of discarding the whole array.
+function salvagePartialJsonArray(text: string): unknown[] {
+  const start = text.indexOf("[");
+  if (start === -1) return [];
+  let depth = 0;
+  let lastSafeEnd = -1;
+  let inString = false;
+  let escape = false;
+  for (let i = start; i < text.length; i++) {
+    const ch = text[i];
+    if (inString) {
+      if (escape) escape = false;
+      else if (ch === "\\") escape = true;
+      else if (ch === '"') inString = false;
+      continue;
+    }
+    if (ch === '"') { inString = true; continue; }
+    if (ch === "[" || ch === "{") depth++;
+    else if (ch === "]" || ch === "}") {
+      depth--;
+      if (depth === 1) lastSafeEnd = i; // just closed an object that's a direct child of the array
+    }
+  }
+  if (lastSafeEnd === -1) return [];
+  try {
+    const parsed = JSON.parse(text.slice(start, lastSafeEnd + 1) + "]");
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+
+async function parseWithClaude(
+  subject: string, sender: string, body: string,
+): Promise<{ releases: ParsedRelease[]; debug: ParseDebug }> {
   const prompt = `You are parsing a record label or record shop newsletter email to extract release information.
 
 Email subject: ${subject}
@@ -207,28 +245,42 @@ Return ONLY a valid JSON array, no markdown, no explanation.`;
     },
     body: JSON.stringify({
       model: "claude-haiku-4-5-20251001",
-      // Newsletters listing dozens of releases (e.g. Norman Records' daily digest) need
-      // more room than 2048 tokens — once the output gets cut off mid-array, JSON.parse
-      // throws and the whole message silently yields zero releases.
-      max_tokens: 8192,
+      // Newsletters listing dozens of releases (e.g. Norman Records' daily digest, or
+      // Resident Music's full-catalog "Fresh On The Site" emails) need real headroom —
+      // 8192 still wasn't enough for at least one observed email (hit stop_reason
+      // "max_tokens" with 20+ releases pending). salvagePartialJsonArray below is the
+      // backstop for whatever this ceiling still isn't enough for.
+      max_tokens: 16000,
       messages: [{ role: "user", content: prompt }],
     }),
   });
 
   if (!res.ok) {
-    console.error("Claude API error:", res.status, await res.text());
-    return [];
+    const errText = await res.text();
+    console.error("Claude API error:", res.status, errText);
+    return { releases: [], debug: { httpStatus: res.status, parseError: errText.slice(0, 300) } };
   }
 
   const data = await res.json();
   const text: string = data.content?.[0]?.text ?? "";
+  const stopReason: string | undefined = data.stop_reason;
   try {
     const cleaned = text.replace(/```json?\n?/g, "").replace(/```/g, "").trim();
     const parsed = JSON.parse(cleaned);
-    return Array.isArray(parsed) ? (parsed as ParsedRelease[]) : [];
-  } catch {
-    console.error("Failed to parse Claude response:", text);
-    return [];
+    return {
+      releases: Array.isArray(parsed) ? (parsed as ParsedRelease[]) : [],
+      debug: { httpStatus: res.status, stopReason, textLength: text.length },
+    };
+  } catch (e) {
+    const salvaged = salvagePartialJsonArray(text) as ParsedRelease[];
+    console.error(`Failed to parse Claude response (salvaged ${salvaged.length} releases):`, text);
+    return {
+      releases: salvaged,
+      debug: {
+        httpStatus: res.status, stopReason, textLength: text.length,
+        parseError: e instanceof Error ? e.message : String(e),
+      },
+    };
   }
 }
 
@@ -289,7 +341,7 @@ Deno.serve(async (req) => {
         const sender = getHeader(msg, "from");
         const body = extractBody(msg.payload);
 
-        const parsed = await parseWithClaude(subject, sender, body);
+        const { releases: parsed, debug: parseDebug } = await parseWithClaude(subject, sender, body);
 
         if (dryRun) {
           debug.push({
@@ -299,6 +351,7 @@ Deno.serve(async (req) => {
             bodyLength: body.length,
             bodyPreview: body.slice(0, 1500),
             parsed,
+            parseDebug,
             dbRows: dbRows.map((r) => ({ id: r.id, artist: r.artist, album: r.album })),
           });
           continue;

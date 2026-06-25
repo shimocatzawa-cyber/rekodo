@@ -201,6 +201,40 @@ const FALLBACK: ParsedRelease = {
   release_date: null,
 };
 
+// A response cut off by max_tokens still has every release up to the cut as
+// complete, valid JSON objects — only the last (in-progress) one is broken.
+// Recovers everything before that instead of discarding the whole array.
+function salvagePartialJsonArray(text: string): unknown[] {
+  const start = text.indexOf("[");
+  if (start === -1) return [];
+  let depth = 0;
+  let lastSafeEnd = -1;
+  let inString = false;
+  let escape = false;
+  for (let i = start; i < text.length; i++) {
+    const ch = text[i];
+    if (inString) {
+      if (escape) escape = false;
+      else if (ch === "\\") escape = true;
+      else if (ch === '"') inString = false;
+      continue;
+    }
+    if (ch === '"') { inString = true; continue; }
+    if (ch === "[" || ch === "{") depth++;
+    else if (ch === "]" || ch === "}") {
+      depth--;
+      if (depth === 1) lastSafeEnd = i; // just closed an object that's a direct child of the array
+    }
+  }
+  if (lastSafeEnd === -1) return [];
+  try {
+    const parsed = JSON.parse(text.slice(start, lastSafeEnd + 1) + "]");
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+
 async function parseWithClaude(
   subject: string,
   sender: string,
@@ -247,10 +281,12 @@ Return ONLY a valid JSON array, no markdown, no explanation.`;
     },
     body: JSON.stringify({
       model: "claude-haiku-4-5-20251001",
-      // Newsletters listing dozens of releases (e.g. Norman Records' daily digest) need
-      // more room than 2048 tokens — once the output gets cut off mid-array, JSON.parse
-      // throws and the whole message silently yields zero releases.
-      max_tokens: 8192,
+      // Newsletters listing dozens of releases (e.g. Norman Records' daily digest, or
+      // Resident Music's full-catalog "Fresh On The Site" emails) need real headroom —
+      // 8192 still wasn't enough for at least one observed email (hit stop_reason
+      // "max_tokens" with 20+ releases pending). salvagePartialJsonArray below is the
+      // backstop for whatever this ceiling still isn't enough for.
+      max_tokens: 16000,
       messages: [{ role: "user", content: prompt }],
     }),
   });
@@ -269,8 +305,9 @@ Return ONLY a valid JSON array, no markdown, no explanation.`;
     if (Array.isArray(parsed) && parsed.length > 0) return parsed as ParsedRelease[];
     return [];
   } catch {
-    console.error("Failed to parse Claude response:", text);
-    return [FALLBACK];
+    const salvaged = salvagePartialJsonArray(text) as ParsedRelease[];
+    console.error(`Failed to parse Claude response (salvaged ${salvaged.length} releases):`, text);
+    return salvaged.length > 0 ? salvaged : [FALLBACK];
   }
 }
 
