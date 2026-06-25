@@ -15,11 +15,6 @@ const ORANGE = "#CC5500";
 const INK    = "#0d0d0d";
 const MUTED  = "#aaaaaa";
 
-const eyebrowSt: React.CSSProperties = {
-  fontFamily: MONO, fontSize: "0.55rem", letterSpacing: "0.14em",
-  textTransform: "uppercase", color: ORANGE, margin: 0,
-};
-
 const TOP5_TEMPLATES = [
   "Top 5 All Time",
   "Top 5 Desert Island Records",
@@ -62,7 +57,7 @@ export default function Top5Tab({ username }: { username: string }) {
     fetchLists()
       .then(filtered => { setLists(filtered); setLoading(false); })
       .catch(() => setLoading(false));
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  }, []);
 
   // Fetch like counts whenever list IDs change
   useEffect(() => {

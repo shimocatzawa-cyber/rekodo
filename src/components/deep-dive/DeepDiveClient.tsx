@@ -531,7 +531,7 @@ function VinylFallback({ size = 80 }: { size?: number }) {
   );
 }
 
-function CollectionStrip({ records, wantlistRecords = [], artist, tileSize = 80 }: { records: ArtistData["records"]; wantlistRecords?: ArtistData["wantlistRecords"]; artist: string; tileSize?: number }) {
+function CollectionStrip({ records, wantlistRecords = [], tileSize = 80 }: { records: ArtistData["records"]; wantlistRecords?: ArtistData["wantlistRecords"]; artist?: string; tileSize?: number }) {
   const wl = wantlistRecords ?? [];
   return (
     <div>

@@ -1,5 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
-import { ARCHETYPES, getNamedPairing } from './archetypeConfig'
+import { getNamedPairing } from './archetypeConfig'
 import { getDesirabilityTier } from '@/lib/desirability'
 import { STAR_SIGN_ARCHETYPE_NUDGE, STAR_SIGN_NUDGE_AMOUNT } from './starSignNudges'
 import type { StarSign } from '@/lib/starSigns'

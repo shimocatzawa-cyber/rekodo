@@ -118,21 +118,15 @@ export default async function PublicProfilePage({ params }: { params: Params }) 
     }
   }
 
-  const [userRecordsResult, listsResult, followerRes, followingRes, collectionPhotoRes] = await Promise.all([
+  const [userRecordsResult, followerRes, followingRes, collectionPhotoRes] = await Promise.all([
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (supabase as any).from("public_collection_summary").select("record_id").eq("user_id", profile.id),
-    supabase.from("lists")
-      .select("id, title, slug, list_type")
-      .eq("user_id", profile.id)
-      .eq("is_public", true)
-      .order("created_at"),
     supabase.from("follows").select("id", { count: "exact", head: true }).eq("following_id", profile.id),
     supabase.from("follows").select("id", { count: "exact", head: true }).eq("follower_id",  profile.id),
     supabase.from("collection_photos").select("storage_path").eq("user_id", profile.id).eq("display_order", 1).maybeSingle(),
   ]);
 
   const userRecords    = userRecordsResult.data ?? [];
-  const lists          = listsResult.data ?? [];
   const followerCount  = followerRes.count  ?? 0;
   const followingCount = followingRes.count ?? 0;
 
@@ -144,22 +138,12 @@ export default async function PublicProfilePage({ params }: { params: Params }) 
   }
   const totalRecords   = userRecords.length;
   const recordIds      = userRecords.map((r: { record_id: string }) => r.record_id).filter(Boolean) as string[];
-  const listIds        = lists.map(l => l.id);
 
-  const [recordDetailsResult, listItemsResult] = await Promise.all([
-    recordIds.length
-      ? supabase.from("records").select("genre, country, label").in("id", recordIds)
-      : Promise.resolve({ data: [] as { genre: string | null; country: string | null; label: string | null }[] }),
-    listIds.length
-      ? supabase.from("list_items")
-          .select("list_id, position, item_type, record_id, song_cover_url, song_artist, song_album")
-          .in("list_id", listIds)
-          .order("position")
-      : Promise.resolve({ data: [] }),
-  ]);
+  const recordDetailsResult = recordIds.length
+    ? await supabase.from("records").select("genre, country, label").in("id", recordIds)
+    : { data: [] as { genre: string | null; country: string | null; label: string | null }[] };
 
-  const details  = recordDetailsResult.data ?? [];
-  const allItems = listItemsResult.data      ?? [];
+  const details = recordDetailsResult.data ?? [];
 
   function topOf(arr: (string | null)[]): string | null {
     const m = new Map<string, number>();
@@ -169,14 +153,6 @@ export default async function PublicProfilePage({ params }: { params: Params }) 
   const topGenre   = topOf(details.map(r => r.genre));
   const topCountry = topOf(details.map(r => r.country));
   const topLabel   = topOf(details.map(r => r.label));
-
-  const itemRecordIds = allItems
-    .filter(i => i.item_type !== "song" && i.record_id)
-    .map(i => i.record_id as string);
-
-  const { data: coverRecords } = itemRecordIds.length
-    ? await supabase.from("records").select("id, cover_url, artist, album").in("id", itemRecordIds)
-    : { data: [] };
 
   const [compatibility, essentials] = await Promise.all([
     viewer && !isOwner ? getOrComputeCompatibility(supabase, viewer.id, profile.id) : Promise.resolve(null),

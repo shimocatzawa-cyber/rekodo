@@ -218,7 +218,7 @@ function LandscapeCard({ title, slots, username, covers, forExport }: CardProps)
 
 // ── Modal ──────────────────────────────────────────────────────────────────
 
-export default function ShareModal({ onClose, title, slots, username, listUrl }: Props) {
+export default function ShareModal({ onClose, title, slots, username }: Props) {
   const [format,        setFormat]        = useState<Format>("portrait");
   const [covers,        setCovers]        = useState<Covers>({});
   const [coversLoaded,  setCoversLoaded]  = useState(false);

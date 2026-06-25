@@ -131,7 +131,7 @@ async function main() {
       const remaining = total - num;
       const batchesDone = Math.floor(num / BATCH_SIZE);
       const estimatedMinutes = Math.ceil((remaining / BATCH_SIZE) * ((BATCH_DELAY_MS / 1000) / 60 * 60 + 5) / 60);
-      console.log(`\n  — Batch ${batchesDone} complete (${updated} updated, ${skipped} skipped so far). ${remaining} records remaining. Waiting 10s...\n`);
+      console.log(`\n  — Batch ${batchesDone} complete (${updated} updated, ${skipped} skipped so far). ${remaining} records remaining (~${estimatedMinutes}min). Waiting 10s...\n`);
       await sleep(BATCH_DELAY_MS);
     }
   }

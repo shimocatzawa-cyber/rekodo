@@ -5,7 +5,6 @@ import { useRouter } from "next/navigation";
 import { generateTasteSummary, setUsername } from "./actions";
 
 const MONO   = "var(--font-mono)";
-const SERIF  = "var(--font-editorial)";
 const ORANGE = "#CC5500";
 
 export function ShareButton() {

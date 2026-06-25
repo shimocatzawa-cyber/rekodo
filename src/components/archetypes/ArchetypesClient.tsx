@@ -76,7 +76,7 @@ function LoadingSkeleton() {
   );
 }
 
-export default function ArchetypesClient({ userId, username, displayLabel, avatarUrl }: Props) {
+export default function ArchetypesClient({ username, displayLabel, avatarUrl }: Props) {
   const [data, setData] = useState<ArchetypeData | null>(null);
   const [loading, setLoading] = useState(true);
   const [regenerating, setRegenerating] = useState(false);

@@ -43,15 +43,6 @@ function IconRepeat() {
     </svg>
   );
 }
-function IconVolume() {
-  return (
-    <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" aria-hidden="true">
-      <polygon points="2,5 5,5 8,2 8,12 5,9 2,9" fill="currentColor" stroke="none" opacity="0.5"/>
-      <path d="M10,4 q2,3 0,6" opacity="0.5"/>
-    </svg>
-  );
-}
-
 // ─── Props ────────────────────────────────────────────────────────────────────
 
 interface SpotifyPlayerProps {

@@ -29,7 +29,7 @@ interface Props {
 // ─── Main component ───────────────────────────────────────────────────────────
 
 export default function PublicListClient({
-  listId, ownerId, listTitle, username, slots,
+  listId, listTitle, username, slots,
   initialLikeCount, initialLiked,
   viewerUserId, isOwner,
 }: Props) {

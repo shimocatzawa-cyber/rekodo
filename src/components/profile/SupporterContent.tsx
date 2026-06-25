@@ -50,7 +50,7 @@ function formatLocalPrice({ unit_amount, currency }: LocalPrice): string {
     : `${formatted} ${currency.toUpperCase()}`;
 }
 
-export default function SupporterContent({ isOwner, isSubscriber, isDonor, userId, success }: Props) {
+export default function SupporterContent({ isOwner, isSubscriber, userId, success }: Props) {
   const [preset, setPreset]               = useState<number | null>(null);
   const [customAmount, setCustomAmount]   = useState("");
   const [loading, setLoading]             = useState<"subscription" | "donation" | null>(null);
