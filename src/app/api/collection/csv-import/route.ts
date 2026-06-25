@@ -89,6 +89,7 @@ export async function POST(request: NextRequest) {
   let skipped = 0;
   let failed = 0;
   let enrichmentPending = 0;
+  let conditionsBackfilled = 0;
   // Accumulated across all batches so the first-ever-import check (in
   // logCollectionAddActivity, called once after the loop) sees the whole
   // import as a single unit rather than re-evaluating per 100-row batch.
@@ -177,28 +178,33 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // 3. Find which records are already linked to this user
+    // 3. Find which records are already linked to this user — and what their
+    // current condition fields are, so an already-linked row can repair a
+    // missing condition value instead of being skipped outright. This is what
+    // lets the same upload double as a recovery tool (e.g. after the sync bug
+    // that nulled out condition data) and a bulk-import fallback for existing
+    // collectors when Discogs sync/the API itself is unavailable, not just a
+    // new-user onboarding path.
     const resolvedIds = parsedRows
       .map(r => existingMap.get(r.releaseId.toString()))
       .filter((id): id is string => id !== undefined);
 
-    const alreadyLinked = new Set<string>();
+    const linkByRecordId = new Map<string, { id: string; media_condition: string | null; sleeve_condition: string | null }>();
     for (let i = 0; i < resolvedIds.length; i += BATCH) {
-      const { data: links } = await supabase
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { data: links } = await (supabase as any)
         .from("user_records")
-        .select("record_id")
+        .select("id, record_id, media_condition, sleeve_condition")
         .eq("user_id", user.id)
         .in("record_id", resolvedIds.slice(i, i + BATCH));
-      for (const l of links ?? []) alreadyLinked.add(l.record_id);
+      for (const l of links ?? []) linkByRecordId.set(l.record_id, l);
     }
 
     // 4. Insert new user_records links with CSV metadata
     const toLink = parsedRows.filter(r => {
       const recId = existingMap.get(r.releaseId.toString());
-      return recId && !alreadyLinked.has(recId);
+      return recId && !linkByRecordId.has(recId);
     });
-
-    skipped += resolvedIds.length - toLink.length;
 
     if (toLink.length > 0) {
       const linkRows = toLink.map(r => ({
@@ -226,6 +232,42 @@ export async function POST(request: NextRequest) {
         failed += toLink.length;
       }
     }
+
+    // 5. Already-linked rows: fill in condition fields only where currently
+    // empty — never overwrite a value that's already there. A row with
+    // nothing new to add is a genuine skip; one that fills a gap counts
+    // toward conditionsBackfilled instead.
+    const alreadyLinked = parsedRows.filter(r => {
+      const recId = existingMap.get(r.releaseId.toString());
+      return recId && linkByRecordId.has(recId);
+    });
+
+    for (const r of alreadyLinked) {
+      const recId = existingMap.get(r.releaseId.toString())!;
+      const link  = linkByRecordId.get(recId)!;
+
+      const patch: Record<string, string> = {};
+      if (r.mediaCondition && !link.media_condition) patch.media_condition = r.mediaCondition;
+      if (r.sleeveCondition && !link.sleeve_condition) patch.sleeve_condition = r.sleeveCondition;
+
+      if (Object.keys(patch).length === 0) {
+        skipped++;
+        continue;
+      }
+
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { error: backfillErr } = await (supabase as any)
+        .from("user_records")
+        .update(patch)
+        .eq("id", link.id);
+
+      if (backfillErr) {
+        console.error("[csv-import] condition backfill error:", backfillErr.message);
+        skipped++;
+      } else {
+        conditionsBackfilled++;
+      }
+    }
   }
 
   await logCollectionAddActivity(supabase, user.id, allNewRecordIds);
@@ -241,5 +283,5 @@ export async function POST(request: NextRequest) {
     body: JSON.stringify({ userId: user.id }),
   }).catch(() => {});
 
-  return NextResponse.json({ success: true, imported, skipped, failed, enrichmentPending });
+  return NextResponse.json({ success: true, imported, skipped, failed, enrichmentPending, conditionsBackfilled });
 }
