@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { updateUserAdmin, updateUserIdentity, blockUser, setTestAccount } from "./actions";
+import { updateUserAdmin, updateUserIdentity, blockUser, setTestAccount, deleteUserAdmin } from "./actions";
 
 const MONO   = "var(--font-mono)";
 const ORANGE = "#CC5500";
@@ -127,6 +127,8 @@ export default function UserRow({ user, showFinancial, columnCount }: { user: Ad
   const [idPending,   startId]       = useTransition();
   const [blockPend,   startBlock]    = useTransition();
   const [testPend,    startTest]     = useTransition();
+  const [deletePend,  startDelete]   = useTransition();
+  const [confirmDelete, setConfirmDelete] = useState(false);
   const [isTest,      setIsTestState] = useState(user.is_test);
 
   const blocked = isBlocked(user.banned_until);
@@ -392,6 +394,56 @@ export default function UserRow({ user, showFinancial, columnCount }: { user: Ad
                   >
                     {blockPend ? "…" : blocked ? "Unblock" : "Block"}
                   </button>
+                </div>
+
+                {/* Delete account */}
+                <div>
+                  <label style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.1em", textTransform: "uppercase", color: MUTED, display: "block", marginBottom: "6px" }}>
+                    Delete
+                  </label>
+                  {confirmDelete ? (
+                    <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
+                      <button
+                        onClick={() => {
+                          startDelete(async () => {
+                            const result = await deleteUserAdmin(user.id);
+                            if (!result.success) {
+                              setError(result.error ?? "Delete failed");
+                              setConfirmDelete(false);
+                            }
+                          });
+                        }}
+                        disabled={deletePend}
+                        style={{
+                          fontFamily: MONO, fontSize: "9px", letterSpacing: "0.1em",
+                          textTransform: "uppercase", color: "#fff",
+                          background: deletePend ? "rgba(204,34,0,0.5)" : RED,
+                          border: "none", cursor: deletePend ? "default" : "pointer",
+                          padding: "8px 16px",
+                        }}
+                      >
+                        {deletePend ? "Deleting…" : "Confirm delete"}
+                      </button>
+                      <button
+                        onClick={() => setConfirmDelete(false)}
+                        style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.1em", textTransform: "uppercase", color: MUTED, background: "none", border: "none", cursor: "pointer", padding: 0 }}
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  ) : (
+                    <button
+                      onClick={() => setConfirmDelete(true)}
+                      style={{
+                        fontFamily: MONO, fontSize: "9px", letterSpacing: "0.1em",
+                        textTransform: "uppercase", color: RED,
+                        background: "none", border: `1px solid ${RED}`,
+                        cursor: "pointer", padding: "8px 16px",
+                      }}
+                    >
+                      Delete user
+                    </button>
+                  )}
                 </div>
 
                 {/* Test account flag — excluded from Community discovery (All Collectors, Top Matches) */}

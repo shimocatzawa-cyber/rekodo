@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { createClient as createServiceClient } from "@supabase/supabase-js";
+import { stripe } from "@/lib/stripe";
 
 function getAdminDb() {
   return createServiceClient(
@@ -84,6 +85,40 @@ export async function blockUser(
     ban_duration: block ? "876000h" : "none",
   });
 
+  if (error) return { success: false, error: error.message };
+
+  revalidatePath("/admin");
+  return { success: true };
+}
+
+export async function deleteUserAdmin(
+  userId: string,
+): Promise<{ success: boolean; error?: string }> {
+  if (!await verifyAdmin()) return { success: false, error: "Forbidden" };
+
+  const adminDb = getAdminDb();
+
+  // Cancel any active Stripe subscription before deletion.
+  try {
+    const { data: profile } = await adminDb
+      .from("profiles").select("stripe_customer_id").eq("id", userId).maybeSingle() as
+      { data: { stripe_customer_id: string | null } | null };
+    if (profile?.stripe_customer_id) {
+      const subs = await stripe.subscriptions.list({ customer: profile.stripe_customer_id, status: "active", limit: 10 });
+      await Promise.all(subs.data.map(s => stripe.subscriptions.cancel(s.id)));
+    }
+  } catch (err) {
+    console.error("[admin/delete] Stripe cancellation failed:", err);
+  }
+
+  // Remove storage objects (not FK-linked, won't cascade).
+  await Promise.all([
+    adminDb.storage.from("avatars").remove([`${userId}/avatar.jpg`]),
+    adminDb.storage.from("collection-photos").remove([`${userId}/1.jpg`]),
+  ]).catch(() => {});
+
+  // Delete auth user — cascades through all FK-linked tables.
+  const { error } = await adminDb.auth.admin.deleteUser(userId);
   if (error) return { success: false, error: error.message };
 
   revalidatePath("/admin");
