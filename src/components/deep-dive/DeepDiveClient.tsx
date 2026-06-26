@@ -757,12 +757,16 @@ function ArtistRow({
   artist,
   isSelected,
   imageUrl,
+  isFavorite,
   onSelect,
+  onToggleFavorite,
 }: {
   artist: ArtistData;
   isSelected: boolean;
   imageUrl: string | undefined;
+  isFavorite: boolean;
   onSelect: (name: string) => void;
+  onToggleFavorite: (name: string) => void;
 }) {
   return (
     <div
@@ -796,7 +800,7 @@ function ArtistRow({
       ) : (
         <ArtistInitial name={artist.name} size={40} />
       )}
-      <div style={{ minWidth: 0 }}>
+      <div style={{ minWidth: 0, flex: 1 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 5, marginBottom: 3 }}>
           <p style={{ fontFamily: SERIF, fontSize: "0.85rem", fontWeight: 600, color: INK, margin: 0, lineHeight: 1.2, wordBreak: "break-word" }}>
             {artist.name}
@@ -810,6 +814,18 @@ function ArtistRow({
           })()}
         </p>
       </div>
+      <button
+        type="button"
+        onClick={(e) => { e.stopPropagation(); onToggleFavorite(artist.name); }}
+        title={isFavorite ? "Remove from favourites" : "Add to favourites"}
+        style={{
+          background: "none", border: "none", cursor: "pointer", padding: "4px",
+          lineHeight: 1, fontSize: "1rem", flexShrink: 0,
+          color: isFavorite ? ORANGE : "#cccccc",
+        }}
+      >
+        {isFavorite ? "♥" : "♡"}
+      </button>
     </div>
   );
 }
@@ -1584,7 +1600,9 @@ export default function DeepDiveClient({
                   artist={a}
                   isSelected={selectedArtist === a.name && !isExternalArtist}
                   imageUrl={imageMap[a.name]}
+                  isFavorite={favorites.has(a.name)}
                   onSelect={selectArtist}
+                  onToggleFavorite={toggleFavorite}
                 />
               ))}
               {filtered.length === 0 && query && (
