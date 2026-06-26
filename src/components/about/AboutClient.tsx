@@ -407,7 +407,7 @@ const FAQ_SECTIONS: { section: string; items: { q: string; a: React.ReactNode }[
       },
       {
         q: "Where does the Spotify player appear?",
-        a: "The player is embedded in your Collection — open any record's detail panel and rekōdo will search for a matching Spotify album and let you play it in-page. A Spotify Premium account is required for full-track playback; free accounts can preview short clips only.",
+        a: "The player is embedded across four areas: your Collection (open any record's detail panel to play the matching album), Dig (play a recommendation before you decide to buy), Deep Dive (listen to podcast episodes about an artist), and the Playlist generator (play your generated mood playlist track by track). A Spotify Premium account is required for full-track playback; free accounts can preview short clips only.",
       },
     ],
   },
