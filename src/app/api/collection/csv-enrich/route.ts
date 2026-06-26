@@ -8,8 +8,10 @@ const DISCOGS_DELAY_MS = 1200; // 50 req/min — stays under 60/min ceiling
 const VINYL_SIZES = ["LP", '12"', '10"', '7"', "EP", "Mini-Album"];
 const COLOUR_KW = [
   "Black", "White", "Red", "Blue", "Green", "Yellow", "Orange", "Purple",
+  "Pink", "Silver", "Gold", "Grey", "Gray", "Brown", "Teal",
   "Clear", "Colored", "Coloured", "Marbled", "Splatter", "Opaque",
   "Translucent", "Transparent", "Picture Disc", "Etched",
+  "Swirl", "Galaxy", "Smoke", "Haze", "Glow",
 ];
 
 function sleep(ms: number) {
@@ -25,13 +27,15 @@ function extractFormat(formats?: Array<{ name?: string; descriptions?: string[] 
   return name || null;
 }
 
+function hasColourKw(s: string): boolean {
+  return COLOUR_KW.some((kw) => s.toLowerCase().includes(kw.toLowerCase()));
+}
+
 function extractVinylColour(formats?: Array<{ name?: string; descriptions?: string[]; text?: string }>): string | null {
   const vinyl = formats?.find((f) => f.name === "Vinyl");
   if (!vinyl) return null;
-  if (vinyl.text?.trim()) return vinyl.text.trim();
-  const match = (vinyl.descriptions ?? []).find((d) =>
-    COLOUR_KW.some((kw) => d.toLowerCase().includes(kw.toLowerCase()))
-  );
+  if (vinyl.text?.trim() && hasColourKw(vinyl.text)) return vinyl.text.trim();
+  const match = (vinyl.descriptions ?? []).find((d) => hasColourKw(d));
   return match ?? null;
 }
 

@@ -37,9 +37,15 @@ const VINYL_SIZES = ['7"', '10"', '12"'];
 
 const COLOUR_KW = [
   'Black', 'White', 'Red', 'Blue', 'Green', 'Yellow', 'Orange', 'Purple',
+  'Pink', 'Silver', 'Gold', 'Grey', 'Gray', 'Brown', 'Teal',
   'Clear', 'Colored', 'Coloured', 'Marbled', 'Splatter', 'Opaque',
   'Translucent', 'Transparent', 'Picture Disc', 'Etched',
+  'Swirl', 'Galaxy', 'Smoke', 'Haze', 'Glow',
 ];
+
+function hasColourKw(s: string): boolean {
+  return COLOUR_KW.some((kw) => s.toLowerCase().includes(kw.toLowerCase()));
+}
 
 function extractFormat(formats?: Format[]): string | null {
   const fmt = formats?.[0];
@@ -53,10 +59,10 @@ function extractFormat(formats?: Format[]): string | null {
 function extractVinylColour(formats?: Format[]): string | null {
   const vinyl = formats?.find((f) => f.name === 'Vinyl');
   if (!vinyl) return null;
-  if (vinyl.text?.trim()) return vinyl.text.trim();
-  const match = (vinyl.descriptions ?? []).find((d) =>
-    COLOUR_KW.some((kw) => d.toLowerCase().includes(kw.toLowerCase()))
-  );
+  // Only use text if it actually contains colour info — Discogs also puts
+  // pressing notes like "Gatefold", "180g", "Remastered" in this field.
+  if (vinyl.text?.trim() && hasColourKw(vinyl.text)) return vinyl.text.trim();
+  const match = (vinyl.descriptions ?? []).find((d) => hasColourKw(d));
   return match ?? null;
 }
 
@@ -149,7 +155,6 @@ async function main() {
     const { data, error } = await supabase
       .from('records')
       .select('id, discogs_id, artist, album, format, country, vinyl_colour, producers, genre, styles, year')
-      .or('barcode.is.null,country.is.null,vinyl_colour.eq.')
       .not('discogs_id', 'is', null)
       .range(from, from + PAGE - 1);
 
