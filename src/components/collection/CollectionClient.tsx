@@ -373,7 +373,7 @@ const [filterFormat,       setFilterFormat]       = useState("");
       for (let i = 0; i < recordIds.length; i += BATCH) {
         const { data, error } = await supabase
           .from("records")
-          .select("id, discogs_id, artist, album, year, genre, cover_url, label, format, country, community_have, community_want, community_num_for_sale")
+          .select("id, discogs_id, artist, album, year, genre, cover_url, label, format, country, community_have, community_want, community_num_for_sale, edition_size")
           .in("id", recordIds.slice(i, i + BATCH));
         console.log(`[collection] records batch i=${i}: count=${data?.length ?? 0} error=${JSON.stringify(error)}`);
         for (const r of data ?? []) recordsMap.set(r.id, r as Omit<CollectionRecord, "value" | "price_low" | "price_low_usd" | "price_median" | "price_currency" | "media_condition" | "sleeve_condition">);
@@ -687,7 +687,7 @@ const [filterFormat,       setFilterFormat]       = useState("");
     if (filterYear)         result = result.filter(r => matchesDecade(r.year, filterYear));
     if (filterFormat)       result = result.filter(r => r.format === filterFormat);
     if (filterDesirability) result = result.filter(r =>
-      getDesirabilityTier(r.community_have, r.community_want, r.price_low_usd, r.community_num_for_sale) === filterDesirability
+      getDesirabilityTier(r.community_have, r.community_want, r.price_low_usd, r.community_num_for_sale, r.edition_size) === filterDesirability
     );
     if (filterFeeling)      result = result.filter(r => r.feeling === filterFeeling);
     return result;
@@ -1575,6 +1575,7 @@ function AlbumDetail({ record, detail, price, valueCurrency }: {
     detail?.community?.want  ?? null,
     price?.lowest            ?? null,
     price?.num_for_sale      ?? null,
+    record.edition_size      ?? null,
   );
   const tierMeta = tier ? TIERS[tier] : null;
 

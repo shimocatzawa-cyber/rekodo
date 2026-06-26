@@ -346,7 +346,7 @@ export default async function CollectionPage({
     }
 
     const rareCount = collection.filter(r =>
-      getDesirabilityTier(r.community_have, r.community_want, r.price_low_usd, r.community_num_for_sale) === "rare"
+      getDesirabilityTier(r.community_have, r.community_want, r.price_low_usd, r.community_num_for_sale, r.edition_size) === "rare"
     ).length;
 
     return { topFormat, topGenres, topArtist, topLabel, yearRange, mostPopularYear, countryCount, topDecade, rarestRecord, rareCount };

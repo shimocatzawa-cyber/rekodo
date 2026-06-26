@@ -79,7 +79,7 @@ export async function computeArchetypes(
         feeling,
         records (
           artist, album, year, genre, styles, label, country, format,
-          community_have, community_want, community_num_for_sale
+          community_have, community_want, community_num_for_sale, edition_size
         )
       `)
       .eq('user_id', userId)
@@ -102,6 +102,7 @@ export async function computeArchetypes(
     community_have:          number | null
     community_want:          number | null
     community_num_for_sale:  number | null
+    edition_size:            number | null
   }
 
   type UserRecordRow = {
@@ -321,6 +322,7 @@ export async function computeArchetypes(
       const tier = getDesirabilityTier(
         r.community_have, r.community_want,
         row.price_low ?? null, r.community_num_for_sale ?? null,
+        r.edition_size ?? null,
       )
       trophyPoints += tier ? (TIER_POINTS[tier] ?? 0) : 0
       trophyTotal += 5

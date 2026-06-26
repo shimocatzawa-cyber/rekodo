@@ -123,13 +123,14 @@ export default async function InsightsPage() {
     cover_url: string | null;
     community_have: number | null; community_want: number | null;
     community_num_for_sale: number | null;
+    edition_size: number | null;
   };
   const recordsMap = new Map<string, RecordRow>();
   const BATCH = 400;
   for (let i = 0; i < recordIds.length; i += BATCH) {
     const { data, error } = await supabase
       .from("records")
-      .select("id, artist, album, year, genre, styles, label, country, format, vinyl_colour, producers, cover_url, community_have, community_want, community_num_for_sale")
+      .select("id, artist, album, year, genre, styles, label, country, format, vinyl_colour, producers, cover_url, community_have, community_want, community_num_for_sale, edition_size")
       .in("id", recordIds.slice(i, i + BATCH));
     if (!error) for (const r of data ?? []) recordsMap.set(r.id, r as RecordRow);
   }
@@ -433,6 +434,7 @@ export default async function InsightsPage() {
       rec.community_want,
       link.price_low ?? null,   // raw USD — desirability thresholds are USD-denominated
       rec.community_num_for_sale,
+      rec.edition_size,
     );
     if (!tier) continue;
     const val  = convertPrice(link.price_median, link.price_currency) ?? 0;
