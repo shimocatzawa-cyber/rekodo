@@ -557,7 +557,6 @@ export default async function InsightsPage() {
     [/\b(?:turquoise|teal|aqua)\b/i, "Teal"],
     [/\b(?:bone|cream|ivory|tan)\b/i, "Cream"],
     [/\bclear\b/i,            "Clear"],
-    [/\b(?:translucent|transparent)\b/i, "Clear"],
     [/\btri[\s-]?colou?r\b/i, "Multi-Colour"],
     [/\bcolou?red\b/i,        "Coloured"],
   ];
@@ -575,6 +574,10 @@ export default async function InsightsPage() {
         best = { index: m.index, name };
       }
     }
+    // Translucent/Transparent only resolves to Clear when no actual colour was
+    // found — "Orange Translucent" → Orange; "Transparent Turquoise" → Teal;
+    // "Translucent" alone → Clear.
+    if (!best && /\b(?:translucent|transparent)\b/i.test(value)) return "Clear";
     return best?.name ?? null;
   };
 
