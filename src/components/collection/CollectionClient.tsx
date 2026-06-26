@@ -1627,34 +1627,37 @@ function AlbumDetail({ record, detail, price, valueCurrency }: {
         {catno     && <MetaRow label="Cat #"     value={catno} />}
         {producers && <MetaRow label="Producers" value={producers} />}
 
+        {/* Open to Offers — always visible regardless of market data */}
+        <div style={{ display: "flex", padding: "6px 0", borderBottom: "1px solid rgba(0,0,0,0.05)", alignItems: "center", gap: "8px" }}>
+          {price && formatPrice(price.lowest, price.currency || valueCurrency || "USD") && (
+            <>
+              <span style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.1em", textTransform: "uppercase", color: "#aaaaaa", width: "84px", flexShrink: 0 }}>
+                Market Value
+              </span>
+              <span style={{ fontFamily: MONO, fontSize: "11px", color: ORANGE, letterSpacing: "0.03em" }}>
+                {formatPrice(price.lowest, price.currency || valueCurrency || "USD")}
+              </span>
+            </>
+          )}
+          <button
+            onClick={handleOpenToOffers}
+            disabled={offersLoading}
+            style={{
+              fontFamily: MONO, fontSize: "8px", letterSpacing: "0.1em",
+              textTransform: "uppercase", flexShrink: 0, marginLeft: "auto",
+              color: offersLoading ? "#aaaaaa" : openToOffers ? "#ffffff" : ORANGE,
+              background: openToOffers && !offersLoading ? ORANGE : "transparent",
+              border: `1px solid ${offersLoading ? "#dddddd" : ORANGE}`,
+              padding: "2px 7px", cursor: offersLoading ? "default" : "pointer",
+            }}
+          >
+            {offersLoading ? "…" : openToOffers ? "Open to Offers ✓" : "Open to Offers"}
+          </button>
+        </div>
+
         {/* Marketplace pricing */}
         {price && (
           <>
-            {/* Market Value row — inline with Open to Offers toggle */}
-            {formatPrice(price.lowest, price.currency || valueCurrency || "USD") && (
-              <div style={{ display: "flex", padding: "6px 0", borderBottom: "1px solid rgba(0,0,0,0.05)", alignItems: "center", gap: "8px" }}>
-                <span style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.1em", textTransform: "uppercase", color: "#aaaaaa", width: "84px", flexShrink: 0 }}>
-                  Market Value
-                </span>
-                <span style={{ fontFamily: MONO, fontSize: "11px", color: ORANGE, letterSpacing: "0.03em" }}>
-                  {formatPrice(price.lowest, price.currency || valueCurrency || "USD")}
-                </span>
-                <button
-                  onClick={handleOpenToOffers}
-                  disabled={offersLoading}
-                  style={{
-                    fontFamily: MONO, fontSize: "8px", letterSpacing: "0.1em",
-                    textTransform: "uppercase", flexShrink: 0,
-                    color: offersLoading ? "#aaaaaa" : openToOffers ? "#ffffff" : ORANGE,
-                    background: openToOffers && !offersLoading ? ORANGE : "transparent",
-                    border: `1px solid ${offersLoading ? "#dddddd" : ORANGE}`,
-                    padding: "2px 7px", cursor: offersLoading ? "default" : "pointer",
-                  }}
-                >
-                  {offersLoading ? "…" : openToOffers ? "Open to Offers ✓" : "Open to Offers"}
-                </button>
-              </div>
-            )}
             <PriceRow label="Median"    value={formatPrice(price.median, price.currency)} />
             <PriceRow label="High"     value={formatPrice(price.highest,   price.currency)} />
             <PriceRow
