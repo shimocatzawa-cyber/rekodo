@@ -52,6 +52,26 @@ export async function POST(request: NextRequest) {
           : Promise.resolve(),
       ]);
 
+      // Mark contact as supporter in Brevo — non-blocking, fail-silent.
+      if (customerEmail) {
+        try {
+          const brevoKey = process.env.BREVO_API_KEY;
+          if (brevoKey) {
+            await fetch("https://api.brevo.com/v3/contacts", {
+              method: "POST",
+              headers: { "api-key": brevoKey, "Content-Type": "application/json" },
+              body: JSON.stringify({
+                email: customerEmail,
+                attributes: { IS_SUPPORTER: true },
+                updateEnabled: true,
+              }),
+            });
+          }
+        } catch (err) {
+          console.error("[brevo] supporter update failed:", err);
+        }
+      }
+
       if (customerEmail) {
         await resend.emails.send({
           from: "rekōdo <hello@rekodo.co>",

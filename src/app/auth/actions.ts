@@ -46,6 +46,28 @@ export async function signup(
       { onConflict: "id" }
     );
     await sendSignupNotification(email, username);
+
+    // Add to Brevo list 5 so the onboarding automation fires.
+    // Non-blocking — a Brevo outage must never break signup.
+    try {
+      const brevoKey = process.env.BREVO_API_KEY;
+      if (brevoKey) {
+        const today = new Date().toISOString().slice(0, 10);
+        await fetch("https://api.brevo.com/v3/contacts", {
+          method: "POST",
+          headers: { "api-key": brevoKey, "Content-Type": "application/json" },
+          body: JSON.stringify({
+            email,
+            attributes: { SIGNUP_DATE: today },
+            listIds: [5],
+            updateEnabled: true,
+          }),
+        });
+      }
+    } catch (err) {
+      console.error("[brevo] signup contact creation failed:", err);
+    }
+
     redirect("/onboarding");
   }
 
