@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, type ReactNode } from "react";
+import { useUrlTab } from "@/lib/useUrlTab";
 import Link from "next/link";
 import { BarChart, type CustomTooltipProps } from "@tremor/react";
 import AppNav from "@/components/AppNav";
@@ -247,7 +248,8 @@ export default function InsightsClient({
 }: InsightsProps) {
 
   const [oneLiner, setOneLiner] = useState<string | null>(null);
-  const [insightsTab, setInsightsTab] = useState<"collection" | "taste-profile">(isSupporter ? "taste-profile" : "collection");
+  const defaultTab = isSupporter ? "taste-profile" : "collection";
+  const [insightsTab, setInsightsTab] = useUrlTab<"collection" | "taste-profile">("tab", ["collection", "taste-profile"], defaultTab);
   const [showShare, setShowShare] = useState(false);
   const [showEssentialsShare, setShowEssentialsShare] = useState(false);
 
