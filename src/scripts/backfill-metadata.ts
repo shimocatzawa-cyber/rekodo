@@ -31,23 +31,24 @@ async function fetchReleaseMetadata(
   secret: string
 ): Promise<{ format: string | null; country: string | null }> {
   const url = `https://api.discogs.com/releases/${encodeURIComponent(discogsId)}?key=${key}&secret=${secret}`;
-  const res = await fetch(url, {
-    headers: { 'User-Agent': 'rekodo/1.0' },
-  });
 
-  if (!res.ok) {
-    throw new Error(`Discogs returned HTTP ${res.status}`);
+  const MAX_ATTEMPTS = 3;
+  let lastErr: unknown;
+  for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+    try {
+      const res = await fetch(url, { headers: { 'User-Agent': 'rekodo/1.0' } });
+      if (!res.ok) throw new Error(`Discogs returned HTTP ${res.status}`);
+      const data = await res.json() as {
+        formats?: Array<{ name: string }>;
+        country?: string;
+      };
+      return { format: data.formats?.[0]?.name ?? null, country: data.country ?? null };
+    } catch (e) {
+      lastErr = e;
+      if (attempt < MAX_ATTEMPTS) await sleep(2000 * attempt);
+    }
   }
-
-  const data = await res.json() as {
-    formats?: Array<{ name: string }>;
-    country?: string;
-  };
-
-  const format = data.formats?.[0]?.name ?? null;
-  const country = data.country ?? null;
-
-  return { format, country };
+  throw lastErr;
 }
 
 async function main() {
