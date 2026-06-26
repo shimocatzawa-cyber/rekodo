@@ -2,7 +2,6 @@ import type { Metadata } from "next";
 import { createClient } from "@/lib/supabase/server";
 import LandingNav from "@/components/landing/LandingNav";
 import HeroSection from "@/components/landing/HeroSection";
-import WaitlistSection from "@/components/landing/WaitlistSection";
 import LandingFooter from "@/components/landing/LandingFooter";
 
 export const metadata: Metadata = {
@@ -74,7 +73,6 @@ export default async function LandingPage() {
       <main className="flex flex-col min-h-screen bg-white">
         <LandingNav username={username} displayLabel={displayLabel} avatarUrl={avatarUrl} />
         <HeroSection isSignedIn={!!user} />
-        <WaitlistSection />
         <LandingFooter />
       </main>
     </>
