@@ -757,16 +757,12 @@ function ArtistRow({
   artist,
   isSelected,
   imageUrl,
-  isFavorite,
   onSelect,
-  onToggleFavorite,
 }: {
   artist: ArtistData;
   isSelected: boolean;
   imageUrl: string | undefined;
-  isFavorite: boolean;
   onSelect: (name: string) => void;
-  onToggleFavorite: (name: string) => void;
 }) {
   return (
     <div
@@ -800,7 +796,7 @@ function ArtistRow({
       ) : (
         <ArtistInitial name={artist.name} size={40} />
       )}
-      <div style={{ minWidth: 0, flex: 1 }}>
+      <div style={{ minWidth: 0 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 5, marginBottom: 3 }}>
           <p style={{ fontFamily: SERIF, fontSize: "0.85rem", fontWeight: 600, color: INK, margin: 0, lineHeight: 1.2, wordBreak: "break-word" }}>
             {artist.name}
@@ -814,18 +810,6 @@ function ArtistRow({
           })()}
         </p>
       </div>
-      <button
-        type="button"
-        onClick={(e) => { e.stopPropagation(); onToggleFavorite(artist.name); }}
-        title={isFavorite ? "Remove from favourites" : "Add to favourites"}
-        style={{
-          background: "none", border: "none", cursor: "pointer", padding: "4px",
-          lineHeight: 1, fontSize: "1rem", flexShrink: 0,
-          color: isFavorite ? ORANGE : "#cccccc",
-        }}
-      >
-        {isFavorite ? "♥" : "♡"}
-      </button>
     </div>
   );
 }
@@ -1293,9 +1277,23 @@ export default function DeepDiveClient({
                 : <ArtistInitial name={selectedArtist} size={96} />
               }
               <div style={{ minWidth: 0, flex: 1 }}>
-                <h2 className="dd-artist-name" style={{ fontFamily: SERIF, fontSize: "2rem", fontWeight: 600, color: INK, letterSpacing: "-0.025em", lineHeight: 1.1, margin: "0 0 6px" }}>
-                  {selectedArtist}
-                </h2>
+                <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
+                  <h2 className="dd-artist-name" style={{ fontFamily: SERIF, fontSize: "2rem", fontWeight: 600, color: INK, letterSpacing: "-0.025em", lineHeight: 1.1, margin: 0 }}>
+                    {selectedArtist}
+                  </h2>
+                  <button
+                    type="button"
+                    onClick={() => toggleFavorite(selectedArtist)}
+                    title={favorites.has(selectedArtist) ? "Remove from favourites" : "Add to favourites"}
+                    style={{
+                      background: "none", border: "none", cursor: "pointer", padding: 0,
+                      lineHeight: 1, fontSize: "1.6rem",
+                      color: favorites.has(selectedArtist) ? ORANGE : "#cccccc",
+                    }}
+                  >
+                    {favorites.has(selectedArtist) ? "♥" : "♡"}
+                  </button>
+                </div>
                 <p style={{ fontFamily: MONO, fontSize: "0.7rem", letterSpacing: "0.06em", color: "#aaa", margin: 0 }}>
                   Outside your collection
                 </p>
@@ -1557,44 +1555,26 @@ export default function DeepDiveClient({
                 </p>
               )}
               {!discogsSearching && discogsResults.map((r) => (
-                <div
+                <button
                   key={r.id}
+                  type="button"
+                  onClick={() => selectExternalArtist(r.name)}
                   style={{
                     display: "flex", alignItems: "center", gap: 10,
-                    width: "100%",
+                    width: "100%", textAlign: "left",
+                    padding: "0.6rem 1rem",
                     background: selectedArtist === r.name ? WARM : "none",
-                    borderBottom: `1px solid ${RULE}`,
+                    border: "none", borderBottom: `1px solid ${RULE}`,
+                    cursor: "pointer",
                   }}
                 >
-                  <button
-                    type="button"
-                    onClick={() => selectExternalArtist(r.name)}
-                    style={{
-                      display: "flex", alignItems: "center", gap: 10, flex: 1,
-                      textAlign: "left", padding: "0.6rem 0 0.6rem 1rem",
-                      background: "none", border: "none", cursor: "pointer",
-                    }}
-                  >
-                    {r.thumb
-                      // eslint-disable-next-line @next/next/no-img-element
-                      ? <img src={r.thumb} alt="" aria-hidden style={{ width: 32, height: 32, objectFit: "cover", flexShrink: 0 }} />
-                      : <div style={{ width: 32, height: 32, background: SUBTLE, flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: MONO, fontSize: "10px", color: "#aaa" }}>{r.name[0]}</div>
-                    }
-                    <span style={{ fontFamily: MONO, fontSize: "0.72rem", letterSpacing: "0.04em", color: INK }}>{r.name}</span>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => toggleFavorite(r.name)}
-                    title={favorites.has(r.name) ? "Remove from favourites" : "Add to favourites"}
-                    style={{
-                      background: "none", border: "none", cursor: "pointer", padding: "4px 1rem 4px 4px",
-                      lineHeight: 1, fontSize: "1rem", flexShrink: 0,
-                      color: favorites.has(r.name) ? ORANGE : "#cccccc",
-                    }}
-                  >
-                    {favorites.has(r.name) ? "♥" : "♡"}
-                  </button>
-                </div>
+                  {r.thumb
+                    // eslint-disable-next-line @next/next/no-img-element
+                    ? <img src={r.thumb} alt="" aria-hidden style={{ width: 32, height: 32, objectFit: "cover", flexShrink: 0 }} />
+                    : <div style={{ width: 32, height: 32, background: SUBTLE, flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: MONO, fontSize: "10px", color: "#aaa" }}>{r.name[0]}</div>
+                  }
+                  <span style={{ fontFamily: MONO, fontSize: "0.72rem", letterSpacing: "0.04em", color: INK }}>{r.name}</span>
+                </button>
               ))}
               {!discogsSearching && query.trim().length >= 2 && discogsResults.length === 0 && (
                 <p style={{ fontFamily: MONO, fontSize: "0.68rem", letterSpacing: "0.06em", color: INK, padding: "0.75rem 1rem", margin: 0 }}>
@@ -1618,9 +1598,7 @@ export default function DeepDiveClient({
                   artist={a}
                   isSelected={selectedArtist === a.name && !isExternalArtist}
                   imageUrl={imageMap[a.name]}
-                  isFavorite={favorites.has(a.name)}
                   onSelect={selectArtist}
-                  onToggleFavorite={toggleFavorite}
                 />
               ))}
               {filtered.length === 0 && query && (
