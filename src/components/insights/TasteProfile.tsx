@@ -422,7 +422,7 @@ export default function TasteProfile({
                       {count}
                     </span>
                     <span style={{ fontFamily: MONO, fontSize: "11px", color: ORANGE }}>
-                      {pct}%
+                      {pct === 0 && count > 0 ? "<1" : pct}%
                     </span>
                   </div>
                 );
