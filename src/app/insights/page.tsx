@@ -214,17 +214,19 @@ export default async function InsightsPage() {
 
   // ── Top 5 records by price_median ─────────────────────────────────────────
   const topRecordsByValue: InsightsProps["topRecordsByValue"] = allLinks
-    .filter((l) => (l.price_median ?? 0) > 0)
+    .filter((l) => (l.price_median ?? l.price_low ?? 0) > 0)
     .map((l) => {
       const rec = recordsMap.get(l.record_id);
       if (!rec) return null;
+      // Use price_low as fallback when median is absent (single listing = no median on Discogs)
+      const effectivePrice = l.price_median ?? l.price_low;
       return {
         artist:       rec.artist,
         album:        rec.album,
         coverUrl:     rec.cover_url ?? null,
-        price_median: convertPrice(l.price_median, l.price_currency) ?? 0,
-        price_low:    convertPrice(l.price_low,    l.price_currency) ?? 0,
-        price_high:   convertPrice(l.price_high,   l.price_currency) ?? 0,
+        price_median: convertPrice(effectivePrice,  l.price_currency) ?? 0,
+        price_low:    convertPrice(l.price_low,     l.price_currency) ?? 0,
+        price_high:   convertPrice(l.price_high,    l.price_currency) ?? 0,
       };
     })
     .filter((r): r is NonNullable<typeof r> => r !== null)
