@@ -149,7 +149,7 @@ async function main() {
     const { data, error } = await supabase
       .from('records')
       .select('id, discogs_id, artist, album, format, country, vinyl_colour, producers, genre, styles, year')
-      .or('barcode.is.null,country.is.null')
+      .or('barcode.is.null,country.is.null,vinyl_colour.eq.')
       .not('discogs_id', 'is', null)
       .range(from, from + PAGE - 1);
 
