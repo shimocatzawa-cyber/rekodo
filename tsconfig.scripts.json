@@ -3,7 +3,8 @@
   "compilerOptions": {
     "module": "commonjs",
     "moduleResolution": "node",
-    "noEmit": false
+    "noEmit": false,
+    "baseUrl": "."
   },
   "include": ["src/scripts/**/*.ts"]
 }
