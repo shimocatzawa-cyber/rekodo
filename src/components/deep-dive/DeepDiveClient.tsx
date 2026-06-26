@@ -1557,26 +1557,44 @@ export default function DeepDiveClient({
                 </p>
               )}
               {!discogsSearching && discogsResults.map((r) => (
-                <button
+                <div
                   key={r.id}
-                  type="button"
-                  onClick={() => selectExternalArtist(r.name)}
                   style={{
                     display: "flex", alignItems: "center", gap: 10,
-                    width: "100%", textAlign: "left",
-                    padding: "0.6rem 1rem",
+                    width: "100%",
                     background: selectedArtist === r.name ? WARM : "none",
-                    border: "none", borderBottom: `1px solid ${RULE}`,
-                    cursor: "pointer",
+                    borderBottom: `1px solid ${RULE}`,
                   }}
                 >
-                  {r.thumb
-                    // eslint-disable-next-line @next/next/no-img-element
-                    ? <img src={r.thumb} alt="" aria-hidden style={{ width: 32, height: 32, objectFit: "cover", flexShrink: 0 }} />
-                    : <div style={{ width: 32, height: 32, background: SUBTLE, flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: MONO, fontSize: "10px", color: "#aaa" }}>{r.name[0]}</div>
-                  }
-                  <span style={{ fontFamily: MONO, fontSize: "0.72rem", letterSpacing: "0.04em", color: INK }}>{r.name}</span>
-                </button>
+                  <button
+                    type="button"
+                    onClick={() => selectExternalArtist(r.name)}
+                    style={{
+                      display: "flex", alignItems: "center", gap: 10, flex: 1,
+                      textAlign: "left", padding: "0.6rem 0 0.6rem 1rem",
+                      background: "none", border: "none", cursor: "pointer",
+                    }}
+                  >
+                    {r.thumb
+                      // eslint-disable-next-line @next/next/no-img-element
+                      ? <img src={r.thumb} alt="" aria-hidden style={{ width: 32, height: 32, objectFit: "cover", flexShrink: 0 }} />
+                      : <div style={{ width: 32, height: 32, background: SUBTLE, flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: MONO, fontSize: "10px", color: "#aaa" }}>{r.name[0]}</div>
+                    }
+                    <span style={{ fontFamily: MONO, fontSize: "0.72rem", letterSpacing: "0.04em", color: INK }}>{r.name}</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => toggleFavorite(r.name)}
+                    title={favorites.has(r.name) ? "Remove from favourites" : "Add to favourites"}
+                    style={{
+                      background: "none", border: "none", cursor: "pointer", padding: "4px 1rem 4px 4px",
+                      lineHeight: 1, fontSize: "1rem", flexShrink: 0,
+                      color: favorites.has(r.name) ? ORANGE : "#cccccc",
+                    }}
+                  >
+                    {favorites.has(r.name) ? "♥" : "♡"}
+                  </button>
+                </div>
               ))}
               {!discogsSearching && query.trim().length >= 2 && discogsResults.length === 0 && (
                 <p style={{ fontFamily: MONO, fontSize: "0.68rem", letterSpacing: "0.06em", color: INK, padding: "0.75rem 1rem", margin: 0 }}>
