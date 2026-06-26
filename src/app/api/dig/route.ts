@@ -6,6 +6,20 @@ import { isPlausibleArtistMatch, isPlausibleAlbumMatch } from "@/lib/textMatch";
 export const dynamic = "force-dynamic";
 
 const BATCH = 400;
+// Max records sent to Claude as a taste signal. The full artist list is always
+// sent separately for exclusion — this cap only applies to the album-level lines.
+const TASTE_SAMPLE = 600;
+
+// Fisher-Yates shuffle + slice — preserves genre proportions approximately.
+function sampleRecords<T>(arr: T[], max: number): T[] {
+  if (arr.length <= max) return arr;
+  const out = [...arr];
+  for (let i = out.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [out[i], out[j]] = [out[j], out[i]];
+  }
+  return out.slice(0, max);
+}
 
 // Discogs release search results are formatted "Artist - Title" — split on
 // the first " - " to compare each side separately rather than as one blob.
@@ -127,13 +141,18 @@ export async function POST(request: Request) {
 
   const recordIds = allLinks.map((l) => l.record_id);
 
-  type RecordRow = { id: string; artist: string; album: string; year: number | null; genre: string | null };
+  type RecordRow = { id: string; artist: string; album: string; year: number | null; genre: string | null; styles: string[] | null };
+  // Parallelise all metadata batches — turns 31 sequential calls into concurrent ones.
+  const metaBatches = await Promise.all(
+    Array.from({ length: Math.ceil(recordIds.length / BATCH) }, (_, i) =>
+      supabase
+        .from("records")
+        .select("id, artist, album, year, genre, styles")
+        .in("id", recordIds.slice(i * BATCH, (i + 1) * BATCH))
+    )
+  );
   const collectionMap = new Map<string, RecordRow>();
-  for (let i = 0; i < recordIds.length; i += BATCH) {
-    const { data } = await supabase
-      .from("records")
-      .select("id, artist, album, year, genre")
-      .in("id", recordIds.slice(i, i + BATCH));
+  for (const { data } of metaBatches) {
     for (const r of data ?? []) collectionMap.set(r.id, r as RecordRow);
   }
   const collection = recordIds
@@ -399,10 +418,6 @@ ${JSON_SCHEMA}`;
     : "";
 
   // ── Build prompt ──────────────────────────────────────────────────────────
-  const collectionLines = collection
-    .map((r) => `- ${r.artist} — ${r.album}${r.year ? ` (${r.year})` : ""}${r.genre ? ` [${r.genre}]` : ""}`)
-    .join("\n");
-
   const listsLines = listsForPrompt.length > 0
     ? listsForPrompt
         .map((l) => `${l.title}:\n${l.items.map((item) => `  • ${item}`).join("\n")}`)
@@ -487,12 +502,20 @@ ${JSON_SCHEMA}`;
 
     const angleBlock = `\nEXPLORATION ANGLE — you must satisfy both era constraints:\n- One pick MUST come from the ${digDecadeModern} — modern releases are just as valid on vinyl as classics\n- One pick MUST come from the ${digDecadeClassic}\n- Any picks beyond those two can come from any era\n${digRegion ? `- Geography: one pick should lean toward music originating from ${digRegion}\n` : ""}- One pick should be: ${digAngle}\n- The remaining picks do NOT need to be obscure or regional — well-known, widely loved records that genuinely fit this collector's taste are just as valid a recommendation as a deep cut. Most digs should land mostly on great, findable records; rarity is a bonus, not the goal.\n`;
 
+    const tasteSample    = sampleRecords(collection, TASTE_SAMPLE);
+    const tasteSampleLines = tasteSample
+      .map((r) => `- ${r.artist} — ${r.album}${r.year ? ` (${r.year})` : ""}${r.genre ? ` [${r.genre}]` : ""}`)
+      .join("\n");
+    const collectionNote = collection.length > TASTE_SAMPLE
+      ? `(showing ${tasteSample.length} of ${collection.length} records — representative taste sample)`
+      : `(${collection.length} records)`;
+
     prompt = `You are a vinyl crate-digging assistant with encyclopaedic knowledge of recorded music across all genres, eras, and territories.
 
-Below is a collector's vinyl collection and their curated Top 5 lists. Study the taste pattern carefully — it is your only brief.
+Below is a sample of a collector's vinyl collection and their curated Top 5 lists. Study the taste pattern carefully — it is your only brief.
 
-COLLECTION (${collection.length} records):
-${collectionLines || "(Empty collection)"}
+COLLECTION ${collectionNote}:
+${tasteSampleLines || "(Empty collection)"}
 
 TOP 5 LISTS:
 ${listsLines}
@@ -558,12 +581,28 @@ ${JSON_SCHEMA}`;
 
     const angleBlock = `\nEXPLORATION ANGLE — you must satisfy both era constraints:\n- One pick MUST come from the ${digDecadeModern} — modern releases are just as valid on vinyl as classics\n- One pick MUST come from the ${digDecadeClassic}\n- Any picks beyond those two can come from any era\n- One pick should be: ${digAngle}\n- The remaining picks do NOT need to be obscure — well-known, widely loved records within "${style}" are just as valid as a deep cut. Most digs should land mostly on great, findable records; rarity is a bonus, not the goal.\n`;
 
+    // Filter to records in/adjacent to the requested style for the taste signal.
+    // Fall back to full collection sample if fewer than 20 matching records.
+    const s = style.toLowerCase();
+    const styleMatching = collection.filter((r) =>
+      r.genre?.toLowerCase().includes(s) ||
+      (r.styles ?? []).some((st) => st.toLowerCase().includes(s))
+    );
+    const stylePool      = styleMatching.length >= 20 ? styleMatching : collection;
+    const styleSample    = sampleRecords(stylePool, TASTE_SAMPLE);
+    const styleSampleLines = styleSample
+      .map((r) => `- ${r.artist} — ${r.album}${r.year ? ` (${r.year})` : ""}${r.genre ? ` [${r.genre}]` : ""}`)
+      .join("\n");
+    const styleNote = styleMatching.length >= 20
+      ? `(${styleMatching.length} records matching "${style}"${styleMatching.length > TASTE_SAMPLE ? `, showing ${styleSample.length}` : ""})`
+      : `(${styleSample.length} of ${collection.length} records — full collection taste sample, few direct "${style}" matches)`;
+
     prompt = `You are a vinyl crate-digging assistant with encyclopaedic knowledge of recorded music across all genres, eras, and territories.
 
 Below is a collector's vinyl collection and their curated Top 5 lists. Study the taste pattern carefully — it is your only brief.
 
-COLLECTION (${collection.length} records):
-${collectionLines || "(Empty collection)"}
+COLLECTION ${styleNote}:
+${styleSampleLines || "(Empty collection)"}
 
 TOP 5 LISTS:
 ${listsLines}
@@ -586,13 +625,30 @@ Return ONLY a valid JSON array with exactly 5 objects — extra picks give headr
 Schema:
 ${JSON_SCHEMA}`;
   } else {
-    // Explore: surface hidden gems from within the collection
+    // Explore: surface hidden gems from within the collection.
+    // Exclude records already surfaced in recent Explore sessions, then sample
+    // so the prompt stays manageable regardless of collection size.
+    const recentExploreKeys = new Set(
+      allPrevRecs.map((r) => `${r.artist.toLowerCase()}||${r.album.toLowerCase()}`)
+    );
+    const unseenRecords = collection.filter(
+      (r) => !recentExploreKeys.has(`${r.artist.toLowerCase()}||${r.album.toLowerCase()}`)
+    );
+    const explorePool   = unseenRecords.length >= 50 ? unseenRecords : collection;
+    const exploreSample = sampleRecords(explorePool, TASTE_SAMPLE);
+    const exploreSampleLines = exploreSample
+      .map((r) => `- ${r.artist} — ${r.album}${r.year ? ` (${r.year})` : ""}${r.genre ? ` [${r.genre}]` : ""}`)
+      .join("\n");
+    const exploreNote = collection.length > TASTE_SAMPLE
+      ? `(${exploreSample.length} of ${collection.length} records — unseen selection, recommend only from this list)`
+      : `(${collection.length} records)`;
+
     prompt = `You are a vinyl crate-digging assistant with encyclopaedic knowledge of recorded music across all genres, eras, and territories.
 
 Below is a collector's vinyl collection and their curated Top 5 lists. Study the taste pattern carefully — it is your only brief.
 
-COLLECTION (${collection.length} records):
-${collectionLines || "(Empty collection)"}
+COLLECTION ${exploreNote}:
+${exploreSampleLines || "(Empty collection)"}
 
 TOP 5 LISTS:
 ${listsLines}
