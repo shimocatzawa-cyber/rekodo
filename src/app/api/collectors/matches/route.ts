@@ -101,7 +101,12 @@ export async function GET(request: NextRequest) {
 
   if (cachedRows && cachedRows.length >= 1) {
     const matches = await enrichMatches(cachedRows as { user_id_b: string; score: number; shared_tags: string[] }[]);
-    return Response.json({ matches, cached: true });
+    // Only trust the cache if it returned a full display set — fewer means
+    // either stale entries were filtered out or new users have joined since
+    // the cache was built, so fall through to a fresh computation.
+    if (matches.length >= DISPLAY_COUNT) {
+      return Response.json({ matches, cached: true });
+    }
   }
 
   // ── Fresh computation ─────────────────────────────────────────────────────
