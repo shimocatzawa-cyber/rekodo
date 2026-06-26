@@ -396,15 +396,15 @@ export default function TasteProfile({
                     gap: "5px", minWidth: "64px",
                   }}>
                     <span style={{
-                      fontFamily: MONO, fontSize: "10px", letterSpacing: "0.06em",
+                      fontFamily: MONO, fontSize: "12px", letterSpacing: "0.06em",
                       background: badge.bg, color: badge.color,
-                      padding: "5px 10px", borderRadius: "3px",
+                      padding: "8px 14px", borderRadius: "3px",
                       whiteSpace: "nowrap",
                     }}>
                       {colour}
                     </span>
                     <span style={{ fontFamily: MONO, fontSize: "9px", color: "#aaaaaa" }}>
-                      {count} · {pct === 0 && count > 0 ? "<1" : pct}%
+                      {count}
                     </span>
                   </div>
                 );
