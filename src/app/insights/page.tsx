@@ -561,6 +561,7 @@ export default async function InsightsPage() {
     [/\b(?:amber|mustard|lemon|citrus|canary|sunflower|honey)\b/i, "Yellow"],
     [/\b(?:copper|rust|terracotta|burnt\s+orange|pumpkin|neon\s+orange)\b/i, "Orange"],
     [/\b(?:lavender|lilac|plum|mauve|amethyst|grape|violet|magenta)\b/i, "Purple"],
+    [/\b(?:turquoise|teal|aqua)\b/i, "Teal"],
     [/\b(?:petrol|curacao|cerulean|cyan)\b/i, "Teal"],
     [/\b(?:bone|cream|ivory|tan|pearl|opal)\b/i, "Cream"],
     [/fum[eé]|\b(?:charcoal|ash|slate|gunmetal)\b/i, "Grey"],
@@ -599,14 +600,17 @@ export default async function InsightsPage() {
     const rec = recordsMap.get(link.record_id);
     if (rec?.vinyl_colour === null || rec?.vinyl_colour === undefined) continue; // not yet backfilled
     const value  = rec.vinyl_colour.trim();
-    const colour = (value ? resolveColour(value) : null) ?? "Black";
+    // Empty string = Discogs confirmed standard black → Black.
+    // Non-empty but unresolvable (pressing notes like "Gatefold", "180g") → skip,
+    // not counted as Black, so pressing notes don't inflate the Black bucket.
+    const colour = value ? resolveColour(value) : "Black";
+    if (!colour) continue;
     colourCounts.set(colour, (colourCounts.get(colour) ?? 0) + 1);
   }
 
   const colourTotal = [...colourCounts.values()].reduce((a, b) => a + b, 0);
   const vinylColourBreakdown = [...colourCounts.entries()]
     .sort((a, b) => b[1] - a[1])
-    .slice(0, 12)
     .map(([colour, count]) => ({
       colour,
       count,
