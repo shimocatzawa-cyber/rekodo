@@ -3,6 +3,8 @@ import path from 'path';
 import { createClient } from '@supabase/supabase-js';
 import { computeArchetypes } from '../lib/archetypes/computeArchetypes';
 
+// Run: npx ts-node --require tsconfig-paths/register --project tsconfig.scripts.json src/scripts/backfill-archetypes.ts
+//
 // Archetypes are normally computed lazily, the first time a user opens the
 // (Supporter-gated) /archetypes page. That leaves the admin "Archetype"
 // column blank for everyone who hasn't visited it yet — including Supporters
