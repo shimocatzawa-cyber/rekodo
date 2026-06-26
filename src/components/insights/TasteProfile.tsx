@@ -403,7 +403,7 @@ export default function TasteProfile({
                     }}>
                       {colour}
                     </span>
-                    <span style={{ fontFamily: MONO, fontSize: "9px", color: "#aaaaaa" }}>
+                    <span style={{ fontFamily: MONO, fontSize: "9px", color: INK }}>
                       {count}
                     </span>
                   </div>
