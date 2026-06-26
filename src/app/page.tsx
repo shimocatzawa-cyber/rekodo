@@ -18,6 +18,20 @@ export const metadata: Metadata = {
   },
 };
 
+const orgLd = {
+  "@context": "https://schema.org",
+  "@type": "Organization",
+  name: "rekōdo",
+  url: "https://rekodo.co",
+  email: "hello@rekodo.co",
+  sameAs: ["https://www.instagram.com/rekodomusic"],
+  contactPoint: {
+    "@type": "ContactPoint",
+    email: "hello@rekodo.co",
+    contactType: "customer support",
+  },
+};
+
 const jsonLd = {
   "@context": "https://schema.org",
   "@type": "WebApplication",
@@ -69,6 +83,10 @@ export default async function LandingPage() {
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+      />
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(orgLd) }}
       />
       <main className="flex flex-col min-h-screen bg-white">
         <LandingNav username={username} displayLabel={displayLabel} avatarUrl={avatarUrl} />

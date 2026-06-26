@@ -1,3 +1,5 @@
+import Link from "next/link";
+
 export default function LandingFooter() {
   return (
     <footer className="py-12 px-8 md:px-12 lg:px-16 bg-white border-t border-black/10">
@@ -18,9 +20,18 @@ export default function LandingFooter() {
           className="flex items-center gap-6 text-xs text-black/40 tracking-widest uppercase"
           style={{ fontFamily: "var(--font-dm-mono), 'Courier New', monospace" }}
         >
-          <span>Collection</span>
-          <span>Lists</span>
-          <span>Dig</span>
+          <Link href="/about" className="hover:text-black/70 transition-colors">About</Link>
+          <Link href="/privacy" className="hover:text-black/70 transition-colors">Privacy</Link>
+          <Link href="/terms" className="hover:text-black/70 transition-colors">Terms</Link>
+          <a href="mailto:hello@rekodo.co" className="hover:text-black/70 transition-colors">Contact</a>
+          <a
+            href="https://www.instagram.com/rekodomusic"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="hover:text-black/70 transition-colors"
+          >
+            Instagram
+          </a>
         </div>
       </div>
     </footer>
