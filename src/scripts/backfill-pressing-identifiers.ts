@@ -195,7 +195,6 @@ async function main() {
         matrix:  [],
         country: '',
         producers: [],
-        vinyl_colour: '',
       };
 
       if (res.ok) {
@@ -224,7 +223,7 @@ async function main() {
 
         // Core release fields — only overwrite if currently null
         if (!record.format)       { const f = extractFormat(rd.formats);       if (f)  patch.format = f; }
-        if (!record.vinyl_colour) { patch.vinyl_colour = extractVinylColour(rd.formats) ?? ''; }
+        patch.vinyl_colour = extractVinylColour(rd.formats) ?? '';
         if (!record.country)      { patch.country      = rd.country ?? ''; }
         if (!record.genre && rd.genres?.length)  patch.genre  = rd.genres[0];
         if (!record.styles && rd.styles?.length) patch.styles = rd.styles;
