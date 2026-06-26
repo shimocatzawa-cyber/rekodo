@@ -189,12 +189,13 @@ async function main() {
         continue;
       }
 
-      // Always write sentinel fields so this record is not re-processed
+      // barcode/matrix are safe sentinels — they are new fields that didn't
+      // exist before this script ran, so writing '' / [] can never wipe real data.
+      // country, vinyl_colour, producers are NOT included here — they may already
+      // have real values and must only be written from the API response.
       const patch: Record<string, unknown> = {
         barcode: '',
         matrix:  [],
-        country: '',
-        producers: [],
       };
 
       if (res.ok) {
@@ -229,8 +230,8 @@ async function main() {
         if (!record.styles && rd.styles?.length) patch.styles = rd.styles;
         if (!record.year && rd.year)             patch.year   = rd.year;
 
-        // Producers — always write ([] sentinel when none found)
-        patch.producers = extractProducers(rd.extraartists);
+        // Producers — only write from API result, never default-wipe existing data
+        patch.producers = extractProducers(rd.extraartists) ?? [];
 
         // Discogs artist ID
         const artistId = rd.artists?.[0]?.id;
