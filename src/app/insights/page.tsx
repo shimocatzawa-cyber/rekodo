@@ -521,43 +521,71 @@ export default async function InsightsPage() {
     : null;
 
   // ── Vinyl colour breakdown ────────────────────────────────────────────────
-  // The vinyl_colour field is sourced from Discogs' free-text format notes, so
-  // it mixes true colours ("Red", "Clear, 180g, Gatefold") with non-colour
-  // pressing/mastering attributes ("Remastered", "180g", "White Label") and is
-  // frequently empty. Resolve each value down to a single canonical colour
-  // name (picking whichever colour word appears earliest in the string), and
-  // treat "Label" mentions (White Label, Brown Label, ...) — a paper-label
-  // convention, not a vinyl colour — as no colour found. Discogs only notes a
-  // colour when it deviates from the default, so anything that resolves to no
-  // colour (empty field, or a non-colour attribute like "Gatefold") is black.
-  const COLOUR_CANON: [RegExp, string][] = [
-    [/\bblack\b/i, "Black"], [/\bwhite\b/i, "White"], [/\bred\b/i, "Red"],
-    [/\bblue\b/i, "Blue"], [/\bgreen\b/i, "Green"], [/\byellow\b/i, "Yellow"],
-    [/\borange\b/i, "Orange"], [/\bpurple\b/i, "Purple"], [/\bpink\b/i, "Pink"],
-    [/\bsilver\b/i, "Silver"], [/\bgold\b/i, "Gold"], [/\bgrey\b/i, "Grey"],
-    [/\bgray\b/i, "Grey"], [/\bbrown\b/i, "Brown"], [/\bmaroon\b/i, "Maroon"],
-    [/\bturquoise\b/i, "Turquoise"], [/\bteal\b/i, "Teal"], [/\bbone\b/i, "Bone"],
-    [/\bcream\b/i, "Cream"], [/\btan\b/i, "Tan"], [/\bmagenta\b/i, "Magenta"],
-    [/\bviolet\b/i, "Violet"], [/\bclear\b/i, "Clear"],
-    [/\bpicture disc\b/i, "Picture Disc"], [/\bmarbled?\b/i, "Marbled"],
-    [/\bsplatter\b/i, "Splatter"], [/\betched\b/i, "Etched"],
-    [/\bcolou?red\b/i, "Multi-Colour"],
+  // Priority effects (Splatter, Marbled, etc.) win regardless of where they
+  // appear in the string — "Orange With Black/White Splatter" → Splatter.
+  // Base colours use earliest-match to pick the dominant hue.
+  // Only records where vinyl_colour is non-null AND non-empty are counted:
+  // null = not yet backfilled, '' = Discogs confirmed nothing special (black).
+  // pct is relative to records with colour data, not the full collection.
+  const PRIORITY_EFFECTS: [RegExp, string][] = [
+    [/\bglow[\s-]?in[\s-]?the[\s-]?dark\b/i, "Glow in the Dark"],
+    [/\bpicture\s*disc\b/i,                   "Picture Disc"],
+    [/\bsplatter/i,                             "Splatter"],
+    [/\bmarble[d]?\b/i,                        "Marbled"],
+    [/\bswirl\b/i,                             "Swirl"],
+    [/\bgalaxy\b/i,                            "Galaxy"],
+    [/\bsmok[ey]+\b/i,                         "Smoke"],
+    [/\bhaze\b/i,                              "Haze"],
+    [/\betched\b/i,                            "Etched"],
+  ];
+  const BASE_COLOURS: [RegExp, string][] = [
+    [/\bblack\b/i,            "Black"],
+    [/\bwhite\b/i,            "White"],
+    [/\bred\b/i,              "Red"],
+    [/\bblue\b/i,             "Blue"],
+    [/\bgreen\b/i,            "Green"],
+    [/\byellow\b/i,           "Yellow"],
+    [/\borange\b/i,           "Orange"],
+    [/\bpurple\b/i,           "Purple"],
+    [/\b(?:magenta|violet)\b/i, "Purple"],
+    [/\bpink\b/i,             "Pink"],
+    [/\bsilver\b/i,           "Silver"],
+    [/\bgold\b/i,             "Gold"],
+    [/\b(?:grey|gray)\b/i,    "Grey"],
+    [/\bbrown\b/i,            "Brown"],
+    [/\b(?:maroon|burgundy|blood\s+red|wine)\b/i, "Red"],
+    [/\b(?:turquoise|teal|aqua)\b/i, "Teal"],
+    [/\b(?:bone|cream|ivory|tan)\b/i, "Cream"],
+    [/\bclear\b/i,            "Clear"],
+    [/\b(?:translucent|transparent)\b/i, "Clear"],
+    [/\btri[\s-]?colou?r\b/i, "Multi-Colour"],
+    [/\bcolou?red\b/i,        "Coloured"],
   ];
   const resolveColour = (value: string): string | null => {
     if (/\blabel\b/i.test(value)) return null;
+    // Priority effects win before checking position
+    for (const [re, name] of PRIORITY_EFFECTS) {
+      if (re.test(value)) return name;
+    }
+    // Base colours: pick the one that appears earliest in the string
     let best: { index: number; name: string } | null = null;
-    for (const [re, name] of COLOUR_CANON) {
-      const match = re.exec(value);
-      if (match && (best === null || match.index < best.index)) {
-        best = { index: match.index, name };
+    for (const [re, name] of BASE_COLOURS) {
+      const m = re.exec(value);
+      if (m && (best === null || m.index < best.index)) {
+        best = { index: m.index, name };
       }
     }
     return best?.name ?? null;
   };
 
+  // Only count records that have been backfilled with colour data (non-null, non-empty).
+  // Empty string = Discogs confirmed no special colour (standard black) → still count as Black.
+  // Null = not yet fetched from Discogs → exclude from breakdown.
   const colourCounts = new Map<string, number>();
   for (const link of allLinks) {
-    const value  = recordsMap.get(link.record_id)?.vinyl_colour?.trim();
+    const rec = recordsMap.get(link.record_id);
+    if (rec?.vinyl_colour === null || rec?.vinyl_colour === undefined) continue; // not yet backfilled
+    const value  = rec.vinyl_colour.trim();
     const colour = (value ? resolveColour(value) : null) ?? "Black";
     colourCounts.set(colour, (colourCounts.get(colour) ?? 0) + 1);
   }
@@ -565,7 +593,7 @@ export default async function InsightsPage() {
   const colourTotal = [...colourCounts.values()].reduce((a, b) => a + b, 0);
   const vinylColourBreakdown = [...colourCounts.entries()]
     .sort((a, b) => b[1] - a[1])
-    .slice(0, 10)
+    .slice(0, 12)
     .map(([colour, count]) => ({
       colour,
       count,

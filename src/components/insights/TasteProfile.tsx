@@ -42,27 +42,33 @@ interface TasteProfileProps {
 
 // Colour-name keyword → badge palette, used to render vinyl colours as labels.
 const COLOUR_BADGE_RULES: { kw: string; bg: string; color: string }[] = [
-  { kw: "black",         bg: "#2b2b2b", color: "#ffffff" },
-  { kw: "white",         bg: "#f2f2ec", color: "#0a0a0a" },
-  { kw: "picture disc",  bg: "#1a1a1a", color: "#ffffff" },
-  { kw: "clear",         bg: "#eef0ee", color: "#3a3a34" },
-  { kw: "transparent",   bg: "#eef0ee", color: "#3a3a34" },
-  { kw: "translucent",   bg: "#eef0ee", color: "#3a3a34" },
-  { kw: "red",           bg: "#F0997B", color: "#712B13" },
-  { kw: "blue",          bg: "#AFCBEB", color: "#1B3A66" },
-  { kw: "green",         bg: "#C0DD97", color: "#27500A" },
-  { kw: "yellow",        bg: "#FAC775", color: "#633806" },
-  { kw: "gold",          bg: "#FAC775", color: "#633806" },
-  { kw: "orange",        bg: "#F7B978", color: "#6B3A05" },
-  { kw: "purple",        bg: "#CECBF6", color: "#3C3489" },
-  { kw: "violet",        bg: "#CECBF6", color: "#3C3489" },
-  { kw: "pink",          bg: "#F3C9D9", color: "#7A1F44" },
-  { kw: "marbled",       bg: "#DCD5C4", color: "#4A4030" },
-  { kw: "splatter",      bg: "#DCD5C4", color: "#4A4030" },
-  { kw: "silver",        bg: "#E2E2DC", color: "#3a3a3a" },
-  { kw: "grey",          bg: "#cfcfc8", color: "#2b2b2b" },
-  { kw: "gray",          bg: "#cfcfc8", color: "#2b2b2b" },
-  { kw: "brown",         bg: "#C9A876", color: "#4A2E0A" },
+  { kw: "black",            bg: "#2b2b2b", color: "#ffffff" },
+  { kw: "white",            bg: "#f2f2ec", color: "#0a0a0a" },
+  { kw: "picture disc",     bg: "#1a1a1a", color: "#ffffff" },
+  { kw: "glow in the dark", bg: "#b8f5b0", color: "#0f4a09" },
+  { kw: "splatter",         bg: "#f0e0c8", color: "#6b3a05" },
+  { kw: "marbled",          bg: "#DCD5C4", color: "#4A4030" },
+  { kw: "swirl",            bg: "#e8d5f0", color: "#4a1a6b" },
+  { kw: "galaxy",           bg: "#1a1a3a", color: "#9090e0" },
+  { kw: "smoke",            bg: "#d8d8d0", color: "#404040" },
+  { kw: "haze",             bg: "#d8d8d0", color: "#404040" },
+  { kw: "etched",           bg: "#e8e8e0", color: "#3a3a34" },
+  { kw: "clear",            bg: "#eef0ee", color: "#3a3a34" },
+  { kw: "cream",            bg: "#f5f0e0", color: "#5a4a20" },
+  { kw: "red",              bg: "#F0997B", color: "#712B13" },
+  { kw: "blue",             bg: "#AFCBEB", color: "#1B3A66" },
+  { kw: "green",            bg: "#C0DD97", color: "#27500A" },
+  { kw: "teal",             bg: "#9FE1CB", color: "#085041" },
+  { kw: "yellow",           bg: "#FAC775", color: "#633806" },
+  { kw: "gold",             bg: "#FAC775", color: "#633806" },
+  { kw: "orange",           bg: "#F7B978", color: "#6B3A05" },
+  { kw: "purple",           bg: "#CECBF6", color: "#3C3489" },
+  { kw: "pink",             bg: "#F3C9D9", color: "#7A1F44" },
+  { kw: "silver",           bg: "#E2E2DC", color: "#3a3a3a" },
+  { kw: "grey",             bg: "#cfcfc8", color: "#2b2b2b" },
+  { kw: "brown",            bg: "#C9A876", color: "#4A2E0A" },
+  { kw: "multi",            bg: "#f0e8f8", color: "#4a2080" },
+  { kw: "coloured",         bg: "#f0e8f8", color: "#4a2080" },
 ];
 const DEFAULT_BADGE = { bg: "#EDEDE8", color: "#3a3a34" };
 
@@ -385,7 +391,7 @@ export default function TasteProfile({
                 display: "grid", gridTemplateColumns: "1fr 56px 64px",
                 gap: "12px", padding: "10px 0", borderBottom: `0.5px solid ${RULE}`,
               }}>
-                {["Colour", "Items", "Share"].map((h) => (
+                {["Colour", "Records", "of synced"].map((h) => (
                   <span key={h} style={{
                     fontFamily: MONO, fontSize: "9px", fontWeight: 700,
                     letterSpacing: "0.12em", textTransform: "uppercase", color: INK,
