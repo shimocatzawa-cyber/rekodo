@@ -51,8 +51,6 @@ export default async function InsightsPage() {
   const displayLabel = profile?.display_name?.trim() || username;
   const avatarUrl    = profile?.avatar_url ?? null;
 
-  const isSupporter = !!(profile?.is_supporter || profile?.role === "admin");
-
   // ── Currency ───────────────────────────────────────────────────────────────
   const COUNTRY_CURRENCY: Record<string, string> = {
     AU: "AUD", US: "USD", GB: "GBP", NZ: "NZD", CA: "CAD", JP: "JPY",
@@ -861,7 +859,6 @@ export default async function InsightsPage() {
       playedStyleBreakdown={playedStyleBreakdown}
       dailyPick={dailyPick}
       onThisDay={onThisDay}
-      isSupporter={isSupporter}
       usageStats={usageStats}
     />
   );

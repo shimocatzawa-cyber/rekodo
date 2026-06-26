@@ -61,7 +61,6 @@ export interface InsightsProps {
   playedStyleBreakdown: { style: string; count: number; pct: number }[];
   dailyPick:    DailyPickData | null;
   onThisDay:    OnThisDayPick | null;
-  isSupporter:  boolean;
   usageStats:   {
     digDiscover:   number;
     digExplore:    number;
@@ -244,11 +243,11 @@ export default function InsightsClient({
   essentials, feelingBreakdown,
   collectionLifespan, collectionByMonth, spectrum,
   topPlayedRecords, playedStyleBreakdown,
-  dailyPick, onThisDay, isSupporter, usageStats,
+  dailyPick, onThisDay, usageStats,
 }: InsightsProps) {
 
   const [oneLiner, setOneLiner] = useState<string | null>(null);
-  const defaultTab = isSupporter ? "taste-profile" : "collection";
+  const defaultTab = "taste-profile";
   const [insightsTab, setInsightsTab] = useUrlTab<"collection" | "taste-profile">("tab", ["collection", "taste-profile"], defaultTab);
   const [showShare, setShowShare] = useState(false);
   const [showEssentialsShare, setShowEssentialsShare] = useState(false);
@@ -868,30 +867,6 @@ export default function InsightsClient({
       </main>
       )}
 
-      {insightsTab === "taste-profile" && !isSupporter && (
-        <main className="rk-arch-main" style={{ padding: "80px 32px 120px", maxWidth: "480px", margin: "0 auto", textAlign: "center" }}>
-          <p style={{ fontFamily: MONO, fontSize: "0.6rem", letterSpacing: "0.16em", textTransform: "uppercase", color: ORANGE, margin: "0 0 20px" }}>
-            Supporter Only
-          </p>
-          <h1 style={{ fontFamily: SERIF, fontSize: "clamp(2rem, 6vw, 3.2rem)", fontWeight: 400, color: INK, lineHeight: 1.05, letterSpacing: "-0.01em", margin: "0 0 24px" }}>
-            Taste Profile
-          </h1>
-          <p style={{ fontFamily: MONO, fontSize: "0.65rem", letterSpacing: "0.04em", color: "#666", lineHeight: 1.8, margin: "0 0 40px" }}>
-            This feature is available to rek<span style={{ color: ORANGE }}>ō</span>do supporters.
-            <br />
-            Support the project to unlock it.
-          </p>
-          <div style={{ borderTop: `1px solid ${RULE}`, paddingTop: 40 }}>
-            <Link
-              href="/about#support"
-              style={{ display: "inline-block", fontFamily: MONO, fontSize: "0.65rem", letterSpacing: "0.12em", textTransform: "uppercase", color: "#FDF6F0", background: INK, padding: "14px 32px", textDecoration: "none" }}
-            >
-              Support rek<span style={{ color: ORANGE }}>ō</span>do →
-            </Link>
-          </div>
-        </main>
-      )}
-
       {showShare && (
         <InsightsShareModal
           onClose={() => setShowShare(false)}
@@ -919,7 +894,7 @@ export default function InsightsClient({
         />
       )}
 
-      {insightsTab === "taste-profile" && isSupporter && (
+      {insightsTab === "taste-profile" && (
         <main className="rk-arch-main" style={{ padding: "48px 32px 80px", maxWidth: "960px", margin: "0 auto" }}>
 
           {/* ── Lunar Listening Ritual + On This Month ── */}
