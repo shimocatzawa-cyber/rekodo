@@ -53,6 +53,8 @@ export async function signup(
       const brevoKey = process.env.BREVO_API_KEY;
       if (brevoKey) {
         const today = new Date().toISOString().slice(0, 10);
+        const ac = new AbortController();
+        const timer = setTimeout(() => ac.abort(), 5000);
         await fetch("https://api.brevo.com/v3/contacts", {
           method: "POST",
           headers: { "api-key": brevoKey, "Content-Type": "application/json" },
@@ -62,7 +64,8 @@ export async function signup(
             listIds: [5],
             updateEnabled: true,
           }),
-        });
+          signal: ac.signal,
+        }).finally(() => clearTimeout(timer));
       }
     } catch (err) {
       console.error("[brevo] signup contact creation failed:", err);

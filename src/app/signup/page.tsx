@@ -65,7 +65,7 @@ export default function SignupPage() {
             className="mb-10"
             style={{ fontFamily: MONO, fontSize: "11px", color: "#aaaaaa", letterSpacing: "0.06em" }}
           >
-            rekōdo is currently invite-only.
+            Your records say everything about you.
           </p>
 
           {state?.message ? (
