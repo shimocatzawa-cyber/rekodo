@@ -155,9 +155,13 @@ function sym(code: string): string {
   return map[code] ?? `${code} `;
 }
 
+const ZERO_DECIMAL_CURRENCIES = new Set(["JPY", "KRW", "VND", "CLP", "ISK"]);
+
 function formatPrice(value: number | null | undefined, currency: string): string | null {
   if (value == null || value <= 0) return null;
-  return `${sym(currency)}${value.toFixed(2)}`;
+  return ZERO_DECIMAL_CURRENCIES.has(currency)
+    ? `${sym(currency)}${Math.round(value).toLocaleString()}`
+    : `${sym(currency)}${value.toFixed(2)}`;
 }
 
 function formatDate(dateStr: string | null | undefined): string | null {

@@ -31,10 +31,11 @@ export async function POST(request: NextRequest) {
   }
 
   if (body.type === "donation") {
-    const dollars = Number(body.amount ?? 0);
-    const cents = Math.round(dollars * 100);
+    const amount = Number(body.amount ?? 0);
     const currency = (body.currency ?? "usd").toLowerCase();
-    if (cents < 100) {
+    const zeroDecimal = ["jpy", "krw", "vnd", "clp", "isk"].includes(currency);
+    const unitAmount = zeroDecimal ? Math.round(amount) : Math.round(amount * 100);
+    if (unitAmount < (zeroDecimal ? 1 : 100)) {
       return NextResponse.json(
         { error: "Minimum donation is 1 unit of your local currency" },
         { status: 400 }
@@ -47,7 +48,7 @@ export async function POST(request: NextRequest) {
         {
           price_data: {
             currency,
-            unit_amount: cents,
+            unit_amount: unitAmount,
             product_data: {
               name: "rekōdo Donation",
               description: "One-off donation — golden ō badge",
