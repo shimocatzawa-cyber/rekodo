@@ -55,7 +55,7 @@ export async function signup(
         const today = new Date().toISOString().slice(0, 10);
         const ac = new AbortController();
         const timer = setTimeout(() => ac.abort(), 5000);
-        await fetch("https://api.brevo.com/v3/contacts", {
+        const res = await fetch("https://api.brevo.com/v3/contacts", {
           method: "POST",
           headers: { "api-key": brevoKey, "Content-Type": "application/json" },
           body: JSON.stringify({
@@ -66,6 +66,10 @@ export async function signup(
           }),
           signal: ac.signal,
         }).finally(() => clearTimeout(timer));
+        if (!res.ok) {
+          const body = await res.text().catch(() => "");
+          console.error(`[brevo] signup contact creation returned ${res.status}:`, body);
+        }
       }
     } catch (err) {
       console.error("[brevo] signup contact creation failed:", err);
