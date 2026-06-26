@@ -51,6 +51,7 @@ export async function signup(
     // Non-blocking — a Brevo outage must never break signup.
     try {
       const brevoKey = process.env.BREVO_API_KEY;
+      console.log("[brevo] key present:", !!brevoKey);
       if (brevoKey) {
         const today = new Date().toISOString().slice(0, 10);
         const ac = new AbortController();
