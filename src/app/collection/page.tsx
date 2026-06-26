@@ -38,7 +38,6 @@ export type CollectionRecord = {
   is_essential:           boolean | null;
   feeling:                string | null;
   memory_text:            string | null;
-  memory_shared:          boolean | null;
   barcode:                string | null;
   matrix:                 string[] | null;
   edition_size:           number | null;
@@ -153,7 +152,6 @@ export default async function CollectionPage({
     is_essential:     boolean | null;
     feeling:          string | null;
     memory_text:      string | null;
-    memory_shared:    boolean | null;
   };
   console.log('[collection/page] fetching for user:', user.id);
   const allLinks: LinkRow[] = [];
@@ -162,7 +160,7 @@ export default async function CollectionPage({
     const { data, error } = await supabase
       .from("user_records")
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      .select("record_id, created_at, value, price_low, price_median, price_currency, media_condition, sleeve_condition, last_played_at, open_to_offers, is_essential, feeling, memory_text, memory_shared" as any)
+      .select("record_id, created_at, value, price_low, price_median, price_currency, media_condition, sleeve_condition, last_played_at, open_to_offers, is_essential, feeling, memory_text" as any)
       .eq("user_id", user.id)
       .order("created_at", { ascending: false })
       .range(from, from + PAGE - 1);
@@ -218,9 +216,8 @@ export default async function CollectionPage({
   const isEssentialMap   = new Map<string, boolean | null>(allLinks.map((l) => [l.record_id, l.is_essential ?? null]));
   const feelingMap       = new Map<string, string | null>(allLinks.map((l) => [l.record_id, l.feeling ?? null]));
   const memoryTextMap    = new Map<string, string | null>(allLinks.map((l) => [l.record_id, l.memory_text ?? null]));
-  const memorySharedMap  = new Map<string, boolean | null>(allLinks.map((l) => [l.record_id, l.memory_shared ?? null]));
 
-  const recordsMap = new Map<string, Omit<CollectionRecord, "value" | "price_low" | "price_median" | "price_currency" | "media_condition" | "sleeve_condition" | "last_played_at" | "open_to_offers" | "is_essential" | "feeling" | "memory_text" | "memory_shared">>();
+  const recordsMap = new Map<string, Omit<CollectionRecord, "value" | "price_low" | "price_median" | "price_currency" | "media_condition" | "sleeve_condition" | "last_played_at" | "open_to_offers" | "is_essential" | "feeling" | "memory_text">>();
   for (let i = 0; i < recordIds.length; i += BATCH) {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { data, error } = await (supabase as any)
@@ -229,7 +226,7 @@ export default async function CollectionPage({
       .in("id", recordIds.slice(i, i + BATCH));
     if (error) console.error('[collection/page] records batch error:', JSON.stringify(error));
     else console.log(`[collection/page] records batch i=${i}: ${data?.length ?? 0} rows`);
-    for (const r of data ?? []) recordsMap.set(r.id, r as Omit<CollectionRecord, "value" | "price_low" | "price_median" | "price_currency" | "media_condition" | "sleeve_condition" | "last_played_at" | "open_to_offers" | "is_essential" | "feeling" | "memory_text" | "memory_shared">);
+    for (const r of data ?? []) recordsMap.set(r.id, r as Omit<CollectionRecord, "value" | "price_low" | "price_median" | "price_currency" | "media_condition" | "sleeve_condition" | "last_played_at" | "open_to_offers" | "is_essential" | "feeling" | "memory_text">);
   }
 
   const collection: CollectionRecord[] = recordIds
@@ -253,7 +250,6 @@ export default async function CollectionPage({
         is_essential:           isEssentialMap.get(id)   ?? null,
         feeling:                feelingMap.get(id)       ?? null,
         memory_text:            memoryTextMap.get(id)    ?? null,
-        memory_shared:          memorySharedMap.get(id)  ?? null,
       };
     })
     .filter((r): r is CollectionRecord => r !== undefined);

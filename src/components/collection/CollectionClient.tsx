@@ -339,7 +339,6 @@ const [filterFormat,       setFilterFormat]       = useState("");
         is_essential:     boolean | null;
         feeling:          string | null;
         memory_text:      string | null;
-        memory_shared:    boolean | null;
       };
       const allLinks: LinkRow[] = [];
       const PAGE = 1000;
@@ -347,7 +346,7 @@ const [filterFormat,       setFilterFormat]       = useState("");
         const { data, error } = await supabase
           .from("user_records")
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          .select("record_id, value, price_low, price_median, price_currency, media_condition, sleeve_condition, open_to_offers, is_essential, feeling, memory_text, memory_shared" as any)
+          .select("record_id, value, price_low, price_median, price_currency, media_condition, sleeve_condition, open_to_offers, is_essential, feeling, memory_text" as any)
           .eq("user_id", user.id)
           .range(from, from + PAGE - 1);
         console.log(`[collection] user_records page from=${from}: count=${data?.length ?? 0} error=${JSON.stringify(error)}`);
@@ -367,9 +366,8 @@ const [filterFormat,       setFilterFormat]       = useState("");
       const isEssentialMap     = new Map<string, boolean | null>(allLinks.map((l) => [l.record_id, l.is_essential ?? null]));
       const feelingMap         = new Map<string, string | null>(allLinks.map((l) => [l.record_id, l.feeling ?? null]));
       const memoryTextMap      = new Map<string, string | null>(allLinks.map((l) => [l.record_id, l.memory_text ?? null]));
-      const memorySharedMap    = new Map<string, boolean | null>(allLinks.map((l) => [l.record_id, l.memory_shared ?? null]));
       const BATCH        = 400;
-      const recordsMap   = new Map<string, Omit<CollectionRecord, "value" | "price_low" | "price_low_usd" | "price_median" | "price_currency" | "media_condition" | "sleeve_condition" | "open_to_offers" | "is_essential" | "feeling" | "memory_text" | "memory_shared">>();
+      const recordsMap   = new Map<string, Omit<CollectionRecord, "value" | "price_low" | "price_low_usd" | "price_median" | "price_currency" | "media_condition" | "sleeve_condition" | "open_to_offers" | "is_essential" | "feeling" | "memory_text">>();
       for (let i = 0; i < recordIds.length; i += BATCH) {
         const { data, error } = await supabase
           .from("records")
@@ -396,7 +394,6 @@ const [filterFormat,       setFilterFormat]       = useState("");
             is_essential:     isEssentialMap.get(id)     ?? null,
             feeling:          feelingMap.get(id)         ?? null,
             memory_text:      memoryTextMap.get(id)      ?? null,
-            memory_shared:    memorySharedMap.get(id)    ?? null,
           };
         })
         .filter((r): r is CollectionRecord => r !== undefined);
@@ -2203,17 +2200,14 @@ function TracklistPanel({ tracks, loading, bandcamp, record }: {
 // ─── MemorySection ──────────────────────────────────────────────────────────
 
 function MemorySection({ record }: { record: CollectionRecord | null }) {
-  const [memoryText,   setMemoryText]   = useState<string | null>(record?.memory_text ?? null);
-  const [memoryShared, setMemoryShared] = useState<boolean>(record?.memory_shared ?? false);
+  const [memoryText, setMemoryText] = useState<string | null>(record?.memory_text ?? null);
   const [open,    setOpen]    = useState(false);
   const [editing, setEditing] = useState(false);
   const [draft,   setDraft]   = useState("");
   const [saving,  setSaving]  = useState(false);
-  const [sharing, setSharing] = useState(false);
 
   useEffect(() => {
     setMemoryText(record?.memory_text ?? null);
-    setMemoryShared(record?.memory_shared ?? false);
     setOpen(false);
     setEditing(false);
     setDraft("");
@@ -2247,25 +2241,6 @@ function MemorySection({ record }: { record: CollectionRecord | null }) {
     }
   }
 
-  async function handleToggleShared() {
-    if (!record?.id || sharing) return;
-    const next = !memoryShared;
-    setMemoryShared(next);
-    setSharing(true);
-    try {
-      const res = await fetch("/api/collection/tag", {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ recordId: record.id, memory_shared: next }),
-      });
-      if (!res.ok) setMemoryShared(!next);
-    } catch {
-      setMemoryShared(!next);
-    } finally {
-      setSharing(false);
-    }
-  }
-
   const showForm = !hasMemory || editing;
 
   return (
@@ -2291,16 +2266,7 @@ function MemorySection({ record }: { record: CollectionRecord | null }) {
           </span>
         )}
 
-        {open && hasMemory ? (
-          <span style={{ display: "inline-flex", alignItems: "center", gap: "8px" }}>
-            <span style={{ fontFamily: MONO, fontSize: "8.5px", letterSpacing: "0.08em", textTransform: "uppercase", color: "#aaaaaa" }}>
-              private
-            </span>
-            <span style={{ fontSize: "8px", opacity: 0.7 }}>⌃</span>
-          </span>
-        ) : (
-          <span style={{ fontSize: "8px", opacity: 0.7 }}>{open ? "⌃" : "⌄"}</span>
-        )}
+        <span style={{ fontSize: "8px", opacity: 0.7 }}>{open ? "⌃" : "⌄"}</span>
       </button>
 
       {open && (
@@ -2342,23 +2308,13 @@ function MemorySection({ record }: { record: CollectionRecord | null }) {
               <p style={{ fontFamily: SERIF, fontSize: "13.5px", lineHeight: 1.6, color: "#0a0a0a", margin: 0, whiteSpace: "pre-wrap" }}>
                 {memoryText}
               </p>
-              <div style={{ borderTop: "1px solid rgba(0,0,0,0.07)", marginTop: "12px", paddingTop: "10px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+              <div style={{ borderTop: "1px solid rgba(0,0,0,0.07)", marginTop: "12px", paddingTop: "10px" }}>
                 <button
                   onClick={startEdit}
                   style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.1em", textTransform: "uppercase", color: "#888888", background: "none", border: "none", cursor: "pointer", padding: 0 }}
                 >
                   Edit
                 </button>
-                <label style={{ display: "inline-flex", alignItems: "center", gap: "6px", fontFamily: MONO, fontSize: "9px", letterSpacing: "0.06em", color: "#555555", cursor: sharing ? "default" : "pointer" }}>
-                  <input
-                    type="checkbox"
-                    checked={memoryShared}
-                    onChange={handleToggleShared}
-                    disabled={sharing}
-                    style={{ cursor: sharing ? "default" : "pointer" }}
-                  />
-                  Show on shared profile
-                </label>
               </div>
             </>
           )}

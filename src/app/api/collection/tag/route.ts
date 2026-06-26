@@ -7,14 +7,14 @@ export async function PATCH(request: NextRequest) {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  let body: { recordId?: unknown; is_essential?: unknown; feeling?: unknown; memory_text?: unknown; memory_shared?: unknown };
+  let body: { recordId?: unknown; is_essential?: unknown; feeling?: unknown; memory_text?: unknown };
   try {
     body = await request.json();
   } catch {
     return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
   }
 
-  const { recordId, is_essential, feeling, memory_text, memory_shared } = body;
+  const { recordId, is_essential, feeling, memory_text } = body;
   if (typeof recordId !== "string" || !recordId) {
     return NextResponse.json({ error: "Missing recordId" }, { status: 400 });
   }
@@ -44,13 +44,6 @@ export async function PATCH(request: NextRequest) {
       return NextResponse.json({ error: "memory_text is too long" }, { status: 400 });
     }
     update.memory_text = memory_text;
-  }
-
-  if (memory_shared !== undefined) {
-    if (typeof memory_shared !== "boolean") {
-      return NextResponse.json({ error: "memory_shared must be boolean" }, { status: 400 });
-    }
-    update.memory_shared = memory_shared;
   }
 
   if (Object.keys(update).length === 0) {
