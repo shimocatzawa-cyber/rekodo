@@ -240,6 +240,14 @@ const FAQ_SECTIONS: { section: string; items: { q: string; a: React.ReactNode }[
         q: "What does 'open to offers' mean?",
         a: "Marking a record as open to offers flags it on your public profile — and in your Sell List — so other collectors can contact you about it. rekōdo doesn't facilitate the transaction — it's just a signal.",
       },
+      {
+        q: "What is the Memory section on a record?",
+        a: "Memory is a free-form personal note attached to any record in your collection. Open a record's detail panel and tap + Memory to write how you came across it — where you found it, who gave it to you, the moment it became yours. It's private to you by default and saved automatically.",
+      },
+      {
+        q: "Can I share my memory with others?",
+        a: "Yes. Once you've written a memory, tick the 'Show on shared profile' checkbox below it. The memory will then appear on your public profile alongside that record, visible to anyone who views your page. Untick it at any time to make it private again.",
+      },
     ],
   },
   {
