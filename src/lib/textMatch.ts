@@ -55,6 +55,20 @@ function tokenOverlap(a: string, b: string): number {
   return shared / Math.max(setA.size, setB.size);
 }
 
+// "songs" vs "songs and instrumentals" — all words of the shorter title
+// appear in the longer, so the shorter is clearly a subset. tokenOverlap
+// penalises this because Math.max(3,1)=3 gives 0.33. This check uses
+// Math.min so a fully-contained shorter title scores 1.0.
+function subsetOverlap(a: string, b: string): number {
+  const setA = new Set(a.split(" ").filter(Boolean));
+  const setB = new Set(b.split(" ").filter(Boolean));
+  const minSize = Math.min(setA.size, setB.size);
+  if (minSize === 0) return 0;
+  let shared = 0;
+  for (const w of setA) if (setB.has(w)) shared++;
+  return shared / minSize;
+}
+
 // Used standalone for artist-only lookups (e.g. Deep Dive's top-tracks
 // search), and as the first gate of isPlausibleAlbumMatch below — a
 // wrong-artist hit is the failure mode that actually burns users, so it's
@@ -79,5 +93,7 @@ export function isPlausibleAlbumMatch(
 
   const qAlbum = normalizeTitle(queryAlbum);
   const rAlbum = normalizeTitle(resultAlbum);
-  return similarity(qAlbum, rAlbum) >= 0.35 || tokenOverlap(qAlbum, rAlbum) >= 0.34;
+  return similarity(qAlbum, rAlbum) >= 0.35
+    || tokenOverlap(qAlbum, rAlbum) >= 0.34
+    || subsetOverlap(qAlbum, rAlbum) >= 0.8;
 }
