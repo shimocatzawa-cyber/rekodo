@@ -1,10 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
-import WaitlistModal from "./WaitlistModal";
 
 const SERIF  = "var(--font-editorial)";
 const MONO   = "var(--font-dm-mono), 'Courier New', monospace";
@@ -18,7 +16,6 @@ interface LandingNavProps {
 
 export default function LandingNav({ username, displayLabel, avatarUrl }: LandingNavProps) {
   const router = useRouter();
-  const [modalOpen, setModalOpen] = useState(false);
 
   async function handleSignOut() {
     await createClient().auth.signOut();
@@ -87,22 +84,33 @@ export default function LandingNav({ username, displayLabel, avatarUrl }: Landin
             </button>
           </div>
         ) : (
-          <button
-            onClick={() => setModalOpen(true)}
-            style={{
-              fontFamily: MONO, fontSize: "10px", letterSpacing: "0.1em",
-              textTransform: "uppercase", color: "#ffffff",
-              background: ORANGE, border: "none", cursor: "pointer",
-              padding: "8px 16px",
-            }}
-            className="hover:opacity-90 transition-opacity"
-          >
-            Request Access
-          </button>
+          <div className="flex items-center gap-3">
+            <Link
+              href="/login"
+              style={{
+                fontFamily: MONO, fontSize: "10px", letterSpacing: "0.1em",
+                textTransform: "uppercase", color: "#888888",
+                textDecoration: "none",
+              }}
+              className="hover:text-black transition-colors"
+            >
+              Log in
+            </Link>
+            <Link
+              href="/signup"
+              style={{
+                fontFamily: MONO, fontSize: "10px", letterSpacing: "0.1em",
+                textTransform: "uppercase", color: "#ffffff",
+                background: ORANGE, padding: "8px 16px",
+                textDecoration: "none",
+              }}
+              className="hover:opacity-90 transition-opacity"
+            >
+              Sign up
+            </Link>
+          </div>
         )}
       </nav>
-
-      <WaitlistModal isOpen={modalOpen} onClose={() => setModalOpen(false)} />
     </>
   );
 }
