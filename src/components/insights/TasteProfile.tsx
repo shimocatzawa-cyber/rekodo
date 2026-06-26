@@ -353,7 +353,7 @@ export default function TasteProfile({
       {/* ── Style + Pressing Colours ─────────────────────────────────────── */}
       <TasteSectionHeader eyebrow="Style" title="What you reach for." />
 
-      <div className="rk-grid-2" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "48px" }}>
+      <div style={{ display: "flex", flexDirection: "column", gap: "40px" }}>
         <div>
           <SubLabel>Style</SubLabel>
           {!hasStyles ? (
@@ -387,42 +387,24 @@ export default function TasteProfile({
               Colour data will appear here after your next Discogs sync.
             </p>
           ) : (
-            <div className="rk-ins-fmt" style={{ borderTop: `0.5px solid ${RULE}` }}>
-              <div style={{
-                display: "grid", gridTemplateColumns: "1fr 56px 64px",
-                gap: "12px", padding: "10px 0", borderBottom: `0.5px solid ${RULE}`,
-              }}>
-                {["Colour", "Records", "of synced"].map((h) => (
-                  <span key={h} style={{
-                    fontFamily: MONO, fontSize: "9px", fontWeight: 700,
-                    letterSpacing: "0.12em", textTransform: "uppercase", color: INK,
-                  }}>
-                    {h}
-                  </span>
-                ))}
-              </div>
+            <div style={{ display: "flex", flexWrap: "wrap", gap: "8px" }}>
               {vinylColourBreakdown.map(({ colour, count, pct }) => {
                 const badge = colourBadge(colour);
                 return (
                   <div key={colour} style={{
-                    display: "grid", gridTemplateColumns: "1fr 56px 64px",
-                    gap: "12px", padding: "12px 0", borderBottom: `0.5px solid ${RULE}`,
-                    alignItems: "center",
+                    display: "flex", flexDirection: "column", alignItems: "center",
+                    gap: "5px", minWidth: "64px",
                   }}>
                     <span style={{
-                      display: "inline-block", width: "fit-content",
                       fontFamily: MONO, fontSize: "10px", letterSpacing: "0.06em",
                       background: badge.bg, color: badge.color,
-                      padding: "3px 8px", borderRadius: "3px",
+                      padding: "5px 10px", borderRadius: "3px",
                       whiteSpace: "nowrap",
                     }}>
                       {colour}
                     </span>
-                    <span style={{ fontFamily: MONO, fontSize: "11px", color: INK }}>
-                      {count}
-                    </span>
-                    <span style={{ fontFamily: MONO, fontSize: "11px", color: ORANGE }}>
-                      {pct === 0 && count > 0 ? "<1" : pct}%
+                    <span style={{ fontFamily: MONO, fontSize: "9px", color: "#aaaaaa" }}>
+                      {count} · {pct === 0 && count > 0 ? "<1" : pct}%
                     </span>
                   </div>
                 );
