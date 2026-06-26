@@ -155,6 +155,7 @@ async function main() {
     const { data, error } = await supabase
       .from('records')
       .select('id, discogs_id, artist, album, format, country, vinyl_colour, producers, genre, styles, year')
+      .is('barcode', null)
       .not('discogs_id', 'is', null)
       .range(from, from + PAGE - 1);
 
