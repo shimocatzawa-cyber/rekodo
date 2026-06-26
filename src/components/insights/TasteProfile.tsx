@@ -55,6 +55,9 @@ const COLOUR_BADGE_RULES: { kw: string; bg: string; color: string }[] = [
   { kw: "etched",           bg: "#e8e8e0", color: "#3a3a34" },
   { kw: "clear",            bg: "#eef0ee", color: "#3a3a34" },
   { kw: "cream",            bg: "#f5f0e0", color: "#5a4a20" },
+  // multi/coloured must come before base colours — "coloured" contains "red" as a substring
+  { kw: "multi",            bg: "#f0e8f8", color: "#4a2080" },
+  { kw: "coloured",         bg: "#f0e8f8", color: "#4a2080" },
   { kw: "red",              bg: "#F0997B", color: "#712B13" },
   { kw: "blue",             bg: "#AFCBEB", color: "#1B3A66" },
   { kw: "green",            bg: "#C0DD97", color: "#27500A" },
@@ -67,8 +70,6 @@ const COLOUR_BADGE_RULES: { kw: string; bg: string; color: string }[] = [
   { kw: "silver",           bg: "#E2E2DC", color: "#3a3a3a" },
   { kw: "grey",             bg: "#cfcfc8", color: "#2b2b2b" },
   { kw: "brown",            bg: "#C9A876", color: "#4A2E0A" },
-  { kw: "multi",            bg: "#f0e8f8", color: "#4a2080" },
-  { kw: "coloured",         bg: "#f0e8f8", color: "#4a2080" },
 ];
 const DEFAULT_BADGE = { bg: "#EDEDE8", color: "#3a3a34" };
 
