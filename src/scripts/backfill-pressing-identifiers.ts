@@ -230,14 +230,14 @@ async function main() {
 
         // Core release fields — only overwrite if currently null
         if (!record.format)       { const f = extractFormat(rd.formats);       if (f)  patch.format = f; }
-        patch.vinyl_colour = extractVinylColour(rd.formats) ?? '';
+        if (!record.vinyl_colour) patch.vinyl_colour = extractVinylColour(rd.formats) ?? '';
         if (!record.country)      { patch.country      = rd.country ?? ''; }
         if (!record.genre && rd.genres?.length)  patch.genre  = rd.genres[0];
         if (!record.styles && rd.styles?.length) patch.styles = rd.styles;
         if (!record.year && rd.year)             patch.year   = rd.year;
 
         // Producers — only write from API result, never default-wipe existing data
-        patch.producers = extractProducers(rd.extraartists) ?? [];
+        if (!record.producers?.length) patch.producers = extractProducers(rd.extraartists) ?? [];
 
         // Discogs artist ID
         const artistId = rd.artists?.[0]?.id;
