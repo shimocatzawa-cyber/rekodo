@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
+import { cookies } from "next/headers";
 import { createClient } from "@/lib/supabase/server";
 import InsightsClient, { type InsightsProps } from "@/components/insights/InsightsClient";
 import { getDesirabilityTier, type DesirabilityTier } from "@/lib/desirability";
@@ -136,8 +137,12 @@ export default async function InsightsPage() {
   }
 
   // ── Daily pick ──────────────────────────────────────────────────────────────
+  const cookieStore = await cookies();
+  const userTimezone = cookieStore.get("tz")?.value
+    ? decodeURIComponent(cookieStore.get("tz")!.value)
+    : undefined;
   const pickNow = new Date();
-  const pickResult = selectDailyPick(allLinks, user.id, pickNow);
+  const pickResult = selectDailyPick(allLinks, user.id, pickNow, userTimezone);
   const dailyPick: InsightsProps["dailyPick"] = (() => {
     if (!pickResult) return null;
     const rec = recordsMap.get(pickResult.record_id);
@@ -180,7 +185,7 @@ export default async function InsightsPage() {
     .filter((x): x is NonNullable<typeof x> => x !== null);
 
   const onThisDay: InsightsProps["onThisDay"] = onThisDayPool.length > 0
-    ? onThisDayPool[Math.floor(seededRandom(`onThisDay:${user.id}:${dayKey(pickNow)}`) * onThisDayPool.length)]
+    ? onThisDayPool[Math.floor(seededRandom(`onThisDay:${user.id}:${dayKey(pickNow, userTimezone)}`) * onThisDayPool.length)]
     : null;
 
   // ── Collection value totals ────────────────────────────────────────────────

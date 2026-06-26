@@ -4,6 +4,7 @@ import Script from "next/script";
 import { Analytics } from "@vercel/analytics/next";
 import { SpotifyPlayerProvider } from "@/components/SpotifyPlayerProvider";
 import PageViewTracker from "@/components/PageViewTracker";
+import TimezoneSetter from "@/components/TimezoneSetter";
 import "./globals.css";
 
 const shipporiMincho = Shippori_Mincho({
@@ -108,6 +109,7 @@ export default function RootLayout({
       </head>
       <body className="min-h-full flex flex-col bg-white text-black antialiased">
         <PageViewTracker />
+        <TimezoneSetter />
         <SpotifyPlayerProvider>
           {children}
         </SpotifyPlayerProvider>

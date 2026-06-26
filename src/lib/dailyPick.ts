@@ -23,7 +23,8 @@ function daysSince(dateStr: string | null, now: Date): number | null {
 export function selectDailyPick(
   links: LinkRow[],
   userId: string,
-  now: Date
+  now: Date,
+  timezone?: string,
 ): { record_id: string; feeling: string | null; daysSinceLastPlayed: number | null } | null {
   if (links.length === 0) return null;
 
@@ -36,7 +37,7 @@ export function selectDailyPick(
   });
   const totalWeight = weights.reduce((a, b) => a + b, 0);
 
-  let draw = seededRandom(`dailyPick:${userId}:${dayKey(now)}`) * totalWeight;
+  let draw = seededRandom(`dailyPick:${userId}:${dayKey(now, timezone)}`) * totalWeight;
 
   let chosenIndex = pool.length - 1;
   for (let i = 0; i < pool.length; i++) {
