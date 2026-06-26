@@ -402,8 +402,12 @@ const FAQ_SECTIONS: { section: string; items: { q: string; a: React.ReactNode }[
         a: "rekōdo imports your Bandcamp purchases as digital additions to your Deep Dive artist list. They count toward the Vinyl pure ↔ Format agnostic dimension in your Taste Profile as well. The collection tab will only show physical items you own.",
       },
       {
-        q: "Can I connect Spotify?",
-        a: "Yes, from your profile. Once connected, you can preview full tracks inside rekōdo (with a Premium account) and generate mood-based playlists from your collection.",
+        q: "How do I connect Spotify?",
+        a: "Go to your profile page (tap your avatar or username) and scroll to the Connections section. Click Connect Spotify → — you'll be taken to Spotify to authorise rekōdo, then redirected back automatically. You can disconnect at any time from the same section.",
+      },
+      {
+        q: "Where does the Spotify player appear?",
+        a: "The player is embedded in your Collection — open any record's detail panel and rekōdo will search for a matching Spotify album and let you play it in-page. A Spotify Premium account is required for full-track playback; free accounts can preview short clips only.",
       },
     ],
   },
