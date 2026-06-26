@@ -98,22 +98,27 @@ export default async function InsightsPage() {
     is_essential:     boolean;
     feeling:          string | null;
   };
-  const allLinks: LinkRow[] = [];
+  // Count total rows first so we can fetch all pages in parallel
   const PAGE = 1000;
-  for (let from = 0; ; from += PAGE) {
-    const { data, error } = await supabase
-      .from("user_records")
-      .select("record_id, price_low, price_median, price_high, price_currency, media_condition, sleeve_condition, date_added, last_played_at, play_count, is_essential, feeling")
-      .eq("user_id", user.id)
-      .range(from, from + PAGE - 1);
-    if (error || !data || data.length === 0) break;
-    allLinks.push(...(data as unknown as LinkRow[]));
-    if (data.length < PAGE) break;
-  }
+  const { count: linkCount } = await supabase
+    .from("user_records")
+    .select("record_id", { count: "exact", head: true })
+    .eq("user_id", user.id);
+  const pageCount = Math.ceil((linkCount ?? 0) / PAGE);
+  const linkPages = await Promise.all(
+    Array.from({ length: pageCount }, (_, i) =>
+      supabase
+        .from("user_records")
+        .select("record_id, price_low, price_median, price_high, price_currency, media_condition, sleeve_condition, date_added, last_played_at, play_count, is_essential, feeling")
+        .eq("user_id", user.id)
+        .range(i * PAGE, (i + 1) * PAGE - 1)
+    )
+  );
+  const allLinks: LinkRow[] = linkPages.flatMap(({ data }) => (data ?? []) as unknown as LinkRow[]);
 
   const recordIds = allLinks.map((l) => l.record_id);
 
-  // ── Fetch records (batched) ────────────────────────────────────────────────
+  // ── Fetch records (parallelised batches) ──────────────────────────────────
   type RecordRow = {
     id: string; artist: string; album: string;
     year: number | null;
@@ -128,11 +133,14 @@ export default async function InsightsPage() {
   };
   const recordsMap = new Map<string, RecordRow>();
   const BATCH = 400;
-  for (let i = 0; i < recordIds.length; i += BATCH) {
-    const { data, error } = await supabase
+  const batches = Array.from({ length: Math.ceil(recordIds.length / BATCH) }, (_, i) =>
+    supabase
       .from("records")
       .select("id, artist, album, year, genre, styles, label, country, format, vinyl_colour, producers, cover_url, community_have, community_want, community_num_for_sale, edition_size")
-      .in("id", recordIds.slice(i, i + BATCH));
+      .in("id", recordIds.slice(i * BATCH, (i + 1) * BATCH))
+  );
+  const batchResults = await Promise.all(batches);
+  for (const { data, error } of batchResults) {
     if (!error) for (const r of data ?? []) recordsMap.set(r.id, r as RecordRow);
   }
 
