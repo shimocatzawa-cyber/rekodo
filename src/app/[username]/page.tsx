@@ -240,6 +240,7 @@ export default async function PublicProfilePage({ params }: { params: Params }) 
         bio:               profile.bio               ?? null,
         avatar_url:        profile.avatar_url        ?? null,
         is_donor:          profile.is_donor          ?? false,
+        is_supporter:      profile.is_supporter      ?? false,
         taste_summary:     profile.taste_summary     ?? null,
         star_sign:         profile.star_sign         ?? null,
         bandcamp_username:     profile.bandcamp_username     ?? null,
