@@ -90,7 +90,7 @@ function fmtCurrency(amount: number, currency: string): string {
     KRW: "₩", INR: "₹", BRL: "R$", MXN: "MX$", ZAR: "R ", CNY: "¥",
   };
   const prefix = prefixes[currency.toUpperCase()] ?? `${currency} `;
-  return `${prefix}${Math.round(amount).toLocaleString("en-AU")}`;
+  return `${prefix}${Math.round(amount).toLocaleString()}`;
 }
 
 function fmtValueShort(amount: number, currency: string): string {
@@ -102,7 +102,7 @@ function fmtValueShort(amount: number, currency: string): string {
   };
   const prefix = prefixes[currency.toUpperCase()] ?? `${currency} `;
   if (amount >= 1000) return `${prefix}${(amount / 1000).toFixed(1)}k`;
-  return `${prefix}${Math.round(amount).toLocaleString("en-AU")}`;
+  return `${prefix}${Math.round(amount).toLocaleString()}`;
 }
 
 function fmtFormatLabel(name: string): string {

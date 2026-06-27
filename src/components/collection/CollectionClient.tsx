@@ -3,6 +3,7 @@
 import { useState, useEffect, useMemo, useRef } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import { useTranslations } from "next-intl";
 import AppNav from "@/components/AppNav";
 import type { CollectionRecord, CollectionInsights } from "@/app/collection/page";
 import { persistRecordPrice } from "@/app/collection/actions";
@@ -19,11 +20,11 @@ const ORANGE = "#CC5500";
 
 // ─── Desirability ─────────────────────────────────────────────────────────────
 
-const TIERS: Record<DesirabilityTier, { label: string; bg: string; color: string }> = {
-  "rare":         { label: "Rare",          bg: "#F0997B", color: "#712B13" },
-  "cult":         { label: "Cult Pressing", bg: "#CECBF6", color: "#3C3489" },
-  "widely-loved": { label: "Widely Loved",  bg: "#C0DD97", color: "#27500A" },
-  "in-demand":    { label: "In Demand",     bg: "#9FE1CB", color: "#085041" },
+const TIER_STYLES: Record<DesirabilityTier, { bg: string; color: string }> = {
+  "rare":         { bg: "#F0997B", color: "#712B13" },
+  "cult":         { bg: "#CECBF6", color: "#3C3489" },
+  "widely-loved": { bg: "#C0DD97", color: "#27500A" },
+  "in-demand":    { bg: "#9FE1CB", color: "#085041" },
 };
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -191,14 +192,7 @@ function matchesDecade(year: number | null, decade: string): boolean {
   return year >= start && year < start + 10;
 }
 
-// ─── Desirability filter options ─────────────────────────────────────────────
-
-const DESIRABILITY_FILTER_OPTIONS: { value: DesirabilityTier; label: string }[] = [
-  { value: "rare",         label: "Rare"          },
-  { value: "cult",         label: "Cult Pressing" },
-  { value: "widely-loved", label: "Widely Loved"  },
-  { value: "in-demand",    label: "In Demand"     },
-];
+// ─── Desirability filter options — built inside component with translations ───
 
 // ─── Props ────────────────────────────────────────────────────────────────────
 
@@ -290,6 +284,21 @@ export default function CollectionClient({
   oauthError     = false,
 }: Props) {
   const router = useRouter();
+  const t = useTranslations("collection");
+
+  const TIERS: Record<DesirabilityTier, { label: string; bg: string; color: string }> = {
+    "rare":         { label: t("rare"),         ...TIER_STYLES["rare"] },
+    "cult":         { label: t("cultPressing"), ...TIER_STYLES["cult"] },
+    "widely-loved": { label: t("widelyLoved"),  ...TIER_STYLES["widely-loved"] },
+    "in-demand":    { label: t("inDemand"),     ...TIER_STYLES["in-demand"] },
+  };
+
+  const DESIRABILITY_FILTER_OPTIONS: { value: DesirabilityTier; label: string }[] = [
+    { value: "rare",         label: t("rare") },
+    { value: "cult",         label: t("cultPressing") },
+    { value: "widely-loved", label: t("widelyLoved") },
+    { value: "in-demand",    label: t("inDemand") },
+  ];
 
   const [selectedRecord, setSelectedRecord] = useState<CollectionRecord | null>(null);
   const [releaseDetail,  setReleaseDetail]  = useState<ReleaseDetail | null>(null);
@@ -911,7 +920,7 @@ const [filterFormat,       setFilterFormat]       = useState("");
                 }}
               >
                 <p style={{ fontFamily: MONO, fontSize: "10px", letterSpacing: "0.06em", color: "#aaaaaa", margin: 0 }}>
-                  {csvUploading ? "Uploading…" : "Drop CSV here or click to browse"}
+                  {csvUploading ? "Uploading…" : t("dropCsv")}
                 </p>
               </div>
               <p style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.04em", color: "#cccccc", margin: "8px 0 0" }}>
@@ -1018,7 +1027,7 @@ const [filterFormat,       setFilterFormat]       = useState("");
                 type="text"
                 value={searchQuery}
                 onChange={e => setSearchQuery(e.target.value)}
-                placeholder="Search your collection..."
+                placeholder={t("search")}
                 style={{
                   width: "100%",
                   fontFamily: MONO,
@@ -1131,7 +1140,7 @@ const [filterFormat,       setFilterFormat]       = useState("");
                 type="text"
                 value={searchQuery}
                 onChange={e => setSearchQuery(e.target.value)}
-                placeholder="Search your collection..."
+                placeholder={t("search")}
                 style={{
                   width: "100%",
                   fontFamily: MONO,
@@ -1524,6 +1533,13 @@ function AlbumDetail({ record, detail, price, valueCurrency }: {
   loading?: boolean;
   valueCurrency?: string;
 }) {
+  const tc = useTranslations("collection");
+  const TIERS: Record<DesirabilityTier, { label: string; bg: string; color: string }> = {
+    "rare":         { label: tc("rare"),         ...TIER_STYLES["rare"] },
+    "cult":         { label: tc("cultPressing"), ...TIER_STYLES["cult"] },
+    "widely-loved": { label: tc("widelyLoved"),  ...TIER_STYLES["widely-loved"] },
+    "in-demand":    { label: tc("inDemand"),     ...TIER_STYLES["in-demand"] },
+  };
   const [openToOffers, setOpenToOffers] = useState<boolean>(record?.open_to_offers ?? false);
   const [offersLoading, setOffersLoading] = useState(false);
   const [offersError, setOffersError] = useState<string | null>(null);

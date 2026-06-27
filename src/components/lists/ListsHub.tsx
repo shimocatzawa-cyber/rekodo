@@ -1,6 +1,7 @@
 "use client";
 
 import { useUrlTab } from "@/lib/useUrlTab";
+import { useTranslations } from "next-intl";
 import AppNav from "@/components/AppNav";
 import Top5Tab from "@/components/lists/Top5Tab";
 import ProfileListsTab from "@/components/profile/ProfileListsTab";
@@ -13,14 +14,6 @@ const ORANGE = "#CC5500";
 
 type SubTab = "top5" | "wantlist" | "selllist" | "community" | "playlist";
 
-const TABS: Array<{ key: SubTab; label: string }> = [
-  { key: "top5",      label: "My Lists" },
-  { key: "wantlist",  label: "Want List" },
-  { key: "selllist",  label: "Sell List" },
-  { key: "playlist",  label: "Playlist" },
-  { key: "community", label: "Community" },
-];
-
 interface Props {
   profileId:    string;
   username:     string;
@@ -30,6 +23,14 @@ interface Props {
 }
 
 export default function ListsHub({ profileId, username, displayLabel, avatarUrl, isSupporter }: Props) {
+  const t = useTranslations("lists");
+  const TABS: Array<{ key: SubTab; label: string }> = [
+    { key: "top5",      label: t("myLists") },
+    { key: "wantlist",  label: t("wantList") },
+    { key: "selllist",  label: t("sellList") },
+    { key: "playlist",  label: t("playlist") },
+    { key: "community", label: t("community") },
+  ];
   const [activeTab, setActiveTab] = useUrlTab<SubTab>("tab", TABS.map(t => t.key), "top5");
 
   // isSupporter kept in Props for potential future use

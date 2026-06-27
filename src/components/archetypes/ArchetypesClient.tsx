@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
+import { useTranslations } from "next-intl";
 import AppNav from "@/components/AppNav";
 import ArchetypeHero from "./ArchetypeHero";
 import SignalGrid from "./SignalGrid";
@@ -77,6 +78,7 @@ function LoadingSkeleton() {
 }
 
 export default function ArchetypesClient({ username, displayLabel, avatarUrl }: Props) {
+  const t = useTranslations("archetypes");
   const [data, setData] = useState<ArchetypeData | null>(null);
   const [loading, setLoading] = useState(true);
   const [regenerating, setRegenerating] = useState(false);
@@ -123,21 +125,21 @@ export default function ArchetypesClient({ username, displayLabel, avatarUrl }: 
           <div className="rk-arch-header" style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
             <div style={{ display: "flex", alignItems: "baseline", gap: 16, flexWrap: "wrap" }}>
               <h1 style={{ fontFamily: SERIF, fontSize: "1.8rem", fontWeight: 400, color: INK, margin: 0 }}>
-                What your collection says about you.
+                {t("subtitle")}
               </h1>
               {data && (
                 <button
                   onClick={() => setShowShare(true)}
                   style={{ fontFamily: MONO, fontSize: 10, color: ORANGE, background: "none", border: "none", cursor: "pointer", padding: 0, letterSpacing: "0.06em", flexShrink: 0 }}
                 >
-                  Share ↗
+                  {t("share")}
                 </button>
               )}
             </div>
             {data && (
               <div className="rk-arch-stat" style={{ textAlign: "right", flexShrink: 0, paddingLeft: 24 }}>
                 <div style={{ fontFamily: MONO, fontSize: 10, color: MUTED, marginBottom: 6 }}>
-                  {data.currentCount ?? data.recordCount} records analysed
+                  {t("recordsAnalysed", { count: data.currentCount ?? data.recordCount })}
                 </div>
                 <button
                   onClick={handleRegenerate}
@@ -153,7 +155,7 @@ export default function ArchetypesClient({ username, displayLabel, avatarUrl }: 
                     letterSpacing: "0.06em",
                   }}
                 >
-                  {regenerating ? "Regenerating…" : "Regenerate →"}
+                  {regenerating ? "Regenerating…" : t("regenerate")}
                 </button>
               </div>
             )}
