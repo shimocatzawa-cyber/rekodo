@@ -2014,7 +2014,7 @@ function TracklistPanel({ tracks, loading, bandcamp, record, username }: {
         {!spotifyPremium && record && (
           <div style={{ padding: "10px 28px", borderBottom: "1px solid #e0e0da" }}>
             <a
-              href={`/${username}`}
+              href={`/@${username}`}
               style={{ fontFamily: "var(--font-mono)", fontSize: "9px", letterSpacing: "0.04em", color: "#aaaaaa", textDecoration: "none" }}
               onMouseEnter={e => { (e.currentTarget as HTMLAnchorElement).style.color = "#CC5500"; }}
               onMouseLeave={e => { (e.currentTarget as HTMLAnchorElement).style.color = "#aaaaaa"; }}
