@@ -52,7 +52,7 @@ async function verifyOnDiscogs(artist: string, album: string): Promise<boolean> 
     url.searchParams.set("secret", secret);
 
     const res = await fetch(url.toString(), { headers: { "User-Agent": "rekodo/1.0" } });
-    if (!res.ok) return false;
+    if (!res.ok) return true; // rate-limited or server error — can't verify, don't drop the pick
 
     const data = await res.json() as { results?: Array<{ title: string }> };
     const results = data.results ?? [];
@@ -220,7 +220,10 @@ ${JSON_SCHEMA}`;
         });
         const content = message.content[0];
         if (content.type !== "text") return Response.json({ error: "Unexpected response from AI" }, { status: 500 });
-        const raw = content.text.trim().replace(/^```json\n?/, "").replace(/\n?```$/, "").trim();
+        const stripped = content.text.trim().replace(/^```json\n?/, "").replace(/\n?```$/, "").trim();
+        const start = stripped.indexOf("[");
+        const end = stripped.lastIndexOf("]");
+        const raw = start !== -1 && end !== -1 ? stripped.slice(start, end + 1) : stripped;
         const recommendations = JSON.parse(raw);
         if (!Array.isArray(recommendations) || recommendations.length === 0) {
           return Response.json({ error: "Invalid recommendations format" }, { status: 500 });
@@ -538,7 +541,7 @@ Rules:
 - Prioritise records obtainable on vinyl (original pressings, reissues, or easily available secondhand).
 - Only recommend a record you are confident actually exists and was released under that exact artist/album name — if you are not sure, do not include it.
 ${isJa ? "- Write all reason text in Japanese (日本語).\n" : ""}
-Return ONLY a valid JSON array with exactly 5 objects — extra picks give headroom after artists already owned or already recommended get filtered out; only the first 3 surviving picks are shown. No markdown, no explanation outside the JSON.
+Return ONLY a valid JSON array with exactly 7 objects — extra picks give headroom after artists already owned or already recommended get filtered out; only the first 3 surviving picks are shown. No markdown, no explanation outside the JSON.
 
 Schema:
 ${JSON_SCHEMA}`;
@@ -625,7 +628,7 @@ Rules:
 - Prioritise records obtainable on vinyl (original pressings, reissues, or easily available secondhand).
 - Only recommend a record you are confident actually exists and was released under that exact artist/album name — if you are not sure, do not include it.
 ${isJa ? "- Write all reason text in Japanese (日本語).\n" : ""}
-Return ONLY a valid JSON array with exactly 5 objects — extra picks give headroom after artists already owned or already recommended get filtered out; only the first 3 surviving picks are shown. No markdown, no explanation outside the JSON.
+Return ONLY a valid JSON array with exactly 7 objects — extra picks give headroom after artists already owned or already recommended get filtered out; only the first 3 surviving picks are shown. No markdown, no explanation outside the JSON.
 
 Schema:
 ${JSON_SCHEMA}`;
@@ -682,7 +685,7 @@ ${JSON_SCHEMA}`;
       // headroom — 1024 was already close to the ceiling for 3 full objects
       // (reason text + three search URLs each), and routinely truncated mid-
       // string for 5, surfacing as "Unterminated string in JSON" parse errors.
-      max_tokens: 2048,
+      max_tokens: 3000,
       messages: [{ role: "user", content: prompt }],
     });
 
@@ -691,7 +694,10 @@ ${JSON_SCHEMA}`;
       return Response.json({ error: "Unexpected response from AI" }, { status: 500 });
     }
 
-    const raw = content.text.trim().replace(/^```json\n?/, "").replace(/\n?```$/, "").trim();
+    const stripped = content.text.trim().replace(/^```json\n?/, "").replace(/\n?```$/, "").trim();
+    const start = stripped.indexOf("[");
+    const end = stripped.lastIndexOf("]");
+    const raw = start !== -1 && end !== -1 ? stripped.slice(start, end + 1) : stripped;
     let recommendations = JSON.parse(raw);
 
     if (!Array.isArray(recommendations) || recommendations.length === 0) {
