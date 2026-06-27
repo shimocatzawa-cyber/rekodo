@@ -4,7 +4,7 @@ import { createClient } from "@supabase/supabase-js";
 import { Resend } from "resend";
 import Stripe from "stripe";
 
-const BREVO_SUPPORTER_TEMPLATE_ID = 18;
+const BREVO_SUPPORTER_TEMPLATE_ID = 19;
 
 export const dynamic = "force-dynamic";
 
