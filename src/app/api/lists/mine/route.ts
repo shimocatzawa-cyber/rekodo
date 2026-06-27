@@ -55,7 +55,20 @@ export async function GET() {
     }
   }
 
-  if (listsRaw.length === 0) return Response.json({ lists: [] });
+  // Auto-create a default Top 5 All Time list for new users so they land on
+  // a meaningful empty state rather than a blank page.
+  if (listsRaw.length === 0 || !listsRaw.some(l => l.list_type === "top5")) {
+    const hasTop5 = listsRaw.some(l => l.list_type === "top5");
+    if (!hasTop5) {
+      const { data: created } = await supabase
+        .from("lists")
+        .insert({ user_id: uid, title: "Top 5 All Time", slug: "top-5-all-time", is_public: true, list_type: "top5" })
+        .select("id, title, slug, is_public, list_type")
+        .single();
+      if (created) listsRaw = [...listsRaw, created];
+    }
+    if (listsRaw.length === 0) return Response.json({ lists: [] });
+  }
 
   const listIds = listsRaw.map(l => l.id);
 
