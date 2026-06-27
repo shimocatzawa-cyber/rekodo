@@ -4,6 +4,8 @@ import { createClient } from "@supabase/supabase-js";
 import { Resend } from "resend";
 import Stripe from "stripe";
 
+const BREVO_SUPPORTER_TEMPLATE_ID = 18;
+
 export const dynamic = "force-dynamic";
 
 export async function POST(request: NextRequest) {
@@ -62,39 +64,34 @@ export async function POST(request: NextRequest) {
           : Promise.resolve(),
       ]);
 
-      // Mark contact as supporter in Brevo — non-blocking, fail-silent.
+      // Update Brevo contact + send supporter welcome email — non-blocking, fail-silent.
       if (customerEmail) {
         try {
           const brevoKey = process.env.BREVO_API_KEY;
           if (brevoKey) {
-            await fetch("https://api.brevo.com/v3/contacts", {
-              method: "POST",
-              headers: { "api-key": brevoKey, "Content-Type": "application/json" },
-              body: JSON.stringify({
-                email: customerEmail,
-                attributes: { IS_SUPPORTER: true },
-                updateEnabled: true,
+            await Promise.all([
+              fetch("https://api.brevo.com/v3/contacts", {
+                method: "POST",
+                headers: { "api-key": brevoKey, "Content-Type": "application/json" },
+                body: JSON.stringify({
+                  email: customerEmail,
+                  attributes: { IS_SUPPORTER: true },
+                  updateEnabled: true,
+                }),
               }),
-            });
+              fetch("https://api.brevo.com/v3/smtp/email", {
+                method: "POST",
+                headers: { "api-key": brevoKey, "Content-Type": "application/json" },
+                body: JSON.stringify({
+                  to: [{ email: customerEmail }],
+                  templateId: BREVO_SUPPORTER_TEMPLATE_ID,
+                }),
+              }),
+            ]);
           }
         } catch (err) {
-          console.error("[brevo] supporter update failed:", err);
+          console.error("[brevo] supporter update/email failed:", err);
         }
-      }
-
-      if (customerEmail) {
-        await resend.emails.send({
-          from: "rekōdo <hello@rekodo.co>",
-          to: customerEmail,
-          subject: "Welcome to rekōdo — you're a Supporter",
-          text: `You're in.
-
-As a rekōdo Supporter you've helped make this thing real. The golden ō badge is now yours — you'll see it on your profile.
-
-rekōdo is built for people who take records seriously. Thank you for taking rekōdo seriously in return.
-
-— rekōdo`,
-        });
       }
     }
 
