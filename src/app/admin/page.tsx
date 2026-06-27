@@ -15,6 +15,7 @@ type ProfileRow = {
   city: string | null;
   country: string | null;
   is_donor: boolean;
+  is_supporter: boolean;
   is_test: boolean;
   spotify_connected: boolean;
   bandcamp_username: string | null;
@@ -85,7 +86,7 @@ export default async function AdminPage() {
     fetchPaged(
       adminDb,
       "profiles",
-      "id, username, display_name, subscription_tier, role, created_at, last_synced_at, last_active_at, city, country, is_donor, is_test, spotify_connected, bandcamp_username"
+      "id, username, display_name, subscription_tier, role, created_at, last_synced_at, last_active_at, city, country, is_donor, is_supporter, is_test, spotify_connected, bandcamp_username"
     ),
     fetchAllAuthUsers(adminDb),
     fetchPaged(adminDb, "lists", "user_id, list_type, slug"),
@@ -198,6 +199,7 @@ export default async function AdminPage() {
       city:              p?.city ?? null,
       country:           p?.country ?? null,
       is_donor:          p?.is_donor ?? false,
+      is_supporter:      p?.is_supporter ?? false,
       is_test:           p?.is_test ?? false,
       archetype:         archetypeId ? (ARCHETYPES[archetypeId]?.name ?? null) : null,
       discogs_username:  discogsUsernameMap.get(u.id) ?? null,

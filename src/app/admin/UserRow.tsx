@@ -26,6 +26,7 @@ export interface AdminUser {
   city: string | null;
   country: string | null;
   is_donor: boolean;
+  is_supporter: boolean;
   is_test: boolean;
   archetype: string | null;
   discogs_username: string | null;
@@ -201,16 +202,21 @@ export default function UserRow({ user, showFinancial, columnCount }: { user: Ad
         {/* Username + profile link */}
         <td style={{ ...cellSt, fontFamily: "var(--font-editorial)", fontSize: "14px" }}>
           {user.username ? (
-            <a
-              href={`/@${user.username}`}
-              target="_blank"
-              rel="noopener noreferrer"
-              style={{ color: INK, textDecoration: "none" }}
-              onMouseEnter={e => (e.currentTarget.style.color = ORANGE)}
-              onMouseLeave={e => (e.currentTarget.style.color = INK)}
-            >
-              {user.username}
-            </a>
+            <span style={{ display: "inline-flex", alignItems: "baseline", gap: "3px" }}>
+              <a
+                href={`/@${user.username}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                style={{ color: INK, textDecoration: "none" }}
+                onMouseEnter={e => (e.currentTarget.style.color = ORANGE)}
+                onMouseLeave={e => (e.currentTarget.style.color = INK)}
+              >
+                {user.username}
+              </a>
+              {user.is_supporter && (
+                <span style={{ fontFamily: "var(--font-editorial)", fontSize: "11px", color: "#B8860B" }} title="rekōdo Supporter">ō</span>
+              )}
+            </span>
           ) : user.display_name ? (
             <span style={{ color: MUTED }}>{user.display_name}</span>
           ) : (
