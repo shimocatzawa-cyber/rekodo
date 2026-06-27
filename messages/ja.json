@@ -98,6 +98,13 @@
     "memory": "メモリー",
     "needToRelisten": "再聴が必要"
   },
+  "selects": {
+    "artistSpotlight": "アーティスト特集",
+    "labelSpotlight": "レーベル特集",
+    "newReleases": "新譜",
+    "live": "ライブ",
+    "dateTbc": "日程未定"
+  },
   "common": {
     "save": "保存",
     "cancel": "キャンセル",

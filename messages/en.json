@@ -98,6 +98,13 @@
     "memory": "Memory",
     "needToRelisten": "Need to Relisten"
   },
+  "selects": {
+    "artistSpotlight": "Artist Spotlight",
+    "labelSpotlight": "Label Spotlight",
+    "newReleases": "New Releases",
+    "live": "Live",
+    "dateTbc": "Date TBC"
+  },
   "common": {
     "save": "Save",
     "cancel": "Cancel",

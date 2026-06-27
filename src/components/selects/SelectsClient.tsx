@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
+import { useTranslations } from "next-intl";
 import AppNav from "@/components/AppNav";
 import { createClient } from "@/lib/supabase/client";
 import { useUrlTab } from "@/lib/useUrlTab";
@@ -39,12 +40,7 @@ type LabelFeedItem = {
 
 type SelectsTab = "new_releases" | "artist" | "label" | "live";
 
-const TABS: { key: SelectsTab; label: string }[] = [
-  { key: "artist",       label: "Artist Spotlight" },
-  { key: "label",        label: "Label Spotlight"  },
-  { key: "new_releases", label: "New Releases"     },
-  { key: "live",         label: "Live"              },
-];
+const TAB_KEYS: SelectsTab[] = ["artist", "label", "new_releases", "live"];
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -233,26 +229,26 @@ type GigsApiResponse = {
   totalArtists: number;
 };
 
-function formatGigDate(localDate?: string): string {
-  if (!localDate) return "Date TBC";
+function formatGigDate(localDate?: string, fallback = "Date TBC"): string {
+  if (!localDate) return fallback;
   const [y, m, d] = localDate.split("-").map(Number);
-  return new Date(y, m - 1, d).toLocaleDateString("en-AU", {
+  return new Date(y, m - 1, d).toLocaleDateString(undefined, {
     day: "numeric", month: "short", year: "numeric",
   });
 }
 
-function gigMonthKey(localDate?: string): string {
-  if (!localDate) return "Date TBC";
+function gigMonthKey(localDate?: string, fallback = "Date TBC"): string {
+  if (!localDate) return fallback;
   const [y, m] = localDate.split("-").map(Number);
   return new Date(y, m - 1, 1)
-    .toLocaleDateString("en-AU", { month: "long", year: "numeric" })
+    .toLocaleDateString(undefined, { month: "long", year: "numeric" })
     .toUpperCase();
 }
 
-function groupByMonth(events: GigEvent[]): [string, GigEvent[]][] {
+function groupByMonth(events: GigEvent[], fallback: string): [string, GigEvent[]][] {
   const map = new Map<string, GigEvent[]>();
   for (const ev of events) {
-    const key = gigMonthKey(ev.dates?.start?.localDate);
+    const key = gigMonthKey(ev.dates?.start?.localDate, fallback);
     if (!map.has(key)) map.set(key, []);
     map.get(key)!.push(ev);
   }
@@ -260,6 +256,7 @@ function groupByMonth(events: GigEvent[]): [string, GigEvent[]][] {
 }
 
 function LiveSection() {
+  const t = useTranslations("selects");
   const [data, setData]           = useState<GigsApiResponse | null>(null);
   const [loading, setLoading]     = useState(true);
   const [fetchError, setFetchError] = useState(false);
@@ -272,7 +269,8 @@ function LiveSection() {
       .finally(() => setLoading(false));
   }, []);
 
-  const grouped  = data ? groupByMonth(data.events) : [];
+  const dateTbc = t("dateTbc");
+  const grouped  = data ? groupByMonth(data.events, dateTbc) : [];
   const hasEvents = (data?.events.length ?? 0) > 0;
 
   return (
@@ -368,7 +366,7 @@ function LiveSection() {
                           </div>
                         )}
                         <div style={{ fontFamily: MONO, fontSize: 11, color: "#bbbbbb", letterSpacing: "0.04em", marginTop: 2 }}>
-                          {formatGigDate(ev.dates?.start?.localDate)}
+                          {formatGigDate(ev.dates?.start?.localDate, dateTbc)}
                         </div>
                       </div>
                       <a
@@ -402,7 +400,14 @@ interface Props {
 // ─── Main component ───────────────────────────────────────────────────────────
 
 export default function SelectsClient({ username, displayLabel, avatarUrl }: Props) {
-  const [activeTab, setActiveTab] = useUrlTab<SelectsTab>("tab", TABS.map(t => t.key), "artist");
+  const t = useTranslations("selects");
+  const TABS: { key: SelectsTab; label: string }[] = [
+    { key: "artist",       label: t("artistSpotlight") },
+    { key: "label",        label: t("labelSpotlight") },
+    { key: "new_releases", label: t("newReleases") },
+    { key: "live",         label: t("live") },
+  ];
+  const [activeTab, setActiveTab] = useUrlTab<SelectsTab>("tab", TAB_KEYS, "artist");
 
   return (
     <div style={{ minHeight: "100vh", background: "#ffffff" }}>
