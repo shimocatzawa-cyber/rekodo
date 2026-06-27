@@ -660,6 +660,10 @@ export function SpotifyPlayerProvider({ children }: { children: React.ReactNode 
         playerRef.current.getCurrentState()
           .then(state => {
             if (!state) return;
+            const albumUri = state.track_window?.current_track?.album?.uri;
+            // If the new source is already playing (user clicked Play before this
+            // async callback resolved), don't pause it — that's the desired state.
+            if (albumUri && albumUri === nextKey) return;
             const uri = state.track_window?.current_track?.uri;
             if (uri && prevKey) lastPositionByKeyRef.current.set(prevKey, { uri, positionMs: state.position });
             if (!state.paused) playerRef.current?.togglePlay().catch(() => {});
