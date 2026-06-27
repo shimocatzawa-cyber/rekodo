@@ -2012,10 +2012,7 @@ function TracklistPanel({ tracks, loading, bandcamp, record, username }: {
           </div>
         )}
         {!spotifyPremium && record && (
-          <div style={{ padding: "10px 28px", borderBottom: "1px solid #e0e0da", display: "flex", alignItems: "center", gap: "6px" }}>
-            <span style={{ fontFamily: "var(--font-mono)", fontSize: "9px", letterSpacing: "0.04em", color: "#cccccc" }}>
-              Spotify player available here —
-            </span>
+          <div style={{ padding: "10px 28px", borderBottom: "1px solid #e0e0da" }}>
             <a
               href={`/${username}`}
               style={{ fontFamily: "var(--font-mono)", fontSize: "9px", letterSpacing: "0.04em", color: "#aaaaaa", textDecoration: "none" }}
