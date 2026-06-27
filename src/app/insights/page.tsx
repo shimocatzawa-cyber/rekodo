@@ -109,6 +109,7 @@ export default async function InsightsPage() {
         .from("user_records")
         .select("record_id, price_low, price_median, price_high, price_currency, media_condition, sleeve_condition, date_added, last_played_at, play_count, is_essential, feeling")
         .eq("user_id", user.id)
+        .order("record_id")
         .range(i * PAGE, (i + 1) * PAGE - 1)
     )
   );
@@ -348,9 +349,13 @@ export default async function InsightsPage() {
     }));
 
   // ── Essentials wall (user-tagged "Essential" records only) ────────────────
-  const essentialLinks = allLinks
-    .filter((l) => l.is_essential)
-    .sort((a, b) => new Date(b.date_added ?? 0).getTime() - new Date(a.date_added ?? 0).getTime());
+  const essentialLinks = (() => {
+    const sorted = allLinks
+      .filter((l) => l.is_essential)
+      .sort((a, b) => new Date(b.date_added ?? 0).getTime() - new Date(a.date_added ?? 0).getTime());
+    const seen = new Set<string>();
+    return sorted.filter((l) => { if (seen.has(l.record_id)) return false; seen.add(l.record_id); return true; });
+  })();
 
   const essentialGenreCounts = new Map<string, number>();
   for (const l of essentialLinks) {
