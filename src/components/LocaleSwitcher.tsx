@@ -21,9 +21,9 @@ export default function LocaleSwitcher({ locale }: { locale: string }) {
       onClick={() => switchLocale(locale === "en" ? "ja" : "en")}
       disabled={isPending}
       style={{
-        fontFamily: "var(--font-dm-mono), monospace",
+        fontFamily: "var(--font-noto-jp), var(--font-dm-mono), sans-serif",
         fontSize: "11px",
-        letterSpacing: "0.08em",
+        letterSpacing: "0.04em",
         color: isPending ? "#cccccc" : "#888888",
         background: "none",
         border: "none",
