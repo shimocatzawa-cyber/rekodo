@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef, useMemo } from "react";
 import { createClient } from "@/lib/supabase/client";
+import { useTranslations } from "next-intl";
 import ArtistPlayer from "@/components/deep-dive/ArtistPlayer";
 import { useUrlTab } from "@/lib/useUrlTab";
 
@@ -37,14 +38,7 @@ function BandcampIcon({ size = 13 }: { size?: number }) {
   );
 }
 
-const TABS: { id: Section; label: string }[] = [
-  { id: "rankings",   label: "Essential Albums" },
-  { id: "podcasts",   label: "Podcasts" },
-  { id: "books",      label: "Books & Audiobooks" },
-  { id: "interviews", label: "Interviews" },
-  { id: "related",    label: "Related Artists" },
-  { id: "blindspot",  label: "Blind Spot" },
-];
+const TAB_IDS: Section[] = ["rankings", "podcasts", "books", "interviews", "related", "blindspot"];
 
 // ── Shared primitives ──────────────────────────────────────────────────────────
 
@@ -500,6 +494,7 @@ function interviewHref(iv: InterviewItem, artist: string): { href: string; direc
 }
 
 function InterviewsContent({ data, artist }: { data: { interviews?: InterviewItem[] }; artist: string }) {
+  const t = useTranslations("deepDive");
   // Sort by date desc (YYYY-MM or YYYY-MM-DD) when available, fall back to year
   const items = [...(data.interviews ?? [])]
     .sort((a, b) => {
@@ -549,7 +544,7 @@ function InterviewsContent({ data, artist }: { data: { interviews?: InterviewIte
               {iv.note}
             </p>
             <a href={href} target="_blank" rel="noopener noreferrer" style={linkStyle} onMouseEnter={hoverOn} onMouseLeave={hoverOff}>
-              {direct ? "Read article →" : "Find article →"}
+              {direct ? t("readArticle") : t("findArticle")}
             </a>
           </div>
         );
@@ -855,12 +850,21 @@ export default function DeepDiveClient({
   wantlistListId: string | null;
   initialFavorites?: string[];
 }) {
+  const t = useTranslations("deepDive");
+  const TABS: { id: Section; label: string }[] = [
+    { id: "rankings",   label: t("essentialAlbums") },
+    { id: "podcasts",   label: t("podcasts") },
+    { id: "books",      label: t("books") },
+    { id: "interviews", label: t("interviews") },
+    { id: "related",    label: t("relatedArtists") },
+    { id: "blindspot",  label: t("blindSpot") },
+  ];
   const [query, setQuery] = useState("");
   const [selectedArtist, setSelectedArtist] = useState<string | null>(null);
   const [favorites, setFavorites] = useState<Set<string>>(() => new Set(initialFavorites));
   const [favoritesOnly, setFavoritesOnly] = useState(false);
   const favoriteTogglingRef = useRef(new Set<string>());
-  const [activeTab, setActiveTab] = useUrlTab<Section>("tab", TABS.map(t => t.id), "rankings");
+  const [activeTab, setActiveTab] = useUrlTab<Section>("tab", TAB_IDS, "rankings");
   const [imageMap, setImageMap] = useState<Record<string, string>>({});
   const [cache, setCache] = useState<Record<string, Record<string, unknown>>>({});
   const [loadingTabs, setLoadingTabs] = useState<Record<string, boolean>>({});
@@ -1284,7 +1288,7 @@ export default function DeepDiveClient({
                   <button
                     type="button"
                     onClick={() => toggleFavorite(selectedArtist)}
-                    title={favorites.has(selectedArtist) ? "Remove from favourites" : "Add to favourites"}
+                    title={favorites.has(selectedArtist) ? t("removeFromFavourites") : t("addToFavourites")}
                     style={{
                       background: "none", border: "none", cursor: "pointer", padding: 0,
                       lineHeight: 1, fontSize: "1.6rem",
@@ -1488,7 +1492,7 @@ export default function DeepDiveClient({
             <button
               type="button"
               onClick={() => setFavoritesOnly((v) => !v)}
-              title={favoritesOnly ? "Show all artists" : "Favourites only"}
+              title={favoritesOnly ? t("showAllArtists") : t("favouritesOnly")}
               style={{
                 fontSize: "1.6rem", lineHeight: 1,
                 color: favoritesOnly ? ORANGE : "#666",
@@ -1529,7 +1533,7 @@ export default function DeepDiveClient({
             type="text"
             value={query}
             onChange={(e) => handleQueryChange(e.target.value)}
-            placeholder={searchMode === "inside" ? "Search your artists..." : "Search any artist..."}
+            placeholder={searchMode === "inside" ? t("searchYourArtists") : t("searchAnyArtist")}
             style={{
               width: "100%",
               fontFamily: MONO,

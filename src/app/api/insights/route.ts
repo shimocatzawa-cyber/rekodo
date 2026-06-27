@@ -1,3 +1,4 @@
+import { cookies } from "next/headers";
 import { createClient } from "@/lib/supabase/server";
 import Anthropic from "@anthropic-ai/sdk";
 
@@ -6,6 +7,10 @@ export const dynamic = "force-dynamic";
 const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
 export async function POST() {
+  const cookieStore = await cookies();
+  const locale = cookieStore.get("locale")?.value ?? "en";
+  const isJa = locale === "ja";
+
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return Response.json({ error: "Not authenticated" }, { status: 401 });
@@ -98,7 +103,7 @@ export async function POST() {
       system: [
         {
           type: "text",
-          text: "You are a perceptive music critic writing a short reflection on a vinyl collection. Write exactly 2 sentences (under 40 words total) that analyse what this collection reveals — the collector's obsessions, crate-digging instincts, label loyalties, or era fixations. Be specific: reference real genres, labels, artists, or decades from the data. Start with 'Your collection'. No quotes, no album recommendations.",
+          text: `You are a perceptive music critic writing a short reflection on a vinyl collection. Write exactly 2 sentences (under 40 words total) that analyse what this collection reveals — the collector's obsessions, crate-digging instincts, label loyalties, or era fixations. Be specific: reference real genres, labels, artists, or decades from the data. Start with 'Your collection'. No quotes, no album recommendations.${isJa ? " Write in Japanese (日本語)." : ""}`,
           cache_control: { type: "ephemeral" },
         },
       ],

@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
+import { useTranslations } from "next-intl";
 import AppNav from "@/components/AppNav";
 import RecordSpinner from "@/components/RecordSpinner";
 import { isAppleMusicUrl, openAppleMusicLink } from "@/lib/openAppleMusic";
@@ -99,6 +100,7 @@ function SleeveCard({ rec, mode, onAddToWantlist, wantlistAdded, onDismiss, dism
   onDismiss: () => void; dismissed: boolean;
   onPreviewReady: (data: { previewUrl: string | null; trackUri: string | null; albumUri: string | null; artist: string; album: string } | null) => void;
 }) {
+  const t = useTranslations("dig");
   // Component remounts on every rec change (key prop), so useState resets naturally.
   const [coverUrl, setCoverUrl] = useState<string | null>(null);
 
@@ -139,17 +141,17 @@ function SleeveCard({ rec, mode, onAddToWantlist, wantlistAdded, onDismiss, dism
   const q = encodeURIComponent(`${rec.artist} ${rec.album}`);
 
   const STREAM = [
-    { label: "Open in Apple Music ↗", href: `https://music.apple.com/search?term=${q}` },
-    { label: "Open in Tidal ↗",       href: `https://tidal.com/search?q=${q}` },
-    { label: "Open in Spotify ↗",     href: `https://open.spotify.com/search/${q}` },
+    { label: t("openAppleMusic"), href: `https://music.apple.com/search?term=${q}` },
+    { label: t("openTidal"),      href: `https://tidal.com/search?q=${q}` },
+    { label: t("openSpotify"),    href: `https://open.spotify.com/search/${q}` },
   ];
   const BUY = [
-    { label: "Buy on Discogs ↗",      href: `https://www.discogs.com/search/?q=${q}&type=release` },
-    { label: "Buy on eBay ↗",         href: `https://www.ebay.com/sch/i.html?_nkw=${q}&_sacat=306` },
-    { label: "Search Bandcamp ↗",     href: `https://bandcamp.com/search?q=${q}` },
-    { label: "Search Rough Trade ↗",  href: `https://www.roughtrade.com/search?q=${q}` },
-    { label: "Search Juno ↗",         href: `https://www.juno.co.uk/search/?q=${q}` },
-    { label: "Search Boomkat ↗",      href: `https://boomkat.com/search?q=${q}` },
+    { label: t("buyDiscogs"),      href: `https://www.discogs.com/search/?q=${q}&type=release` },
+    { label: t("buyEbay"),         href: `https://www.ebay.com/sch/i.html?_nkw=${q}&_sacat=306` },
+    { label: t("searchBandcamp"),  href: `https://bandcamp.com/search?q=${q}` },
+    { label: t("searchRoughTrade"),href: `https://www.roughtrade.com/search?q=${q}` },
+    { label: t("searchJuno"),      href: `https://www.juno.co.uk/search/?q=${q}` },
+    { label: t("searchBoomkat"),   href: `https://boomkat.com/search?q=${q}` },
   ];
 
   const sectionLabel: React.CSSProperties = {
@@ -213,7 +215,7 @@ function SleeveCard({ rec, mode, onAddToWantlist, wantlistAdded, onDismiss, dism
                   textDecorationColor: "#dddddd",
                 }}
               >
-                {dismissed ? "Noted" : "Not for me"}
+                {dismissed ? t("noted") : t("notForMe")}
               </button>
               <button
                 onClick={onAddToWantlist}
@@ -228,7 +230,7 @@ function SleeveCard({ rec, mode, onAddToWantlist, wantlistAdded, onDismiss, dism
                   transition: "all 0.2s",
                 }}
               >
-                {wantlistAdded ? "Added ✓" : "+ Wantlist"}
+                {wantlistAdded ? t("addedWantlist") : t("addWantlist")}
               </button>
             </div>
           )}
@@ -586,6 +588,7 @@ function DigHistoryView({ onAddToWantlist, wantlistAdded }: {
   onAddToWantlist: (rec: Recommendation) => void;
   wantlistAdded:   Set<string>;
 }) {
+  const t = useTranslations("dig");
   const [sessions, setSessions] = useState<HistorySession[]>([]);
   useEffect(() => { setSessions(loadHistory()); }, []);
 
@@ -654,7 +657,7 @@ function DigHistoryView({ onAddToWantlist, wantlistAdded }: {
                       transition: "all 0.2s",
                     }}
                   >
-                    {added ? "Added ✓" : "+ Wantlist"}
+                    {added ? t("addedWantlist") : t("addWantlist")}
                   </button>
                 </div>
               );
@@ -669,6 +672,7 @@ function DigHistoryView({ onAddToWantlist, wantlistAdded }: {
 // ─── Style picker ─────────────────────────────────────────────────────────────
 
 function StylePicker({ styles, onSelect }: { styles: string[]; onSelect: (style: string) => void }) {
+  const t = useTranslations("dig");
   const [query, setQuery] = useState("");
 
   if (styles.length === 0) {
@@ -700,7 +704,7 @@ function StylePicker({ styles, onSelect }: { styles: string[]; onSelect: (style:
       <div style={{ paddingBottom: "12px", marginBottom: "4px", borderBottom: "1px solid #f0f0ea", flexShrink: 0 }}>
         <input
           type="text"
-          placeholder="Filter styles…"
+          placeholder={t("filterStyles")}
           value={query}
           onChange={e => setQuery(e.target.value)}
           style={{
@@ -759,6 +763,7 @@ function ModeToggle({ mode, onChange, disabled }: {
   onChange: (m: DigTab) => void;
   disabled: boolean;
 }) {
+  const t = useTranslations("dig");
   const item = (m: DigTab, label: string) => {
     const active = mode === m;
     // History tab is always clickable even while a dig is loading
@@ -789,10 +794,10 @@ function ModeToggle({ mode, onChange, disabled }: {
 
   return (
     <div className="dig-mode-toggle" style={{ display: "flex", justifyContent: "center", gap: "24px", paddingTop: "14px" }}>
-      {item("discover", "Outside Collection")}
-      {item("explore",  "Inside Collection")}
-      {item("style",    "Style Dig")}
-      {item("history",  "Dig History")}
+      {item("discover", t("outsideCollection"))}
+      {item("explore",  t("insideCollection"))}
+      {item("style",    t("styleDig"))}
+      {item("history",  t("digHistory"))}
     </div>
   );
 }

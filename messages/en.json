@@ -74,7 +74,21 @@
   },
   "deepDive": {
     "title": "Deep Dive",
-    "subtitle": "Explore artist discographies through your collection"
+    "subtitle": "Explore artist discographies through your collection",
+    "essentialAlbums": "Essential Albums",
+    "podcasts": "Podcasts",
+    "books": "Books & Audiobooks",
+    "interviews": "Interviews",
+    "relatedArtists": "Related Artists",
+    "blindSpot": "Blind Spot",
+    "readArticle": "Read article →",
+    "findArticle": "Find article →",
+    "addToFavourites": "Add to favourites",
+    "removeFromFavourites": "Remove from favourites",
+    "showAllArtists": "Show all artists",
+    "favouritesOnly": "Favourites only",
+    "searchYourArtists": "Search your artists...",
+    "searchAnyArtist": "Search any artist..."
   },
   "dig": {
     "title": "Dig",
@@ -84,7 +98,20 @@
     "buyDiscogs": "Buy on Discogs ↗",
     "buyEbay": "Buy on eBay ↗",
     "searchBandcamp": "Search Bandcamp ↗",
-    "searchRoughTrade": "Search Rough Trade ↗"
+    "searchRoughTrade": "Search Rough Trade ↗",
+    "discover": "Discover",
+    "explore": "Explore",
+    "styleDig": "Style Dig",
+    "digHistory": "Dig History",
+    "outsideCollection": "Outside Collection",
+    "insideCollection": "Inside Collection",
+    "notForMe": "Not for me",
+    "addWantlist": "+ Wantlist",
+    "addedWantlist": "Added ✓",
+    "noted": "Noted",
+    "filterStyles": "Filter styles…",
+    "searchJuno": "Search Juno ↗",
+    "searchBoomkat": "Search Boomkat ↗"
   },
   "about": {
     "faqs": "FAQs",

@@ -1,3 +1,4 @@
+import { cookies } from "next/headers";
 import { createClient } from "@/lib/supabase/server";
 import Anthropic from "@anthropic-ai/sdk";
 import { after } from "next/server";
@@ -82,6 +83,10 @@ const JSON_SCHEMA = `[
 For the search URLs, encode "artist album" as the query (URL-encode spaces and special characters).`;
 
 export async function POST(request: Request) {
+  const cookieStore = await cookies();
+  const locale = cookieStore.get("locale")?.value ?? "en";
+  const isJa = locale === "ja";
+
   const body = await request.json().catch(() => ({}));
   const mode: "discover" | "explore" | "style" =
     body.mode === "explore" ? "explore" : body.mode === "style" ? "style" : "discover";
@@ -200,7 +205,7 @@ Rules:
 - Each reason must explain WHY this is a perfect first purchase for someone with this taste profile — speak to texture, mood, and aesthetic territory. Maximum 2 sentences.
 - Do not default to the most famous records in any genre — find the records that will genuinely surprise and delight
 - Only recommend a record you are confident actually exists and was released under that exact artist/album name — if you are not sure, do not include it.
-
+${isJa ? "- Write all reason text in Japanese (日本語).\n" : ""}
 Return ONLY a valid JSON array with exactly 3 objects. No markdown, no explanation outside the JSON.
 
 Schema:
@@ -532,7 +537,7 @@ Rules:
 - The picks should feel genuinely surprising but inevitable in hindsight — the kind of record they will wonder how they missed.
 - Prioritise records obtainable on vinyl (original pressings, reissues, or easily available secondhand).
 - Only recommend a record you are confident actually exists and was released under that exact artist/album name — if you are not sure, do not include it.
-
+${isJa ? "- Write all reason text in Japanese (日本語).\n" : ""}
 Return ONLY a valid JSON array with exactly 5 objects — extra picks give headroom after artists already owned or already recommended get filtered out; only the first 3 surviving picks are shown. No markdown, no explanation outside the JSON.
 
 Schema:
@@ -619,7 +624,7 @@ Rules:
 - The picks should feel genuinely surprising but inevitable in hindsight — the kind of record they will wonder how they missed.
 - Prioritise records obtainable on vinyl (original pressings, reissues, or easily available secondhand).
 - Only recommend a record you are confident actually exists and was released under that exact artist/album name — if you are not sure, do not include it.
-
+${isJa ? "- Write all reason text in Japanese (日本語).\n" : ""}
 Return ONLY a valid JSON array with exactly 5 objects — extra picks give headroom after artists already owned or already recommended get filtered out; only the first 3 surviving picks are shown. No markdown, no explanation outside the JSON.
 
 Schema:
@@ -661,7 +666,7 @@ Rules:
 - Prefer records NOT already featured in the Top 5 lists (those are already appreciated).
 - Each reason must explain specifically WHY this record is a hidden gem — what makes it extraordinary, what the collector may have missed on first listen, or how it connects to deeper threads in their taste. Frame it as "you already own this — here is why it deserves to be on your shelf of shelves." Maximum 2 sentences.
 - Do not recommend the most obvious or celebrated record by an artist if a deeper cut would be more revealing.
-
+${isJa ? "- Write all reason text in Japanese (日本語).\n" : ""}
 Return ONLY a valid JSON array with exactly 3 objects. No markdown, no explanation outside the JSON.
 
 Schema:

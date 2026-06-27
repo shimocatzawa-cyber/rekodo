@@ -1,9 +1,14 @@
+import { cookies } from "next/headers";
 import { createClient } from "@/lib/supabase/server";
 import { checkDailyLimit, isSupporter } from "@/lib/rateLimit";
 
 export const dynamic = "force-dynamic";
 
 export async function POST(request: Request) {
+  const cookieStore = await cookies();
+  const locale = cookieStore.get("locale")?.value ?? "en";
+  const isJa = locale === "ja";
+
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return Response.json({ error: "Not authenticated" }, { status: 401 });
@@ -94,7 +99,7 @@ Tone: literary, warm, precise. Not sentimental. Not generic.
 Style: short paragraphs, no bullet points, no headers.
 Length: 180–220 words exactly.
 Do not mention rekōdo or any app. Do not use the word "archetype".
-Write about what the collection reveals about this specific person based on the signal data provided.`,
+Write about what the collection reveals about this specific person based on the signal data provided.${isJa ? "\nWrite your response entirely in Japanese (日本語)." : ""}`,
         messages: [{ role: "user", content: promptContent }],
       }),
     });

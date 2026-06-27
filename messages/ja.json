@@ -74,7 +74,21 @@
   },
   "deepDive": {
     "title": "ディープダイブ",
-    "subtitle": "コレクションからアーティストのディスコグラフィーを探る"
+    "subtitle": "コレクションからアーティストのディスコグラフィーを探る",
+    "essentialAlbums": "必聴アルバム",
+    "podcasts": "ポッドキャスト",
+    "books": "書籍・オーディオブック",
+    "interviews": "インタビュー",
+    "relatedArtists": "関連アーティスト",
+    "blindSpot": "ブラインドスポット",
+    "readArticle": "記事を読む →",
+    "findArticle": "記事を探す →",
+    "addToFavourites": "お気に入りに追加",
+    "removeFromFavourites": "お気に入りから削除",
+    "showAllArtists": "すべてのアーティストを表示",
+    "favouritesOnly": "お気に入りのみ",
+    "searchYourArtists": "アーティストを検索...",
+    "searchAnyArtist": "任意のアーティストを検索..."
   },
   "dig": {
     "title": "ディグ",
@@ -84,7 +98,20 @@
     "buyDiscogs": "Discogsで購入 ↗",
     "buyEbay": "eBayで購入 ↗",
     "searchBandcamp": "Bandcampで検索 ↗",
-    "searchRoughTrade": "Rough Tradeで検索 ↗"
+    "searchRoughTrade": "Rough Tradeで検索 ↗",
+    "discover": "ディスカバー",
+    "explore": "エクスプローラー",
+    "styleDig": "スタイルディグ",
+    "digHistory": "ディグ履歴",
+    "outsideCollection": "コレクション外",
+    "insideCollection": "コレクション内",
+    "notForMe": "興味なし",
+    "addWantlist": "+ ウォントリスト",
+    "addedWantlist": "追加済み ✓",
+    "noted": "了解",
+    "filterStyles": "スタイルを絞り込む…",
+    "searchJuno": "Junoで検索 ↗",
+    "searchBoomkat": "Boomkatで検索 ↗"
   },
   "about": {
     "faqs": "よくある質問",
