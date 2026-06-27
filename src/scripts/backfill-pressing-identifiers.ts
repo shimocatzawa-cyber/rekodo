@@ -88,8 +88,9 @@ function extractProducers(extraartists?: ExtraArtist[]): string[] {
 }
 
 const EDITION_RE = [
-  // /500 or #47/500 — exclude when followed by descriptive words like "page", "track", "section"
-  /\/\s*(\d{2,5})\b(?!\s*-?\s*(?:page|pages|track|tracks|section|sections|sided|panel|panels|fold|disc|discs|sheet|sheets))/i,
+  // /500 or #47/500 — exclude when preceded by a sample rate (e.g. "44/16", "96/24") or
+  // followed by descriptive words like "page", "track", "section", or audio terms like "bit", "khz", "digital"
+  /(?<!\d)\/\s*(\d{2,5})\b(?!\s*-?\s*(?:page|pages|track|tracks|section|sections|sided|panel|panels|fold|disc|discs|sheet|sheets|bit|khz|hz|digital|kbps))/i,
   /\blimited\s+(?:edition\s+)?(?:of\s+)?(\d{2,5})\b/i,
   /\bnumbered\s+(?:\/\s*)?(\d{2,5})\b/i,
   /\b(\d{2,5})\s+cop(?:y|ies)\b/i,
