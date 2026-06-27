@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { stripe } from "@/lib/stripe";
 import { createClient } from "@supabase/supabase-js";
 import { Resend } from "resend";
+import { sendNewSupporterAlert } from "@/lib/email";
 import Stripe from "stripe";
 
 const BREVO_SUPPORTER_TEMPLATE_ID = 19;
@@ -92,6 +93,13 @@ export async function POST(request: NextRequest) {
         } catch (err) {
           console.error("[brevo] supporter update/email failed:", err);
         }
+
+        // Internal alert to admin — non-blocking, fail-silent.
+        sendNewSupporterAlert({
+          email: customerEmail,
+          amountCents: session.amount_total ?? 0,
+          currency: session.currency ?? "usd",
+        }).catch(err => console.error("[resend] supporter alert failed:", err));
       }
     }
 
