@@ -1404,6 +1404,7 @@ const [filterFormat,       setFilterFormat]       = useState("");
                 loading={detailLoading}
                 bandcamp={bandcampData}
                 record={selectedRecord}
+                username={username}
               />
             </div>
           </div>
@@ -1780,11 +1781,12 @@ function MetaRow({ label, value }: { label: string; value: string | null | undef
 
 // ─── TracklistPanel ───────────────────────────────────────────────────────────
 
-function TracklistPanel({ tracks, loading, bandcamp, record }: {
-  tracks:   TrackItem[] | null;
-  loading:  boolean;
-  bandcamp: BandcampData | null;
-  record:   CollectionRecord | null;
+function TracklistPanel({ tracks, loading, bandcamp, record, username }: {
+  tracks:    TrackItem[] | null;
+  loading:   boolean;
+  bandcamp:  BandcampData | null;
+  record:    CollectionRecord | null;
+  username?: string;
 }) {
   const artist      = record?.artist ?? "";
   const album       = record?.album  ?? "";
@@ -2007,6 +2009,21 @@ function TracklistPanel({ tracks, loading, bandcamp, record }: {
         {spotifyPremium && record && currentSpotifyUri === null && (
           <div style={{ padding: "10px 28px", borderBottom: "1px solid #e0e0da", fontFamily: "var(--font-mono)", fontSize: "9px", letterSpacing: "0.04em", color: "#aaaaaa" }}>
             No Spotify match for this release.
+          </div>
+        )}
+        {!spotifyPremium && record && (
+          <div style={{ padding: "10px 28px", borderBottom: "1px solid #e0e0da", display: "flex", alignItems: "center", gap: "6px" }}>
+            <span style={{ fontFamily: "var(--font-mono)", fontSize: "9px", letterSpacing: "0.04em", color: "#cccccc" }}>
+              Spotify player available here —
+            </span>
+            <a
+              href={`/${username}`}
+              style={{ fontFamily: "var(--font-mono)", fontSize: "9px", letterSpacing: "0.04em", color: "#aaaaaa", textDecoration: "none" }}
+              onMouseEnter={e => { (e.currentTarget as HTMLAnchorElement).style.color = "#CC5500"; }}
+              onMouseLeave={e => { (e.currentTarget as HTMLAnchorElement).style.color = "#aaaaaa"; }}
+            >
+              Connect Spotify in your profile →
+            </a>
           </div>
         )}
       </div>
