@@ -3,7 +3,9 @@
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useLocale } from "next-intl";
 import { createClient } from "@/lib/supabase/client";
+import LocaleSwitcher from "@/components/LocaleSwitcher";
 
 const SERIF = "var(--font-editorial)";
 const MONO = "var(--font-mono)";
@@ -23,6 +25,8 @@ const NAV_ITEMS = [
 
 export default function AppNav({ username, displayLabel, avatarUrl }: { username: string; displayLabel?: string; avatarUrl?: string | null }) {
   const pathname = usePathname();
+  const locale = useLocale();
+  const isJa = locale === "ja";
   const [menuOpen, setMenuOpen] = useState(false);
   const [isSupporter, setIsSupporter] = useState(false);
 
@@ -97,26 +101,27 @@ export default function AppNav({ username, displayLabel, avatarUrl }: { username
                 }}
                 className="hover:text-black"
               >
-                {label}
+                {isJa ? jp : label}
                 <span
                   aria-hidden="true"
                   style={{
-                    fontFamily: JP,
+                    fontFamily: isJa ? MONO : JP,
                     fontSize: "10px",
-                    letterSpacing: 0,
-                    textTransform: "none",
+                    letterSpacing: isJa ? "0.06em" : 0,
+                    textTransform: isJa ? "uppercase" : "none",
                     color: active ? "#0d0d0d" : "#c0c0c0",
                   }}
                 >
-                  {jp}
+                  {isJa ? label : jp}
                 </span>
               </Link>
             );
           })}
         </div>
 
-        {/* Right — avatar + @username */}
+        {/* Right — locale switcher + avatar + @username */}
         <div className="flex items-center gap-3">
+          <LocaleSwitcher locale={locale} />
           <Link
             href={`/@${username}`}
             style={{ display: "flex", alignItems: "center", gap: "9px", textDecoration: "none" }}
@@ -195,18 +200,18 @@ export default function AppNav({ username, displayLabel, avatarUrl }: { username
                   textDecoration: "none",
                 }}
               >
-                {label}
+                {isJa ? jp : label}
                 <span
                   aria-hidden="true"
                   style={{
-                    fontFamily: JP,
+                    fontFamily: isJa ? MONO : JP,
                     fontSize: "12px",
-                    letterSpacing: 0,
-                    textTransform: "none",
+                    letterSpacing: isJa ? "0.06em" : 0,
+                    textTransform: isJa ? "uppercase" : "none",
                     color: active ? "#CC5500" : "#c0c0c0",
                   }}
                 >
-                  {jp}
+                  {isJa ? label : jp}
                 </span>
               </Link>
             );
