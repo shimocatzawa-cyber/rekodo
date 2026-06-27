@@ -24,7 +24,7 @@ export default function LocaleSwitcher({ locale }: { locale: string }) {
         fontFamily: "var(--font-dm-mono), monospace",
         fontSize: "11px",
         letterSpacing: "0.08em",
-        color: isPending ? "rgba(255,255,255,0.3)" : "rgba(255,255,255,0.5)",
+        color: isPending ? "#cccccc" : "#888888",
         background: "none",
         border: "none",
         cursor: "pointer",
