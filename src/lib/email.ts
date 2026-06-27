@@ -21,42 +21,42 @@ export async function sendWaitlistConfirmation(email: string, name?: string | nu
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
 </head>
-<body style="margin:0;padding:0;background:#000000;font-family:'Courier New',monospace;">
-  <table width="100%" cellpadding="0" cellspacing="0" style="background:#000000;padding:60px 24px;">
+<body style="margin:0;padding:0;background:#ffffff;font-family:'Courier New',monospace;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background:#ffffff;padding:60px 24px;">
     <tr>
       <td align="center">
         <table width="100%" cellpadding="0" cellspacing="0" style="max-width:520px;">
           <tr>
             <td style="padding-bottom:48px;">
-              <p style="margin:0;font-family:'Courier New',monospace;font-size:11px;letter-spacing:0.15em;text-transform:uppercase;color:#CC5500;">
-                rekōdo
+              <p style="margin:0;font-family:Georgia,serif;font-size:28px;font-weight:bold;color:#0a0a0a;letter-spacing:-0.02em;">
+                rek<span style="color:#CC5500;">ō</span>do
               </p>
             </td>
           </tr>
           <tr>
             <td style="padding-bottom:32px;">
-              <p style="margin:0;font-family:Georgia,serif;font-style:italic;font-size:28px;line-height:1.4;color:#ffffff;">
+              <p style="margin:0;font-family:Georgia,serif;font-style:italic;font-size:28px;line-height:1.4;color:#0a0a0a;">
                 ${greeting}
               </p>
             </td>
           </tr>
           <tr>
             <td style="padding-bottom:24px;">
-              <p style="margin:0;font-family:'Courier New',monospace;font-size:13px;line-height:1.8;color:rgba(255,255,255,0.6);">
+              <p style="margin:0;font-family:'Courier New',monospace;font-size:13px;line-height:1.8;color:#0a0a0a;">
                 You're on the waitlist for rekōdo — a place to catalogue your records, share what you love, and find collectors who hear what you hear.
               </p>
             </td>
           </tr>
           <tr>
             <td style="padding-bottom:48px;">
-              <p style="margin:0;font-family:'Courier New',monospace;font-size:13px;line-height:1.8;color:rgba(255,255,255,0.6);">
+              <p style="margin:0;font-family:'Courier New',monospace;font-size:13px;line-height:1.8;color:#0a0a0a;">
                 We're in private beta and opening spots carefully. When yours is ready, we'll be in touch.
               </p>
             </td>
           </tr>
           <tr>
-            <td style="border-top:1px solid rgba(255,255,255,0.1);padding-top:32px;">
-              <p style="margin:0;font-family:'Courier New',monospace;font-size:11px;letter-spacing:0.08em;color:rgba(255,255,255,0.25);">
+            <td style="border-top:1px solid rgba(0,0,0,0.1);padding-top:32px;">
+              <p style="margin:0;font-family:'Courier New',monospace;font-size:11px;letter-spacing:0.08em;color:rgba(0,0,0,0.3);">
                 rekodo.co
               </p>
             </td>
