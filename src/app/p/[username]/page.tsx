@@ -61,7 +61,7 @@ export default async function PublicProfilePage({ params }: { params: Params }) 
   type ProfileRow = {
     id: string; username: string; display_name: string | null;
     city: string | null; country: string | null; country_code: string | null;
-    bio: string | null; avatar_url: string | null; is_donor: boolean;
+    bio: string | null; avatar_url: string | null; is_donor: boolean; is_supporter: boolean | null;
     taste_summary: string | null; star_sign: string | null;
     bandcamp_username: string | null; role: string | null;
     spotify_connected: boolean | null; spotify_display_name: string | null;
@@ -70,7 +70,7 @@ export default async function PublicProfilePage({ params }: { params: Params }) 
 
   const { data: profile } = await supabase
     .from("profiles")
-    .select("id, username, display_name, city, country, country_code, bio, avatar_url, is_donor, taste_summary, star_sign, bandcamp_username, role, spotify_connected, spotify_display_name, spotify_product")
+    .select("id, username, display_name, city, country, country_code, bio, avatar_url, is_donor, is_supporter, taste_summary, star_sign, bandcamp_username, role, spotify_connected, spotify_display_name, spotify_product")
     .eq("username", username)
     .maybeSingle() as { data: ProfileRow | null; error: unknown };
 
@@ -171,6 +171,7 @@ export default async function PublicProfilePage({ params }: { params: Params }) 
         bio:               profile.bio               ?? null,
         avatar_url:        profile.avatar_url        ?? null,
         is_donor:          profile.is_donor          ?? false,
+        is_supporter:      profile.is_supporter      ?? false,
         taste_summary:     profile.taste_summary     ?? null,
         star_sign:         profile.star_sign         ?? null,
         bandcamp_username:     profile.bandcamp_username     ?? null,
@@ -180,7 +181,7 @@ export default async function PublicProfilePage({ params }: { params: Params }) 
         spotify_product:      profile.spotify_product      ?? null,
       }}
       isOwner={isOwner}
-      isSupporter={isOwner ? !!(profile.is_donor || profile.role === "admin") : false}
+      isSupporter={isOwner ? !!(profile.is_supporter || profile.is_donor || profile.role === "admin") : false}
       totalRecords={totalRecords}
       topGenre={topGenre}
       topCountry={topCountry}

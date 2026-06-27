@@ -339,7 +339,7 @@ export default function ProfileClient({
                   <h1 style={{ fontFamily: SERIF, fontSize: "clamp(32px, 5vw, 48px)", fontWeight: 400, color: INK, lineHeight: 1.1, margin: 0 }}>
                     {displayName}
                   </h1>
-                  {(profile.is_donor || profile.role === "admin") && (
+                  {(profile.is_supporter || profile.is_donor || profile.role === "admin") && (
                     <span style={{ fontFamily: SERIF, fontSize: "clamp(16px, 2.5vw, 24px)", fontWeight: 400, color: "#B8860B", lineHeight: 1.1 }} title="rekōdo supporter">ō</span>
                   )}
                 </div>
