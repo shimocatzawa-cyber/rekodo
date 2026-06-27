@@ -1,0 +1,113 @@
+{
+  "nav": {
+    "collection": "コレクション",
+    "dig": "ディグ",
+    "deepDive": "ディープダイブ",
+    "lists": "リスト",
+    "insights": "インサイト",
+    "archetypes": "アーキタイプ",
+    "support": "サポート",
+    "selects": "Rekōdo セレクト",
+    "openMenu": "メニューを開く",
+    "closeMenu": "メニューを閉じる"
+  },
+  "auth": {
+    "signIn": "サインイン",
+    "signUp": "無料で登録",
+    "logIn": "ログイン",
+    "welcomeBack": "おかえりなさい",
+    "signInToCollection": "コレクションにサインイン",
+    "email": "メールアドレス",
+    "password": "パスワード",
+    "createAccount": "アカウント作成",
+    "username": "ユーザー名",
+    "displayName": "表示名",
+    "city": "都市",
+    "country": "国"
+  },
+  "collection": {
+    "title": "コレクション",
+    "search": "コレクションを検索…",
+    "sortBy": "並び替え",
+    "filterBy": "絞り込み",
+    "allFormats": "すべてのフォーマット",
+    "allGenres": "すべてのジャンル",
+    "noResults": "レコードが見つかりません",
+    "addRecord": "レコードを追加",
+    "import": "インポート",
+    "backup": "バックアップ / 一括インポート",
+    "dropCsv": "CSVをここにドロップ、またはクリックして参照",
+    "rare": "レア",
+    "cultPressing": "カルトプレッシング",
+    "widelyLoved": "人気盤",
+    "inDemand": "需要あり"
+  },
+  "insights": {
+    "title": "インサイト",
+    "itemsAdded": "{count}アイテム追加",
+    "recordsAnalysed": "{count}枚分析済み",
+    "genre": "ジャンル",
+    "country": "国",
+    "style": "スタイル",
+    "format": "フォーマット",
+    "condition": "コンディション",
+    "desirability": "希少性",
+    "vinylColour": "盤の色",
+    "producers": "プロデューサー"
+  },
+  "lists": {
+    "title": "リスト",
+    "myLists": "マイリスト",
+    "wantList": "ウォントリスト",
+    "sellList": "セルリスト",
+    "playlist": "プレイリスト",
+    "community": "コミュニティ",
+    "createList": "リストを作成",
+    "savePlaylist": "プレイリストを保存"
+  },
+  "archetypes": {
+    "title": "アーキタイプ",
+    "subtitle": "あなたのコレクションが語るもの",
+    "share": "シェア ↗",
+    "regenerate": "再生成",
+    "recordsAnalysed": "{count}枚分析済み"
+  },
+  "deepDive": {
+    "title": "ディープダイブ",
+    "subtitle": "コレクションからアーティストのディスコグラフィーを探る"
+  },
+  "dig": {
+    "title": "ディグ",
+    "openSpotify": "Spotifyで開く ↗",
+    "openAppleMusic": "Apple Musicで開く ↗",
+    "openTidal": "Tidalで開く ↗",
+    "buyDiscogs": "Discogsで購入 ↗",
+    "buyEbay": "eBayで購入 ↗",
+    "searchBandcamp": "Bandcampで検索 ↗",
+    "searchRoughTrade": "Rough Tradeで検索 ↗"
+  },
+  "about": {
+    "faqs": "よくある質問",
+    "support": "rekōdoをサポート",
+    "contact": "お問い合わせ",
+    "supporterOnly": "サポーター限定"
+  },
+  "profile": {
+    "editProfile": "プロフィール編集",
+    "openToOffers": "オファー受付中",
+    "memory": "メモリー",
+    "needToRelisten": "再聴が必要"
+  },
+  "common": {
+    "save": "保存",
+    "cancel": "キャンセル",
+    "delete": "削除",
+    "confirm": "確認",
+    "loading": "読み込み中…",
+    "error": "エラーが発生しました",
+    "retry": "もう一度試す",
+    "close": "閉じる",
+    "share": "シェア",
+    "back": "戻る"
+  }
+}

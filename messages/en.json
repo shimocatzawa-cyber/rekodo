@@ -1,0 +1,113 @@
+{
+  "nav": {
+    "collection": "Collection",
+    "dig": "Dig",
+    "deepDive": "Deep Dive",
+    "lists": "Lists",
+    "insights": "Insights",
+    "archetypes": "Archetypes",
+    "support": "Support",
+    "selects": "Rekōdo Selects",
+    "openMenu": "Open menu",
+    "closeMenu": "Close menu"
+  },
+  "auth": {
+    "signIn": "Sign in",
+    "signUp": "Sign up free",
+    "logIn": "Log in",
+    "welcomeBack": "Welcome back",
+    "signInToCollection": "Sign in to your collection",
+    "email": "Email",
+    "password": "Password",
+    "createAccount": "Create account",
+    "username": "Username",
+    "displayName": "Display name",
+    "city": "City",
+    "country": "Country"
+  },
+  "collection": {
+    "title": "Collection",
+    "search": "Search your collection…",
+    "sortBy": "Sort by",
+    "filterBy": "Filter by",
+    "allFormats": "All formats",
+    "allGenres": "All genres",
+    "noResults": "No records found",
+    "addRecord": "Add record",
+    "import": "Import",
+    "backup": "Backup / Bulk Import",
+    "dropCsv": "Drop CSV here, or click to browse",
+    "rare": "Rare",
+    "cultPressing": "Cult Pressing",
+    "widelyLoved": "Widely Loved",
+    "inDemand": "In Demand"
+  },
+  "insights": {
+    "title": "Insights",
+    "itemsAdded": "{count} items added",
+    "recordsAnalysed": "{count} records analysed",
+    "genre": "Genre",
+    "country": "Country",
+    "style": "Style",
+    "format": "Format",
+    "condition": "Condition",
+    "desirability": "Desirability",
+    "vinylColour": "Vinyl Colour",
+    "producers": "Producers"
+  },
+  "lists": {
+    "title": "Lists",
+    "myLists": "My Lists",
+    "wantList": "Want List",
+    "sellList": "Sell List",
+    "playlist": "Playlist",
+    "community": "Community",
+    "createList": "Create list",
+    "savePlaylist": "Save playlist"
+  },
+  "archetypes": {
+    "title": "Archetypes",
+    "subtitle": "What your collection says about you",
+    "share": "Share ↗",
+    "regenerate": "Regenerate",
+    "recordsAnalysed": "{count} records analysed"
+  },
+  "deepDive": {
+    "title": "Deep Dive",
+    "subtitle": "Explore artist discographies through your collection"
+  },
+  "dig": {
+    "title": "Dig",
+    "openSpotify": "Open in Spotify ↗",
+    "openAppleMusic": "Open in Apple Music ↗",
+    "openTidal": "Open in Tidal ↗",
+    "buyDiscogs": "Buy on Discogs ↗",
+    "buyEbay": "Buy on eBay ↗",
+    "searchBandcamp": "Search Bandcamp ↗",
+    "searchRoughTrade": "Search Rough Trade ↗"
+  },
+  "about": {
+    "faqs": "FAQs",
+    "support": "Support rekōdo",
+    "contact": "Contact",
+    "supporterOnly": "Supporter Only"
+  },
+  "profile": {
+    "editProfile": "Edit profile",
+    "openToOffers": "Open to offers",
+    "memory": "Memory",
+    "needToRelisten": "Need to Relisten"
+  },
+  "common": {
+    "save": "Save",
+    "cancel": "Cancel",
+    "delete": "Delete",
+    "confirm": "Confirm",
+    "loading": "Loading…",
+    "error": "Something went wrong",
+    "retry": "Try again",
+    "close": "Close",
+    "share": "Share",
+    "back": "Back"
+  }
+}

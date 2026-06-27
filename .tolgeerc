@@ -1,0 +1,19 @@
+{
+  "projectId": 32791,
+  "apiUrl": "https://app.tolgee.io",
+  "push": {
+    "files": [
+      {
+        "path": "messages/{language}.json",
+        "language": "en"
+      }
+    ]
+  },
+  "pull": {
+    "files": [
+      {
+        "path": "messages/{language}.json"
+      }
+    ]
+  }
+}

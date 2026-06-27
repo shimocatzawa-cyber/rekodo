@@ -2,6 +2,8 @@ import type { Metadata } from "next";
 import { Shippori_Mincho, DM_Mono, Caveat } from "next/font/google";
 import Script from "next/script";
 import { Analytics } from "@vercel/analytics/next";
+import { NextIntlClientProvider } from "next-intl";
+import { getMessages, getLocale } from "next-intl/server";
 import { SpotifyPlayerProvider } from "@/components/SpotifyPlayerProvider";
 import PageViewTracker from "@/components/PageViewTracker";
 import TimezoneSetter from "@/components/TimezoneSetter";
@@ -91,14 +93,15 @@ export const metadata: Metadata = {
   },
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const [messages, locale] = await Promise.all([getMessages(), getLocale()]);
   return (
     <html
-      lang="en"
+      lang={locale}
       className={`${shipporiMincho.variable} ${dmMono.variable} ${caveat.variable} h-full`}
     >
       <head>
@@ -110,9 +113,11 @@ export default function RootLayout({
       <body className="min-h-full flex flex-col bg-white text-black antialiased">
         <PageViewTracker />
         <TimezoneSetter />
-        <SpotifyPlayerProvider>
-          {children}
-        </SpotifyPlayerProvider>
+        <NextIntlClientProvider messages={messages}>
+          <SpotifyPlayerProvider>
+            {children}
+          </SpotifyPlayerProvider>
+        </NextIntlClientProvider>
         {process.env.NEXT_PUBLIC_AMAZON_ONELINK_ID && (
           <Script
             src={`//z-na.amazon-adsystem.com/widgets/onejs?MarketPlace=US&adInstanceId=${process.env.NEXT_PUBLIC_AMAZON_ONELINK_ID}`}
