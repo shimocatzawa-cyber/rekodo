@@ -32,6 +32,16 @@ export async function POST(request: NextRequest) {
     );
 
     if (type === "subscription" && userId) {
+      const { data: existing } = await supabase
+        .from("profiles")
+        .select("is_supporter")
+        .eq("id", userId)
+        .maybeSingle();
+
+      if (existing?.is_supporter) {
+        return NextResponse.json({ received: true });
+      }
+
       const customerId = typeof session.customer === "string"
         ? session.customer
         : (session.customer as { id: string } | null)?.id ?? null;
