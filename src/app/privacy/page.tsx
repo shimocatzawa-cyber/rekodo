@@ -202,7 +202,7 @@ export default function PrivacyPage() {
               <li>Provide the Service: sync and display your collection, generate Lists, power Dig recommendations</li>
               <li>Generate AI-powered features: Jungian Archetypes, Taste Profiles, Cross-Signal Insights, Deep Dive artist content</li>
               <li>Process payments for Supporter subscriptions</li>
-              <li>Send transactional emails (account, billing, waitlist updates) and, where you&rsquo;ve opted in, marketing emails</li>
+              <li>Send transactional emails (account, billing) and, where you&rsquo;ve opted in, marketing emails</li>
               <li>Maintain and improve the Service, including security and fraud prevention</li>
               <li>Comply with legal obligations</li>
             </ul>

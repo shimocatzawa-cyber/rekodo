@@ -31,6 +31,7 @@ export interface ProfileData {
   bio: string | null;
   avatar_url: string | null;
   is_donor: boolean;
+  is_supporter: boolean | null;
   taste_summary: string | null;
   star_sign: string | null;
   bandcamp_username: string | null;

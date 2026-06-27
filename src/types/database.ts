@@ -249,13 +249,7 @@ export type Database = {
         };
         Relationships: [];
       };
-      waitlist_emails: {
-        Row: { id: string; email: string; name: string | null; est_collection_size: number | null; created_at: string };
-        Insert: { id?: string; email: string; name?: string | null; est_collection_size?: number | null; created_at?: string };
-        Update: { email?: string; name?: string | null; est_collection_size?: number | null };
-        Relationships: [];
-      };
-      compatibility_scores: {
+compatibility_scores: {
         Row: { id: string; user_id_a: string; user_id_b: string; score: number; shared_tags: string[]; calculated_at: string };
         Insert: { id?: string; user_id_a: string; user_id_b: string; score: number; shared_tags?: string[]; calculated_at?: string };
         Update: { score?: number; shared_tags?: string[]; calculated_at?: string };
