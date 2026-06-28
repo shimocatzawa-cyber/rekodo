@@ -62,6 +62,23 @@ function senderDisplayName(sender: string | null): string {
 
 // ─── Release row ─────────────────────────────────────────────────────────────
 
+function ReleaseDateBox({ dateStr }: { dateStr: string | null }) {
+  if (!dateStr) return <div style={{ width: "48px", flexShrink: 0 }} />;
+  const d = new Date(dateStr);
+  const day = d.getDate();
+  const mon = d.toLocaleDateString("en-GB", { month: "short" }).toUpperCase();
+  return (
+    <div style={{
+      flexShrink: 0, width: "48px", height: "48px",
+      border: `1px solid ${RULE}`, display: "flex", flexDirection: "column",
+      alignItems: "center", justifyContent: "center", gap: "1px",
+    }}>
+      <span style={{ fontFamily: MONO, fontSize: "16px", fontWeight: 600, lineHeight: 1, color: INK }}>{day}</span>
+      <span style={{ fontFamily: MONO, fontSize: "8px", letterSpacing: "0.1em", color: "#aaaaaa" }}>{mon}</span>
+    </div>
+  );
+}
+
 function ReleaseRow({ item }: { item: LabelFeedItem }) {
   const [hovered, setHovered] = useState(false);
   const sourceUrl   = senderToUrl(item.sender);
@@ -80,6 +97,9 @@ function ReleaseRow({ item }: { item: LabelFeedItem }) {
         background: hovered ? "#f7f5f0" : "transparent",
       }}
     >
+      {/* Date box */}
+      <ReleaseDateBox dateStr={item.received_at} />
+
       {/* Release info */}
       <div style={{ flex: 1, minWidth: 0 }}>
         <p style={{ fontFamily: SERIF, fontSize: "0.95rem", fontWeight: 600, color: INK, margin: "0 0 2px 0", lineHeight: 1.2 }}>
@@ -139,6 +159,7 @@ function ReleaseRow({ item }: { item: LabelFeedItem }) {
 function SkeletonRow() {
   return (
     <div style={{ display: "flex", alignItems: "center", gap: "16px", padding: "14px 0", borderBottom: `1px solid ${RULE}` }}>
+      <div className="nr-shimmer" style={{ flexShrink: 0, width: "48px", height: "48px", background: "#e8e3dc" }} />
       <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: "7px" }}>
         <div className="nr-shimmer" style={{ height: "0.95rem", width: "32%", background: "#e8e3dc" }} />
         <div className="nr-shimmer" style={{ height: "0.85rem", width: "48%", background: "#e8e3dc" }} />
@@ -163,6 +184,8 @@ function NewReleasesSection() {
       .select("*")
       .not("artist", "is", null)
       .neq("artist", "")
+      .not("album", "is", null)
+      .neq("album", "")
       .gte("received_at", thirtyDaysAgo)
       .order("received_at", { ascending: false })
       .limit(100)
