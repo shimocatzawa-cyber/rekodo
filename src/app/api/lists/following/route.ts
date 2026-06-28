@@ -18,25 +18,13 @@ export async function GET() {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return Response.json({ error: "Not authenticated" }, { status: 401 });
 
-  const { data: follows } = await supabase
-    .from("follows")
-    .select("following_id")
-    .eq("follower_id", user.id);
-
-  if (!follows || follows.length === 0) {
-    return Response.json({ lists: [] });
-  }
-
-  const followingIds = follows.map(f => f.following_id);
-
   const { data: pubLists } = await supabase
     .from("lists")
     .select("id, title, slug, user_id, list_type")
     .eq("is_public", true)
     .eq("list_type", "top5")
-    .in("user_id", followingIds)
     .order("created_at", { ascending: false })
-    .limit(50);
+    .limit(100);
 
   if (!pubLists || pubLists.length === 0) {
     return Response.json({ lists: [] });
@@ -87,8 +75,7 @@ export async function GET() {
     const items = (pubItems ?? [])
       .filter(i => i.list_id === l.id)
       .sort((a, b) => a.position - b.position);
-    // Skip top5 lists that aren't fully filled (need all 5 slots)
-    if (items.length < 5) continue;
+    if (items.length === 0) continue;
     const covers = items.slice(0, 4).map(i =>
       i.record_id ? (coverById.get(i.record_id) ?? null) : null
     );
