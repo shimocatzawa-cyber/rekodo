@@ -6,13 +6,12 @@ import AppNav from "@/components/AppNav";
 import Top5Tab from "@/components/lists/Top5Tab";
 import ProfileListsTab from "@/components/profile/ProfileListsTab";
 import SellListClient from "@/components/profile/SellListClient";
-import CommunityTab from "@/components/community/CommunityTab";
 import PlaylistTab from "@/components/lists/PlaylistTab";
 
 const MONO   = "var(--font-mono)";
 const ORANGE = "#CC5500";
 
-type SubTab = "top5" | "wantlist" | "selllist" | "community" | "playlist";
+type SubTab = "top5" | "wantlist" | "selllist" | "playlist";
 
 interface Props {
   profileId:    string;
@@ -29,7 +28,6 @@ export default function ListsHub({ profileId, username, displayLabel, avatarUrl,
     { key: "wantlist",  label: t("wantList") },
     { key: "selllist",  label: t("sellList") },
     { key: "playlist",  label: t("playlist") },
-    { key: "community", label: t("community") },
   ];
   const [activeTab, setActiveTab] = useUrlTab<SubTab>("tab", TABS.map(t => t.key), "top5");
 
@@ -86,9 +84,6 @@ export default function ListsHub({ profileId, username, displayLabel, avatarUrl,
         <div style={{ display: activeTab === "playlist" ? "block" : "none" }}>
           <PlaylistTab username={username} />
         </div>
-        {activeTab === "community" && (
-          <CommunityTab profileOwnerId={profileId} />
-        )}
       </div>
     </div>
   );
