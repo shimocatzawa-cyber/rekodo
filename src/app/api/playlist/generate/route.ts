@@ -106,14 +106,15 @@ async function selectInBatches<T>(
 }
 
 type UnmatchedItem = {
-  refId:   string;
-  table:   "records" | "list_items";
-  artist:  string;
-  album:   string;
-  year:    number | null;
-  genre:   string | null;
-  feeling: string | null;
-  source:  "collection" | "wantlist";
+  refId:     string;
+  table:     "records" | "list_items";
+  artist:    string;
+  album:     string;
+  year:      number | null;
+  cover_url: string | null;
+  genre:     string | null;
+  feeling:   string | null;
+  source:    "collection" | "wantlist";
 };
 
 // Cheap, Spotify-free ranking pass: ask Claude to pick the most mood-relevant
@@ -508,7 +509,7 @@ export async function POST(request: NextRequest) {
           if (tracks === "blocked") break;
           if (tracks === null) continue; // transient
           candidates = candidates.concat(flattenCandidates(
-            [{ artist: d.artist, album: d.album, year: d.year, cover_url: null, spotify_tracks: tracks }],
+            [{ artist: d.artist, album: d.album, year: d.year, cover_url: result.cover_url, spotify_tracks: tracks }],
             "discover", "inferred",
           ));
         }
@@ -545,39 +546,39 @@ export async function POST(request: NextRequest) {
     let unmatchedPool: UnmatchedItem[] = [];
 
     if (ownedRecordIds.length > 0) {
-      const rows = await selectInBatches<{ id: string; artist: string; album: string; year: number | null; genre: string | null }>(
-        db, "records", "id, artist, album, year, genre", "id", ownedRecordIds,
+      const rows = await selectInBatches<{ id: string; artist: string; album: string; year: number | null; cover_url: string | null; genre: string | null }>(
+        db, "records", "id, artist, album, year, cover_url, genre", "id", ownedRecordIds,
         (q) => q.is("spotify_matched_at", null),
       );
       for (const r of rows) {
         unmatchedPool.push({
           refId: r.id, table: "records", artist: r.artist, album: r.album,
-          year: r.year, genre: r.genre, feeling: feelingByRecordId.get(r.id) ?? null, source: "collection",
+          year: r.year, cover_url: r.cover_url, genre: r.genre, feeling: feelingByRecordId.get(r.id) ?? null, source: "collection",
         });
       }
     }
 
     if (includeOutsideCollection && wantlistRecordIds.length > 0) {
-      const rows = await selectInBatches<{ id: string; artist: string; album: string; year: number | null; genre: string | null }>(
-        db, "records", "id, artist, album, year, genre", "id", wantlistRecordIds,
+      const rows = await selectInBatches<{ id: string; artist: string; album: string; year: number | null; cover_url: string | null; genre: string | null }>(
+        db, "records", "id, artist, album, year, cover_url, genre", "id", wantlistRecordIds,
         (q) => q.is("spotify_matched_at", null),
       );
       for (const r of rows) {
         unmatchedPool.push({
           refId: r.id, table: "records", artist: r.artist, album: r.album,
-          year: r.year, genre: r.genre, feeling: null, source: "wantlist",
+          year: r.year, cover_url: r.cover_url, genre: r.genre, feeling: null, source: "wantlist",
         });
       }
     }
 
     if (includeOutsideCollection && wantlistId) {
       const { data } = await db
-        .from("list_items").select("id, song_artist, song_album, song_year")
+        .from("list_items").select("id, song_artist, song_album, song_year, song_cover_url")
         .eq("list_id", wantlistId).eq("item_type", "song").is("spotify_matched_at", null);
-      for (const r of (data ?? []) as Array<{ id: string; song_artist: string; song_album: string; song_year: number | null }>) {
+      for (const r of (data ?? []) as Array<{ id: string; song_artist: string; song_album: string; song_year: number | null; song_cover_url: string | null }>) {
         unmatchedPool.push({
           refId: r.id, table: "list_items", artist: r.song_artist, album: r.song_album,
-          year: r.song_year, genre: null, feeling: null, source: "wantlist",
+          year: r.song_year, cover_url: r.song_cover_url, genre: null, feeling: null, source: "wantlist",
         });
       }
     }
@@ -631,7 +632,7 @@ export async function POST(request: NextRequest) {
           spotify_album_id: result.id, spotify_matched: true, spotify_tracks: tracks, spotify_matched_at: now,
         }).eq("id", item.refId);
         candidates = candidates.concat(flattenCandidates(
-          [{ artist: item.artist, album: item.album, year: item.year, cover_url: null, spotify_tracks: tracks }],
+          [{ artist: item.artist, album: item.album, year: item.year, cover_url: item.cover_url ?? result.cover_url, spotify_tracks: tracks }],
           item.source, item.feeling === mood ? "tagged" : "inferred",
         ));
       }

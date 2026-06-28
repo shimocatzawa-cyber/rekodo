@@ -73,14 +73,18 @@ async function spotifyFetch(url: string, token: string): Promise<FetchOutcome> {
 }
 
 export type SearchOutcome =
-  | { kind: "found"; id: string }
+  | { kind: "found"; id: string; cover_url: string | null }
   | { kind: "not_found" }
   | { kind: "transient" }
   | { kind: "blocked" };
 
 type AlbumSearchResponse = {
-  albums?: { items?: Array<{ id: string; name: string; artists: Array<{ name: string }> }> };
+  albums?: { items?: Array<{ id: string; name: string; artists: Array<{ name: string }>; images?: Array<{ url: string }> }> };
 };
+
+function pickCoverUrl(item: { images?: Array<{ url: string }> } | null | undefined): string | null {
+  return item?.images?.[0]?.url ?? null;
+}
 
 export async function searchAlbum(token: string, artist: string, album: string): Promise<SearchOutcome> {
   const q1 = encodeURIComponent(`album:"${album}" artist:"${artist}"`);
@@ -89,7 +93,7 @@ export async function searchAlbum(token: string, artist: string, album: string):
   const d1 = await r1.res.json().catch(() => null) as AlbumSearchResponse | null;
   const item1 = d1?.albums?.items?.[0] ?? null;
   if (item1 && isPlausibleAlbumMatch(artist, album, item1.artists.map(a => a.name), item1.name)) {
-    return { kind: "found", id: item1.id };
+    return { kind: "found", id: item1.id, cover_url: pickCoverUrl(item1) };
   }
 
   const q2 = encodeURIComponent(`${artist} ${album}`);
@@ -98,7 +102,7 @@ export async function searchAlbum(token: string, artist: string, album: string):
   const d2 = await r2.res.json().catch(() => null) as AlbumSearchResponse | null;
   const item2 = d2?.albums?.items?.[0] ?? null;
   if (item2 && isPlausibleAlbumMatch(artist, album, item2.artists.map(a => a.name), item2.name)) {
-    return { kind: "found", id: item2.id };
+    return { kind: "found", id: item2.id, cover_url: pickCoverUrl(item2) };
   }
   return { kind: "not_found" };
 }

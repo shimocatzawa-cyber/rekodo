@@ -87,6 +87,13 @@ export default function PlaylistTrackList({ tracks, onReorder, resequencing }: P
               {i + 1}
             </span>
 
+            <div style={{ width: 36, height: 36, flexShrink: 0, background: "#ebe7e0", overflow: "hidden", alignSelf: "center" }}>
+              {t.cover_url && (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={t.cover_url} alt="" style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
+              )}
+            </div>
+
             <div style={{ flex: 1, minWidth: 0 }}>
               <div style={{ display: "flex", alignItems: "baseline", gap: "8px", flexWrap: "wrap" }}>
                 <p style={{ fontFamily: SERIF, fontSize: "14px", color: INK, margin: 0 }}>{t.title}</p>
