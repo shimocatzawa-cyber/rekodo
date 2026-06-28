@@ -227,6 +227,10 @@ export default async function AdminPage() {
   const free       = users.filter(u => !u.subscription_tier || u.subscription_tier === "free").length;
   const donors     = users.filter(u => u.is_donor).length;
 
+  const totalRecords    = [...recordCountMap.values()].reduce((a, b) => a + b, 0);
+  const collectorsCount = [...recordCountMap.values()].filter(n => n > 0).length;
+  const avgCollection   = collectorsCount > 0 ? Math.round(totalRecords / collectorsCount) : 0;
+
   return (
     <div style={{ minHeight: "100vh", background: "#ffffff" }}>
 
@@ -243,23 +247,25 @@ export default async function AdminPage() {
       {/* Stats grid + feature popularity */}
       <div style={{ borderBottom: `1px solid ${RULE}`, display: "flex" }}>
 
-        {/* Stats (2x2): Total users / Supporters on top, Free / Donors below */}
-        <div style={{ flex: 1, display: "grid", gridTemplateColumns: "1fr 1fr" }}>
+        {/* Stats (3x2): collection stats top-left, user counts fill remaining */}
+        <div style={{ flex: 1, display: "grid", gridTemplateColumns: "1fr 1fr 1fr" }}>
           {[
-            { label: "Total users", value: total },
-            { label: "Supporters",  value: supporters },
-            { label: "Free",        value: free },
-            { label: "Donors",      value: donors },
+            { label: "Total records",    value: totalRecords.toLocaleString() },
+            { label: "Total users",      value: total },
+            { label: "Supporters",       value: supporters },
+            { label: "Avg collection",   value: avgCollection.toLocaleString() },
+            { label: "Free",             value: free },
+            { label: "Donors",           value: donors },
           ].map(({ label, value }, i) => (
             <div key={label} style={{
-              padding: "28px 32px",
-              borderLeft: i % 2 === 1 ? `1px solid ${RULE}` : "none",
-              borderTop:  i >= 2 ? `1px solid ${RULE}` : "none",
+              padding: "28px 20px",
+              borderLeft: i % 3 !== 0 ? `1px solid ${RULE}` : "none",
+              borderTop:  i >= 3 ? `1px solid ${RULE}` : "none",
             }}>
               <p style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.14em", textTransform: "uppercase", color: MUTED, margin: "0 0 8px 0" }}>
                 {label}
               </p>
-              <p style={{ fontFamily: SERIF, fontSize: "36px", color: INK, margin: 0, lineHeight: 1 }}>
+              <p style={{ fontFamily: SERIF, fontSize: "30px", color: INK, margin: 0, lineHeight: 1 }}>
                 {value}
               </p>
             </div>
