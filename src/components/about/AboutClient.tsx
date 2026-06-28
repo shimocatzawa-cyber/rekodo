@@ -278,6 +278,10 @@ const FAQ_SECTIONS: { section: string; items: { q: string; a: React.ReactNode }[
         a: "A thumbnail wall of every record you've tagged Essential, with a shareable card showing your record count, primary genre, and your @username. Tag records as Essential from the Collection view to build it.",
       },
       {
+        q: "What are the share cards?",
+        a: "From the Taste Profile tab, the 'Share your collection on socials' bar gives you eight shareable cards: Record Shelf (your format breakdown, top genres, and shelf photo), Essentials Wall, Collector DNA (your primary genre, style obsession, top decade, rarity, and archetype), Collection Story (your collection growth over time), Genre Map, Style Map, Spectrum Dimensions, and Collector Archetype. Each exports as a PNG you can download or copy to clipboard.",
+      },
+      {
         q: "What is the Feeling breakdown?",
         a: "It shows the percentage split of every Feeling you've tagged across your collection — a quick read on the emotional shape of what you actually own.",
       },

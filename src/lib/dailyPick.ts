@@ -64,7 +64,7 @@ function durationPhrase(days: number): string {
 export function dailyPickBlurb(feeling: string | null, daysSinceLastPlayed: number | null): string {
   const moodPhrase = feeling ? `something ${feelingLabel(feeling)}` : "something";
   if (daysSinceLastPlayed === null) {
-    return `Tonight's pick: ${moodPhrase} — sitting on your shelf, still unplayed.`;
+    return `Today's pick: ${moodPhrase} — sitting on your shelf, still unplayed.`;
   }
-  return `Tonight's pick: ${moodPhrase} you haven't spun in ${durationPhrase(daysSinceLastPlayed)}.`;
+  return `Today's pick: ${moodPhrase} you haven't spun in ${durationPhrase(daysSinceLastPlayed)}.`;
 }

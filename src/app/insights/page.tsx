@@ -481,6 +481,21 @@ export default async function InsightsPage() {
     .slice(0, 10)
     .map(([artist, { count, valueSum }]) => ({ artist, count, valueSum }));
 
+  const VINYL_FMTS = new Set(["LP", "VINYL", "7\"", "10\"", "12\"", "EP"]);
+  const vinylArtistCounts = new Map<string, number>();
+  for (const link of allLinks) {
+    const rec = recordsMap.get(link.record_id);
+    if (!rec) continue;
+    const fmt = rec.format?.toUpperCase().trim() ?? "";
+    if (!VINYL_FMTS.has(fmt)) continue;
+    const artist = rec.artist?.trim();
+    if (!artist || artist === "Unknown" || artist === "Various") continue;
+    vinylArtistCounts.set(artist, (vinylArtistCounts.get(artist) ?? 0) + 1);
+  }
+  const topVinylArtistEntry = [...vinylArtistCounts.entries()].sort((a, b) => b[1] - a[1])[0];
+  const topVinylArtist = topVinylArtistEntry?.[0] ?? null;
+  const topVinylArtistCount = topVinylArtistEntry?.[1] ?? null;
+
   // ── Label Obsession ────────────────────────────────────────────────────────
   const labelCounts = new Map<string, { count: number; valueSum: number }>();
   for (const link of allLinks) {
@@ -634,6 +649,41 @@ export default async function InsightsPage() {
   const yearRange = allYears.length > 0
     ? { oldest: allYears.reduce((m, y) => (y < m ? y : m), allYears[0]), newest: allYears.reduce((m, y) => (y > m ? y : m), allYears[0]) }
     : null;
+
+  const avgReleaseYear = allYears.length > 0
+    ? Math.round(allYears.reduce((a, b) => a + b, 0) / allYears.length)
+    : null;
+
+  const topDecade = (() => {
+    if (allYears.length === 0) return null;
+    const counts = new Map<number, number>();
+    for (const y of allYears) {
+      const d = Math.floor(y / 10) * 10;
+      counts.set(d, (counts.get(d) ?? 0) + 1);
+    }
+    let best = -1, bestCount = 0;
+    for (const [d, c] of counts) if (c > bestCount) { best = d; bestCount = c; }
+    return best > 0 ? `${best}s` : null;
+  })();
+
+  const collectorSinceYear = (() => {
+    const years = allLinks
+      .map(l => l.date_added ? new Date(l.date_added).getFullYear() : null)
+      .filter((y): y is number => y !== null && y > 1900);
+    return years.length > 0 ? Math.min(...years) : null;
+  })();
+
+  const oldestAlbum = (() => {
+    if (!yearRange) return null;
+    const rec = [...recordsMap.values()].find(r => r.year === yearRange.oldest);
+    return rec ? { year: yearRange.oldest, artist: rec.artist, album: rec.album } : null;
+  })();
+
+  const newestAlbum = (() => {
+    if (!yearRange) return null;
+    const rec = [...recordsMap.values()].find(r => r.year === yearRange.newest);
+    return rec ? { year: yearRange.newest, artist: rec.artist, album: rec.album } : null;
+  })();
   const mostPopularYear = (() => {
     if (allYears.length === 0) return null;
     const yCounts = new Map<number, number>();
@@ -820,6 +870,30 @@ export default async function InsightsPage() {
     listLikes = likesCount ?? 0;
   }
 
+  const { data: archetypeCache } = await (supabase as any)
+    .from("archetype_cache")
+    .select("primary_archetype, shadow_archetype, primary_score, archetype_scores")
+    .eq("user_id", user.id)
+    .maybeSingle() as { data: { primary_archetype: string | null; shadow_archetype: string | null; primary_score: number | null; archetype_scores: Record<string, number> | null } | null };
+  const { ARCHETYPES } = await import("@/lib/archetypes/archetypeConfig");
+  const collectorArchetypeId    = archetypeCache?.primary_archetype ?? null;
+  const collectorArchetypeShadow = archetypeCache?.shadow_archetype ?? null;
+  const collectorArchetypeScore  = archetypeCache?.primary_score ?? null;
+  const collectorArchetypeScores = archetypeCache?.archetype_scores ?? null;
+  const collectorArchetype = collectorArchetypeId
+    ? (ARCHETYPES[collectorArchetypeId]?.name ?? null)
+    : null;
+
+  const { data: collectionPhotoRow } = await (supabase as any)
+    .from("collection_photos")
+    .select("storage_path")
+    .eq("user_id", user.id)
+    .eq("display_order", 1)
+    .maybeSingle() as { data: { storage_path: string } | null };
+  const collectionPhotoUrl = collectionPhotoRow?.storage_path
+    ? `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/collection-photos/${collectionPhotoRow.storage_path}`
+    : null;
+
   const usageStats: InsightsProps["usageStats"] = {
     digDiscover: digByMode.discover,
     digExplore:  digByMode.explore,
@@ -851,12 +925,25 @@ export default async function InsightsPage() {
       formatBreakdown={formatBreakdown}
       desirabilityBreakdown={desirabilityBreakdown}
       topArtists={topArtists}
+      topVinylArtist={topVinylArtist}
+      topVinylArtistCount={topVinylArtistCount}
       topFormat={topFormat}
       yearRange={yearRange}
       mostPopularYear={mostPopularYear}
       vinylColourBreakdown={vinylColourBreakdown}
       essentials={essentials}
       feelingBreakdown={feelingBreakdown}
+      avgReleaseYear={avgReleaseYear}
+      topDecade={topDecade}
+      collectorArchetype={collectorArchetype}
+      collectorArchetypeId={collectorArchetypeId}
+      collectorArchetypeShadow={collectorArchetypeShadow}
+      collectorArchetypeScore={collectorArchetypeScore}
+      collectorArchetypeScores={collectorArchetypeScores}
+      collectorSinceYear={collectorSinceYear}
+      collectionPhotoUrl={collectionPhotoUrl}
+      oldestAlbum={oldestAlbum}
+      newestAlbum={newestAlbum}
       collectionLifespan={collectionLifespan}
       collectionByMonth={collectionByMonth}
       spectrum={spectrum}

@@ -9,6 +9,13 @@ import TasteProfile, { type SpectrumData } from "@/components/insights/TasteProf
 import LunarListeningRitual from "@/components/LunarListeningRitual";
 import InsightsShareModal from "@/components/insights/InsightsShareModal";
 import EssentialsWallModal from "@/components/insights/EssentialsWallModal";
+import CollectorDNAModal from "@/components/insights/CollectorDNAModal";
+import CollectionStyleMapModal from "@/components/insights/CollectionStyleMapModal";
+import CollectionGenreMapModal from "@/components/insights/CollectionGenreMapModal";
+import CollectionStoryModal from "@/components/insights/CollectionStoryModal";
+import RecordShelfModal from "@/components/insights/RecordShelfModal";
+import SpectrumShareModal from "@/components/insights/SpectrumShareModal";
+import ArchetypeShareModal from "@/components/archetypes/ArchetypeShareModal";
 import DailyPick, { type DailyPickData } from "@/components/DailyPick";
 import OnThisDay, { type OnThisDayPick } from "@/components/OnThisDay";
 import type { DesirabilityTier } from "@/lib/desirability";
@@ -59,6 +66,19 @@ export interface InsightsProps {
   spectrum:           SpectrumData;
   topPlayedRecords:   { artist: string; album: string; coverUrl: string | null; lastPlayedAt: string; playCount: number }[];
   playedStyleBreakdown: { style: string; count: number; pct: number }[];
+  avgReleaseYear:    number | null;
+  topDecade:         string | null;
+  collectorArchetype:  string | null;
+  collectorSinceYear:  number | null;
+  collectionPhotoUrl:  string | null;
+  oldestAlbum:      { year: number; artist: string; album: string } | null;
+  newestAlbum:      { year: number; artist: string; album: string } | null;
+  topVinylArtist:        string | null;
+  topVinylArtistCount:   number | null;
+  collectorArchetypeId:      string | null;
+  collectorArchetypeShadow:  string | null;
+  collectorArchetypeScore:   number | null;
+  collectorArchetypeScores:  Record<string, number> | null;
   dailyPick:    DailyPickData | null;
   onThisDay:    OnThisDayPick | null;
   usageStats:   {
@@ -244,6 +264,7 @@ export default function InsightsClient({
   collectionLifespan, collectionByMonth, spectrum,
   topPlayedRecords, playedStyleBreakdown,
   dailyPick, onThisDay, usageStats,
+  avgReleaseYear, topDecade, collectorArchetype, collectorArchetypeId, collectorArchetypeShadow, collectorArchetypeScore, collectorArchetypeScores, collectorSinceYear, collectionPhotoUrl, oldestAlbum, newestAlbum, topVinylArtist, topVinylArtistCount,
 }: InsightsProps) {
 
   const [oneLiner, setOneLiner] = useState<string | null>(null);
@@ -251,6 +272,13 @@ export default function InsightsClient({
   const [insightsTab, setInsightsTab] = useUrlTab<"collection" | "taste-profile">("tab", ["collection", "taste-profile"], defaultTab);
   const [showShare, setShowShare] = useState(false);
   const [showEssentialsShare, setShowEssentialsShare] = useState(false);
+  const [showDNAModal, setShowDNAModal]       = useState(false);
+  const [showStyleMap, setShowStyleMap]       = useState(false);
+  const [showGenreMap, setShowGenreMap]       = useState(false);
+  const [showStory, setShowStory]             = useState(false);
+  const [showShelf, setShowShelf]             = useState(false);
+  const [showSpectrum, setShowSpectrum]         = useState(false);
+  const [showArchetype, setShowArchetype]       = useState(false);
 
   useEffect(() => {
     if (totalRecords < 5) return;
@@ -266,6 +294,8 @@ export default function InsightsClient({
 
   // Derive stats bar tiles from available data
   const rareCount       = desirabilityBreakdown.find((d) => d.tier === "rare")?.count ?? 0;
+  const rareCultCount   = desirabilityBreakdown.filter(d => d.tier === "rare" || d.tier === "cult").reduce((s, d) => s + d.count, 0);
+  const rarityPct       = totalRecords > 0 ? Math.round((rareCultCount / totalRecords) * 100) : null;
   const topRealGenre    = genreBreakdown.find((g) => g.genre !== "Unknown" && g.genre !== "");
   const topPressOrigin  = countryBreakdown[0] ?? null;
   const topArtist       = topArtists[0] ?? null;
@@ -276,7 +306,7 @@ export default function InsightsClient({
     ...(topFormat ? [{ hero: topFormat.count.toLocaleString(), label: fmtFormatLabel(topFormat.name) }] : []),
     ...(topRealGenre ? [{ hero: `${topRealGenre.pct}%`, label: topRealGenre.genre }] : []),
     ...(topPressOrigin ? [{ hero: `${topPressOrigin.pct}%`, label: topPressOrigin.country }] : []),
-    ...(topArtist ? [{ hero: topArtist.artist, label: `${topArtist.count} vinyl items` }] : []),
+    ...(topVinylArtist ? [{ hero: topVinylArtist, label: `${topVinylArtistCount} vinyl records` }] : []),
     ...(topLabel ? [{ hero: topLabel.label, label: `${topLabel.count} label items` }] : []),
     ...(yearRange ? [{ hero: yearRange.oldest !== yearRange.newest ? `${yearRange.oldest} → ${yearRange.newest}` : String(yearRange.oldest), label: "Collection span" }] : []),
     ...(mostPopularYear ? [{ hero: String(mostPopularYear), label: "Most collected year" }] : []),
@@ -331,16 +361,6 @@ export default function InsightsClient({
       {insightsTab === "collection" && totalRecords > 0 && (
       <main className="rk-arch-main" style={{ padding: "48px 32px 80px", maxWidth: "960px", margin: "0 auto" }}>
 
-
-        {/* ── Collection header row with Share button ─────────────────────── */}
-        <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 8 }}>
-          <button
-            onClick={() => setShowShare(true)}
-            style={{ fontFamily: MONO, fontSize: 10, color: ORANGE, background: "none", border: "none", cursor: "pointer", padding: 0, letterSpacing: "0.06em" }}
-          >
-            Share ↗
-          </button>
-        </div>
 
         {/* ── Stats Bar ───────────────────────────────────────────────────── */}
         <StatBar tiles={statTiles} />
@@ -894,8 +914,113 @@ export default function InsightsClient({
         />
       )}
 
+      {showSpectrum && (
+        <SpectrumShareModal
+          onClose={() => setShowSpectrum(false)}
+          username={username}
+          spectrum={spectrum}
+        />
+      )}
+
+      {showArchetype && collectorArchetypeId && collectorArchetypeShadow && (
+        <ArchetypeShareModal
+          onClose={() => setShowArchetype(false)}
+          username={username}
+          archetypeId={collectorArchetypeId}
+          score={collectorArchetypeScore ?? 0}
+          shadowId={collectorArchetypeShadow}
+          shadowScore={collectorArchetypeScores?.[collectorArchetypeShadow] ?? 0}
+        />
+      )}
+
+      {/* ── Collection share card modals ── */}
+      {showDNAModal && (
+        <CollectorDNAModal
+          onClose={() => setShowDNAModal(false)}
+          username={username}
+          primaryStyle={topRealGenre?.genre ?? null}
+          styleObsession={styleBreakdown[0]?.style ?? null}
+          avgReleaseYear={topDecade}
+          topCountry={countryBreakdown[0]?.country ?? null}
+          rarityPct={rarityPct}
+          collectorArchetype={collectorArchetype}
+          collectorSinceYear={collectorSinceYear}
+          totalRecords={totalRecords}
+        />
+      )}
+      {showStyleMap && (
+        <CollectionStyleMapModal
+          onClose={() => setShowStyleMap(false)}
+          username={username}
+          totalRecords={totalRecords}
+          styleBreakdown={styleBreakdown}
+        />
+      )}
+      {showGenreMap && (
+        <CollectionGenreMapModal
+          onClose={() => setShowGenreMap(false)}
+          username={username}
+          totalRecords={totalRecords}
+          genreBreakdown={genreBreakdown}
+        />
+      )}
+      {showStory && (
+        <CollectionStoryModal
+          onClose={() => setShowStory(false)}
+          username={username}
+          totalRecords={totalRecords}
+          collectionLifespan={collectionLifespan}
+          collectorSinceYear={collectorSinceYear}
+          yearRange={yearRange}
+          countryCount={countryBreakdown.length}
+        />
+      )}
+      {showShelf && (
+        <RecordShelfModal
+          onClose={() => setShowShelf(false)}
+          username={username}
+          totalRecords={totalRecords}
+          styleBreakdown={styleBreakdown}
+          genreBreakdown={genreBreakdown}
+          desirabilityBreakdown={desirabilityBreakdown}
+          topArtist={topVinylArtist ?? topArtists[0]?.artist ?? null}
+          topArtistCount={topVinylArtistCount}
+          oldestAlbum={oldestAlbum}
+          newestAlbum={newestAlbum}
+          collectionPhotoUrl={collectionPhotoUrl}
+          formatBreakdown={formatBreakdown}
+        />
+      )}
+
       {insightsTab === "taste-profile" && (
         <main className="rk-arch-main" style={{ padding: "48px 32px 80px", maxWidth: "960px", margin: "0 auto" }}>
+
+          {/* ── Share card bar ── */}
+          {totalRecords >= 5 && (
+            <div style={{ marginBottom: 12, paddingBottom: 8 }}>
+              <p style={{ fontFamily: MONO, fontSize: "0.65rem", letterSpacing: "0.14em", textTransform: "uppercase", color: ORANGE, margin: "0 0 20px" }}>Share your collection on socials</p>
+              <div style={{ display: "flex", gap: 8, flexWrap: "wrap", justifyContent: "space-between" }}>
+                {[
+                  { label: "Record Shelf",         onClick: () => setShowShelf(true) },
+                  { label: "Essentials Wall",      onClick: () => setShowEssentialsShare(true) },
+                  { label: "Collector DNA",        onClick: () => setShowDNAModal(true) },
+                  { label: "Collection Story",     onClick: () => setShowStory(true) },
+                  { label: "Genre Map",            onClick: () => setShowGenreMap(true) },
+                  { label: "Style Map",            onClick: () => setShowStyleMap(true) },
+                  { label: "Spectrum",             onClick: () => setShowSpectrum(true) },
+                  ...(collectorArchetypeId ? [{ label: "Archetype", onClick: () => setShowArchetype(true) }] : []),
+                ].map(({ label, onClick }) => (
+                  <button key={label} onClick={onClick} style={{
+                    fontFamily: MONO, fontSize: 9, letterSpacing: "0.1em", textTransform: "uppercase",
+                    background: "none", border: `1px solid ${RULE}`, cursor: "pointer",
+                    padding: "8px 14px", color: INK, flex: 1, textAlign: "center",
+                  }}>
+                    {label}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
 
           {/* ── Lunar Listening Ritual + On This Month ── */}
           <div className="rk-grid-2" style={{ marginTop: "16px", display: "grid", gridTemplateColumns: onThisDay ? "1fr 1px 1fr" : "1fr", gap: onThisDay ? "16px" : undefined }}>
