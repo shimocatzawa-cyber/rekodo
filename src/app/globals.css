@@ -339,12 +339,30 @@ h1, h2, h3, h4, h5, h6 {
     overflow-x: auto !important;
     -webkit-overflow-scrolling: touch;
     flex-wrap: nowrap !important;
+    scrollbar-width: none;
+  }
+  .rk-community-tabs::-webkit-scrollbar {
+    display: none;
   }
   .rk-community-tabs button {
     padding-left: 10px !important;
     padding-right: 10px !important;
     font-size: 0.52rem !important;
     white-space: nowrap !important;
+  }
+
+  /* Community page grid: sidebar + main → single column, sidebar on top   */
+  .rk-community-grid {
+    grid-template-columns: 1fr !important;
+    padding-right: 0 !important;
+    gap: 0 !important;
+  }
+  /* Sidebar gets horizontal padding + bottom rule to separate from content */
+  .rk-community-grid > *:first-child {
+    padding-left: 16px !important;
+    padding-right: 16px !important;
+    padding-bottom: 24px !important;
+    border-bottom: 1px solid #e0e0da;
   }
 
   /* ── Support page ────────────────────────────────────────────────────── */

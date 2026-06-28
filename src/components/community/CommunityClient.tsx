@@ -233,7 +233,7 @@ export default function CommunityClient({ profileId, username, displayName, avat
   const [tierItems,  setTierItems]  = useState<Map<string, TierItem[]>>(new Map());
 
   return (
-    <div style={{ display: "grid", gridTemplateColumns: "220px 1fr", gap: "24px", maxWidth: 1280, margin: "0 auto", paddingLeft: "0", paddingRight: "32px" }}>
+    <div className="rk-community-grid" style={{ display: "grid", gridTemplateColumns: "220px 1fr", gap: "24px", maxWidth: 1280, margin: "0 auto", paddingLeft: "0", paddingRight: "32px" }}>
       <CommunitySidebar
         profileOwnerId={profileId}
         onTierClick={(tier, items) => {

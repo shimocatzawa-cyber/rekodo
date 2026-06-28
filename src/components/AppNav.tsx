@@ -263,6 +263,37 @@ export default function AppNav({ username, displayLabel, avatarUrl }: { username
 
           <div style={{ marginTop: "1.5rem" }}>
             <Link
+              href="/community"
+              onClick={() => setMenuOpen(false)}
+              style={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                padding: "14px 0",
+                borderBottom: "0.5px solid #f0f0f0",
+                fontFamily: MONO,
+                fontSize: "13px",
+                letterSpacing: "0.08em",
+                textTransform: "uppercase",
+                color: pathname === "/community" ? "#0d0d0d" : "#888888",
+                textDecoration: "none",
+              }}
+            >
+              {isJa ? "コミュニティ" : "Community"}
+              <span
+                aria-hidden="true"
+                style={{
+                  fontFamily: isJa ? MONO : JP,
+                  fontSize: "12px",
+                  letterSpacing: isJa ? "0.06em" : 0,
+                  textTransform: isJa ? "uppercase" : "none",
+                  color: pathname === "/community" ? ORANGE : "#c0c0c0",
+                }}
+              >
+                {isJa ? "Community" : "コミュニティ"}
+              </span>
+            </Link>
+            <Link
               href={`/@${username}`}
               onClick={() => setMenuOpen(false)}
               style={{
@@ -275,6 +306,7 @@ export default function AppNav({ username, displayLabel, avatarUrl }: { username
                 display: "flex",
                 alignItems: "center",
                 gap: "6px",
+                marginTop: "1.25rem",
               }}
             >
               @{username}{isSupporter && <span style={{ fontFamily: SERIF, fontSize: "12px", color: "#B8860B" }} title="rekōdo supporter">ō</span>}

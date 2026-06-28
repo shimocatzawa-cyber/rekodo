@@ -685,6 +685,7 @@ export default function CommunityTab({ profileOwnerId, hideSocialPanel = false }
         {/* Search bar */}
         <input
           type="text"
+          className="rk-form-input"
           placeholder="Search collectors by name or username…"
           value={searchQuery}
           onChange={e => {
