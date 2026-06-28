@@ -96,7 +96,7 @@ export default function AboutClient({
               alt="Dig deeper — crates of records"
               style={{ width: "100%", height: "auto", display: "block", marginBottom: "12px" }}
             />
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", marginBottom: "56px" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "56px" }}>
               <div>
                 <h1 style={{
                   fontFamily: SERIF,
