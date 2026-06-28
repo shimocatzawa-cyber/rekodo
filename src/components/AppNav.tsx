@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useLocale } from "next-intl";
@@ -27,8 +27,21 @@ export default function AppNav({ username, displayLabel, avatarUrl }: { username
   const pathname = usePathname();
   const locale = useLocale();
   const isJa = locale === "ja";
-  const [menuOpen, setMenuOpen] = useState(false);
-  const [isSupporter, setIsSupporter] = useState(false);
+  const [menuOpen,     setMenuOpen]     = useState(false);
+  const [userDropOpen, setUserDropOpen] = useState(false);
+  const [isSupporter,  setIsSupporter]  = useState(false);
+  const userDropRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!userDropOpen) return;
+    function handleClickOutside(e: MouseEvent) {
+      if (userDropRef.current && !userDropRef.current.contains(e.target as Node)) {
+        setUserDropOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [userDropOpen]);
 
   useEffect(() => {
     const sb = createClient();
@@ -119,48 +132,79 @@ export default function AppNav({ username, displayLabel, avatarUrl }: { username
           })}
         </div>
 
-        {/* Right — locale switcher + avatar + @username */}
+        {/* Right — locale switcher + avatar + @username dropdown */}
         <div className="flex items-center gap-3">
           <LocaleSwitcher locale={locale} />
-          <Link
-            href={`/@${username}`}
-            style={{ display: "flex", alignItems: "center", gap: "9px", textDecoration: "none" }}
-          >
-            {avatarUrl ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img
-                src={avatarUrl}
-                alt=""
-                aria-hidden="true"
-                style={{ width: 28, height: 28, borderRadius: "50%", objectFit: "cover", flexShrink: 0 }}
-              />
-            ) : (
-              <span
-                aria-hidden="true"
-                style={{
-                  display: "inline-flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  width: 28,
-                  height: 28,
-                  borderRadius: "50%",
-                  background: ORANGE,
-                  fontFamily: MONO,
-                  fontSize: "11px",
-                  fontWeight: 600,
-                  color: "#ffffff",
-                  lineHeight: 1,
-                  flexShrink: 0,
-                  textTransform: "uppercase",
-                }}
-              >
-                {(displayLabel ?? username).charAt(0)}
+          <div ref={userDropRef} style={{ position: "relative" }}>
+            <button
+              onClick={() => setUserDropOpen(o => !o)}
+              style={{ display: "flex", alignItems: "center", gap: "9px", background: "none", border: "none", cursor: "pointer", padding: 0 }}
+            >
+              {avatarUrl ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={avatarUrl}
+                  alt=""
+                  aria-hidden="true"
+                  style={{ width: 28, height: 28, borderRadius: "50%", objectFit: "cover", flexShrink: 0 }}
+                />
+              ) : (
+                <span
+                  aria-hidden="true"
+                  style={{
+                    display: "inline-flex", alignItems: "center", justifyContent: "center",
+                    width: 28, height: 28, borderRadius: "50%", background: ORANGE,
+                    fontFamily: MONO, fontSize: "11px", fontWeight: 600, color: "#ffffff",
+                    lineHeight: 1, flexShrink: 0, textTransform: "uppercase",
+                  }}
+                >
+                  {(displayLabel ?? username).charAt(0)}
+                </span>
+              )}
+              <span style={{ fontFamily: MONO, fontSize: "10px", letterSpacing: "0.06em", color: "#888888" }}>
+                @{username}{isSupporter && <span style={{ fontFamily: SERIF, fontSize: "10px", color: "#B8860B", marginLeft: "3px" }} title="rekōdo supporter">ō</span>}
               </span>
+            </button>
+
+            {userDropOpen && (
+              <div style={{
+                position: "absolute", top: "calc(100% + 10px)", right: 0,
+                background: "#ffffff", border: "1px solid #e0e0da",
+                boxShadow: "0 4px 16px rgba(0,0,0,0.08)", zIndex: 100, minWidth: 160,
+              }}>
+                {[
+                  { href: `/@${username}`, label: "Profile",   jp: "プロフィール" },
+                  { href: "/community",    label: "Community", jp: "コミュニティ" },
+                ].map(({ href, label, jp }, i) => (
+                  <Link
+                    key={href}
+                    href={href}
+                    onClick={() => setUserDropOpen(false)}
+                    style={{
+                      display: "flex", alignItems: "center", gap: "5px",
+                      padding: "11px 16px", whiteSpace: "nowrap",
+                      fontFamily: MONO, fontSize: "9px", letterSpacing: "0.1em",
+                      textTransform: "uppercase", color: "#0a0a0a", textDecoration: "none",
+                      borderBottom: i === 0 ? "1px solid #e0e0da" : "none",
+                    }}
+                    onMouseEnter={e => (e.currentTarget.style.background = "#f7f5f0")}
+                    onMouseLeave={e => (e.currentTarget.style.background = "transparent")}
+                  >
+                    {isJa ? jp : label}
+                    <span style={{
+                      fontFamily: isJa ? MONO : JP,
+                      fontSize: "9px",
+                      letterSpacing: isJa ? "0.06em" : 0,
+                      textTransform: isJa ? "uppercase" : "none",
+                      color: "#c0c0c0",
+                    }}>
+                      {isJa ? label : jp}
+                    </span>
+                  </Link>
+                ))}
+              </div>
             )}
-            <span style={{ fontFamily: MONO, fontSize: "10px", letterSpacing: "0.06em", color: "#888888" }}>
-              @{username}{isSupporter && <span style={{ fontFamily: SERIF, fontSize: "10px", color: "#B8860B", marginLeft: "3px" }} title="rekōdo supporter">ō</span>}
-            </span>
-          </Link>
+          </div>
         </div>
       </nav>
 

@@ -2,10 +2,12 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { useLocale } from "next-intl";
 import { createClient } from "@/lib/supabase/client";
 
 const SERIF  = "var(--font-editorial)";
 const MONO   = "var(--font-dm-mono), 'Courier New', monospace";
+const JP     = "var(--font-noto-jp), sans-serif";
 const ORANGE = "#CC5500";
 
 interface LandingNavProps {
@@ -16,6 +18,8 @@ interface LandingNavProps {
 
 export default function LandingNav({ username, displayLabel, avatarUrl }: LandingNavProps) {
   const router = useRouter();
+  const locale = useLocale();
+  const isJa   = locale === "ja";
 
   async function handleSignOut() {
     await createClient().auth.signOut();
@@ -38,7 +42,31 @@ export default function LandingNav({ username, displayLabel, avatarUrl }: Landin
           ō
         </Link>
 
-        {/* Right — avatar + display name + Sign out, or Request Access */}
+        {/* Centre — Collection link (logged-in only) */}
+        {username && (
+          <Link
+            href="/collection"
+            style={{
+              position: "absolute", left: "50%", transform: "translateX(-50%)",
+              fontFamily: MONO, fontSize: "10px", letterSpacing: "0.1em",
+              textTransform: "uppercase", color: "#767676", textDecoration: "none",
+              display: "inline-flex", alignItems: "center", gap: "5px",
+            }}
+          >
+            {isJa ? "コレクション" : "Collection"}
+            <span style={{
+              fontFamily: isJa ? MONO : JP,
+              fontSize: "10px",
+              letterSpacing: isJa ? "0.06em" : 0,
+              textTransform: isJa ? "uppercase" : "none",
+              color: "#c0c0c0",
+            }}>
+              {isJa ? "Collection" : "コレクション"}
+            </span>
+          </Link>
+        )}
+
+        {/* Right — avatar + display name + Sign out, or Log in / Sign up */}
         {username ? (
           <div className="flex items-center gap-4">
             <Link
