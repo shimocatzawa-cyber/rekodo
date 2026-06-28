@@ -409,7 +409,7 @@ const FAQ_SECTIONS: { section: string; items: { q: string; a: React.ReactNode }[
     items: [
       {
         q: "What is Community?",
-        a: "Community is a tab in the Lists hub for finding other collectors. Matches surfaces collectors with similar taste based on shared tags; Collectors lets you browse and filter everyone on rekōdo; Lists shows public lists other people have built, which you can save or discover; Saved holds everything you've saved.",
+        a: "Community is where you find other collectors on rekōdo. Top Matches surfaces collectors with the closest taste based on shared artists, genre, and decade; Popular shows albums appearing across the most collections right now; Collectors I Follow tracks activity from people you follow; Open to Offers lists records other collectors are willing to sell; and All Collectors lets you browse everyone on the platform.",
       },
       {
         q: "Can I follow other collectors?",
