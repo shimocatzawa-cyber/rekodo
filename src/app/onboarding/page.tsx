@@ -18,6 +18,7 @@ export default async function OnboardingPage() {
   return (
     <OnboardingForm
       emailPrefix={emailPrefix}
+      userId={user.id}
       currentUsername={profile?.username ?? emailPrefix}
       currentDisplayName={profile?.display_name ?? ""}
       currentCity={profile?.city ?? ""}

@@ -1,9 +1,11 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useState, useTransition, useRef } from "react";
 import { COUNTRIES } from "@/lib/countries";
 import { STAR_SIGNS } from "@/lib/starSigns";
 import { saveOnboardingProfile } from "./actions";
+import { saveAvatarUrl } from "@/app/settings/profile/actions";
+import { createClient } from "@/lib/supabase/client";
 
 const SERIF  = "var(--font-editorial)";
 const MONO   = "var(--font-mono)";
@@ -11,6 +13,7 @@ const ORANGE = "#CC5500";
 
 interface Props {
   emailPrefix:        string;
+  userId:             string;
   currentUsername:    string;
   currentDisplayName: string;
   currentCity:        string;
@@ -20,6 +23,7 @@ interface Props {
 
 export default function OnboardingForm({
   emailPrefix,
+  userId,
   currentUsername,
   currentDisplayName,
   currentCity,
@@ -36,6 +40,47 @@ export default function OnboardingForm({
   const [tasteEssay,      setTasteEssay]      = useState("");
   const [error,           setError]           = useState<string | null>(null);
   const [isPending,       startTransition]    = useTransition();
+
+  const fileInputRef                          = useRef<HTMLInputElement>(null);
+  const [avatarSrc,       setAvatarSrc]       = useState<string | null>(null);
+  const [avatarHover,     setAvatarHover]     = useState(false);
+  const [avatarUploading, setAvatarUploading] = useState(false);
+  const [avatarError,     setAvatarError]     = useState<string | null>(null);
+
+  const displayInitial = (displayName || emailPrefix)[0]?.toUpperCase() ?? "?";
+
+  async function handleAvatarFile(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    (e.target as HTMLInputElement).value = "";
+    if (!file) return;
+    if (!["image/jpeg", "image/png", "image/webp"].includes(file.type)) {
+      setAvatarError("Please use JPG, PNG, or WebP.");
+      return;
+    }
+    if (file.size > 2 * 1024 * 1024) {
+      setAvatarError("Image must be under 2 MB.");
+      return;
+    }
+    setAvatarUploading(true);
+    setAvatarError(null);
+    try {
+      const supabase = createClient();
+      const path     = `${userId}/avatar.jpg`;
+      const { error: uploadError } = await supabase.storage
+        .from("avatars")
+        .upload(path, file, { upsert: true, contentType: file.type });
+      if (uploadError) throw uploadError;
+      const { data: { publicUrl } } = supabase.storage.from("avatars").getPublicUrl(path);
+      const urlWithBust = `${publicUrl}?v=${Date.now()}`;
+      const result = await saveAvatarUrl(urlWithBust);
+      if ("error" in result) throw new Error(result.error);
+      setAvatarSrc(urlWithBust);
+    } catch (err) {
+      setAvatarError(err instanceof Error ? err.message : "Upload failed.");
+    } finally {
+      setAvatarUploading(false);
+    }
+  }
 
   function handleCountryChange(e: React.ChangeEvent<HTMLSelectElement>) {
     const code = e.target.value;
@@ -88,6 +133,50 @@ export default function OnboardingForm({
         </h1>
 
         <form onSubmit={handleSubmit} className="rk-onboard-form" style={{ display: "flex", flexDirection: "column", gap: "32px" }}>
+
+          {/* Avatar */}
+          <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "12px" }}>
+            <button
+              type="button"
+              onClick={() => fileInputRef.current?.click()}
+              disabled={avatarUploading}
+              onMouseEnter={() => setAvatarHover(true)}
+              onMouseLeave={() => setAvatarHover(false)}
+              style={{
+                position: "relative", width: 80, height: 80, borderRadius: "50%", overflow: "hidden",
+                border: avatarSrc ? `2px solid ${avatarHover ? ORANGE : "#e0e0da"}` : `2px dashed ${ORANGE}`,
+                padding: 0, cursor: avatarUploading ? "default" : "pointer",
+                background: ORANGE, display: "block", transition: "border-color 0.15s",
+              }}
+            >
+              {avatarSrc ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={avatarSrc} alt="" style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
+              ) : (
+                <span style={{ display: "flex", alignItems: "center", justifyContent: "center", width: "100%", height: "100%", fontFamily: MONO, fontSize: "26px", fontWeight: 600, color: "#ffffff" }}>
+                  {displayInitial}
+                </span>
+              )}
+              <span style={{
+                position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center",
+                background: "rgba(0,0,0,0.45)",
+                opacity: avatarUploading ? 1 : avatarSrc ? (avatarHover ? 1 : 0) : (avatarHover ? 1 : 0.75),
+                transition: "opacity 0.15s", fontFamily: MONO, fontSize: "8px", letterSpacing: "0.1em", textTransform: "uppercase", color: "#ffffff",
+              }}>
+                {avatarUploading ? "…" : avatarSrc ? "Change" : "+ Photo"}
+              </span>
+            </button>
+            <div style={{ textAlign: "center" }}>
+              <p
+                onClick={() => !avatarUploading && fileInputRef.current?.click()}
+                style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.1em", textTransform: "uppercase", color: avatarSrc ? "#aaaaaa" : ORANGE, margin: 0, cursor: "pointer" }}
+              >
+                {avatarSrc ? "Change photo" : "Add a profile photo"}
+              </p>
+              {avatarError && <p style={{ fontFamily: MONO, fontSize: "10px", color: "#cc3300", margin: "4px 0 0" }}>{avatarError}</p>}
+            </div>
+            <input ref={fileInputRef} type="file" accept="image/jpeg,image/png,image/webp" onChange={handleAvatarFile} style={{ display: "none" }} />
+          </div>
 
           {/* Username */}
           <div>

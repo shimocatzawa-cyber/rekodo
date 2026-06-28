@@ -291,8 +291,13 @@ export default function ProfileClient({
                     disabled={avatarUploading}
                     onMouseEnter={() => setAvatarHover(true)}
                     onMouseLeave={() => setAvatarHover(false)}
-                    title="Change photo"
-                    style={{ position: "relative", width: 64, height: 64, borderRadius: "50%", overflow: "hidden", border: "none", padding: 0, cursor: avatarUploading ? "default" : "pointer", background: ORANGE, display: "block" }}
+                    title={avatarSrc ? "Change photo" : "Add photo"}
+                    style={{
+                      position: "relative", width: 64, height: 64, borderRadius: "50%", overflow: "hidden",
+                      border: avatarSrc ? `2px solid ${avatarHover ? ORANGE : RULE}` : `2px dashed ${ORANGE}`,
+                      padding: 0, cursor: avatarUploading ? "default" : "pointer",
+                      background: ORANGE, display: "block", transition: "border-color 0.15s",
+                    }}
                   >
                     {avatarSrc ? (
                       // eslint-disable-next-line @next/next/no-img-element
@@ -302,10 +307,21 @@ export default function ProfileClient({
                         {displayInitial}
                       </span>
                     )}
-                    <span style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", background: "rgba(0,0,0,0.35)", opacity: (avatarHover || avatarUploading) ? 1 : 0, transition: "opacity 0.15s", fontFamily: MONO, fontSize: "8px", letterSpacing: "0.1em", textTransform: "uppercase", color: "#ffffff" }}>
-                      {avatarUploading ? "…" : "Change"}
+                    <span style={{
+                      position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center",
+                      background: "rgba(0,0,0,0.45)",
+                      opacity: avatarUploading ? 1 : avatarSrc ? (avatarHover ? 1 : 0) : (avatarHover ? 1 : 0.75),
+                      transition: "opacity 0.15s", fontFamily: MONO, fontSize: "8px", letterSpacing: "0.1em", textTransform: "uppercase", color: "#ffffff",
+                    }}>
+                      {avatarUploading ? "…" : avatarSrc ? "Change" : "+ Photo"}
                     </span>
                   </button>
+                  {!avatarSrc && !avatarError && (
+                    <p style={{ fontFamily: MONO, fontSize: "8px", letterSpacing: "0.08em", textTransform: "uppercase", color: ORANGE, margin: "5px 0 0", textAlign: "center", cursor: "pointer" }}
+                      onClick={() => fileInputRef.current?.click()}>
+                      Add photo
+                    </p>
+                  )}
                   {avatarError && <p style={{ fontFamily: MONO, fontSize: "10px", color: "#cc3300", margin: "6px 0 0" }}>{avatarError}</p>}
                   <input ref={fileInputRef} type="file" accept="image/jpeg,image/png,image/webp" onChange={handleAvatarFile} style={{ display: "none" }} />
                 </div>

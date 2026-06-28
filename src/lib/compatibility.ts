@@ -56,12 +56,9 @@ export function listOverlapScore(a: Set<string>, b: Set<string>): number {
 }
 
 export function computeScore(a: UserProfile, b: UserProfile, freq: Map<string, number>): number {
-  const artist  = weightedArtistJaccard(a.artistSet,    b.artistSet,    freq) * 40;
-  const genre   = cosineSimilarity(      a.genreVector,  b.genreVector)        * 20;
-  const decade  = cosineSimilarity(      a.decadeVector, b.decadeVector)        * 15;
-  const country = jaccardSimilarity(     a.countries,    b.countries)           *  5;
-  const list    = listOverlapScore(      a.listArtists,  b.listArtists)         * 20;
-  return Math.min(100, Math.round(artist + genre + decade + country + list));
+  const artist = weightedArtistJaccard(a.artistSet,   b.artistSet,   freq) * 70;
+  const genre  = cosineSimilarity(     a.genreVector, b.genreVector)       * 30;
+  return Math.min(100, Math.round(artist + genre));
 }
 
 export function buildSharedTags(a: UserProfile, b: UserProfile, freq: Map<string, number>): string[] {
