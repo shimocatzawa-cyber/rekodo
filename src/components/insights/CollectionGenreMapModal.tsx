@@ -160,11 +160,22 @@ export default function CollectionGenreMapModal({ onClose, ...cardProps }: Props
   const [copyState, setCopyState] = useState<"idle" | "copied" | "failed">("idle");
   const exportRef = useRef<HTMLDivElement>(null);
   const [cardH, setCardH] = useState<number | null>(null);
+  const [scale, setScale] = useState(() => {
+    if (typeof window === "undefined") return 508 / 560;
+    const avail = Math.min(560, window.innerWidth - 48) - 40;
+    return Math.min(1, Math.max(0.3, avail / 560));
+  });
 
   useEffect(() => {
     document.fonts.ready.then(() => {
       if (exportRef.current) setCardH(exportRef.current.offsetHeight);
     });
+    const onResize = () => {
+      const avail = Math.min(560, window.innerWidth - 48) - 40;
+      setScale(Math.min(1, Math.max(0.3, avail / 560)));
+    };
+    window.addEventListener("resize", onResize);
+    return () => window.removeEventListener("resize", onResize);
   }, []);
 
   async function buildCanvas(): Promise<HTMLCanvasElement | null> {
@@ -211,7 +222,7 @@ export default function CollectionGenreMapModal({ onClose, ...cardProps }: Props
     finally { setExporting(false); setTimeout(() => setCopyState("idle"), 2500); }
   }
 
-  const SCALE = Math.min(1, 508 / 560);
+  const SCALE = scale;
   const PRV_W = Math.round(560 * SCALE);
   const PRV_H = cardH != null ? Math.round(cardH * SCALE) : 460;
   const busy  = exporting || cardH == null;

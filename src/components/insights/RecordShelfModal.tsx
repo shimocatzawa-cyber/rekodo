@@ -12,6 +12,28 @@ const INK     = "#1a1a1a";
 const MUTED   = "#888888";
 const RULE    = "#dddad2";
 
+async function imgToDataUrl(url: string): Promise<string | null> {
+  try {
+    const res = await fetch(url);
+    if (!res.ok) return null;
+    const blob = await res.blob();
+    return await new Promise<string>((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result as string);
+      reader.onerror = reject;
+      reader.readAsDataURL(blob);
+    });
+  } catch {
+    return null;
+  }
+}
+
+function calcScale(): number {
+  if (typeof window === "undefined") return 508 / 560;
+  const avail = Math.min(560, window.innerWidth - 48) - 40;
+  return Math.min(1, Math.max(0.3, avail / 560));
+}
+
 interface CardProps {
   username:           string;
   totalRecords:       number;
@@ -81,7 +103,7 @@ const TIER_META: Record<string, { label: string; color: string }> = {
   "in-demand":    { label: "In Demand",    color: "#085041" },
 };
 
-function ShelfCard({ username, totalRecords, styleBreakdown, genreBreakdown, desirabilityBreakdown, topArtist, topArtistCount, oldestAlbum, newestAlbum, collectionPhotoUrl, formatBreakdown, forExport = false }: CardProps & { forExport?: boolean }) {
+function ShelfCard({ username, totalRecords, styleBreakdown, genreBreakdown, desirabilityBreakdown, topArtist, topArtistCount, oldestAlbum, newestAlbum, collectionPhotoUrl, formatBreakdown, resolvedPhotoUrl }: CardProps & { resolvedPhotoUrl?: string }) {
   const VINYL_FMTS = new Set(["LP", "VINYL", "7\"", "10\"", "12\"", "EP"]);
   const CD_FMTS    = new Set(["CD", "CDR", "CD, ALBUM"]);
   const CASS_FMTS  = new Set(["CASSETTE", "CASS"]);
@@ -106,6 +128,8 @@ function ShelfCard({ username, totalRecords, styleBreakdown, genreBreakdown, des
 
   const sortedDesire = [...desirabilityBreakdown].sort((a, b) => b.count - a.count);
   const desirePcts = sortedDesire.map(d => Math.round((d.count / totalRecords) * 100));
+
+  const photoSrc = resolvedPhotoUrl ?? collectionPhotoUrl ?? "/shelf-photo.jpg";
 
   return (
     <div style={{ width: 560, background: BG, boxSizing: "border-box", minHeight: 660, display: "flex", flexDirection: "column" }}>
@@ -145,10 +169,9 @@ function ShelfCard({ username, totalRecords, styleBreakdown, genreBreakdown, des
           <div style={{ width: "100%", overflow: "hidden", borderRadius: 4 }}>
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
-              src={collectionPhotoUrl ?? "/shelf-photo.jpg"}
+              src={photoSrc}
               alt="Record shelf"
               style={{ width: "100%", height: 220, objectFit: "cover", objectPosition: "left top", display: "block" }}
-              crossOrigin={forExport ? "anonymous" : undefined}
             />
           </div>
         </div>
@@ -238,15 +261,27 @@ function ShelfCard({ username, totalRecords, styleBreakdown, genreBreakdown, des
 }
 
 export default function RecordShelfModal({ onClose, ...cardProps }: Props) {
-  const [exporting, setExporting] = useState(false);
-  const [copyState, setCopyState] = useState<"idle" | "copied" | "failed">("idle");
+  const [exporting, setExporting]   = useState(false);
+  const [copyState, setCopyState]   = useState<"idle" | "copied" | "failed">("idle");
+  const [photoSrc, setPhotoSrc]     = useState<string | undefined>(undefined);
+  const [scale, setScale]           = useState(calcScale);
   const exportRef = useRef<HTMLDivElement>(null);
-  const [cardH, setCardH] = useState<number | null>(null);
+  const [cardH, setCardH]           = useState<number | null>(null);
 
   useEffect(() => {
-    document.fonts.ready.then(() => {
+    async function init() {
+      const url = cardProps.collectionPhotoUrl ?? "/shelf-photo.jpg";
+      const dataUrl = await imgToDataUrl(url);
+      setPhotoSrc(dataUrl ?? url);
+      await document.fonts.ready;
       if (exportRef.current) setCardH(exportRef.current.offsetHeight);
-    });
+    }
+    init();
+
+    const onResize = () => setScale(calcScale());
+    window.addEventListener("resize", onResize);
+    return () => window.removeEventListener("resize", onResize);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   async function buildCanvas(): Promise<HTMLCanvasElement | null> {
@@ -293,17 +328,17 @@ export default function RecordShelfModal({ onClose, ...cardProps }: Props) {
     finally { setExporting(false); setTimeout(() => setCopyState("idle"), 2500); }
   }
 
-  const SCALE = Math.min(1, 508 / 560);
-  const PRV_W = Math.round(560 * SCALE);
-  const PRV_H = cardH != null ? Math.round(cardH * SCALE) : 380;
-  const busy  = exporting || cardH == null;
+  const PRV_W = Math.round(560 * scale);
+  const PRV_H = cardH != null ? Math.round(cardH * scale) : 380;
+  const busy  = exporting || cardH == null || photoSrc === undefined;
 
   return (
     <div onClick={e => { if (e.target === e.currentTarget) onClose(); }}
       style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.55)", zIndex: 300, display: "flex", alignItems: "center", justifyContent: "center", padding: 24 }}>
 
+      {/* Off-screen export card — uses pre-fetched data URL for reliable image capture */}
       <div style={{ position: "fixed", left: -9999, top: -9999, zIndex: -1 }}>
-        <div ref={exportRef}><ShelfCard {...cardProps} forExport /></div>
+        <div ref={exportRef}><ShelfCard {...cardProps} resolvedPhotoUrl={photoSrc ?? cardProps.collectionPhotoUrl ?? "/shelf-photo.jpg"} /></div>
       </div>
 
       <div style={{ background: "#fff", maxWidth: 560, width: "100%", maxHeight: "94vh", display: "flex", flexDirection: "column" }}>
@@ -317,7 +352,7 @@ export default function RecordShelfModal({ onClose, ...cardProps }: Props) {
             <p style={{ fontFamily: UI_MONO, fontSize: 10, color: "#aaa", letterSpacing: "0.06em", alignSelf: "center" }}>Loading…</p>
           ) : (
             <div style={{ width: PRV_W, height: PRV_H, overflow: "hidden", flexShrink: 0, outline: "1px solid rgba(0,0,0,0.07)" }}>
-              <div style={{ transform: `scale(${SCALE})`, transformOrigin: "top left", display: "inline-block" }}>
+              <div style={{ transform: `scale(${scale})`, transformOrigin: "top left", display: "inline-block" }}>
                 <ShelfCard {...cardProps} />
               </div>
             </div>

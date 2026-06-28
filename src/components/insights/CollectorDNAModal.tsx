@@ -12,6 +12,28 @@ const INK     = "#1a1a1a";
 const MUTED   = "#888888";
 const RULE    = "#dddad2";
 
+async function imgToDataUrl(url: string): Promise<string | null> {
+  try {
+    const res = await fetch(url);
+    if (!res.ok) return null;
+    const blob = await res.blob();
+    return await new Promise<string>((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result as string);
+      reader.onerror = reject;
+      reader.readAsDataURL(blob);
+    });
+  } catch {
+    return null;
+  }
+}
+
+function calcScale(): number {
+  if (typeof window === "undefined") return 508 / 560;
+  const avail = Math.min(560, window.innerWidth - 48) - 40;
+  return Math.min(1, Math.max(0.3, avail / 560));
+}
+
 interface CardProps {
   username:           string;
   primaryStyle:       string | null;
@@ -35,7 +57,7 @@ function StatRow({ jaLabel, enLabel, value, noBorder }: { jaLabel: string; enLab
   );
 }
 
-function DNACard({ username, primaryStyle, styleObsession, avgReleaseYear, topCountry, rarityPct, collectorArchetype, collectorSinceYear, totalRecords, forExport = false }: CardProps & { forExport?: boolean }) {
+function DNACard({ username, primaryStyle, styleObsession, avgReleaseYear, topCountry, rarityPct, collectorArchetype, collectorSinceYear, totalRecords, vinylSrc = "/vinyl-record.png" }: CardProps & { vinylSrc?: string }) {
   return (
     <div style={{ width: 560, background: BG, boxSizing: "border-box", fontFamily: SERIF, position: "relative", minHeight: 660, display: "flex", flexDirection: "column" }}>
 
@@ -78,10 +100,9 @@ function DNACard({ username, primaryStyle, styleObsession, avgReleaseYear, topCo
           <div style={{ width: 210, height: 210, borderRadius: "50%", overflow: "hidden", flexShrink: 0, background: BG }}>
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
-              src="/vinyl-record.png"
+              src={vinylSrc}
               alt="Vinyl record"
               style={{ width: "100%", height: "100%", objectFit: "cover", display: "block", mixBlendMode: "multiply" }}
-              crossOrigin={forExport ? "anonymous" : undefined}
             />
           </div>
           <div style={{ textAlign: "center", marginTop: 10 }}>
@@ -104,16 +125,25 @@ function DNACard({ username, primaryStyle, styleObsession, avgReleaseYear, topCo
 }
 
 export default function CollectorDNAModal({ onClose, ...cardProps }: Props) {
-  const [exporting, setExporting]  = useState(false);
-  const [copyState, setCopyState]  = useState<"idle" | "copied" | "failed">("idle");
+  const [exporting, setExporting]   = useState(false);
+  const [copyState, setCopyState]   = useState<"idle" | "copied" | "failed">("idle");
+  const [vinylSrc, setVinylSrc]     = useState<string | undefined>(undefined);
+  const [scale, setScale]           = useState(calcScale);
   const exportRef = useRef<HTMLDivElement>(null);
+  const [cardH, setCardH]           = useState<number | null>(null);
 
-  // Measure card height for preview
-  const [cardH, setCardH] = useState<number | null>(null);
   useEffect(() => {
-    document.fonts.ready.then(() => {
+    async function init() {
+      const dataUrl = await imgToDataUrl("/vinyl-record.png");
+      setVinylSrc(dataUrl ?? "/vinyl-record.png");
+      await document.fonts.ready;
       if (exportRef.current) setCardH(exportRef.current.offsetHeight);
-    });
+    }
+    init();
+
+    const onResize = () => setScale(calcScale());
+    window.addEventListener("resize", onResize);
+    return () => window.removeEventListener("resize", onResize);
   }, []);
 
   async function buildCanvas(): Promise<HTMLCanvasElement | null> {
@@ -160,18 +190,17 @@ export default function CollectorDNAModal({ onClose, ...cardProps }: Props) {
     finally { setExporting(false); setTimeout(() => setCopyState("idle"), 2500); }
   }
 
-  const SCALE = Math.min(1, 508 / 560);
-  const PRV_W = Math.round(560 * SCALE);
-  const PRV_H = cardH != null ? Math.round(cardH * SCALE) : 340;
-  const busy  = exporting || cardH == null;
+  const PRV_W = Math.round(560 * scale);
+  const PRV_H = cardH != null ? Math.round(cardH * scale) : 340;
+  const busy  = exporting || cardH == null || vinylSrc === undefined;
 
   return (
     <div onClick={e => { if (e.target === e.currentTarget) onClose(); }}
       style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.55)", zIndex: 300, display: "flex", alignItems: "center", justifyContent: "center", padding: 24 }}>
 
-      {/* Off-screen export card */}
+      {/* Off-screen export card — uses pre-fetched data URL for reliable image capture */}
       <div style={{ position: "fixed", left: -9999, top: -9999, zIndex: -1 }}>
-        <div ref={exportRef}><DNACard {...cardProps} forExport /></div>
+        <div ref={exportRef}><DNACard {...cardProps} vinylSrc={vinylSrc ?? "/vinyl-record.png"} /></div>
       </div>
 
       <div style={{ background: "#fff", maxWidth: 560, width: "100%", maxHeight: "94vh", display: "flex", flexDirection: "column" }}>
@@ -185,7 +214,7 @@ export default function CollectorDNAModal({ onClose, ...cardProps }: Props) {
             <p style={{ fontFamily: UI_MONO, fontSize: 10, color: "#aaa", letterSpacing: "0.06em", alignSelf: "center" }}>Loading…</p>
           ) : (
             <div style={{ width: PRV_W, height: PRV_H, overflow: "hidden", flexShrink: 0, outline: "1px solid rgba(0,0,0,0.07)" }}>
-              <div style={{ transform: `scale(${SCALE})`, transformOrigin: "top left", display: "inline-block" }}>
+              <div style={{ transform: `scale(${scale})`, transformOrigin: "top left", display: "inline-block" }}>
                 <DNACard {...cardProps} />
               </div>
             </div>

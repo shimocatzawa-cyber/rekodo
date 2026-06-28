@@ -179,6 +179,11 @@ export default function EssentialsWallModal({ onClose, username, covers, total, 
   const [cardH,        setCardH]        = useState<number | null>(null);
   const [exporting,    setExporting]    = useState(false);
   const [copyState,    setCopyState]    = useState<"idle" | "copied" | "failed">("idle");
+  const [scale, setScale] = useState(() => {
+    if (typeof window === "undefined") return 508 / CARD_W;
+    const avail = Math.min(560, window.innerWidth - 48) - 40;
+    return Math.min(1, Math.max(0.3, avail / CARD_W));
+  });
   const exportRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -194,6 +199,12 @@ export default function EssentialsWallModal({ onClose, username, covers, total, 
     document.fonts.ready.then(() => {
       if (exportRef.current) setCardH(exportRef.current.offsetHeight);
     });
+    const onResize = () => {
+      const avail = Math.min(560, window.innerWidth - 48) - 40;
+      setScale(Math.min(1, Math.max(0.3, avail / CARD_W)));
+    };
+    window.addEventListener("resize", onResize);
+    return () => window.removeEventListener("resize", onResize);
   }, []);
 
   async function buildCanvas(): Promise<HTMLCanvasElement | null> {
@@ -274,7 +285,7 @@ export default function EssentialsWallModal({ onClose, username, covers, total, 
     }
   }
 
-  const SCALE = Math.min(1, 508 / CARD_W);
+  const SCALE = scale;
   const PRV_W = Math.round(CARD_W * SCALE);
   const PRV_H = cardH != null ? Math.round(cardH * SCALE) : 0;
 

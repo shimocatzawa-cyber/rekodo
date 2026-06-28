@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { toPng } from "html-to-image";
 import type { SpectrumData } from "@/components/insights/TasteProfile";
 
@@ -106,10 +106,24 @@ export default function SpectrumShareModal({ onClose, username, spectrum }: Prop
   const exportRef = useRef<HTMLDivElement>(null);
   const [exporting,  setExporting]  = useState(false);
   const [copyState,  setCopyState]  = useState<"idle" | "copied" | "failed">("idle");
+  const [scale, setScale] = useState(() => {
+    if (typeof window === "undefined") return 508 / 540;
+    const avail = Math.min(560, window.innerWidth - 48) - 40;
+    return Math.min(1, Math.max(0.3, avail / 540));
+  });
+
+  useEffect(() => {
+    const onResize = () => {
+      const avail = Math.min(560, window.innerWidth - 48) - 40;
+      setScale(Math.min(1, Math.max(0.3, avail / 540)));
+    };
+    window.addEventListener("resize", onResize);
+    return () => window.removeEventListener("resize", onResize);
+  }, []);
 
   const CARD_W = 540;
   const CARD_H = 675;
-  const SCALE  = Math.min(1, 508 / CARD_W);
+  const SCALE  = scale;
   const PRV_W  = Math.round(CARD_W * SCALE);
   const PRV_H  = Math.round(CARD_H * SCALE);
 
