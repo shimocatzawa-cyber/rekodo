@@ -334,21 +334,12 @@ h1, h2, h3, h4, h5, h6 {
     padding: 20px !important;
   }
 
-  /* Community – inner sub-tab bar: 4 tabs, each ~90px on 375px           */
+  /* Community – replace scrolling tab bar with a dropdown select on mobile */
   .rk-community-tabs {
-    overflow-x: auto !important;
-    -webkit-overflow-scrolling: touch;
-    flex-wrap: nowrap !important;
-    scrollbar-width: none;
+    display: none !important;
   }
-  .rk-community-tabs::-webkit-scrollbar {
-    display: none;
-  }
-  .rk-community-tabs button {
-    padding-left: 10px !important;
-    padding-right: 10px !important;
-    font-size: 0.52rem !important;
-    white-space: nowrap !important;
+  .rk-community-select {
+    display: block !important;
   }
 
   /* Community page grid: sidebar + main → single column, sidebar on top   */
@@ -407,6 +398,11 @@ h1, h2, h3, h4, h5, h6 {
   .rk-playlist-header {
     flex-wrap: wrap !important;
   }
+}
+
+/* Community sub-tab select — hidden on desktop, shown on mobile via @media above */
+.rk-community-select {
+  display: none;
 }
 
 /* ── Safe-area insets (notch / home-bar aware, viewport-fit=cover) ──────────
