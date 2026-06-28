@@ -3,6 +3,8 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
+import TrendingRecords from "./TrendingRecords";
+import OpenToOffers from "./OpenToOffers";
 
 const SERIF  = "var(--font-editorial)";
 const MONO   = "var(--font-mono)";
@@ -12,7 +14,7 @@ const INK    = "#0a0a0a";
 const MUTED  = "#aaaaaa";
 const GOLD   = "#C9A84C";
 
-type SubTab = "matches" | "following" | "collectors" | "lists" | "saved";
+type SubTab = "matches" | "following" | "collectors" | "trending" | "offers";
 
 type Follower = {
   id: string;
@@ -30,6 +32,7 @@ type Match = {
   location: string | null;
   recordCount: number;
   score: number;
+  styleScore: number;
   label: string;
   description: string;
   sharedTags: string[];
@@ -45,6 +48,8 @@ type Collector = {
   city: string | null;
   country: string | null;
   is_donor: boolean | null;
+  collectionScore: number | null;
+  styleScore: number | null;
 };
 
 type ActivityItem = {
@@ -125,7 +130,9 @@ function MatchCard({ match, isFollowing, canFollow, onFollow }: {
 
       <div>
         <span style={{ fontFamily: MONO, fontSize: "0.5rem", letterSpacing: "0.08em", textTransform: "uppercase", color: ORANGE }}>{match.score}% Collection Similarity</span>
-        <p style={{ fontFamily: SERIF, fontStyle: "italic", fontSize: "0.85rem", color: "#505050", lineHeight: 1.4, margin: "4px 0 0" }}>
+        <br />
+        <span style={{ fontFamily: MONO, fontSize: "0.5rem", letterSpacing: "0.08em", textTransform: "uppercase", color: "#888" }}>{match.styleScore}% Style Similarity</span>
+        <p style={{ fontFamily: SERIF, fontStyle: "italic", fontSize: "0.85rem", color: "#505050", lineHeight: 1.4, margin: "5px 0 0" }}>
           {match.label}
         </p>
       </div>
@@ -173,6 +180,23 @@ function CollectorRow({ collector, isLast, isFollowing, canFollow, onFollow }: {
             @{collector.username}{location ? ` · ${location}` : ""}
           </p>
         </Link>
+        {(collector.collectionScore !== null || collector.styleScore !== null) && (
+          <div style={{ marginTop: "4px" }}>
+            {collector.collectionScore !== null && (
+              <span style={{ fontFamily: MONO, fontSize: "0.48rem", letterSpacing: "0.07em", textTransform: "uppercase", color: ORANGE }}>
+                {collector.collectionScore}% Collection
+              </span>
+            )}
+            {collector.collectionScore !== null && collector.styleScore !== null && (
+              <span style={{ fontFamily: MONO, fontSize: "0.48rem", color: MUTED }}> · </span>
+            )}
+            {collector.styleScore !== null && (
+              <span style={{ fontFamily: MONO, fontSize: "0.48rem", letterSpacing: "0.07em", textTransform: "uppercase", color: "#888" }}>
+                {collector.styleScore}% Style
+              </span>
+            )}
+          </div>
+        )}
       </div>
       {canFollow && (
         <button onClick={onFollow} style={{ fontFamily: MONO, fontSize: "0.5rem", letterSpacing: "0.08em", textTransform: "uppercase", background: "none", border: `1px solid ${isFollowing ? RULE : ORANGE}`, color: isFollowing ? MUTED : ORANGE, cursor: "pointer", padding: "4px 12px", flexShrink: 0 }}>
@@ -283,7 +307,7 @@ function ActivityRow({ item }: { item: ActivityItem }) {
 
 // ── Main component ─────────────────────────────────────────────────────────────
 
-export default function CommunityTab({ profileOwnerId }: { profileOwnerId: string }) {
+export default function CommunityTab({ profileOwnerId, hideSocialPanel = false }: { profileOwnerId: string; hideSocialPanel?: boolean }) {
   const [viewerUserId, setViewerUserId] = useState<string | null>(null);
   const viewerUserIdRef  = useRef<string | null>(null);
   const pendingTogglesRef = useRef<Set<string>>(new Set());
@@ -309,17 +333,6 @@ export default function CommunityTab({ profileOwnerId }: { profileOwnerId: strin
   // All collectors
   const [collectors,        setCollectors]        = useState<Collector[]>([]);
   const [collectorsLoading, setCollectorsLoading] = useState(false);
-
-  // Lists from network
-  const [lists,      setLists]      = useState<ListEntry[]>([]);
-  const [listsState, setListsState] = useState<"idle" | "loading" | "done">("idle");
-
-  // Saved lists
-  const [savedLists,      setSavedLists]      = useState<ListEntry[]>([]);
-  const [savedListsState, setSavedListsState] = useState<"idle" | "loading" | "done">("idle");
-
-  // Save state (list id → saved bool)
-  const [saveState, setSaveState] = useState<Record<string, boolean>>({});
 
   // Follow state
   const [followState,  setFollowState]  = useState<Record<string, boolean>>({});
@@ -419,58 +432,6 @@ export default function CommunityTab({ profileOwnerId }: { profileOwnerId: strin
     }
   }
 
-  // Load lists when tab is active (lazy)
-  useEffect(() => {
-    if (subTab !== "lists" || listsState !== "idle") return;
-    setListsState("loading");
-    fetch("/api/lists/following")
-      .then(r => r.ok ? r.json() : { lists: [] })
-      .then(d => {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const entries: ListEntry[] = (d.lists ?? []).map((l: any) => ({
-          id: l.id, title: l.title, slug: l.slug,
-          userId: l.userId ?? "",
-          username: l.username, displayName: l.displayName ?? null,
-          covers: l.covers ?? [], itemCount: l.itemCount ?? 0,
-          recordCount: l.recordCount ?? 0,
-          isSaved: l.isSaved ?? false,
-          matchScore: l.matchScore, matchLabel: l.matchLabel,
-        }));
-        setLists(entries);
-        const ss: Record<string, boolean> = {};
-        for (const l of entries) ss[l.id] = l.isSaved;
-        setSaveState(prev => ({ ...prev, ...ss }));
-        setListsState("done");
-      })
-      .catch(() => setListsState("done"));
-  }, [subTab, listsState]);
-
-  // Load saved lists when tab is active (lazy)
-  useEffect(() => {
-    if (subTab !== "saved" || savedListsState !== "idle") return;
-    setSavedListsState("loading");
-    fetch("/api/lists/saved")
-      .then(r => r.ok ? r.json() : { lists: [] })
-      .then(d => {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const entries: ListEntry[] = (d.lists ?? []).map((l: any) => ({
-          id: l.id, title: l.title, slug: l.slug,
-          userId: l.userId ?? "",
-          username: l.username, displayName: l.displayName ?? null,
-          covers: l.covers ?? [], itemCount: l.itemCount ?? 0,
-          recordCount: l.recordCount ?? 0,
-          isSaved: true,
-          matchScore: l.matchScore, matchLabel: l.matchLabel,
-        }));
-        setSavedLists(entries);
-        const ss: Record<string, boolean> = {};
-        for (const l of entries) ss[l.id] = true;
-        setSaveState(prev => ({ ...prev, ...ss }));
-        setSavedListsState("done");
-      })
-      .catch(() => setSavedListsState("done"));
-  }, [subTab, savedListsState]);
-
   // Load collectors with debounced search, pre-populating follow state from DB.
   // Uses refs (not state) for viewerUserId and pendingToggles so this callback
   // is stable across renders and never triggers a spurious re-fetch.
@@ -490,28 +451,30 @@ export default function CommunityTab({ profileOwnerId }: { profileOwnerId: strin
         q = q.order("username", { ascending: true });
       }
       const { data } = await q;
-      const profiles = (data ?? []) as Collector[];
+      const profiles = (data ?? []).map((p: any) => ({ ...p, collectionScore: null, styleScore: null })) as Collector[];
       setCollectors(profiles);
 
       // Read viewerUserId from ref so this callback doesn't rebuild on auth load
       const vid = viewerUserIdRef.current;
       if (vid && profiles.length > 0) {
         const ids = profiles.map(c => c.id);
-        const { data: followRows } = await supabase
-          .from("follows")
-          .select("following_id")
-          .eq("follower_id", vid)
-          .in("following_id", ids);
-        const followedSet = new Set((followRows ?? []).map(r => r.following_id as string));
+
+        const [followRows, scoresRes] = await Promise.all([
+          supabase.from("follows").select("following_id").eq("follower_id", vid).in("following_id", ids),
+          fetch(`/api/collectors/batch-scores?targetIds=${ids.join(",")}`).then(r => r.ok ? r.json() : { scores: [] }),
+        ]);
+
+        const followedSet = new Set((followRows.data ?? []).map(r => r.following_id as string));
+        const scoreMap = new Map<string, { collectionScore: number | null; styleScore: number }>(
+          (scoresRes.scores ?? []).map((s: any) => [s.userId, { collectionScore: s.collectionScore, styleScore: s.styleScore }])
+        );
+
         const fs: Record<string, boolean> = {};
         for (const id of ids) {
-          // Never overwrite a follow state that's mid-toggle — that would undo
-          // the optimistic update before the API call has confirmed the change.
-          if (!pendingTogglesRef.current.has(id)) {
-            fs[id] = followedSet.has(id);
-          }
+          if (!pendingTogglesRef.current.has(id)) fs[id] = followedSet.has(id);
         }
         setFollowState(prev => ({ ...prev, ...fs }));
+        setCollectors(profiles.map(c => ({ ...c, ...(scoreMap.get(c.id) ?? {}) })));
       }
     } finally {
       setCollectorsLoading(false);
@@ -560,43 +523,12 @@ export default function CommunityTab({ profileOwnerId }: { profileOwnerId: strin
     }
   }
 
-  const [saveError, setSaveError] = useState<string | null>(null);
-
-  async function toggleSaveList(listId: string) {
-    if (!viewerUserId) return;
-    const prev = saveState[listId] ?? false;
-    setSaveState(s => ({ ...s, [listId]: !prev }));
-    setSaveError(null);
-    try {
-      const res = await fetch("/api/lists/save", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ listId }),
-      });
-      const data = await res.json() as { saved?: boolean; error?: string };
-      if (typeof data.saved === "boolean") {
-        setSaveState(s => ({ ...s, [listId]: data.saved! }));
-        if (savedListsState === "done") setSavedListsState("idle");
-      } else {
-        const msg = `Save failed (${res.status}): ${data.error ?? "unknown"}`;
-        console.error("[save list] API error:", msg);
-        setSaveError(msg);
-        setSaveState(s => ({ ...s, [listId]: prev }));
-      }
-    } catch (err) {
-      const msg = `Network error: ${err instanceof Error ? err.message : "unknown"}`;
-      console.error("[save list] fetch error:", msg);
-      setSaveError(msg);
-      setSaveState(s => ({ ...s, [listId]: prev }));
-    }
-  }
-
   const TABS: Array<{ key: SubTab; label: string }> = [
     { key: "matches",    label: "Top Matches" },
+    { key: "trending",   label: "Popular" },
     { key: "following",  label: "Collectors I Follow" },
+    { key: "offers",     label: "Open to Offers" },
     { key: "collectors", label: "All Collectors" },
-    { key: "lists",      label: "Lists" },
-    { key: "saved",      label: "Saved Lists" },
   ];
 
   return (
@@ -604,7 +536,7 @@ export default function CommunityTab({ profileOwnerId }: { profileOwnerId: strin
       <div style={{ maxWidth: 860, margin: "0 auto" }}>
 
         {/* ── Followers + Following ──────────────────────────────────────────────── */}
-        {followersLoaded && (
+        {!hideSocialPanel && followersLoaded && (
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "24px", marginBottom: "32px", paddingBottom: "28px", borderBottom: `1px solid ${RULE}` }}>
             {/* Following — who this profile follows */}
             <div>
@@ -697,6 +629,9 @@ export default function CommunityTab({ profileOwnerId }: { profileOwnerId: strin
         </div>
 
         {/* ── Top Matches ────────────────────────────────────────────────────── */}
+        {subTab === "trending" && <TrendingRecords />}
+        {subTab === "offers"   && <OpenToOffers />}
+
         {subTab === "matches" && (
           <>
             {matchesLoading && (
@@ -786,76 +721,6 @@ export default function CommunityTab({ profileOwnerId }: { profileOwnerId: strin
                     isFollowing={followState[c.id] ?? false}
                     canFollow={!!viewerUserId && viewerUserId !== c.id}
                     onFollow={() => toggleFollow(c.id, { id: c.id, username: c.username, display_name: c.display_name, avatar_url: c.avatar_url, is_donor: c.is_donor })}
-                  />
-                ))}
-              </div>
-            )}
-          </>
-        )}
-
-        {/* ── Lists from Network ──────────────────────────────────────────────── */}
-        {subTab === "lists" && (
-          <>
-            {saveError && (
-              <p style={{ fontFamily: MONO, fontSize: "0.6rem", color: "#ef4444", letterSpacing: "0.04em", marginBottom: "12px", padding: "8px 12px", background: "#fef2f2", border: "1px solid #fecaca" }}>
-                {saveError}
-              </p>
-            )}
-            {listsState === "loading" && (
-              <p style={{ fontFamily: MONO, fontSize: "0.55rem", color: MUTED, letterSpacing: "0.08em" }}>Loading…</p>
-            )}
-            {listsState === "done" && lists.length === 0 && (
-              <div style={{ paddingTop: "16px" }}>
-                <p style={{ fontFamily: SERIF, fontSize: "1.1rem", color: INK, marginBottom: "8px" }}>No lists yet.</p>
-                <p style={{ fontFamily: MONO, fontSize: "0.65rem", color: MUTED, lineHeight: 1.7 }}>
-                  Follow collectors to see their lists here. Use Top Matches to find collectors with similar taste.
-                </p>
-              </div>
-            )}
-            {listsState === "done" && lists.length > 0 && (
-              <div>
-                {lists.map(list => (
-                  <ListCard
-                    key={list.id}
-                    list={list}
-                    isSaved={saveState[list.id] ?? list.isSaved}
-                    canSave={!!viewerUserId}
-                    onSave={() => toggleSaveList(list.id)}
-                  />
-                ))}
-              </div>
-            )}
-          </>
-        )}
-
-        {/* ── Saved Lists ─────────────────────────────────────────────────────── */}
-        {subTab === "saved" && (
-          <>
-            {saveError && (
-              <p style={{ fontFamily: MONO, fontSize: "0.6rem", color: "#ef4444", letterSpacing: "0.04em", marginBottom: "12px", padding: "8px 12px", background: "#fef2f2", border: "1px solid #fecaca" }}>
-                {saveError}
-              </p>
-            )}
-            {savedListsState === "loading" && (
-              <p style={{ fontFamily: MONO, fontSize: "0.55rem", color: MUTED, letterSpacing: "0.08em" }}>Loading…</p>
-            )}
-            {savedListsState === "done" && savedLists.length === 0 && (
-              <div style={{ paddingTop: "16px" }}>
-                <p style={{ fontFamily: SERIF, fontSize: "1.1rem", color: INK, marginBottom: "8px" }}>No saved lists yet.</p>
-                <p style={{ fontFamily: MONO, fontSize: "0.65rem", color: MUTED, lineHeight: 1.7 }}>
-                  Browse Lists to find Top 5s worth saving. Hit Save on any list to pin it here.
-                </p>
-              </div>
-            )}
-            {savedListsState === "done" && savedLists.length > 0 && (
-              <div>
-                {savedLists.map(list => (
-                  <ListCard
-                    key={list.id}
-                    list={list}
-                    isSaved={saveState[list.id] ?? true}
-                    canSave={!!viewerUserId}
-                    onSave={() => toggleSaveList(list.id)}
                   />
                 ))}
               </div>

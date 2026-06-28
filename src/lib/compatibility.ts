@@ -31,19 +31,21 @@ export function jaccardSimilarity(a: Set<string>, b: Set<string>): number {
   return inter / (a.size + b.size - inter);
 }
 
-// IDF-weighted Jaccard: rare shared artists score higher than common ones
+// IDF-weighted geometric mean similarity.
+// Computes overlap from each side (shared/A and shared/B), then takes the
+// geometric mean so large collections aren't penalised for breadth.
 export function weightedArtistJaccard(a: Set<string>, b: Set<string>, freq: Map<string, number>): number {
   if (a.size === 0 || b.size === 0) return 0;
-  let num = 0, den = 0;
+  let shared = 0, wA = 0, wB = 0;
   const all = new Set([...a, ...b]);
   for (const artist of all) {
-    const w   = 1 / Math.log2((freq.get(artist) ?? 1) + 2); // rarer → higher weight
-    const inA = a.has(artist) ? 1 : 0;
-    const inB = b.has(artist) ? 1 : 0;
-    num += w * inA * inB;
-    den += w * Math.max(inA, inB);
+    const w = 1 / Math.log2((freq.get(artist) ?? 1) + 2);
+    if (a.has(artist) && b.has(artist)) shared += w;
+    if (a.has(artist)) wA += w;
+    if (b.has(artist)) wB += w;
   }
-  return den > 0 ? num / den : 0;
+  if (wA === 0 || wB === 0) return 0;
+  return Math.sqrt((shared / wA) * (shared / wB));
 }
 
 // List overlap with 3× weight (same artist in both Top 5 lists is a strong signal)
@@ -55,10 +57,20 @@ export function listOverlapScore(a: Set<string>, b: Set<string>): number {
   return maxPossible > 0 ? Math.min(1, (shared * 3) / (maxPossible * 3)) : 0;
 }
 
+export function computeStyleScore(a: UserProfile, b: UserProfile): number {
+  const s = cosineSimilarity(a.genreVector, b.genreVector) * 0.6
+          + cosineSimilarity(a.decadeVector, b.decadeVector) * 0.4;
+  return Math.round(s * 100);
+}
+
 export function computeScore(a: UserProfile, b: UserProfile, freq: Map<string, number>): number {
-  const artist = weightedArtistJaccard(a.artistSet,   b.artistSet,   freq) * 70;
-  const genre  = cosineSimilarity(     a.genreVector, b.genreVector)       * 30;
-  return Math.min(100, Math.round(artist + genre));
+  const artist = weightedArtistJaccard(a.artistSet, b.artistSet, freq) * 100;
+  // Style boost: genre + decade cosine similarity, only applied when there is
+  // meaningful artist overlap (≥10) so style alone can't create false affinity.
+  const styleSim = cosineSimilarity(a.genreVector, b.genreVector) * 0.6
+                 + cosineSimilarity(a.decadeVector, b.decadeVector) * 0.4;
+  const boost = artist >= 10 ? Math.round(styleSim * 15) : 0;
+  return Math.min(100, Math.round(artist) + boost);
 }
 
 export function buildSharedTags(a: UserProfile, b: UserProfile, freq: Map<string, number>): string[] {
@@ -86,14 +98,14 @@ export function buildSharedTags(a: UserProfile, b: UserProfile, freq: Map<string
 }
 
 export function compatibilityLabel(score: number): { label: string; description: string } {
-  if (score >= 70) return { label: "Twins",                         description: "One of you is the other's alt account. Uncanny." };
-  if (score >= 55) return { label: "Same Record, Different Pressing", description: "Same music. Different origin story." };
-  if (score >= 42) return { label: "Bandmates",                     description: "You're making the same music, just in different rooms." };
-  if (score >= 30) return { label: "Label Mate",                    description: "Same label, different artist. You get it." };
-  if (score >= 20) return { label: "The A Side to my B",            description: "Different but part of the same record." };
-  if (score >= 12) return { label: "Regular at the Same Shop",      description: "You've definitely flipped through the same crates." };
-  if (score >=  5) return { label: "Passing Acquaintance",          description: "You'd nod at each other in a record shop." };
-  return              { label: "Complete Stranger",                  description: "Your collections have almost nothing in common. Interesting." };
+  if (score >= 55) return { label: "Twins",                          description: "One of you is the other's alt account. Uncanny." };
+  if (score >= 35) return { label: "Same Record, Different Pressing", description: "Same music. Different origin story." };
+  if (score >= 20) return { label: "Bandmates",                      description: "You're making the same music, just in different rooms." };
+  if (score >= 10) return { label: "Label Mate",                     description: "Same label, different artist. You get it." };
+  if (score >=  5) return { label: "The A Side to my B",             description: "Different but part of the same record." };
+  if (score >=  2) return { label: "Regular at the Same Shop",       description: "You've definitely flipped through the same crates." };
+  if (score >=  1) return { label: "Passing Acquaintance",           description: "You'd nod at each other in a record shop." };
+  return               { label: "Complete Stranger",                  description: "Your collections have almost nothing in common. Interesting." };
 }
 
 // ─── Build per-user profile from flat record rows ──────────────────────────
@@ -224,11 +236,12 @@ export async function getOrComputeCompatibility(
 
   if (viewerProfile.artistSet.size === 0 || otherProfile.artistSet.size === 0) return null;
 
+  // All freq=1 so IDF weights are uniform → equivalent to plain Jaccard.
+  // Building freq from 2 users gives nearly identical weights anyway, so
+  // this avoids the illusion of IDF without platform-wide data.
   const artistFreq = new Map<string, number>();
   for (const artist of new Set([...viewerProfile.artistSet, ...otherProfile.artistSet])) {
-    const inViewer = viewerProfile.artistSet.has(artist) ? 1 : 0;
-    const inOther  = otherProfile.artistSet.has(artist) ? 1 : 0;
-    artistFreq.set(artist, inViewer + inOther);
+    artistFreq.set(artist, 1);
   }
 
   const score      = computeScore(viewerProfile, otherProfile, artistFreq);

@@ -6,6 +6,7 @@ import {
   type ListRow,
   buildProfile,
   computeScore,
+  computeStyleScore,
   buildSharedTags,
   compatibilityLabel,
   CACHE_TTL_MS,
@@ -38,10 +39,10 @@ export async function GET(request: NextRequest) {
     .eq("user_id_a", userId)
     .gt("calculated_at", cacheExpiry)
     .order("score", { ascending: false })
-    .limit(DISPLAY_COUNT);
+    .limit(1000);
 
   // ── Helpers used by both cache and fresh paths ────────────────────────────
-  async function enrichMatches(rows: { user_id_b: string; score: number; shared_tags: string[] }[]) {
+  async function enrichMatches(rows: { user_id_b: string; score: number; style_score?: number; shared_tags: string[] }[]) {
     const ids = rows.map(r => r.user_id_b);
     if (ids.length === 0) return [];
 
@@ -90,6 +91,7 @@ export async function GET(request: NextRequest) {
         recordCount:   recCounts.get(p.id) ?? 0,
         followerCount: followerCounts.get(p.id) ?? 0,
         score:         row.score,
+        styleScore:    row.style_score ?? 0,
         label,
         description,
         sharedTags:    row.shared_tags ?? [],
@@ -100,12 +102,14 @@ export async function GET(request: NextRequest) {
   }
 
   if (cachedRows && cachedRows.length >= 1) {
-    const matches = await enrichMatches(cachedRows as { user_id_b: string; score: number; shared_tags: string[] }[]);
+    const topRows = cachedRows.slice(0, DISPLAY_COUNT);
+    const matches = await enrichMatches(topRows as { user_id_b: string; score: number; style_score?: number; shared_tags: string[] }[]);
     // Only trust the cache if it returned a full display set — fewer means
     // either stale entries were filtered out or new users have joined since
     // the cache was built, so fall through to a fresh computation.
     if (matches.length >= DISPLAY_COUNT) {
-      return Response.json({ matches, cached: true });
+      const allScores = cachedRows.map(r => ({ userId: r.user_id_b, score: r.score, sharedTags: r.shared_tags ?? [] }));
+      return Response.json({ matches, allScores, cached: true });
     }
   }
 
@@ -251,14 +255,15 @@ export async function GET(request: NextRequest) {
   }
 
   // 7. Score all candidates
-  type ScoredUser = { userId: string; score: number; sharedTags: string[] };
+  type ScoredUser = { userId: string; score: number; styleScore: number; sharedTags: string[] };
   const scored: ScoredUser[] = [];
 
   for (const otherId of eligibleIds) {
     const otherProfile = buildProfile(recordsByUser.get(otherId) ?? [], listRowsByUser.get(otherId) ?? []);
     const score      = computeScore(targetProfile, otherProfile, artistFreq);
+    const styleScore = computeStyleScore(targetProfile, otherProfile);
     const sharedTags = buildSharedTags(targetProfile, otherProfile, artistFreq);
-    scored.push({ userId: otherId, score, sharedTags });
+    scored.push({ userId: otherId, score, styleScore, sharedTags });
   }
 
   scored.sort((a, b) => b.score - a.score);
@@ -291,9 +296,11 @@ export async function GET(request: NextRequest) {
   const topMatches = scored.slice(0, DISPLAY_COUNT).map(s => ({
     user_id_b:   s.userId,
     score:       s.score,
+    style_score: s.styleScore,
     shared_tags: s.sharedTags,
   }));
 
-  const matches = await enrichMatches(topMatches);
-  return Response.json({ matches, cached: false });
+  const matches   = await enrichMatches(topMatches);
+  const allScores = scored.map(s => ({ userId: s.userId, score: s.score, sharedTags: s.sharedTags }));
+  return Response.json({ matches, allScores, cached: false });
 }

@@ -4,13 +4,14 @@ import type { DiscoverList } from "@/app/lists/types";
 export const dynamic = "force-dynamic";
 
 function compatLabel(score: number): string {
-  if (score >= 70) return "Soul Twin";
-  if (score >= 55) return "Doppelgänger Ear";
-  if (score >= 42) return "The Same Frequency";
-  if (score >= 30) return "Regular at the Same Shop";
-  if (score >= 20) return "Overlapping Frequencies";
-  if (score >= 12) return "Distant Relatives";
-  return "Different Paths";
+  if (score >= 55) return "Twins";
+  if (score >= 35) return "Same Record, Different Pressing";
+  if (score >= 20) return "Bandmates";
+  if (score >= 10) return "Label Mate";
+  if (score >=  5) return "The A Side to my B";
+  if (score >=  2) return "Regular at the Same Shop";
+  if (score >=  1) return "Passing Acquaintance";
+  return "Complete Stranger";
 }
 
 export async function GET() {
