@@ -47,6 +47,18 @@ async function fetchCoverDataUrl(coverUrl: string): Promise<string | null> {
   }
 }
 
+function VinylPlaceholder({ size }: { size: number }) {
+  const s = Math.round(size * 0.72);
+  return (
+    <svg width={s} height={s} viewBox="0 0 28 28" fill="none" style={{ display: "block" }}>
+      <circle cx="14" cy="14" r="13" stroke="#b8b0a4" strokeWidth="1.5" />
+      <circle cx="14" cy="14" r="9"  stroke="#b8b0a4" strokeWidth="0.75" opacity={0.45} />
+      <circle cx="14" cy="14" r="5"  stroke="#b8b0a4" strokeWidth="0.75" opacity={0.45} />
+      <circle cx="14" cy="14" r="2"  fill="#b8b0a4" />
+    </svg>
+  );
+}
+
 function mixDetails(tracks: GeneratedTrack[]): string {
   const totalMs  = tracks.reduce((sum, t) => sum + (t.duration_ms || 0), 0);
   const totalMin = Math.round(totalMs / 60_000);
@@ -100,11 +112,12 @@ function PortraitCard({ title, tracks, username, coverDataUrls }: CardProps) {
           return (
             <div key={pos} style={{ display: "flex", alignItems: "center", gap: 8 }}>
               {/* Album art */}
-              <div style={{ width: coverSize, height: coverSize, flexShrink: 0, background: "#ebe7e0", overflow: "hidden" }}>
-                {coverSrc && (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img src={coverSrc} alt="" style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
-                )}
+              <div style={{ width: coverSize, height: coverSize, flexShrink: 0, background: "#ebe7e0", overflow: "hidden", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                {coverSrc
+                  ? /* eslint-disable-next-line @next/next/no-img-element */
+                    <img src={coverSrc} alt="" style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
+                  : <VinylPlaceholder size={coverSize} />
+                }
               </div>
               {/* Track number */}
               <span style={{ fontFamily: MONO, fontSize: numFont, fontWeight: 400, color: ORANGE, width: numFont + 6, flexShrink: 0, lineHeight: 1, textAlign: "right" }}>
@@ -186,11 +199,12 @@ function LandscapeCard({ title, tracks, username, coverDataUrls }: CardProps) {
           return (
             <div key={pos} style={{ display: "flex", alignItems: "center", padding: `0 ${rowPadX}px`, gap: 7 }}>
               {/* Album art */}
-              <div style={{ width: coverSize, height: coverSize, flexShrink: 0, background: "#ebe7e0", overflow: "hidden" }}>
-                {coverSrc && (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img src={coverSrc} alt="" style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
-                )}
+              <div style={{ width: coverSize, height: coverSize, flexShrink: 0, background: "#ebe7e0", overflow: "hidden", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                {coverSrc
+                  ? /* eslint-disable-next-line @next/next/no-img-element */
+                    <img src={coverSrc} alt="" style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
+                  : <VinylPlaceholder size={coverSize} />
+                }
               </div>
               {/* Track number */}
               <span style={{ fontFamily: MONO, fontSize: numFont, color: ORANGE, width: numFont + 5, flexShrink: 0, lineHeight: 1, textAlign: "right" }}>
