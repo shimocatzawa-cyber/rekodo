@@ -6,10 +6,10 @@ export const dynamic = "force-dynamic";
 function compatLabel(score: number): string {
   if (score >= 70) return "Soul Twin";
   if (score >= 55) return "Doppelgänger Ear";
-  if (score >= 40) return "The Same Frequency";
-  if (score >= 31) return "Regular at the Same Shop";
+  if (score >= 42) return "The Same Frequency";
+  if (score >= 30) return "Regular at the Same Shop";
   if (score >= 20) return "Overlapping Frequencies";
-  if (score >= 10) return "Distant Relatives";
+  if (score >= 12) return "Distant Relatives";
   return "Different Paths";
 }
 

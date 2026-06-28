@@ -89,13 +89,13 @@ export function buildSharedTags(a: UserProfile, b: UserProfile, freq: Map<string
 }
 
 export function compatibilityLabel(score: number): { label: string; description: string } {
-  if (score >= 95) return { label: "Twins",                         description: "One of you is the other's alt account. Uncanny." };
-  if (score >= 86) return { label: "Same Record, Different Pressing", description: "Same music. Different origin story." };
-  if (score >= 76) return { label: "Bandmates",                     description: "You're making the same music, just in different rooms." };
-  if (score >= 61) return { label: "Label Mate",                    description: "Same label, different artist. You get it." };
-  if (score >= 46) return { label: "The A Side to my B",            description: "Different but part of the same record." };
-  if (score >= 31) return { label: "Regular at the Same Shop",      description: "You've definitely flipped through the same crates." };
-  if (score >= 16) return { label: "Passing Acquaintance",          description: "You'd nod at each other in a record shop." };
+  if (score >= 70) return { label: "Twins",                         description: "One of you is the other's alt account. Uncanny." };
+  if (score >= 55) return { label: "Same Record, Different Pressing", description: "Same music. Different origin story." };
+  if (score >= 42) return { label: "Bandmates",                     description: "You're making the same music, just in different rooms." };
+  if (score >= 30) return { label: "Label Mate",                    description: "Same label, different artist. You get it." };
+  if (score >= 20) return { label: "The A Side to my B",            description: "Different but part of the same record." };
+  if (score >= 12) return { label: "Regular at the Same Shop",      description: "You've definitely flipped through the same crates." };
+  if (score >=  5) return { label: "Passing Acquaintance",          description: "You'd nod at each other in a record shop." };
   return              { label: "Complete Stranger",                  description: "Your collections have almost nothing in common. Interesting." };
 }
 
