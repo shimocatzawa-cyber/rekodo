@@ -286,7 +286,7 @@ const FAQ_SECTIONS: { section: string; items: { q: string; a: React.ReactNode }[
       },
       {
         q: "What is the Taste Profile?",
-        a: "Taste Profile is the second tab in Insights, available to rekōdo supporters. It analyses your collection across seven Spectrum Dimensions — from Ambient vs. Abrasive to Canon vs. Obscure — and plots where you sit on each axis based on actual data from your records.",
+        a: "Taste Profile is the second tab in Insights, free for all rekōdo users. It analyses your collection across seven Spectrum Dimensions — from Ambient vs. Abrasive to Canon vs. Obscure — and plots where you sit on each axis based on actual data from your records.",
       },
       {
         q: "What do the Spectrum Dimensions mean?",
@@ -460,7 +460,7 @@ const FAQ_SECTIONS: { section: string; items: { q: string; a: React.ReactNode }[
     items: [
       {
         q: "Is rekōdo free?",
-        a: "Most of rekōdo is free: collection sync, Insights (including the Essentials Wall and Feeling breakdown), Dig (3 sessions a day), Lists, and Selects. A rekōdo supporter subscription unlocks Deep Dive, Taste Profile Insights, Archetypes, unlimited Dig, and Want List CSV upload — plus the golden ō badge.",
+        a: "Most of rekōdo is free: collection sync, Insights (including Taste Profile, Essentials Wall, and Feeling breakdown), Dig (3 sessions a day), Lists, and Selects. A rekōdo supporter subscription unlocks Deep Dive, Archetypes, unlimited Dig, and Want List CSV upload — plus the golden ō badge.",
       },
       {
         q: "What is the difference between a Supporter and a donor?",

@@ -1012,14 +1012,19 @@ const [filterFormat,       setFilterFormat]       = useState("");
                 </button>
               )}
             </div>
-            {/* Last sync — flush under the sync button, no gap */}
-            {(syncResult?.timestamp || lastSyncedAt) && (
-              <div style={{ padding: "0 10px 5px" }}>
+            {/* Last sync + item count */}
+            <div style={{ padding: "0 10px 5px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+              {(syncResult?.timestamp || lastSyncedAt) ? (
                 <span style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.04em", color: "#bbbbbb" }}>
                   Last sync: {formatSyncDisplayTime(syncResult?.timestamp ?? lastSyncedAt)}
                 </span>
-              </div>
-            )}
+              ) : <span />}
+              {collection.length > 0 && (
+                <span style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.04em", color: "#bbbbbb" }}>
+                  {collection.length.toLocaleString()} items
+                </span>
+              )}
+            </div>
 
             {/* Mobile — inline search + filter selects */}
             <div className="md:hidden" style={{ padding: "8px 12px 10px" }}>
