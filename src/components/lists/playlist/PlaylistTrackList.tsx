@@ -11,6 +11,11 @@ const INK    = "#0d0d0d";
 const MUTED  = "#aaaaaa";
 const RULE   = "#e0e0da";
 
+function proxyUrl(url: string | null): string | null {
+  if (!url) return null;
+  return `/api/image-proxy?url=${encodeURIComponent(url)}`;
+}
+
 function fmt(ms: number) {
   const s = Math.floor(ms / 1000);
   return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;
@@ -72,29 +77,31 @@ export default function PlaylistTrackList({ tracks, onReorder, resequencing }: P
             onDrop={() => handleDrop(i)}
             className="rk-playlist-track-row"
             style={{
-              display: "flex", alignItems: "flex-start", gap: "12px",
-              padding: "12px 16px",
+              display: "flex", alignItems: "center", gap: "12px",
+              padding: "0 16px 0 12px",
               borderBottom: i < tracks.length - 1 ? `1px solid ${RULE}` : "none",
               opacity: dragging ? 0.4 : 1,
               background: dragOver ? "#fdf6f0" : "transparent",
               cursor: "grab",
+              minHeight: 56,
             }}
           >
-            <span style={{ fontFamily: MONO, fontSize: "11px", color: "#cccccc", lineHeight: "20px", userSelect: "none" }} title="Drag to reorder">
+            <span style={{ fontFamily: MONO, fontSize: "11px", color: "#cccccc", userSelect: "none", flexShrink: 0 }} title="Drag to reorder">
               ⠿
             </span>
-            <span style={{ fontFamily: MONO, fontSize: "10px", color: MUTED, lineHeight: "20px", width: "16px", flexShrink: 0 }}>
+            <span style={{ fontFamily: MONO, fontSize: "10px", color: MUTED, width: "16px", flexShrink: 0, textAlign: "right" }}>
               {i + 1}
             </span>
 
-            <div style={{ width: 36, height: 36, flexShrink: 0, background: "#ebe7e0", overflow: "hidden", alignSelf: "center" }}>
-              {t.cover_url && (
+            {/* Cover — stretches to full row height */}
+            <div style={{ width: 48, flexShrink: 0, alignSelf: "stretch", background: "#ebe7e0", overflow: "hidden" }}>
+              {proxyUrl(t.cover_url) ? (
                 // eslint-disable-next-line @next/next/no-img-element
-                <img src={t.cover_url} alt="" style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
-              )}
+                <img src={proxyUrl(t.cover_url)!} alt="" style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
+              ) : null}
             </div>
 
-            <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ flex: 1, minWidth: 0, padding: "12px 0" }}>
               <div style={{ display: "flex", alignItems: "baseline", gap: "8px", flexWrap: "wrap" }}>
                 <p style={{ fontFamily: SERIF, fontSize: "14px", color: INK, margin: 0 }}>{t.title}</p>
                 {t.source === "wantlist" && (
