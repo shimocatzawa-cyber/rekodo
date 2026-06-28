@@ -1,11 +1,38 @@
 "use client";
 
+import { useState } from "react";
+import type { GeneratedTrack } from "@/components/lists/PlaylistTab";
+
 const SERIF  = "var(--font-editorial)";
 const MONO   = "var(--font-mono)";
 const ORANGE = "#CC5500";
 const INK    = "#0d0d0d";
 const MUTED  = "#aaaaaa";
 const RULE   = "#e0e0da";
+
+function buildExportText(title: string, tracks: GeneratedTrack[]): string {
+  const lines = tracks.map((t, i) => {
+    const year = t.year ? ` (${t.year})` : "";
+    return `${i + 1}. ${t.artist} — ${t.title} — ${t.album}${year}`;
+  });
+  return [
+    title,
+    "",
+    ...lines,
+    "",
+    "Import into Apple Music via Soundiiz (soundiiz.com) or TuneMyMusic (tunemymusic.com) — both free for playlists this size.",
+  ].join("\n");
+}
+
+function downloadTextFile(filename: string, text: string) {
+  const blob = new Blob([text], { type: "text/plain" });
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement("a");
+  a.href     = url;
+  a.download = filename;
+  a.click();
+  URL.revokeObjectURL(url);
+}
 
 export type SavedPlaylistSummary = { id: string; title: string; createdAt: string; trackCount: number; durationMs: number };
 
@@ -34,6 +61,7 @@ interface Props {
   saving:        boolean;
   saveDone:      string | null;
   hasTracks:     boolean;
+  tracks:        GeneratedTrack[];
   savedPlaylists: SavedPlaylistSummary[];
   loadingSaved:   boolean;
   activeSavedId:  string | null;
@@ -43,8 +71,24 @@ interface Props {
 
 export default function SavedPlaylistsPanel({
   titleDraft, setTitleDraft, onRegenerate, generating, onSave, saving, saveDone, hasTracks,
-  savedPlaylists, loadingSaved, activeSavedId, onLoadSaved, onDeleteSaved,
+  tracks, savedPlaylists, loadingSaved, activeSavedId, onLoadSaved, onDeleteSaved,
 }: Props) {
+  const [copyState, setCopyState] = useState<"idle" | "copied" | "failed">("idle");
+
+  async function handleExport() {
+    const title = titleDraft.trim() || "My Playlist";
+    const text  = buildExportText(title, tracks);
+    const slug  = title.toLowerCase().replace(/[^a-z0-9]+/g, "-").slice(0, 40);
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopyState("copied");
+    } catch {
+      // Clipboard blocked — fall back to file download
+      downloadTextFile(`rekodo-${slug}.txt`, text);
+      setCopyState("failed");
+    }
+    setTimeout(() => setCopyState("idle"), 2500);
+  }
   return (
     <div style={{ background: "#ffffff", border: `1px solid ${RULE}`, padding: "28px 28px 24px" }}>
       <p style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.12em", textTransform: "uppercase", color: MUTED, marginBottom: "10px" }}>
@@ -77,13 +121,29 @@ export default function SavedPlaylistsPanel({
           Regenerate
         </button>
 
-        <button
-          disabled
-          title="Coming soon"
-          style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.1em", textTransform: "uppercase", color: "#cccccc", background: "none", border: `1px solid ${RULE}`, borderRadius: "3px", cursor: "default", padding: "8px 14px", width: "100%" }}
-        >
-          Send to Spotify (coming soon)
-        </button>
+        <div style={{ display: "flex", gap: "6px" }}>
+          <button
+            onClick={handleExport}
+            disabled={!hasTracks}
+            title="Copies a track list you can paste into Soundiiz or TuneMyMusic (both free) to import into Apple Music"
+            style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.1em", textTransform: "uppercase", color: hasTracks ? INK : "#cccccc", background: "none", border: `1px solid ${hasTracks ? "#c0bcb4" : RULE}`, borderRadius: "3px", cursor: !hasTracks ? "default" : "pointer", padding: "8px 0", flex: 1 }}
+          >
+            {copyState === "copied" ? "Copied ✓" : copyState === "failed" ? "Downloaded" : "Export for Apple Music"}
+          </button>
+          {hasTracks && (
+            <button
+              onClick={() => {
+                const title = titleDraft.trim() || "My Playlist";
+                const slug  = title.toLowerCase().replace(/[^a-z0-9]+/g, "-").slice(0, 40);
+                downloadTextFile(`rekodo-${slug}.txt`, buildExportText(title, tracks));
+              }}
+              title="Download as .txt file"
+              style={{ fontFamily: MONO, fontSize: "11px", color: "#888", background: "none", border: `1px solid #c0bcb4`, borderRadius: "3px", cursor: "pointer", padding: "8px 10px", flexShrink: 0 }}
+            >
+              ↓
+            </button>
+          )}
+        </div>
       </div>
 
       {saveDone && (

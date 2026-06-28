@@ -382,7 +382,7 @@ export default function PlaylistTab({ username }: { username: string }) {
           titleDraft={titleDraft} setTitleDraft={setTitleDraft}
           onRegenerate={handleGenerate} generating={generating}
           onSave={handleSave} saving={saving} saveDone={saveDone}
-          hasTracks={tracks.length > 0}
+          hasTracks={tracks.length > 0} tracks={tracks}
           savedPlaylists={savedPlaylists} loadingSaved={loadingSaved}
           activeSavedId={activeSavedId} onLoadSaved={handleLoadSaved}
           onDeleteSaved={handleDeleteSaved}
