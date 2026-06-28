@@ -18,15 +18,33 @@ const RULE   = "#e0e0da";
 type Format = "portrait" | "landscape";
 
 interface CardProps {
-  title:    string;
-  tracks:   GeneratedTrack[];
-  username: string;
+  title:         string;
+  tracks:        GeneratedTrack[];
+  username:      string;
+  coverDataUrls: (string | null)[];
 }
 interface Props {
   onClose:  () => void;
   title:    string;
   tracks:   GeneratedTrack[];
   username: string;
+}
+
+async function fetchCoverDataUrl(coverUrl: string): Promise<string | null> {
+  try {
+    const proxied = `/api/image-proxy?url=${encodeURIComponent(coverUrl)}`;
+    const res = await fetch(proxied);
+    if (!res.ok) return null;
+    const blob = await res.blob();
+    return await new Promise<string>((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload  = () => resolve(reader.result as string);
+      reader.onerror = reject;
+      reader.readAsDataURL(blob);
+    });
+  } catch {
+    return null;
+  }
 }
 
 function mixDetails(tracks: GeneratedTrack[]): string {
@@ -40,18 +58,16 @@ function mixDetails(tracks: GeneratedTrack[]): string {
 
 // ── Portrait card ─────────────────────────────────────────────────────────
 // DOM: 540×675  →  export: 1080×1350 (pixelRatio 2)
-// No artwork — just the track listing and mix details, so row height/font
-// size only need to shrink as track count grows, not balance against a
-// fixed cover size.
 
-function PortraitCard({ title, tracks, username }: CardProps) {
+function PortraitCard({ title, tracks, username, coverDataUrls }: CardProps) {
   const n = Math.max(tracks.length, 1);
   // ≈675 total − 40 vertical padding − 56 header − 36 footer
   const rowH       = 543 / n;
-  const numFont    = Math.max(8,  Math.min(16, Math.round(rowH * 0.34)));
-  const artistFont = Math.max(7,  Math.min(12, Math.round(rowH * 0.26)));
-  const titleFont  = Math.max(8,  Math.min(16, Math.round(rowH * 0.34)));
-  const textGap    = Math.max(2,  Math.min(6,  Math.round(rowH * 0.1)));
+  const coverSize  = Math.max(14, Math.min(Math.floor(rowH * 0.82), 36));
+  const numFont    = Math.max(8,  Math.min(14, Math.round(rowH * 0.30)));
+  const artistFont = Math.max(7,  Math.min(11, Math.round(rowH * 0.23)));
+  const titleFont  = Math.max(8,  Math.min(14, Math.round(rowH * 0.30)));
+  const textGap    = Math.max(2,  Math.min(5,  Math.round(rowH * 0.08)));
 
   return (
     <div style={{
@@ -76,17 +92,27 @@ function PortraitCard({ title, tracks, username }: CardProps) {
         </div>
       </div>
 
-      {/* One row per track — space-around for even breathing room */}
+      {/* One row per track */}
       <div style={{ flex: 1, display: "flex", flexDirection: "column", justifyContent: "space-around" }}>
         {tracks.map((t, i) => {
-          const pos = i + 1;
+          const pos      = i + 1;
+          const coverSrc = coverDataUrls[i] ?? null;
           return (
-            <div key={pos} style={{ display: "flex", alignItems: "baseline", gap: 12 }}>
-              <span style={{ fontFamily: MONO, fontSize: numFont, fontWeight: 400, color: ORANGE, width: numFont + 9, flexShrink: 0, lineHeight: 1 }}>
+            <div key={pos} style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              {/* Album art */}
+              <div style={{ width: coverSize, height: coverSize, flexShrink: 0, background: "#ebe7e0", overflow: "hidden" }}>
+                {coverSrc && (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={coverSrc} alt="" style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
+                )}
+              </div>
+              {/* Track number */}
+              <span style={{ fontFamily: MONO, fontSize: numFont, fontWeight: 400, color: ORANGE, width: numFont + 6, flexShrink: 0, lineHeight: 1, textAlign: "right" }}>
                 {pos}
               </span>
+              {/* Artist + Title — both SERIF */}
               <div style={{ minWidth: 0, flex: 1 }}>
-                <div style={{ fontFamily: MONO, fontSize: artistFont, letterSpacing: "0.1em", textTransform: "uppercase", color: MUTED, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", marginBottom: textGap }}>
+                <div style={{ fontFamily: SERIF, fontSize: artistFont, fontStyle: "italic", color: MUTED, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", marginBottom: textGap, lineHeight: 1.2 }}>
                   {t.artist}
                 </div>
                 <div style={{ fontFamily: SERIF, fontSize: titleFont, fontWeight: 600, color: INK, lineHeight: 1.2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
@@ -110,18 +136,17 @@ function PortraitCard({ title, tracks, username }: CardProps) {
 
 // ── Landscape card ────────────────────────────────────────────────────────
 // DOM: 600×314  →  export: 1200×628 (pixelRatio 2)
-// Same shrink-to-fit approach as the portrait card, scaled to its tighter
-// right-column height.
 
-function LandscapeCard({ title, tracks, username }: CardProps) {
+function LandscapeCard({ title, tracks, username, coverDataUrls }: CardProps) {
   const LEFT_W = 172;
 
   const n          = Math.max(tracks.length, 1);
   // ≈314 total − 32 vertical padding on the right column
   const rowH       = 282 / n;
-  const numFont    = Math.max(7, Math.min(12, Math.round(rowH * 0.32)));
-  const artistFont = Math.max(6, Math.min(9,  Math.round(rowH * 0.22)));
-  const titleFont  = Math.max(7, Math.min(13, Math.round(rowH * 0.32)));
+  const coverSize  = Math.max(12, Math.min(Math.floor(rowH * 0.80), 30));
+  const numFont    = Math.max(7, Math.min(11, Math.round(rowH * 0.28)));
+  const artistFont = Math.max(6, Math.min(9,  Math.round(rowH * 0.20)));
+  const titleFont  = Math.max(7, Math.min(12, Math.round(rowH * 0.28)));
   const rowPadX    = Math.max(8, Math.min(16, Math.round(rowH * 0.4)));
   const textGap    = Math.max(1, Math.min(3,  Math.round(rowH * 0.08)));
 
@@ -156,14 +181,24 @@ function LandscapeCard({ title, tracks, username }: CardProps) {
       {/* Right column: one row per track */}
       <div style={{ flex: 1, display: "flex", flexDirection: "column", justifyContent: "space-around", padding: "16px 0" }}>
         {tracks.map((t, i) => {
-          const pos = i + 1;
+          const pos      = i + 1;
+          const coverSrc = coverDataUrls[i] ?? null;
           return (
-            <div key={pos} style={{ display: "flex", alignItems: "baseline", padding: `0 ${rowPadX}px`, gap: 10 }}>
-              <span style={{ fontFamily: MONO, fontSize: numFont, color: ORANGE, width: numFont + 9, flexShrink: 0, lineHeight: 1 }}>
+            <div key={pos} style={{ display: "flex", alignItems: "center", padding: `0 ${rowPadX}px`, gap: 7 }}>
+              {/* Album art */}
+              <div style={{ width: coverSize, height: coverSize, flexShrink: 0, background: "#ebe7e0", overflow: "hidden" }}>
+                {coverSrc && (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={coverSrc} alt="" style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
+                )}
+              </div>
+              {/* Track number */}
+              <span style={{ fontFamily: MONO, fontSize: numFont, color: ORANGE, width: numFont + 5, flexShrink: 0, lineHeight: 1, textAlign: "right" }}>
                 {pos}
               </span>
+              {/* Artist + Title — both SERIF */}
               <div style={{ minWidth: 0, flex: 1 }}>
-                <div style={{ fontFamily: MONO, fontSize: artistFont, letterSpacing: "0.09em", textTransform: "uppercase", color: MUTED, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", marginBottom: textGap }}>
+                <div style={{ fontFamily: SERIF, fontSize: artistFont, fontStyle: "italic", color: MUTED, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", marginBottom: textGap, lineHeight: 1.2 }}>
                   {t.artist}
                 </div>
                 <div style={{ fontFamily: SERIF, fontSize: titleFont, fontWeight: 600, color: INK, lineHeight: 1.2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
@@ -185,15 +220,13 @@ export default function PlaylistShareModal({ onClose, title, tracks, username }:
   const [format,        setFormat]        = useState<Format>("portrait");
   const [exporting,     setExporting]     = useState(false);
   const [copyImgState,  setCopyImgState]  = useState<"idle" | "copied" | "failed">("idle");
-  // Available width for the scaled preview — defaults to the desktop cap (508)
-  // and shrinks to fit narrow/mobile viewports so the card never overflows the modal.
+  const [coverDataUrls, setCoverDataUrls] = useState<(string | null)[]>([]);
   const [maxPreviewWidth, setMaxPreviewWidth] = useState(508);
 
-  // Separate ref for the off-screen export card (natural size, no transform)
   const exportRef = useRef<HTMLDivElement>(null);
 
+  // Responsive preview scale
   useEffect(() => {
-    // Modal: 24px outer padding each side, 16px inner preview padding each side
     function recalc() {
       setMaxPreviewWidth(Math.min(508, window.innerWidth - 48 - 32));
     }
@@ -202,10 +235,15 @@ export default function PlaylistShareModal({ onClose, title, tracks, username }:
     return () => window.removeEventListener("resize", recalc);
   }, []);
 
-  // No artwork on this card, so there's nothing cross-origin for html-to-image
-  // to choke on — a single toPng() call is enough (the playlist/record share
-  // cards elsewhere composite cover images onto canvas separately precisely
-  // because they DO have artwork to work around CORS for; this card doesn't).
+  // Pre-fetch cover art as data URLs so html-to-image doesn't CORS-choke
+  useEffect(() => {
+    let cancelled = false;
+    Promise.all(
+      tracks.map(t => t.cover_url ? fetchCoverDataUrl(t.cover_url) : Promise.resolve(null))
+    ).then(urls => { if (!cancelled) setCoverDataUrls(urls); });
+    return () => { cancelled = true; };
+  }, [tracks]);
+
   async function captureDataUrl(): Promise<string | null> {
     if (!exportRef.current) return null;
     await document.fonts.ready;
@@ -230,15 +268,12 @@ export default function PlaylistShareModal({ onClose, title, tracks, username }:
   async function handleCopyImage() {
     setExporting(true);
     try {
-      // ClipboardItem accepts Promise<Blob> — pass it immediately so the
-      // clipboard write starts within the user gesture (before any awaits
-      // expire the activation context).
       const blobPromise: Promise<Blob> = captureDataUrl().then(dataUrl => {
         if (!dataUrl) throw new Error("capture failed");
         return fetch(dataUrl).then(r => r.blob());
       });
       await navigator.clipboard.write([new ClipboardItem({ "image/png": blobPromise })]);
-      await blobPromise; // wait so exporting spinner clears after completion
+      await blobPromise;
       setCopyImgState("copied");
     } catch {
       setCopyImgState("failed");
@@ -254,14 +289,14 @@ export default function PlaylistShareModal({ onClose, title, tracks, username }:
   const PRV_W  = Math.round(CARD_W * SCALE);
   const PRV_H  = Math.round(CARD_H * SCALE);
 
-  const cardProps = { title, tracks, username };
+  const cardProps = { title, tracks, username, coverDataUrls };
 
   return (
     <div
       onClick={e => { if (e.target === e.currentTarget) onClose(); }}
       style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", zIndex: 300, display: "flex", alignItems: "center", justifyContent: "center", padding: "24px" }}
     >
-      {/* Off-screen export card — natural size, no transforms, used by toPng */}
+      {/* Off-screen export card — covers are data URLs so toPng captures them cleanly */}
       <div style={{ position: "fixed", left: -9999, top: -9999, zIndex: -1, overflow: "hidden" }}>
         <div ref={exportRef}>
           {format === "portrait"
@@ -297,7 +332,7 @@ export default function PlaylistShareModal({ onClose, title, tracks, username }:
           ))}
         </div>
 
-        {/* Preview — scaled for display only, not used for export */}
+        {/* Preview */}
         <div style={{ flex: 1, overflowY: "auto", padding: "16px", display: "flex", justifyContent: "center" }}>
           <div style={{ width: PRV_W, height: PRV_H, overflow: "hidden", flexShrink: 0, border: "1px solid rgba(0,0,0,0.08)" }}>
             <div style={{ transform: `scale(${SCALE})`, transformOrigin: "top left", display: "inline-block" }}>
