@@ -402,6 +402,10 @@ const FAQ_SECTIONS: { section: string; items: { q: string; a: React.ReactNode }[
         q: "Can rekōdo build me a Spotify playlist?",
         a: "Yes, from the Playlist tab. Pick a mood from your Feeling tags, how many tracks you want, and whether to include your wantlist — rekōdo builds a Spotify playlist from your collection with a short rationale for each pick. Requires a connected Spotify account.",
       },
+      {
+        q: "Can I export a generated playlist to Apple Music or another service?",
+        a: "Yes — once a playlist is generated, use the Export Playlist button to download a .txt track list. You can then import it into Apple Music, Spotify, or any other service using a free tool like Soundiiz (soundiiz.com) or TuneMyMusic (tunemymusic.com).",
+      },
     ],
   },
   {

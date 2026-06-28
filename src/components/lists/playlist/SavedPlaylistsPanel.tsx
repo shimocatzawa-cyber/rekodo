@@ -1,6 +1,5 @@
 "use client";
 
-import { useState } from "react";
 import type { GeneratedTrack } from "@/components/lists/PlaylistTab";
 
 const SERIF  = "var(--font-editorial)";
@@ -20,7 +19,7 @@ function buildExportText(title: string, tracks: GeneratedTrack[]): string {
     "",
     ...lines,
     "",
-    "Import into Apple Music via Soundiiz (soundiiz.com) or TuneMyMusic (tunemymusic.com) — both free for playlists this size.",
+    "Import into Apple Music, Spotify, or any service via Soundiiz (soundiiz.com) or TuneMyMusic (tunemymusic.com) — both free for playlists this size.",
   ].join("\n");
 }
 
@@ -73,21 +72,10 @@ export default function SavedPlaylistsPanel({
   titleDraft, setTitleDraft, onRegenerate, generating, onSave, saving, saveDone, hasTracks,
   tracks, savedPlaylists, loadingSaved, activeSavedId, onLoadSaved, onDeleteSaved,
 }: Props) {
-  const [copyState, setCopyState] = useState<"idle" | "copied" | "failed">("idle");
-
-  async function handleExport() {
+  function handleExport() {
     const title = titleDraft.trim() || "My Playlist";
-    const text  = buildExportText(title, tracks);
     const slug  = title.toLowerCase().replace(/[^a-z0-9]+/g, "-").slice(0, 40);
-    try {
-      await navigator.clipboard.writeText(text);
-      setCopyState("copied");
-    } catch {
-      // Clipboard blocked — fall back to file download
-      downloadTextFile(`rekodo-${slug}.txt`, text);
-      setCopyState("failed");
-    }
-    setTimeout(() => setCopyState("idle"), 2500);
+    downloadTextFile(`rekodo-${slug}.txt`, buildExportText(title, tracks));
   }
   return (
     <div style={{ background: "#ffffff", border: `1px solid ${RULE}`, padding: "28px 28px 24px" }}>
@@ -121,29 +109,14 @@ export default function SavedPlaylistsPanel({
           Regenerate
         </button>
 
-        <div style={{ display: "flex", gap: "6px" }}>
-          <button
-            onClick={handleExport}
-            disabled={!hasTracks}
-            title="Copies a track list you can paste into Soundiiz or TuneMyMusic (both free) to import into Apple Music"
-            style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.1em", textTransform: "uppercase", color: hasTracks ? INK : "#cccccc", background: "none", border: `1px solid ${hasTracks ? "#c0bcb4" : RULE}`, borderRadius: "3px", cursor: !hasTracks ? "default" : "pointer", padding: "8px 0", flex: 1 }}
-          >
-            {copyState === "copied" ? "Copied ✓" : copyState === "failed" ? "Downloaded" : "Export for Apple Music"}
-          </button>
-          {hasTracks && (
-            <button
-              onClick={() => {
-                const title = titleDraft.trim() || "My Playlist";
-                const slug  = title.toLowerCase().replace(/[^a-z0-9]+/g, "-").slice(0, 40);
-                downloadTextFile(`rekodo-${slug}.txt`, buildExportText(title, tracks));
-              }}
-              title="Download as .txt file"
-              style={{ fontFamily: MONO, fontSize: "11px", color: "#888", background: "none", border: `1px solid #c0bcb4`, borderRadius: "3px", cursor: "pointer", padding: "8px 10px", flexShrink: 0 }}
-            >
-              ↓
-            </button>
-          )}
-        </div>
+        <button
+          onClick={handleExport}
+          disabled={!hasTracks}
+          title="Downloads a track list you can import into Apple Music or Spotify via Soundiiz or TuneMyMusic (both free)"
+          style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.1em", textTransform: "uppercase", color: hasTracks ? INK : "#cccccc", background: "none", border: `1px solid ${hasTracks ? "#c0bcb4" : RULE}`, borderRadius: "3px", cursor: !hasTracks ? "default" : "pointer", padding: "8px 0", width: "100%" }}
+        >
+          Export Playlist
+        </button>
       </div>
 
       {saveDone && (
