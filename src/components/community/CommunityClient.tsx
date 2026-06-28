@@ -37,7 +37,7 @@ function compatLabel(score: number): { label: string; description: string } {
   if (score >= 35) return { label: "Same Record, Different Pressing", description: "Same music. Different origin story." };
   if (score >= 20) return { label: "Bandmates",                      description: "You're making the same music, just in different rooms." };
   if (score >= 10) return { label: "Label Mate",                     description: "Same label, different artist. You get it." };
-  if (score >=  5) return { label: "The A Side to my B",             description: "Different but part of the same record." };
+  if (score >=  5) return { label: "The A Side to My B",             description: "Different but part of the same record." };
   if (score >=  2) return { label: "Regular at the Same Shop",       description: "You've definitely flipped through the same crates." };
   if (score >=  1) return { label: "Passing Acquaintance",           description: "You'd nod at each other in a record shop." };
   return               { label: "Complete Stranger",                  description: "Your collections have almost nothing in common. Interesting." };

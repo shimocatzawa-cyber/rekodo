@@ -16,7 +16,7 @@ const TIER_ORDER = [
   "Same Record, Different Pressing",
   "Bandmates",
   "Label Mate",
-  "The A Side to my B",
+  "The A Side to My B",
   "Regular at the Same Shop",
   "Passing Acquaintance",
   "Complete Stranger",
@@ -27,7 +27,7 @@ function compatLabel(score: number): string {
   if (score >= 35) return "Same Record, Different Pressing";
   if (score >= 20) return "Bandmates";
   if (score >= 10) return "Label Mate";
-  if (score >=  5) return "The A Side to my B";
+  if (score >=  5) return "The A Side to My B";
   if (score >=  2) return "Regular at the Same Shop";
   if (score >=  1) return "Passing Acquaintance";
   return "Complete Stranger";
