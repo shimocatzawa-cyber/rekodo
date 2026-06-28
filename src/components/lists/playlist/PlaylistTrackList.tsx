@@ -78,12 +78,11 @@ export default function PlaylistTrackList({ tracks, onReorder, resequencing }: P
             className="rk-playlist-track-row"
             style={{
               display: "flex", alignItems: "center", gap: "12px",
-              padding: "0 16px 0 12px",
+              padding: "12px 16px",
               borderBottom: i < tracks.length - 1 ? `1px solid ${RULE}` : "none",
               opacity: dragging ? 0.4 : 1,
               background: dragOver ? "#fdf6f0" : "transparent",
               cursor: "grab",
-              minHeight: 56,
             }}
           >
             <span style={{ fontFamily: MONO, fontSize: "11px", color: "#cccccc", userSelect: "none", flexShrink: 0 }} title="Drag to reorder">
@@ -93,15 +92,14 @@ export default function PlaylistTrackList({ tracks, onReorder, resequencing }: P
               {i + 1}
             </span>
 
-            {/* Cover — stretches to full row height */}
-            <div style={{ width: 48, flexShrink: 0, alignSelf: "stretch", background: "#ebe7e0", overflow: "hidden" }}>
+            <div style={{ width: 40, height: 40, flexShrink: 0, background: "#ebe7e0", overflow: "hidden" }}>
               {proxyUrl(t.cover_url) ? (
                 // eslint-disable-next-line @next/next/no-img-element
                 <img src={proxyUrl(t.cover_url)!} alt="" style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
               ) : null}
             </div>
 
-            <div style={{ flex: 1, minWidth: 0, padding: "12px 0" }}>
+            <div style={{ flex: 1, minWidth: 0 }}>
               <div style={{ display: "flex", alignItems: "baseline", gap: "8px", flexWrap: "wrap" }}>
                 <p style={{ fontFamily: SERIF, fontSize: "14px", color: INK, margin: 0 }}>{t.title}</p>
                 {t.source === "wantlist" && (
