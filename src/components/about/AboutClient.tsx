@@ -96,13 +96,37 @@ export default function AboutClient({
               alt="Dig deeper — crates of records"
               style={{ width: "100%", height: "auto", display: "block", marginBottom: "12px" }}
             />
-            <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: "40px" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", marginBottom: "56px" }}>
+              <div>
+                <h1 style={{
+                  fontFamily: SERIF,
+                  fontSize: "clamp(52px, 8vw, 88px)",
+                  fontWeight: 400,
+                  color: "#0d0d0d",
+                  lineHeight: 1,
+                  margin: "0 0 24px 0",
+                  letterSpacing: "-0.01em",
+                }}>
+                  rek<span style={{ color: ORANGE }}>ō</span>do
+                </h1>
+                <p style={{
+                  fontFamily: SERIF,
+                  fontSize: "clamp(18px, 2.5vw, 24px)",
+                  fontWeight: 400,
+                  color: "#888888",
+                  lineHeight: 1.4,
+                  margin: 0,
+                  fontStyle: "italic",
+                }}>
+                  Your records say everything about you.
+                </p>
+              </div>
               <a
                 href="https://www.instagram.com/rekodomusic/"
                 target="_blank"
                 rel="noopener noreferrer"
                 style={{
-                  display: "inline-flex", alignItems: "center", gap: 8,
+                  display: "inline-flex", alignItems: "center", gap: 8, flexShrink: 0, marginLeft: 24,
                   fontFamily: MONO, fontSize: "10px", letterSpacing: "0.08em", textTransform: "uppercase",
                   color: INK, textDecoration: "none", borderBottom: `1px solid ${INK}`, paddingBottom: 2,
                 }}
@@ -113,30 +137,6 @@ export default function AboutClient({
                 Follow rekōdo on Instagram
               </a>
             </div>
-
-            <h1 style={{
-              fontFamily: SERIF,
-              fontSize: "clamp(52px, 8vw, 88px)",
-              fontWeight: 400,
-              color: "#0d0d0d",
-              lineHeight: 1,
-              margin: "0 0 24px 0",
-              letterSpacing: "-0.01em",
-            }}>
-              rek<span style={{ color: ORANGE }}>ō</span>do
-            </h1>
-
-            <p style={{
-              fontFamily: SERIF,
-              fontSize: "clamp(18px, 2.5vw, 24px)",
-              fontWeight: 400,
-              color: "#888888",
-              lineHeight: 1.4,
-              margin: "0 0 56px 0",
-              fontStyle: "italic",
-            }}>
-              Your records say everything about you.
-            </p>
 
             <div style={{ display: "flex", flexDirection: "column", gap: 28 }}>
               {BODY_PARAGRAPHS.map((p, i) => (
