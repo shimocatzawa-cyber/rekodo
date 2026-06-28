@@ -2005,6 +2005,16 @@ function TracklistPanel({ tracks, loading, bandcamp, record, username }: {
 
   return (
     <div>
+      {/* ── Collection Insights link ── */}
+      <div style={{ padding: "8px 28px", borderBottom: "1px solid rgba(0,0,0,0.08)" }}>
+        <Link
+          href="/insights"
+          style={{ fontFamily: MONO, fontSize: "10px", letterSpacing: "0.06em", color: ORANGE, textDecoration: "none" }}
+        >
+          Collection Insights →
+        </Link>
+      </div>
+
       {/* ── Spotify Player — desktop only; stays mounted (just CSS-hidden) on mobile
           so the SDK connection never disconnects between album switches. ── */}
       <div className="hidden md:block">
