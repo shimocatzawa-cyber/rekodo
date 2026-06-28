@@ -21,7 +21,10 @@ export async function GET(req: NextRequest) {
     return new NextResponse("Invalid url", { status: 400 });
   }
 
-  if (!ALLOWED_HOSTS.includes(parsed.hostname)) {
+  const allowed =
+    ALLOWED_HOSTS.includes(parsed.hostname) ||
+    parsed.hostname.endsWith(".supabase.co");
+  if (!allowed) {
     return new NextResponse("Host not allowed", { status: 403 });
   }
 

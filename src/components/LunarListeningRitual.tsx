@@ -17,7 +17,7 @@ function getIllumination(phase: number): number {
 
 // 8 phases centred around their astronomical midpoints.
 // Quarter moons are at days ~7.38 and ~22.15; full moon at ~14.77.
-// Each quarter gets a ±1-day window; full moon gets ±1.5 days.
+// All named phases use a ±1-day window.
 type PhaseKey =
   | "new"
   | "waxing_crescent"
@@ -33,8 +33,8 @@ function getLunarPhase(): PhaseKey {
   if (p < 1.85 || p > LUNAR_CYCLE - 1.85)  return "new";
   if (p < 6.38)                              return "waxing_crescent";
   if (p < 8.38)                              return "first_quarter";
-  if (p < 13.27)                             return "waxing_gibbous";
-  if (p < 16.27)                             return "full";
+  if (p < 13.77)                             return "waxing_gibbous";
+  if (p < 15.77)                             return "full";
   if (p < 21.15)                             return "waning_gibbous";
   if (p < 23.15)                             return "last_quarter";
   return "waning_crescent";

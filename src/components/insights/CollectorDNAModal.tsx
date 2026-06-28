@@ -57,7 +57,7 @@ function StatRow({ jaLabel, enLabel, value, noBorder }: { jaLabel: string; enLab
   );
 }
 
-function DNACard({ username, primaryStyle, styleObsession, avgReleaseYear, topCountry, rarityPct, collectorArchetype, collectorSinceYear, totalRecords, vinylSrc = "/vinyl-record.png" }: CardProps & { vinylSrc?: string }) {
+function DNACard({ username, primaryStyle, styleObsession, avgReleaseYear, topCountry, rarityPct, collectorArchetype, collectorSinceYear, totalRecords, vinylSrc = "/vinyl-record.png", forExport = false }: CardProps & { vinylSrc?: string; forExport?: boolean }) {
   return (
     <div style={{ width: 560, background: BG, boxSizing: "border-box", fontFamily: SERIF, position: "relative", minHeight: 660, display: "flex", flexDirection: "column" }}>
 
@@ -97,13 +97,15 @@ function DNACard({ username, primaryStyle, styleObsession, avgReleaseYear, topCo
               <div style={{ fontFamily: SERIF, fontSize: 10, fontStyle: "italic", color: MUTED, marginTop: 2 }}>コレクターの原型</div>
             </div>
           )}
-          <div style={{ width: 210, height: 210, borderRadius: "50%", overflow: "hidden", flexShrink: 0, background: BG }}>
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src={vinylSrc}
-              alt="Vinyl record"
-              style={{ width: "100%", height: "100%", objectFit: "cover", display: "block", mixBlendMode: "multiply" }}
-            />
+          <div data-vinyl-slot style={{ width: 210, height: 210, borderRadius: "50%", overflow: "hidden", flexShrink: 0, background: BG }}>
+            {!forExport && (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={vinylSrc}
+                alt="Vinyl record"
+                style={{ width: "100%", height: "100%", objectFit: "cover", display: "block", mixBlendMode: "multiply" }}
+              />
+            )}
           </div>
           <div style={{ textAlign: "center", marginTop: 10 }}>
             <div style={{ fontFamily: SERIF, fontSize: 44, fontWeight: 600, color: INK, lineHeight: 1 }}>{totalRecords.toLocaleString()}</div>
@@ -150,17 +152,50 @@ export default function CollectorDNAModal({ onClose, ...cardProps }: Props) {
     if (!exportRef.current) return null;
     await document.fonts.ready;
     const PR = 2;
-    const dataUrl = await toPng(exportRef.current, { pixelRatio: PR });
+    const naturalW = exportRef.current.offsetWidth;
+    const naturalH = exportRef.current.offsetHeight;
+
+    const layoutDataUrl = await toPng(exportRef.current, { pixelRatio: PR });
+    const cardBCR  = exportRef.current.getBoundingClientRect();
+    const vinylEl  = exportRef.current.querySelector<HTMLElement>("[data-vinyl-slot]");
+
     const canvas = document.createElement("canvas");
-    canvas.width  = exportRef.current.offsetWidth  * PR;
-    canvas.height = exportRef.current.offsetHeight * PR;
+    canvas.width  = naturalW * PR;
+    canvas.height = naturalH * PR;
     const ctx = canvas.getContext("2d")!;
+
     await new Promise<void>((resolve, reject) => {
       const img = new Image();
       img.onload  = () => { ctx.drawImage(img, 0, 0); resolve(); };
       img.onerror = reject;
-      img.src = dataUrl;
+      img.src = layoutDataUrl;
     });
+
+    if (vinylEl && vinylSrc) {
+      const r  = vinylEl.getBoundingClientRect();
+      const x  = (r.left - cardBCR.left) * PR;
+      const y  = (r.top  - cardBCR.top)  * PR;
+      const w  = r.width  * PR;
+      const h  = r.height * PR;
+      const cx = x + w / 2;
+      const cy = y + h / 2;
+      await new Promise<void>(resolve => {
+        const img = new Image();
+        img.onload = () => {
+          ctx.save();
+          ctx.beginPath();
+          ctx.arc(cx, cy, Math.min(w, h) / 2, 0, Math.PI * 2);
+          ctx.clip();
+          ctx.globalCompositeOperation = "multiply";
+          ctx.drawImage(img, x, y, w, h);
+          ctx.restore();
+          resolve();
+        };
+        img.onerror = () => resolve();
+        img.src = vinylSrc!;
+      });
+    }
+
     return canvas;
   }
 
@@ -200,7 +235,7 @@ export default function CollectorDNAModal({ onClose, ...cardProps }: Props) {
 
       {/* Off-screen export card — uses pre-fetched data URL for reliable image capture */}
       <div style={{ position: "fixed", left: -9999, top: -9999, zIndex: -1 }}>
-        <div ref={exportRef}><DNACard {...cardProps} vinylSrc={vinylSrc ?? "/vinyl-record.png"} /></div>
+        <div ref={exportRef}><DNACard {...cardProps} forExport /></div>
       </div>
 
       <div style={{ background: "#fff", maxWidth: 560, width: "100%", maxHeight: "94vh", display: "flex", flexDirection: "column" }}>

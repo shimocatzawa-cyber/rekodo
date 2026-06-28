@@ -14,7 +14,10 @@ const RULE    = "#dddad2";
 
 async function imgToDataUrl(url: string): Promise<string | null> {
   try {
-    const res = await fetch(url);
+    const target = url.startsWith("/")
+      ? url
+      : `/api/image-proxy?url=${encodeURIComponent(url)}`;
+    const res = await fetch(target);
     if (!res.ok) return null;
     const blob = await res.blob();
     return await new Promise<string>((resolve, reject) => {
@@ -103,7 +106,7 @@ const TIER_META: Record<string, { label: string; color: string }> = {
   "in-demand":    { label: "In Demand",    color: "#085041" },
 };
 
-function ShelfCard({ username, totalRecords, styleBreakdown, genreBreakdown, desirabilityBreakdown, topArtist, topArtistCount, oldestAlbum, newestAlbum, collectionPhotoUrl, formatBreakdown, resolvedPhotoUrl }: CardProps & { resolvedPhotoUrl?: string }) {
+function ShelfCard({ username, totalRecords, styleBreakdown, genreBreakdown, desirabilityBreakdown, topArtist, topArtistCount, oldestAlbum, newestAlbum, collectionPhotoUrl, formatBreakdown, resolvedPhotoUrl, forExport }: CardProps & { resolvedPhotoUrl?: string; forExport?: boolean }) {
   const VINYL_FMTS = new Set(["LP", "VINYL", "7\"", "10\"", "12\"", "EP"]);
   const CD_FMTS    = new Set(["CD", "CDR", "CD, ALBUM"]);
   const CASS_FMTS  = new Set(["CASSETTE", "CASS"]);
@@ -167,12 +170,16 @@ function ShelfCard({ username, totalRecords, styleBreakdown, genreBreakdown, des
         </div>
         <div style={{ flex: 2.2, flexShrink: 0, padding: "16px 0 16px 20px" }}>
           <div style={{ width: "100%", overflow: "hidden", borderRadius: 4 }}>
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src={photoSrc}
-              alt="Record shelf"
-              style={{ width: "100%", height: 220, objectFit: "cover", objectPosition: "left top", display: "block" }}
-            />
+            {forExport ? (
+              <div data-shelf-photo style={{ width: "100%", height: 220, background: RULE }} />
+            ) : (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={photoSrc}
+                alt="Record shelf"
+                style={{ width: "100%", height: 220, objectFit: "cover", objectPosition: "left top", display: "block" }}
+              />
+            )}
           </div>
         </div>
       </div>
@@ -288,17 +295,53 @@ export default function RecordShelfModal({ onClose, ...cardProps }: Props) {
     if (!exportRef.current) return null;
     await document.fonts.ready;
     const PR = 2;
-    const dataUrl = await toPng(exportRef.current, { pixelRatio: PR });
+    const naturalW = exportRef.current.offsetWidth;
+    const naturalH = exportRef.current.offsetHeight;
+
+    const layoutDataUrl = await toPng(exportRef.current, { pixelRatio: PR });
+    const cardBCR = exportRef.current.getBoundingClientRect();
+    const photoEl = exportRef.current.querySelector<HTMLElement>("[data-shelf-photo]");
+
     const canvas = document.createElement("canvas");
-    canvas.width  = exportRef.current.offsetWidth  * PR;
-    canvas.height = exportRef.current.offsetHeight * PR;
+    canvas.width  = naturalW * PR;
+    canvas.height = naturalH * PR;
     const ctx = canvas.getContext("2d")!;
+
     await new Promise<void>((resolve, reject) => {
       const img = new Image();
       img.onload  = () => { ctx.drawImage(img, 0, 0); resolve(); };
       img.onerror = reject;
-      img.src = dataUrl;
+      img.src = layoutDataUrl;
     });
+
+    if (photoEl && photoSrc) {
+      const r = photoEl.getBoundingClientRect();
+      const x = (r.left - cardBCR.left) * PR;
+      const y = (r.top  - cardBCR.top)  * PR;
+      const w = r.width  * PR;
+      const h = r.height * PR;
+      await new Promise<void>(resolve => {
+        const img = new Image();
+        img.onload = () => {
+          // objectFit: cover, objectPosition: left top
+          const imgAspect = img.naturalWidth / img.naturalHeight;
+          const boxAspect = w / h;
+          let sx = 0, sy = 0, sw: number, sh: number;
+          if (imgAspect > boxAspect) { sh = img.naturalHeight; sw = sh * boxAspect; }
+          else                       { sw = img.naturalWidth;  sh = sw / boxAspect; }
+          ctx.save();
+          ctx.beginPath();
+          ctx.rect(x, y, w, h);
+          ctx.clip();
+          ctx.drawImage(img, sx, sy, sw, sh, x, y, w, h);
+          ctx.restore();
+          resolve();
+        };
+        img.onerror = () => resolve();
+        img.src = photoSrc!;
+      });
+    }
+
     return canvas;
   }
 
@@ -338,7 +381,7 @@ export default function RecordShelfModal({ onClose, ...cardProps }: Props) {
 
       {/* Off-screen export card — uses pre-fetched data URL for reliable image capture */}
       <div style={{ position: "fixed", left: -9999, top: -9999, zIndex: -1 }}>
-        <div ref={exportRef}><ShelfCard {...cardProps} resolvedPhotoUrl={photoSrc ?? cardProps.collectionPhotoUrl ?? "/shelf-photo.jpg"} /></div>
+        <div ref={exportRef}><ShelfCard {...cardProps} forExport /></div>
       </div>
 
       <div style={{ background: "#fff", maxWidth: 560, width: "100%", maxHeight: "94vh", display: "flex", flexDirection: "column" }}>
