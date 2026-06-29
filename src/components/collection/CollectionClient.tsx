@@ -1012,19 +1012,14 @@ const [filterFormat,       setFilterFormat]       = useState("");
                 </button>
               )}
             </div>
-            {/* Last sync + item count */}
-            <div style={{ padding: "0 10px 5px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-              {(syncResult?.timestamp || lastSyncedAt) ? (
+            {/* Last sync time */}
+            {(syncResult?.timestamp || lastSyncedAt) && (
+              <div style={{ padding: "0 10px 5px" }}>
                 <span style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.04em", color: "#bbbbbb" }}>
                   Last sync: {formatSyncDisplayTime(syncResult?.timestamp ?? lastSyncedAt)}
                 </span>
-              ) : <span />}
-              {collection.length > 0 && (
-                <span style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.04em", color: "#bbbbbb" }}>
-                  {collection.length.toLocaleString()} items
-                </span>
-              )}
-            </div>
+              </div>
+            )}
 
             {/* Mobile — inline search + filter selects */}
             <div className="md:hidden" style={{ padding: "8px 12px 10px" }}>
@@ -1410,6 +1405,7 @@ const [filterFormat,       setFilterFormat]       = useState("");
                 bandcamp={bandcampData}
                 record={selectedRecord}
                 username={username}
+                collectionCount={collection.length}
               />
             </div>
           </div>
@@ -1786,12 +1782,13 @@ function MetaRow({ label, value }: { label: string; value: string | null | undef
 
 // ─── TracklistPanel ───────────────────────────────────────────────────────────
 
-function TracklistPanel({ tracks, loading, bandcamp, record, username }: {
-  tracks:    TrackItem[] | null;
-  loading:   boolean;
-  bandcamp:  BandcampData | null;
-  record:    CollectionRecord | null;
-  username?: string;
+function TracklistPanel({ tracks, loading, bandcamp, record, username, collectionCount }: {
+  tracks:          TrackItem[] | null;
+  loading:         boolean;
+  bandcamp:        BandcampData | null;
+  record:          CollectionRecord | null;
+  username?:       string;
+  collectionCount: number;
 }) {
   const artist      = record?.artist ?? "";
   const album       = record?.album  ?? "";
@@ -2005,14 +2002,19 @@ function TracklistPanel({ tracks, loading, bandcamp, record, username }: {
 
   return (
     <div>
-      {/* ── Collection Insights link ── */}
-      <div style={{ padding: "8px 28px", borderBottom: "1px solid rgba(0,0,0,0.08)" }}>
+      {/* ── Collection Insights link + count ── */}
+      <div style={{ padding: "8px 12px 8px 12px", borderBottom: "1px solid rgba(0,0,0,0.08)", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
         <Link
-          href="/insights"
+          href="/insights?tab=collection"
           style={{ fontFamily: MONO, fontSize: "10px", letterSpacing: "0.06em", color: ORANGE, textDecoration: "none" }}
         >
           Collection Insights →
         </Link>
+        {collectionCount > 0 && (
+          <span style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.04em", color: "#bbbbbb" }}>
+            {collectionCount.toLocaleString()} items
+          </span>
+        )}
       </div>
 
       {/* ── Spotify Player — desktop only; stays mounted (just CSS-hidden) on mobile
