@@ -2006,6 +2006,8 @@ function TracklistPanel({ tracks, loading, bandcamp, record, username, collectio
       <div style={{ padding: "8px 12px 8px 12px", borderBottom: "1px solid rgba(0,0,0,0.08)", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
         <Link
           href="/insights?tab=collection"
+          target="_blank"
+          rel="noopener noreferrer"
           style={{ fontFamily: MONO, fontSize: "10px", letterSpacing: "0.06em", color: ORANGE, textDecoration: "none" }}
         >
           Collection Insights →
