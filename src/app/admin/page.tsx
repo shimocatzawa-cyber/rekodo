@@ -3,6 +3,8 @@ import AdminClient from "./AdminClient";
 import type { AdminUser } from "./UserRow";
 import { ARCHETYPES } from "@/lib/archetypes/archetypeConfig";
 
+export const dynamic = "force-dynamic";
+
 type ProfileRow = {
   id: string;
   username: string | null;
