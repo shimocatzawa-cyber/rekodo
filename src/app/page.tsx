@@ -89,6 +89,9 @@ export default async function LandingPage() {
         dangerouslySetInnerHTML={{ __html: JSON.stringify(orgLd) }}
       />
       <main className="flex flex-col min-h-screen bg-white">
+        <div className="w-full bg-black text-white text-center text-sm py-2.5 px-4">
+          rekōdo is currently undergoing emergency maintenance — we&apos;ll be back shortly.
+        </div>
         <LandingNav username={username} displayLabel={displayLabel} avatarUrl={avatarUrl} />
         <HeroSection isSignedIn={!!user} />
         <LandingFooter />
