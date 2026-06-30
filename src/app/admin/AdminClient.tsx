@@ -58,21 +58,21 @@ function isSupporterTier(tier: string | null): boolean {
 function getSortValue(u: AdminUser, key: SortKey): string | number {
   switch (key) {
     case "username":            return (u.username ?? u.display_name ?? "").toLowerCase();
-    case "email":                return u.email.toLowerCase();
-    case "location":             return `${u.city ?? ""} ${u.country ?? ""}`.trim().toLowerCase();
-    case "archetype":            return (u.archetype ?? "").toLowerCase();
-    case "record_count":         return u.record_count;
-    case "lists_created":        return u.lists_created;
-    case "playlists_generated":  return u.playlists_generated;
-    case "digs_count":           return u.digs_count;
-    case "subscription_spend":   return u.subscription_spend?.cents ?? 0;
-    case "donation_total":       return u.donation_total?.cents ?? 0;
-    case "connected":            return Object.values(u.connections).filter(Boolean).length;
-    case "discogs_username":     return (u.discogs_username ?? "").toLowerCase();
-    case "subscription_tier":    return u.subscription_tier ?? "";
-    case "joined":                return new Date(u.created_at).getTime();
-    case "last_active":          return new Date(u.last_active_at ?? u.last_sign_in_at ?? 0).getTime();
-    case "status":               return isBlocked(u.banned_until) ? 1 : 0;
+    case "email":               return u.email.toLowerCase();
+    case "location":            return `${u.city ?? ""} ${u.country ?? ""}`.trim().toLowerCase();
+    case "archetype":           return (u.archetype ?? "").toLowerCase();
+    case "record_count":        return u.record_count;
+    case "lists_created":       return u.lists_created;
+    case "playlists_generated": return u.playlists_generated;
+    case "digs_count":          return u.digs_count;
+    case "subscription_spend":  return u.subscription_spend?.cents ?? 0;
+    case "donation_total":      return u.donation_total?.cents ?? 0;
+    case "connected":           return Object.values(u.connections).filter(Boolean).length;
+    case "discogs_username":    return (u.discogs_username ?? "").toLowerCase();
+    case "subscription_tier":   return u.subscription_tier ?? "";
+    case "joined":              return new Date(u.created_at).getTime();
+    case "last_active":         return new Date(u.last_active_at ?? u.last_sign_in_at ?? 0).getTime();
+    case "status":              return isBlocked(u.banned_until) ? 1 : 0;
   }
 }
 
@@ -144,22 +144,23 @@ const buttonSt: React.CSSProperties = {
   padding: "7px 12px", cursor: "pointer",
 };
 
-export default function AdminClient({ users }: { users: AdminUser[] }) {
+export default function AdminClient({ users: initialUsers, total }: { users: AdminUser[]; total: number }) {
+  const [allUsers, setAllUsers]           = useState<AdminUser[]>(initialUsers);
+  const [loadingMore, setLoadingMore]     = useState(false);
+  const [loadError, setLoadError]         = useState<string | null>(null);
   const [query, setQuery]                 = useState("");
   const [tierFilter, setTierFilter]       = useState<"all" | "free" | "supporter">("all");
   const [statusFilter, setStatusFilter]   = useState<"all" | "active" | "blocked">("all");
   const [connFilter, setConnFilter]       = useState<"all" | ConnectionKey>("all");
   const [showAllColumns, setShowAllColumns] = useState(false);
-  const [sortKey, setSortKey] = useState<SortKey | null>(() => readStoredSort().key);
-  const [sortDir, setSortDir] = useState<"asc" | "desc">(() => readStoredSort().dir);
+  const [sortKey, setSortKey]             = useState<SortKey | null>(() => readStoredSort().key);
+  const [sortDir, setSortDir]             = useState<"asc" | "desc">(() => readStoredSort().dir);
 
   // Persist sort choice across sessions
   useEffect(() => {
     try {
       localStorage.setItem(SORT_STORAGE_KEY, JSON.stringify({ key: sortKey, dir: sortDir }));
-    } catch {
-      // ignore unavailable storage
-    }
+    } catch { /* ignore */ }
   }, [sortKey, sortDir]);
 
   function handleSort(key: SortKey) {
@@ -171,9 +172,29 @@ export default function AdminClient({ users }: { users: AdminUser[] }) {
     }
   }
 
+  async function loadMore() {
+    setLoadingMore(true);
+    setLoadError(null);
+    try {
+      const res = await fetch(`/api/admin/users?offset=${allUsers.length}`);
+      if (!res.ok) throw new Error(await res.text());
+      const { users: next } = await res.json() as { users: AdminUser[] };
+      setAllUsers(prev => {
+        const seen = new Set(prev.map(u => u.id));
+        return [...prev, ...next.filter(u => !seen.has(u.id))];
+      });
+    } catch (err) {
+      setLoadError(err instanceof Error ? err.message : "Failed to load more users");
+    } finally {
+      setLoadingMore(false);
+    }
+  }
+
+  const hasMore = allUsers.length < total;
+
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
-    return users.filter(u => {
+    return allUsers.filter(u => {
       if (q && !(u.username ?? "").toLowerCase().includes(q) && !u.email.toLowerCase().includes(q)) {
         return false;
       }
@@ -188,7 +209,7 @@ export default function AdminClient({ users }: { users: AdminUser[] }) {
       }
       return true;
     });
-  }, [users, query, tierFilter, statusFilter, connFilter]);
+  }, [allUsers, query, tierFilter, statusFilter, connFilter]);
 
   const sorted = useMemo(() => {
     if (!sortKey) return filtered;
@@ -210,9 +231,16 @@ export default function AdminClient({ users }: { users: AdminUser[] }) {
   return (
     <div style={{ padding: "40px 48px" }}>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "20px", gap: "12px", flexWrap: "wrap" }}>
-        <p style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.14em", textTransform: "uppercase", color: ORANGE, margin: 0 }}>
-          Users
-        </p>
+        <div style={{ display: "flex", alignItems: "baseline", gap: "12px" }}>
+          <p style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.14em", textTransform: "uppercase", color: ORANGE, margin: 0 }}>
+            Users
+          </p>
+          <span style={{ fontFamily: MONO, fontSize: "10px", color: MUTED }}>
+            {allUsers.length < total
+              ? `${allUsers.length.toLocaleString()} of ${total.toLocaleString()} loaded`
+              : `${total.toLocaleString()} total`}
+          </span>
+        </div>
 
         <div style={{ display: "flex", gap: "8px", flexWrap: "wrap", alignItems: "center" }}>
           <input
@@ -292,10 +320,33 @@ export default function AdminClient({ users }: { users: AdminUser[] }) {
             ))}
           </tbody>
         </table>
+
         {sorted.length === 0 && (
           <p style={{ fontFamily: MONO, fontSize: "11px", color: MUTED, padding: "24px 16px" }}>
             No users match the current search/filters.
           </p>
+        )}
+
+        {/* Load more */}
+        {hasMore && (
+          <div style={{ padding: "28px 0", display: "flex", flexDirection: "column", alignItems: "center", gap: "8px" }}>
+            <button
+              onClick={loadMore}
+              disabled={loadingMore}
+              style={{
+                ...buttonSt,
+                opacity: loadingMore ? 0.5 : 1,
+                cursor: loadingMore ? "default" : "pointer",
+              }}
+            >
+              {loadingMore ? "Loading…" : `Load more (${(total - allUsers.length).toLocaleString()} remaining)`}
+            </button>
+            {loadError && (
+              <p style={{ fontFamily: MONO, fontSize: "10px", color: "#cc2200", margin: 0 }}>
+                {loadError}
+              </p>
+            )}
+          </div>
         )}
       </div>
     </div>

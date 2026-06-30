@@ -1,27 +1,7 @@
-import { createClient as createServiceClient, type User } from "@supabase/supabase-js";
 import AdminClient from "./AdminClient";
-import type { AdminUser } from "./UserRow";
-import { ARCHETYPES } from "@/lib/archetypes/archetypeConfig";
+import { getAdminDb, enrichProfiles, PROFILE_COLUMNS, ADMIN_PAGE_SIZE } from "./lib";
 
 export const dynamic = "force-dynamic";
-
-type ProfileRow = {
-  id: string;
-  username: string | null;
-  display_name: string | null;
-  subscription_tier: string | null;
-  role: string | null;
-  created_at: string;
-  last_synced_at: string | null;
-  last_active_at: string | null;
-  city: string | null;
-  country: string | null;
-  is_donor: boolean;
-  is_supporter: boolean;
-  is_test: boolean;
-  spotify_connected: boolean;
-  bandcamp_username: string | null;
-};
 
 const SERIF  = "var(--font-editorial)";
 const MONO   = "var(--font-mono)";
@@ -30,208 +10,56 @@ const RULE   = "#e0e0da";
 const MUTED  = "#aaaaaa";
 const INK    = "#0d0d0d";
 
-function getAdminDb() {
-  return createServiceClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!,
-    { auth: { persistSession: false } }
-  );
-}
-
-// Paginates past PostgREST's 1000-row hard cap. Batch size must be ≤ 1000 —
-// requesting more returns exactly 1000, causing the loop to break too early.
-async function fetchPaged(
-  adminDb: ReturnType<typeof getAdminDb>,
-  table: string,
-  columns: string,
-  filter?: { column: string; value: string }
-): Promise<Record<string, unknown>[]> {
-  const rows: Record<string, unknown>[] = [];
-  const BATCH = 1000;
-  for (let from = 0; ; from += BATCH) {
-    let query = adminDb.from(table).select(columns).range(from, from + BATCH - 1);
-    if (filter) query = query.eq(filter.column, filter.value);
-    const { data, error } = await query;
-    // A query error (e.g. a missing grant) looks identical to "no rows" if
-    // not checked — that silently zeroed out an entire admin column before
-    // (see 20260630000001) rather than showing up anywhere.
-    if (error) { console.error(`[admin] fetchPaged(${table}) failed:`, error.message); break; }
-    if (!data?.length) break;
-    rows.push(...(data as unknown as Record<string, unknown>[]));
-    if (data.length < BATCH) break;
-  }
-  return rows;
-}
-
-// auth.admin.listUsers has its own page/perPage cap — must be paginated separately from fetchPaged.
-async function fetchAllAuthUsers(adminDb: ReturnType<typeof getAdminDb>): Promise<User[]> {
-  const users: User[] = [];
-  const PER_PAGE = 1000;
-  for (let page = 1; ; page++) {
-    const { data, error } = await adminDb.auth.admin.listUsers({ page, perPage: PER_PAGE });
-    if (error) {
-      console.error("[admin] listUsers query failed:", error.message);
-      break;
-    }
-    if (!data.users.length) break;
-    users.push(...data.users);
-    if (data.users.length < PER_PAGE) break;
-  }
-  return users;
-}
-
 export default async function AdminPage() {
   const adminDb = getAdminDb();
 
-  // Fetch profiles and auth users — paginated past Supabase's 1000-row/page caps
-  const [profiles, authUsers, listRows, discogsRows, archetypeRows, paymentRows, pageViewRows, digRows] = await Promise.all([
-    fetchPaged(
-      adminDb,
-      "profiles",
-      "id, username, display_name, subscription_tier, role, created_at, last_synced_at, last_active_at, city, country, is_donor, is_supporter, is_test, spotify_connected, bandcamp_username"
-    ),
-    fetchAllAuthUsers(adminDb),
-    fetchPaged(adminDb, "lists", "user_id, list_type, slug"),
-    fetchPaged(adminDb, "discogs_tokens", "user_id, discogs_username"),
-    fetchPaged(adminDb, "archetype_cache", "user_id, primary_archetype"),
-    fetchPaged(adminDb, "payments", "user_id, type, amount_cents, currency"),
-    fetchPaged(adminDb, "page_views", "user_id, section"),
-    fetchPaged(adminDb, "dig_daily_count", "user_id, count"),
+  // Fast COUNT queries + initial profile page + feature popularity, all in parallel.
+  // We no longer paginate every table — each query is bounded.
+  const [
+    totalUsersResult,
+    supportersResult,
+    donorsResult,
+    totalRecordsResult,
+    profilesResult,
+    pageViewSectionsResult,
+  ] = await Promise.all([
+    adminDb.from("profiles").select("*", { count: "exact", head: true }),
+    adminDb
+      .from("profiles")
+      .select("*", { count: "exact", head: true })
+      .in("subscription_tier", ["plus", "premium", "supporter"]),
+    adminDb
+      .from("profiles")
+      .select("*", { count: "exact", head: true })
+      .eq("is_donor", true),
+    adminDb.from("user_records").select("*", { count: "exact", head: true }),
+    // First page of users — most recently active first, nulls last
+    adminDb
+      .from("profiles")
+      .select(PROFILE_COLUMNS)
+      .order("last_active_at", { ascending: false, nullsFirst: false })
+      .limit(ADMIN_PAGE_SIZE),
+    // Section popularity — only the section column, bounded to recent activity
+    adminDb.from("page_views").select("section").limit(10000),
   ]);
 
-  const profileById = new Map(profiles.map(p => [p.id as string, p as unknown as ProfileRow]));
+  const total      = totalUsersResult.count ?? 0;
+  const supporters = supportersResult.count ?? 0;
+  const free       = total - supporters;
+  const donors     = donorsResult.count ?? 0;
+  const totalRecords = totalRecordsResult.count ?? 0;
 
-  // "wantlist" and "want-to-buy" are both legacy slugs for the same special list
-  const isWantlistSlug = (slug: string) => slug === "wantlist" || slug === "want-to-buy";
+  // Enrich the initial user batch (fetches per-user associated data)
+  const initialProfiles = profilesResult.data ?? [];
+  const users = await enrichProfiles(adminDb, initialProfiles);
 
-  const wantlistIds  = new Set(
-    listRows.filter(r => isWantlistSlug(r.slug as string)).map(r => r.user_id as string)
-  );
-  const discogsIds   = new Set(discogsRows.map(r => r.user_id as string));
-  const discogsUsernameMap = new Map(discogsRows.map(r => [r.user_id as string, r.discogs_username as string | null]));
-  const archetypeMap = new Map(archetypeRows.map(r => [r.user_id as string, r.primary_archetype as string | null]));
-
-  // Lists created: the curated "Top 5" lists feature (list_type defaults to "top5" for rows predating that column)
-  const listsCreatedMap = new Map<string, number>();
-  // Playlists generated: personal lists saved from the AI playlist generator, excluding the wantlist
-  const playlistsGeneratedMap = new Map<string, number>();
-  for (const row of listRows) {
-    const uid = row.user_id as string;
-    const listType = (row.list_type as string | null) ?? "top5";
-    const slug = row.slug as string;
-    if (listType === "top5") {
-      listsCreatedMap.set(uid, (listsCreatedMap.get(uid) ?? 0) + 1);
-    } else if (listType === "personal" && !isWantlistSlug(slug)) {
-      playlistsGeneratedMap.set(uid, (playlistsGeneratedMap.get(uid) ?? 0) + 1);
-    }
-  }
-
-  // Digs: dig_daily_count holds one row per user per day with a running count for that day
-  const digCountMap = new Map<string, number>();
-  for (const row of digRows) {
-    const uid = row.user_id as string;
-    digCountMap.set(uid, (digCountMap.get(uid) ?? 0) + (row.count as number));
-  }
-
-  // Aggregate payments per user
-  const subSpendMap  = new Map<string, { cents: number; currency: string }>();
-  const donationMap  = new Map<string, { cents: number; currency: string }>();
-  for (const row of paymentRows) {
-    const uid  = row.user_id as string;
-    const cents = row.amount_cents as number;
-    const cur   = (row.currency as string) ?? "usd";
-    if (row.type === "subscription") {
-      const prev = subSpendMap.get(uid) ?? { cents: 0, currency: cur };
-      subSpendMap.set(uid, { cents: prev.cents + cents, currency: cur });
-    } else if (row.type === "donation") {
-      const prev = donationMap.get(uid) ?? { cents: 0, currency: cur };
-      donationMap.set(uid, { cents: prev.cents + cents, currency: cur });
-    }
-  }
-
-  // Aggregate page views: overall section popularity + each user's top sections
+  // Feature popularity from a bounded recent sample of page views
   const sectionCounts = new Map<string, number>();
-  const userSectionCounts = new Map<string, Map<string, number>>();
-  for (const row of pageViewRows) {
-    const uid     = row.user_id as string;
-    const section = row.section as string;
-    sectionCounts.set(section, (sectionCounts.get(section) ?? 0) + 1);
-    const userMap = userSectionCounts.get(uid) ?? new Map<string, number>();
-    userMap.set(section, (userMap.get(section) ?? 0) + 1);
-    userSectionCounts.set(uid, userMap);
+  for (const row of pageViewSectionsResult.data ?? []) {
+    sectionCounts.set(row.section as string, (sectionCounts.get(row.section as string) ?? 0) + 1);
   }
   const featurePopularity = [...sectionCounts.entries()].sort((a, b) => b[1] - a[1]);
-  const maxSectionCount = featurePopularity[0]?.[1] ?? 0;
-
-  // Paginate user_records — batch must be ≤ 1000 to match PostgREST's hard cap
-  const recordCountMap = new Map<string, number>();
-  const REC_BATCH = 1000;
-  for (let from = 0; ; from += REC_BATCH) {
-    const { data } = await adminDb
-      .from("user_records")
-      .select("user_id")
-      .range(from, from + REC_BATCH - 1);
-    if (!data?.length) break;
-    for (const r of data) {
-      recordCountMap.set(r.user_id, (recordCountMap.get(r.user_id) ?? 0) + 1);
-    }
-    if (data.length < REC_BATCH) break;
-  }
-
-  // Build user list from auth (source of truth — includes everyone)
-  const users: AdminUser[] = authUsers.map(u => {
-    const p = profileById.get(u.id);
-    const recordCount  = recordCountMap.get(u.id) ?? 0;
-    const archetypeId  = archetypeMap.get(u.id) ?? null;
-    const subSpend     = subSpendMap.get(u.id) ?? null;
-    const donation     = donationMap.get(u.id) ?? null;
-    return {
-      id:                u.id,
-      username:          p?.username ?? null,
-      display_name:      p?.display_name ?? null,
-      email:             u.email ?? "",
-      subscription_tier: p?.subscription_tier ?? null,
-      role:              p?.role ?? null,
-      created_at:        p?.created_at ?? u.created_at,
-      last_sign_in_at:   u.last_sign_in_at ?? null,
-      last_synced_at:    p?.last_synced_at ?? null,
-      last_active_at:    p?.last_active_at ?? null,
-      banned_until:      u.banned_until ?? null,
-      record_count:      recordCount,
-      city:              p?.city ?? null,
-      country:           p?.country ?? null,
-      is_donor:          p?.is_donor ?? false,
-      is_supporter:      p?.is_supporter ?? false,
-      is_test:           p?.is_test ?? false,
-      archetype:         archetypeId ? (ARCHETYPES[archetypeId]?.name ?? null) : null,
-      discogs_username:  discogsUsernameMap.get(u.id) ?? null,
-      subscription_spend: subSpend,
-      donation_total:     donation,
-      lists_created:       listsCreatedMap.get(u.id) ?? 0,
-      playlists_generated: playlistsGeneratedMap.get(u.id) ?? 0,
-      digs_count:          digCountMap.get(u.id) ?? 0,
-      top_sections: [...(userSectionCounts.get(u.id) ?? new Map<string, number>()).entries()]
-        .sort((a, b) => b[1] - a[1])
-        .slice(0, 3)
-        .map(([section, count]) => ({ section, count })),
-      connections: {
-        collection: recordCount > 0,
-        wantlist:   wantlistIds.has(u.id),
-        discogs:    discogsIds.has(u.id),
-        spotify:    p?.spotify_connected ?? false,
-        bandcamp:   !!(p?.bandcamp_username),
-      },
-    };
-  }).sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
-
-  const total      = users.length;
-  const supporters = users.filter(u => u.subscription_tier && u.subscription_tier !== "free").length;
-  const free       = users.filter(u => !u.subscription_tier || u.subscription_tier === "free").length;
-  const donors     = users.filter(u => u.is_donor).length;
-
-  const totalRecords    = [...recordCountMap.values()].reduce((a, b) => a + b, 0);
-  const collectorsCount = [...recordCountMap.values()].filter(n => n > 0).length;
-  const avgCollection   = collectorsCount > 0 ? Math.round(totalRecords / collectorsCount) : 0;
+  const maxSectionCount   = featurePopularity[0]?.[1] ?? 0;
 
   return (
     <div style={{ minHeight: "100vh", background: "#ffffff" }}>
@@ -249,20 +77,19 @@ export default async function AdminPage() {
       {/* Stats grid + feature popularity */}
       <div style={{ borderBottom: `1px solid ${RULE}`, display: "flex" }}>
 
-        {/* Stats (3x2): collection stats top-left, user counts fill remaining */}
-        <div style={{ flex: 1, display: "grid", gridTemplateColumns: "1fr 1fr 1fr" }}>
+        {/* Stats (5 items): collection stats left, user counts fill remaining */}
+        <div style={{ flex: 1, display: "flex" }}>
           {[
-            { label: "Total records",    value: totalRecords.toLocaleString() },
-            { label: "Total users",      value: total },
-            { label: "Supporters",       value: supporters },
-            { label: "Avg collection",   value: avgCollection.toLocaleString() },
-            { label: "Free",             value: free },
-            { label: "Donors",           value: donors },
+            { label: "Total records", value: totalRecords.toLocaleString() },
+            { label: "Total users",   value: total.toLocaleString() },
+            { label: "Supporters",    value: supporters.toLocaleString() },
+            { label: "Free",          value: free.toLocaleString() },
+            { label: "Donors",        value: donors.toLocaleString() },
           ].map(({ label, value }, i) => (
             <div key={label} style={{
+              flex: 1,
               padding: "28px 20px",
-              borderLeft: i % 3 !== 0 ? `1px solid ${RULE}` : "none",
-              borderTop:  i >= 3 ? `1px solid ${RULE}` : "none",
+              borderLeft: i > 0 ? `1px solid ${RULE}` : "none",
             }}>
               <p style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.14em", textTransform: "uppercase", color: MUTED, margin: "0 0 8px 0" }}>
                 {label}
@@ -277,7 +104,7 @@ export default async function AdminPage() {
         {/* Feature popularity — top right */}
         <div style={{ flex: 1, padding: "28px 32px", borderLeft: `1px solid ${RULE}` }}>
           <p style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.14em", textTransform: "uppercase", color: ORANGE, margin: "0 0 16px 0" }}>
-            Feature popularity (all-time page views)
+            Feature popularity (recent page views)
           </p>
           {featurePopularity.length === 0 ? (
             <p style={{ fontFamily: MONO, fontSize: "11px", color: MUTED, margin: 0 }}>
@@ -307,7 +134,7 @@ export default async function AdminPage() {
       </div>
 
       {/* User table */}
-      <AdminClient users={users} />
+      <AdminClient users={users} total={total} />
 
     </div>
   );
