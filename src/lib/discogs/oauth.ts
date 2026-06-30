@@ -2,6 +2,16 @@ import { createHmac } from "crypto";
 
 const UA = "rekodo/1.0";
 
+async function fetchWithRetry(url: string, init: RequestInit, retries = 3): Promise<Response> {
+  let delay = 1000;
+  for (let attempt = 0; ; attempt++) {
+    const res = await fetch(url, init);
+    if (res.status !== 429 || attempt >= retries) return res;
+    await new Promise(r => setTimeout(r, delay));
+    delay *= 2;
+  }
+}
+
 // RFC 3986 percent-encode (encodeURIComponent misses !'()*)
 function pct(s: string): string {
   return encodeURIComponent(s).replace(
@@ -70,7 +80,7 @@ export async function getRequestToken(
   const auth = buildAuthHeader("POST", url, consumerKey, consumerSecret, "", "", {
     oauth_callback: callbackUrl,
   });
-  const res = await fetch(url, {
+  const res = await fetchWithRetry(url, {
     method: "POST",
     headers: {
       Authorization: auth,
@@ -103,7 +113,7 @@ export async function getAccessToken(
     requestSecret,
     { oauth_verifier: verifier }
   );
-  const res = await fetch(url, {
+  const res = await fetchWithRetry(url, {
     method: "POST",
     headers: {
       Authorization: auth,
@@ -134,7 +144,7 @@ export async function getIdentity(
 ): Promise<{ username: string }> {
   const url = "https://api.discogs.com/oauth/identity";
   const auth = buildAuthHeader("GET", url, consumerKey, consumerSecret, accessToken, tokenSecret);
-  const res = await fetch(url, { headers: { Authorization: auth, "User-Agent": UA } });
+  const res = await fetchWithRetry(url, { headers: { Authorization: auth, "User-Agent": UA } });
   if (!res.ok) {
     const text = await res.text().catch(() => "");
     throw new Error(`Identity ${res.status}: ${text}`);
