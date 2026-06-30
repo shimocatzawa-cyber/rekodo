@@ -30,14 +30,15 @@ const RESULT_ARRAY_KEY: Record<string, string> = {
   related:    "artists",
 };
 
-// Don't cache an empty result — a transient parse/verification failure
-// returning zero items would otherwise freeze "No information available"
-// for the full TTL, with no way for a client-side Retry to ever see fresh data.
+// Don't cache a bad result — a transient parse/verification failure returning
+// zero items, a null key, or a missing key would otherwise freeze "No information
+// available" for the full TTL with no way for a client-side Retry to recover.
 function isEmptyResult(section: string, data: unknown): boolean {
   const key = RESULT_ARRAY_KEY[section];
   if (!key || !data || typeof data !== "object") return false;
   const arr = (data as Record<string, unknown>)[key];
-  return Array.isArray(arr) && arr.length === 0;
+  if (!Array.isArray(arr)) return true; // missing or null key is also a bad result
+  return arr.length === 0;
 }
 
 // Hard timeout on every Supabase operation — a hanging DB call (slow connection,
@@ -317,14 +318,17 @@ List at most 6 albums.`;
 export async function getOrGenerateSection(
   artist: string,
   section: string,
-  ownedAlbums?: string[]
+  ownedAlbums?: string[],
+  force?: boolean
 ): Promise<{ data: unknown; cached: boolean }> {
   if (!artist || !section || !PROMPTS[section]) {
     throw new Error("Invalid request");
   }
 
   // ── Cache read (3 s hard timeout — hangs must not block Claude) ────────────
-  if (CACHED_SECTIONS.has(section)) {
+  // Skip when force=true so a user-initiated Retry always gets a fresh generation
+  // rather than the stale bad result that triggered the retry in the first place.
+  if (CACHED_SECTIONS.has(section) && !force) {
     const cached = await readCache(artist, section);
     if (cached) {
       // Cached podcasts/books entries from before product-vs-page URL validation
@@ -433,12 +437,14 @@ export async function POST(request: NextRequest) {
       artist?: string;
       section?: string;
       ownedAlbums?: string[];
+      force?: boolean;
     };
     artist  = body.artist  ?? "";
     section = body.section ?? "";
     const ownedAlbums = body.ownedAlbums;
+    const force = body.force === true;
 
-    const { data, cached } = await getOrGenerateSection(artist, section, ownedAlbums);
+    const { data, cached } = await getOrGenerateSection(artist, section, ownedAlbums, force);
 
     // ── Track per-user deep dive (fire-and-forget, kept alive via after() —
     // a bare unawaited async IIFE gets killed mid-flight as soon as the

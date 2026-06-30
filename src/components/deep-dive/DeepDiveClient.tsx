@@ -1183,7 +1183,7 @@ export default function DeepDiveClient({
     fetch("/api/deep-dive/intelligence", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ artist, section, ...(ownedAlbums && { ownedAlbums }) }),
+      body: JSON.stringify({ artist, section, force: true, ...(ownedAlbums && { ownedAlbums }) }),
     })
       .then(async (r) => (r.ok ? (r.json() as Promise<{ data: unknown }>) : Promise.reject(await classifyFetchError(r))))
       .then((json) => {
