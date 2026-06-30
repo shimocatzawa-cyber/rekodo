@@ -71,15 +71,16 @@ async function main() {
     fetchPagedColumn(supabase, 'archetype_cache', 'user_id'),
   ]);
 
+  const force = process.argv.includes('--force');
   const cached = new Set(cachedUserIds);
-  const targetIds = [...new Set(recordUserIds)].filter((id) => !cached.has(id));
+  const targetIds = [...new Set(recordUserIds)].filter((id) => force || !cached.has(id));
 
   if (targetIds.length === 0) {
     console.log('Nothing to backfill — every user with a collection already has a cached archetype.');
     return;
   }
 
-  console.log(`\nBackfilling archetypes for ${targetIds.length} user(s)...\n`);
+  console.log(`\n${force ? 'Force-refreshing' : 'Backfilling'} archetypes for ${targetIds.length} user(s)...\n`);
 
   const CONCURRENCY = 5;
   let done = 0;
