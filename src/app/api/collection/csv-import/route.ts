@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { revalidateTag } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { logCollectionAddActivity } from "@/lib/activity";
 
@@ -276,6 +277,8 @@ export async function POST(request: NextRequest) {
   }
 
   await logCollectionAddActivity(supabase, user.id, allNewRecordIds);
+
+  revalidateTag(`collection-${user.id}`, {});
 
   // Fire-and-forget enrichment trigger (best-effort)
   const enrichUrl = new URL("/api/collection/csv-enrich", request.url).toString();

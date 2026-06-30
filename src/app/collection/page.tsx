@@ -1,5 +1,7 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
+import { unstable_cache } from "next/cache";
+import { createClient as createServiceClient } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase/server";
 import CollectionClient from "@/components/collection/CollectionClient";
 import { getDesirabilityTier } from "@/lib/desirability";
@@ -61,6 +63,85 @@ type SearchParams = Promise<{
   oauth_denied?: string;
   oauth_error?: string;
 }>;
+
+type LinkRow = {
+  record_id:        string;
+  created_at:       string;
+  value:            number | null;
+  price_low:        number | null;
+  price_median:     number | null;
+  price_currency:   string | null;
+  media_condition:  string | null;
+  sleeve_condition: string | null;
+  last_played_at:   string | null;
+  open_to_offers:   boolean | null;
+  is_essential:     boolean | null;
+  feeling:          string | null;
+  memory_text:      string | null;
+};
+
+type RecordRow = {
+  id: string;
+  discogs_id: string | null;
+  artist: string;
+  album: string;
+  year: number | null;
+  genre: string | null;
+  cover_url: string | null;
+  label: string | null;
+  format: string | null;
+  country: string | null;
+  community_have: number | null;
+  community_want: number | null;
+  community_num_for_sale: number | null;
+  barcode: string | null;
+  matrix: string[] | null;
+  edition_size: number | null;
+};
+
+function fetchCollectionRaw(userId: string) {
+  return unstable_cache(
+    async (): Promise<{ allLinks: LinkRow[]; recordRows: RecordRow[] }> => {
+      const admin = createServiceClient(
+        process.env.NEXT_PUBLIC_SUPABASE_URL!,
+        process.env.SUPABASE_SERVICE_ROLE_KEY!
+      );
+
+      const allLinks: LinkRow[] = [];
+      const PAGE = 1000;
+      for (let from = 0; ; from += PAGE) {
+        const { data, error } = await admin
+          .from("user_records")
+          .select("record_id, created_at, value, price_low, price_median, price_currency, media_condition, sleeve_condition, last_played_at, open_to_offers, is_essential, feeling, memory_text")
+          .eq("user_id", userId)
+          .order("created_at", { ascending: false })
+          .range(from, from + PAGE - 1);
+        if (error || !data || data.length === 0) break;
+        allLinks.push(...(data as unknown as LinkRow[]));
+        if (data.length < PAGE) break;
+      }
+
+      const recordIds = allLinks.map((l) => l.record_id);
+      const BATCH = 400;
+      const batches: string[][] = [];
+      for (let i = 0; i < recordIds.length; i += BATCH) batches.push(recordIds.slice(i, i + BATCH));
+      const batchResults = await Promise.all(
+        batches.map((ids) =>
+          admin
+            .from("records")
+            .select("id, discogs_id, artist, album, year, genre, cover_url, label, format, country, community_have, community_want, community_num_for_sale, barcode, matrix, edition_size")
+            .in("id", ids)
+        )
+      );
+      const recordRows: RecordRow[] = [];
+      for (const { data } of batchResults) recordRows.push(...((data ?? []) as unknown as RecordRow[]));
+
+      return { allLinks, recordRows };
+    },
+    [`collection-raw-${userId}`],
+    { tags: [`collection-${userId}`], revalidate: false }
+  )();
+}
 
 export default async function CollectionPage({
   searchParams,
@@ -137,36 +218,7 @@ export default async function CollectionPage({
     } catch { /* fall back to 1.0 */ }
   }
 
-  // Fetch all user_records — paginated past Supabase's 1000-row cap.
-  type LinkRow = {
-    record_id:        string;
-    created_at:       string;
-    value:            number | null;
-    price_low:        number | null;
-    price_median:     number | null;
-    price_currency:   string | null;
-    media_condition:  string | null;
-    sleeve_condition: string | null;
-    last_played_at:   string | null;
-    open_to_offers:   boolean | null;
-    is_essential:     boolean | null;
-    feeling:          string | null;
-    memory_text:      string | null;
-  };
-  const allLinks: LinkRow[] = [];
-  const PAGE = 1000;
-  for (let from = 0; ; from += PAGE) {
-    const { data, error } = await supabase
-      .from("user_records")
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      .select("record_id, created_at, value, price_low, price_median, price_currency, media_condition, sleeve_condition, last_played_at, open_to_offers, is_essential, feeling, memory_text" as any)
-      .eq("user_id", user.id)
-      .order("created_at", { ascending: false })
-      .range(from, from + PAGE - 1);
-    if (error || !data || data.length === 0) break;
-    allLinks.push(...(data as unknown as LinkRow[]));
-    if (data.length < PAGE) break;
-  }
+  const { allLinks, recordRows } = await fetchCollectionRaw(user.id);
 
   const recordIds          = allLinks.map((l) => l.record_id);
   const valueMap           = new Map<string, number | null>(allLinks.map((l) => [l.record_id, l.value ?? null]));
@@ -195,7 +247,6 @@ export default async function CollectionPage({
 
   const dominantCurrency = userCurrency;
 
-  const BATCH = 400;
   const priceLowMap = new Map<string, number | null>(allLinks.map((l) => [
     l.record_id, convertPrice(l.price_low, l.price_currency),
   ]));
@@ -210,21 +261,9 @@ export default async function CollectionPage({
   const feelingMap       = new Map<string, string | null>(allLinks.map((l) => [l.record_id, l.feeling ?? null]));
   const memoryTextMap    = new Map<string, string | null>(allLinks.map((l) => [l.record_id, l.memory_text ?? null]));
 
-  const recordsMap = new Map<string, Omit<CollectionRecord, "value" | "price_low" | "price_median" | "price_currency" | "media_condition" | "sleeve_condition" | "last_played_at" | "open_to_offers" | "is_essential" | "feeling" | "memory_text">>();
-  const batches: string[][] = [];
-  for (let i = 0; i < recordIds.length; i += BATCH) batches.push(recordIds.slice(i, i + BATCH));
-  const batchResults = await Promise.all(
-    batches.map((ids) =>
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      (supabase as any)
-        .from("records")
-        .select("id, discogs_id, artist, album, year, genre, cover_url, label, format, country, community_have, community_want, community_num_for_sale, barcode, matrix, edition_size")
-        .in("id", ids)
-    )
-  );
-  for (const { data } of batchResults) {
-    for (const r of data ?? []) recordsMap.set(r.id, r as Omit<CollectionRecord, "value" | "price_low" | "price_median" | "price_currency" | "media_condition" | "sleeve_condition" | "last_played_at" | "open_to_offers" | "is_essential" | "feeling" | "memory_text">);
-  }
+  type RecordsMapValue = Omit<CollectionRecord, "value" | "price_low" | "price_median" | "price_currency" | "media_condition" | "sleeve_condition" | "last_played_at" | "open_to_offers" | "is_essential" | "feeling" | "memory_text">;
+  const recordsMap = new Map<string, RecordsMapValue>();
+  for (const r of recordRows) recordsMap.set(r.id, r as unknown as RecordsMapValue);
 
   const collection: CollectionRecord[] = recordIds
     .map((id) => {
