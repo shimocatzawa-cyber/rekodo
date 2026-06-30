@@ -47,7 +47,7 @@ async function verifyOnDiscogs(artist: string, album: string): Promise<boolean> 
     const url = new URL("https://api.discogs.com/database/search");
     url.searchParams.set("q", `${artist} ${album}`);
     url.searchParams.set("type", "release");
-    url.searchParams.set("per_page", "5");
+    url.searchParams.set("per_page", "10");
     url.searchParams.set("key", key);
     url.searchParams.set("secret", secret);
 
@@ -61,7 +61,7 @@ async function verifyOnDiscogs(artist: string, album: string): Promise<boolean> 
       return isPlausibleAlbumMatch(artist, album, [ra], rt);
     });
   } catch {
-    return false;
+    return true;
   }
 }
 
@@ -541,7 +541,7 @@ Rules:
 - Prioritise records obtainable on vinyl (original pressings, reissues, or easily available secondhand).
 - Only recommend a record you are confident actually exists and was released under that exact artist/album name — if you are not sure, do not include it.
 ${isJa ? "- Write all reason text in Japanese (日本語).\n" : ""}
-Return ONLY a valid JSON array with exactly 7 objects — extra picks give headroom after artists already owned or already recommended get filtered out; only the first 3 surviving picks are shown. No markdown, no explanation outside the JSON.
+Return ONLY a valid JSON array with exactly 10 objects — extra picks give headroom after artists already owned or already recommended get filtered out; only the first 3 surviving picks are shown. No markdown, no explanation outside the JSON.
 
 Schema:
 ${JSON_SCHEMA}`;
@@ -628,7 +628,7 @@ Rules:
 - Prioritise records obtainable on vinyl (original pressings, reissues, or easily available secondhand).
 - Only recommend a record you are confident actually exists and was released under that exact artist/album name — if you are not sure, do not include it.
 ${isJa ? "- Write all reason text in Japanese (日本語).\n" : ""}
-Return ONLY a valid JSON array with exactly 7 objects — extra picks give headroom after artists already owned or already recommended get filtered out; only the first 3 surviving picks are shown. No markdown, no explanation outside the JSON.
+Return ONLY a valid JSON array with exactly 10 objects — extra picks give headroom after artists already owned or already recommended get filtered out; only the first 3 surviving picks are shown. No markdown, no explanation outside the JSON.
 
 Schema:
 ${JSON_SCHEMA}`;
