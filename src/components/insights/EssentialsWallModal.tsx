@@ -11,7 +11,7 @@ const UI_MONO = "var(--font-mono)";
 const BG     = "#ffffff";
 const ORANGE = "#CC5500";
 const INK    = "#0a0a0a";
-const MUTED  = "#888888";
+const MUTED  = "#555555";
 const RULE   = "#e0e0da";
 const ART_BG = "#e5e2dc";
 

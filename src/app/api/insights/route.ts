@@ -1,6 +1,7 @@
 import { cookies } from "next/headers";
 import { createClient } from "@/lib/supabase/server";
 import Anthropic from "@anthropic-ai/sdk";
+import { checkDailyLimit, isSupporter } from "@/lib/rateLimit";
 
 export const dynamic = "force-dynamic";
 
@@ -14,6 +15,12 @@ export async function POST() {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return Response.json({ error: "Not authenticated" }, { status: 401 });
+
+  const FREE_INSIGHTS_LIMIT = 3;
+  if (!(await isSupporter(supabase, user.id))) {
+    const { allowed, used, limit } = await checkDailyLimit(supabase, user.id, "insights_summary", FREE_INSIGHTS_LIMIT);
+    if (!allowed) return Response.json({ error: "daily_limit_reached", used, limit }, { status: 429 });
+  }
 
   const { data: links } = await supabase
     .from("user_records")

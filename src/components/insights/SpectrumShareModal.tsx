@@ -11,7 +11,7 @@ const UI_MONO = "var(--font-mono)";
 const BG     = "#1B3A66";
 const ORANGE = "#CC5500";
 const INK    = "#ffffff";
-const MUTED  = "rgba(255,255,255,0.50)";
+const MUTED  = "rgba(255,255,255,0.80)";
 const BAR_BG = "rgba(255,255,255,0.18)";
 
 interface Props {

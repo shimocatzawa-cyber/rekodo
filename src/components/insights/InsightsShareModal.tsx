@@ -10,7 +10,7 @@ const UI_MONO = "var(--font-mono)";
 const BG     = "#FDF6F0";
 const ORANGE = "#CC5500";
 const INK    = "#0a0a0a";
-const MUTED  = "#888888";
+const MUTED  = "#555555";
 const RULE   = "#e0e0da";
 
 // Radial geometry — all values in px, SVG viewBox 0 0 520 480

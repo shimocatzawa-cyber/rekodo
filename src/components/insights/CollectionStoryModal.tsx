@@ -9,7 +9,7 @@ const UI_MONO = "var(--font-mono)";
 const BG      = "#F6F3EB";
 const ORANGE  = "#C96A2B";
 const INK     = "#1a1a1a";
-const MUTED   = "#888888";
+const MUTED   = "#555555";
 const RULE    = "#dddad2";
 const DARK    = "#1E2B1F";
 
