@@ -156,7 +156,7 @@ export default function PrivacyPage() {
 
           <Section id="s1" num="01" title="Who we are">
             <p style={pStyle}>
-              rekōdo is operated by <strong>Jason Patrick Gould, trading as Rekodo Music</strong> (ABN 22 405 469 880) (&ldquo;rekōdo&rdquo;, &ldquo;we&rdquo;, &ldquo;us&rdquo;, &ldquo;our&rdquo;), based in New South Wales, Australia. This policy explains how we collect, use, store, and disclose personal information when you use rekōdo at rekodo.co (the &ldquo;Service&rdquo;).
+              rekōdo is operated by <strong>Rekodo Music</strong> (ABN 22 405 469 880) (&ldquo;rekōdo&rdquo;, &ldquo;we&rdquo;, &ldquo;us&rdquo;, &ldquo;our&rdquo;), based in Australia. This policy explains how we collect, use, store, and disclose personal information when you use rekōdo at rekodo.co (the &ldquo;Service&rdquo;).
             </p>
             <p style={pStyle}>
               We handle personal information in accordance with the Privacy Act 1988 (Cth) and the Australian Privacy Principles (APPs).
@@ -303,10 +303,10 @@ export default function PrivacyPage() {
 
           <Section id="s12" num="12" title="Contact us">
             <p style={{ ...pStyle, fontFamily: MONO, fontSize: "0.85rem", letterSpacing: "0.02em", lineHeight: 1.9 }}>
-              <strong style={{ fontFamily: SERIF }}>Jason Patrick Gould, trading as Rekodo Music</strong><br />
+              <strong style={{ fontFamily: SERIF }}>Rekodo Music</strong><br />
               ABN 22 405 469 880<br />
               <a href="mailto:hello@rekodo.co" style={linkStyle}>hello@rekodo.co</a><br />
-              New South Wales, Australia
+              Australia
             </p>
           </Section>
 

@@ -122,7 +122,7 @@ export default function TermsPage() {
           <Section id="s1" num="01" title="Acceptance of terms">
             <p style={pStyle}>
               By creating an account or using rekōdo at rekodo.co (the &ldquo;Service&rdquo;), you agree to these Terms of Service (&ldquo;Terms&rdquo;). If you don&rsquo;t agree, don&rsquo;t use the Service. These Terms are a legal agreement between you and{" "}
-              <strong>Jason Patrick Gould, trading as Rekodo Music</strong> (ABN 22 405 469 880) (&ldquo;rekōdo&rdquo;, &ldquo;we&rdquo;, &ldquo;us&rdquo;).
+              <strong>Rekodo Music</strong> (ABN 22 405 469 880) (&ldquo;rekōdo&rdquo;, &ldquo;we&rdquo;, &ldquo;us&rdquo;).
             </p>
             <p style={pStyle}>You must be at least 16 years old to use rekōdo.</p>
           </Section>
@@ -237,13 +237,13 @@ export default function TermsPage() {
 
           <Section id="s13" num="13" title="Governing law">
             <p style={pStyle}>
-              These Terms are governed by the laws of New South Wales, Australia, without regard to conflict of law principles. You submit to the exclusive jurisdiction of the courts of New South Wales.
+              These Terms are governed by the laws of Australia, without regard to conflict of law principles. You submit to the exclusive jurisdiction of the courts of Australia.
             </p>
           </Section>
 
           <Section id="s14" num="14" title="Contact">
             <p style={{ ...pStyle, fontFamily: MONO, fontSize: "0.85rem", letterSpacing: "0.02em", lineHeight: 1.9 }}>
-              <strong style={{ fontFamily: SERIF }}>Jason Patrick Gould, trading as Rekodo Music</strong><br />
+              <strong style={{ fontFamily: SERIF }}>Rekodo Music</strong><br />
               ABN 22 405 469 880<br />
               <a href="mailto:hello@rekodo.co" style={linkStyle}>hello@rekodo.co</a>
             </p>
