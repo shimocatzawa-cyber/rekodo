@@ -758,6 +758,20 @@ export default function CommunityTab({ profileOwnerId, hideSocialPanel = false }
 
         {subTab === "matches" && (
           <>
+            {!matchesLoading && matches !== null && (
+              <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: "14px" }}>
+                <button
+                  onClick={() => setMatches(null)}
+                  style={{
+                    fontFamily: MONO, fontSize: "0.55rem", letterSpacing: "0.08em", textTransform: "uppercase",
+                    background: "none", border: `1px solid ${RULE}`, color: MUTED,
+                    cursor: "pointer", padding: "5px 12px",
+                  }}
+                >
+                  Refresh
+                </button>
+              </div>
+            )}
             {matchesLoading && (
               <p style={{ fontFamily: MONO, fontSize: "0.55rem", color: MUTED, letterSpacing: "0.08em" }}>
                 Finding closest matches…
