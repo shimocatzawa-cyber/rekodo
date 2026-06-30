@@ -226,9 +226,9 @@ function ShelfCard({ username, totalRecords, styleBreakdown, genreBreakdown, des
 
       {/* Bottom stats: artist, oldest, newest */}
       <div style={{ display: "flex", flex: 1, padding: "20px 28px 0", gap: 0, alignItems: "flex-start" }}>
-        <div style={{ flex: 1.2, paddingRight: 16, borderRight: `1px solid ${RULE}`, display: "flex", flexDirection: "column", justifyContent: "flex-start" }}>
+        <div style={{ flex: 1.2, minWidth: 0, paddingRight: 16, borderRight: `1px solid ${RULE}`, display: "flex", flexDirection: "column", justifyContent: "flex-start" }}>
           <div style={{ fontFamily: MONO, fontSize: 8, letterSpacing: "0.12em", textTransform: "uppercase", color: MUTED, marginBottom: 8 }}>Most Collected Artist</div>
-          <div style={{ fontFamily: SERIF, fontSize: 20, fontWeight: 600, color: INK, lineHeight: 1.2, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{topArtist ?? "—"}</div>
+          <div style={{ fontFamily: SERIF, fontSize: 17, fontWeight: 600, color: INK, lineHeight: 1.2, wordBreak: "break-word", overflow: "hidden" }}>{topArtist ?? "—"}</div>
           {topArtistCount != null && (
             <div style={{ fontFamily: MONO, fontSize: 8, letterSpacing: "0.1em", textTransform: "uppercase", color: MUTED, marginTop: 6 }}>{topArtistCount} Records</div>
           )}
