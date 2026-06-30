@@ -153,7 +153,6 @@ export default async function CollectionPage({
     feeling:          string | null;
     memory_text:      string | null;
   };
-  console.log('[collection/page] fetching for user:', user.id);
   const allLinks: LinkRow[] = [];
   const PAGE = 1000;
   for (let from = 0; ; from += PAGE) {
@@ -164,16 +163,10 @@ export default async function CollectionPage({
       .eq("user_id", user.id)
       .order("created_at", { ascending: false })
       .range(from, from + PAGE - 1);
-    if (error) {
-      console.error('[collection/page] user_records error:', JSON.stringify(error));
-      break;
-    }
-    console.log(`[collection/page] user_records page from=${from}: ${data?.length ?? 0} rows`);
-    if (!data || data.length === 0) break;
+    if (error || !data || data.length === 0) break;
     allLinks.push(...(data as unknown as LinkRow[]));
     if (data.length < PAGE) break;
   }
-  console.log('[collection/page] total allLinks:', allLinks.length);
 
   const recordIds          = allLinks.map((l) => l.record_id);
   const valueMap           = new Map<string, number | null>(allLinks.map((l) => [l.record_id, l.value ?? null]));
@@ -218,14 +211,18 @@ export default async function CollectionPage({
   const memoryTextMap    = new Map<string, string | null>(allLinks.map((l) => [l.record_id, l.memory_text ?? null]));
 
   const recordsMap = new Map<string, Omit<CollectionRecord, "value" | "price_low" | "price_median" | "price_currency" | "media_condition" | "sleeve_condition" | "last_played_at" | "open_to_offers" | "is_essential" | "feeling" | "memory_text">>();
-  for (let i = 0; i < recordIds.length; i += BATCH) {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data, error } = await (supabase as any)
-      .from("records")
-      .select("id, discogs_id, artist, album, year, genre, cover_url, label, format, country, community_have, community_want, community_num_for_sale, barcode, matrix, edition_size")
-      .in("id", recordIds.slice(i, i + BATCH));
-    if (error) console.error('[collection/page] records batch error:', JSON.stringify(error));
-    else console.log(`[collection/page] records batch i=${i}: ${data?.length ?? 0} rows`);
+  const batches: string[][] = [];
+  for (let i = 0; i < recordIds.length; i += BATCH) batches.push(recordIds.slice(i, i + BATCH));
+  const batchResults = await Promise.all(
+    batches.map((ids) =>
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (supabase as any)
+        .from("records")
+        .select("id, discogs_id, artist, album, year, genre, cover_url, label, format, country, community_have, community_want, community_num_for_sale, barcode, matrix, edition_size")
+        .in("id", ids)
+    )
+  );
+  for (const { data } of batchResults) {
     for (const r of data ?? []) recordsMap.set(r.id, r as Omit<CollectionRecord, "value" | "price_low" | "price_median" | "price_currency" | "media_condition" | "sleeve_condition" | "last_played_at" | "open_to_offers" | "is_essential" | "feeling" | "memory_text">);
   }
 
@@ -323,7 +320,6 @@ export default async function CollectionPage({
       const counts = new Map<number, number>();
       for (const y of years) counts.set(y, (counts.get(y) ?? 0) + 1);
       const sorted = [...counts.entries()].sort((a, b) => b[1] - a[1]);
-      console.log('[insights] mostPopularYear top-5:', sorted.slice(0, 5).map(([y, n]) => `${y}×${n}`).join(', '));
       return sorted[0][0];
     })();
 

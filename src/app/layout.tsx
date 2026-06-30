@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Shippori_Mincho, DM_Mono, Caveat } from "next/font/google";
 import Script from "next/script";
 import { Analytics } from "@vercel/analytics/next";
+import { SpeedInsights } from "@vercel/speed-insights/next";
 import { NextIntlClientProvider } from "next-intl";
 import { getMessages, getLocale } from "next-intl/server";
 import { SpotifyPlayerProvider } from "@/components/SpotifyPlayerProvider";
@@ -125,6 +126,7 @@ export default async function RootLayout({
           />
         )}
         <Analytics />
+        <SpeedInsights />
       </body>
     </html>
   );
