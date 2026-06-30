@@ -59,11 +59,10 @@ export async function POST() {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return Response.json({ error: "Not authenticated" }, { status: 401 });
 
-  const FREE_RECS_LIMIT = 3;
-  if (!(await isSupporter(supabase, user.id))) {
-    const { allowed, used, limit } = await checkDailyLimit(supabase, user.id, "library_recommendations", FREE_RECS_LIMIT);
-    if (!allowed) return Response.json({ error: "daily_limit_reached", used, limit }, { status: 429 });
-  }
+  const supporter = await isSupporter(supabase, user.id);
+  const RECS_LIMIT = supporter ? 10 : 3;
+  const { allowed, used, limit } = await checkDailyLimit(supabase, user.id, "library_recommendations", RECS_LIMIT);
+  if (!allowed) return Response.json({ error: "daily_limit_reached", used, limit }, { status: 429 });
 
   // Fetch or compute collection intelligence
   let intelRow = await supabase
@@ -240,17 +239,17 @@ Return JSON only, no preamble, no markdown:
   const [podcastMsg, bookMsg, audibleMsg] = await Promise.all([
     anthropic.messages.create({
       model: "claude-haiku-4-5-20251001",
-      max_tokens: 4096,
+      max_tokens: 1200,
       messages: [{ role: "user", content: podcastPrompt }],
     }),
     anthropic.messages.create({
       model: "claude-sonnet-4-6",
-      max_tokens: 4096,
+      max_tokens: 1200,
       messages: [{ role: "user", content: bookPrompt }],
     }),
     anthropic.messages.create({
       model: "claude-sonnet-4-6",
-      max_tokens: 4096,
+      max_tokens: 1200,
       messages: [{ role: "user", content: audiblePrompt }],
     }),
   ]);

@@ -59,7 +59,7 @@ export async function POST(request: NextRequest) {
     if (!(await isSupporter(supabase, user.id))) {
       return NextResponse.json({ error: "Supporter access required" }, { status: 403 });
     }
-    const FREE_DEEP_DIVE_LIMIT = 50;
+    const FREE_DEEP_DIVE_LIMIT = 15;
     const { allowed, used, limit } = await checkDailyLimit(supabase, user.id, "deep_dive", FREE_DEEP_DIVE_LIMIT);
     if (!allowed) {
       return NextResponse.json({ error: "daily_limit_reached", used, limit }, { status: 429 });

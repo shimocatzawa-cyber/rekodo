@@ -17,7 +17,7 @@ export async function POST(request: NextRequest) {
   if (!user) return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
 
   // Cheap per call, but still unbounded — debounced client-side, not server-side.
-  const FREE_RESEQUENCE_LIMIT = 100;
+  const FREE_RESEQUENCE_LIMIT = 10;
   if (!(await isSupporter(supabase, user.id))) {
     const { allowed, used, limit } = await checkDailyLimit(supabase, user.id, "playlist_resequence", FREE_RESEQUENCE_LIMIT);
     if (!allowed) {
