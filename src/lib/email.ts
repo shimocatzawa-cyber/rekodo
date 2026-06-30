@@ -1,20 +1,29 @@
-import { Resend } from "resend";
+const SENDER = { name: "rekōdo", email: "hello@rekodo.co" };
+const ADMIN  = "hello@rekodo.co";
 
-const FROM = "rekōdo <hello@rekodo.co>";
-const ADMIN = "hello@rekodo.co";
+async function sendViaBrevo(subject: string, html: string): Promise<void> {
+  const key = process.env.BREVO_API_KEY;
+  if (!key) throw new Error("BREVO_API_KEY not set");
 
-function getResend() {
-  return new Resend(process.env.RESEND_API_KEY);
+  const res = await fetch("https://api.brevo.com/v3/smtp/email", {
+    method:  "POST",
+    headers: { "api-key": key, "Content-Type": "application/json" },
+    body: JSON.stringify({
+      sender:      SENDER,
+      to:          [{ email: ADMIN }],
+      subject,
+      htmlContent: html,
+    }),
+  });
+
+  if (!res.ok) {
+    const body = await res.text().catch(() => "");
+    throw new Error(`Brevo ${res.status}: ${body.slice(0, 200)}`);
+  }
 }
 
-
 export async function sendSignupNotification(email: string, username: string) {
-  const resend = getResend();
-  await resend.emails.send({
-    from: FROM,
-    to: ADMIN,
-    subject: `new signup — ${username}`,
-    html: `<!DOCTYPE html>
+  await sendViaBrevo(`new signup — ${username}`, `<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="utf-8" />
@@ -56,8 +65,7 @@ export async function sendSignupNotification(email: string, username: string) {
     </tr>
   </table>
 </body>
-</html>`,
-  });
+</html>`);
 }
 
 export async function sendNewSupporterAlert(opts: {
@@ -65,15 +73,10 @@ export async function sendNewSupporterAlert(opts: {
   amountCents: number;
   currency: string;
 }) {
-  const resend = getResend();
   const { email, amountCents, currency } = opts;
-  const sym = currency === "gbp" ? "£" : currency === "eur" ? "€" : currency === "aud" ? "A$" : "$";
+  const sym    = currency === "gbp" ? "£" : currency === "eur" ? "€" : currency === "aud" ? "A$" : "$";
   const amount = `${sym}${(amountCents / 100).toFixed(2)}`;
-  await resend.emails.send({
-    from: FROM,
-    to: ADMIN,
-    subject: `new supporter — ${email}`,
-    html: `<!DOCTYPE html>
+  await sendViaBrevo(`new supporter — ${email}`, `<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="utf-8" />
@@ -115,17 +118,11 @@ export async function sendNewSupporterAlert(opts: {
     </tr>
   </table>
 </body>
-</html>`,
-  });
+</html>`);
 }
 
 export async function sendWaitlistNotification(email: string, name?: string) {
-  const resend = getResend();
-  await resend.emails.send({
-    from: FROM,
-    to: ADMIN,
-    subject: `waitlist — ${email}`,
-    html: `<!DOCTYPE html>
+  await sendViaBrevo(`waitlist — ${email}`, `<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="utf-8" />
@@ -167,8 +164,7 @@ export async function sendWaitlistNotification(email: string, name?: string) {
     </tr>
   </table>
 </body>
-</html>`,
-  });
+</html>`);
 }
 
 export async function sendAccountDeletionAlert(opts: {
@@ -179,13 +175,8 @@ export async function sendAccountDeletionAlert(opts: {
   subscriptionTier?: string | null;
   createdAt?: string | null;
 }) {
-  const resend = getResend();
   const { userId, email, username, displayName, subscriptionTier, createdAt } = opts;
-  await resend.emails.send({
-    from: FROM,
-    to: ADMIN,
-    subject: `account deleted — @${username}`,
-    html: `<!DOCTYPE html>
+  await sendViaBrevo(`account deleted — @${username}`, `<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="utf-8" />
@@ -257,7 +248,5 @@ export async function sendAccountDeletionAlert(opts: {
     </tr>
   </table>
 </body>
-</html>`,
-  });
+</html>`);
 }
-
