@@ -142,6 +142,13 @@ export async function computeArchetypes(
     .eq('user_id', userId)
   const digitalImports = digitalImportsRaw ?? []
 
+  // ── C2: Dig history count — engagement proxy when Spotify play_count is absent ─
+  const { count: digCountRaw } = await supabase
+    .from('dig_history')
+    .select('id', { count: 'exact', head: true })
+    .eq('user_id', userId)
+  const digHistoryCount = digCountRaw ?? 0
+
   // ── D: Lists and list_items ──────────────────────────────────────────────────
   const { data: listsRaw } = await supabase
     .from('lists')
@@ -359,9 +366,16 @@ export async function computeArchetypes(
   const modalDecadeEntry = [...decadeCounts.entries()].sort((a, b) => b[1] - a[1])[0]
   const modalDecade = modalDecadeEntry?.[0] ?? null
 
+  const DECADE_SCORES: Record<number, number> = {
+    1920: 100, 1930: 100, 1940: 100, 1950: 100, 1960: 100,
+    1970: 80, 1980: 60, 1990: 40, 2000: 20, 2010: 5, 2020: 5,
+  }
+  const depthScore = modalDecade != null
+    ? (DECADE_SCORES[modalDecade] ?? (modalDecade < 1950 ? 100 : 5))
+    : 0
   const historicalDepth: ComputedSignals['historicalDepth'] = {
-    score: clamp(historicPct),
-    label: historicPct > 60 ? 'Historian' : historicPct >= 30 ? 'Bridge' : 'Contemporary',
+    score: clamp(depthScore),
+    label: depthScore > 70 ? 'Historian' : depthScore >= 40 ? 'Bridge' : 'Contemporary',
     modalDecade,
     subtext: modalDecade ? `Modal decade: ${modalDecade}s` : 'No year data',
   }
@@ -423,8 +437,8 @@ export async function computeArchetypes(
   const uniqueStyles = allStyles.size
   const hasStyleData = uniqueStyles > 0
   const styleRange: ComputedSignals['styleRange'] = {
-    score: hasStyleData ? clamp(uniqueStyles * 3) : 0,
-    label: !hasStyleData ? 'No style data' : uniqueStyles > 20 ? 'Omnivore' : uniqueStyles >= 10 ? 'Broad' : 'Focused',
+    score: hasStyleData ? clamp(Math.sqrt(uniqueStyles) * 6) : 0,
+    label: !hasStyleData ? 'No style data' : uniqueStyles > 100 ? 'Omnivore' : uniqueStyles >= 30 ? 'Broad' : 'Focused',
     uniqueStyles,
     subtext: hasStyleData ? `${uniqueStyles} unique style tags` : 'No style data available',
     unavailable: !hasStyleData,
@@ -606,24 +620,33 @@ export async function computeArchetypes(
     subtext: `${completistArtists} of ${totalArtists} artists with 3+ records`,
   }
 
-  // 18. listeningIntensity — how actively the collection is played (play_count on user_records).
-  // Blend of breadth (% of collection played at all) and depth (avg plays per record).
+  // 18. listeningIntensity — Spotify play_count is primary when available; falls back
+  // to dig_history count as an engagement proxy (someone actively digging is actively
+  // listening) since most users haven't connected Spotify yet.
   let totalPlays = 0
   let playedCount = 0
   for (const row of userRecords) {
     const plays = row.play_count ?? 0
     if (plays > 0) { playedCount++; totalPlays += plays }
   }
+  const hasSpotifyData = totalPlays > 0
   const playedRatio = totalRecords > 0 ? (playedCount / totalRecords) * 100 : 0
   const avgPlaysPerRecord = totalRecords > 0 ? totalPlays / totalRecords : 0
-  const hasListeningData = totalPlays > 0
-  const intensityScore = clamp(playedRatio * 0.5 + Math.min(avgPlaysPerRecord * 5, 50))
+  const spotifyScore = clamp(playedRatio * 0.5 + Math.min(avgPlaysPerRecord * 5, 50))
+  // Dig history proxy: 40 digs ≈ max engagement; sqrt curve so early digs count more.
+  const digProxyScore = clamp(Math.sqrt(digHistoryCount) * 14)
+  const hasListeningData = hasSpotifyData || digHistoryCount > 0
+  const intensityScore = hasSpotifyData ? spotifyScore : digProxyScore
   const listeningIntensity: ComputedSignals['listeningIntensity'] = {
     score: hasListeningData ? intensityScore : 0,
-    label: !hasListeningData ? 'No listening data' : intensityScore > 60 ? 'Deep listener' : intensityScore >= 30 ? 'Regular listener' : 'Collector-first',
-    subtext: hasListeningData
+    label: !hasListeningData
+      ? 'No listening data'
+      : intensityScore > 60 ? 'Deep listener' : intensityScore >= 30 ? 'Regular listener' : 'Collector-first',
+    subtext: hasSpotifyData
       ? `${totalPlays} total plays across ${playedCount} records`
-      : 'Connect Spotify to track listening',
+      : digHistoryCount > 0
+        ? `${digHistoryCount} dig session${digHistoryCount !== 1 ? 's' : ''} (engagement proxy)`
+        : 'Connect Spotify or use Dig to unlock',
     unavailable: !hasListeningData,
   }
 
@@ -678,13 +701,14 @@ export async function computeArchetypes(
       sig(s.canonObscurity) * 0.10
     ),
     scholar: clamp(
-      sig(s.styleRange) * 0.30 +
-      sig(s.historicalDepth) * 0.15 +
+      sig(s.styleRange) * 0.15 +
+      sig(s.historicalDepth) * 0.20 +
       sig(s.sonicCoherence) * 0.10 +
       sig(s.geographicRange) * 0.15 +
       sig(s.conditionStandard) * 0.05 +
       sig(s.pressingOriginDiversity) * 0.15 +
-      (100 - sig(s.canonObscurity)) * 0.10
+      (100 - sig(s.canonObscurity)) * 0.10 +
+      sig(s.artistConcentration) * 0.10
     ),
     ritualist: clamp(
       sig(s.conditionStandard) * 0.20 +
@@ -694,12 +718,12 @@ export async function computeArchetypes(
       sig(s.listeningIntensity) * 0.20
     ),
     hunter: clamp(
-      sig(s.trophyRatio) * 0.35 +
-      sig(s.conditionStandard) * 0.15 +
-      sig(s.acquisitionRhythm) * 0.15 +
-      sig(s.aspirationRatio) * 0.15 +
-      sig(s.pressingOriginDiversity) * 0.10 +
-      (100 - sig(s.listeningIntensity)) * 0.10
+      sig(s.conditionStandard) * 0.30 +
+      sig(s.aspirationRatio) * 0.25 +
+      sig(s.pressingOriginDiversity) * 0.20 +
+      sig(s.trophyRatio) * 0.10 +
+      sig(s.acquisitionRhythm) * 0.10 +
+      (100 - sig(s.listeningIntensity)) * 0.05
     ),
     lover: clamp(
       sig(s.acquisitionRhythm) * 0.20 +
