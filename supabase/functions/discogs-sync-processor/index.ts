@@ -489,24 +489,34 @@ async function processSync(supabase: SB, jobId: string, userId: string) {
     // previously-correct condition ratings across the whole collection.
     await updateJob(supabase, jobId, { phase: "conditions" });
 
-    const mediaUpserts = collectionItems
+    // Deduplicate by record_id before upserting. A user can have multiple copies
+    // of the same Discogs release; both map to the same record_id via existingMap,
+    // producing duplicate (user_id, record_id) pairs in the same batch — Postgres
+    // rejects that with error 21000 ("ON CONFLICT DO UPDATE cannot affect row twice").
+    const dedup = <T extends { record_id: string }>(rows: T[]): T[] => {
+      const seen = new Map<string, T>();
+      for (const row of rows) seen.set(row.record_id, row);
+      return [...seen.values()];
+    };
+
+    const mediaUpserts = dedup(collectionItems
       .filter((item) => item.media_condition && existingMap.get(item.discogs_id))
       .map((item) => ({
         user_id: userId, record_id: existingMap.get(item.discogs_id)!,
         media_condition: item.media_condition!,
-      }));
-    const sleeveUpserts = collectionItems
+      })));
+    const sleeveUpserts = dedup(collectionItems
       .filter((item) => item.sleeve_condition && existingMap.get(item.discogs_id))
       .map((item) => ({
         user_id: userId, record_id: existingMap.get(item.discogs_id)!,
         sleeve_condition: item.sleeve_condition!,
-      }));
-    const dateAddedUpserts = collectionItems
+      })));
+    const dateAddedUpserts = dedup(collectionItems
       .filter((item) => item.date_added && existingMap.get(item.discogs_id))
       .map((item) => ({
         user_id: userId, record_id: existingMap.get(item.discogs_id)!,
         date_added: item.date_added!,
-      }));
+      })));
 
     for (const upserts of [mediaUpserts, sleeveUpserts, dateAddedUpserts]) {
       for (let i = 0; i < upserts.length; i += BATCH) {
