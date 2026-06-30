@@ -735,11 +735,13 @@ export async function computeArchetypes(
       sig(s.listeningIntensity) * 0.15
     ),
     alchemist: clamp(
-      sig(s.curatorialReach) * 0.35 +
+      sig(s.curatorialReach) * 0.15 +
       sig(s.styleRange) * 0.20 +
       sig(s.digitalDivergence) * 0.15 +
       sig(s.geographicRange) * 0.15 +
-      (100 - sig(s.sonicCoherence)) * 0.15
+      (100 - sig(s.sonicCoherence)) * 0.15 +
+      sig(s.transgressiveIndex) * 0.10 +
+      sig(s.canonObscurity) * 0.10
     ),
     pilgrim: clamp(
       sig(s.pressingOriginDiversity) * 0.35 +
@@ -764,12 +766,13 @@ export async function computeArchetypes(
       sig(s.geographicRange) * 0.10
     ),
     caregiver: clamp(
-      sig(s.curatorialReach) * 0.30 +
+      sig(s.curatorialReach) * 0.15 +
       sig(s.styleRange) * 0.20 +
       sig(s.digitalDivergence) * 0.15 +
-      sig(s.listeningIntensity) * 0.15 +
+      sig(s.listeningIntensity) * 0.20 +
       sig(s.geographicRange) * 0.10 +
-      (100 - sig(s.sonicCoherence)) * 0.10
+      (100 - sig(s.sonicCoherence)) * 0.10 +
+      sig(s.artistConcentration) * 0.10
     ),
   }
 
