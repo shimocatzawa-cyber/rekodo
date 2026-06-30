@@ -668,13 +668,14 @@ export async function computeArchetypes(
       sig(s.artistConcentration) * 0.20
     ),
     seeker: clamp(
-      sig(s.aspirationRatio) * 0.25 +
+      sig(s.aspirationRatio) * 0.10 +
       sig(s.geographicRange) * 0.20 +
-      sig(s.digitalDivergence) * 0.15 +
-      sig(s.styleRange) * 0.15 +
+      (s.digitalDivergence.unavailable ? 0 : s.digitalDivergence.score) * 0.15 +
+      sig(s.styleRange) * 0.20 +
       (100 - sig(s.labelLoyalty)) * 0.10 +
       sig(s.pressingOriginDiversity) * 0.05 +
-      (100 - sig(s.artistConcentration)) * 0.10
+      (100 - sig(s.artistConcentration)) * 0.10 +
+      sig(s.canonObscurity) * 0.10
     ),
     scholar: clamp(
       sig(s.styleRange) * 0.30 +
