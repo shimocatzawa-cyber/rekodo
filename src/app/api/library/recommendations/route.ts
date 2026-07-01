@@ -1,7 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import Anthropic from "@anthropic-ai/sdk";
 import { computeCollectionIntelligence } from "@/lib/library/intelligence";
-import { checkDailyLimit, isSupporter } from "@/lib/rateLimit";
+import { isSupporter } from "@/lib/rateLimit";
 
 export const dynamic = "force-dynamic";
 
@@ -60,9 +60,7 @@ export async function POST() {
   if (!user) return Response.json({ error: "Not authenticated" }, { status: 401 });
 
   const supporter = await isSupporter(supabase, user.id);
-  const RECS_LIMIT = supporter ? 10 : 3;
-  const { allowed, used, limit } = await checkDailyLimit(supabase, user.id, "library_recommendations", RECS_LIMIT);
-  if (!allowed) return Response.json({ error: "daily_limit_reached", used, limit }, { status: 429 });
+  if (!supporter) return Response.json({ error: "supporter_required" }, { status: 403 });
 
   // Fetch or compute collection intelligence
   let intelRow = await supabase

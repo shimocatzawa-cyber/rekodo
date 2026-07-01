@@ -49,6 +49,7 @@ interface Props {
   username:      string;
   displayLabel?: string;
   avatarUrl?:    string | null;
+  isSupporter?:  boolean;
 }
 
 // ── Format meta ───────────────────────────────────────────────────────────────
@@ -155,7 +156,7 @@ function LoadingDots() {
 
 // ── Empty state ───────────────────────────────────────────────────────────────
 
-function EmptyState({ tab }: { tab: ContentTab }) {
+function EmptyState({ tab, isSupporter }: { tab: ContentTab; isSupporter: boolean }) {
   const noun: Record<ContentTab, string> = {
     podcast: "podcasts",
     audible: "audiobooks",
@@ -168,13 +169,16 @@ function EmptyState({ tab }: { tab: ContentTab }) {
     }}>
       {formatIcon(tab, 64)}
       <p style={{ fontFamily: SERIF, fontSize: "18px", fontWeight: 400, color: "#0d0d0d", margin: "6px 0 0" }}>
-        No recommendations yet.
+        {isSupporter ? "No recommendations yet." : "Supporter feature."}
       </p>
       <p style={{
         fontFamily: MONO, fontSize: "11px", color: "#aaaaaa",
         letterSpacing: "0.04em", lineHeight: 1.75, maxWidth: 380, margin: 0,
       }}>
-        Hit Generate Recommendations and rekōdo will read your collection and surface matched {noun[tab]}.
+        {isSupporter
+          ? `Hit Generate Recommendations and rekōdo will read your collection and surface matched ${noun[tab]}.`
+          : <>Upgrade to supporter to unlock personalised {noun[tab]} matched to your collection. <a href="/settings" style={{ color: ORANGE }}>Upgrade →</a></>
+        }
       </p>
     </div>
   );
@@ -404,7 +408,7 @@ function StackPanel({ refreshSignal }: { refreshSignal: number }) {
 
 // ── Root ──────────────────────────────────────────────────────────────────────
 
-export default function LibraryClient({ username, displayLabel, avatarUrl }: Props) {
+export default function LibraryClient({ username, displayLabel, avatarUrl, isSupporter = false }: Props) {
   const [activeTab,       setActiveTab]       = useUrlTab<ContentTab>("tab", CONTENT_TABS, "podcast");
   const [showStack,       setShowStack]       = useState(false);
   const [recommendations, setRecommendations] = useState<Recommendation[]>([]);
@@ -558,24 +562,39 @@ export default function LibraryClient({ username, displayLabel, avatarUrl }: Pro
               )}
             </button>
 
-            <button
-              onClick={handleGenerate}
-              disabled={generating}
-              style={{
-                fontFamily: MONO, fontSize: "9px", letterSpacing: "0.1em",
-                textTransform: "uppercase",
-                color: "#ffffff",
-                background: generating ? "#d96020" : ORANGE,
-                border: "none", borderRadius: 3,
-                padding: "6px 12px",
-                cursor: generating ? "default" : "pointer",
-                display: "flex", alignItems: "center", gap: 6,
-                transition: "background 0.15s",
-              }}
-            >
-              <RefreshIcon size={11} />
-              {hasGenerated ? "Regenerate" : "Generate Recommendations"}
-            </button>
+            {isSupporter ? (
+              <button
+                onClick={handleGenerate}
+                disabled={generating}
+                style={{
+                  fontFamily: MONO, fontSize: "9px", letterSpacing: "0.1em",
+                  textTransform: "uppercase",
+                  color: "#ffffff",
+                  background: generating ? "#d96020" : ORANGE,
+                  border: "none", borderRadius: 3,
+                  padding: "6px 12px",
+                  cursor: generating ? "default" : "pointer",
+                  display: "flex", alignItems: "center", gap: 6,
+                  transition: "background 0.15s",
+                }}
+              >
+                <RefreshIcon size={11} />
+                {hasGenerated ? "Regenerate" : "Generate Recommendations"}
+              </button>
+            ) : (
+              <a
+                href="/settings"
+                style={{
+                  fontFamily: MONO, fontSize: "9px", letterSpacing: "0.1em",
+                  textTransform: "uppercase", color: ORANGE,
+                  border: `1px solid ${ORANGE}`, borderRadius: 3,
+                  padding: "6px 12px", textDecoration: "none",
+                  display: "inline-block",
+                }}
+              >
+                Supporter only →
+              </a>
+            )}
           </div>
         </div>
       </div>
@@ -597,7 +616,7 @@ export default function LibraryClient({ username, displayLabel, avatarUrl }: Pro
           <LoadingDots />
         </div>
       ) : tabRecs.length === 0 ? (
-        <EmptyState tab={activeTab} />
+        <EmptyState tab={activeTab} isSupporter={isSupporter} />
       ) : (
         <div style={{ maxWidth: 760, margin: "0 auto", padding: "0 32px 80px" }}>
           <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
