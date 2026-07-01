@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Shippori_Mincho, DM_Mono, Caveat } from "next/font/google";
+import { Shippori_Mincho, DM_Mono, Caveat, Noto_Sans_JP } from "next/font/google";
 import Script from "next/script";
 import { Analytics } from "@vercel/analytics/next";
 import { SpeedInsights } from "@vercel/speed-insights/next";
@@ -26,6 +26,14 @@ const caveat = Caveat({
   variable: "--font-caveat",
   subsets: ["latin"],
   weight: ["400", "700"],
+});
+
+const notoSansJp = Noto_Sans_JP({
+  variable: "--font-noto-jp",
+  subsets: ["latin"],
+  weight: ["400"],
+  display: "swap",
+  preload: false,
 });
 
 export const metadata: Metadata = {
@@ -103,13 +111,10 @@ export default async function RootLayout({
   return (
     <html
       lang={locale}
-      className={`${shipporiMincho.variable} ${dmMono.variable} ${caveat.variable} h-full`}
+      className={`${shipporiMincho.variable} ${dmMono.variable} ${caveat.variable} ${notoSansJp.variable} h-full`}
     >
       <head>
         <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-        <link rel="preconnect" href="https://fonts.googleapis.com" />
-        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
-        <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400&display=swap" rel="stylesheet" />
       </head>
       <body className="min-h-full flex flex-col bg-white text-black antialiased">
         <PageViewTracker />
