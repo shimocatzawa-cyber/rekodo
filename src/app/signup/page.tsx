@@ -55,6 +55,22 @@ export default function SignupPage() {
       {/* Centred form */}
       <div className="flex-1 flex items-center justify-center">
         <div className="w-full max-w-[360px]">
+          <div
+            style={{
+              fontFamily: MONO,
+              fontSize: "11px",
+              letterSpacing: "0.04em",
+              color: "#7a5500",
+              background: "#fff8f0",
+              border: "1px solid #f5ddb8",
+              padding: "10px 14px",
+              lineHeight: 1.6,
+              marginBottom: "28px",
+            }}
+          >
+            We&apos;re aware of a service interruption affecting some features today. Things may be a little slower than usual — we&apos;re on it.
+          </div>
+
           <h1
             className="text-4xl text-black mb-2 leading-tight"
             style={{ fontFamily: SERIF }}
