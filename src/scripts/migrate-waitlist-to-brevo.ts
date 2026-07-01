@@ -4,9 +4,17 @@
  *   npx ts-node -P tsconfig.scripts.json src/scripts/migrate-waitlist-to-brevo.ts
  */
 import { createClient } from "@supabase/supabase-js";
-import * as dotenv from "dotenv";
+import { readFileSync } from "fs";
+import { resolve } from "path";
 
-dotenv.config({ path: ".env.local" });
+// Load .env.local manually — no dotenv dependency needed
+try {
+  const envFile = readFileSync(resolve(process.cwd(), ".env.local"), "utf-8");
+  for (const line of envFile.split("\n")) {
+    const match = line.match(/^([^#=]+)=(.*)$/);
+    if (match) process.env[match[1].trim()] ??= match[2].trim().replace(/^["']|["']$/g, "");
+  }
+} catch { /* .env.local not present — rely on environment variables already set */ }
 
 const BREVO_LIST_ID = 8;
 const BATCH_SIZE    = 150; // Brevo's importContacts limit per request
