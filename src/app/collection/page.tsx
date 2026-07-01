@@ -7,6 +7,7 @@ import { createClient } from "@/lib/supabase/server";
 import CollectionClient from "@/components/collection/CollectionClient";
 import { getDesirabilityTier } from "@/lib/desirability";
 import { getUserWithTimeout } from "@/lib/supabase/withTimeout";
+import { getCollectionCache, setCollectionCache } from "@/lib/collectionCache";
 
 const MONO  = "var(--font-dm-mono), 'Courier New', monospace";
 const SERIF = "var(--font-shippori), Georgia, serif";
@@ -98,7 +99,7 @@ type SearchParams = Promise<{
   oauth_error?: string;
 }>;
 
-type LinkRow = {
+export type LinkRow = {
   record_id:        string;
   created_at:       string;
   value:            number | null;
@@ -114,7 +115,7 @@ type LinkRow = {
   memory_text:      string | null;
 };
 
-type RecordRow = {
+export type RecordRow = {
   id: string;
   discogs_id: string | null;
   artist: string;
@@ -267,11 +268,22 @@ export default async function CollectionPage({
 
   const collectionRace = await Promise.race([
     fetchCollectionRaw(user.id).then(data => ({ ok: true as const, data })),
-    deadline(15000, { ok: false as const }),
+    deadline(8000, { ok: false as const }),
   ]);
 
-  if (!collectionRace.ok) return <CollectionOutage />;
-  const { allLinks, recordRows } = collectionRace.data;
+  let allLinks: import("@/app/collection/page").LinkRow[];
+  let recordRows: import("@/app/collection/page").RecordRow[];
+
+  if (collectionRace.ok) {
+    ({ allLinks, recordRows } = collectionRace.data);
+    // Keep KV warm — non-blocking, never blocks render
+    void setCollectionCache(user.id, { allLinks, recordRows });
+  } else {
+    // Supabase timed out — serve last known-good data from KV
+    const cached = await getCollectionCache(user.id);
+    if (!cached) return <CollectionOutage />;
+    ({ allLinks, recordRows } = cached);
+  }
 
   const recordIds          = allLinks.map((l) => l.record_id);
   const valueMap           = new Map<string, number | null>(allLinks.map((l) => [l.record_id, l.value ?? null]));

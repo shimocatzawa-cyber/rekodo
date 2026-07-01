@@ -3,6 +3,7 @@ import { cookies } from "next/headers";
 import { revalidateTag } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { enqueueSync } from "@/lib/sync-queue";
+import { invalidateCollectionCache } from "@/lib/collectionCache";
 
 export async function GET(request: NextRequest) {
   const supabase = await createClient();
@@ -39,8 +40,9 @@ export async function GET(request: NextRequest) {
       // Enqueue — returns existing job ID if one is already running
       const jobId = await enqueueSync(supabase, user.id);
 
-      // Bust the collection cache so in-progress loads see live data
+      // Bust both caches so in-progress loads see live data
       revalidateTag(`collection-${user.id}`, {});
+      void invalidateCollectionCache(user.id);
 
       // Fire Edge Function — intentionally no await (non-blocking)
       // All data work (fetch, insert, link, backfill, collection value) runs
@@ -155,8 +157,9 @@ export async function GET(request: NextRequest) {
 
       send({ type: "complete", total, newAdded, updated: completedData.records_updated, priceUpdated: 0, timestamp });
 
-      // Bust the collection cache so the next page load reflects the new collection
+      // Bust both caches so the next page load reflects the new collection
       revalidateTag(`collection-${user.id}`, {});
+      void invalidateCollectionCache(user.id);
 
       // Phase 7: Collection intelligence — recomputes on next Library tab load
       try {
