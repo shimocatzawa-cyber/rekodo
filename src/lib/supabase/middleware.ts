@@ -11,6 +11,11 @@ export async function updateSession(request: NextRequest) {
     return NextResponse.next({ request });
   }
 
+  // Don't auth-check the down page — it must always be reachable
+  if (request.nextUrl.pathname === "/down") {
+    return NextResponse.next({ request });
+  }
+
   let supabaseResponse = NextResponse.next({ request });
 
   const supabase = createServerClient<Database>(
@@ -34,9 +39,18 @@ export async function updateSession(request: NextRequest) {
     }
   );
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  let user: Awaited<ReturnType<typeof supabase.auth.getUser>>["data"]["user"];
+  try {
+    ({ data: { user } } = await supabase.auth.getUser());
+  } catch (err: unknown) {
+    const is504 = err != null && typeof err === "object" && "status" in err && (err as { status: unknown }).status === 504;
+    if (is504) {
+      const url = request.nextUrl.clone();
+      url.pathname = "/down";
+      return NextResponse.redirect(url);
+    }
+    return NextResponse.next({ request });
+  }
 
   const protectedRoutes = ["/collection", "/lists", "/dig", "/onboarding", "/settings", "/admin", "/library"];
   const isProtected = protectedRoutes.some((route) =>
