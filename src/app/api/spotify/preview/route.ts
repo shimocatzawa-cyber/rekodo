@@ -78,13 +78,16 @@ export async function GET(request: NextRequest) {
     const r1 = await spotifyFetch(`https://api.spotify.com/v1/search?q=${q1}&type=album&limit=1`, token);
     if (!r1?.ok) return NextResponse.json(empty); // blocked/rate-limited/transient
 
-    type AlbumSearchResponse = { albums?: { items?: Array<{ uri: string; id: string; name: string; artists: Array<{ name: string }> }> } };
+    type SpotifyImage = { url: string; width: number; height: number };
+    type AlbumSearchResponse = { albums?: { items?: Array<{ uri: string; id: string; name: string; artists: Array<{ name: string }>; images: SpotifyImage[] }> } };
     let album: { uri: string; id: string } | null = null;
 
     const d1 = await r1.json() as AlbumSearchResponse;
     const item1 = d1.albums?.items?.[0] ?? null;
+    let artUrl: string | null = null;
     if (item1 && isPlausibleAlbumMatch(artist, title, item1.artists.map(a => a.name), item1.name)) {
       album = { uri: item1.uri, id: item1.id };
+      artUrl = item1.images?.[1]?.url ?? item1.images?.[0]?.url ?? null;
     }
 
     if (!album) {
@@ -95,6 +98,7 @@ export async function GET(request: NextRequest) {
       const item2 = d2.albums?.items?.[0] ?? null;
       if (item2 && isPlausibleAlbumMatch(artist, title, item2.artists.map(a => a.name), item2.name)) {
         album = { uri: item2.uri, id: item2.id };
+        artUrl = item2.images?.[1]?.url ?? item2.images?.[0]?.url ?? null;
       }
     }
 
@@ -114,9 +118,10 @@ export async function GET(request: NextRequest) {
     const track = items.find(t => t.preview_url) ?? items[0] ?? null;
 
     return NextResponse.json({
-      preview_url: track?.preview_url ?? null,
-      track_uri:   track?.uri        ?? null,
-      album_uri:   album.uri,
+      preview_url:   track?.preview_url ?? null,
+      track_uri:     track?.uri         ?? null,
+      album_uri:     album.uri,
+      album_art_url: artUrl,
     });
   } catch {
     return NextResponse.json(empty);

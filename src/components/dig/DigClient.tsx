@@ -127,9 +127,10 @@ function SleeveCard({ rec, mode, onAddToWantlist, wantlistAdded, onDismiss, dism
     let cancelled = false;
     const params = new URLSearchParams({ artist: rec.artist, title: rec.album });
     fetch(`/api/spotify/preview?${params.toString()}`)
-      .then(r => r.json() as Promise<{ preview_url: string | null; track_uri: string | null; album_uri: string | null }>)
+      .then(r => r.json() as Promise<{ preview_url: string | null; track_uri: string | null; album_uri: string | null; album_art_url: string | null }>)
       .then(data => {
         if (cancelled) return;
+        if (data.album_art_url) setCoverUrl(`/api/image-proxy?url=${encodeURIComponent(data.album_art_url)}`);
         onPreviewReady({ previewUrl: data.preview_url, trackUri: data.track_uri, albumUri: data.album_uri ?? null, artist: rec.artist, album: rec.album });
       })
       .catch(() => {});
