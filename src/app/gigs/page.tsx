@@ -1,10 +1,11 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import GigsClient from "@/components/gigs/GigsClient";
+import { getUserWithTimeout } from "@/lib/supabase/withTimeout";
 
 export default async function GigsPage() {
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
+  const user = await getUserWithTimeout(supabase);
   if (!user) redirect("/login");
 
   const emailPrefix = (user.email ?? "").split("@")[0] || "user";

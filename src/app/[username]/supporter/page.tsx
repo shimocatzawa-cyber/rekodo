@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import AppNav from "@/components/AppNav";
 import SupporterContent from "@/components/profile/SupporterContent";
+import { getUserWithTimeout } from "@/lib/supabase/withTimeout";
 
 export const dynamic = "force-dynamic";
 
@@ -13,7 +14,7 @@ export default async function SupporterPage({ params }: { params: Params }) {
   const username = rawHandle.slice(1);
 
   const supabase = await createClient();
-  const { data: { user: viewer } } = await supabase.auth.getUser();
+  const viewer = await getUserWithTimeout(supabase);
 
   type ProfileRow = {
     id: string; username: string | null; display_name: string | null;

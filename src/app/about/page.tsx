@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { createClient } from "@/lib/supabase/server";
 import AboutClient from "@/components/about/AboutClient";
+import { getUserWithTimeout } from "@/lib/supabase/withTimeout";
 
 export const metadata: Metadata = {
   title: "Support rekōdo",
@@ -21,7 +22,7 @@ export default async function AboutPage({
   searchParams: Promise<{ success?: string }>;
 }) {
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
+  const user = await getUserWithTimeout(supabase);
   const { success } = await searchParams;
   const paymentSuccess =
     success === "subscription" || success === "donation" ? success : null;

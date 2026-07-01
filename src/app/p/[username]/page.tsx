@@ -6,6 +6,7 @@ import ProfileClient from "@/app/[username]/ProfileClient";
 import { UsernameSetupForm } from "@/app/[username]/ProfilePageClient";
 import { getOrComputeCompatibility } from "@/lib/compatibility";
 import { getPublicEssentials } from "@/lib/essentials";
+import { getUserWithTimeout } from "@/lib/supabase/withTimeout";
 
 const SERIF  = "var(--font-editorial)";
 const ORANGE = "#CC5500";
@@ -56,7 +57,7 @@ export default async function PublicProfilePage({ params }: { params: Params }) 
   const { username } = await params;
 
   const supabase = await createClient();
-  const { data: { user: viewer } } = await supabase.auth.getUser();
+  const viewer = await getUserWithTimeout(supabase);
 
   type ProfileRow = {
     id: string; username: string; display_name: string | null;

@@ -1,10 +1,11 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import OnboardingForm from "./OnboardingForm";
+import { getUserWithTimeout } from "@/lib/supabase/withTimeout";
 
 export default async function OnboardingPage() {
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
+  const user = await getUserWithTimeout(supabase);
   if (!user) redirect("/login");
 
   const emailPrefix = (user.email ?? "").split("@")[0] || "user";

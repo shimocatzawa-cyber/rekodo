@@ -5,6 +5,7 @@ import { createClient as createServiceClient } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase/server";
 import CollectionClient from "@/components/collection/CollectionClient";
 import { getDesirabilityTier } from "@/lib/desirability";
+import { getUserWithTimeout } from "@/lib/supabase/withTimeout";
 
 export const metadata: Metadata = {
   title: "Collection",

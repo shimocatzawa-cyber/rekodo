@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import QuizFlow from "@/components/quiz/QuizFlow";
+import { getUserWithTimeout } from "@/lib/supabase/withTimeout";
 
 export const metadata: Metadata = {
   title: "Taste Quiz — rekōdo",
@@ -10,7 +11,7 @@ export const metadata: Metadata = {
 
 export default async function QuizPage() {
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
+  const user = await getUserWithTimeout(supabase);
   if (!user) redirect("/login");
 
   const { count } = await supabase

@@ -2,12 +2,13 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import AppNav from "@/components/AppNav";
 import CommunityClient from "@/components/community/CommunityClient";
+import { getUserWithTimeout } from "@/lib/supabase/withTimeout";
 
 export const dynamic = "force-dynamic";
 
 export default async function CommunityPage() {
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
+  const user = await getUserWithTimeout(supabase);
   if (!user) redirect("/login");
 
   const { data: profile } = await (supabase as any)

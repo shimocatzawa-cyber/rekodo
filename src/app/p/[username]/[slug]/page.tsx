@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import type { SlotItem, ListSlot } from "@/app/lists/types";
 import PublicListClient from "@/components/lists/PublicListClient";
+import { getUserWithTimeout } from "@/lib/supabase/withTimeout";
 
 export const dynamic = "force-dynamic";
 
@@ -98,7 +99,7 @@ export default async function PublicListPage({ params }: { params: Params }) {
     };
   });
 
-  const { data: { user: viewer } } = await supabase.auth.getUser();
+  const viewer = await getUserWithTimeout(supabase);
   const viewerUserId = viewer?.id ?? null;
   const isOwner      = viewerUserId === profile.id;
 

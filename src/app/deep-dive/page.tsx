@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import AppNav from "@/components/AppNav";
 import DeepDiveClient, { type ArtistData } from "@/components/deep-dive/DeepDiveClient";
 import SupporterGate from "@/components/SupporterGate";
+import { getUserWithTimeout } from "@/lib/supabase/withTimeout";
 
 export const metadata: Metadata = {
   title: "Deep Dive",
@@ -15,7 +16,7 @@ export const dynamic = "force-dynamic";
 
 export default async function DeepDivePage() {
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
+  const user = await getUserWithTimeout(supabase);
   if (!user) redirect("/login");
 
   const emailPrefix = (user.email ?? "").split("@")[0] || "user";

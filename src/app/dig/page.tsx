@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import DigClient from "@/components/dig/DigClient";
+import { getUserWithTimeout } from "@/lib/supabase/withTimeout";
 
 export const metadata: Metadata = {
   title: "Dig",

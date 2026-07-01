@@ -6,6 +6,7 @@ import InsightsClient, { type InsightsProps } from "@/components/insights/Insigh
 import { getDesirabilityTier, type DesirabilityTier } from "@/lib/desirability";
 import { selectDailyPick, dailyPickBlurb } from "@/lib/dailyPick";
 import { seededRandom, dayKey } from "@/lib/dailyRotation";
+import { getUserWithTimeout } from "@/lib/supabase/withTimeout";
 
 export const metadata: Metadata = {
   title: "Insights",

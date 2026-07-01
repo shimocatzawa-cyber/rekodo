@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import ArchetypesClient from "@/components/archetypes/ArchetypesClient";
 import SupporterGate from "@/components/SupporterGate";
+import { getUserWithTimeout } from "@/lib/supabase/withTimeout";
 
 export const metadata: Metadata = {
   title: "Archetypes",
@@ -14,7 +15,7 @@ export const dynamic = "force-dynamic";
 
 export default async function ArchetypesPage() {
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
+  const user = await getUserWithTimeout(supabase);
   if (!user) redirect("/login");
 
   const { data: profile } = await (supabase as any)
