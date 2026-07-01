@@ -122,7 +122,7 @@ export async function sendNewSupporterAlert(opts: {
 }
 
 export async function sendWaitlistNotification(email: string, name?: string) {
-  await sendViaBrevo(`waitlist — ${email}`, `<!DOCTYPE html>
+  await sendViaBrevo(`new waitlist signup — ${email}`, `<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="utf-8" />
