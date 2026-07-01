@@ -2,6 +2,7 @@
 
 import { useState, useRef, useEffect } from "react";
 import { toPng } from "html-to-image";
+import { trackShareCard } from "@/lib/shareCard";
 
 const SERIF   = '"Shippori Mincho", Georgia, serif';
 const MONO    = '"DM Mono", "Courier New", monospace';
@@ -214,6 +215,7 @@ export default function CollectionStyleMapModal({ onClose, ...cardProps }: Props
       link.download = "rekodo-style-map.png";
       link.href = canvas.toDataURL("image/png");
       link.click();
+      trackShareCard("Style Map", "download");
     } finally { setExporting(false); }
   }
 
@@ -225,6 +227,7 @@ export default function CollectionStyleMapModal({ onClose, ...cardProps }: Props
         return new Promise<Blob>((res, rej) => canvas.toBlob(b => b ? res(b) : rej(), "image/png"));
       });
       await navigator.clipboard.write([new ClipboardItem({ "image/png": blobPromise })]);
+      trackShareCard("Style Map", "copy");
       await blobPromise;
       setCopyState("copied");
     } catch { setCopyState("failed"); }

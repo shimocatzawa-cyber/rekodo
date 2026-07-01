@@ -2,6 +2,7 @@
 
 import { useState, useRef, useEffect } from "react";
 import { toPng } from "html-to-image";
+import { trackShareCard } from "@/lib/shareCard";
 
 // Inline font strings — NOT CSS variables — so html-to-image embeds them
 const SERIF   = '"Shippori Mincho", Georgia, serif';
@@ -260,6 +261,7 @@ export default function EssentialsWallModal({ onClose, username, covers, total, 
       link.download = "rekodo-essentials-wall.png";
       link.href = canvas.toDataURL("image/png");
       link.click();
+      trackShareCard("Essentials Wall", "download");
     } finally {
       setExporting(false);
     }
@@ -275,6 +277,7 @@ export default function EssentialsWallModal({ onClose, username, covers, total, 
         );
       });
       await navigator.clipboard.write([new ClipboardItem({ "image/png": blobPromise })]);
+      trackShareCard("Essentials Wall", "copy");
       await blobPromise;
       setCopyState("copied");
     } catch {

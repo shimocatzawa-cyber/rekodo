@@ -12,7 +12,7 @@ import {
 } from "@/app/lists/actions";
 import type { UserList, ListSlot, SlotItem } from "@/app/lists/types";
 import type { CollectionRecord } from "@/app/collection/page";
-import { generateShareCard, downloadCard, copyCardToClipboard } from "@/lib/shareCard";
+import { generateShareCard, downloadCard, copyCardToClipboard, trackShareCard } from "@/lib/shareCard";
 import { createClient } from "@/lib/supabase/client";
 
 const SERIF  = "var(--font-editorial)";
@@ -843,12 +843,12 @@ export default function ProfileListsTab({ initialLists, username, listTypeFilter
           copyState={shareCopyState}
           username={username}
           onClose={() => { setShareList(null); setShareCanvas(null); setShareCopyState("idle"); }}
-          onDownload={() => shareCanvas && shareList && downloadCard(shareCanvas, shareList.title)}
+          onDownload={() => { if (shareCanvas && shareList) { downloadCard(shareCanvas, shareList.title); trackShareCard("List", "download"); } }}
           onCopy={async () => {
             if (!shareCanvas) return;
             const ok = await copyCardToClipboard(shareCanvas);
             setShareCopyState(ok ? "copied" : "failed");
-            if (ok) setTimeout(() => setShareCopyState("idle"), 2500);
+            if (ok) { trackShareCard("List", "copy"); setTimeout(() => setShareCopyState("idle"), 2500); }
           }}
         />
       )}

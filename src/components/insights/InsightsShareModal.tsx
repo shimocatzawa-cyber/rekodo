@@ -2,6 +2,7 @@
 
 import { useState, useRef, useEffect } from "react";
 import { toPng } from "html-to-image";
+import { trackShareCard } from "@/lib/shareCard";
 
 const SERIF   = '"Shippori Mincho", Georgia, serif';
 const MONO    = '"DM Mono", "Courier New", monospace';
@@ -295,6 +296,7 @@ export default function InsightsShareModal({ onClose, avatarUrl, ...cardProps }:
       link.download = "rekodo-collection-profile.png";
       link.href = canvas.toDataURL("image/png");
       link.click();
+      trackShareCard("Collection Profile", "download");
     } finally {
       setExporting(false);
     }
@@ -310,6 +312,7 @@ export default function InsightsShareModal({ onClose, avatarUrl, ...cardProps }:
         );
       });
       await navigator.clipboard.write([new ClipboardItem({ "image/png": blobPromise })]);
+      trackShareCard("Collection Profile", "copy");
       await blobPromise;
       setCopyState("copied");
     } catch {

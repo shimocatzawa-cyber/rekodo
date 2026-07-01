@@ -2,6 +2,7 @@
 
 import { useState, useRef, useEffect } from "react";
 import { toPng } from "html-to-image";
+import { trackShareCard } from "@/lib/shareCard";
 import type { GeneratedTrack } from "@/components/lists/PlaylistTab";
 
 // Inline font strings — NOT CSS variables — so html-to-image embeds them
@@ -274,6 +275,7 @@ export default function PlaylistShareModal({ onClose, title, tracks, username }:
       link.download = `rekodo-${slug}-${format === "portrait" ? "portrait" : "landscape"}.png`;
       link.href = dataUrl;
       link.click();
+      trackShareCard("Playlist", "download");
     } finally {
       setExporting(false);
     }
@@ -287,6 +289,7 @@ export default function PlaylistShareModal({ onClose, title, tracks, username }:
         return fetch(dataUrl).then(r => r.blob());
       });
       await navigator.clipboard.write([new ClipboardItem({ "image/png": blobPromise })]);
+      trackShareCard("Playlist", "copy");
       await blobPromise;
       setCopyImgState("copied");
     } catch {

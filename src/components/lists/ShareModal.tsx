@@ -2,6 +2,7 @@
 
 import { useState, useRef, useEffect } from "react";
 import { toPng } from "html-to-image";
+import { trackShareCard } from "@/lib/shareCard";
 import type { ListSlot } from "@/app/lists/types";
 
 // Inline font strings — NOT CSS variables — so html-to-image embeds them
@@ -310,6 +311,7 @@ export default function ShareModal({ onClose, title, slots, username }: Props) {
       link.download = `rekodo-${slug}-${format === "portrait" ? "portrait" : "landscape"}.png`;
       link.href = canvas.toDataURL("image/png");
       link.click();
+      trackShareCard("List", "download");
     } finally {
       setExporting(false);
     }
@@ -328,6 +330,7 @@ export default function ShareModal({ onClose, title, slots, username }: Props) {
         );
       });
       await navigator.clipboard.write([new ClipboardItem({ "image/png": blobPromise })]);
+      trackShareCard("List", "copy");
       await blobPromise; // wait so exporting spinner clears after completion
       setCopyImgState("copied");
     } catch {

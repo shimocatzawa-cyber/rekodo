@@ -286,3 +286,12 @@ export async function copyCardToClipboard(canvas: HTMLCanvasElement): Promise<bo
 export function getCardBlob(canvas: HTMLCanvasElement): Promise<Blob | null> {
   return new Promise(resolve => canvas.toBlob(b => resolve(b), "image/png"));
 }
+
+export function trackShareCard(cardType: string, action: "download" | "copy"): void {
+  fetch("/api/track-share-card", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ cardType, action }),
+    keepalive: true,
+  }).catch(() => {});
+}

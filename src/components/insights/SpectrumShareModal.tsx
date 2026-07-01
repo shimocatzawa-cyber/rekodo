@@ -2,6 +2,7 @@
 
 import { useState, useRef, useEffect } from "react";
 import { toPng } from "html-to-image";
+import { trackShareCard } from "@/lib/shareCard";
 import type { SpectrumData } from "@/components/insights/TasteProfile";
 
 const SERIF   = '"Shippori Mincho", Georgia, serif';
@@ -156,6 +157,7 @@ export default function SpectrumShareModal({ onClose, username, spectrum }: Prop
       link.download   = `rekodo-spectrum-${username}.png`;
       link.href       = canvas.toDataURL("image/png");
       link.click();
+      trackShareCard("Spectrum", "download");
     } finally {
       setExporting(false);
     }
@@ -171,6 +173,7 @@ export default function SpectrumShareModal({ onClose, username, spectrum }: Prop
         );
       });
       await navigator.clipboard.write([new ClipboardItem({ "image/png": blobPromise })]);
+      trackShareCard("Spectrum", "copy");
       await blobPromise;
       setCopyState("copied");
     } catch {

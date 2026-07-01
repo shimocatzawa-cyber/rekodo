@@ -2,6 +2,7 @@
 
 import { useState, useRef, useEffect } from "react";
 import { toPng } from "html-to-image";
+import { trackShareCard } from "@/lib/shareCard";
 
 const SERIF   = '"Shippori Mincho", Georgia, serif';
 const MONO    = '"DM Mono", "Courier New", monospace';
@@ -208,6 +209,7 @@ export default function CollectorDNAModal({ onClose, ...cardProps }: Props) {
       link.download = "rekodo-collector-dna.png";
       link.href = canvas.toDataURL("image/png");
       link.click();
+      trackShareCard("Collector DNA", "download");
     } finally { setExporting(false); }
   }
 
@@ -219,6 +221,7 @@ export default function CollectorDNAModal({ onClose, ...cardProps }: Props) {
         return new Promise<Blob>((res, rej) => canvas.toBlob(b => b ? res(b) : rej(), "image/png"));
       });
       await navigator.clipboard.write([new ClipboardItem({ "image/png": blobPromise })]);
+      trackShareCard("Collector DNA", "copy");
       await blobPromise;
       setCopyState("copied");
     } catch { setCopyState("failed"); }

@@ -2,6 +2,7 @@
 
 import { useState, useRef, useEffect } from "react";
 import { toPng } from "html-to-image";
+import { trackShareCard } from "@/lib/shareCard";
 
 const SERIF   = '"Shippori Mincho", Georgia, serif';
 const MONO    = '"DM Mono", "Courier New", monospace';
@@ -220,6 +221,7 @@ export default function CollectionStoryModal({ onClose, ...cardProps }: Props) {
       link.download = "rekodo-collection-story.png";
       link.href = canvas.toDataURL("image/png");
       link.click();
+      trackShareCard("Collection Story", "download");
     } finally { setExporting(false); }
   }
 
@@ -231,6 +233,7 @@ export default function CollectionStoryModal({ onClose, ...cardProps }: Props) {
         return new Promise<Blob>((res, rej) => canvas.toBlob(b => b ? res(b) : rej(), "image/png"));
       });
       await navigator.clipboard.write([new ClipboardItem({ "image/png": blobPromise })]);
+      trackShareCard("Collection Story", "copy");
       await blobPromise;
       setCopyState("copied");
     } catch { setCopyState("failed"); }

@@ -2,6 +2,7 @@
 
 import { useState, useRef, useEffect } from "react";
 import { toPng } from "html-to-image";
+import { trackShareCard } from "@/lib/shareCard";
 import { ARCHETYPES, JUNG_CORE_DESIRES } from "@/lib/archetypes/archetypeConfig";
 
 const SERIF   = '"Shippori Mincho", Georgia, serif';
@@ -246,6 +247,7 @@ export default function ArchetypeShareModal({ onClose, archetypeId, score, shado
       link.download = `rekodo-archetype-${slug}.png`;
       link.href = canvas.toDataURL("image/png");
       link.click();
+      trackShareCard("Archetype", "download");
     } finally {
       setExporting(false);
     }
@@ -261,6 +263,7 @@ export default function ArchetypeShareModal({ onClose, archetypeId, score, shado
         );
       });
       await navigator.clipboard.write([new ClipboardItem({ "image/png": blobPromise })]);
+      trackShareCard("Archetype", "copy");
       await blobPromise;
       setCopyState("copied");
     } catch {

@@ -157,6 +157,7 @@ export default function AdminClient({
   totalRecords,
   featurePopularity,
   countryData,
+  shareCardData,
 }: {
   users: AdminUser[];
   total: number;
@@ -165,6 +166,7 @@ export default function AdminClient({
   totalRecords: number;
   featurePopularity: [string, number][];
   countryData: { country: string; count: number }[];
+  shareCardData: { cardType: string; download: number; copy: number; total: number }[];
 }) {
   const [activeTab, setActiveTab]         = useState<AdminTab>("users");
   const [allUsers, setAllUsers]           = useState<AdminUser[]>(initialUsers);
@@ -595,6 +597,34 @@ export default function AdminClient({
                 </div>
               ))}
             </div>
+          )}
+
+          {/* Share card breakdown */}
+          <p style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.14em", textTransform: "uppercase", color: ORANGE, margin: "36px 0 16px" }}>
+            Share card exports
+          </p>
+          {shareCardData.length === 0 ? (
+            <p style={{ fontFamily: MONO, fontSize: "11px", color: MUTED }}>No share cards exported yet.</p>
+          ) : (
+            <table style={{ borderCollapse: "collapse", maxWidth: "560px", width: "100%" }}>
+              <thead>
+                <tr>
+                  {["Card", "Downloads", "Copies", "Total"].map((h, i) => (
+                    <th key={h} style={{ ...thSt, paddingLeft: i === 0 ? 0 : "16px", textAlign: i === 0 ? "left" : "right", cursor: "default" }}>{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {shareCardData.map(({ cardType, download, copy, total: tot }) => (
+                  <tr key={cardType} style={{ borderBottom: `1px solid ${RULE}` }}>
+                    <td style={{ fontFamily: MONO, fontSize: "11px", color: INK, padding: "9px 16px 9px 0" }}>{cardType}</td>
+                    <td style={{ fontFamily: MONO, fontSize: "11px", color: INK, padding: "9px 16px", textAlign: "right" }}>{download}</td>
+                    <td style={{ fontFamily: MONO, fontSize: "11px", color: INK, padding: "9px 16px", textAlign: "right" }}>{copy}</td>
+                    <td style={{ fontFamily: MONO, fontSize: "11px", color: INK, padding: "9px 0 9px 16px", textAlign: "right", fontWeight: 600 }}>{tot}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           )}
         </div>
       )}
