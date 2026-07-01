@@ -11,11 +11,11 @@ export default function DownPage() {
           rek<span style={{ color: "#CC5500" }}>ō</span>do
         </div>
         <p style={{ fontFamily: MONO, fontSize: 11, letterSpacing: "0.14em", textTransform: "uppercase", color: "#999", marginBottom: 24 }}>
-          Back shortly
+          Temporarily unavailable
         </p>
         <p style={{ fontFamily: MONO, fontSize: 13, color: "#555", lineHeight: 1.8, margin: "0 0 32px" }}>
-          We&apos;re experiencing a brief service interruption.<br />
-          Hang tight — we&apos;ll be back in a few minutes.
+          This page is temporarily unavailable.<br />
+          Check back again soon — we&apos;re working on it.
         </p>
         <button
           onClick={() => window.location.reload()}

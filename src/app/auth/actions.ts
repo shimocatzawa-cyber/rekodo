@@ -96,7 +96,24 @@ export async function login(
   }
 
   const supabase = await createClient();
-  const { data: signInData, error } = await supabase.auth.signInWithPassword({ email, password });
+
+  type SignInRace =
+    | { timedOut: false; data: Awaited<ReturnType<typeof supabase.auth.signInWithPassword>> }
+    | { timedOut: true };
+
+  const signInRace = await Promise.race<SignInRace>([
+    supabase.auth.signInWithPassword({ email, password })
+      .then(data => ({ timedOut: false as const, data })),
+    new Promise<SignInRace>(resolve =>
+      setTimeout(() => resolve({ timedOut: true }), 8000)
+    ),
+  ]);
+
+  if (signInRace.timedOut) {
+    return { error: "Service temporarily unavailable — please try again in a few minutes." };
+  }
+
+  const { data: signInData, error } = signInRace.data;
 
   if (error) {
     return { error: error.message };

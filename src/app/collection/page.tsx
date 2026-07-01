@@ -1,11 +1,44 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { unstable_cache } from "next/cache";
+import Link from "next/link";
 import { createClient as createServiceClient } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase/server";
 import CollectionClient from "@/components/collection/CollectionClient";
 import { getDesirabilityTier } from "@/lib/desirability";
 import { getUserWithTimeout } from "@/lib/supabase/withTimeout";
+
+const MONO  = "var(--font-dm-mono), 'Courier New', monospace";
+const SERIF = "var(--font-shippori), Georgia, serif";
+
+function CollectionOutage() {
+  return (
+    <div style={{ minHeight: "100vh", background: "#FDFCF8", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "2rem" }}>
+      <div style={{ textAlign: "center", maxWidth: 420 }}>
+        <div style={{ fontFamily: SERIF, fontSize: 28, fontWeight: 700, color: "#CC5500", marginBottom: 8 }}>
+          rek<span style={{ color: "#CC5500" }}>ō</span>do
+        </div>
+        <p style={{ fontFamily: MONO, fontSize: 11, letterSpacing: "0.14em", textTransform: "uppercase", color: "#999", marginBottom: 24 }}>
+          Temporarily unavailable
+        </p>
+        <p style={{ fontFamily: MONO, fontSize: 13, color: "#555", lineHeight: 1.8, margin: "0 0 32px" }}>
+          Your collection is temporarily unavailable.<br />
+          Check back again soon — we&apos;re working on it.
+        </p>
+        <Link
+          href="/"
+          style={{ fontFamily: MONO, fontSize: 11, letterSpacing: "0.1em", textTransform: "uppercase", background: "#0a0a0a", color: "#FDFCF8", padding: "10px 24px", textDecoration: "none", display: "inline-block" }}
+        >
+          Go home
+        </Link>
+      </div>
+    </div>
+  );
+}
+
+function deadline<T>(ms: number, value: T) {
+  return new Promise<T>(resolve => setTimeout(() => resolve(value), ms));
+}
 
 export const metadata: Metadata = {
   title: "Collection",
@@ -152,9 +185,7 @@ export default async function CollectionPage({
   const params = await searchParams;
 
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getUserWithTimeout(supabase);
 
   if (!user) {
     redirect("/login");
@@ -162,25 +193,40 @@ export default async function CollectionPage({
 
   const emailPrefix = (user.email ?? "").split("@")[0] || "user";
 
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("username, display_name, last_synced_at, avatar_url, country_code, collection_value_low, collection_value_med, collection_value_high, collection_value_currency")
-    .eq("id", user.id)
-    .maybeSingle() as { data: {
-      username?: string | null; display_name?: string | null; last_synced_at?: string | null;
-      avatar_url?: string | null; country_code?: string | null;
-      collection_value_low?: number | null; collection_value_med?: number | null;
-      collection_value_high?: number | null; collection_value_currency?: string | null;
-    } | null; error: unknown };
+  type ProfileRow = {
+    username?: string | null; display_name?: string | null; last_synced_at?: string | null;
+    avatar_url?: string | null; country_code?: string | null;
+    collection_value_low?: number | null; collection_value_med?: number | null;
+    collection_value_high?: number | null; collection_value_currency?: string | null;
+  };
 
-  const { data: lastSyncJob } = await supabase
-    .from("sync_queue")
-    .select("total_records, new_added, completed_at")
-    .eq("user_id", user.id)
-    .eq("status", "completed")
-    .order("completed_at", { ascending: false })
-    .limit(1)
-    .maybeSingle();
+  const profileRace = await Promise.race([
+    supabase
+      .from("profiles")
+      .select("username, display_name, last_synced_at, avatar_url, country_code, collection_value_low, collection_value_med, collection_value_high, collection_value_currency")
+      .eq("id", user.id)
+      .maybeSingle()
+      .then(r => ({ ok: true as const, data: r.data as ProfileRow | null })),
+    deadline(5000, { ok: false as const }),
+  ]);
+
+  if (!profileRace.ok) return <CollectionOutage />;
+  const profile = profileRace.data;
+
+  const syncJobRace = await Promise.race([
+    supabase
+      .from("sync_queue")
+      .select("total_records, new_added, completed_at")
+      .eq("user_id", user.id)
+      .eq("status", "completed")
+      .order("completed_at", { ascending: false })
+      .limit(1)
+      .maybeSingle()
+      .then(r => ({ ok: true as const, data: r.data })),
+    deadline(5000, { ok: false as const }),
+  ]);
+
+  const lastSyncJob = syncJobRace.ok ? syncJobRace.data : null;
   const autoGen      = `${emailPrefix}_${user.id.slice(0, 6)}`;
   const rawUsername  = profile?.username ?? null;
   const username     = (rawUsername && rawUsername !== autoGen)
@@ -219,7 +265,13 @@ export default async function CollectionPage({
     } catch { /* fall back to 1.0 */ }
   }
 
-  const { allLinks, recordRows } = await fetchCollectionRaw(user.id);
+  const collectionRace = await Promise.race([
+    fetchCollectionRaw(user.id).then(data => ({ ok: true as const, data })),
+    deadline(15000, { ok: false as const }),
+  ]);
+
+  if (!collectionRace.ok) return <CollectionOutage />;
+  const { allLinks, recordRows } = collectionRace.data;
 
   const recordIds          = allLinks.map((l) => l.record_id);
   const valueMap           = new Map<string, number | null>(allLinks.map((l) => [l.record_id, l.value ?? null]));

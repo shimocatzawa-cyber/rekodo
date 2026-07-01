@@ -39,9 +39,23 @@ export async function updateSession(request: NextRequest) {
     }
   );
 
-  let user: Awaited<ReturnType<typeof supabase.auth.getUser>>["data"]["user"];
+  const protectedRoutes = ["/collection", "/lists", "/dig", "/onboarding", "/settings", "/admin", "/library"];
+  const isProtected = protectedRoutes.some((route) =>
+    request.nextUrl.pathname.startsWith(route)
+  );
+
+  type AuthRace =
+    | { timedOut: false; user: Awaited<ReturnType<typeof supabase.auth.getUser>>["data"]["user"] }
+    | { timedOut: true; user: null };
+
+  let authRace: AuthRace;
   try {
-    ({ data: { user } } = await supabase.auth.getUser());
+    authRace = await Promise.race<AuthRace>([
+      supabase.auth.getUser().then(r => ({ timedOut: false as const, user: r.data.user })),
+      new Promise<AuthRace>(resolve =>
+        setTimeout(() => resolve({ timedOut: true, user: null }), 5000)
+      ),
+    ]);
   } catch (err: unknown) {
     const is504 = err != null && typeof err === "object" && "status" in err && (err as { status: unknown }).status === 504;
     if (is504) {
@@ -52,10 +66,16 @@ export async function updateSession(request: NextRequest) {
     return NextResponse.next({ request });
   }
 
-  const protectedRoutes = ["/collection", "/lists", "/dig", "/onboarding", "/settings", "/admin", "/library"];
-  const isProtected = protectedRoutes.some((route) =>
-    request.nextUrl.pathname.startsWith(route)
-  );
+  if (authRace.timedOut) {
+    if (isProtected) {
+      const url = request.nextUrl.clone();
+      url.pathname = "/down";
+      return NextResponse.redirect(url);
+    }
+    return NextResponse.next({ request });
+  }
+
+  const { user } = authRace;
 
   if (!user && isProtected) {
     const url = request.nextUrl.clone();
@@ -64,7 +84,11 @@ export async function updateSession(request: NextRequest) {
   }
 
   if (user) {
-    await pingLastActive(supabase, request, supabaseResponse, user.id);
+    // Cap the ping at 2 s so a slow DB write doesn't delay the response.
+    await Promise.race([
+      pingLastActive(supabase, request, supabaseResponse, user.id),
+      new Promise<void>(resolve => setTimeout(resolve, 2000)),
+    ]);
   }
 
   return supabaseResponse;
