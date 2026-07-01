@@ -25,14 +25,15 @@ type Recommendation = {
 };
 
 interface Props {
-  userId:          string;
-  username:        string;
-  displayLabel?:   string;
-  avatarUrl?:      string | null;
-  collectionCount: number;
-  listsCount:      number;
-  availableStyles: string[];
-  hasQuizProfile?: boolean;
+  userId:               string;
+  username:             string;
+  displayLabel?:        string;
+  avatarUrl?:           string | null;
+  collectionCount:      number;
+  listsCount:           number;
+  availableStyles:      string[];
+  hasQuizProfile?:      boolean;
+  initialExplorePicks?: Recommendation[];
 }
 
 // ─── Vinyl disc SVG ───────────────────────────────────────────────────────────
@@ -805,13 +806,23 @@ function ModeToggle({ mode, onChange, disabled }: {
 
 // ─── Main client ──────────────────────────────────────────────────────────────
 
-export default function DigClient({ userId, username, displayLabel, avatarUrl, collectionCount, availableStyles, hasQuizProfile }: Props) {
-  const [recs,              setRecs]              = useState<Recommendation[] | null>(null);
-  const [loading,           setLoading]           = useState(true);
+export default function DigClient({ userId, username, displayLabel, avatarUrl, collectionCount, availableStyles, hasQuizProfile, initialExplorePicks }: Props) {
+  const [activeTab, setActiveTab] = useUrlTab<DigTab>("tab", ["explore", "discover", "style", "history"], "explore");
+
+  // Derived — the active dig mode (history tab has no mode)
+  const mode: DigMode = activeTab === "history" ? "discover" : activeTab;
+
+  // True when the page loaded with the explore tab active AND the server pre-computed picks.
+  // In that case we skip the initial API call — picks are already in hand.
+  const hasInitialPicks = !!initialExplorePicks && activeTab === "explore";
+  // Consumed exactly once: the first time the explore fetch effect fires.
+  const skipInitialExploreRef = useRef(hasInitialPicks);
+
+  const [recs,              setRecs]              = useState<Recommendation[] | null>(hasInitialPicks ? initialExplorePicks : null);
+  const [loading,           setLoading]           = useState(!hasInitialPicks);
   const [error,             setError]             = useState<string | null>(null);
   const [dailyLimitReached, setDailyLimitReached] = useState(false);
   const [idx,           setIdx]           = useState(0);
-  const [activeTab,     setActiveTab]     = useUrlTab<DigTab>("tab", ["explore", "discover", "style", "history"], "explore");
   const [selectedStyle, setSelectedStyle] = useState<string | null>(null);
   const [wantlistAdded, setWantlistAdded] = useState<Set<string>>(new Set());
   const [wantlistError, setWantlistError] = useState<string | null>(null);
@@ -819,9 +830,6 @@ export default function DigClient({ userId, username, displayLabel, avatarUrl, c
   const [digSpotify,    setDigSpotify]    = useState<{
     previewUrl: string | null; trackUri: string | null; albumUri: string | null; artist: string; album: string;
   } | null>(null);
-
-  // Derived — the active dig mode (history tab has no mode)
-  const mode: DigMode = activeTab === "history" ? "discover" : activeTab;
 
   // Accumulates artists and full recs shown this session so the API can avoid
   // repeating the same artists, genres, and stylistic territory
@@ -833,8 +841,10 @@ export default function DigClient({ userId, username, displayLabel, avatarUrl, c
 
   // fetchKey drives all fetches. Incrementing `n` re-triggers the effect for
   // "dig again" without changing mode; swapping `mode` handles mode changes.
-  // `style` is only set when mode is "style" — the effect skips fetching until it is.
-  const [fetchKey, setFetchKey] = useState<{ mode: DigMode; n: number; style?: string }>({ mode: "discover", n: 0 });
+  // Initialise from activeTab so the first fetch matches what's displayed —
+  // the old hardcoded "discover" caused Claude results to appear on the explore tab.
+  const initialFetchMode: DigMode = activeTab === "history" ? "discover" : (activeTab as DigMode);
+  const [fetchKey, setFetchKey] = useState<{ mode: DigMode; n: number; style?: string }>({ mode: initialFetchMode, n: 0 });
 
   // Clear player on mode/fetch change and also on rec navigation — until the
   // new card's onPreviewReady fires, the player should show nothing rather than
@@ -846,6 +856,13 @@ export default function DigClient({ userId, username, displayLabel, avatarUrl, c
   // in the effect body — satisfies react-hooks/set-state-in-effect.
   useEffect(() => {
     if (fetchKey.mode === "style" && !fetchKey.style) return;
+    // First explore load: server already computed picks — skip the API call
+    if (fetchKey.mode === "explore" && initialExplorePicks && skipInitialExploreRef.current) {
+      skipInitialExploreRef.current = false;
+      setRecs(initialExplorePicks);
+      setLoading(false);
+      return;
+    }
     let cancelled = false;
     (async () => {
       try {

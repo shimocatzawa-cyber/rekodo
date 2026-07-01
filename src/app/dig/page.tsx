@@ -59,7 +59,8 @@ export default async function DigPage() {
     (l) => !l.list_type || l.list_type === "top5"
   ).length;
 
-  // Distinct styles across the collection — powers the Style Dig tab
+  // Distinct styles + explore picks — powers Style Dig tab and pre-computes
+  // the first Inside Collection load so it's instant (no API call needed).
   const { data: styleLinks } = await supabase
     .from("user_records")
     .select("record_id")
@@ -67,17 +68,66 @@ export default async function DigPage() {
     .limit(5000);
 
   const styleRecordIds = (styleLinks ?? []).map((l) => l.record_id);
+
+  type ExploreRec = { id: string; artist: string; album: string; year: number | null; genre: string | null; styles: string[] | null };
+  const explorePool: ExploreRec[] = [];
   const styleSet = new Set<string>();
-  for (let i = 0; i < styleRecordIds.length; i += 400) {
-    const { data: styleRows } = await supabase
-      .from("records")
-      .select("styles")
-      .in("id", styleRecordIds.slice(i, i + 400));
-    for (const r of styleRows ?? []) {
-      for (const s of r.styles ?? []) if (s) styleSet.add(s);
+
+  if (styleRecordIds.length > 0) {
+    const batches = await Promise.all(
+      Array.from({ length: Math.ceil(styleRecordIds.length / 400) }, (_, i) =>
+        supabase
+          .from("records")
+          .select("id, artist, album, year, genre, styles")
+          .in("id", styleRecordIds.slice(i * 400, (i + 1) * 400))
+      )
+    );
+    for (const { data: rows } of batches) {
+      for (const r of rows ?? []) {
+        explorePool.push(r as ExploreRec);
+        for (const s of r.styles ?? []) if (s) styleSet.add(s);
+      }
     }
   }
+
   const availableStyles = [...styleSet].sort();
+
+  // Pick 3 records from diverse artists for the first Inside Collection load.
+  // No history exclusion here (no DB call needed) — Dig Again hits the API.
+  function serverPickExplore(records: ExploreRec[], count: number): ExploreRec[] {
+    const out = [...records];
+    for (let i = out.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [out[i], out[j]] = [out[j], out[i]];
+    }
+    const picked: ExploreRec[] = [];
+    const seen = new Set<string>();
+    for (const r of out) {
+      if (picked.length >= count) break;
+      const key = r.artist.toLowerCase().trim();
+      if (seen.has(key)) continue;
+      picked.push(r);
+      seen.add(key);
+    }
+    return picked;
+  }
+
+  type InitialPick = { artist: string; album: string; year: number | null; reason: string; bandcamp_search_url: string; spotify_search_url: string; apple_music_search_url: string };
+  const initialExplorePicks: InitialPick[] | undefined = explorePool.length >= 3
+    ? serverPickExplore(explorePool, 3).map(r => {
+        const q = encodeURIComponent(`${r.artist} ${r.album}`);
+        const parts = [r.genre, r.year?.toString()].filter(Boolean);
+        return {
+          artist: r.artist,
+          album:  r.album,
+          year:   r.year ?? null,
+          reason: parts.length ? parts.join(" · ") : "In your collection",
+          bandcamp_search_url:    `https://bandcamp.com/search?q=${q}`,
+          spotify_search_url:     `https://open.spotify.com/search/${q}`,
+          apple_music_search_url: `https://music.apple.com/search?term=${q}`,
+        };
+      })
+    : undefined;
 
   return (
     <DigClient
@@ -89,6 +139,7 @@ export default async function DigPage() {
       listsCount={listsCount}
       availableStyles={availableStyles}
       hasQuizProfile={hasQuizProfile}
+      initialExplorePicks={initialExplorePicks}
     />
   );
 }
