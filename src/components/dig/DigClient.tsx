@@ -117,7 +117,7 @@ function SleeveCard({ rec, mode, onAddToWantlist, wantlistAdded, onDismiss, dism
           (first.cover_image && !first.cover_image.includes("spacer"))
             ? first.cover_image
             : (first.thumb && !first.thumb.includes("spacer") ? first.thumb : null);
-        if (url) setCoverUrl(url);
+        if (url) setCoverUrl(`/api/image-proxy?url=${encodeURIComponent(url)}`);
       })
       .catch(() => { /* fall back to vinyl disc */ });
     return () => { cancelled = true; };
