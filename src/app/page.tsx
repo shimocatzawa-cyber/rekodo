@@ -59,20 +59,31 @@ const jsonLd = {
   ],
 };
 
+const timeout = (ms: number) => new Promise<null>(resolve => setTimeout(() => resolve(null), ms));
+
 export default async function LandingPage() {
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
+
+  const authResult = await Promise.race([
+    supabase.auth.getUser().then(r => r.data.user),
+    timeout(3000),
+  ]);
+  const user = authResult ?? null;
 
   let username: string | null = null;
   let displayLabel: string | null = null;
   let avatarUrl: string | null = null;
   if (user) {
+    const profileResult = await Promise.race([
+      supabase
+        .from("profiles")
+        .select("username, display_name, avatar_url")
+        .eq("id", user.id)
+        .maybeSingle(),
+      timeout(3000),
+    ]);
     const emailPrefix = (user.email ?? "").split("@")[0] || "user";
-    const { data: profile } = await supabase
-      .from("profiles")
-      .select("username, display_name, avatar_url")
-      .eq("id", user.id)
-      .maybeSingle();
+    const profile = profileResult?.data ?? null;
     username = profile?.username ?? emailPrefix;
     displayLabel = profile?.display_name?.trim() || username;
     avatarUrl = profile?.avatar_url ?? null;
