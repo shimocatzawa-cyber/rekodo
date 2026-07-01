@@ -9,7 +9,7 @@ const BATCH_SIZE    = 150;
 
 export async function POST(request: NextRequest) {
   const secret = request.headers.get("x-admin-secret");
-  if (!secret || secret !== process.env.INTERNAL_API_SECRET) {
+  if (!secret || secret !== process.env.MIGRATE_TOKEN) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
