@@ -66,7 +66,7 @@ export default function LoginPage() {
               marginBottom: "28px",
             }}
           >
-            We&apos;re aware of a service interruption affecting some features today. Things may be a little slower than usual — we&apos;re on it.
+            We&apos;re experiencing an extended outage with our infrastructure provider. Things may be slower than usual or temporarily unavailable — we&apos;re on it.
           </div>
 
           <h1
