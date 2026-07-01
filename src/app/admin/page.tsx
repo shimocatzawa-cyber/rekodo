@@ -32,7 +32,7 @@ export default async function AdminPage() {
       .from("profiles")
       .select("*", { count: "exact", head: true })
       .eq("is_donor", true),
-    adminDb.from("user_records").select("*", { count: "exact", head: true }),
+    adminDb.from("user_records").select("*", { count: "estimated", head: true }),
     // First page of users — most recently active first, nulls last
     adminDb
       .from("profiles")
