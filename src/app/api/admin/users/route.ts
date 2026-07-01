@@ -16,7 +16,7 @@ export async function GET(req: NextRequest) {
 
   const params = req.nextUrl.searchParams;
   const offset = Math.max(0, parseInt(params.get("offset") ?? "0", 10));
-  const limit  = Math.min(100, Math.max(1, parseInt(params.get("limit") ?? String(ADMIN_PAGE_SIZE), 10)));
+  const limit  = Math.min(200, Math.max(1, parseInt(params.get("limit") ?? String(ADMIN_PAGE_SIZE), 10)));
 
   const adminDb = getAdminDb();
   const { data: profiles, error } = await adminDb

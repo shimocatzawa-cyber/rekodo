@@ -456,8 +456,10 @@ async function processSync(supabase: SB, jobId: string, userId: string) {
       .map((id) => ({ user_id: userId, record_id: id, date_added: dateAddedByRecordId.get(id) ?? null }));
 
     for (let i = 0; i < newLinks.length; i += BATCH) {
-      const { error: linkErr } = await supabase.from("user_records").insert(newLinks.slice(i, i + BATCH));
-      if (linkErr) throw new Error(`user_records insert failed: ${linkErr.message}`);
+      const { error: linkErr } = await supabase
+        .from("user_records")
+        .upsert(newLinks.slice(i, i + BATCH), { onConflict: "user_id,record_id", ignoreDuplicates: true });
+      if (linkErr) console.error("user_records upsert error:", linkErr.message);
     }
 
     // Log to the activity feed, unless this run *is* the user's first-ever
