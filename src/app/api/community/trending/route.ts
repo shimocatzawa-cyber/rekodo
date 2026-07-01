@@ -5,7 +5,8 @@ import { createClient } from "@/lib/supabase/server";
 export const dynamic = "force-dynamic";
 
 // Trending is global (same result for every user) and changes slowly — recompute
-// at most once per hour rather than doing a full user_records table scan per request.
+// at most once per 24h. Uses a DB-side GROUP BY aggregation via RPC so Postgres
+// handles the counting rather than reading every user_records row into JS.
 const getCachedTrending = unstable_cache(
   async () => {
     const supabase = createServiceClient(
@@ -14,32 +15,13 @@ const getCachedTrending = unstable_cache(
       { auth: { persistSession: false } },
     );
 
-    let allRows: { record_id: string }[] = [];
-    let from = 0;
-    const pageSize = 1000;
-    while (true) {
-      const { data } = await supabase
-        .from("user_records")
-        .select("record_id")
-        .range(from, from + pageSize - 1);
-      if (!data || data.length === 0) break;
-      allRows = allRows.concat(data);
-      if (data.length < pageSize) break;
-      from += pageSize;
-    }
+    const { data: trendingRows, error } = await supabase.rpc("get_trending_records", { limit_count: 40 });
+    if (error || !trendingRows || trendingRows.length === 0) return [];
 
-    const counts = new Map<string, number>();
-    for (const row of allRows) {
-      counts.set(row.record_id, (counts.get(row.record_id) ?? 0) + 1);
-    }
-
-    const topIds = [...counts.entries()]
-      .filter(([, n]) => n > 1)
-      .sort((a, b) => b[1] - a[1])
-      .slice(0, 40)
-      .map(([id]) => id);
-
-    if (topIds.length === 0) return [];
+    const topIds = (trendingRows as { record_id: string; collector_count: number }[]).map(r => r.record_id);
+    const countMap = new Map(
+      (trendingRows as { record_id: string; collector_count: number }[]).map(r => [r.record_id, r.collector_count]),
+    );
 
     const { data: records } = await supabase
       .from("records")
@@ -61,13 +43,13 @@ const getCachedTrending = unstable_cache(
           coverUrl: rec.cover_url,
           year: rec.year,
           genre: rec.genre,
-          collectorCount: counts.get(id)!,
+          collectorCount: countMap.get(id)!,
         };
       })
       .filter(Boolean);
   },
   ["trending-records"],
-  { revalidate: 3600 },
+  { revalidate: 86400 },
 );
 
 export async function GET() {
