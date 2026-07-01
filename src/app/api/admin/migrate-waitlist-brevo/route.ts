@@ -43,7 +43,7 @@ export async function POST(request: NextRequest) {
     const res = await fetch("https://api.brevo.com/v3/contacts/import", {
       method: "POST",
       headers: { "api-key": brevoKey, "Content-Type": "application/json" },
-      body: JSON.stringify({ listIds: [BREVO_LIST_ID], updateEnabled: true, contacts }),
+      body: JSON.stringify({ listIds: [BREVO_LIST_ID], updateEnabled: true, jsonBody: contacts }),
     });
 
     if (!res.ok) {
