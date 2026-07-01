@@ -51,6 +51,7 @@ export async function POST(request: NextRequest) {
         body: JSON.stringify({
           email,
           attributes: { WAITLIST_DATE: today, ...(name ? { FIRSTNAME: name } : {}) },
+          listIds: [8],
           updateEnabled: true,
         }),
         signal: ac.signal,
