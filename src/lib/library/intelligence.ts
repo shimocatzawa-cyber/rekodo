@@ -11,12 +11,25 @@ interface CollectionItem {
   country?: string | null;
 }
 
+const INTELLIGENCE_STALE_DAYS = 30;
+
 export async function computeCollectionIntelligence(
   supabase: SupabaseClient<Database>,
   userId: string,
   collection: CollectionItem[]
 ): Promise<void> {
   if (collection.length === 0) return;
+
+  // Skip recomputation if intelligence was computed within the last 30 days
+  const { data: existing } = await supabase
+    .from("collection_intelligence")
+    .select("last_computed_at")
+    .eq("user_id", userId)
+    .maybeSingle();
+  if (existing?.last_computed_at) {
+    const staleCutoff = new Date(Date.now() - INTELLIGENCE_STALE_DAYS * 86400_000).toISOString();
+    if (existing.last_computed_at > staleCutoff) return;
+  }
 
   const collectionLines = collection
     .map((r) => {

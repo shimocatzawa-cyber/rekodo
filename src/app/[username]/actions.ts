@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import Anthropic from "@anthropic-ai/sdk";
 import { createClient } from "@/lib/supabase/server";
+import { checkDailyLimit, isSupporter } from "@/lib/rateLimit";
 
 const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
@@ -14,6 +15,11 @@ export async function generateTasteSummary(
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user || user.id !== userId) return { error: "Not authorized." };
+
+  const supporter = await isSupporter(supabase, user.id);
+  const DAILY_LIMIT = supporter ? 3 : 1;
+  const { allowed, used, limit } = await checkDailyLimit(supabase, user.id, "taste_summary", DAILY_LIMIT);
+  if (!allowed) return { error: `Daily limit reached (${used}/${limit}). Come back tomorrow for a new pick.` };
 
   const { data: profileRow } = await supabase
     .from("profiles")

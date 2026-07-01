@@ -350,7 +350,7 @@ export async function POST(request: NextRequest) {
   // Each generation can fire up to 4 Anthropic calls (shortlist, discover,
   // mood-relevance filter, final selection) — cap free usage so a scripted
   // loop can't run up the bill unbounded. Supporters are unlimited.
-  const FREE_GENERATE_LIMIT = 2;
+  const FREE_GENERATE_LIMIT = 1;
   if (!(await isSupporter(supabase, user.id))) {
     const { allowed, used, limit } = await checkDailyLimit(supabase, user.id, "playlist_generate", FREE_GENERATE_LIMIT);
     if (!allowed) {
