@@ -229,8 +229,20 @@ export default function AdminClient({ users: initialUsers, total }: { users: Adm
   );
 
   return (
-    <div style={{ padding: "40px 48px" }}>
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "20px", gap: "12px", flexWrap: "wrap" }}>
+    <div className="admin-wrap">
+      <style>{`
+        .admin-wrap { padding: 40px 48px; }
+        .admin-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px; gap: 12px; flex-wrap: wrap; }
+        .admin-filters { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+        .admin-search { font-family: var(--font-mono); font-size: 11px; color: ${INK}; background: transparent; border: 1px solid ${RULE}; padding: 6px 12px; outline: none; width: 220px; }
+        @media (max-width: 768px) {
+          .admin-wrap { padding: 16px; }
+          .admin-header { flex-direction: column; align-items: flex-start; }
+          .admin-filters { width: 100%; }
+          .admin-search { width: 100%; box-sizing: border-box; }
+        }
+      `}</style>
+      <div className="admin-header">
         <div style={{ display: "flex", alignItems: "baseline", gap: "12px" }}>
           <p style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.14em", textTransform: "uppercase", color: ORANGE, margin: 0 }}>
             Users
@@ -242,17 +254,13 @@ export default function AdminClient({ users: initialUsers, total }: { users: Adm
           </span>
         </div>
 
-        <div style={{ display: "flex", gap: "8px", flexWrap: "wrap", alignItems: "center" }}>
+        <div className="admin-filters">
           <input
             type="text"
             placeholder="Search username or email…"
             value={query}
             onChange={e => setQuery(e.target.value)}
-            style={{
-              fontFamily: MONO, fontSize: "11px", color: INK,
-              background: "transparent", border: `1px solid ${RULE}`,
-              padding: "6px 12px", outline: "none", width: "220px",
-            }}
+            className="admin-search"
           />
 
           <select value={tierFilter} onChange={e => setTierFilter(e.target.value as typeof tierFilter)} style={selectSt}>
@@ -285,6 +293,7 @@ export default function AdminClient({ users: initialUsers, total }: { users: Adm
           </button>
         </div>
       </div>
+
 
       <div style={{ overflowX: "auto" }}>
         <table style={{ width: "100%", borderCollapse: "collapse" }}>
