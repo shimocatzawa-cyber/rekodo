@@ -1,6 +1,7 @@
 "use server";
 
 import { redirect } from "next/navigation";
+import { headers } from "next/headers";
 import { createClient } from "@/lib/supabase/server";
 import { sendSignupNotification } from "@/lib/email";
 
@@ -112,4 +113,24 @@ export async function login(
   }
 
   redirect("/collection");
+}
+
+export async function requestPasswordReset(
+  state: AuthState,
+  formData: FormData
+): Promise<AuthState> {
+  const email = (formData.get("email") as string)?.trim();
+  if (!email) return { error: "Email is required." };
+
+  const h = await headers();
+  const host = h.get("host") ?? "rekodo.app";
+  const proto = host.startsWith("localhost") ? "http" : "https";
+  const redirectTo = `${proto}://${host}/auth/update-password`;
+
+  const supabase = await createClient();
+  const { error } = await supabase.auth.resetPasswordForEmail(email, { redirectTo });
+
+  // Always return a success message to avoid leaking whether an email exists
+  if (error) console.error("[password-reset]", error.message);
+  return { message: "If that email has an account, a reset link is on its way." };
 }

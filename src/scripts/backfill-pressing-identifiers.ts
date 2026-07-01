@@ -150,22 +150,38 @@ async function main() {
     year: number | null;
   }[] = [];
 
+  // Paginate by primary key (always fast) and filter in-memory.
+  // Filtering barcode IS NULL at the DB level hits a full table scan on an
+  // unindexed column across 200k+ rows and triggers a statement timeout.
   const PAGE = 1000;
-  let from = 0;
+  let lastId = '';
+  let totalScanned = 0;
   while (true) {
-    const { data, error } = await supabase
+    let qb = supabase
       .from('records')
-      .select('id, discogs_id, artist, album, format, country, vinyl_colour, producers, genre, styles, year')
-      .is('barcode', null)
-      .not('discogs_id', 'is', null)
-      .range(from, from + PAGE - 1);
+      .select('id, discogs_id, artist, album, format, country, vinyl_colour, producers, genre, styles, year, barcode')
+      .order('id', { ascending: true })
+      .limit(PAGE);
+
+    if (lastId) qb = qb.gt('id', lastId);
+
+    const { data, error } = await qb;
 
     if (error) { console.error('Fetch error:', error.message); process.exit(1); }
     if (!data?.length) break;
-    allRecords.push(...data as typeof allRecords);
+
+    totalScanned += data.length;
+    for (const row of data as (typeof allRecords[0] & { barcode: string | null })[]) {
+      // Skip records with no discogs_id (can't enrich) or already have a barcode (already done)
+      if (!row.discogs_id || row.barcode !== null) continue;
+      allRecords.push(row);
+    }
+    lastId = data[data.length - 1].id;
     if (data.length < PAGE) break;
-    from += PAGE;
+
+    process.stdout.write(`\rScanning… ${totalScanned.toLocaleString()} records checked, ${allRecords.length} need backfill`);
   }
+  process.stdout.write('\n');
 
   if (allRecords.length === 0) {
     console.log('All records are fully backfilled — nothing to do.');
@@ -174,7 +190,7 @@ async function main() {
 
   const total    = allRecords.length;
   const estHours = ((total * 1.1) / 3600).toFixed(1);
-  console.log(`\n${total} records to process (~${estHours}h at Discogs rate limit)\n`);
+  console.log(`\n${total} records to backfill (~${estHours}h at Discogs rate limit)\n`);
   console.log('Fields being captured: barcode · matrix · edition_size · country · format · vinyl_colour · producers · genre · styles · year · discogs_artist_id · community stats\n');
 
   let updated = 0, skipped = 0;

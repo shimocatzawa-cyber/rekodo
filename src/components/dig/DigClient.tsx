@@ -1195,6 +1195,8 @@ export default function DigClient({ userId, username, displayLabel, avatarUrl, c
             min-height: 45vh !important;
             justify-content: center !important;
           }
+
+          .dig-spotify-player { display: none !important; }
         }
       `}</style>
 
@@ -1313,15 +1315,17 @@ export default function DigClient({ userId, username, displayLabel, avatarUrl, c
 
           {/* Always mounted outside the loading gate so the SDK never disconnects
               between "Dig Again" fetches. Renders null internally when nothing is playable. */}
-          <DigCompactPlayer
-            recIdx={idx}
-            previewUrl={digSpotify?.previewUrl ?? null}
-            albumUri={digSpotify?.albumUri ?? null}
-            trackUri={digSpotify?.trackUri ?? null}
-            artist={digSpotify?.artist ?? ""}
-            album={digSpotify?.album ?? ""}
-            onTrackEnd={() => navigate(1)}
-          />
+          <div className="dig-spotify-player">
+            <DigCompactPlayer
+              recIdx={idx}
+              previewUrl={digSpotify?.previewUrl ?? null}
+              albumUri={digSpotify?.albumUri ?? null}
+              trackUri={digSpotify?.trackUri ?? null}
+              artist={digSpotify?.artist ?? ""}
+              album={digSpotify?.album ?? ""}
+              onTrackEnd={() => navigate(1)}
+            />
+          </div>
 
         </div>
       </main>
