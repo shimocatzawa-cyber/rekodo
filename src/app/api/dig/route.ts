@@ -633,47 +633,59 @@ Return ONLY a valid JSON array with exactly 10 objects — extra picks give head
 Schema:
 ${JSON_SCHEMA}`;
   } else {
-    // Explore: surface hidden gems from within the collection.
-    // Exclude records already surfaced in recent Explore sessions, then sample
-    // so the prompt stays manageable regardless of collection size.
+    // Explore: pure in-collection pick — no Claude call, no hallucination risk.
+    // Exclude records already surfaced in recent sessions, prefer records not
+    // already in Top 5 lists (those are already appreciated), pick 3 from
+    // diverse artists, generate search URLs from record metadata directly.
     const recentExploreKeys = new Set(
       allPrevRecs.map((r) => `${r.artist.toLowerCase()}||${r.album.toLowerCase()}`)
     );
-    const unseenRecords = collection.filter(
-      (r) => !recentExploreKeys.has(`${r.artist.toLowerCase()}||${r.album.toLowerCase()}`)
+    const top5Keys = new Set(
+      listsForPrompt.flatMap(l => l.items.map(i => i.toLowerCase()))
     );
-    const explorePool   = unseenRecords.length >= 50 ? unseenRecords : collection;
-    const exploreSample = sampleRecords(explorePool, TASTE_SAMPLE);
-    const exploreSampleLines = exploreSample
-      .map((r) => `- ${r.artist} — ${r.album}${r.year ? ` (${r.year})` : ""}${r.genre ? ` [${r.genre}]` : ""}`)
-      .join("\n");
-    const exploreNote = collection.length > TASTE_SAMPLE
-      ? `(${exploreSample.length} of ${collection.length} records — unseen selection, recommend only from this list)`
-      : `(${collection.length} records)`;
+    const explorePool = collection.filter(
+      (r) => !recentExploreKeys.has(`${r.artist.toLowerCase()}||${r.album.toLowerCase()}`)
+        && !top5Keys.has(`${r.artist} — ${r.album}`.toLowerCase())
+    );
+    const pool = explorePool.length >= 3 ? explorePool : collection;
+    const shuffled = sampleRecords(pool, pool.length);
 
-    prompt = `You are a vinyl crate-digging assistant with encyclopaedic knowledge of recorded music across all genres, eras, and territories.
+    // Pick up to 3 records from different artists for variety
+    const picked: RecordRow[] = [];
+    const pickedArtists = new Set<string>();
+    for (const r of shuffled) {
+      if (picked.length >= 3) break;
+      const artistKey = r.artist.toLowerCase().trim();
+      if (pickedArtists.has(artistKey)) continue;
+      picked.push(r);
+      pickedArtists.add(artistKey);
+    }
 
-Below is a collector's vinyl collection and their curated Top 5 lists. Study the taste pattern carefully — it is your only brief.
+    if (picked.length === 0) {
+      return Response.json({ error: "Not enough records to explore" }, { status: 400 });
+    }
 
-COLLECTION ${exploreNote}:
-${exploreSampleLines || "(Empty collection)"}
+    const today = new Date().toISOString().slice(0, 10);
+    after(() => (supabase as any).rpc("increment_dig_count", { p_user_id: user.id, p_date: today, p_mode: mode }));
 
-TOP 5 LISTS:
-${listsLines}
+    const exploreRecs = picked.map(r => {
+      const q = encodeURIComponent(`${r.artist} ${r.album}`);
+      const parts = [r.genre, r.year?.toString()].filter(Boolean);
+      return {
+        artist:                 r.artist,
+        album:                  r.album,
+        year:                   r.year ?? null,
+        genre:                  r.genre ?? "",
+        region:                 null,
+        sub_style:              null,
+        reason:                 parts.length ? parts.join(" · ") : "In your collection",
+        bandcamp_search_url:    `https://bandcamp.com/search?q=${q}`,
+        spotify_search_url:     `https://open.spotify.com/search/${q}`,
+        apple_music_search_url: `https://music.apple.com/search?term=${q}`,
+      };
+    });
 
-MODE: EXPLORE — surface hidden gems from within this collector's existing collection.
-
-Rules:
-- YOU MUST ONLY recommend records that appear verbatim in the COLLECTION list above. Do not recommend anything outside that list.
-- Find 3 records the collector already owns that deserve far more attention than they are likely getting — overlooked masterpieces, records with hidden depth, or albums that become revelatory once you understand their context.
-- Prefer records NOT already featured in the Top 5 lists (those are already appreciated).
-- Each reason must explain specifically WHY this record is a hidden gem — what makes it extraordinary, what the collector may have missed on first listen, or how it connects to deeper threads in their taste. Frame it as "you already own this — here is why it deserves to be on your shelf of shelves." Maximum 2 sentences.
-- Do not recommend the most obvious or celebrated record by an artist if a deeper cut would be more revealing.
-${isJa ? "- Write all reason text in Japanese (日本語).\n" : ""}
-Return ONLY a valid JSON array with exactly 3 objects. No markdown, no explanation outside the JSON.
-
-Schema:
-${JSON_SCHEMA}`;
+    return Response.json({ recommendations: exploreRecs });
   }
 
   // ── Call Claude ───────────────────────────────────────────────────────────
