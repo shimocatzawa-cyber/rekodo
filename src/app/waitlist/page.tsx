@@ -90,8 +90,8 @@ export default function WaitlistPage() {
             style={{ fontFamily: MONO, fontSize: "11px", color: "#aaaaaa", letterSpacing: "0.06em" }}
           >
             {done
-              ? "We'll be in touch when a spot opens up."
-              : "rekōdo is at capacity right now. Leave your email and we'll let you know when a spot opens up."}
+              ? "We'll be in touch as soon as we're back."
+              : "New signups are paused while we sort out a service disruption. Leave your email and we'll let you know the moment things are back up."}
           </p>
 
           {done ? (

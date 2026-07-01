@@ -25,16 +25,39 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "A valid email address is required." }, { status: 400 });
   }
 
-  const sb = serviceClient();
-  const { error } = await sb.from("waitlist").insert({ email, name: name || null });
-
-  if (error) {
-    if (error.code === "23505") {
-      // Duplicate email — treat as success so we don't leak which emails are already listed
-      return NextResponse.json({ ok: true });
+  // Write to Supabase — fail-silent so the waitlist works even during a DB outage.
+  // Brevo is the source of truth for waitlist contacts when Supabase is unavailable.
+  try {
+    const sb = serviceClient();
+    const { error } = await sb.from("waitlist").insert({ email, name: name || null });
+    if (error && error.code !== "23505") {
+      console.error("[waitlist] Supabase insert failed:", error.message);
     }
-    console.error("[waitlist] insert error:", error.message);
-    return NextResponse.json({ error: "Something went wrong. Please try again." }, { status: 500 });
+  } catch (err) {
+    console.error("[waitlist] Supabase error:", err);
+  }
+
+  // Add to Brevo with WAITLIST_DATE attribute so these contacts are clearly
+  // distinguished from full signups (which carry SIGNUP_DATE instead).
+  try {
+    const brevoKey = process.env.BREVO_API_KEY;
+    if (brevoKey) {
+      const today = new Date().toISOString().slice(0, 10);
+      const ac = new AbortController();
+      const timer = setTimeout(() => ac.abort(), 5000);
+      await fetch("https://api.brevo.com/v3/contacts", {
+        method: "POST",
+        headers: { "api-key": brevoKey, "Content-Type": "application/json" },
+        body: JSON.stringify({
+          email,
+          attributes: { WAITLIST_DATE: today, ...(name ? { FIRSTNAME: name } : {}) },
+          updateEnabled: true,
+        }),
+        signal: ac.signal,
+      }).finally(() => clearTimeout(timer));
+    }
+  } catch (err) {
+    console.error("[brevo] waitlist contact creation failed:", err);
   }
 
   // Non-blocking — email failure must not break the user-facing response

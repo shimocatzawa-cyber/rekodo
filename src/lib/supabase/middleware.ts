@@ -16,6 +16,14 @@ export async function updateSession(request: NextRequest) {
     return NextResponse.next({ request });
   }
 
+  // Redirect /signup → /waitlist when signup is disabled (e.g. during outages).
+  // Toggle via SIGNUP_DISABLED=1 in Vercel env vars — no code change needed.
+  if (process.env.SIGNUP_DISABLED === "1" && request.nextUrl.pathname === "/signup") {
+    const url = request.nextUrl.clone();
+    url.pathname = "/waitlist";
+    return NextResponse.redirect(url);
+  }
+
   let supabaseResponse = NextResponse.next({ request });
 
   const supabase = createServerClient<Database>(
