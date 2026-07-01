@@ -234,12 +234,10 @@ export default function AdminClient({ users: initialUsers, total }: { users: Adm
         .admin-wrap { padding: 40px 48px; }
         .admin-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px; gap: 12px; flex-wrap: wrap; }
         .admin-filters { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
-        .admin-search { font-family: var(--font-mono); font-size: 11px; color: ${INK}; background: transparent; border: 1px solid ${RULE}; padding: 6px 12px; outline: none; width: 220px; }
         @media (max-width: 768px) {
           .admin-wrap { padding: 16px; }
           .admin-header { flex-direction: column; align-items: flex-start; }
           .admin-filters { width: 100%; }
-          .admin-search { width: 100%; box-sizing: border-box; }
         }
       `}</style>
       <div className="admin-header">
@@ -260,7 +258,12 @@ export default function AdminClient({ users: initialUsers, total }: { users: Adm
             placeholder="Search username or email…"
             value={query}
             onChange={e => setQuery(e.target.value)}
-            className="admin-search"
+            style={{
+              fontFamily: MONO, fontSize: "11px", color: INK,
+              background: "transparent", border: `1px solid ${RULE}`,
+              padding: "6px 12px", outline: "none",
+              width: "clamp(160px, 100%, 220px)",
+            }}
           />
 
           <select value={tierFilter} onChange={e => setTierFilter(e.target.value as typeof tierFilter)} style={selectSt}>
