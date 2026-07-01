@@ -795,8 +795,8 @@ function ModeToggle({ mode, onChange, disabled }: {
 
   return (
     <div className="dig-mode-toggle" style={{ display: "flex", justifyContent: "center", gap: "24px", paddingTop: "14px" }}>
-      {item("discover", t("outsideCollection"))}
       {item("explore",  t("insideCollection"))}
+      {item("discover", t("outsideCollection"))}
       {item("style",    t("styleDig"))}
       {item("history",  t("digHistory"))}
     </div>
@@ -811,7 +811,7 @@ export default function DigClient({ userId, username, displayLabel, avatarUrl, c
   const [error,             setError]             = useState<string | null>(null);
   const [dailyLimitReached, setDailyLimitReached] = useState(false);
   const [idx,           setIdx]           = useState(0);
-  const [activeTab,     setActiveTab]     = useUrlTab<DigTab>("tab", ["discover", "explore", "style", "history"], "discover");
+  const [activeTab,     setActiveTab]     = useUrlTab<DigTab>("tab", ["explore", "discover", "style", "history"], "explore");
   const [selectedStyle, setSelectedStyle] = useState<string | null>(null);
   const [wantlistAdded, setWantlistAdded] = useState<Set<string>>(new Set());
   const [wantlistError, setWantlistError] = useState<string | null>(null);
