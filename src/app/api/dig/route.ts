@@ -754,6 +754,79 @@ ${JSON_SCHEMA}`;
       );
       recommendations = verified.filter((r): r is { artist?: string; album?: string } => r !== null).slice(0, 3);
 
+      // Hybrid fallback: fill remaining slots from rekōdo's internal library when
+      // Discogs verification or the owned-artist filter reduces Claude's picks below 3.
+      if (recommendations.length < 3) {
+        const needed = 3 - recommendations.length;
+        const ownedIdSet    = new Set(recordIds);
+        const filledArtists = new Set<string>([
+          ...allPrevArtists.map(a => a.toLowerCase().trim()),
+          ...(recommendations as Array<{ artist?: string }>).map(r => r.artist?.toLowerCase().trim() ?? ""),
+        ]);
+        const wantlistSet = new Set(wantlistAlbums.map(s => s.toLowerCase()));
+
+        type DbRec = { id: string; artist: string; album: string; year: number | null; genre: string | null; styles: string[] | null };
+        let dbPool: DbRec[] = [];
+
+        if (mode === "style") {
+          // Match against the styles array (style is a Discogs sub-genre tag, not a primary genre)
+          const { data } = await (supabase as any)
+            .from("records")
+            .select("id, artist, album, year, genre, styles")
+            .contains("styles", [style])
+            .limit(300) as { data: DbRec[] | null };
+          dbPool = data ?? [];
+        } else if (collection.length > 0) {
+          // Use the user's top genres as a taste signal
+          const genreCount = new Map<string, number>();
+          for (const r of collection) if (r.genre) genreCount.set(r.genre, (genreCount.get(r.genre) ?? 0) + 1);
+          const topGenres = [...genreCount.entries()].sort((a, b) => b[1] - a[1]).slice(0, 5).map(([g]) => g);
+          if (topGenres.length > 0) {
+            const { data } = await supabase
+              .from("records")
+              .select("id, artist, album, year, genre, styles")
+              .in("genre", topGenres)
+              .limit(300) as { data: DbRec[] | null };
+            dbPool = data ?? [];
+          }
+        }
+
+        if (dbPool.length > 0) {
+          const eligible = sampleRecords(
+            dbPool.filter(r =>
+              r.artist && r.album &&
+              !ownedIdSet.has(r.id) &&
+              !ownedArtistSet.has(r.artist.toLowerCase().trim()) &&
+              !filledArtists.has(r.artist.toLowerCase().trim()) &&
+              !wantlistSet.has(`${r.artist} — ${r.album}`.toLowerCase())
+            ),
+            needed * 5
+          );
+
+          const pickedArtists = new Set<string>();
+          for (const r of eligible) {
+            if ((recommendations as unknown[]).length >= 3) break;
+            const artistKey = r.artist.toLowerCase().trim();
+            if (pickedArtists.has(artistKey)) continue;
+            pickedArtists.add(artistKey);
+            const q = encodeURIComponent(`${r.artist} ${r.album}`);
+            const reasonParts = [r.genre, r.year?.toString()].filter(Boolean);
+            (recommendations as unknown[]).push({
+              artist:    r.artist,
+              album:     r.album,
+              year:      r.year ?? null,
+              genre:     r.genre ?? "",
+              region:    null,
+              sub_style: null,
+              reason:    reasonParts.length ? reasonParts.join(" · ") : "From rekōdo's library",
+              bandcamp_search_url:    `https://bandcamp.com/search?q=${q}`,
+              spotify_search_url:     `https://open.spotify.com/search/${q}`,
+              apple_music_search_url: `https://music.apple.com/search?term=${q}`,
+            });
+          }
+        }
+      }
+
       if (recommendations.length === 0) {
         return Response.json({ error: "Invalid recommendations format" }, { status: 500 });
       }

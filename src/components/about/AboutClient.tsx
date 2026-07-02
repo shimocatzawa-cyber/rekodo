@@ -307,7 +307,7 @@ const FAQ_SECTIONS: { section: string; items: { q: string; a: React.ReactNode }[
     items: [
       {
         q: "How does Dig work?",
-        a: "Dig analyses your collection — genres, styles, labels, and lists you've built — and uses that as a prompt to generate personalised record recommendations. Each session produces a fresh set. It's AI-powered, not an algorithm pulling from a fixed catalogue.",
+        a: "Dig analyses your collection — genres, styles, labels, and lists you've built — and uses that as a prompt to generate personalised record recommendations. Each session produces a fresh set. Picks are AI-generated where possible, and drawn from rekōdo's catalogue of over 369,000 records as a fallback so you always get a full set of suggestions.",
       },
       {
         q: "Is there a limit on how many times I can Dig?",
