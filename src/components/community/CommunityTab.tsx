@@ -355,7 +355,7 @@ export default function CommunityTab({ profileOwnerId, hideSocialPanel = false }
   const [socialOpen,       setSocialOpen]       = useState(true);
   const [followingExpanded, setFollowingExpanded] = useState(false);
   const [followersExpanded, setFollowersExpanded] = useState(false);
-  const SOCIAL_CAP = 50;
+  const SOCIAL_CAP = 30;
 
   // Get viewer + load followers on mount
   useEffect(() => {

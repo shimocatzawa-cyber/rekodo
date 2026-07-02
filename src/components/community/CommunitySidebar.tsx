@@ -59,7 +59,7 @@ function Avatar({ avatarUrl, name, username, size = 36 }: {
   );
 }
 
-const SOCIAL_CAP = 50;
+const SOCIAL_CAP = 30;
 
 function AvatarGrid({ people }: { people: Person[] }) {
   return (
