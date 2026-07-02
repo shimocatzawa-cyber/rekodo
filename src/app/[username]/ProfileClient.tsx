@@ -151,6 +151,7 @@ export default function ProfileClient({
   const [deleting,         setDeleting]         = useState(false);
   const [deleteError,      setDeleteError]      = useState<string | null>(null);
   const [deleteReason,     setDeleteReason]     = useState("");
+  const [deleteNote,       setDeleteNote]       = useState("");
 
   async function handleDeleteAccount() {
     setDeleting(true);
@@ -159,7 +160,7 @@ export default function ProfileClient({
       const res = await fetch("/api/account/delete", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ confirm: "DELETE", reason: deleteReason || undefined }),
+        body: JSON.stringify({ confirm: "DELETE", reason: deleteReason || undefined, note: deleteNote.trim() || undefined }),
       });
       const data = await res.json() as { success?: boolean; error?: string };
       if (!res.ok || !data.success) {
@@ -705,7 +706,7 @@ export default function ProfileClient({
                       <p style={{ fontFamily: SERIF, fontSize: "13px", color: INK, margin: "0 0 16px", maxWidth: "380px" }}>
                         This permanently deletes your collection, lists, and connections. There&rsquo;s no undo.
                       </p>
-                      <div style={{ marginBottom: "16px" }}>
+                      <div style={{ marginBottom: "12px" }}>
                         <label style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.1em", textTransform: "uppercase", color: MUTED, display: "block", marginBottom: "6px" }}>
                           Reason for leaving <span style={{ color: "#cccccc" }}>(optional)</span>
                         </label>
@@ -723,11 +724,25 @@ export default function ProfileClient({
                           <option value="Other">Other</option>
                         </select>
                       </div>
+                      <div style={{ marginBottom: "16px" }}>
+                        <label style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.1em", textTransform: "uppercase", color: MUTED, display: "block", marginBottom: "6px" }}>
+                          Anything else? <span style={{ color: "#cccccc" }}>(optional)</span>
+                        </label>
+                        <textarea
+                          value={deleteNote}
+                          onChange={e => setDeleteNote(e.target.value)}
+                          disabled={deleting}
+                          maxLength={500}
+                          rows={3}
+                          placeholder="Tell us what we could have done better…"
+                          style={{ fontFamily: MONO, fontSize: "10px", color: INK, background: "#fff", border: `1px solid ${RULE}`, padding: "8px 10px", width: "100%", maxWidth: "320px", outline: "none", resize: "vertical", boxSizing: "border-box" }}
+                        />
+                      </div>
                       <div style={{ display: "flex", gap: "12px", alignItems: "center" }}>
                         <button onClick={handleDeleteAccount} disabled={deleting} style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.1em", textTransform: "uppercase", color: "#fff", background: deleting ? "rgba(154,31,31,0.6)" : "#9a1f1f", border: "none", cursor: deleting ? "default" : "pointer", padding: "10px 20px" }}>
                           {deleting ? "Deleting…" : "Yes, delete everything"}
                         </button>
-                        <button onClick={() => { setDeleteConfirming(false); setDeleteReason(""); }} disabled={deleting} style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.12em", textTransform: "uppercase", color: MUTED, background: "none", border: "none", cursor: "pointer", padding: "10px 0" }}>
+                        <button onClick={() => { setDeleteConfirming(false); setDeleteReason(""); setDeleteNote(""); }} disabled={deleting} style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.12em", textTransform: "uppercase", color: MUTED, background: "none", border: "none", cursor: "pointer", padding: "10px 0" }}>
                           Cancel
                         </button>
                       </div>

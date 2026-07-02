@@ -33,11 +33,12 @@ export async function POST(request: NextRequest) {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
 
-  const body = await request.json().catch(() => ({})) as { confirm?: string; reason?: string };
+  const body = await request.json().catch(() => ({})) as { confirm?: string; reason?: string; note?: string };
   if (body.confirm !== "DELETE") {
     return NextResponse.json({ error: "Confirmation required" }, { status: 400 });
   }
   const reason = typeof body.reason === "string" ? body.reason.slice(0, 200) : undefined;
+  const note   = typeof body.note   === "string" ? body.note.slice(0, 500)   : undefined;
 
   const admin = getServiceClient();
 
@@ -78,6 +79,7 @@ export async function POST(request: NextRequest) {
         subscriptionTier: profile.subscription_tier,
         createdAt: profile.created_at,
         reason,
+        note,
       });
     }
   } catch (err) {
