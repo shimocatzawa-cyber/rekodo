@@ -478,6 +478,10 @@ export function SpotifyPlayerProvider({ children }: { children: React.ReactNode 
   const reconnectAndWaitForDevice = useCallback(async (): Promise<string | null> => {
     if (!playerRef.current) return null;
     bustSpotifyTokenCache();
+    // Clear stale device ref so the poll below waits for the real ready event
+    // instead of returning the zombie device ID that just caused the 404.
+    deviceIdRef.current = null;
+    setDeviceId(null);
     try { await playerRef.current.connect(); } catch { /* still poll — ready may fire shortly after */ }
     for (let i = 0; i < 12; i++) {
       if (deviceIdRef.current) return deviceIdRef.current;
