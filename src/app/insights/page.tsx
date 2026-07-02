@@ -914,7 +914,7 @@ export default async function InsightsPage() {
       totalLow={totalLow}
       totalMed={totalMed}
       totalHigh={totalHigh}
-      totalRecords={allLinks.length}
+      totalRecords={totalRecords}
       topRecordsByValue={topRecordsByValue}
       mediaConditionBreakdown={mediaConditionBreakdown}
       sleeveConditionBreakdown={sleeveConditionBreakdown}
