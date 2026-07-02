@@ -75,18 +75,9 @@ export default async function PublicProfilePage({ params }: { params: Params }) 
   }
 
   const isOwner = viewer?.id === profile.id;
-  // Show the set/change password section unless the account is linked ONLY to
-  // OAuth providers (Google, GitHub, etc.) — pure OAuth users can't set a
-  // standalone password. If identities is empty (e.g. magic-link sign-up) we
-  // show it so they can add a password.
-  const oauthOnlyProviders = new Set(["google", "github", "apple", "facebook", "twitter", "discord", "azure", "spotify"]);
-  const hasPassword = isOwner
-    ? (() => {
-        const identities = (viewer?.identities ?? []) as Array<{ provider: string }>;
-        if (identities.length === 0) return true; // no identity — can set a password
-        return !identities.every(i => oauthOnlyProviders.has(i.provider));
-      })()
-    : false;
+  // Show password form for all owners — if a pure OAuth account tries to set
+  // one, supabase.auth.updateUser returns a clear error that we surface inline.
+  const hasPassword = isOwner;
 
   // Viewer profile for AppNav (skip extra query when viewer is the profile owner)
   let viewerNav: { username: string; displayName: string | null; avatarUrl: string | null } | null = null;
