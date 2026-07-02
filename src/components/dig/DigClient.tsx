@@ -892,6 +892,12 @@ export default function DigClient({ userId, username, displayLabel, avatarUrl, c
     // First explore load: server already computed picks — skip the API call
     if (fetchKey.mode === "explore" && initialExplorePicks && skipInitialExploreRef.current) {
       skipInitialExploreRef.current = false;
+      // Register server-picked records so the first "Dig Again" sends them as
+      // previousRecommendations and the API doesn't re-surface the same picks.
+      for (const r of initialExplorePicks) {
+        if (!shownArtists.current.includes(r.artist)) shownArtists.current.push(r.artist);
+        shownRecs.current.push({ artist: r.artist, album: r.album });
+      }
       setRecs(initialExplorePicks);
       setLoading(false);
       return;

@@ -634,36 +634,65 @@ Schema:
 ${JSON_SCHEMA}`;
   } else {
     // Explore: pure in-collection pick — no Claude call, no hallucination risk.
-    // Exclude records already surfaced in recent sessions, prefer records not
-    // already in Top 5 lists (those are already appreciated), pick 3 from
-    // diverse artists, generate search URLs from record metadata directly.
+    // Exclusion sources:
+    //   1. allPrevRecs — session picks + the persistent dig_history rows (all modes,
+    //      last 150). Explore picks are now written to dig_history so cross-session
+    //      memory survives page refreshes.
+    //   2. Top 5 lists — strip the "(YYYY)" year suffix that listsForPrompt.items
+    //      appends, so the "Artist — Album" key actually matches collection records.
+    // Picks are chosen with two-pass diversity: artist + genre in the first pass,
+    // artist-only in the second (fallback when the collection is single-genre).
     const recentExploreKeys = new Set(
       allPrevRecs.map((r) => `${r.artist.toLowerCase()}||${r.album.toLowerCase()}`)
     );
+    // listsForPrompt.items are "Artist — Album (YYYY)" — strip year before comparing
     const top5Keys = new Set(
-      listsForPrompt.flatMap(l => l.items.map(i => i.toLowerCase()))
+      listsForPrompt.flatMap(l =>
+        l.items.map(i => i.replace(/ \(\d{4}\)$/, "").toLowerCase())
+      )
     );
     const explorePool = collection.filter(
       (r) => !recentExploreKeys.has(`${r.artist.toLowerCase()}||${r.album.toLowerCase()}`)
         && !top5Keys.has(`${r.artist} — ${r.album}`.toLowerCase())
     );
-    const pool = explorePool.length >= 3 ? explorePool : collection;
+    const pool     = explorePool.length >= 3 ? explorePool : collection;
     const shuffled = sampleRecords(pool, pool.length);
 
-    // Pick up to 3 records from different artists for variety
-    const picked: RecordRow[] = [];
-    const pickedArtists = new Set<string>();
+    // First pass: prefer different artist AND different genre across all 3 picks
+    const picked: RecordRow[]      = [];
+    const pickedArtists            = new Set<string>();
+    const pickedGenres             = new Set<string>();
     for (const r of shuffled) {
       if (picked.length >= 3) break;
-      const artistKey = r.artist.toLowerCase().trim();
-      if (pickedArtists.has(artistKey)) continue;
+      const ak = r.artist.toLowerCase().trim();
+      const gk = (r.genre ?? "").toLowerCase();
+      if (pickedArtists.has(ak)) continue;
+      if (gk && pickedGenres.has(gk)) continue; // skip same genre in first pass
       picked.push(r);
-      pickedArtists.add(artistKey);
+      pickedArtists.add(ak);
+      if (gk) pickedGenres.add(gk);
+    }
+    // Second pass: fill remaining slots with just artist diversity (relaxes genre)
+    for (const r of shuffled) {
+      if (picked.length >= 3) break;
+      const ak = r.artist.toLowerCase().trim();
+      if (pickedArtists.has(ak) || picked.some(p => p.id === r.id)) continue;
+      picked.push(r);
+      pickedArtists.add(ak);
     }
 
     if (picked.length === 0) {
       return Response.json({ error: "Not enough records to explore" }, { status: 400 });
     }
+
+    // Persist picks to dig_history so the next session's allPrevRecs excludes them.
+    // Without this, every page refresh resets shownRecs and the same picks resurface.
+    after(() => (supabase as any).from("dig_history").insert(
+      picked.map(r => ({
+        user_id: user.id, artist: r.artist, album: r.album, mode: "explore",
+        genre: r.genre ?? null, region: null, sub_style: null, style: null, angle: null,
+      }))
+    ));
 
     const today = new Date().toISOString().slice(0, 10);
     after(() => (supabase as any).rpc("increment_dig_count", { p_user_id: user.id, p_date: today, p_mode: mode }));

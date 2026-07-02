@@ -89,29 +89,67 @@ export default async function DigPage() {
 
   const availableStyles = [...styleSet].sort();
 
-  // Pick 3 records from diverse artists for the first Inside Collection load.
-  // No history exclusion here (no DB call needed) — Dig Again hits the API.
+  // Fetch recent explore-mode history so the first Inside Collection load
+  // doesn't re-show records the user has already seen in a previous session.
+  // Scoped to explore only (discover/style rows aren't relevant here).
+  const { data: exploreHistoryRows } = await (supabase as any)
+    .from("dig_history")
+    .select("artist, album")
+    .eq("user_id", user.id)
+    .eq("mode", "explore")
+    .order("created_at", { ascending: false })
+    .limit(100) as { data: Array<{ artist: string; album: string }> | null };
+
+  const recentExploreKeys = new Set(
+    (exploreHistoryRows ?? []).map(
+      (r: { artist: string; album: string }) =>
+        `${r.artist.toLowerCase()}||${r.album.toLowerCase()}`
+    )
+  );
+
+  // Fresh pool for server-side picks: exclude recently shown records.
+  // Fall back to full explorePool if history covers too much of the collection.
+  const freshExplorePool = explorePool.filter(
+    r => !recentExploreKeys.has(`${r.artist.toLowerCase()}||${r.album.toLowerCase()}`)
+  );
+  const serverPickPool = freshExplorePool.length >= 3 ? freshExplorePool : explorePool;
+
+  // Pick 3 records with artist + genre diversity. Two-pass: strict diversity first,
+  // then relax genre constraint so the slot is always filled.
   function serverPickExplore(records: ExploreRec[], count: number): ExploreRec[] {
     const out = [...records];
     for (let i = out.length - 1; i > 0; i--) {
       const j = Math.floor(Math.random() * (i + 1));
       [out[i], out[j]] = [out[j], out[i]];
     }
-    const picked: ExploreRec[] = [];
-    const seen = new Set<string>();
+    const picked: ExploreRec[]   = [];
+    const seenArtists            = new Set<string>();
+    const seenGenres             = new Set<string>();
+    // First pass: diverse artists + genres
     for (const r of out) {
       if (picked.length >= count) break;
-      const key = r.artist.toLowerCase().trim();
-      if (seen.has(key)) continue;
+      const ak = r.artist.toLowerCase().trim();
+      const gk = (r.genre ?? "").toLowerCase();
+      if (seenArtists.has(ak)) continue;
+      if (gk && seenGenres.has(gk)) continue;
       picked.push(r);
-      seen.add(key);
+      seenArtists.add(ak);
+      if (gk) seenGenres.add(gk);
+    }
+    // Second pass: fill remaining, relax genre constraint
+    for (const r of out) {
+      if (picked.length >= count) break;
+      const ak = r.artist.toLowerCase().trim();
+      if (seenArtists.has(ak) || picked.some(p => p.artist === r.artist && p.album === r.album)) continue;
+      picked.push(r);
+      seenArtists.add(ak);
     }
     return picked;
   }
 
   type InitialPick = { artist: string; album: string; year: number | null; reason: string; label: string | null; format: string | null; country: string | null; genre: string | null; styles: string[] | null; producers: string[] | null; bandcamp_search_url: string; spotify_search_url: string; apple_music_search_url: string };
-  const initialExplorePicks: InitialPick[] | undefined = explorePool.length >= 3
-    ? serverPickExplore(explorePool, 3).map(r => {
+  const initialExplorePicks: InitialPick[] | undefined = serverPickPool.length >= 3
+    ? serverPickExplore(serverPickPool, 3).map(r => {
         const q = encodeURIComponent(`${r.artist} ${r.album}`);
         return {
           artist:    r.artist,

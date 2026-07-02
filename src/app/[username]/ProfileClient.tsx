@@ -720,7 +720,7 @@ export default function ProfileClient({
                 {hasPassword && (
                   <div style={{ marginTop: "32px", paddingTop: "20px", borderTop: `1px solid ${RULE}` }}>
                     <p style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.12em", textTransform: "uppercase", color: MUTED, margin: "0 0 16px" }}>
-                      Change password
+                      Set / change password
                     </p>
                     {pwSuccess ? (
                       <p style={{ fontFamily: MONO, fontSize: "10px", color: "#226622", letterSpacing: "0.04em" }}>

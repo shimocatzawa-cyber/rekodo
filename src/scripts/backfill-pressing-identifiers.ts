@@ -133,9 +133,11 @@ async function main() {
 
   const supabase = createClient(supabaseUrl, serviceKey);
 
-  // Fetch records that still have any gap:
-  //   - barcode IS NULL  → not processed at all yet
-  //   - country IS NULL  → processed by old script (barcode set) but missed new fields
+  // Fetch records that still have any gap.
+  // Filtering is done in-memory (paginating by primary key) to avoid a full
+  // table scan on unindexed columns across 200k+ rows.
+  // A record is included if barcode, country, producers, OR styles is missing.
+  // All patch writes are null-safe — no existing data is ever overwritten.
   const allRecords: {
     id: string;
     discogs_id: string;
@@ -172,8 +174,15 @@ async function main() {
 
     totalScanned += data.length;
     for (const row of data as (typeof allRecords[0] & { barcode: string | null })[]) {
-      // Skip records with no discogs_id (can't enrich) or already have a barcode (already done)
-      if (!row.discogs_id || row.barcode !== null) continue;
+      if (!row.discogs_id) continue;
+      // Include if any key field is still missing — the patch logic is null-safe
+      // and will never overwrite a field that already has a value.
+      const needsEnrich =
+        row.barcode === null ||
+        !row.country ||
+        !row.producers?.length ||
+        !row.styles?.length;
+      if (!needsEnrich) continue;
       allRecords.push(row);
     }
     lastId = data[data.length - 1].id;
