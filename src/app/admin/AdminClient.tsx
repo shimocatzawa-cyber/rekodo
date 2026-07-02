@@ -199,18 +199,23 @@ export default function AdminClient({
   async function runBackfill() {
     setBackfillRunning(true);
     setBackfillStatus("Starting…");
-    let remaining = 1;
+    let offset = 0;
     let totalProcessed = 0;
     try {
-      while (remaining > 0) {
-        const res = await fetch("/api/admin/backfill-archetypes", { method: "POST" });
+      while (true) {
+        const res = await fetch("/api/admin/backfill-archetypes", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ offset }),
+        });
         if (!res.ok) { setBackfillStatus(`Error: ${await res.text()}`); break; }
-        const data = await res.json() as { processed: number; remaining: number; total: number; cached: number };
+        const data = await res.json() as { processed: number; skipped: number; nextOffset: number; done: boolean; total: number; cachedTotal: number };
         totalProcessed += data.processed;
-        remaining = data.remaining;
-        setBackfillStatus(`${data.cached} / ${data.total} cached${remaining > 0 ? ` — ${remaining} remaining…` : ""}`);
+        offset = data.nextOffset;
+        setBackfillStatus(`${offset} / ${data.total} profiles checked · ${data.cachedTotal} cached${data.done ? "" : "…"}`);
+        if (data.done) break;
       }
-      if (remaining === 0) setBackfillStatus(`Done — ${totalProcessed} computed this run.`);
+      setBackfillStatus(`Done — ${totalProcessed} computed this run.`);
     } catch (e) {
       setBackfillStatus(`Error: ${e instanceof Error ? e.message : String(e)}`);
     } finally {
