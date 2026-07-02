@@ -21,9 +21,13 @@ export default async function AdminPage() {
     adminDb.from("profiles").select("*", { count: "exact", head: true }).eq("is_donor", true),
     adminDb.from("user_records").select("*", { count: "estimated", head: true }),
     adminDb.from("profiles").select(PROFILE_COLUMNS).order("last_active_at", { ascending: false, nullsFirst: false }).limit(ADMIN_PAGE_SIZE),
-    adminDb.from("page_views").select("section").limit(10000),
+    adminDb.from("page_views").select("section")
+      .gte("created_at", new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString())
+      .limit(50000),
     adminDb.from("profiles").select("country"),
-    adminDb.from("page_views").select("path").eq("section", "Share Card").limit(5000),
+    adminDb.from("page_views").select("path").eq("section", "Share Card")
+      .gte("created_at", new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString())
+      .limit(5000),
   ]);
 
   const total        = totalUsersResult.count ?? 0;

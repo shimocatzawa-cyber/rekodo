@@ -575,7 +575,7 @@ export default function AdminClient({
       {activeTab === "features" && (
         <div className="ra-content">
           <p style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.14em", textTransform: "uppercase", color: ORANGE, margin: "0 0 20px" }}>
-            Feature popularity · recent page views
+            Feature popularity · page views · last 30 days
           </p>
           {featurePopularity.length === 0 ? (
             <p style={{ fontFamily: MONO, fontSize: "11px", color: MUTED }}>
