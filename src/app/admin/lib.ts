@@ -65,16 +65,24 @@ export async function enrichProfiles(
     // page_views: limit per-user subset to a reasonable bound for top-sections display
     adminDb.from("page_views").select("user_id, section").in("user_id", userIds).limit(2000),
     adminDb.from("dig_daily_count").select("user_id, count").in("user_id", userIds),
-    // Sum copies per user to get the true record count (one pressing may have multiple copies)
+    // Sum copies per user — paginate with .range() to bypass the PostgREST
+    // max_rows cap (1000). .limit(N > 1000) is silently capped server-side.
     Promise.all(
-      userIds.map(id =>
-        adminDb
-          .from("user_records")
-          .select("copies")
-          .eq("user_id", id)
-          .limit(5000)
-          .then(r => ({ id, count: (r.data ?? []).reduce((s: number, x: { copies: number }) => s + (x.copies ?? 1), 0) }))
-      )
+      userIds.map(async id => {
+        let total = 0;
+        const PAGE = 1000;
+        for (let page = 0; ; page++) {
+          const { data } = await adminDb
+            .from("user_records")
+            .select("copies")
+            .eq("user_id", id)
+            .range(page * PAGE, (page + 1) * PAGE - 1);
+          if (!data || data.length === 0) break;
+          total += (data as { copies: number }[]).reduce((s, x) => s + (x.copies ?? 1), 0);
+          if (data.length < PAGE) break;
+        }
+        return { id, count: total };
+      })
     ),
   ]);
 
