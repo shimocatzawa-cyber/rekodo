@@ -769,14 +769,14 @@ ${JSON_SCHEMA}`;
         ]);
         const wantlistSet = new Set(wantlistAlbums.map(s => s.toLowerCase()));
 
-        type DbRec = { id: string; artist: string; album: string; year: number | null; genre: string | null; styles: string[] | null };
+        type DbRec = { id: string; artist: string; album: string; year: number | null; genre: string | null; styles: string[] | null; label: string | null; format: string | null; country: string | null; producers: string[] | null };
         let dbPool: DbRec[] = [];
 
         if (mode === "style") {
           // Match against the styles array (style is a Discogs sub-genre tag, not a primary genre)
           const { data } = await (supabase as any)
             .from("records")
-            .select("id, artist, album, year, genre, styles")
+            .select("id, artist, album, year, genre, styles, label, format, country, producers")
             .contains("styles", [style])
             .limit(300) as { data: DbRec[] | null };
           dbPool = data ?? [];
@@ -788,7 +788,7 @@ ${JSON_SCHEMA}`;
           if (topGenres.length > 0) {
             const { data } = await supabase
               .from("records")
-              .select("id, artist, album, year, genre, styles")
+              .select("id, artist, album, year, genre, styles, label, format, country, producers")
               .in("genre", topGenres)
               .limit(300) as { data: DbRec[] | null };
             dbPool = data ?? [];
@@ -814,15 +814,19 @@ ${JSON_SCHEMA}`;
             if (pickedArtists.has(artistKey)) continue;
             pickedArtists.add(artistKey);
             const q = encodeURIComponent(`${r.artist} ${r.album}`);
-            const reasonParts = [r.genre, r.year?.toString()].filter(Boolean);
             (recommendations as unknown[]).push({
               artist:    r.artist,
               album:     r.album,
               year:      r.year ?? null,
-              genre:     r.genre ?? "",
+              genre:     r.genre ?? null,
               region:    null,
               sub_style: null,
-              reason:    reasonParts.length ? reasonParts.join(" · ") : "From rekōdo's library",
+              reason:    "From rekōdo's library",
+              label:     r.label     ?? null,
+              format:    r.format    ?? null,
+              country:   r.country   ?? null,
+              styles:    r.styles    ?? null,
+              producers: r.producers ?? null,
               bandcamp_search_url:    `https://bandcamp.com/search?q=${q}`,
               spotify_search_url:     `https://open.spotify.com/search/${q}`,
               apple_music_search_url: `https://music.apple.com/search?term=${q}`,

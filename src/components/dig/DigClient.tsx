@@ -272,8 +272,8 @@ function SleeveCard({ rec, mode, onAddToWantlist, wantlistAdded, onDismiss, dism
         {/* Rule */}
         <div style={{ height: 1, background: "rgba(0,0,0,0.08)", margin: "16px 0" }} />
 
-        {/* Release details (explore) or AI reasoning (discover/style) */}
-        {mode === "explore" && (rec.label || rec.format || rec.country || rec.genre || rec.styles?.length || rec.producers?.length) ? (
+        {/* Release details (DB-sourced picks) or AI reasoning (Claude picks) */}
+        {(rec.label || rec.format || rec.country || rec.styles?.length || rec.producers?.length) ? (
           <div>
             {rec.label                && <MetaRowDig label="Label"     value={rec.label} />}
             {rec.format               && <MetaRowDig label="Format"    value={rec.format} />}
