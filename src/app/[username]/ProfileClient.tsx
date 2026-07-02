@@ -666,6 +666,53 @@ export default function ProfileClient({
             {/* ── EDIT MODE ── */}
             {editing && (
               <div style={{ maxWidth: 520 }}>
+                {hasPassword && (
+                  <div style={{ marginBottom: "32px", paddingBottom: "24px", borderBottom: `1px solid ${RULE}` }}>
+                    <p style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.12em", textTransform: "uppercase", color: MUTED, margin: "0 0 16px" }}>
+                      Set / change password
+                    </p>
+                    {pwSuccess ? (
+                      <p style={{ fontFamily: MONO, fontSize: "10px", color: "#226622", letterSpacing: "0.04em" }}>
+                        Password updated.
+                      </p>
+                    ) : (
+                      <form onSubmit={handleChangePassword}>
+                        <div style={{ marginBottom: "14px" }}>
+                          <label style={labelSt}>New password</label>
+                          <input
+                            type="password"
+                            value={pwNew}
+                            onChange={e => { setPwNew(e.target.value); setPwError(null); }}
+                            minLength={6}
+                            autoComplete="new-password"
+                            style={inputSt}
+                          />
+                        </div>
+                        <div style={{ marginBottom: "14px" }}>
+                          <label style={labelSt}>Confirm password</label>
+                          <input
+                            type="password"
+                            value={pwConfirm}
+                            onChange={e => { setPwConfirm(e.target.value); setPwError(null); }}
+                            minLength={6}
+                            autoComplete="new-password"
+                            style={inputSt}
+                          />
+                        </div>
+                        {pwError && (
+                          <p style={{ fontFamily: MONO, fontSize: "10px", color: "#cc3300", margin: "0 0 10px" }}>{pwError}</p>
+                        )}
+                        <button
+                          type="submit"
+                          disabled={pwSaving || !pwNew || !pwConfirm}
+                          style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.12em", textTransform: "uppercase", color: "#fff", background: (pwSaving || !pwNew || !pwConfirm) ? "rgba(204,85,0,0.4)" : ORANGE, border: "none", cursor: (pwSaving || !pwNew || !pwConfirm) ? "default" : "pointer", padding: "10px 20px" }}
+                        >
+                          {pwSaving ? "Updating…" : "Update password"}
+                        </button>
+                      </form>
+                    )}
+                  </div>
+                )}
                 <div style={{ marginBottom: "20px" }}>
                   <label style={labelSt}>Display name</label>
                   <input type="text" value={nameValue} onChange={e => setNameValue(e.target.value)} placeholder="Your name" maxLength={60} autoComplete="off" autoFocus style={inputSt} />
@@ -716,54 +763,6 @@ export default function ProfileClient({
                     Cancel
                   </button>
                 </div>
-
-                {hasPassword && (
-                  <div style={{ marginTop: "32px", paddingTop: "20px", borderTop: `1px solid ${RULE}` }}>
-                    <p style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.12em", textTransform: "uppercase", color: MUTED, margin: "0 0 16px" }}>
-                      Set / change password
-                    </p>
-                    {pwSuccess ? (
-                      <p style={{ fontFamily: MONO, fontSize: "10px", color: "#226622", letterSpacing: "0.04em" }}>
-                        Password updated.
-                      </p>
-                    ) : (
-                      <form onSubmit={handleChangePassword}>
-                        <div style={{ marginBottom: "14px" }}>
-                          <label style={labelSt}>New password</label>
-                          <input
-                            type="password"
-                            value={pwNew}
-                            onChange={e => { setPwNew(e.target.value); setPwError(null); }}
-                            minLength={6}
-                            autoComplete="new-password"
-                            style={inputSt}
-                          />
-                        </div>
-                        <div style={{ marginBottom: "14px" }}>
-                          <label style={labelSt}>Confirm password</label>
-                          <input
-                            type="password"
-                            value={pwConfirm}
-                            onChange={e => { setPwConfirm(e.target.value); setPwError(null); }}
-                            minLength={6}
-                            autoComplete="new-password"
-                            style={inputSt}
-                          />
-                        </div>
-                        {pwError && (
-                          <p style={{ fontFamily: MONO, fontSize: "10px", color: "#cc3300", margin: "0 0 10px" }}>{pwError}</p>
-                        )}
-                        <button
-                          type="submit"
-                          disabled={pwSaving || !pwNew || !pwConfirm}
-                          style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.12em", textTransform: "uppercase", color: "#fff", background: (pwSaving || !pwNew || !pwConfirm) ? "rgba(204,85,0,0.4)" : ORANGE, border: "none", cursor: (pwSaving || !pwNew || !pwConfirm) ? "default" : "pointer", padding: "10px 20px" }}
-                        >
-                          {pwSaving ? "Updating…" : "Update password"}
-                        </button>
-                      </form>
-                    )}
-                  </div>
-                )}
 
                 <div style={{ marginTop: "32px", paddingTop: "20px", borderTop: `1px solid ${RULE}` }}>
                   <p style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.12em", textTransform: "uppercase", color: "#9a1f1f", margin: "0 0 10px" }}>
