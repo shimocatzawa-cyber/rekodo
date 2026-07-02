@@ -13,6 +13,7 @@ export default async function AdminPage() {
     totalRecordsResult,
     profilesResult,
     pageViewSectionsResult,
+    digUsersResult,
     countryResult,
     shareCardResult,
   ] = await Promise.all([
@@ -21,13 +22,12 @@ export default async function AdminPage() {
     adminDb.from("profiles").select("*", { count: "exact", head: true }).eq("is_donor", true),
     adminDb.from("user_records").select("*", { count: "estimated", head: true }),
     adminDb.from("profiles").select(PROFILE_COLUMNS).order("last_active_at", { ascending: false, nullsFirst: false }).limit(ADMIN_PAGE_SIZE),
-    adminDb.from("page_views").select("section")
-      .gte("created_at", new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString())
-      .limit(50000),
+    // Unique users per section — all-time, no date cap
+    adminDb.from("page_views").select("user_id, section").limit(100000),
+    // Dig unique users from the reliable API-level table (page_views misses this)
+    adminDb.from("dig_daily_count").select("user_id").limit(10000),
     adminDb.from("profiles").select("country"),
-    adminDb.from("page_views").select("path").eq("section", "Share Card")
-      .gte("created_at", new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString())
-      .limit(5000),
+    adminDb.from("page_views").select("path").eq("section", "Share Card").limit(5000),
   ]);
 
   const total        = totalUsersResult.count ?? 0;
@@ -37,12 +37,27 @@ export default async function AdminPage() {
 
   const users = await enrichProfiles(adminDb, profilesResult.data ?? []);
 
-  const sectionCounts = new Map<string, number>();
+  // Count unique users per section (so a single power-user doesn't inflate a section)
+  const sectionUsers = new Map<string, Set<string>>();
   for (const row of pageViewSectionsResult.data ?? []) {
-    if (row.section !== "Share Card")
-      sectionCounts.set(row.section as string, (sectionCounts.get(row.section as string) ?? 0) + 1);
+    if (row.section === "Share Card") continue;
+    const section = row.section as string;
+    const uid     = row.user_id as string;
+    if (!sectionUsers.has(section)) sectionUsers.set(section, new Set());
+    sectionUsers.get(section)!.add(uid);
   }
-  const featurePopularity = [...sectionCounts.entries()].sort((a, b) => b[1] - a[1]);
+
+  // Inject Dig from dig_daily_count — more reliable than page_views for this feature
+  const digUsers = new Set((digUsersResult.data ?? []).map(r => r.user_id as string));
+  if (digUsers.size > 0) {
+    // Use the larger of the two sources (page_views might have some Dig entries too)
+    const pvDigSize = sectionUsers.get("Dig")?.size ?? 0;
+    if (digUsers.size > pvDigSize) sectionUsers.set("Dig", digUsers);
+  }
+
+  const featurePopularity = [...sectionUsers.entries()]
+    .map(([section, users]) => [section, users.size] as [string, number])
+    .sort((a, b) => b[1] - a[1]);
 
   // Share card breakdown: path is "/share-card/{type}/{action}"
   const shareCardCounts = new Map<string, { download: number; copy: number }>();
