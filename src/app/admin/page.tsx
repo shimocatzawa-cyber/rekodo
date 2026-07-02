@@ -1,5 +1,6 @@
 import AdminClient from "./AdminClient";
 import { getAdminDb, enrichProfiles, PROFILE_COLUMNS, ADMIN_PAGE_SIZE } from "./lib";
+import { ARCHETYPES } from "@/lib/archetypes/archetypeConfig";
 
 export const dynamic = "force-dynamic";
 
@@ -16,6 +17,7 @@ export default async function AdminPage() {
     digUsersResult,
     countryResult,
     shareCardResult,
+    archetypeResult,
   ] = await Promise.all([
     adminDb.from("profiles").select("*", { count: "exact", head: true }),
     adminDb.from("profiles").select("*", { count: "exact", head: true }).in("subscription_tier", ["plus", "premium", "supporter"]),
@@ -28,6 +30,7 @@ export default async function AdminPage() {
     adminDb.from("dig_daily_count").select("user_id").limit(10000),
     adminDb.from("profiles").select("country"),
     adminDb.from("page_views").select("path").eq("section", "Share Card").limit(5000),
+    adminDb.from("archetype_cache").select("primary_archetype").limit(10000),
   ]);
 
   const total        = totalUsersResult.count ?? 0;
@@ -84,6 +87,16 @@ export default async function AdminPage() {
     .sort((a, b) => b[1] - a[1])
     .map(([country, count]) => ({ country, count }));
 
+  const archetypeCounts = new Map<string, number>();
+  for (const row of archetypeResult.data ?? []) {
+    const id = row.primary_archetype as string | null;
+    if (!id) continue;
+    archetypeCounts.set(id, (archetypeCounts.get(id) ?? 0) + 1);
+  }
+  const archetypeBreakdown: [string, number][] = [...archetypeCounts.entries()]
+    .map(([id, count]) => [ARCHETYPES[id]?.name ?? id, count] as [string, number])
+    .sort((a, b) => b[1] - a[1]);
+
   return (
     <AdminClient
       users={users}
@@ -94,6 +107,7 @@ export default async function AdminPage() {
       featurePopularity={featurePopularity}
       countryData={countryData}
       shareCardData={shareCardData}
+      archetypeBreakdown={archetypeBreakdown}
     />
   );
 }

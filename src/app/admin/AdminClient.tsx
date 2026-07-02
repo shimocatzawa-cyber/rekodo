@@ -158,6 +158,7 @@ export default function AdminClient({
   featurePopularity,
   countryData,
   shareCardData,
+  archetypeBreakdown,
 }: {
   users: AdminUser[];
   total: number;
@@ -167,6 +168,7 @@ export default function AdminClient({
   featurePopularity: [string, number][];
   countryData: { country: string; count: number }[];
   shareCardData: { cardType: string; download: number; copy: number; total: number }[];
+  archetypeBreakdown: [string, number][];
 }) {
   const [activeTab, setActiveTab]         = useState<AdminTab>("users");
   const [allUsers, setAllUsers]           = useState<AdminUser[]>(initialUsers);
@@ -283,7 +285,8 @@ export default function AdminClient({
   }, [countryData, countrySortKey, countrySortDir]);
 
   const maxCountryCount = countryData[0]?.count ?? 1;
-  const maxFeatureCount = featurePopularity[0]?.[1] ?? 1;
+  const maxFeatureCount    = featurePopularity[0]?.[1] ?? 1;
+  const maxArchetypeCount  = archetypeBreakdown[0]?.[1] ?? 1;
 
   const columns = useMemo(
     () => ALL_COLUMNS.filter(c => showAllColumns || !c.optional),
@@ -590,6 +593,30 @@ export default function AdminClient({
                   </span>
                   <div style={{ flex: 1, background: "#f0f0ea", height: "8px" }}>
                     <div style={{ width: `${(count / maxFeatureCount) * 100}%`, height: "100%", background: ORANGE }} />
+                  </div>
+                  <span style={{ fontFamily: MONO, fontSize: "10px", color: MUTED, width: "48px", textAlign: "right", flexShrink: 0 }}>
+                    {count.toLocaleString()}
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* Archetype breakdown */}
+          <p style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.14em", textTransform: "uppercase", color: ORANGE, margin: "36px 0 16px" }}>
+            Users by archetype
+          </p>
+          {archetypeBreakdown.length === 0 ? (
+            <p style={{ fontFamily: MONO, fontSize: "11px", color: MUTED }}>No archetypes computed yet.</p>
+          ) : (
+            <div style={{ display: "flex", flexDirection: "column", gap: "14px", maxWidth: "560px" }}>
+              {archetypeBreakdown.map(([name, count]) => (
+                <div key={name} style={{ display: "flex", alignItems: "center", gap: "16px" }}>
+                  <span className="ra-feat-label" style={{ fontFamily: MONO, fontSize: "11px", color: INK, flexShrink: 0 }}>
+                    {name}
+                  </span>
+                  <div style={{ flex: 1, background: "#f0f0ea", height: "8px" }}>
+                    <div style={{ width: `${(count / maxArchetypeCount) * 100}%`, height: "100%", background: "#555" }} />
                   </div>
                   <span style={{ fontFamily: MONO, fontSize: "10px", color: MUTED, width: "48px", textAlign: "right", flexShrink: 0 }}>
                     {count.toLocaleString()}
