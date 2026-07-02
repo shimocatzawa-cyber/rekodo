@@ -174,8 +174,9 @@ export async function sendAccountDeletionAlert(opts: {
   displayName?: string | null;
   subscriptionTier?: string | null;
   createdAt?: string | null;
+  reason?: string;
 }) {
-  const { userId, email, username, displayName, subscriptionTier, createdAt } = opts;
+  const { userId, email, username, displayName, subscriptionTier, createdAt, reason } = opts;
   await sendViaBrevo(`account deleted — @${username}`, `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -240,6 +241,16 @@ export async function sendAccountDeletionAlert(opts: {
               </p>
               <p style="margin:4px 0 0;font-family:'Courier New',monospace;font-size:14px;color:#ffffff;">
                 ${new Date(createdAt).toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" })}
+              </p>
+            </td>
+          </tr>` : ""}
+          ${reason ? `<tr>
+            <td style="padding-bottom:16px;">
+              <p style="margin:0;font-family:'Courier New',monospace;font-size:11px;letter-spacing:0.08em;text-transform:uppercase;color:rgba(255,255,255,0.4);">
+                reason
+              </p>
+              <p style="margin:4px 0 0;font-family:'Courier New',monospace;font-size:14px;color:#ffffff;">
+                ${reason}
               </p>
             </td>
           </tr>` : ""}

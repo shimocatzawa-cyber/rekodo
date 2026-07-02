@@ -150,6 +150,7 @@ export default function ProfileClient({
   const [deleteConfirming, setDeleteConfirming] = useState(false);
   const [deleting,         setDeleting]         = useState(false);
   const [deleteError,      setDeleteError]      = useState<string | null>(null);
+  const [deleteReason,     setDeleteReason]     = useState("");
 
   async function handleDeleteAccount() {
     setDeleting(true);
@@ -158,7 +159,7 @@ export default function ProfileClient({
       const res = await fetch("/api/account/delete", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ confirm: "DELETE" }),
+        body: JSON.stringify({ confirm: "DELETE", reason: deleteReason || undefined }),
       });
       const data = await res.json() as { success?: boolean; error?: string };
       if (!res.ok || !data.success) {
@@ -701,14 +702,33 @@ export default function ProfileClient({
                     </button>
                   ) : (
                     <div>
-                      <p style={{ fontFamily: SERIF, fontSize: "13px", color: INK, margin: "0 0 12px", maxWidth: "380px" }}>
+                      <p style={{ fontFamily: SERIF, fontSize: "13px", color: INK, margin: "0 0 16px", maxWidth: "380px" }}>
                         This permanently deletes your collection, lists, and connections. There&rsquo;s no undo.
                       </p>
+                      <div style={{ marginBottom: "16px" }}>
+                        <label style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.1em", textTransform: "uppercase", color: MUTED, display: "block", marginBottom: "6px" }}>
+                          Reason for leaving <span style={{ color: "#cccccc" }}>(optional)</span>
+                        </label>
+                        <select
+                          value={deleteReason}
+                          onChange={e => setDeleteReason(e.target.value)}
+                          disabled={deleting}
+                          style={{ fontFamily: MONO, fontSize: "10px", color: INK, background: "#fff", border: `1px solid ${RULE}`, padding: "8px 10px", width: "100%", maxWidth: "320px", outline: "none", cursor: "pointer" }}
+                        >
+                          <option value="">Select a reason…</option>
+                          <option value="Not using it enough">Not using it enough</option>
+                          <option value="Missing features I need">Missing features I need</option>
+                          <option value="Found a better alternative">Found a better alternative</option>
+                          <option value="Privacy concerns">Privacy concerns</option>
+                          <option value="Technical issues">Technical issues</option>
+                          <option value="Other">Other</option>
+                        </select>
+                      </div>
                       <div style={{ display: "flex", gap: "12px", alignItems: "center" }}>
                         <button onClick={handleDeleteAccount} disabled={deleting} style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.1em", textTransform: "uppercase", color: "#fff", background: deleting ? "rgba(154,31,31,0.6)" : "#9a1f1f", border: "none", cursor: deleting ? "default" : "pointer", padding: "10px 20px" }}>
                           {deleting ? "Deleting…" : "Yes, delete everything"}
                         </button>
-                        <button onClick={() => setDeleteConfirming(false)} disabled={deleting} style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.12em", textTransform: "uppercase", color: MUTED, background: "none", border: "none", cursor: "pointer", padding: "10px 0" }}>
+                        <button onClick={() => { setDeleteConfirming(false); setDeleteReason(""); }} disabled={deleting} style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.12em", textTransform: "uppercase", color: MUTED, background: "none", border: "none", cursor: "pointer", padding: "10px 0" }}>
                           Cancel
                         </button>
                       </div>
