@@ -170,7 +170,9 @@ export default function AdminClient({
   shareCardData: { cardType: string; download: number; copy: number; total: number }[];
   archetypeBreakdown: [string, number][];
 }) {
-  const [activeTab, setActiveTab]         = useState<AdminTab>("users");
+  const [activeTab, setActiveTab]             = useState<AdminTab>("users");
+  const [backfillStatus, setBackfillStatus]   = useState<string | null>(null);
+  const [backfillRunning, setBackfillRunning] = useState(false);
   const [allUsers, setAllUsers]           = useState<AdminUser[]>(initialUsers);
   const [loadingMore, setLoadingMore]     = useState(false);
   const [loadError, setLoadError]         = useState<string | null>(null);
@@ -192,6 +194,28 @@ export default function AdminClient({
   function handleSort(key: SortKey) {
     if (key === sortKey) setSortDir(d => d === "asc" ? "desc" : "asc");
     else { setSortKey(key); setSortDir("asc"); }
+  }
+
+  async function runBackfill() {
+    setBackfillRunning(true);
+    setBackfillStatus("Starting…");
+    let remaining = 1;
+    let totalProcessed = 0;
+    try {
+      while (remaining > 0) {
+        const res = await fetch("/api/admin/backfill-archetypes", { method: "POST" });
+        if (!res.ok) { setBackfillStatus(`Error: ${await res.text()}`); break; }
+        const data = await res.json() as { processed: number; remaining: number; total: number; cached: number };
+        totalProcessed += data.processed;
+        remaining = data.remaining;
+        setBackfillStatus(`${data.cached} / ${data.total} cached${remaining > 0 ? ` — ${remaining} remaining…` : ""}`);
+      }
+      if (remaining === 0) setBackfillStatus(`Done — ${totalProcessed} computed this run.`);
+    } catch (e) {
+      setBackfillStatus(`Error: ${e instanceof Error ? e.message : String(e)}`);
+    } finally {
+      setBackfillRunning(false);
+    }
   }
 
   function handleCountrySort(key: "country" | "count") {
@@ -603,9 +627,21 @@ export default function AdminClient({
           )}
 
           {/* Archetype breakdown */}
-          <p style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.14em", textTransform: "uppercase", color: ORANGE, margin: "36px 0 16px" }}>
-            Users by archetype
-          </p>
+          <div style={{ display: "flex", alignItems: "center", gap: "16px", margin: "36px 0 16px", flexWrap: "wrap" }}>
+            <p style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.14em", textTransform: "uppercase", color: ORANGE, margin: 0 }}>
+              Users by archetype
+            </p>
+            <button
+              onClick={runBackfill}
+              disabled={backfillRunning}
+              style={{ ...btnSt, opacity: backfillRunning ? 0.5 : 1, cursor: backfillRunning ? "default" : "pointer" }}
+            >
+              {backfillRunning ? "Running…" : "Backfill all"}
+            </button>
+            {backfillStatus && (
+              <span style={{ fontFamily: MONO, fontSize: "10px", color: MUTED }}>{backfillStatus}</span>
+            )}
+          </div>
           {archetypeBreakdown.length === 0 ? (
             <p style={{ fontFamily: MONO, fontSize: "11px", color: MUTED }}>No archetypes computed yet.</p>
           ) : (
