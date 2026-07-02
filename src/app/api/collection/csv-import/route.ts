@@ -94,6 +94,17 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: `CSV has too many rows — limit is ${MAX_ROWS.toLocaleString()}.` }, { status: 400 });
   }
 
+  // Pre-count copies per release_id across the whole file — a release_id that
+  // appears N times means the user owns N copies of that pressing. Mirrors the
+  // Discogs sync processor logic so CSV import and API sync produce the same totals.
+  const copiesMap = new Map<string, number>();
+  for (let i = 1; i < rows.length; i++) {
+    const rid = rows[i]?.[7]?.trim();
+    if (rid && !isNaN(parseInt(rid, 10))) {
+      copiesMap.set(rid, (copiesMap.get(rid) ?? 0) + 1);
+    }
+  }
+
   let imported = 0;
   let skipped = 0;
   let failed = 0;
@@ -196,21 +207,28 @@ export async function POST(request: NextRequest) {
       .map(r => existingMap.get(r.releaseId.toString()))
       .filter((id): id is string => id !== undefined);
 
-    const linkByRecordId = new Map<string, { id: string; media_condition: string | null; sleeve_condition: string | null }>();
+    const linkByRecordId = new Map<string, { id: string; media_condition: string | null; sleeve_condition: string | null; copies: number }>();
     for (let i = 0; i < resolvedIds.length; i += BATCH) {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const { data: links } = await (supabase as any)
         .from("user_records")
-        .select("id, record_id, media_condition, sleeve_condition")
+        .select("id, record_id, media_condition, sleeve_condition, copies")
         .eq("user_id", user.id)
         .in("record_id", resolvedIds.slice(i, i + BATCH));
       for (const l of links ?? []) linkByRecordId.set(l.record_id, l);
     }
 
-    // 4. Insert new user_records links with CSV metadata
+    // 4. Insert new user_records links with CSV metadata.
+    // Deduplicate by record_id within this batch — a user can have multiple CSV
+    // rows for the same release_id (multiple copies); only one user_records row
+    // is created (copies column tracks the count). Without dedup the insert would
+    // hit the unique (user_id, record_id) constraint and fail.
+    const seenInBatch = new Set<string>();
     const toLink = parsedRows.filter(r => {
       const recId = existingMap.get(r.releaseId.toString());
-      return recId && !linkByRecordId.has(recId);
+      if (!recId || linkByRecordId.has(recId) || seenInBatch.has(recId)) return false;
+      seenInBatch.add(recId);
+      return true;
     });
 
     if (toLink.length > 0) {
@@ -224,6 +242,7 @@ export async function POST(request: NextRequest) {
         folder_name:         r.folder,
         date_added:          r.dateAdded ? new Date(r.dateAdded).toISOString() : null,
         enrichment_status:   "pending",
+        copies:              copiesMap.get(r.releaseId.toString()) ?? 1,
       }));
 
       const { error: linkErr } = await (supabase as any)
@@ -241,21 +260,25 @@ export async function POST(request: NextRequest) {
     }
 
     // 5. Already-linked rows: fill in condition fields only where currently
-    // empty — never overwrite a value that's already there. A row with
-    // nothing new to add is a genuine skip; one that fills a gap counts
-    // toward conditionsBackfilled instead.
+    // empty, and always sync the copies count. Deduplicate by record_id so
+    // multi-copy collections don't attempt duplicate updates within the same batch.
+    const seenAlready = new Set<string>();
     const alreadyLinked = parsedRows.filter(r => {
       const recId = existingMap.get(r.releaseId.toString());
-      return recId && linkByRecordId.has(recId);
+      if (!recId || !linkByRecordId.has(recId) || seenAlready.has(recId)) return false;
+      seenAlready.add(recId);
+      return true;
     });
 
     for (const r of alreadyLinked) {
       const recId = existingMap.get(r.releaseId.toString())!;
       const link  = linkByRecordId.get(recId)!;
 
-      const patch: Record<string, string> = {};
+      const patch: Record<string, string | number> = {};
       if (r.mediaCondition && !link.media_condition) patch.media_condition = r.mediaCondition;
       if (r.sleeveCondition && !link.sleeve_condition) patch.sleeve_condition = r.sleeveCondition;
+      const copies = copiesMap.get(r.releaseId.toString()) ?? 1;
+      if (copies !== (link.copies ?? 1)) patch.copies = copies;
 
       if (Object.keys(patch).length === 0) {
         skipped++;

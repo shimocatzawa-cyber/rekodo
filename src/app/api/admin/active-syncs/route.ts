@@ -17,7 +17,7 @@ export async function GET() {
   const { data: jobs, error } = await adminDb
     .from("sync_queue")
     .select("id, user_id, status, phase, progress_done, total_records, current_page, total_pages, created_at, updated_at")
-    .in("status", ["pending", "running"])
+    .in("status", ["pending", "processing"])
     .order("created_at", { ascending: true });
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
