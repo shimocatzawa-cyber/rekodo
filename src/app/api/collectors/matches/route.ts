@@ -101,13 +101,15 @@ export async function GET(request: NextRequest) {
     }).filter(Boolean);
   }
 
+  const offset = Math.max(0, parseInt(request.nextUrl.searchParams.get("offset") ?? "0", 10));
+
   if (cachedRows && cachedRows.length >= 1) {
-    const topRows = cachedRows.slice(0, DISPLAY_COUNT);
+    const topRows = cachedRows.slice(offset, offset + DISPLAY_COUNT);
     const matches = await enrichMatches(topRows as { user_id_b: string; score: number; style_score?: number; shared_tags: string[] }[]);
-    // Only trust the cache if it returned a full display set — fewer means
-    // either stale entries were filtered out or new users have joined since
-    // the cache was built, so fall through to a fresh computation.
-    if (matches.length >= DISPLAY_COUNT) {
+    // Trust the cache when paginating (offset > 0) or when we got a full first page.
+    // Fewer results on page 0 means the cache may be stale (new users joined), so
+    // fall through to a fresh computation in that case only.
+    if (offset > 0 || matches.length >= DISPLAY_COUNT) {
       const allScores = cachedRows.map(r => ({ userId: r.user_id_b, score: r.score, sharedTags: r.shared_tags ?? [] }));
       return Response.json({ matches, allScores, cached: true });
     }
@@ -293,7 +295,7 @@ export async function GET(request: NextRequest) {
     }
   }
 
-  const topMatches = scored.slice(0, DISPLAY_COUNT).map(s => ({
+  const topMatches = scored.slice(offset, offset + DISPLAY_COUNT).map(s => ({
     user_id_b:   s.userId,
     score:       s.score,
     style_score: s.styleScore,

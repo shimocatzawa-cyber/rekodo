@@ -59,6 +59,8 @@ function Avatar({ avatarUrl, name, username, size = 36 }: {
   );
 }
 
+const SOCIAL_CAP = 50;
+
 function AvatarGrid({ people }: { people: Person[] }) {
   return (
     <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: "5px", marginTop: "10px" }}>
@@ -75,6 +77,8 @@ function AvatarGrid({ people }: { people: Person[] }) {
 }
 
 function Section({ title, people }: { title: string; people: Person[] }) {
+  const [expanded, setExpanded] = useState(false);
+  const visible = expanded ? people : people.slice(0, SOCIAL_CAP);
   return (
     <div style={{ marginBottom: "32px" }}>
       <div style={{ display: "flex", alignItems: "baseline", gap: "8px", marginBottom: "14px" }}>
@@ -88,7 +92,17 @@ function Section({ title, people }: { title: string; people: Person[] }) {
           {title === "Following" ? "Not following anyone yet." : "No followers yet."}
         </p>
       ) : (
-        <AvatarGrid people={people} />
+        <>
+          <AvatarGrid people={visible} />
+          {people.length > SOCIAL_CAP && (
+            <button
+              onClick={() => setExpanded(e => !e)}
+              style={{ fontFamily: MONO, fontSize: "0.48rem", letterSpacing: "0.08em", color: MUTED, background: "none", border: "none", cursor: "pointer", padding: "8px 0 0", textDecoration: "underline" }}
+            >
+              {expanded ? "Show less" : `See all ${people.length}`}
+            </button>
+          )}
+        </>
       )}
     </div>
   );
@@ -161,9 +175,14 @@ export default function CommunitySidebar({ profileOwnerId, onTierClick, onTierDa
 
       {/* Collection Similarity */}
       <div style={{ marginBottom: "28px", paddingBottom: "24px", borderBottom: `1px solid ${RULE}` }}>
-        <p style={{ fontFamily: MONO, fontSize: "0.58rem", letterSpacing: "0.14em", textTransform: "uppercase", color: "#0a0a0a", margin: "0 0 4px" }}>
-          Collection Similarity
-        </p>
+        <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: "8px", marginBottom: "4px" }}>
+          <p style={{ fontFamily: MONO, fontSize: "0.58rem", letterSpacing: "0.14em", textTransform: "uppercase", color: "#0a0a0a", margin: 0 }}>
+            Collection Similarity
+          </p>
+          <span style={{ fontFamily: MONO, fontSize: "0.46rem", color: MUTED, letterSpacing: "0.04em", flexShrink: 0 }}>
+            Updated daily
+          </span>
+        </div>
         <p style={{ fontFamily: MONO, fontSize: "0.52rem", color: MUTED, margin: "0 0 12px", letterSpacing: "0.04em" }}>
           Artist overlap · style boosted
         </p>

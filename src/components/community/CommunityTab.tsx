@@ -323,6 +323,8 @@ export default function CommunityTab({ profileOwnerId, hideSocialPanel = false }
   // Matches
   const [matches,        setMatches]        = useState<Match[] | null>(null);
   const [matchesLoading, setMatchesLoading] = useState(false);
+  const [matchOffset,    setMatchOffset]    = useState(0);
+  const [allMatchTotal,  setAllMatchTotal]  = useState(0);
 
   // Collectors I Follow — activity feed
   const [activityItems,     setActivityItems]     = useState<ActivityItem[]>([]);
@@ -350,7 +352,10 @@ export default function CommunityTab({ profileOwnerId, hideSocialPanel = false }
   const [followState,  setFollowState]  = useState<Record<string, boolean>>({});
   const [followError,  setFollowError]  = useState<string | null>(null);
 
-  const [socialOpen, setSocialOpen] = useState(true);
+  const [socialOpen,       setSocialOpen]       = useState(true);
+  const [followingExpanded, setFollowingExpanded] = useState(false);
+  const [followersExpanded, setFollowersExpanded] = useState(false);
+  const SOCIAL_CAP = 50;
 
   // Get viewer + load followers on mount
   useEffect(() => {
@@ -406,18 +411,20 @@ export default function CommunityTab({ profileOwnerId, hideSocialPanel = false }
   useEffect(() => {
     if (subTab !== "matches" || matches !== null) return;
     setMatchesLoading(true);
-    fetch(`/api/collectors/matches?userId=${encodeURIComponent(profileOwnerId)}`)
+    fetch(`/api/collectors/matches?userId=${encodeURIComponent(profileOwnerId)}&offset=${matchOffset}`)
       .then(r => r.ok ? r.json() : { matches: [] })
       .then(d => {
         const list: Match[] = d.matches ?? [];
         setMatches(list);
+        setAllMatchTotal((d.allScores ?? []).length);
         const fs: Record<string, boolean> = {};
         for (const m of list) fs[m.userId] = m.isFollowing;
         setFollowState(prev => ({ ...prev, ...fs }));
       })
       .catch(() => setMatches([]))
       .finally(() => setMatchesLoading(false));
-  }, [subTab, profileOwnerId, matches]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [subTab, profileOwnerId, matches, matchOffset]);
 
   // Load Collectors I Follow activity feed when tab is active (lazy)
   useEffect(() => {
@@ -670,14 +677,21 @@ export default function CommunityTab({ profileOwnerId, hideSocialPanel = false }
                   {following.length === 0 ? (
                     <p style={{ fontFamily: MONO, fontSize: "0.62rem", color: MUTED, lineHeight: 1.6 }}>Not following anyone yet.</p>
                   ) : (
-                    <div style={{ display: "flex", flexWrap: "wrap", gap: "8px" }}>
-                      {following.map(f => (
-                        <Link key={f.id} href={`/@${f.username}`} title={f.display_name ?? f.username} style={{ textDecoration: "none", position: "relative", display: "inline-block" }}>
-                          <Avatar avatarUrl={f.avatar_url} name={f.display_name} username={f.username} size={38} />
-                          {f.is_donor && <span style={{ position: "absolute", bottom: -1, right: -1, fontFamily: SERIF, fontSize: "9px", color: GOLD, lineHeight: 1, background: "#fff", borderRadius: "50%", padding: "1px" }} title="rekōdo supporter">ō</span>}
-                        </Link>
-                      ))}
-                    </div>
+                    <>
+                      <div style={{ display: "flex", flexWrap: "wrap", gap: "8px" }}>
+                        {(followingExpanded ? following : following.slice(0, SOCIAL_CAP)).map(f => (
+                          <Link key={f.id} href={`/@${f.username}`} title={f.display_name ?? f.username} style={{ textDecoration: "none", position: "relative", display: "inline-block" }}>
+                            <Avatar avatarUrl={f.avatar_url} name={f.display_name} username={f.username} size={38} />
+                            {f.is_donor && <span style={{ position: "absolute", bottom: -1, right: -1, fontFamily: SERIF, fontSize: "9px", color: GOLD, lineHeight: 1, background: "#fff", borderRadius: "50%", padding: "1px" }} title="rekōdo supporter">ō</span>}
+                          </Link>
+                        ))}
+                      </div>
+                      {following.length > SOCIAL_CAP && (
+                        <button onClick={() => setFollowingExpanded(e => !e)} style={{ fontFamily: MONO, fontSize: "0.5rem", letterSpacing: "0.08em", color: MUTED, background: "none", border: "none", cursor: "pointer", padding: "8px 0 0", textDecoration: "underline" }}>
+                          {followingExpanded ? "Show less" : `See all ${following.length}`}
+                        </button>
+                      )}
+                    </>
                   )}
                 </div>
 
@@ -690,14 +704,21 @@ export default function CommunityTab({ profileOwnerId, hideSocialPanel = false }
                   {followers.length === 0 ? (
                     <p style={{ fontFamily: MONO, fontSize: "0.62rem", color: MUTED, lineHeight: 1.6 }}>No followers yet.</p>
                   ) : (
-                    <div style={{ display: "flex", flexWrap: "wrap", gap: "8px" }}>
-                      {followers.map(f => (
-                        <Link key={f.id} href={`/@${f.username}`} title={f.display_name ?? f.username} style={{ textDecoration: "none", position: "relative", display: "inline-block" }}>
-                          <Avatar avatarUrl={f.avatar_url} name={f.display_name} username={f.username} size={38} />
-                          {f.is_donor && <span style={{ position: "absolute", bottom: -1, right: -1, fontFamily: SERIF, fontSize: "9px", color: GOLD, lineHeight: 1, background: "#fff", borderRadius: "50%", padding: "1px" }} title="rekōdo supporter">ō</span>}
-                        </Link>
-                      ))}
-                    </div>
+                    <>
+                      <div style={{ display: "flex", flexWrap: "wrap", gap: "8px" }}>
+                        {(followersExpanded ? followers : followers.slice(0, SOCIAL_CAP)).map(f => (
+                          <Link key={f.id} href={`/@${f.username}`} title={f.display_name ?? f.username} style={{ textDecoration: "none", position: "relative", display: "inline-block" }}>
+                            <Avatar avatarUrl={f.avatar_url} name={f.display_name} username={f.username} size={38} />
+                            {f.is_donor && <span style={{ position: "absolute", bottom: -1, right: -1, fontFamily: SERIF, fontSize: "9px", color: GOLD, lineHeight: 1, background: "#fff", borderRadius: "50%", padding: "1px" }} title="rekōdo supporter">ō</span>}
+                          </Link>
+                        ))}
+                      </div>
+                      {followers.length > SOCIAL_CAP && (
+                        <button onClick={() => setFollowersExpanded(e => !e)} style={{ fontFamily: MONO, fontSize: "0.5rem", letterSpacing: "0.08em", color: MUTED, background: "none", border: "none", cursor: "pointer", padding: "8px 0 0", textDecoration: "underline" }}>
+                          {followersExpanded ? "Show less" : `See all ${followers.length}`}
+                        </button>
+                      )}
+                    </>
                   )}
                 </div>
               </div>
@@ -771,17 +792,24 @@ export default function CommunityTab({ profileOwnerId, hideSocialPanel = false }
 
         {subTab === "matches" && (
           <>
-            {!matchesLoading && matches !== null && (
-              <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: "14px" }}>
+            {!matchesLoading && matches !== null && allMatchTotal > 6 && (
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "flex-end", gap: "10px", marginBottom: "14px" }}>
+                <span style={{ fontFamily: MONO, fontSize: "0.5rem", color: MUTED, letterSpacing: "0.04em" }}>
+                  {matchOffset + 1}–{Math.min(matchOffset + 6, allMatchTotal)} of {allMatchTotal}
+                </span>
                 <button
-                  onClick={() => setMatches(null)}
+                  onClick={() => {
+                    const next = matchOffset + 6 >= allMatchTotal ? 0 : matchOffset + 6;
+                    setMatchOffset(next);
+                    setMatches(null);
+                  }}
                   style={{
                     fontFamily: MONO, fontSize: "0.55rem", letterSpacing: "0.08em", textTransform: "uppercase",
                     background: "none", border: `1px solid ${RULE}`, color: MUTED,
                     cursor: "pointer", padding: "5px 12px",
                   }}
                 >
-                  Refresh
+                  {matchOffset + 6 >= allMatchTotal ? "← Start" : "Next →"}
                 </button>
               </div>
             )}
