@@ -442,7 +442,9 @@ function DigCompactPlayer({ previewUrl, albumUri, trackUri, artist, album, recId
         )}
         <button
           onClick={() => {
-            if (playError) { reconnect(); return; }
+            // 404 = device unavailable: handlePlayPause reconnects + plays in one step.
+            // Other errors (401/403/429/0): reconnect only, user plays again after.
+            if (playError && playError !== 404) { reconnect(); return; }
             void handlePlayPause();
           }}
           aria-label={playing ? "Pause" : "Play"}
