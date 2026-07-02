@@ -10,7 +10,21 @@ const RULE   = "#e0e0da";
 const MUTED  = "#aaaaaa";
 const INK    = "#0d0d0d";
 
-type AdminTab = "users" | "countries" | "features";
+type AdminTab = "users" | "countries" | "features" | "syncs";
+
+type ActiveSyncJob = {
+  id: string;
+  userId: string;
+  username: string;
+  status: string;
+  phase: string | null;
+  progressDone: number | null;
+  totalRecords: number | null;
+  currentPage: number | null;
+  totalPages: number | null;
+  startedAt: string;
+  updatedAt: string;
+};
 
 type SortKey =
   | "username" | "email" | "location" | "archetype" | "record_count"
@@ -171,6 +185,9 @@ export default function AdminClient({
   archetypeBreakdown: [string, number][];
 }) {
   const [activeTab, setActiveTab]             = useState<AdminTab>("users");
+  const [activeSyncs,    setActiveSyncs]    = useState<ActiveSyncJob[]>([]);
+  const [syncsLoading,   setSyncsLoading]   = useState(false);
+  const [syncsError,     setSyncsError]     = useState<string | null>(null);
   const [backfillStatus, setBackfillStatus]   = useState<string | null>(null);
   const [backfillRunning, setBackfillRunning] = useState(false);
   const [allUsers, setAllUsers]           = useState<AdminUser[]>(initialUsers);
@@ -190,6 +207,30 @@ export default function AdminClient({
     try { localStorage.setItem(SORT_STORAGE_KEY, JSON.stringify({ key: sortKey, dir: sortDir })); }
     catch { /* ignore */ }
   }, [sortKey, sortDir]);
+
+  // Poll active syncs whenever the Syncs tab is open (every 5s)
+  useEffect(() => {
+    if (activeTab !== "syncs") return;
+    let cancelled = false;
+    async function poll() {
+      setSyncsLoading(true);
+      try {
+        const res = await fetch("/api/admin/active-syncs");
+        const data = await res.json() as { jobs?: ActiveSyncJob[]; error?: string };
+        if (!cancelled) {
+          if (data.error) setSyncsError(data.error);
+          else { setActiveSyncs(data.jobs ?? []); setSyncsError(null); }
+        }
+      } catch (e) {
+        if (!cancelled) setSyncsError(String(e));
+      } finally {
+        if (!cancelled) setSyncsLoading(false);
+      }
+    }
+    poll();
+    const iv = setInterval(poll, 5000);
+    return () => { cancelled = true; clearInterval(iv); };
+  }, [activeTab]);
 
   function handleSort(key: SortKey) {
     if (key === sortKey) setSortDir(d => d === "asc" ? "desc" : "asc");
@@ -400,8 +441,8 @@ export default function AdminClient({
 
       {/* Tab bar */}
       <div className="ra-tabs" style={{ borderBottom: `1px solid ${RULE}`, display: "flex" }}>
-        {(["users", "countries", "features"] as AdminTab[]).map(tab => {
-          const labels: Record<AdminTab, string> = { users: "Users", countries: "Countries", features: "Features" };
+        {(["users", "countries", "features", "syncs"] as AdminTab[]).map(tab => {
+          const labels: Record<AdminTab, string> = { users: "Users", countries: "Countries", features: "Features", syncs: "Active Syncs" };
           const active = activeTab === tab;
           return (
             <button
@@ -691,6 +732,87 @@ export default function AdminClient({
                     <td style={{ fontFamily: MONO, fontSize: "11px", color: INK, padding: "9px 0 9px 16px", textAlign: "right", fontWeight: 600 }}>{tot}</td>
                   </tr>
                 ))}
+              </tbody>
+            </table>
+          )}
+        </div>
+      )}
+
+      {/* ── Active Syncs tab ── */}
+      {activeTab === "syncs" && (
+        <div className="ra-content" style={{ padding: "28px 40px" }}>
+          <div style={{ display: "flex", alignItems: "baseline", gap: "12px", marginBottom: "24px" }}>
+            <p style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.14em", textTransform: "uppercase", color: MUTED, margin: 0 }}>
+              Active Discogs Syncs
+            </p>
+            <span style={{ fontFamily: MONO, fontSize: "9px", color: MUTED }}>
+              — auto-refreshes every 5s
+            </span>
+          </div>
+
+          {syncsError && (
+            <p style={{ fontFamily: MONO, fontSize: "11px", color: "#c00", marginBottom: "16px" }}>{syncsError}</p>
+          )}
+
+          {!syncsLoading && activeSyncs.length === 0 && !syncsError && (
+            <p style={{ fontFamily: MONO, fontSize: "13px", color: MUTED }}>
+              No active syncs — safe to run the backfill.
+            </p>
+          )}
+
+          {activeSyncs.length > 0 && (
+            <table style={{ width: "100%", maxWidth: "860px", borderCollapse: "collapse" }}>
+              <thead>
+                <tr style={{ borderBottom: `1px solid ${RULE}` }}>
+                  {["User", "Status", "Phase", "Progress", "Pages", "Started", "Last update"].map(h => (
+                    <th key={h} style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.12em", textTransform: "uppercase", color: MUTED, padding: "0 16px 10px 0", textAlign: "left", fontWeight: 400 }}>
+                      {h}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {activeSyncs.map(job => {
+                  const pct = job.totalRecords && job.progressDone != null
+                    ? Math.round((job.progressDone / job.totalRecords) * 100)
+                    : null;
+                  const age = (s: string) => {
+                    const diffMs = Date.now() - new Date(s).getTime();
+                    const mins = Math.floor(diffMs / 60_000);
+                    if (mins < 1) return "just now";
+                    if (mins < 60) return `${mins}m ago`;
+                    return `${Math.floor(mins / 60)}h ${mins % 60}m ago`;
+                  };
+                  return (
+                    <tr key={job.id} style={{ borderBottom: `1px solid ${RULE}` }}>
+                      <td style={{ fontFamily: MONO, fontSize: "11px", color: ORANGE, padding: "10px 16px 10px 0" }}>
+                        @{job.username}
+                      </td>
+                      <td style={{ fontFamily: MONO, fontSize: "11px", color: job.status === "running" ? "#16a34a" : INK, padding: "10px 16px 10px 0" }}>
+                        {job.status}
+                      </td>
+                      <td style={{ fontFamily: MONO, fontSize: "11px", color: MUTED, padding: "10px 16px 10px 0" }}>
+                        {job.phase ?? "—"}
+                      </td>
+                      <td style={{ fontFamily: MONO, fontSize: "11px", color: INK, padding: "10px 16px 10px 0" }}>
+                        {job.progressDone != null && job.totalRecords != null
+                          ? `${job.progressDone.toLocaleString()} / ${job.totalRecords.toLocaleString()}${pct != null ? ` (${pct}%)` : ""}`
+                          : "—"}
+                      </td>
+                      <td style={{ fontFamily: MONO, fontSize: "11px", color: MUTED, padding: "10px 16px 10px 0" }}>
+                        {job.currentPage != null && job.totalPages != null
+                          ? `${job.currentPage} / ${job.totalPages}`
+                          : "—"}
+                      </td>
+                      <td style={{ fontFamily: MONO, fontSize: "11px", color: MUTED, padding: "10px 16px 10px 0" }}>
+                        {age(job.startedAt)}
+                      </td>
+                      <td style={{ fontFamily: MONO, fontSize: "11px", color: MUTED, padding: "10px 0" }}>
+                        {age(job.updatedAt)}
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           )}
