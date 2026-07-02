@@ -244,13 +244,10 @@ async function processSync(supabase: SB, jobId: string, userId: string) {
       const res  = await rateFetch(url, auth);
 
       if (!res.ok) {
-        if (page === 1) {
-          const msg = res.status === 403
-            ? "Discogs is temporarily unavailable — your collection is safe. Try again in a few minutes."
-            : `Discogs returned an error (${res.status}) — try again shortly.`;
-          throw new Error(msg);
-        }
-        break;
+        const msg = res.status === 403
+          ? "Discogs is temporarily unavailable — your collection is safe. Try again in a few minutes."
+          : `Discogs returned an error (${res.status}) on page ${page} — try again shortly.`;
+        throw new Error(msg);
       }
 
       const pageData = await res.json() as {
