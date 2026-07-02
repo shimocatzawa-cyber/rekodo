@@ -446,48 +446,59 @@ export default function CommunityTab({ profileOwnerId, hideSocialPanel = false }
     }
   }
 
-  // Load collectors with debounced search, pre-populating follow state from DB.
+  // Load collectors with debounced search, excluding already-followed users.
   // Uses refs (not state) for viewerUserId and pendingToggles so this callback
   // is stable across renders and never triggers a spurious re-fetch.
   const loadCollectors = useCallback(async (query: string) => {
     setCollectorsLoading(true);
     try {
       const supabase = createClient();
-      let q = supabase
+      const vid = viewerUserIdRef.current;
+
+      // Fetch who the viewer already follows so we can exclude them from the list
+      const excludeIds = new Set<string>(vid ? [vid] : []);
+      if (vid) {
+        const { data: followedRows } = await supabase
+          .from("follows")
+          .select("following_id")
+          .eq("follower_id", vid);
+        for (const r of followedRows ?? []) excludeIds.add(r.following_id);
+      }
+
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      let q: any = supabase
         .from("profiles")
         .select("id, username, display_name, avatar_url, city, country, is_donor")
         .eq("is_public", true)
         .eq("is_test", false)
         .limit(50);
+
+      if (excludeIds.size > 0) {
+        q = q.not("id", "in", `(${[...excludeIds].join(",")})`);
+      }
+
       if (query.trim()) {
         q = q.or(`username.ilike.%${query.trim()}%,display_name.ilike.%${query.trim()}%`);
       } else {
         q = q.order("username", { ascending: true });
       }
+
       const { data } = await q;
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const profiles = (data ?? []).map((p: any) => ({ ...p, collectionScore: null, styleScore: null })) as Collector[];
       setCollectors(profiles);
 
-      // Read viewerUserId from ref so this callback doesn't rebuild on auth load
-      const vid = viewerUserIdRef.current;
       if (vid && profiles.length > 0) {
         const ids = profiles.map(c => c.id);
 
-        const [followRows, scoresRes] = await Promise.all([
-          supabase.from("follows").select("following_id").eq("follower_id", vid).in("following_id", ids),
-          fetch(`/api/collectors/batch-scores?targetIds=${ids.join(",")}`).then(r => r.ok ? r.json() : { scores: [] }),
-        ]);
+        const scoresRes = await fetch(`/api/collectors/batch-scores?targetIds=${ids.join(",")}`)
+          .then(r => r.ok ? r.json() : { scores: [] });
 
-        const followedSet = new Set((followRows.data ?? []).map(r => r.following_id as string));
         const scoreMap = new Map<string, { collectionScore: number | null; styleScore: number }>(
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
           (scoresRes.scores ?? []).map((s: any) => [s.userId, { collectionScore: s.collectionScore, styleScore: s.styleScore }])
         );
 
-        const fs: Record<string, boolean> = {};
-        for (const id of ids) {
-          if (!pendingTogglesRef.current.has(id)) fs[id] = followedSet.has(id);
-        }
-        setFollowState(prev => ({ ...prev, ...fs }));
         setCollectors(profiles.map(c => ({ ...c, ...(scoreMap.get(c.id) ?? {}) })));
       }
     } finally {
@@ -526,6 +537,8 @@ export default function CommunityTab({ profileOwnerId, hideSocialPanel = false }
 
       if (data.isFollowing && targetProfile) {
         setFollowing(p => p.some(f => f.id === targetId) ? p : [targetProfile, ...p]);
+        // Remove from All Collectors immediately — that tab only shows un-followed users
+        setCollectors(prev => prev.filter(c => c.id !== targetId));
       } else if (!data.isFollowing) {
         setFollowing(p => p.filter(f => f.id !== targetId));
       }
@@ -619,7 +632,7 @@ export default function CommunityTab({ profileOwnerId, hideSocialPanel = false }
     { key: "trending",   label: "Popular" },
     { key: "following",  label: "Collectors I Follow" },
     { key: "offers",     label: "Open to Offers" },
-    { key: "collectors", label: "All Collectors" },
+    { key: "collectors", label: "Discover" },
     { key: "lists",      label: "Lists" },
     { key: "saved",      label: "Saved Lists" },
   ];
