@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useState, useTransition, useEffect, useRef } from "react";
 import { updateUserAdmin, updateUserIdentity, blockUser, setTestAccount, deleteUserAdmin } from "./actions";
 
 const MONO   = "var(--font-mono)";
@@ -114,6 +114,155 @@ export function isBlocked(bannedUntil: string | null): boolean {
 function formatDate(iso: string | null): string {
   if (!iso) return "—";
   return new Date(iso).toLocaleDateString("en-AU", { day: "numeric", month: "short", year: "numeric" });
+}
+
+type SyncJob = {
+  id: string;
+  status: string;
+  phase: string | null;
+  total_records: number | null;
+  current_page: number | null;
+  total_pages: number | null;
+  progress_done: number | null;
+  new_added: number | null;
+  records_updated: number | null;
+  error_message: string | null;
+  created_at: string;
+  updated_at: string | null;
+  completed_at: string | null;
+};
+
+function SyncStatusPanel({ userId }: { userId: string }) {
+  const [job, setJob]         = useState<SyncJob | null | undefined>(undefined); // undefined = not yet fetched
+  const [loading, setLoading] = useState(false);
+  const pollRef               = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  async function fetchStatus() {
+    setLoading(true);
+    try {
+      const res  = await fetch(`/api/admin/sync-status?userId=${userId}`);
+      const data = await res.json() as { job: SyncJob | null };
+      setJob(data.job);
+      return data.job;
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function checkAndPoll() {
+    const j = await fetchStatus();
+    if (j && (j.status === "processing" || j.status === "pending")) {
+      pollRef.current = setTimeout(checkAndPoll, 3000);
+    }
+  }
+
+  useEffect(() => () => { if (pollRef.current) clearTimeout(pollRef.current); }, []);
+
+  const STATUS_COLOR: Record<string, string> = {
+    completed:  "#27500A",
+    processing: "#085041",
+    pending:    "#8A5C1A",
+    failed:     "#cc2200",
+  };
+
+  function fmt(iso: string | null) {
+    if (!iso) return "—";
+    return new Date(iso).toLocaleString("en-AU", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
+  }
+
+  const live = job && (job.status === "processing" || job.status === "pending");
+
+  return (
+    <div style={{ paddingTop: "4px", borderTop: `1px solid ${RULE}` }}>
+      <div style={{ display: "flex", alignItems: "center", gap: "12px", marginBottom: "10px" }}>
+        <label style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.1em", textTransform: "uppercase", color: MUTED }}>
+          Sync status
+        </label>
+        <button
+          onClick={checkAndPoll}
+          disabled={loading}
+          style={{
+            fontFamily: MONO, fontSize: "9px", letterSpacing: "0.1em", textTransform: "uppercase",
+            color: ORANGE, background: "none", border: "none", cursor: loading ? "default" : "pointer",
+            opacity: loading ? 0.5 : 1, padding: 0,
+          }}
+        >
+          {loading ? "Checking…" : job === undefined ? "Check sync" : "Refresh"}
+        </button>
+        {live && (
+          <span style={{ fontFamily: MONO, fontSize: "9px", color: STATUS_COLOR.processing, letterSpacing: "0.06em" }}>
+            ● Live
+          </span>
+        )}
+      </div>
+
+      {job === undefined && !loading && (
+        <span style={{ fontFamily: MONO, fontSize: "10px", color: MUTED }}>Click "Check sync" to load.</span>
+      )}
+
+      {job === null && (
+        <span style={{ fontFamily: MONO, fontSize: "10px", color: MUTED }}>No sync jobs found for this user.</span>
+      )}
+
+      {job && (
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(160px, 1fr))", gap: "10px 24px" }}>
+          <div>
+            <div style={{ fontFamily: MONO, fontSize: "8px", letterSpacing: "0.1em", textTransform: "uppercase", color: MUTED, marginBottom: "3px" }}>Status</div>
+            <div style={{ fontFamily: MONO, fontSize: "11px", color: STATUS_COLOR[job.status] ?? INK, fontWeight: 600 }}>
+              {job.status}{job.phase ? ` · ${job.phase}` : ""}
+            </div>
+          </div>
+
+          {(job.total_pages != null && job.current_page != null) && (
+            <div>
+              <div style={{ fontFamily: MONO, fontSize: "8px", letterSpacing: "0.1em", textTransform: "uppercase", color: MUTED, marginBottom: "3px" }}>Pages fetched</div>
+              <div style={{ fontFamily: MONO, fontSize: "11px", color: INK }}>{job.current_page} / {job.total_pages}</div>
+            </div>
+          )}
+
+          {job.total_records != null && (
+            <div>
+              <div style={{ fontFamily: MONO, fontSize: "8px", letterSpacing: "0.1em", textTransform: "uppercase", color: MUTED, marginBottom: "3px" }}>Discogs total</div>
+              <div style={{ fontFamily: MONO, fontSize: "11px", color: INK }}>{job.total_records.toLocaleString()}</div>
+            </div>
+          )}
+
+          {job.new_added != null && (
+            <div>
+              <div style={{ fontFamily: MONO, fontSize: "8px", letterSpacing: "0.1em", textTransform: "uppercase", color: MUTED, marginBottom: "3px" }}>New added</div>
+              <div style={{ fontFamily: MONO, fontSize: "11px", color: INK }}>{job.new_added.toLocaleString()}</div>
+            </div>
+          )}
+
+          {job.records_updated != null && (
+            <div>
+              <div style={{ fontFamily: MONO, fontSize: "8px", letterSpacing: "0.1em", textTransform: "uppercase", color: MUTED, marginBottom: "3px" }}>Updated</div>
+              <div style={{ fontFamily: MONO, fontSize: "11px", color: INK }}>{job.records_updated.toLocaleString()}</div>
+            </div>
+          )}
+
+          <div>
+            <div style={{ fontFamily: MONO, fontSize: "8px", letterSpacing: "0.1em", textTransform: "uppercase", color: MUTED, marginBottom: "3px" }}>Started</div>
+            <div style={{ fontFamily: MONO, fontSize: "11px", color: MUTED }}>{fmt(job.created_at)}</div>
+          </div>
+
+          {job.completed_at && (
+            <div>
+              <div style={{ fontFamily: MONO, fontSize: "8px", letterSpacing: "0.1em", textTransform: "uppercase", color: MUTED, marginBottom: "3px" }}>Completed</div>
+              <div style={{ fontFamily: MONO, fontSize: "11px", color: MUTED }}>{fmt(job.completed_at)}</div>
+            </div>
+          )}
+
+          {job.error_message && (
+            <div style={{ gridColumn: "1 / -1" }}>
+              <div style={{ fontFamily: MONO, fontSize: "8px", letterSpacing: "0.1em", textTransform: "uppercase", color: MUTED, marginBottom: "3px" }}>Error</div>
+              <div style={{ fontFamily: MONO, fontSize: "10px", color: "#cc2200", lineHeight: 1.5 }}>{job.error_message}</div>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
 }
 
 export default function UserRow({ user, showFinancial, columnCount }: { user: AdminUser; showFinancial: boolean; columnCount: number }) {
@@ -541,6 +690,9 @@ export default function UserRow({ user, showFinancial, columnCount }: { user: Ad
                   </div>
                 )}
               </div>
+
+              {/* Row 4: sync status */}
+              <SyncStatusPanel userId={user.id} />
 
               {error && (
                 <p style={{ fontFamily: MONO, fontSize: "10px", color: RED, margin: 0 }}>
