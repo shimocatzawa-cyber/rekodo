@@ -66,7 +66,7 @@ export default async function DigPage() {
     (l) => !l.list_type || l.list_type === "top5"
   ).length;
 
-  type ExploreRec = { id: string; artist: string; album: string; year: number | null; genre: string | null; styles: string[] | null };
+  type ExploreRec = { id: string; artist: string; album: string; year: number | null; genre: string | null; styles: string[] | null; label: string | null; format: string | null; country: string | null; producers: string[] | null };
   const explorePool: ExploreRec[] = [];
   const styleSet = new Set<string>();
 
@@ -75,7 +75,7 @@ export default async function DigPage() {
       Array.from({ length: Math.ceil(styleRecordIds.length / 400) }, (_, i) =>
         supabase
           .from("records")
-          .select("id, artist, album, year, genre, styles")
+          .select("id, artist, album, year, genre, styles, label, format, country, producers")
           .in("id", styleRecordIds.slice(i * 400, (i + 1) * 400))
       )
     );
@@ -109,16 +109,21 @@ export default async function DigPage() {
     return picked;
   }
 
-  type InitialPick = { artist: string; album: string; year: number | null; reason: string; bandcamp_search_url: string; spotify_search_url: string; apple_music_search_url: string };
+  type InitialPick = { artist: string; album: string; year: number | null; reason: string; label: string | null; format: string | null; country: string | null; genre: string | null; styles: string[] | null; producers: string[] | null; bandcamp_search_url: string; spotify_search_url: string; apple_music_search_url: string };
   const initialExplorePicks: InitialPick[] | undefined = explorePool.length >= 3
     ? serverPickExplore(explorePool, 3).map(r => {
         const q = encodeURIComponent(`${r.artist} ${r.album}`);
-        const parts = [r.genre, r.year?.toString()].filter(Boolean);
         return {
-          artist: r.artist,
-          album:  r.album,
-          year:   r.year ?? null,
-          reason: parts.length ? parts.join(" · ") : "In your collection",
+          artist:    r.artist,
+          album:     r.album,
+          year:      r.year ?? null,
+          reason:    "In your collection",
+          label:     r.label    ?? null,
+          format:    r.format   ?? null,
+          country:   r.country  ?? null,
+          genre:     r.genre    ?? null,
+          styles:    r.styles   ?? null,
+          producers: r.producers ?? null,
           bandcamp_search_url:    `https://bandcamp.com/search?q=${q}`,
           spotify_search_url:     `https://open.spotify.com/search/${q}`,
           apple_music_search_url: `https://music.apple.com/search?term=${q}`,

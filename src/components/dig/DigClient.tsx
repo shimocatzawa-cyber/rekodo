@@ -22,6 +22,13 @@ type Recommendation = {
   bandcamp_search_url:    string;
   spotify_search_url:     string;
   apple_music_search_url: string;
+  // "Inside Collection" metadata fields (explore mode only)
+  label?:     string | null;
+  format?:    string | null;
+  country?:   string | null;
+  genre?:     string | null;
+  styles?:    string[] | null;
+  producers?: string[] | null;
 };
 
 interface Props {
@@ -37,6 +44,19 @@ interface Props {
 }
 
 // ─── Vinyl disc SVG ───────────────────────────────────────────────────────────
+
+function MetaRowDig({ label, value }: { label: string; value: string }) {
+  return (
+    <div style={{ display: "flex", padding: "5px 0", borderBottom: "1px solid rgba(0,0,0,0.05)" }}>
+      <span style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.1em", textTransform: "uppercase", color: "#aaaaaa", width: "84px", flexShrink: 0 }}>
+        {label}
+      </span>
+      <span style={{ fontFamily: MONO, fontSize: "11px", color: "#505050", letterSpacing: "0.02em", lineHeight: 1.4 }}>
+        {value}
+      </span>
+    </div>
+  );
+}
 
 function VinylDisc() {
   return (
@@ -252,20 +272,31 @@ function SleeveCard({ rec, mode, onAddToWantlist, wantlistAdded, onDismiss, dism
         {/* Rule */}
         <div style={{ height: 1, background: "rgba(0,0,0,0.08)", margin: "16px 0" }} />
 
-        {/* AI reasoning — full text, no truncation */}
-        <p
-          className="dig-reason-txt"
-          style={{
-            fontFamily: SERIF,
-            fontSize: "13px",
-            fontStyle: "italic",
-            color: "#505050",
-            lineHeight: 1.65,
-            margin: 0,
-          }}
-        >
-          {rec.reason}
-        </p>
+        {/* Release details (explore) or AI reasoning (discover/style) */}
+        {mode === "explore" && (rec.label || rec.format || rec.country || rec.genre || rec.styles?.length || rec.producers?.length) ? (
+          <div>
+            {rec.label                && <MetaRowDig label="Label"     value={rec.label} />}
+            {rec.format               && <MetaRowDig label="Format"    value={rec.format} />}
+            {rec.country              && <MetaRowDig label="Country"   value={rec.country} />}
+            {rec.genre                && <MetaRowDig label="Genre"     value={rec.genre} />}
+            {rec.styles?.length       ? <MetaRowDig label="Style"     value={rec.styles.join(", ")} /> : null}
+            {rec.producers?.length    ? <MetaRowDig label="Producers" value={rec.producers.join(", ")} /> : null}
+          </div>
+        ) : (
+          <p
+            className="dig-reason-txt"
+            style={{
+              fontFamily: SERIF,
+              fontSize: "13px",
+              fontStyle: "italic",
+              color: "#505050",
+              lineHeight: 1.65,
+              margin: 0,
+            }}
+          >
+            {rec.reason}
+          </p>
+        )}
 
         {/* Spacer — pushes links to the bottom */}
         <div style={{ flex: 1 }} />
