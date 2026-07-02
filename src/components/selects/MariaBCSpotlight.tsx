@@ -103,17 +103,14 @@ function ArtistPhotoPanel() {
 
   useEffect(() => {
     let cancelled = false;
-    fetch(`https://api.discogs.com/artists/${DISCOGS_ARTIST_ID}`, {
-      headers: { "User-Agent": "rekodo/1.0 +https://rekodo.co" },
-    })
+    fetch(`/api/selects/spotlight-image?type=artist&id=${DISCOGS_ARTIST_ID}`)
       .then(res => {
-        if (!res.ok) throw new Error("discogs fetch failed");
+        if (!res.ok) throw new Error("spotlight fetch failed");
         return res.json();
       })
-      .then((data: { images?: { uri?: string }[] }) => {
+      .then((data: { url: string | null }) => {
         if (cancelled) return;
-        const uri = data.images?.[0]?.uri ?? null;
-        if (uri) setImgUrl(uri);
+        if (data.url) setImgUrl(`/api/image-proxy?url=${encodeURIComponent(data.url)}`);
         else setFailed(true);
       })
       .catch(() => { if (!cancelled) setFailed(true); });
