@@ -132,10 +132,12 @@ type SyncJob = {
   completed_at: string | null;
 };
 
-function SyncStatusPanel({ userId }: { userId: string }) {
-  const [job, setJob]         = useState<SyncJob | null | undefined>(undefined); // undefined = not yet fetched
-  const [loading, setLoading] = useState(false);
-  const pollRef               = useRef<ReturnType<typeof setTimeout> | null>(null);
+function SyncStatusPanel({ userId, hasDiscogs }: { userId: string; hasDiscogs: boolean }) {
+  const [job, setJob]           = useState<SyncJob | null | undefined>(undefined); // undefined = not yet fetched
+  const [loading, setLoading]   = useState(false);
+  const [triggering, setTriggering] = useState(false);
+  const [triggerErr, setTriggerErr] = useState<string | null>(null);
+  const pollRef                 = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   async function fetchStatus() {
     setLoading(true);
@@ -156,6 +158,29 @@ function SyncStatusPanel({ userId }: { userId: string }) {
     }
   }
 
+  async function triggerSync() {
+    setTriggerErr(null);
+    setTriggering(true);
+    try {
+      const res  = await fetch("/api/admin/trigger-sync", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ userId }),
+      });
+      const data = await res.json() as { jobId?: string; error?: string };
+      if (!res.ok || !data.jobId) {
+        setTriggerErr(data.error ?? "Failed to trigger sync");
+        return;
+      }
+      // Start polling immediately so the admin sees live progress
+      pollRef.current = setTimeout(checkAndPoll, 2000);
+    } catch {
+      setTriggerErr("Network error");
+    } finally {
+      setTriggering(false);
+    }
+  }
+
   useEffect(() => () => { if (pollRef.current) clearTimeout(pollRef.current); }, []);
 
   const STATUS_COLOR: Record<string, string> = {
@@ -171,6 +196,7 @@ function SyncStatusPanel({ userId }: { userId: string }) {
   }
 
   const live = job && (job.status === "processing" || job.status === "pending");
+  const canTrigger = hasDiscogs && !live && !triggering;
 
   return (
     <div style={{ paddingTop: "4px", borderTop: `1px solid ${RULE}` }}>
@@ -189,12 +215,28 @@ function SyncStatusPanel({ userId }: { userId: string }) {
         >
           {loading ? "Checking…" : job === undefined ? "Check sync" : "Refresh"}
         </button>
+        <button
+          onClick={triggerSync}
+          disabled={!canTrigger}
+          title={!hasDiscogs ? "No Discogs connection" : live ? "Sync already running" : "Trigger a fresh sync for this user"}
+          style={{
+            fontFamily: MONO, fontSize: "9px", letterSpacing: "0.1em", textTransform: "uppercase",
+            color: "#fff", background: canTrigger ? ORANGE : MUTED,
+            border: "none", cursor: canTrigger ? "pointer" : "default",
+            padding: "4px 10px",
+          }}
+        >
+          {triggering ? "Starting…" : "Trigger sync"}
+        </button>
         {live && (
           <span style={{ fontFamily: MONO, fontSize: "9px", color: STATUS_COLOR.processing, letterSpacing: "0.06em" }}>
             ● Live
           </span>
         )}
       </div>
+      {triggerErr && (
+        <div style={{ fontFamily: MONO, fontSize: "10px", color: RED, marginBottom: "8px" }}>{triggerErr}</div>
+      )}
 
       {job === undefined && !loading && (
         <span style={{ fontFamily: MONO, fontSize: "10px", color: MUTED }}>Click "Check sync" to load.</span>
@@ -692,7 +734,7 @@ export default function UserRow({ user, showFinancial, columnCount }: { user: Ad
               </div>
 
               {/* Row 4: sync status */}
-              <SyncStatusPanel userId={user.id} />
+              <SyncStatusPanel userId={user.id} hasDiscogs={user.connections.discogs} />
 
               {error && (
                 <p style={{ fontFamily: MONO, fontSize: "10px", color: RED, margin: 0 }}>
