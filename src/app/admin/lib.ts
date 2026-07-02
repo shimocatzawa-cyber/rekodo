@@ -65,14 +65,15 @@ export async function enrichProfiles(
     // page_views: limit per-user subset to a reasonable bound for top-sections display
     adminDb.from("page_views").select("user_id, section").in("user_id", userIds).limit(2000),
     adminDb.from("dig_daily_count").select("user_id, count").in("user_id", userIds),
-    // COUNT per user — accurate regardless of collection size, no data transfer
+    // Sum copies per user to get the true record count (one pressing may have multiple copies)
     Promise.all(
       userIds.map(id =>
         adminDb
           .from("user_records")
-          .select("*", { count: "exact", head: true })
+          .select("copies")
           .eq("user_id", id)
-          .then(r => ({ id, count: r.count ?? 0 }))
+          .limit(5000)
+          .then(r => ({ id, count: (r.data ?? []).reduce((s: number, x: { copies: number }) => s + (x.copies ?? 1), 0) }))
       )
     ),
   ]);

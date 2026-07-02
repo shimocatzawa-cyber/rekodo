@@ -352,6 +352,7 @@ const [filterFormat,       setFilterFormat]       = useState("");
         is_essential:     boolean | null;
         feeling:          string | null;
         memory_text:      string | null;
+        copies:           number | null;
       };
       const allLinks: LinkRow[] = [];
       const PAGE = 1000;
@@ -359,7 +360,7 @@ const [filterFormat,       setFilterFormat]       = useState("");
         const { data, error } = await supabase
           .from("user_records")
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          .select("record_id, value, price_low, price_median, price_currency, media_condition, sleeve_condition, open_to_offers, is_essential, feeling, memory_text" as any)
+          .select("record_id, value, price_low, price_median, price_currency, media_condition, sleeve_condition, open_to_offers, is_essential, feeling, memory_text, copies" as any)
           .eq("user_id", user.id)
           .range(from, from + PAGE - 1);
         console.log(`[collection] user_records page from=${from}: count=${data?.length ?? 0} error=${JSON.stringify(error)}`);
@@ -379,15 +380,16 @@ const [filterFormat,       setFilterFormat]       = useState("");
       const isEssentialMap     = new Map<string, boolean | null>(allLinks.map((l) => [l.record_id, l.is_essential ?? null]));
       const feelingMap         = new Map<string, string | null>(allLinks.map((l) => [l.record_id, l.feeling ?? null]));
       const memoryTextMap      = new Map<string, string | null>(allLinks.map((l) => [l.record_id, l.memory_text ?? null]));
+      const clientCopiesMap    = new Map<string, number>(allLinks.map((l) => [l.record_id, l.copies ?? 1]));
       const BATCH        = 400;
-      const recordsMap   = new Map<string, Omit<CollectionRecord, "value" | "price_low" | "price_low_usd" | "price_median" | "price_currency" | "media_condition" | "sleeve_condition" | "open_to_offers" | "is_essential" | "feeling" | "memory_text">>();
+      const recordsMap   = new Map<string, Omit<CollectionRecord, "value" | "price_low" | "price_low_usd" | "price_median" | "price_currency" | "media_condition" | "sleeve_condition" | "open_to_offers" | "is_essential" | "feeling" | "memory_text" | "copies">>();
       for (let i = 0; i < recordIds.length; i += BATCH) {
         const { data, error } = await supabase
           .from("records")
           .select("id, discogs_id, artist, album, year, genre, cover_url, label, format, country, community_have, community_want, community_num_for_sale, edition_size")
           .in("id", recordIds.slice(i, i + BATCH));
         console.log(`[collection] records batch i=${i}: count=${data?.length ?? 0} error=${JSON.stringify(error)}`);
-        for (const r of data ?? []) recordsMap.set(r.id, r as Omit<CollectionRecord, "value" | "price_low" | "price_low_usd" | "price_median" | "price_currency" | "media_condition" | "sleeve_condition">);
+        for (const r of data ?? []) recordsMap.set(r.id, r as Omit<CollectionRecord, "value" | "price_low" | "price_low_usd" | "price_median" | "price_currency" | "media_condition" | "sleeve_condition" | "copies">);
       }
 
       const fetched: CollectionRecord[] = recordIds
@@ -407,6 +409,7 @@ const [filterFormat,       setFilterFormat]       = useState("");
             is_essential:     isEssentialMap.get(id)     ?? null,
             feeling:          feelingMap.get(id)         ?? null,
             memory_text:      memoryTextMap.get(id)      ?? null,
+            copies:           clientCopiesMap.get(id)    ?? 1,
           };
         })
         .filter((r): r is CollectionRecord => r !== undefined);
@@ -747,6 +750,10 @@ const [filterFormat,       setFilterFormat]       = useState("");
     if (!useGrouped) return [];
     return groupByLetter(sortedCollection, byLastName);
   }, [sortedCollection, useGrouped, byLastName]);
+
+  const totalItems = useMemo(() =>
+    collection.reduce((s, r) => s + (r.copies ?? 1), 0),
+  [collection]);
 
   const genres = useMemo(() => {
     const gs = new Set<string>();
@@ -1312,7 +1319,7 @@ const [filterFormat,       setFilterFormat]       = useState("");
             {hasFilters && (
               <div style={{ padding: "0 10px 7px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
                 <span style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.06em", color: "#aaaaaa" }}>
-                  {filteredCollection.length} of {collection.length} items
+                  {filteredCollection.length} of {totalItems} items
                 </span>
                 <button
                   onClick={clearAllFilters}
@@ -1405,7 +1412,7 @@ const [filterFormat,       setFilterFormat]       = useState("");
                 bandcamp={bandcampData}
                 record={selectedRecord}
                 username={username}
-                collectionCount={collection.length}
+                collectionCount={totalItems}
               />
             </div>
           </div>
@@ -1413,7 +1420,7 @@ const [filterFormat,       setFilterFormat]       = useState("");
           <div className="hidden md:flex" style={{ gridColumn: "2 / 4", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: "6px" }}>
             <p style={{ fontFamily: SERIF, fontSize: "18px", color: "#d8d8d8" }}>Select a record</p>
             <p style={{ fontFamily: MONO, fontSize: "10px", color: "#e4e4e4", letterSpacing: "0.08em" }}>
-              {collection.length} {collection.length === 1 ? "record" : "records"} in your collection
+              {totalItems} {totalItems === 1 ? "record" : "records"} in your collection
             </p>
           </div>
         )}
@@ -1508,6 +1515,7 @@ function RecordRow({ record, selected, onClick }: {
         <p style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.04em", color: "#999999", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
           {record.artist}
           {record.year ? <span style={{ color: "#d0d0d0" }}> · {record.year}</span> : null}
+          {record.copies > 1 ? <span style={{ color: ORANGE }}> ×{record.copies}</span> : null}
         </p>
       </div>
       {hasPrice && (
@@ -1647,6 +1655,7 @@ function AlbumDetail({ record, detail, price, valueCurrency }: {
         <MetaRow label="Genre"   value={genre} />
         {styles   && <MetaRow label="Style"   value={styles} />}
         {catno     && <MetaRow label="Cat #"     value={catno} />}
+        {record.copies > 1 && <MetaRow label="Copies" value={`×${record.copies}`} />}
         {producers && <MetaRow label="Producers" value={producers} />}
 
         {/* Open to Offers — always visible regardless of market data */}

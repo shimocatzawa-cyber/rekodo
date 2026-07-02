@@ -197,6 +197,10 @@ const FAQ_SECTIONS: { section: string; items: { q: string; a: React.ReactNode }[
         a: "It depends on collection size. A few hundred records takes under 5 minutes. Collections of 1,000+ records can take considerably longer — expect 15+ minutes as rekōdo fetches metadata, market prices, and community data for each release. Discogs API is notoriously slow and this is where the hold up will be. You can navigate off and explore other areas of rekōdo in a new tab whilst you wait.",
       },
       {
+        q: "My collection total looks lower than Discogs — why?",
+        a: "If you own multiple copies of the same pressing (same Discogs release ID), rekōdo deduplicates them to a single entry in your collection — but keeps an accurate copy count. Your total now reflects every copy you own. In your collection you'll see ×N next to any record you have more than one copy of, and the copy count appears under the Cat # in the detail panel.",
+      },
+      {
         q: "Can I still use rekōdo without connecting my Discogs account?",
         a: "Yes but you'll lose a lot of great functionality. You can complete our taste questionnaire where you'll be asked to pick a handful of records you love. rekōdo uses those picks to seed your first Dig recommendations until your real collection is synced.",
       },

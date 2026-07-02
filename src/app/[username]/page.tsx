@@ -75,6 +75,9 @@ export default async function PublicProfilePage({ params }: { params: Params }) 
   }
 
   const isOwner = viewer?.id === profile.id;
+  const hasPassword = isOwner
+    ? (viewer?.identities ?? []).some((i: { provider: string }) => i.provider === "email")
+    : false;
 
   // Viewer profile for AppNav (skip extra query when viewer is the profile owner)
   let viewerNav: { username: string; displayName: string | null; avatarUrl: string | null } | null = null;
@@ -90,7 +93,7 @@ export default async function PublicProfilePage({ params }: { params: Params }) 
   // Parallel: user records + follow counts + collection photo
   const [userRecordsResult, followerRes, followingRes, collectionPhotoRes] = await Promise.all([
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (supabase as any).from("public_collection_summary").select("record_id").eq("user_id", profile.id),
+    (supabase as any).from("public_collection_summary").select("record_id, copies").eq("user_id", profile.id),
     supabase.from("follows").select("id", { count: "exact", head: true }).eq("following_id", profile.id),
     supabase.from("follows").select("id", { count: "exact", head: true }).eq("follower_id",  profile.id),
     supabase.from("collection_photos").select("storage_path").eq("user_id", profile.id).eq("display_order", 1).maybeSingle(),
@@ -107,8 +110,8 @@ export default async function PublicProfilePage({ params }: { params: Params }) 
     const { data: { publicUrl } } = supabase.storage.from("collection-photos").getPublicUrl(collectionPhotoPath);
     collectionPhoto = publicUrl;
   }
-  const totalRecords   = userRecords.length;
-  const recordIds      = userRecords.map((r: { record_id: string }) => r.record_id).filter(Boolean) as string[];
+  const totalRecords   = (userRecords as { record_id: string; copies: number }[]).reduce((s, r) => s + (r.copies ?? 1), 0);
+  const recordIds      = (userRecords as { record_id: string }[]).map((r) => r.record_id).filter(Boolean) as string[];
 
   const recordDetailsResult = recordIds.length
     ? await supabase.from("records").select("genre, country, label").in("id", recordIds)
@@ -265,6 +268,7 @@ export default async function PublicProfilePage({ params }: { params: Params }) 
       bcSyncTotal={bcSyncTotal}
       bcSyncDuplicates={bcSyncDuplicates}
       bcSyncDate={bcSyncDate}
+      hasPassword={hasPassword}
     />
   );
 }

@@ -426,12 +426,19 @@ async function processSync(supabase: SB, jobId: string, userId: string) {
     // ── Phase 3: Link records to user_records ─────────────────────────────────
     await updateJob(supabase, jobId, { phase: "linking", progress_done: 0 });
 
-    const savedRecordIds = [...new Set(
-      collectionItems
-        .map((r) => existingMap.get(r.discogs_id))
-        .filter((id): id is string => id !== undefined)
-    )];
+    // Count how many Discogs instances map to each internal record ID (copies).
+    // Multiple instances share the same release_id → same record_id in our DB.
+    const copiesMap = new Map<string, number>();
+    const dateAddedByRecordId = new Map<string, string | null>();
+    for (const item of collectionItems) {
+      const recordId = existingMap.get(item.discogs_id);
+      if (!recordId) continue;
+      copiesMap.set(recordId, (copiesMap.get(recordId) ?? 0) + 1);
+      dateAddedByRecordId.set(recordId, item.date_added);
+    }
+    const savedRecordIds = [...copiesMap.keys()];
 
+    // Determine which record IDs are newly linked (for activity feed).
     const alreadyLinked = new Set<string>();
     for (let i = 0; i < savedRecordIds.length; i += BATCH) {
       const { data } = await supabase
@@ -441,21 +448,20 @@ async function processSync(supabase: SB, jobId: string, userId: string) {
         .in("record_id", savedRecordIds.slice(i, i + BATCH));
       for (const l of data ?? []) alreadyLinked.add(l.record_id);
     }
+    const newLinkIds = savedRecordIds.filter((id) => !alreadyLinked.has(id));
 
-    const dateAddedByRecordId = new Map<string, string | null>();
-    for (const item of collectionItems) {
-      const recordId = existingMap.get(item.discogs_id);
-      if (recordId) dateAddedByRecordId.set(recordId, item.date_added);
-    }
-
-    const newLinks = savedRecordIds
-      .filter((id) => !alreadyLinked.has(id))
-      .map((id) => ({ user_id: userId, record_id: id, date_added: dateAddedByRecordId.get(id) ?? null }));
-
-    for (let i = 0; i < newLinks.length; i += BATCH) {
+    // Upsert all links with current copies count so multi-copy collections
+    // reflect accurate totals even when the copy count changes between syncs.
+    const allLinkRows = savedRecordIds.map((id) => ({
+      user_id: userId,
+      record_id: id,
+      copies: copiesMap.get(id) ?? 1,
+      date_added: dateAddedByRecordId.get(id) ?? null,
+    }));
+    for (let i = 0; i < allLinkRows.length; i += BATCH) {
       const { error: linkErr } = await supabase
         .from("user_records")
-        .upsert(newLinks.slice(i, i + BATCH), { onConflict: "user_id,record_id", ignoreDuplicates: true });
+        .upsert(allLinkRows.slice(i, i + BATCH), { onConflict: "user_id,record_id" });
       if (linkErr) console.error("user_records upsert error:", linkErr.message);
     }
 
@@ -463,14 +469,14 @@ async function processSync(supabase: SB, jobId: string, userId: string) {
     // collection population — only additions after that initial import should
     // show up for followers. Mirrors logCollectionAddActivity in src/lib/activity.ts
     // (duplicated here since this Deno edge function can't import from the Next app).
-    if (newLinks.length > 0) {
+    if (newLinkIds.length > 0) {
       const { count } = await supabase
         .from("user_records")
         .select("id", { count: "exact", head: true })
         .eq("user_id", userId);
-      if ((count ?? 0) > newLinks.length) {
+      if ((count ?? 0) > newLinkIds.length) {
         const { error: activityErr } = await supabase.from("activity_events").insert(
-          newLinks.map((l) => ({ user_id: userId, event_type: "collection_add", record_id: l.record_id }))
+          newLinkIds.map((id) => ({ user_id: userId, event_type: "collection_add", record_id: id }))
         );
         if (activityErr) console.error("activity_events insert error:", activityErr.message);
       }

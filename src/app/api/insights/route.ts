@@ -24,13 +24,13 @@ export async function POST() {
 
   const { data: links } = await supabase
     .from("user_records")
-    .select("record_id")
+    .select("record_id, copies")
     .eq("user_id", user.id)
     .limit(5000);
 
   if (!links?.length) return Response.json({ error: "Empty collection" }, { status: 400 });
 
-  const collectionCount = links.length;
+  const collectionCount = (links as { record_id: string; copies: number }[]).reduce((s, l) => s + (l.copies ?? 1), 0);
 
   // Cache in taste_profile_cache.profile_data under a dedicated key,
   // keeping it separate from taste_summary (used for album recommendations on profile page)

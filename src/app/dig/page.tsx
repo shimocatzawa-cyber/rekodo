@@ -32,15 +32,21 @@ export default async function DigPage() {
   const displayLabel = profile?.display_name?.trim() || username;
   const avatarUrl    = profile?.avatar_url ?? null;
 
-  // Collection count
-  const { count: collectionCount } = await supabase
+  // Distinct styles + explore picks — powers Style Dig tab and pre-computes
+  // the first Inside Collection load so it's instant (no API call needed).
+  // Also provides copies for an accurate collection total.
+  const { data: styleLinks } = await supabase
     .from("user_records")
-    .select("id", { count: "exact", head: true })
-    .eq("user_id", user.id);
+    .select("record_id, copies")
+    .eq("user_id", user.id)
+    .limit(5000);
+
+  const styleRecordIds = (styleLinks ?? []).map((l: { record_id: string }) => l.record_id);
+  const collectionCount = (styleLinks ?? []).reduce((s: number, l: { copies: number }) => s + (l.copies ?? 1), 0);
 
   // Quiz profile (active, non-archived) — for users with no collection yet
   let hasQuizProfile = false;
-  if ((collectionCount ?? 0) === 0) {
+  if (styleRecordIds.length === 0) {
     const { data: quizRow } = await (supabase as any)
       .from("user_quiz_profile")
       .select("id")
@@ -59,16 +65,6 @@ export default async function DigPage() {
   const listsCount = (listsRaw ?? []).filter(
     (l) => !l.list_type || l.list_type === "top5"
   ).length;
-
-  // Distinct styles + explore picks — powers Style Dig tab and pre-computes
-  // the first Inside Collection load so it's instant (no API call needed).
-  const { data: styleLinks } = await supabase
-    .from("user_records")
-    .select("record_id")
-    .eq("user_id", user.id)
-    .limit(5000);
-
-  const styleRecordIds = (styleLinks ?? []).map((l) => l.record_id);
 
   type ExploreRec = { id: string; artist: string; album: string; year: number | null; genre: string | null; styles: string[] | null };
   const explorePool: ExploreRec[] = [];

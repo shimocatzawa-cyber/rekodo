@@ -58,6 +58,7 @@ interface Props {
   bcSyncTotal?: number;
   bcSyncDuplicates?: number;
   bcSyncDate?: string | null;
+  hasPassword?: boolean;
 }
 
 // ─── Main component ───────────────────────────────────────────────────────────
@@ -69,6 +70,7 @@ export default function ProfileClient({
   compatibility = null,
   essentials = null,
   bcSyncTotal = 0, bcSyncDuplicates = 0, bcSyncDate = null,
+  hasPassword = false,
 }: Props) {
   const router       = useRouter();
   const searchParams = useSearchParams();
@@ -144,6 +146,29 @@ export default function ProfileClient({
     } finally {
       setSpotifyDisconnecting(false);
     }
+  }
+
+  // ── Change password ──────────────────────────────────────────────────────
+  const [pwNew,     setPwNew]     = useState("");
+  const [pwConfirm, setPwConfirm] = useState("");
+  const [pwSaving,  setPwSaving]  = useState(false);
+  const [pwError,   setPwError]   = useState<string | null>(null);
+  const [pwSuccess, setPwSuccess] = useState(false);
+
+  async function handleChangePassword(e: React.FormEvent) {
+    e.preventDefault();
+    if (pwNew !== pwConfirm) { setPwError("Passwords don't match."); return; }
+    if (pwNew.length < 6)    { setPwError("Password must be at least 6 characters."); return; }
+    setPwSaving(true);
+    setPwError(null);
+    const supabase = createClient();
+    const { error: pwErr } = await supabase.auth.updateUser({ password: pwNew });
+    setPwSaving(false);
+    if (pwErr) { setPwError(pwErr.message); return; }
+    setPwNew("");
+    setPwConfirm("");
+    setPwSuccess(true);
+    setTimeout(() => setPwSuccess(false), 4000);
   }
 
   // ── Delete account ───────────────────────────────────────────────────────
@@ -691,6 +716,54 @@ export default function ProfileClient({
                     Cancel
                   </button>
                 </div>
+
+                {hasPassword && (
+                  <div style={{ marginTop: "32px", paddingTop: "20px", borderTop: `1px solid ${RULE}` }}>
+                    <p style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.12em", textTransform: "uppercase", color: MUTED, margin: "0 0 16px" }}>
+                      Change password
+                    </p>
+                    {pwSuccess ? (
+                      <p style={{ fontFamily: MONO, fontSize: "10px", color: "#226622", letterSpacing: "0.04em" }}>
+                        Password updated.
+                      </p>
+                    ) : (
+                      <form onSubmit={handleChangePassword}>
+                        <div style={{ marginBottom: "14px" }}>
+                          <label style={labelSt}>New password</label>
+                          <input
+                            type="password"
+                            value={pwNew}
+                            onChange={e => { setPwNew(e.target.value); setPwError(null); }}
+                            minLength={6}
+                            autoComplete="new-password"
+                            style={inputSt}
+                          />
+                        </div>
+                        <div style={{ marginBottom: "14px" }}>
+                          <label style={labelSt}>Confirm password</label>
+                          <input
+                            type="password"
+                            value={pwConfirm}
+                            onChange={e => { setPwConfirm(e.target.value); setPwError(null); }}
+                            minLength={6}
+                            autoComplete="new-password"
+                            style={inputSt}
+                          />
+                        </div>
+                        {pwError && (
+                          <p style={{ fontFamily: MONO, fontSize: "10px", color: "#cc3300", margin: "0 0 10px" }}>{pwError}</p>
+                        )}
+                        <button
+                          type="submit"
+                          disabled={pwSaving || !pwNew || !pwConfirm}
+                          style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.12em", textTransform: "uppercase", color: "#fff", background: (pwSaving || !pwNew || !pwConfirm) ? "rgba(204,85,0,0.4)" : ORANGE, border: "none", cursor: (pwSaving || !pwNew || !pwConfirm) ? "default" : "pointer", padding: "10px 20px" }}
+                        >
+                          {pwSaving ? "Updating…" : "Update password"}
+                        </button>
+                      </form>
+                    )}
+                  </div>
+                )}
 
                 <div style={{ marginTop: "32px", paddingTop: "20px", borderTop: `1px solid ${RULE}` }}>
                   <p style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.12em", textTransform: "uppercase", color: "#9a1f1f", margin: "0 0 10px" }}>

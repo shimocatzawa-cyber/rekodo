@@ -96,6 +96,7 @@ export default async function InsightsPage() {
     play_count:       number;
     is_essential:     boolean;
     feeling:          string | null;
+    copies:           number;
   };
   // Count total rows first so we can fetch all pages in parallel
   const PAGE = 1000;
@@ -108,7 +109,7 @@ export default async function InsightsPage() {
     Array.from({ length: pageCount }, (_, i) =>
       supabase
         .from("user_records")
-        .select("record_id, price_low, price_median, price_high, price_currency, media_condition, sleeve_condition, date_added, last_played_at, play_count, is_essential, feeling")
+        .select("record_id, price_low, price_median, price_high, price_currency, media_condition, sleeve_condition, date_added, last_played_at, play_count, is_essential, feeling, copies")
         .eq("user_id", user.id)
         .order("record_id")
         .range(i * PAGE, (i + 1) * PAGE - 1)
@@ -339,7 +340,7 @@ export default async function InsightsPage() {
     const curr  = genreCounts.get(genre) ?? { count: 0, valueSum: 0 };
     genreCounts.set(genre, { count: curr.count + 1, valueSum: curr.valueSum + (val > 0 ? val : 0) });
   }
-  const totalRecords  = allLinks.length;
+  const totalRecords  = allLinks.reduce((s, l) => s + (l.copies ?? 1), 0);
   const genreBreakdown: InsightsProps["genreBreakdown"] = [...genreCounts.entries()]
     .sort((a, b) => b[1].count - a[1].count)
     .map(([genre, { count, valueSum }]) => ({

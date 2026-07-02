@@ -130,6 +130,7 @@ export type Database = {
           feeling_tagged_at: string | null;
           memory_text:       string | null;
           memory_shared:     boolean;
+          copies:            number;
         };
         Insert: {
           id?: string;
@@ -154,6 +155,7 @@ export type Database = {
           feeling_tagged_at?: string | null;
           memory_text?:       string | null;
           memory_shared?:     boolean;
+          copies?:            number;
         };
         Update: {
           value?: number | null;
@@ -174,6 +176,7 @@ export type Database = {
           feeling_tagged_at?: string | null;
           memory_text?:       string | null;
           memory_shared?:     boolean;
+          copies?:            number;
         };
         Relationships: [];
       };
