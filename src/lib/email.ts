@@ -1,7 +1,7 @@
 const SENDER = { name: "rekōdo", email: "hello@rekodo.co" };
 const ADMIN  = "hello@rekodo.co";
 
-async function sendViaBrevo(subject: string, html: string): Promise<void> {
+async function sendViaBrevo(subject: string, html: string, to?: string): Promise<void> {
   const key = process.env.BREVO_API_KEY;
   if (!key) throw new Error("BREVO_API_KEY not set");
 
@@ -10,7 +10,7 @@ async function sendViaBrevo(subject: string, html: string): Promise<void> {
     headers: { "api-key": key, "Content-Type": "application/json" },
     body: JSON.stringify({
       sender:      SENDER,
-      to:          [{ email: ADMIN }],
+      to:          [{ email: to ?? ADMIN }],
       subject,
       htmlContent: html,
     }),
@@ -271,4 +271,64 @@ export async function sendAccountDeletionAlert(opts: {
   </table>
 </body>
 </html>`);
+}
+
+export async function sendWaitlistInvite(email: string, name?: string | null) {
+  const greeting = name ? `Hi ${name},` : "Hi,";
+  await sendViaBrevo("rekōdo is now open", `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+</head>
+<body style="margin:0;padding:0;background:#ffffff;font-family:'Courier New',monospace;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background:#ffffff;padding:48px 24px;">
+    <tr>
+      <td align="center">
+        <table width="100%" cellpadding="0" cellspacing="0" style="max-width:480px;">
+          <tr>
+            <td style="padding-bottom:32px;">
+              <p style="margin:0;font-family:Georgia,serif;font-weight:700;font-size:28px;color:#CC5500;line-height:1;">ō</p>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding-bottom:24px;">
+              <p style="margin:0;font-family:Georgia,serif;font-size:28px;color:#0d0d0d;line-height:1.2;">
+                Your spot is ready.
+              </p>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding-bottom:32px;">
+              <p style="margin:0;font-family:'Courier New',monospace;font-size:12px;color:#555555;line-height:1.7;letter-spacing:0.04em;">
+                ${greeting}<br /><br />
+                You joined the rekōdo waitlist — signups are now open to everyone.<br /><br />
+                rekōdo is a home for your vinyl collection. Connect your Discogs account,
+                explore your taste through your records, and share what you own with the world.
+              </p>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding-bottom:40px;">
+              <a
+                href="https://rekodo.co/signup"
+                style="display:inline-block;background:#0d0d0d;color:#ffffff;font-family:'Courier New',monospace;font-size:11px;letter-spacing:0.12em;text-transform:uppercase;text-decoration:none;padding:15px 32px;"
+              >
+                Create account →
+              </a>
+            </td>
+          </tr>
+          <tr>
+            <td>
+              <p style="margin:0;font-family:'Courier New',monospace;font-size:10px;color:#aaaaaa;letter-spacing:0.06em;line-height:1.6;">
+                You're receiving this because you joined the rekōdo waitlist.<br />
+                <a href="https://rekodo.co" style="color:#CC5500;text-decoration:none;">rekodo.co</a>
+              </p>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>`, email);
 }

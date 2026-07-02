@@ -190,6 +190,8 @@ export default function AdminClient({
   const [syncsError,     setSyncsError]     = useState<string | null>(null);
   const [backfillStatus, setBackfillStatus]   = useState<string | null>(null);
   const [backfillRunning, setBackfillRunning] = useState(false);
+  const [waitlistStatus, setWaitlistStatus]   = useState<string | null>(null);
+  const [waitlistRunning, setWaitlistRunning] = useState(false);
   const [allUsers, setAllUsers]           = useState<AdminUser[]>(initialUsers);
   const [loadingMore, setLoadingMore]     = useState(false);
   const [loadError, setLoadError]         = useState<string | null>(null);
@@ -261,6 +263,25 @@ export default function AdminClient({
       setBackfillStatus(`Error: ${e instanceof Error ? e.message : String(e)}`);
     } finally {
       setBackfillRunning(false);
+    }
+  }
+
+  async function sendWaitlistInvites() {
+    setWaitlistRunning(true);
+    setWaitlistStatus("Checking waitlist…");
+    try {
+      const preview = await fetch("/api/admin/waitlist-invite");
+      const previewData = await preview.json() as { count?: number; error?: string };
+      if (!preview.ok) { setWaitlistStatus(`Error: ${previewData.error}`); return; }
+      setWaitlistStatus(`Sending to ${previewData.count ?? 0} entries…`);
+      const res  = await fetch("/api/admin/waitlist-invite", { method: "POST" });
+      const data = await res.json() as { sent?: number; skipped?: number; failed?: number; error?: string };
+      if (!res.ok) { setWaitlistStatus(`Error: ${data.error}`); return; }
+      setWaitlistStatus(`Done — ${data.sent} sent · ${data.skipped} already signed up · ${data.failed} failed`);
+    } catch (e) {
+      setWaitlistStatus(`Error: ${e instanceof Error ? e.message : String(e)}`);
+    } finally {
+      setWaitlistRunning(false);
     }
   }
 
@@ -707,6 +728,26 @@ export default function AdminClient({
               ))}
             </div>
           )}
+
+          {/* Waitlist invites */}
+          <div style={{ display: "flex", alignItems: "center", gap: "16px", margin: "36px 0 16px", flexWrap: "wrap" }}>
+            <p style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.14em", textTransform: "uppercase", color: ORANGE, margin: 0 }}>
+              Waitlist invites
+            </p>
+            <button
+              onClick={sendWaitlistInvites}
+              disabled={waitlistRunning}
+              style={{ ...btnSt, opacity: waitlistRunning ? 0.5 : 1, cursor: waitlistRunning ? "default" : "pointer" }}
+            >
+              {waitlistRunning ? "Sending…" : "Send invites"}
+            </button>
+            {waitlistStatus && (
+              <span style={{ fontFamily: MONO, fontSize: "10px", color: MUTED }}>{waitlistStatus}</span>
+            )}
+          </div>
+          <p style={{ fontFamily: MONO, fontSize: "10px", color: MUTED, margin: "0 0 8px", lineHeight: 1.6 }}>
+            Emails everyone on the waitlist who hasn&apos;t already created an account, with a link to /signup. Safe to run multiple times — already signed-up emails are skipped.
+          </p>
 
           {/* Share card breakdown */}
           <p style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.14em", textTransform: "uppercase", color: ORANGE, margin: "36px 0 16px" }}>

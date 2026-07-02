@@ -24,6 +24,14 @@ export async function updateSession(request: NextRequest) {
     return NextResponse.redirect(url);
   }
 
+  // Waitlist is retired — signups are open. Redirect anyone who lands on
+  // /waitlist directly to the signup page.
+  if (request.nextUrl.pathname === "/waitlist") {
+    const url = request.nextUrl.clone();
+    url.pathname = "/signup";
+    return NextResponse.redirect(url);
+  }
+
   let supabaseResponse = NextResponse.next({ request });
 
   const supabase = createServerClient<Database>(
