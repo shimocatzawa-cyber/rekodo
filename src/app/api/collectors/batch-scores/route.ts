@@ -1,6 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { type NextRequest } from "next/server";
-import { buildProfile, computeStyleScore, type RecRow } from "@/lib/compatibility";
+import { buildProfile, computeScore, computeStyleScore, type RecRow } from "@/lib/compatibility";
 
 export const dynamic = "force-dynamic";
 
@@ -52,14 +52,31 @@ export async function GET(request: NextRequest) {
     byUser.set(r.user_id, arr);
   }
 
+  // Build artist frequency map for IDF weighting in computeScore.
+  // Counts how many distinct users own each artist across all fetched rows.
+  const artistUserSets = new Map<string, Set<string>>();
+  for (const r of recRows) {
+    if (!r.artist) continue;
+    const s = artistUserSets.get(r.artist) ?? new Set<string>();
+    s.add(r.user_id);
+    artistUserSets.set(r.artist, s);
+  }
+  const artistFreq = new Map<string, number>();
+  for (const [artist, users] of artistUserSets) artistFreq.set(artist, users.size);
+
   const viewerProfile = buildProfile(byUser.get(viewerId) ?? [], []);
 
   const scores = targetIds.map(id => {
     const targetProfile = buildProfile(byUser.get(id) ?? [], []);
     const styleScore = computeStyleScore(viewerProfile, targetProfile);
+    // Use cached collection score if available; otherwise compute on-the-fly
+    // from the user_records data already in memory. This ensures the All
+    // Collectors list always shows a score even for pairs not yet in the cache.
+    const cached = collectionScore.get(id);
+    const liveScore = computeScore(viewerProfile, targetProfile, artistFreq);
     return {
       userId: id,
-      collectionScore: collectionScore.get(id) ?? null,
+      collectionScore: cached ?? liveScore,
       styleScore,
     };
   });
