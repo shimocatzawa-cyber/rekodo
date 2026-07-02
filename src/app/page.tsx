@@ -101,19 +101,6 @@ export default async function LandingPage() {
       />
       <main className="flex flex-col min-h-screen bg-white">
         <LandingNav username={username} displayLabel={displayLabel} avatarUrl={avatarUrl} />
-        <div style={{
-          fontFamily: "var(--font-dm-mono), 'Courier New', monospace",
-          fontSize: "11px",
-          letterSpacing: "0.04em",
-          color: "#7a5500",
-          background: "#fff8f0",
-          borderBottom: "1px solid #f5ddb8",
-          padding: "10px 24px",
-          lineHeight: 1.6,
-          textAlign: "center",
-        }}>
-          We&apos;re experiencing an extended outage with our infrastructure provider. Things may be slower than usual or temporarily unavailable — we&apos;re on it.
-        </div>
         <HeroSection isSignedIn={!!user} />
         <LandingFooter />
       </main>
