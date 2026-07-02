@@ -719,7 +719,6 @@ export default function ProfileClient({
                           <option value="Not using it enough">Not using it enough</option>
                           <option value="Missing features I need">Missing features I need</option>
                           <option value="Found a better alternative">Found a better alternative</option>
-                          <option value="Privacy concerns">Privacy concerns</option>
                           <option value="Technical issues">Technical issues</option>
                           <option value="Other">Other</option>
                         </select>
