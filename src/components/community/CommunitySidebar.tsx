@@ -119,8 +119,10 @@ export default function CommunitySidebar({ profileOwnerId, onTierClick, onTierDa
   const [followers,     setFollowers]     = useState<Person[]>([]);
   const [following,     setFollowing]     = useState<Person[]>([]);
   const [tierItems,     setTierItems]     = useState<Map<string, TierItem[]>>(new Map());
-  const [socialLoaded,  setSocialLoaded]  = useState(false);
-  const [tiersLoaded,   setTiersLoaded]   = useState(false);
+  const [socialLoaded,    setSocialLoaded]    = useState(false);
+  const [tiersLoaded,     setTiersLoaded]     = useState(false);
+  const [tiersTriggered,  setTiersTriggered]  = useState(false);
+  const [tiersLoading,    setTiersLoading]    = useState(false);
 
   // Phase 1: load followers/following immediately (fast)
   useEffect(() => {
@@ -151,8 +153,9 @@ export default function CommunitySidebar({ profileOwnerId, onTierClick, onTierDa
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [profileOwnerId]);
 
-  // Phase 2: load tier counts separately (can be slow on cache miss)
-  useEffect(() => {
+  function loadTiers() {
+    setTiersTriggered(true);
+    setTiersLoading(true);
     fetch(`/api/collectors/matches?userId=${profileOwnerId}`)
       .then(r => r.ok ? r.json() : { allScores: [] })
       .then(matchesData => {
@@ -167,9 +170,9 @@ export default function CommunitySidebar({ profileOwnerId, onTierClick, onTierDa
         onTierData?.(byTier);
         setTiersLoaded(true);
       })
-      .catch(() => setTiersLoaded(true));
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [profileOwnerId]);
+      .catch(() => setTiersLoaded(true))
+      .finally(() => setTiersLoading(false));
+  }
 
   if (!socialLoaded) return (
     <div style={{ padding: "28px 0" }}>
@@ -189,9 +192,13 @@ export default function CommunitySidebar({ profileOwnerId, onTierClick, onTierDa
           <p style={{ fontFamily: MONO, fontSize: "0.58rem", letterSpacing: "0.14em", textTransform: "uppercase", color: "#0a0a0a", margin: 0 }}>
             Collection Similarity
           </p>
-          <span style={{ fontFamily: MONO, fontSize: "0.46rem", color: MUTED, letterSpacing: "0.04em", flexShrink: 0 }}>
-            Updated daily
-          </span>
+          <button
+            onClick={loadTiers}
+            disabled={tiersLoading}
+            style={{ fontFamily: MONO, fontSize: "0.46rem", color: tiersLoading ? MUTED : ORANGE, letterSpacing: "0.04em", flexShrink: 0, background: "none", border: "none", padding: 0, cursor: tiersLoading ? "default" : "pointer" }}
+          >
+            {tiersLoading ? "Calculating…" : tiersTriggered ? "Recalculate" : "Calculate"}
+          </button>
         </div>
         <p style={{ fontFamily: MONO, fontSize: "0.52rem", color: MUTED, margin: "0 0 12px", letterSpacing: "0.04em" }}>
           Artist overlap · style boosted
@@ -204,7 +211,7 @@ export default function CommunitySidebar({ profileOwnerId, onTierClick, onTierDa
                 <span style={{ fontFamily: MONO, fontSize: "0.64rem", color: activeTier === tier ? ORANGE : MUTED, letterSpacing: "0.04em", lineHeight: 1.4 }}>
                   {tier}
                 </span>
-                {!tiersLoaded ? (
+                {!tiersTriggered || !tiersLoaded ? (
                   <span style={{ fontFamily: MONO, fontSize: "0.64rem", color: MUTED, flexShrink: 0 }}>—</span>
                 ) : items.length > 0 ? (
                   <button

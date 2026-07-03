@@ -329,10 +329,11 @@ export default function CommunityTab({ profileOwnerId, hideSocialPanel = false, 
   const [followersLoaded,  setFollowersLoaded]  = useState(false);
 
   // Matches
-  const [matches,        setMatches]        = useState<Match[] | null>(null);
-  const [matchesLoading, setMatchesLoading] = useState(false);
-  const [matchOffset,    setMatchOffset]    = useState(0);
-  const [allMatchTotal,  setAllMatchTotal]  = useState(0);
+  const [matches,          setMatches]          = useState<Match[] | null>(null);
+  const [matchesLoading,   setMatchesLoading]   = useState(false);
+  const [matchesTriggered, setMatchesTriggered] = useState(false);
+  const [matchOffset,      setMatchOffset]      = useState(0);
+  const [allMatchTotal,    setAllMatchTotal]    = useState(0);
 
   // Collectors I Follow — activity feed
   const [activityItems,     setActivityItems]     = useState<ActivityItem[]>([]);
@@ -413,9 +414,9 @@ export default function CommunityTab({ profileOwnerId, hideSocialPanel = false, 
     loadFollowData();
   }, [profileOwnerId]);
 
-  // Load top matches when tab is active (lazy)
+  // Load top matches only when explicitly triggered (not on tab switch)
   useEffect(() => {
-    if (subTab !== "matches" || matches !== null) return;
+    if (subTab !== "matches" || !matchesTriggered || matches !== null) return;
     setMatchesLoading(true);
     fetch(`/api/collectors/matches?userId=${encodeURIComponent(profileOwnerId)}&offset=${matchOffset}`)
       .then(r => r.ok ? r.json() : { matches: [] })
@@ -430,7 +431,7 @@ export default function CommunityTab({ profileOwnerId, hideSocialPanel = false, 
       .catch(() => setMatches([]))
       .finally(() => setMatchesLoading(false));
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [subTab, profileOwnerId, matches, matchOffset]);
+  }, [subTab, profileOwnerId, matches, matchOffset, matchesTriggered]);
 
   // Load Collectors I Follow activity feed when tab is active (lazy)
   useEffect(() => {
@@ -819,12 +820,25 @@ export default function CommunityTab({ profileOwnerId, hideSocialPanel = false, 
                 </button>
               </div>
             )}
+            {!matchesTriggered && !matchesLoading && (
+              <div style={{ paddingTop: "16px" }}>
+                <p style={{ fontFamily: MONO, fontSize: "0.65rem", color: MUTED, lineHeight: 1.7, marginBottom: "16px" }}>
+                  Scores are computed from shared artists, genres and decades across your network.
+                </p>
+                <button
+                  onClick={() => setMatchesTriggered(true)}
+                  style={{ fontFamily: MONO, fontSize: "0.55rem", letterSpacing: "0.1em", textTransform: "uppercase", background: ORANGE, color: "#fff", border: "none", cursor: "pointer", padding: "10px 20px" }}
+                >
+                  Find my matches
+                </button>
+              </div>
+            )}
             {matchesLoading && (
               <p style={{ fontFamily: MONO, fontSize: "0.55rem", color: MUTED, letterSpacing: "0.08em" }}>
                 Finding closest matches…
               </p>
             )}
-            {!matchesLoading && matches !== null && matches.length === 0 && (
+            {matchesTriggered && !matchesLoading && matches !== null && matches.length === 0 && (
               <div style={{ paddingTop: "16px" }}>
                 <p style={{ fontFamily: SERIF, fontSize: "1.1rem", color: INK, marginBottom: "8px" }}>No matches yet.</p>
                 <p style={{ fontFamily: MONO, fontSize: "0.65rem", color: MUTED, lineHeight: 1.7 }}>
