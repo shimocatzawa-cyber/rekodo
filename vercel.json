@@ -7,6 +7,9 @@
     "src/app/api/discogs/sync/route.ts": {
       "maxDuration": 300
     },
+    "src/app/api/collectors/matches/route.ts": {
+      "maxDuration": 60
+    },
     "src/app/api/library/recommendations/route.ts": {
       "maxDuration": 60
     },

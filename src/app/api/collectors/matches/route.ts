@@ -249,7 +249,7 @@ export async function GET(request: NextRequest) {
     const otherProfile  = buildProfile(recordsByUser.get(otherId) ?? [], listRowsByUser.get(otherId) ?? []);
     const baseScore     = computeScore(targetProfile, otherProfile, artistFreq);
     const starSign      = starSignCompatibility(ownerStarSign, candidateStarSigns.get(otherId) ?? null);
-    const starSignBoost = starSign !== null ? Math.round((starSign / 100) * 5) : 0;
+    const starSignBoost = starSign !== null ? Math.round((starSign / 100) * 10) : 0;
     const score         = Math.min(100, baseScore + starSignBoost);
     const styleScore    = computeStyleScore(targetProfile, otherProfile);
     const sharedTags    = buildSharedTags(targetProfile, otherProfile, artistFreq);
