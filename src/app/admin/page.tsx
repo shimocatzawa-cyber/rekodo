@@ -22,7 +22,7 @@ export default async function AdminPage() {
     donorsResult,
     totalRecordsResult,
     profilesResult,
-    pageViewSectionsResult,
+    featurePopularityResult,
     digUsersResult,
     countryResult,
     shareCardResult,
@@ -34,8 +34,8 @@ export default async function AdminPage() {
     adminDb.from("profiles").select("*", { count: "exact", head: true }).eq("is_donor", true),
     adminDb.from("user_records").select("*", { count: "estimated", head: true }),
     adminDb.from("profiles").select(PROFILE_COLUMNS).order("last_active_at", { ascending: false, nullsFirst: false }).limit(ADMIN_PAGE_SIZE),
-    // Unique users per section — all-time, no date cap
-    adminDb.from("page_views").select("user_id, section").limit(100000),
+    // Server-side aggregate — avoids PostgREST row cap and excludes admins
+    adminDb.rpc("feature_popularity"),
     // Dig unique users from the reliable API-level table (page_views misses this)
     adminDb.from("dig_daily_count").select("user_id").limit(10000),
     adminDb.from("profiles").select("country"),
@@ -51,26 +51,19 @@ export default async function AdminPage() {
 
   const users = await enrichProfiles(adminDb, profilesResult.data ?? []);
 
-  // Count unique users per section (so a single power-user doesn't inflate a section)
-  const sectionUsers = new Map<string, Set<string>>();
-  for (const row of pageViewSectionsResult.data ?? []) {
-    if (row.section === "Share Card") continue;
-    const section = row.section as string;
-    const uid     = row.user_id as string;
-    if (!sectionUsers.has(section)) sectionUsers.set(section, new Set());
-    sectionUsers.get(section)!.add(uid);
+  // Build section map from RPC result (already aggregated and admin-excluded server-side)
+  const sectionUsers = new Map<string, number>();
+  for (const row of (featurePopularityResult.data ?? []) as { section: string; unique_users: number }[]) {
+    sectionUsers.set(row.section, row.unique_users);
   }
 
   // Inject Dig from dig_daily_count — more reliable than page_views for this feature
-  const digUsers = new Set((digUsersResult.data ?? []).map(r => r.user_id as string));
-  if (digUsers.size > 0) {
-    // Use the larger of the two sources (page_views might have some Dig entries too)
-    const pvDigSize = sectionUsers.get("Dig")?.size ?? 0;
-    if (digUsers.size > pvDigSize) sectionUsers.set("Dig", digUsers);
+  const digUserCount = new Set((digUsersResult.data ?? []).map(r => r.user_id as string)).size;
+  if (digUserCount > (sectionUsers.get("Dig") ?? 0)) {
+    sectionUsers.set("Dig", digUserCount);
   }
 
   const featurePopularity = [...sectionUsers.entries()]
-    .map(([section, users]) => [section, users.size] as [string, number])
     .sort((a, b) => b[1] - a[1]);
 
   // Share card breakdown: path is "/share-card/{type}/{action}"
