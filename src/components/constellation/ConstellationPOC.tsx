@@ -421,6 +421,8 @@ export default function ConstellationPOC({ username }: Props) {
   const [loadingMsg,     setLoadingMsg]     = useState<string | null>(username ? "Loading collection…" : null);
   const [totalRecords,   setTotalRecords]   = useState(0);
   const [insightIdx,     setInsightIdx]     = useState(0);
+  const [minAlbums,      setMinAlbums]      = useState(1);
+  const minAlbumsRef = useRef(1);
 
   // ── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -581,6 +583,9 @@ export default function ConstellationPOC({ username }: Props) {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [username]);
 
+  // Keep minAlbums ref in sync so the canvas loop can read it without stale closures
+  useEffect(() => { minAlbumsRef.current = minAlbums; }, [minAlbums]);
+
   // Rotate insight every 8 seconds
   useEffect(() => {
     if (!isReady) return;
@@ -668,6 +673,11 @@ export default function ConstellationPOC({ username }: Props) {
 
     function cssSize() { return { W: canvas.width / dpr, H: canvas.height / dpr }; }
 
+    // Returns true for owned nodes that fall below the current album filter
+    function isFiltered(n: ArtistNode) {
+      return n.owned && n.albums < minAlbumsRef.current;
+    }
+
     // Physics
     function tick() {
       const { W, H } = cssSize();
@@ -675,6 +685,7 @@ export default function ConstellationPOC({ username }: Props) {
       const edges = [...edgesRef.current, ...mbEdgesRef.current];
       for (const n of nodes) {
         if (draggingNodeRef.current === n.id) continue;
+        if (isFiltered(n)) continue; // filtered-out nodes stay put
         n.vx += (W * 0.5 - n.x) * 0.0002;
         n.vy += (H * 0.5 - n.y) * 0.0002;
         const homePos = nodePosRef.current.get(n.id);
@@ -683,7 +694,7 @@ export default function ConstellationPOC({ username }: Props) {
           n.vy += (homePos[1] * H - n.y) * 0.006;
         }
         for (const o of nodes) {
-          if (o.id === n.id) continue;
+          if (o.id === n.id || isFiltered(o)) continue;
           const dx = n.x - o.x, dy = n.y - o.y;
           const d2 = dx*dx + dy*dy + 1, d = Math.sqrt(d2);
           const minD = n.radius + o.radius + 18;
@@ -693,7 +704,7 @@ export default function ConstellationPOC({ username }: Props) {
           const isS = e.source === n.id, isT = e.target === n.id;
           if (!isS && !isT) continue;
           const o = nodes.find(x => x.id === (isS ? e.target : e.source));
-          if (!o) continue;
+          if (!o || isFiltered(o)) continue;
           const dx = o.x - n.x, dy = o.y - n.y;
           const d  = Math.sqrt(dx*dx + dy*dy) + 0.1;
           const f  = (d - (80 + (1 - e.weight) * 40)) * 0.003 * e.weight;
@@ -772,6 +783,7 @@ export default function ConstellationPOC({ username }: Props) {
         const src = nodes.find(n => n.id === e.source);
         const tgt = nodes.find(n => n.id === e.target);
         if (!src || !tgt) continue;
+        if (isFiltered(src) || isFiltered(tgt)) continue;
         const key      = `${e.source}:${e.target}`;
         const isActive = activeEdgeKeys.has(key);
         const mx = (src.x + tgt.x) / 2 + e.cpDx;
@@ -861,6 +873,7 @@ export default function ConstellationPOC({ username }: Props) {
       // ── Layer 2: Nodes ─────────────────────────────────────────────────────
       const sorted = [...nodes].sort((a, b) => b.radius - a.radius);
       for (const node of sorted) {
+        if (isFiltered(node)) continue;
         const isHov  = hovered  === node.id;
         const isSel  = selected === node.id;
         const isAct  = isHov || isSel;
@@ -952,6 +965,7 @@ export default function ConstellationPOC({ username }: Props) {
 
       // ── Layer 3: Labels ────────────────────────────────────────────────────
       for (const node of nodes) {
+        if (isFiltered(node)) continue;
         const isAct = hovered === node.id || selected === node.id;
         const isDim = hasSelection && !isAct && !connectedIds.has(node.id);
         const inf   = influence.get(node.id) ?? 0;
@@ -1013,6 +1027,7 @@ export default function ConstellationPOC({ username }: Props) {
       const { x: wx, y: wy } = s2w(sx, sy);
       const sc = cameraRef.current.scale;
       for (const n of [...nodesRef.current].reverse()) {
+        if (isFiltered(n)) continue;
         const inf = influenceRef.current.get(n.id) ?? 0;
         const blotR = n.owned ? n.radius * (1.0 + inf * 0.5) : n.radius;
         const dx = wx - n.x, dy = wy - n.y;
@@ -1260,6 +1275,26 @@ export default function ConstellationPOC({ username }: Props) {
               title="Zoom out"
             >−</button>
           </div>
+          {username && (
+            <div style={{ marginTop: "10px", paddingTop: "10px", borderTop: `1px solid ${BORD}` }}>
+              <p style={{ fontFamily: MONO, fontSize: "9px", color: DIM3, letterSpacing: "0.18em", textTransform: "uppercase", marginBottom: "6px" }}>
+                Min. records
+              </p>
+              <div style={{ display: "flex", gap: "4px" }}>
+                {[1, 2, 5, 10].map(n => (
+                  <button key={n} onClick={() => setMinAlbums(n)}
+                    style={{
+                      flex: 1, fontFamily: MONO, fontSize: "9px", padding: "5px 2px", cursor: "pointer",
+                      border: `1px solid ${minAlbums === n ? INK : BORD}`,
+                      background: minAlbums === n ? "rgba(221,216,204,0.12)" : SURFACE,
+                      color: minAlbums === n ? INK : DIM3,
+                      letterSpacing: "0.06em",
+                    }}
+                  >{n}+</button>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
       )}
 
