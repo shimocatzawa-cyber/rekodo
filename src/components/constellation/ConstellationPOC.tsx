@@ -444,17 +444,30 @@ export default function ConstellationPOC({ username }: Props) {
       ctx.translate(cam.x, cam.y);
       ctx.scale(cam.scale, cam.scale);
 
-      // ── Layer 0: Japanese character watermarks ────────────────────────────
-      const JP = [
-        { text: "音", xF: 0.14, yF: 0.38, size: 130 },  // oto — sound
-        { text: "影", xF: 0.76, yF: 0.60, size: 110 },  // kage — shadow
-        { text: "間", xF: 0.48, yF: 0.55, size: 140 },  // ma — space / interval
+      // ── Layer 0: Genre / style watermarks ────────────────────────────────
+      const GENRES = [
+        { text: "FOLK",              xF: 0.10, yF: 0.42, size: 62, rot: -0.06 },
+        { text: "AMERICANA",         xF: 0.22, yF: 0.74, size: 48, rot:  0.04 },
+        { text: "SINGER-SONGWRITER", xF: 0.16, yF: 0.26, size: 32, rot: -0.03 },
+        { text: "COUNTRY",           xF: 0.28, yF: 0.88, size: 44, rot:  0.05 },
+        { text: "BLUES",             xF: 0.44, yF: 0.90, size: 52, rot: -0.04 },
+        { text: "GOTHIC",            xF: 0.52, yF: 0.70, size: 40, rot:  0.06 },
+        { text: "AVANT-GARDE",       xF: 0.36, yF: 0.54, size: 36, rot: -0.05 },
+        { text: "PSYCHEDELIC",       xF: 0.60, yF: 0.38, size: 56, rot:  0.03 },
+        { text: "KRAUTROCK",         xF: 0.72, yF: 0.20, size: 48, rot: -0.07 },
+        { text: "NOISE ROCK",        xF: 0.76, yF: 0.52, size: 40, rot:  0.05 },
+        { text: "DRONE",             xF: 0.84, yF: 0.66, size: 58, rot: -0.04 },
+        { text: "AMBIENT",           xF: 0.88, yF: 0.82, size: 44, rot:  0.06 },
+        { text: "ELECTRONIC",        xF: 0.90, yF: 0.32, size: 50, rot: -0.03 },
+        { text: "POST-ROCK",         xF: 0.80, yF: 0.90, size: 34, rot:  0.07 },
+        { text: "JAZZ",              xF: 0.58, yF: 0.56, size: 66, rot: -0.02 },
       ];
-      for (const m of JP) {
+      for (const m of GENRES) {
         ctx.save();
         ctx.translate(m.xF * W, m.yF * H);
-        ctx.font = `${m.size}px ${SERIF}`;
-        ctx.fillStyle = "rgba(10,10,10,0.032)";
+        ctx.rotate(m.rot);
+        ctx.font = `700 ${m.size}px ${MONO}`;
+        ctx.fillStyle = "rgba(10,10,10,0.028)";
         ctx.textAlign = "center"; ctx.textBaseline = "middle";
         ctx.fillText(m.text, 0, 0);
         ctx.restore();
