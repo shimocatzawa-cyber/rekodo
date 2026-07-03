@@ -1286,10 +1286,11 @@ export default function DigClient({ userId, username, displayLabel, avatarUrl, c
                     Daily limit reached
                   </p>
                   <p style={{ fontFamily: SERIF, fontSize: "1.6rem", fontWeight: 400, color: "#0a0a0a", margin: 0, lineHeight: 1.1 }}>
-                    3 digs per day
+                    2 outside digs per day
                   </p>
                   <p style={{ fontFamily: MONO, fontSize: "0.6rem", color: "#666", margin: "4px 0 16px", lineHeight: 1.7 }}>
-                    Free accounts get 3 digs per day.<br />
+                    Free accounts get 2 Outside Collection &amp; Style digs per day.<br />
+                    Inside Collection digs are always free.<br />
                     Support rek<span style={{ color: ORANGE }}>ō</span>do for unlimited access.
                   </p>
                   <Link

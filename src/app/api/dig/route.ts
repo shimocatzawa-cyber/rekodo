@@ -106,7 +106,9 @@ export async function POST(request: Request) {
   if (!user) return Response.json({ error: "Not authenticated" }, { status: 401 });
 
   // ── Supporter check + daily rate limit ───────────────────────────────────
-  const FREE_DIG_LIMIT = 3;
+  // Discover (inside collection) is unlimited for all users.
+  // Explore + Style are limited to 2 digs/day for free users.
+  const FREE_DIG_LIMIT = 2;
   const { data: profileRow } = await (supabase as any)
     .from("profiles")
     .select("is_supporter")
@@ -114,15 +116,15 @@ export async function POST(request: Request) {
     .maybeSingle() as { data: { is_supporter: boolean | null } | null };
   const isSupporter = !!profileRow?.is_supporter;
 
-  if (!isSupporter) {
+  if (!isSupporter && mode !== "discover") {
     const today = new Date().toISOString().slice(0, 10);
-    const { data: countRow } = await (supabase as any)
+    const { data: countRows } = await (supabase as any)
       .from("dig_daily_count")
       .select("count")
       .eq("user_id", user.id)
       .eq("date", today)
-      .maybeSingle() as { data: { count: number } | null };
-    const used = countRow?.count ?? 0;
+      .in("mode", ["explore", "style"]) as { data: { count: number }[] | null };
+    const used = (countRows ?? []).reduce((sum, r) => sum + (r.count ?? 0), 0);
     if (used >= FREE_DIG_LIMIT) {
       return Response.json({ error: "daily_limit_reached", used, limit: FREE_DIG_LIMIT }, { status: 429 });
     }

@@ -315,7 +315,7 @@ const FAQ_SECTIONS: { section: string; items: { q: string; a: React.ReactNode }[
       },
       {
         q: "Is there a limit on how many times I can Dig?",
-        a: "Free accounts get 3 Dig sessions a day. rekōdo supporters get unlimited regeneration.",
+        a: "Inside Collection digs are unlimited for everyone. Free accounts get 2 Outside Collection and Style digs per day. rekōdo supporters get unlimited access to all dig modes.",
       },
       {
         q: "Can I add a recommendation to my wantlist?",
@@ -468,7 +468,7 @@ const FAQ_SECTIONS: { section: string; items: { q: string; a: React.ReactNode }[
     items: [
       {
         q: "Is rekōdo free?",
-        a: "Most of rekōdo is free: collection sync, Insights (including Taste Profile, Essentials Wall, and Feeling breakdown), Dig (3 sessions a day), Lists, and Selects. A rekōdo supporter subscription unlocks Deep Dive, Archetypes, unlimited Dig, and Want List CSV upload — plus the golden ō badge.",
+        a: "Most of rekōdo is free: collection sync, Insights (including Taste Profile, Essentials Wall, and Feeling breakdown), Dig (Inside Collection unlimited, 2 Outside Collection & Style digs per day), Lists, and Selects. A rekōdo supporter subscription unlocks Deep Dive, Archetypes, unlimited Dig, and Want List CSV upload — plus the golden ō badge.",
       },
       {
         q: "What is the difference between a Supporter and a donor?",
