@@ -34,6 +34,8 @@ export async function GET(request: NextRequest) {
   if (!viewer) return Response.json({ error: "Unauthorized" }, { status: 401 });
 
   // ── Check cache ───────────────────────────────────────────────────────────
+  const fresh = request.nextUrl.searchParams.get("fresh") === "1";
+
   const cacheExpiry = new Date(Date.now() - CACHE_TTL_MS).toISOString();
   const [{ data: cachedRows }, { data: ownerProfile }] = await Promise.all([
     supabase
@@ -110,7 +112,7 @@ export async function GET(request: NextRequest) {
 
   const offset = Math.max(0, parseInt(request.nextUrl.searchParams.get("offset") ?? "0", 10));
 
-  if (cachedRows && cachedRows.length >= 1) {
+  if (!fresh && cachedRows && cachedRows.length >= 1) {
     const topRows = cachedRows.slice(offset, offset + DISPLAY_COUNT);
     const matches = await enrichMatches(topRows as { user_id_b: string; score: number; style_score?: number; shared_tags: string[] }[]);
     // Trust the cache when paginating (offset > 0) or when we got a full first page.

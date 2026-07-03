@@ -15,7 +15,9 @@ const INK    = "#0a0a0a";
 const MUTED  = "#aaaaaa";
 const GOLD   = "#C9A84C";
 
-type SubTab = "matches" | "following" | "collectors" | "trending" | "offers" | "lists" | "saved";
+type SubTab = "following" | "collectors" | "trending" | "offers" | "lists" | "saved";
+
+// ── Types ─────────────────────────────────────────────────────────────────────
 
 type Follower = {
   id: string;
@@ -23,23 +25,6 @@ type Follower = {
   display_name: string | null;
   avatar_url: string | null;
   is_donor: boolean | null;
-};
-
-type Match = {
-  userId: string;
-  username: string;
-  displayName: string | null;
-  avatarUrl: string | null;
-  location: string | null;
-  recordCount: number;
-  score: number;
-  styleScore: number;
-  starSignScore: number | null;
-  label: string;
-  description: string;
-  sharedTags: string[];
-  isFollowing: boolean;
-  isDonor: boolean;
 };
 
 type Collector = {
@@ -114,60 +99,6 @@ function Avatar({ avatarUrl, name, username, size = 36 }: {
 }
 
 // ── Sub-components ─────────────────────────────────────────────────────────────
-
-function MatchCard({ match, isFollowing, canFollow, onFollow }: {
-  match: Match; isFollowing: boolean; canFollow: boolean; onFollow: () => void;
-}) {
-  return (
-    <div style={{ border: `1px solid ${RULE}`, padding: "20px 18px 16px", display: "flex", flexDirection: "column", gap: "10px" }}>
-      <div style={{ display: "flex", alignItems: "center" }}>
-        <Link href={`/@${match.username}`} style={{ display: "flex", alignItems: "center", gap: "9px", textDecoration: "none" }}>
-          <Avatar avatarUrl={match.avatarUrl} name={match.displayName} username={match.username} size={28} />
-          <span style={{ display: "flex", alignItems: "center", gap: "4px" }}>
-            <span style={{ fontFamily: MONO, fontSize: "0.65rem", letterSpacing: "0.05em", color: INK }}>@{match.username}</span>
-            {match.isDonor && <span style={{ fontFamily: SERIF, fontSize: "0.75rem", color: GOLD }} title="rekōdo supporter">ō</span>}
-          </span>
-        </Link>
-      </div>
-
-      <div>
-        <span style={{ fontFamily: MONO, fontSize: "0.5rem", letterSpacing: "0.08em", textTransform: "uppercase", color: ORANGE }}>{match.score}% Collection Similarity</span>
-        <br />
-        <span style={{ fontFamily: MONO, fontSize: "0.5rem", letterSpacing: "0.08em", textTransform: "uppercase", color: "#888" }}>{match.styleScore}% Style</span>
-        {match.starSignScore !== null && (
-          <>
-            <span style={{ fontFamily: MONO, fontSize: "0.5rem", color: "#888" }}> · </span>
-            <span style={{ fontFamily: MONO, fontSize: "0.5rem", letterSpacing: "0.08em", textTransform: "uppercase", color: "#7c6b9e" }}>{match.starSignScore}% Star Sign</span>
-          </>
-        )}
-        <p style={{ fontFamily: SERIF, fontStyle: "italic", fontSize: "0.85rem", color: "#505050", lineHeight: 1.4, margin: "5px 0 0" }}>
-          {match.label}
-        </p>
-      </div>
-
-      {match.sharedTags.length > 0 && (
-        <div style={{ display: "flex", flexWrap: "wrap", gap: "4px" }}>
-          {match.sharedTags.map(tag => (
-            <span key={tag} style={{ fontFamily: MONO, fontSize: "0.5rem", letterSpacing: "0.08em", textTransform: "uppercase", color: "#888", border: `1px solid ${RULE}`, padding: "2px 6px" }}>
-              {tag}
-            </span>
-          ))}
-        </div>
-      )}
-
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", paddingTop: "8px", borderTop: `1px solid ${RULE}`, marginTop: "auto" }}>
-        <span style={{ fontFamily: MONO, fontSize: "0.5rem", color: MUTED, letterSpacing: "0.04em" }}>
-          {match.location ? `${match.location} · ` : ""}{match.recordCount.toLocaleString()} records
-        </span>
-        {canFollow && (
-          <button onClick={onFollow} style={{ fontFamily: MONO, fontSize: "0.5rem", letterSpacing: "0.08em", textTransform: "uppercase", background: "none", border: `1px solid ${isFollowing ? RULE : ORANGE}`, color: isFollowing ? MUTED : ORANGE, cursor: "pointer", padding: "3px 10px" }}>
-            {isFollowing ? "Following" : "Follow"}
-          </button>
-        )}
-      </div>
-    </div>
-  );
-}
 
 function CollectorRow({ collector, isLast, isFollowing, canFollow, onFollow }: {
   collector: Collector; isLast: boolean; isFollowing: boolean; canFollow: boolean; onFollow: () => void;
@@ -328,13 +259,6 @@ export default function CommunityTab({ profileOwnerId, hideSocialPanel = false, 
   const [following,        setFollowing]        = useState<Follower[]>([]);
   const [followersLoaded,  setFollowersLoaded]  = useState(false);
 
-  // Matches
-  const [matches,          setMatches]          = useState<Match[] | null>(null);
-  const [matchesLoading,   setMatchesLoading]   = useState(false);
-  const [matchesTriggered, setMatchesTriggered] = useState(false);
-  const [matchOffset,      setMatchOffset]      = useState(0);
-  const [allMatchTotal,    setAllMatchTotal]    = useState(0);
-
   // Collectors I Follow — activity feed
   const [activityItems,     setActivityItems]     = useState<ActivityItem[]>([]);
   const [activityState,     setActivityState]     = useState<"idle" | "loading" | "done">("idle");
@@ -413,25 +337,6 @@ export default function CommunityTab({ profileOwnerId, hideSocialPanel = false, 
 
     loadFollowData();
   }, [profileOwnerId]);
-
-  // Load top matches only when explicitly triggered (not on tab switch)
-  useEffect(() => {
-    if (subTab !== "matches" || !matchesTriggered || matches !== null) return;
-    setMatchesLoading(true);
-    fetch(`/api/collectors/matches?userId=${encodeURIComponent(profileOwnerId)}&offset=${matchOffset}`)
-      .then(r => r.ok ? r.json() : { matches: [] })
-      .then(d => {
-        const list: Match[] = d.matches ?? [];
-        setMatches(list);
-        setAllMatchTotal((d.allScores ?? []).length);
-        const fs: Record<string, boolean> = {};
-        for (const m of list) fs[m.userId] = m.isFollowing;
-        setFollowState(prev => ({ ...prev, ...fs }));
-      })
-      .catch(() => setMatches([]))
-      .finally(() => setMatchesLoading(false));
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [subTab, profileOwnerId, matches, matchOffset, matchesTriggered]);
 
   // Load Collectors I Follow activity feed when tab is active (lazy)
   useEffect(() => {
@@ -643,7 +548,6 @@ export default function CommunityTab({ profileOwnerId, hideSocialPanel = false, 
 
   const TABS: Array<{ key: SubTab; label: string }> = [
     { key: "trending",   label: "Top 40" },
-    { key: "matches",    label: "Top Matches" },
     { key: "following",  label: "Collectors I Follow" },
     { key: "offers",     label: "Open to Offers" },
     { key: "collectors", label: "Discover" },
@@ -793,74 +697,8 @@ export default function CommunityTab({ profileOwnerId, hideSocialPanel = false, 
           ))}
         </select>
 
-        {/* ── Top Matches ────────────────────────────────────────────────────── */}
         {subTab === "trending" && <TrendingRecords initialRecords={initialTrending} />}
         {subTab === "offers"   && <OpenToOffers />}
-
-        {subTab === "matches" && (
-          <>
-            {!matchesLoading && matches !== null && allMatchTotal > 6 && (
-              <div style={{ display: "flex", alignItems: "center", justifyContent: "flex-end", gap: "10px", marginBottom: "14px" }}>
-                <span style={{ fontFamily: MONO, fontSize: "0.5rem", color: MUTED, letterSpacing: "0.04em" }}>
-                  {matchOffset + 1}–{Math.min(matchOffset + 6, allMatchTotal)} of {allMatchTotal}
-                </span>
-                <button
-                  onClick={() => {
-                    const next = matchOffset + 6 >= allMatchTotal ? 0 : matchOffset + 6;
-                    setMatchOffset(next);
-                    setMatches(null);
-                  }}
-                  style={{
-                    fontFamily: MONO, fontSize: "0.55rem", letterSpacing: "0.08em", textTransform: "uppercase",
-                    background: "none", border: `1px solid ${RULE}`, color: MUTED,
-                    cursor: "pointer", padding: "5px 12px",
-                  }}
-                >
-                  {matchOffset + 6 >= allMatchTotal ? "← Start" : "Next →"}
-                </button>
-              </div>
-            )}
-            {!matchesTriggered && !matchesLoading && (
-              <div style={{ paddingTop: "16px" }}>
-                <p style={{ fontFamily: MONO, fontSize: "0.65rem", color: MUTED, lineHeight: 1.7, marginBottom: "16px" }}>
-                  Scores are computed from shared artists, genres and decades across your network.
-                </p>
-                <button
-                  onClick={() => setMatchesTriggered(true)}
-                  style={{ fontFamily: MONO, fontSize: "0.55rem", letterSpacing: "0.1em", textTransform: "uppercase", background: ORANGE, color: "#fff", border: "none", cursor: "pointer", padding: "10px 20px" }}
-                >
-                  Find my matches
-                </button>
-              </div>
-            )}
-            {matchesLoading && (
-              <p style={{ fontFamily: MONO, fontSize: "0.55rem", color: MUTED, letterSpacing: "0.08em" }}>
-                Finding closest matches…
-              </p>
-            )}
-            {matchesTriggered && !matchesLoading && matches !== null && matches.length === 0 && (
-              <div style={{ paddingTop: "16px" }}>
-                <p style={{ fontFamily: SERIF, fontSize: "1.1rem", color: INK, marginBottom: "8px" }}>No matches yet.</p>
-                <p style={{ fontFamily: MONO, fontSize: "0.65rem", color: MUTED, lineHeight: 1.7 }}>
-                  Matches are computed from shared artists, genres and decades across the rekōdo community. As more collectors join, your closest matches will appear here.
-                </p>
-              </div>
-            )}
-            {!matchesLoading && matches && matches.length > 0 && (
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(240px, 1fr))", gap: "14px" }}>
-                {matches.map(m => (
-                  <MatchCard
-                    key={m.userId}
-                    match={m}
-                    isFollowing={followState[m.userId] ?? m.isFollowing}
-                    canFollow={!!viewerUserId && viewerUserId !== m.userId}
-                    onFollow={() => toggleFollow(m.userId, { id: m.userId, username: m.username, display_name: m.displayName, avatar_url: m.avatarUrl, is_donor: null })}
-                  />
-                ))}
-              </div>
-            )}
-          </>
-        )}
 
         {/* ── Collectors I Follow ────────────────────────────────────────────── */}
         {subTab === "following" && (
@@ -872,7 +710,7 @@ export default function CommunityTab({ profileOwnerId, hideSocialPanel = false, 
               <div style={{ paddingTop: "16px" }}>
                 <p style={{ fontFamily: SERIF, fontSize: "1.1rem", color: INK, marginBottom: "8px" }}>No activity yet.</p>
                 <p style={{ fontFamily: MONO, fontSize: "0.65rem", color: MUTED, lineHeight: 1.7 }}>
-                  Follow some collectors to see when they log a play, or add to their wantlist or collection. Check All Collectors or Top Matches to find people to follow.
+                  Follow some collectors to see when they log a play, or add to their wantlist or collection. Check Discover to find people to follow.
                 </p>
               </div>
             )}
@@ -942,7 +780,7 @@ export default function CommunityTab({ profileOwnerId, hideSocialPanel = false, 
               <div style={{ paddingTop: "16px" }}>
                 <p style={{ fontFamily: SERIF, fontSize: "1.1rem", color: INK, marginBottom: "8px" }}>No lists yet.</p>
                 <p style={{ fontFamily: MONO, fontSize: "0.65rem", color: MUTED, lineHeight: 1.7 }}>
-                  Follow collectors to see their lists here. Use Top Matches to find collectors with similar taste.
+                  Follow collectors to see their lists here. Use Discover to find collectors with similar taste.
                 </p>
               </div>
             )}

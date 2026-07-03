@@ -417,7 +417,7 @@ const FAQ_SECTIONS: { section: string; items: { q: string; a: React.ReactNode }[
     items: [
       {
         q: "What is Community?",
-        a: "Community is where you find other collectors on rekōdo. Top Matches surfaces collectors with the closest taste based on shared artists, genre, and decade — click 'Find my matches' to calculate scores across your entire network. Each match card shows Collection Similarity (shared artists, IDF-weighted), Style Similarity (genre and decade cosine), and Star Sign Compatibility (traditional zodiac aspects, only when both collectors have set a star sign). The Collection Similarity breakdown in the sidebar can be calculated on demand using the 'Calculate' button, and recalculated at any time. Top 40 shows the 40 most-collected albums across rekōdo right now; Collectors I Follow tracks activity from people you follow; Open to Offers lists records other collectors are willing to sell; and All Collectors lets you browse everyone on the platform.",
+        a: "Community is where you find other collectors on rekōdo. The Collection Similarity section in the sidebar shows how your network breaks down by taste tier — click 'Calculate' to score all your followers and following, or 'Recalculate' to refresh. Tiers run from Twins (55%+) down through Bandmates, Label Mate, and Complete Stranger. Top 40 shows the 40 most-collected albums across rekōdo right now; Collectors I Follow tracks activity from people you follow; Open to Offers lists records other collectors are willing to sell; and Discover lets you browse everyone on the platform with your collection similarity score shown inline.",
       },
       {
         q: "Can I follow other collectors?",

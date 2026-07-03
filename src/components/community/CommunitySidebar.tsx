@@ -156,7 +156,7 @@ export default function CommunitySidebar({ profileOwnerId, onTierClick, onTierDa
   function loadTiers() {
     setTiersTriggered(true);
     setTiersLoading(true);
-    fetch(`/api/collectors/matches?userId=${profileOwnerId}`)
+    fetch(`/api/collectors/matches?userId=${profileOwnerId}&fresh=1`)
       .then(r => r.ok ? r.json() : { allScores: [] })
       .then(matchesData => {
         const byTier = new Map<string, TierItem[]>();
