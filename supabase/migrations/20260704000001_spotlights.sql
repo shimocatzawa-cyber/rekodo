@@ -1,5 +1,5 @@
 create table if not exists public.spotlights (
-  id              uuid        primary key default uuid_generate_v4(),
+  id              uuid        primary key default gen_random_uuid(),
   type            text        not null check (type in ('artist', 'label')),
   month           text        not null,
   status          text        not null default 'draft'
