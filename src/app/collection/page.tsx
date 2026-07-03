@@ -203,32 +203,32 @@ export default async function CollectionPage({
     collection_value_high?: number | null; collection_value_currency?: string | null;
   };
 
-  const profileRace = await Promise.race([
-    supabase
-      .from("profiles")
-      .select("username, display_name, last_synced_at, avatar_url, country_code, collection_value_low, collection_value_med, collection_value_high, collection_value_currency")
-      .eq("id", user.id)
-      .maybeSingle()
-      .then(r => ({ ok: true as const, data: r.data as ProfileRow | null })),
-    deadline(5000, { ok: false as const }),
+  const [profileRace, syncJobRace] = await Promise.all([
+    Promise.race([
+      supabase
+        .from("profiles")
+        .select("username, display_name, last_synced_at, avatar_url, country_code, collection_value_low, collection_value_med, collection_value_high, collection_value_currency")
+        .eq("id", user.id)
+        .maybeSingle()
+        .then(r => ({ ok: true as const, data: r.data as ProfileRow | null })),
+      deadline(5000, { ok: false as const }),
+    ]),
+    Promise.race([
+      supabase
+        .from("sync_queue")
+        .select("total_records, new_added, completed_at")
+        .eq("user_id", user.id)
+        .eq("status", "completed")
+        .order("completed_at", { ascending: false })
+        .limit(1)
+        .maybeSingle()
+        .then(r => ({ ok: true as const, data: r.data })),
+      deadline(5000, { ok: false as const }),
+    ]),
   ]);
 
   if (!profileRace.ok) return <CollectionOutage />;
   const profile = profileRace.data;
-
-  const syncJobRace = await Promise.race([
-    supabase
-      .from("sync_queue")
-      .select("total_records, new_added, completed_at")
-      .eq("user_id", user.id)
-      .eq("status", "completed")
-      .order("completed_at", { ascending: false })
-      .limit(1)
-      .maybeSingle()
-      .then(r => ({ ok: true as const, data: r.data })),
-    deadline(5000, { ok: false as const }),
-  ]);
-
   const lastSyncJob = syncJobRace.ok ? syncJobRace.data : null;
   const autoGen      = `${emailPrefix}_${user.id.slice(0, 6)}`;
   const rawUsername  = profile?.username ?? null;
