@@ -203,6 +203,7 @@ function SleeveCard({ rec, mode, onAddToWantlist, wantlistAdded, onDismiss, dism
           <img
             src={coverUrl}
             alt={`${rec.album} by ${rec.artist}`}
+            decoding="async"
             style={{ width: "100%", height: "100%", objectFit: "contain", display: "block" }}
           />
         ) : (

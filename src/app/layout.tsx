@@ -13,19 +13,22 @@ import "./globals.css";
 const shipporiMincho = Shippori_Mincho({
   variable: "--font-shippori",
   subsets: ["latin"],
-  weight: ["400", "500", "600", "700", "800"],
+  weight: ["400", "500", "600", "700"],
+  display: "swap",
 });
 
 const dmMono = DM_Mono({
   variable: "--font-dm-mono",
   subsets: ["latin"],
-  weight: ["300", "400", "500"],
+  weight: ["400", "500"],
+  display: "swap",
 });
 
 const caveat = Caveat({
   variable: "--font-caveat",
   subsets: ["latin"],
   weight: ["400", "700"],
+  display: "swap",
 });
 
 const notoSansJp = Noto_Sans_JP({

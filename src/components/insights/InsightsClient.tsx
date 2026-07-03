@@ -1,25 +1,29 @@
 "use client";
 
 import { useState, useEffect, type ReactNode } from "react";
+import dynamic from "next/dynamic";
 import { useUrlTab } from "@/lib/useUrlTab";
 import Link from "next/link";
-import { BarChart, type CustomTooltipProps } from "@tremor/react";
 import AppNav from "@/components/AppNav";
 import TasteProfile, { type SpectrumData } from "@/components/insights/TasteProfile";
 import LunarListeningRitual from "@/components/LunarListeningRitual";
-import InsightsShareModal from "@/components/insights/InsightsShareModal";
-import EssentialsWallModal from "@/components/insights/EssentialsWallModal";
-import CollectorDNAModal from "@/components/insights/CollectorDNAModal";
-import CollectionStyleMapModal from "@/components/insights/CollectionStyleMapModal";
-import CollectionGenreMapModal from "@/components/insights/CollectionGenreMapModal";
-import CollectionStoryModal from "@/components/insights/CollectionStoryModal";
-import RecordShelfModal from "@/components/insights/RecordShelfModal";
-import SpectrumShareModal from "@/components/insights/SpectrumShareModal";
-import ArchetypeShareModal from "@/components/archetypes/ArchetypeShareModal";
 import DailyPick, { type DailyPickData } from "@/components/DailyPick";
 import OnThisDay, { type OnThisDayPick } from "@/components/OnThisDay";
 import type { DesirabilityTier } from "@/lib/desirability";
 import { feelingLabel } from "@/lib/feelings";
+import type { CustomTooltipProps } from "@tremor/react";
+
+// Heavy modals and chart — loaded only when first opened/rendered
+const BarChart           = dynamic(() => import("@tremor/react").then(m => ({ default: m.BarChart })), { ssr: false });
+const InsightsShareModal = dynamic(() => import("@/components/insights/InsightsShareModal"),    { ssr: false });
+const EssentialsWallModal    = dynamic(() => import("@/components/insights/EssentialsWallModal"),    { ssr: false });
+const CollectorDNAModal      = dynamic(() => import("@/components/insights/CollectorDNAModal"),      { ssr: false });
+const CollectionStyleMapModal = dynamic(() => import("@/components/insights/CollectionStyleMapModal"), { ssr: false });
+const CollectionGenreMapModal = dynamic(() => import("@/components/insights/CollectionGenreMapModal"), { ssr: false });
+const CollectionStoryModal   = dynamic(() => import("@/components/insights/CollectionStoryModal"),   { ssr: false });
+const RecordShelfModal       = dynamic(() => import("@/components/insights/RecordShelfModal"),       { ssr: false });
+const SpectrumShareModal     = dynamic(() => import("@/components/insights/SpectrumShareModal"),     { ssr: false });
+const ArchetypeShareModal    = dynamic(() => import("@/components/archetypes/ArchetypeShareModal"),  { ssr: false });
 
 const SERIF  = "var(--font-editorial)";
 const MONO   = "var(--font-mono)";
@@ -434,6 +438,8 @@ export default function InsightsClient({
                     key={i}
                     src={c.coverUrl}
                     alt={`${c.artist} — ${c.album}`}
+                    loading="lazy"
+                    decoding="async"
                     style={{ width: "100%", aspectRatio: "1 / 1", objectFit: "cover", display: "block", background: RULE }}
                   />
                 ) : (
@@ -611,6 +617,8 @@ export default function InsightsClient({
                       alt=""
                       width={44}
                       height={44}
+                      loading="lazy"
+                      decoding="async"
                       style={{ width: "44px", height: "44px", objectFit: "cover", display: "block", flexShrink: 0 }}
                     />
                   ) : (

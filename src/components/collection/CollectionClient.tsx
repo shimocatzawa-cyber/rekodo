@@ -1501,7 +1501,7 @@ function RecordRow({ record, selected, onClick }: {
       <div style={{ width: 36, height: 36, background: "#f0f0f0", flexShrink: 0, overflow: "hidden" }}>
         {record.cover_url ? (
           // eslint-disable-next-line @next/next/no-img-element
-          <img src={record.cover_url} alt="" style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
+          <img src={record.cover_url} alt="" loading="lazy" decoding="async" style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
         ) : (
           <div style={{ width: "100%", height: "100%", display: "flex", alignItems: "center", justifyContent: "center" }}>
             <span style={{ fontFamily: SERIF, fontSize: "14px", color: "#e0e0e0" }}>♩</span>
@@ -1613,7 +1613,7 @@ function AlbumDetail({ record, detail, price, valueCurrency }: {
       <div style={{ width: "100%", maxWidth: 220, maxHeight: 220, height: 220, background: "#f0f0f0", overflow: "hidden", marginBottom: "12px" }}>
         {record.cover_url ? (
           // eslint-disable-next-line @next/next/no-img-element
-          <img src={record.cover_url} alt={record.album} style={{ width: "100%", height: "100%", objectFit: "contain", display: "block" }} />
+          <img src={record.cover_url} alt={record.album} loading="lazy" decoding="async" style={{ width: "100%", height: "100%", objectFit: "contain", display: "block" }} />
         ) : (
           <div style={{ width: "100%", height: "100%", display: "flex", alignItems: "center", justifyContent: "center" }}>
             <span style={{ fontFamily: SERIF, fontSize: "36px", color: "#ddd" }}>♩</span>
