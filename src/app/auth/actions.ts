@@ -143,7 +143,7 @@ export async function requestPasswordReset(
   const h = await headers();
   const host = h.get("host") ?? "rekodo.app";
   const proto = host.startsWith("localhost") ? "http" : "https";
-  const redirectTo = `${proto}://${host}/auth/update-password`;
+  const redirectTo = `${proto}://${host}/auth/callback?next=/auth/update-password`;
 
   const supabase = await createClient();
   const { error } = await supabase.auth.resetPasswordForEmail(email, { redirectTo });

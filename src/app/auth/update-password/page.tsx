@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 
 const MONO  = "var(--font-dm-mono), 'Courier New', monospace";
@@ -29,21 +29,30 @@ const inputStyle: React.CSSProperties = {
 };
 
 export default function UpdatePasswordPage() {
-  const router  = useRouter();
-  const supabase = createClient();
+  const router       = useRouter();
+  const searchParams = useSearchParams();
+  const supabase     = createClient();
 
-  // true once Supabase fires the PASSWORD_RECOVERY event from the email link token
   const [ready,   setReady]   = useState(false);
   const [pending, setPending] = useState(false);
   const [error,   setError]   = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
 
   useEffect(() => {
+    // PKCE flow: callback route already exchanged the code and set the session;
+    // page arrives with ?recovery=1. Confirm there's a live session then show form.
+    if (searchParams.get("recovery") === "1") {
+      supabase.auth.getSession().then(({ data: { session } }) => {
+        if (session) setReady(true);
+      });
+    }
+
+    // Implicit flow: Supabase fires PASSWORD_RECOVERY when it detects the
+    // recovery token in the URL hash.
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
       if (event === "PASSWORD_RECOVERY") setReady(true);
     });
     return () => subscription.unsubscribe();
-  // supabase instance is stable
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
