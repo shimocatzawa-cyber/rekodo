@@ -536,9 +536,10 @@ export default async function InsightsPage() {
   for (const link of allLinks) {
     const fmt = recordsMap.get(link.record_id)?.format;
     if (!fmt) continue;
-    const val  = convertPrice(link.price_median, link.price_currency) ?? 0;
-    const curr = formatData.get(fmt) ?? { count: 0, valueSum: 0 };
-    formatData.set(fmt, { count: curr.count + 1, valueSum: curr.valueSum + (val > 0 ? val : 0) });
+    const copies = link.copies ?? 1;
+    const val    = convertPrice(link.price_median, link.price_currency) ?? 0;
+    const curr   = formatData.get(fmt) ?? { count: 0, valueSum: 0 };
+    formatData.set(fmt, { count: curr.count + copies, valueSum: curr.valueSum + (val > 0 ? val * copies : 0) });
   }
   const formatBreakdown = [...formatData.entries()]
     .sort((a, b) => b[1].count - a[1].count)
