@@ -254,6 +254,7 @@ export default function ConstellationPOC({ username }: Props) {
   const dprRef             = useRef(1);
   const influenceRef       = useRef<Map<string, number>>(new Map());
   const spawnAnimsRef      = useRef<{ id: string; birthMs: number }[]>([]);
+  const nodePosRef         = useRef<Map<string, [number, number]>>(new Map());
 
   const [selectedArtist, setSelectedArtist] = useState<ArtistNode | null>(null);
   const [selectedEdge,   setSelectedEdge]   = useState<Edge | null>(null);
@@ -328,23 +329,62 @@ export default function ConstellationPOC({ username }: Props) {
         }
       }
 
-      // Show all curated artists; mark owned vs discovery
-      const nodes: ArtistNode[] = Object.entries(POSITIONS).map(([id, [xF, yF]]) => {
+      // Build curated nodes (from POSITIONS), tracking which albumCounts entries are consumed
+      const posMap = new Map<string, [number, number]>();
+      const consumed = new Set<string>(); // lowercase keys from albumCounts that matched a curated node
+
+      const curatedNodes: ArtistNode[] = Object.entries(POSITIONS).map(([id, [xF, yF]]) => {
+        posMap.set(id, [xF, yF]);
         const displayName = findDisplayName(id) ?? id.replace(/_/g, " ");
-        const exactCount  = albumCounts.get(displayName);
-        const count = exactCount ?? fuzzyCount(displayName, albumCounts) ?? (username ? 0 : Math.floor(seededRng(strHash(id)) * 10 + 3));
+        let count = 0;
+        if (username) {
+          // Exact then case-insensitive match
+          const lower = displayName.toLowerCase();
+          const matchKey = albumCounts.get(displayName) !== undefined
+            ? displayName
+            : [...albumCounts.keys()].find(k => k.toLowerCase() === lower);
+          if (matchKey) { count = albumCounts.get(matchKey)!; consumed.add(matchKey.toLowerCase()); }
+        } else {
+          count = Math.floor(seededRng(strHash(id)) * 10 + 3);
+        }
         const owned = !username || count > 0;
         const h = strHash(id);
         return {
-          id, name: displayName,
-          albums: count,
-          owned,
+          id, name: displayName, albums: count, owned,
           x: xF * W + (seededRng(h)     - 0.5) * 40,
           y: yF * H + (seededRng(h + 1) - 0.5) * 40,
           vx: 0, vy: 0,
           radius: owned ? 6 + Math.sqrt(count) * 2.4 : 7,
         };
       });
+
+      // Add remaining collection artists not matched to a curated node
+      const extraNodes: ArtistNode[] = [];
+      if (username) {
+        for (const [artistName, count] of albumCounts) {
+          if (count === 0) continue;
+          if (consumed.has(artistName.toLowerCase())) continue;
+          const id = toId(artistName);
+          if (posMap.has(id)) continue; // already added under a different display name
+          const h = strHash(id);
+          // Place in an outer ring using seeded angle + radius
+          const angle = seededRng(h)         * Math.PI * 2;
+          const dist  = 0.34 + seededRng(h + 7) * 0.12;
+          const xF = clamp(0.5 + Math.cos(angle) * dist,        0.03, 0.97);
+          const yF = clamp(0.5 + Math.sin(angle) * dist * 0.78, 0.03, 0.97);
+          posMap.set(id, [xF, yF]);
+          extraNodes.push({
+            id, name: artistName, albums: count, owned: true,
+            x: xF * W + (seededRng(h + 2) - 0.5) * 70,
+            y: yF * H + (seededRng(h + 3) - 0.5) * 70,
+            vx: 0, vy: 0,
+            radius: 5 + Math.sqrt(count) * 1.8,
+          });
+        }
+      }
+
+      nodePosRef.current = posMap;
+      const nodes = [...curatedNodes, ...extraNodes];
 
       const nodeIds = new Set(nodes.map(n => n.id));
       const edges = CURATED_EDGES
@@ -397,9 +437,11 @@ export default function ConstellationPOC({ username }: Props) {
         if (draggingNodeRef.current === n.id) continue;
         n.vx += (W * 0.5 - n.x) * 0.0002;
         n.vy += (H * 0.5 - n.y) * 0.0002;
-        const [hxF, hyF] = POSITIONS[n.id] ?? [0.5, 0.5];
-        n.vx += (hxF * W - n.x) * 0.006;
-        n.vy += (hyF * H - n.y) * 0.006;
+        const homePos = nodePosRef.current.get(n.id);
+        if (homePos) {
+          n.vx += (homePos[0] * W - n.x) * 0.006;
+          n.vy += (homePos[1] * H - n.y) * 0.006;
+        }
         for (const o of nodes) {
           if (o.id === n.id) continue;
           const dx = n.x - o.x, dy = n.y - o.y;
@@ -675,6 +717,8 @@ export default function ConstellationPOC({ username }: Props) {
         const spawn = spawns.find(s => s.id === node.id);
         const spawnT = spawn ? (now - spawn.birthMs) / 480 : 1;
         if (spawnT < 0.3) continue;
+        // Suppress labels for uncatalogued (non-curated) artists unless zoomed in or active
+        if (!POSITIONS[node.id] && !isAct && cam.scale < 1.8) continue;
         const blotR = node.radius * (node.owned ? (1.0 + inf * 0.5) : 1) * (spawnT < 1 ? easeOutBack(clamp(spawnT, 0, 1)) : 1);
 
         const h = strHash(node.id);
