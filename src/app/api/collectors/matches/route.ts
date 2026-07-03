@@ -234,15 +234,25 @@ export async function GET(request: NextRequest) {
     artistFreq.set(artist, Math.max(existing, userIds.size)); // upper bound
   }
 
-  // 7. Score all candidates
+  // 7. Fetch star signs for all candidates (single query, used for score boost)
+  const { data: starSignRows } = await supabase
+    .from("profiles")
+    .select("id, star_sign")
+    .in("id", eligibleIds);
+  const candidateStarSigns = new Map((starSignRows ?? []).map(r => [r.id, r.star_sign ?? null]));
+
+  // Score all candidates
   type ScoredUser = { userId: string; score: number; styleScore: number; sharedTags: string[] };
   const scored: ScoredUser[] = [];
 
   for (const otherId of eligibleIds) {
-    const otherProfile = buildProfile(recordsByUser.get(otherId) ?? [], listRowsByUser.get(otherId) ?? []);
-    const score      = computeScore(targetProfile, otherProfile, artistFreq);
-    const styleScore = computeStyleScore(targetProfile, otherProfile);
-    const sharedTags = buildSharedTags(targetProfile, otherProfile, artistFreq);
+    const otherProfile  = buildProfile(recordsByUser.get(otherId) ?? [], listRowsByUser.get(otherId) ?? []);
+    const baseScore     = computeScore(targetProfile, otherProfile, artistFreq);
+    const starSign      = starSignCompatibility(ownerStarSign, candidateStarSigns.get(otherId) ?? null);
+    const starSignBoost = starSign !== null ? Math.round((starSign / 100) * 5) : 0;
+    const score         = Math.min(100, baseScore + starSignBoost);
+    const styleScore    = computeStyleScore(targetProfile, otherProfile);
+    const sharedTags    = buildSharedTags(targetProfile, otherProfile, artistFreq);
     scored.push({ userId: otherId, score, styleScore, sharedTags });
   }
 

@@ -69,7 +69,7 @@ export function computeScore(a: UserProfile, b: UserProfile, freq: Map<string, n
   // meaningful artist overlap (≥10) so style alone can't create false affinity.
   const styleSim = cosineSimilarity(a.genreVector, b.genreVector) * 0.6
                  + cosineSimilarity(a.decadeVector, b.decadeVector) * 0.4;
-  const boost = artist >= 10 ? Math.round(styleSim * 15) : 0;
+  const boost = artist >= 10 ? Math.round(styleSim * 10) : 0;
   return Math.min(100, Math.round(artist) + boost);
 }
 
