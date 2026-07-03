@@ -311,7 +311,7 @@ export default function CommunityTab({ profileOwnerId, hideSocialPanel = false }
   const [viewerUserId, setViewerUserId] = useState<string | null>(null);
   const viewerUserIdRef  = useRef<string | null>(null);
   const pendingTogglesRef = useRef<Set<string>>(new Set());
-  const [subTab,       setSubTab]       = useState<SubTab>("matches");
+  const [subTab,       setSubTab]       = useState<SubTab>("trending");
   const [searchQuery,  setSearchQuery]  = useState("");
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -635,8 +635,8 @@ export default function CommunityTab({ profileOwnerId, hideSocialPanel = false }
   }
 
   const TABS: Array<{ key: SubTab; label: string }> = [
-    { key: "matches",    label: "Top Matches" },
     { key: "trending",   label: "Popular" },
+    { key: "matches",    label: "Top Matches" },
     { key: "following",  label: "Collectors I Follow" },
     { key: "offers",     label: "Open to Offers" },
     { key: "collectors", label: "Discover" },
