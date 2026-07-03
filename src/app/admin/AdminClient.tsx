@@ -492,45 +492,6 @@ export default function AdminClient({
       {/* ── Users tab ── */}
       {activeTab === "users" && (
         <div className="ra-content">
-
-          {/* Signups per day — last 7 days */}
-          {(() => {
-            const maxCount = Math.max(...signupsPerDay.map(d => d.count), 1);
-            const BAR_H = 56;
-            const BAR_W = 28;
-            const GAP   = 8;
-            const totalW = signupsPerDay.length * (BAR_W + GAP) - GAP;
-            return (
-              <div style={{ padding: "20px 0 8px", borderBottom: `1px solid ${RULE}`, marginBottom: "0" }}>
-                <p style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.14em", textTransform: "uppercase", color: ORANGE, margin: "0 0 14px" }}>
-                  Signups — last 7 days
-                </p>
-                <div style={{ display: "flex", alignItems: "flex-end", gap: `${GAP}px` }}>
-                  {signupsPerDay.map(({ date, count }) => {
-                    const barH = count === 0 ? 2 : Math.max(4, Math.round((count / maxCount) * BAR_H));
-                    const label = new Date(date + "T12:00:00Z").toLocaleDateString("en-GB", { weekday: "short", day: "numeric" });
-                    return (
-                      <div key={date} style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "6px", width: `${BAR_W}px` }}>
-                        <span style={{ fontFamily: MONO, fontSize: "9px", color: count > 0 ? INK : MUTED }}>{count > 0 ? count : ""}</span>
-                        <div
-                          style={{
-                            width: `${BAR_W}px`,
-                            height: `${barH}px`,
-                            background: count > 0 ? ORANGE : RULE,
-                          }}
-                        />
-                        <span style={{ fontFamily: MONO, fontSize: "8px", color: MUTED, textAlign: "center", whiteSpace: "nowrap", letterSpacing: "0.03em" }}>
-                          {label}
-                        </span>
-                      </div>
-                    );
-                  })}
-                  <div style={{ width: `${totalW}px`, display: "none" }} />
-                </div>
-              </div>
-            );
-          })()}
-
           <div className="ra-controls">
             <div style={{ display: "flex", alignItems: "baseline", gap: "10px", flexWrap: "wrap" }}>
               <span style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.14em", textTransform: "uppercase", color: ORANGE }}>
@@ -712,6 +673,41 @@ export default function AdminClient({
       {/* ── Features tab ── */}
       {activeTab === "features" && (
         <div className="ra-content">
+
+          {/* Signups per day — last 7 days (Sydney time) */}
+          {(() => {
+            const maxCount = Math.max(...signupsPerDay.map(d => d.count), 1);
+            const BAR_H = 64;
+            const BAR_W = 32;
+            const GAP   = 10;
+            const total7 = signupsPerDay.reduce((s, d) => s + d.count, 0);
+            return (
+              <div style={{ marginBottom: "36px", paddingBottom: "32px", borderBottom: `1px solid ${RULE}` }}>
+                <div style={{ display: "flex", alignItems: "baseline", gap: "14px", marginBottom: "20px" }}>
+                  <p style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.14em", textTransform: "uppercase", color: ORANGE, margin: 0 }}>
+                    Signups — last 7 days (Sydney)
+                  </p>
+                  <span style={{ fontFamily: MONO, fontSize: "9px", color: MUTED }}>{total7} total</span>
+                </div>
+                <div style={{ display: "flex", alignItems: "flex-end", gap: `${GAP}px` }}>
+                  {signupsPerDay.map(({ date, count }) => {
+                    const barH = count === 0 ? 2 : Math.max(4, Math.round((count / maxCount) * BAR_H));
+                    const label = new Date(date + "T12:00:00+10:00").toLocaleDateString("en-AU", { weekday: "short", day: "numeric", timeZone: "Australia/Sydney" });
+                    return (
+                      <div key={date} style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "6px", width: `${BAR_W}px` }}>
+                        <span style={{ fontFamily: MONO, fontSize: "10px", color: count > 0 ? INK : MUTED }}>{count > 0 ? count : ""}</span>
+                        <div style={{ width: `${BAR_W}px`, height: `${barH}px`, background: count > 0 ? ORANGE : RULE }} />
+                        <span style={{ fontFamily: MONO, fontSize: "8px", color: MUTED, textAlign: "center", whiteSpace: "nowrap", letterSpacing: "0.03em" }}>
+                          {label}
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            );
+          })()}
+
           <p style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.14em", textTransform: "uppercase", color: ORANGE, margin: "0 0 20px" }}>
             Feature popularity · unique users
           </p>
