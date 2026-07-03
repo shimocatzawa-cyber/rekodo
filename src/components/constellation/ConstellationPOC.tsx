@@ -3,6 +3,7 @@
 import { useRef, useEffect, useState, useCallback } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { fetchMBArtist, zoneForTags, mbRelToConstellation } from "@/lib/musicbrainz";
+import { fetchDiscogsArtist } from "@/lib/discogs-artist";
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
@@ -413,7 +414,9 @@ export default function ConstellationPOC({ username }: Props) {
   const influenceRef       = useRef<Map<string, number>>(new Map());
   const spawnAnimsRef      = useRef<{ id: string; birthMs: number }[]>([]);
   const nodePosRef         = useRef<Map<string, [number, number]>>(new Map());
-  const mbEdgesRef         = useRef<Edge[]>([]);
+  const mbEdgesRef             = useRef<Edge[]>([]);
+  const discogsEdgesRef        = useRef<Edge[]>([]);
+  const artistDiscogsIdsRef    = useRef<Map<string, number>>(new Map());
 
   const [selectedArtist, setSelectedArtist] = useState<ArtistNode | null>(null);
   const [selectedEdge,   setSelectedEdge]   = useState<Edge | null>(null);
@@ -452,8 +455,11 @@ export default function ConstellationPOC({ username }: Props) {
       const W = canvas.parentElement!.clientWidth;
       const H = canvas.parentElement!.clientHeight;
 
-      let albumCounts = new Map<string, number>();
-      const topStyles = new Map<string, string[]>(); // artist → top Discogs styles (lowercase)
+      let albumCounts    = new Map<string, number>();
+      const topStyles    = new Map<string, string[]>();
+      const labelArtists    = new Map<string, Set<string>>();
+      const producerArtists = new Map<string, Set<string>>();
+      const discogsIdMap    = new Map<string, number>();
 
       if (username) {
         const supabase = createClient();
@@ -478,11 +484,12 @@ export default function ConstellationPOC({ username }: Props) {
         setTotalRecords(recordIds.length);
 
         setLoadingMsg("Building graph…");
-        const artistStyles = new Map<string, Record<string, number>>(); // artist → style → count
+        const artistStyles = new Map<string, Record<string, number>>();
+
         const BATCH = 400;
         for (let i = 0; i < recordIds.length; i += BATCH) {
           const { data } = await supabase
-            .from("records").select("artist, styles")
+            .from("records").select("artist, styles, label, producers, discogs_artist_id")
             .in("id", recordIds.slice(i, i + BATCH));
           for (const r of data ?? []) {
             if (!r.artist || r.artist === "Various") continue;
@@ -491,6 +498,19 @@ export default function ConstellationPOC({ username }: Props) {
               const styleMap = artistStyles.get(r.artist) ?? {};
               for (const s of r.styles as string[]) styleMap[s] = (styleMap[s] ?? 0) + 1;
               artistStyles.set(r.artist, styleMap);
+            }
+            if (r.label) {
+              const s = labelArtists.get(r.label) ?? new Set<string>();
+              s.add(r.artist); labelArtists.set(r.label, s);
+            }
+            if (r.producers?.length) {
+              for (const p of r.producers as string[]) {
+                const s = producerArtists.get(p) ?? new Set<string>();
+                s.add(r.artist); producerArtists.set(p, s);
+              }
+            }
+            if (r.discogs_artist_id && !discogsIdMap.has(r.artist)) {
+              discogsIdMap.set(r.artist, r.discogs_artist_id);
             }
           }
         }
@@ -569,9 +589,76 @@ export default function ConstellationPOC({ username }: Props) {
       const nodes = [...curatedNodes, ...extraNodes];
 
       const nodeIds = new Set(nodes.map(n => n.id));
-      const edges = CURATED_EDGES
-        .filter(e => nodeIds.has(e.source) && nodeIds.has(e.target))
-        .map(buildEdge);
+
+      // ── Name → node ID lookup for derived edge resolution ─────────────────
+      const nameToId = new Map<string, string>();
+      for (const n of nodes) {
+        nameToId.set(n.name.toLowerCase(), n.id);
+        nameToId.set(n.id.replace(/_/g, " "), n.id);
+      }
+      const resolveId = (name: string): string | null =>
+        nameToId.get(name.toLowerCase()) ?? nameToId.get(toId(name).replace(/_/g, " ")) ?? null;
+
+      // ── Derived label edges from actual collection data ────────────────────
+      // Skip generic/major labels and labels shared by too many artists (not meaningful)
+      const SKIP_LABELS = new Set([
+        "not on label", "promo", "white label", "self-released", "unknown",
+        "capitol records", "columbia", "atlantic", "warner bros.", "warner brothers",
+        "mercury", "epic records", "mca records", "emi", "polydor", "island records",
+        "rca", "geffen records", "interscope", "universal", "sony music", "virgin",
+        "elektra", "reprise records", "chrysalis", "sire records", "london records",
+      ]);
+
+      const derivedEdges: Omit<Edge, "cpDx" | "cpDy">[] = [];
+      const derivedKeys  = new Set<string>(); // deduplicate
+
+      if (username) {
+        for (const [label, artistNames] of labelArtists) {
+          if (SKIP_LABELS.has(label.toLowerCase())) continue;
+          const ids = [...artistNames]
+            .map(resolveId).filter((id): id is string => id !== null && nodeIds.has(id))
+            .filter(id => nodes.find(n => n.id === id)?.owned);
+          if (ids.length < 2 || ids.length > 8) continue; // >8 = probably a major
+          for (let i = 0; i < ids.length; i++) {
+            for (let j = i + 1; j < ids.length; j++) {
+              const key = [ids[i], ids[j]].sort().join("|");
+              if (derivedKeys.has(key)) continue;
+              derivedKeys.add(key);
+              derivedEdges.push({ source: ids[i], target: ids[j], type: "label",
+                weight: 0.72, note: `Both released on ${label}`, via: label });
+            }
+          }
+        }
+
+        for (const [producer, artistNames] of producerArtists) {
+          const ids = [...artistNames]
+            .map(resolveId).filter((id): id is string => id !== null && nodeIds.has(id))
+            .filter(id => nodes.find(n => n.id === id)?.owned);
+          if (ids.length < 2) continue;
+          for (let i = 0; i < ids.length; i++) {
+            for (let j = i + 1; j < ids.length; j++) {
+              const key = [ids[i], ids[j]].sort().join("|");
+              if (derivedKeys.has(key)) continue;
+              derivedKeys.add(key);
+              derivedEdges.push({ source: ids[i], target: ids[j], type: "production",
+                weight: 0.78, note: `Both produced by ${producer}`, via: producer });
+            }
+          }
+        }
+
+        // Store discogs ID map for background enrichment — keyed by node ID
+        const byNodeId = new Map<string, number>();
+        for (const [artistName, discogsId] of discogsIdMap) {
+          const id = resolveId(artistName);
+          if (id && nodeIds.has(id)) byNodeId.set(id, discogsId);
+        }
+        artistDiscogsIdsRef.current = byNodeId;
+      }
+
+      const edges = [
+        ...CURATED_EDGES.filter(e => nodeIds.has(e.source) && nodeIds.has(e.target)),
+        ...derivedEdges.filter(e => nodeIds.has(e.source) && nodeIds.has(e.target)),
+      ].map(buildEdge);
 
       nodesRef.current = nodes;
       edgesRef.current = edges;
@@ -605,7 +692,7 @@ export default function ConstellationPOC({ username }: Props) {
       const ownedNodes = nodesRef.current.filter(n => n.owned);
       const nodeByName = new Map(nodesRef.current.map(n => [n.name.toLowerCase(), n]));
       const existingKeys = new Set(
-        [...edgesRef.current].map(e => `${e.source}|${e.target}`)
+        [...edgesRef.current, ...discogsEdgesRef.current].map(e => `${e.source}|${e.target}`)
       );
 
       const discovered: Edge[] = [];
@@ -652,6 +739,90 @@ export default function ConstellationPOC({ username }: Props) {
     return () => { cancelled = true; };
   }, [isReady, username]);
 
+  // ── Discogs artist background enrichment ─────────────────────────────────────
+  // Fetches member/group data for owned artists that have a discogs_artist_id.
+  // Creates splinter edges between collection artists who share band membership.
+
+  useEffect(() => {
+    if (!isReady || !username) return;
+    let cancelled = false;
+
+    const run = async () => {
+      const nodeByName  = new Map(nodesRef.current.map(n => [n.name.toLowerCase(), n]));
+      const nodeById    = new Map(nodesRef.current.map(n => [n.id, n]));
+      const existingKeys = new Set([
+        ...edgesRef.current,
+        ...mbEdgesRef.current,
+      ].map(e => `${e.source}|${e.target}`));
+
+      const discovered: Edge[] = [];
+
+      for (const [nodeId, discogsId] of artistDiscogsIdsRef.current) {
+        if (cancelled) return;
+        const data = await fetchDiscogsArtist(discogsId);
+        if (!data || cancelled) continue;
+
+        const currentNode = nodeById.get(nodeId);
+        if (!currentNode) continue;
+
+        // namevariations: update display name if the canonical Discogs name is more precise
+        // (we just note it — don't change the node name at runtime)
+
+        // members: if this artist is a band, connect members who are also in the collection
+        for (const member of data.members) {
+          const memberNode = nodeByName.get(member.name.toLowerCase())
+            ?? nodesRef.current.find(n =>
+                n.name.toLowerCase().includes(member.name.toLowerCase()) ||
+                member.name.toLowerCase().includes(n.name.toLowerCase()));
+          if (!memberNode || memberNode.id === nodeId) continue;
+
+          const key    = [nodeId, memberNode.id].sort().join("|");
+          const revKey = [memberNode.id, nodeId].sort().join("|");
+          if (existingKeys.has(key) || existingKeys.has(revKey)) continue;
+          existingKeys.add(key);
+
+          const h = strHash(nodeId + memberNode.id + "dg");
+          discovered.push({
+            source: memberNode.id, target: nodeId,
+            type: "splinter", weight: 0.88,
+            note: `${member.name} is a member of ${data.name} (Discogs)`,
+            cpDx: (seededRng(h) - 0.5) * 80,
+            cpDy: (seededRng(h + 1) - 0.5) * 60,
+          });
+        }
+
+        // groups: if this artist is a person, connect them to groups they belong to
+        for (const group of data.groups) {
+          const groupNode = nodeByName.get(group.name.toLowerCase())
+            ?? nodesRef.current.find(n =>
+                n.name.toLowerCase().includes(group.name.toLowerCase()) ||
+                group.name.toLowerCase().includes(n.name.toLowerCase()));
+          if (!groupNode || groupNode.id === nodeId) continue;
+
+          const key = [nodeId, groupNode.id].sort().join("|");
+          if (existingKeys.has(key)) continue;
+          existingKeys.add(key);
+
+          const h = strHash(nodeId + groupNode.id + "dg");
+          discovered.push({
+            source: nodeId, target: groupNode.id,
+            type: "splinter", weight: 0.88,
+            note: `${data.name} is a member of ${group.name} (Discogs)`,
+            cpDx: (seededRng(h) - 0.5) * 80,
+            cpDy: (seededRng(h + 1) - 0.5) * 60,
+          });
+        }
+
+        if (discovered.length > 0) {
+          discogsEdgesRef.current = [...discovered];
+        }
+      }
+    };
+
+    run();
+    return () => { cancelled = true; };
+  }, [isReady, username]);
+
   // ── Animation loop ────────────────────────────────────────────────────────────
 
   useEffect(() => {
@@ -682,7 +853,7 @@ export default function ConstellationPOC({ username }: Props) {
     function tick() {
       const { W, H } = cssSize();
       const nodes = nodesRef.current;
-      const edges = [...edgesRef.current, ...mbEdgesRef.current];
+      const edges = [...edgesRef.current, ...mbEdgesRef.current, ...discogsEdgesRef.current];
       for (const n of nodes) {
         if (draggingNodeRef.current === n.id) continue;
         if (isFiltered(n)) continue; // filtered-out nodes stay put
@@ -733,7 +904,7 @@ export default function ConstellationPOC({ username }: Props) {
     function render() {
       const { W, H } = cssSize();
       const nodes    = nodesRef.current;
-      const edges    = [...edgesRef.current, ...mbEdgesRef.current];
+      const edges    = [...edgesRef.current, ...mbEdgesRef.current, ...discogsEdgesRef.current];
       const cam      = cameraRef.current;
       const hovered  = hoveredRef.current, selected = selectedRef.current;
       const activeId = hovered || selected;
@@ -1039,7 +1210,7 @@ export default function ConstellationPOC({ username }: Props) {
       const { x: wx, y: wy } = s2w(sx, sy);
       const sc = cameraRef.current.scale;
       const threshold = 10 / sc;
-      for (const e of [...edgesRef.current, ...mbEdgesRef.current]) {
+      for (const e of [...edgesRef.current, ...mbEdgesRef.current, ...discogsEdgesRef.current]) {
         const src = nodesRef.current.find(n => n.id === e.source);
         const tgt = nodesRef.current.find(n => n.id === e.target);
         if (!src || !tgt) continue;
@@ -1151,7 +1322,7 @@ export default function ConstellationPOC({ username }: Props) {
   }, [isReady]);
 
   const getConnections = useCallback((nodeId: string) => {
-    return [...edgesRef.current, ...mbEdgesRef.current]
+    return [...edgesRef.current, ...mbEdgesRef.current, ...discogsEdgesRef.current]
       .filter(e => e.source === nodeId || e.target === nodeId)
       .map(e => {
         const otherId  = e.source === nodeId ? e.target : e.source;
