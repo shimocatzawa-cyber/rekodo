@@ -241,9 +241,9 @@ export default function AdminClient({
     else { setSortKey(key); setSortDir("asc"); }
   }
 
-  async function runBackfill() {
+  async function runBackfill(force = false) {
     setBackfillRunning(true);
-    setBackfillStatus("Starting…");
+    setBackfillStatus(force ? "Force recomputing all…" : "Starting…");
     let offset = 0;
     let totalProcessed = 0;
     try {
@@ -251,13 +251,13 @@ export default function AdminClient({
         const res = await fetch("/api/admin/backfill-archetypes", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ offset }),
+          body: JSON.stringify({ offset, ...(force ? { force: true } : {}) }),
         });
         if (!res.ok) { setBackfillStatus(`Error: ${await res.text()}`); break; }
         const data = await res.json() as { processed: number; skipped: number; nextOffset: number; done: boolean; total: number; cachedTotal: number };
         totalProcessed += data.processed;
         offset = data.nextOffset;
-        setBackfillStatus(`${offset} / ${data.total} profiles checked · ${data.cachedTotal} cached${data.done ? "" : "…"}`);
+        setBackfillStatus(`${offset} / ${data.total} profiles processed${data.done ? "" : "…"}`);
         if (data.done) break;
       }
       setBackfillStatus(`Done — ${totalProcessed} computed this run.`);
@@ -744,11 +744,18 @@ export default function AdminClient({
               Users by archetype
             </p>
             <button
-              onClick={runBackfill}
+              onClick={() => runBackfill(false)}
               disabled={backfillRunning}
               style={{ ...btnSt, opacity: backfillRunning ? 0.5 : 1, cursor: backfillRunning ? "default" : "pointer" }}
             >
               {backfillRunning ? "Running…" : "Backfill all"}
+            </button>
+            <button
+              onClick={() => runBackfill(true)}
+              disabled={backfillRunning}
+              style={{ ...btnSt, opacity: backfillRunning ? 0.5 : 1, cursor: backfillRunning ? "default" : "pointer", marginLeft: "8px" }}
+            >
+              Force recompute all
             </button>
             {backfillStatus && (
               <span style={{ fontFamily: MONO, fontSize: "10px", color: MUTED }}>{backfillStatus}</span>

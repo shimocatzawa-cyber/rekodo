@@ -15,8 +15,9 @@ export async function POST(req: NextRequest) {
   const { data: profile } = await supabase.from("profiles").select("role").eq("id", user.id).maybeSingle();
   if (profile?.role !== "admin") return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
-  const body = await req.json().catch(() => ({})) as { offset?: number };
+  const body = await req.json().catch(() => ({})) as { offset?: number; force?: boolean };
   const offset = typeof body.offset === "number" ? body.offset : 0;
+  const force  = body.force === true;
 
   const adminDb = getAdminDb();
 
@@ -25,14 +26,14 @@ export async function POST(req: NextRequest) {
   const [{ count: totalProfiles }, profilesResult, cachedResult] = await Promise.all([
     adminDb.from("profiles").select("*", { count: "exact", head: true }),
     adminDb.from("profiles").select("id").range(offset, offset + BATCH - 1),
-    adminDb.from("archetype_cache").select("user_id").limit(10000),
+    force ? Promise.resolve({ data: [] as { user_id: string }[] }) : adminDb.from("archetype_cache").select("user_id").limit(10000),
   ]);
 
   const total   = totalProfiles ?? 0;
   const profiles = profilesResult.data ?? [];
-  const cached  = new Set((cachedResult.data ?? []).map(r => r.user_id as string));
+  const cached  = new Set((cachedResult.data ?? []).map((r: { user_id: string }) => r.user_id));
 
-  const todo = profiles.filter(p => !cached.has(p.id as string));
+  const todo = force ? profiles : profiles.filter(p => !cached.has(p.id as string));
 
   let processed = 0;
   let skipped   = 0;
