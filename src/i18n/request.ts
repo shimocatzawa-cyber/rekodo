@@ -4,7 +4,7 @@ import { cookies } from "next/headers";
 export default getRequestConfig(async () => {
   const cookieStore = await cookies();
   const locale = cookieStore.get("locale")?.value ?? "en";
-  const validLocales = ["en", "ja", "de", "pt"];
+  const validLocales = ["en", "ja", "de", "pt", "fr"];
   const resolvedLocale = validLocales.includes(locale) ? locale : "en";
 
   return {

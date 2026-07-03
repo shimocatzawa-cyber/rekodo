@@ -446,7 +446,7 @@ const FAQ_SECTIONS: { section: string; items: { q: string; a: React.ReactNode }[
       },
       {
         q: "What languages does rekōdo support?",
-        a: "rekōdo is available in English, Japanese (日本語), German (Deutsch), and Brazilian Portuguese (Português). Switch language using the selector next to your username in the top navigation bar.",
+        a: "rekōdo is available in English, Japanese (日本語), German (Deutsch), Brazilian Portuguese (Português), and French (Français). Switch language using the selector next to your username in the top navigation bar.",
       },
     ],
   },

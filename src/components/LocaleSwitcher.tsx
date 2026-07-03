@@ -7,6 +7,7 @@ const LOCALES: { value: string; label: string }[] = [
   { value: "ja", label: "日本語" },
   { value: "de", label: "Deutsch" },
   { value: "pt", label: "Português" },
+  { value: "fr", label: "Français" },
 ];
 
 export default function LocaleSwitcher({ locale }: { locale: string }) {
