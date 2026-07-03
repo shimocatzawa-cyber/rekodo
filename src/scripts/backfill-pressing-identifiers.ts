@@ -143,6 +143,7 @@ async function main() {
     discogs_id: string;
     artist: string;
     album: string;
+    barcode: string | null;
     format: string | null;
     country: string | null;
     vinyl_colour: string | null;
@@ -173,7 +174,7 @@ async function main() {
     if (!data?.length) break;
 
     totalScanned += data.length;
-    for (const row of data as (typeof allRecords[0] & { barcode: string | null })[]) {
+    for (const row of data as typeof allRecords[0][]) {
       if (!row.discogs_id) continue;
       // Include if any key field is still missing — the patch logic is null-safe
       // and will never overwrite a field that already has a value.
@@ -221,14 +222,11 @@ async function main() {
         continue;
       }
 
-      // barcode/matrix are safe sentinels — they are new fields that didn't
-      // exist before this script ran, so writing '' / [] can never wipe real data.
-      // country, vinyl_colour, producers are NOT included here — they may already
-      // have real values and must only be written from the API response.
-      const patch: Record<string, unknown> = {
-        barcode: '',
-        matrix:  [],
-      };
+      // Only seed the barcode/matrix defaults when the record has never had them
+      // set — if barcode is non-null (populated by a prior run) and the API call
+      // below fails, we must not wipe an existing value back to '' / [].
+      const patch: Record<string, unknown> = {};
+      if (record.barcode === null) { patch.barcode = ''; patch.matrix = []; }
 
       if (res.ok) {
         const rd = await res.json() as {
