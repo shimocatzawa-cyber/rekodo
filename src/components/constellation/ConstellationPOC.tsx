@@ -5,12 +5,13 @@ import { createClient } from "@/lib/supabase/client";
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
-type RelType = "splinter" | "collaboration" | "influence" | "scene";
+type RelType = "splinter" | "collaboration" | "influence" | "scene" | "label" | "production";
 
 interface ArtistNode {
   id: string;
   name: string;
   albums: number;
+  owned: boolean;
   x: number; y: number; vx: number; vy: number;
   radius: number;
 }
@@ -19,6 +20,7 @@ interface Edge {
   source: string; target: string;
   type: RelType; weight: number;
   note: string;
+  via?: string;
   cpDx: number; cpDy: number;
 }
 
@@ -26,77 +28,85 @@ interface Camera { x: number; y: number; scale: number; }
 
 // ── Design tokens ──────────────────────────────────────────────────────────────
 
-const INK    = "#0a0a0a";
-const ORANGE = "#CC5500";
-const WHITE  = "#ffffff";
-const MONO   = '"DM Mono", "Courier New", monospace';
-const SERIF  = '"Shippori Mincho", Georgia, serif';
+const BG      = "#06091a";   // star-field canvas/loading background
+const SURFACE = "#0c1128";   // panel background
+const INK     = "#ddd8cc";   // warm star-white — labels, text, UI
+const ORANGE  = "#CC5500";   // rekōdo brand — selection / active
+const WHITE   = "#ffffff";   // pure white — star cores
+const EDGE_C  = "rgba(140,170,240,1)"; // pale blue-white constellation lines
+const MONO    = '"DM Mono", "Courier New", monospace';
+const SERIF   = '"Shippori Mincho", Georgia, serif';
 
 // ── Curated relationship graph ─────────────────────────────────────────────────
-// Based on music knowledge — not genre tags.
-// Only relationships we can state with confidence.
 
 const CURATED_EDGES: Omit<Edge, "cpDx" | "cpDy">[] = [
   // Folk / Americana lineage
-  { source: "bob_dylan",          target: "neil_young",           type: "influence",     weight: 0.90, note: "Dylan's electric turn gave Young permission to go there" },
-  { source: "bob_dylan",          target: "townes_van_zandt",     type: "influence",     weight: 0.95, note: "Van Zandt carried Dylan's weight into darker country" },
-  { source: "bob_dylan",          target: "ryan_adams",           type: "influence",     weight: 0.80, note: "Adams called Dylan his north star, repeatedly" },
-  { source: "bob_dylan",          target: "smog",                 type: "influence",     weight: 0.65, note: "Callahan's language and cadence owes Dylan" },
-  { source: "townes_van_zandt",   target: "ryan_adams",           type: "influence",     weight: 0.85, note: "Adams covered Townes; cites him as formative" },
-  { source: "townes_van_zandt",   target: "bonnie_prince_billy",  type: "influence",     weight: 0.75, note: "Will Oldham counts Van Zandt among his few heroes" },
-  { source: "townes_van_zandt",   target: "songs_ohia",           type: "influence",     weight: 0.80, note: "Jason Molina's entire outlook is a Townes descendant" },
-  { source: "neil_young",         target: "wilco",                type: "influence",     weight: 0.75, note: "Tweedy draws from Young's distorted rawness" },
-  { source: "neil_young",         target: "big_thief",            type: "influence",     weight: 0.70, note: "Adrianne Lenker has named Young's vulnerability" },
-  { source: "neil_young",         target: "devendra_banhart",     type: "influence",     weight: 0.60, note: "The acoustic pastoral thread runs through Banhart" },
-  { source: "john_fahey",         target: "m_ward",               type: "influence",     weight: 0.90, note: "Fahey's American Primitive is the foundation under Ward" },
-  { source: "john_fahey",         target: "devendra_banhart",     type: "influence",     weight: 0.75, note: "Banhart names Fahey as a central influence" },
-  { source: "john_fahey",         target: "bonnie_prince_billy",  type: "influence",     weight: 0.70, note: "Will Oldham's fingerpicking owes Fahey directly" },
-  { source: "smog",               target: "songs_ohia",           type: "scene",         weight: 0.90, note: "Callahan and Molina — Drag City, same era, mutual admirers" },
-  { source: "bonnie_prince_billy",target: "songs_ohia",           type: "scene",         weight: 0.80, note: "Will Oldham and Jason Molina ran almost identical lives" },
-  { source: "bonnie_prince_billy",target: "devendra_banhart",     type: "scene",         weight: 0.65, note: "Both part of the freak folk / American Primitive revival" },
-  { source: "devendra_banhart",   target: "big_thief",            type: "scene",         weight: 0.65, note: "Banhart championed early Big Thief, scene peers" },
-  { source: "m_ward",             target: "devendra_banhart",     type: "scene",         weight: 0.60, note: "Shared the same late-2000s folk revival orbit" },
+  { source: "bob_dylan",          target: "neil_young",           type: "influence",  weight: 0.90, note: "Dylan's electric turn gave Young permission to go there" },
+  { source: "bob_dylan",          target: "townes_van_zandt",     type: "influence",  weight: 0.95, note: "Van Zandt carried Dylan's weight into darker country" },
+  { source: "bob_dylan",          target: "ryan_adams",           type: "influence",  weight: 0.80, note: "Adams called Dylan his north star, repeatedly" },
+  { source: "bob_dylan",          target: "smog",                 type: "influence",  weight: 0.65, note: "Callahan's language and cadence owes Dylan" },
+  { source: "townes_van_zandt",   target: "ryan_adams",           type: "influence",  weight: 0.85, note: "Adams covered Townes; cites him as formative" },
+  { source: "townes_van_zandt",   target: "bonnie_prince_billy",  type: "influence",  weight: 0.75, note: "Will Oldham counts Van Zandt among his few heroes" },
+  { source: "townes_van_zandt",   target: "songs_ohia",           type: "influence",  weight: 0.80, note: "Jason Molina's entire outlook is a Townes descendant" },
+  { source: "neil_young",         target: "wilco",                type: "influence",  weight: 0.75, note: "Tweedy draws from Young's distorted rawness" },
+  { source: "neil_young",         target: "big_thief",            type: "influence",  weight: 0.70, note: "Adrianne Lenker has named Young's vulnerability" },
+  { source: "neil_young",         target: "devendra_banhart",     type: "influence",  weight: 0.60, note: "The acoustic pastoral thread runs through Banhart" },
+  { source: "john_fahey",         target: "m_ward",               type: "influence",  weight: 0.90, note: "Fahey's American Primitive is the foundation under Ward" },
+  { source: "john_fahey",         target: "devendra_banhart",     type: "influence",  weight: 0.75, note: "Banhart names Fahey as a central influence" },
+  { source: "john_fahey",         target: "bonnie_prince_billy",  type: "influence",  weight: 0.70, note: "Will Oldham's fingerpicking owes Fahey directly" },
+  { source: "smog",               target: "songs_ohia",           type: "scene",      weight: 0.90, note: "Callahan and Molina — Drag City, same era, mutual admirers" },
+  { source: "bonnie_prince_billy",target: "songs_ohia",           type: "scene",      weight: 0.80, note: "Will Oldham and Jason Molina ran almost identical lives" },
+  { source: "bonnie_prince_billy",target: "devendra_banhart",     type: "scene",      weight: 0.65, note: "Both part of the freak folk / American Primitive revival" },
+  { source: "devendra_banhart",   target: "big_thief",            type: "scene",      weight: 0.65, note: "Banhart championed early Big Thief, scene peers" },
+  { source: "m_ward",             target: "devendra_banhart",     type: "scene",      weight: 0.60, note: "Shared the same late-2000s folk revival orbit" },
 
   // Dark / Gothic arc
-  { source: "the_birthday_party", target: "nick_cave",            type: "splinter",      weight: 1.00, note: "The Birthday Party dissolved; Cave formed NCATBS with members" },
-  { source: "tom_waits",          target: "nick_cave",            type: "influence",     weight: 0.85, note: "Cave has named Waits a formative voice" },
-  { source: "lee_hazlewood",      target: "tom_waits",            type: "influence",     weight: 0.70, note: "Hazlewood's dark baritone Americana prefigures Waits" },
+  { source: "the_birthday_party", target: "nick_cave",            type: "splinter",   weight: 1.00, note: "The Birthday Party dissolved; Cave formed NCATBS with members" },
+  { source: "tom_waits",          target: "nick_cave",            type: "influence",  weight: 0.85, note: "Cave has named Waits a formative voice" },
+  { source: "lee_hazlewood",      target: "tom_waits",            type: "influence",  weight: 0.70, note: "Hazlewood's dark baritone Americana prefigures Waits" },
   { source: "nick_cave",          target: "pj_harvey",            type: "collaboration", weight: 0.95, note: "Recorded 'Henry Lee' together on Murder Ballads (1996)" },
-  { source: "nina_simone",        target: "pj_harvey",            type: "influence",     weight: 0.75, note: "Harvey has cited Simone's directness as essential" },
-  { source: "nina_simone",        target: "mazzy_star",           type: "influence",     weight: 0.65, note: "Hope Sandoval's tone carries Simone's twilight weight" },
-  { source: "tom_waits",          target: "ryan_adams",           type: "influence",     weight: 0.65, note: "Waits's broken-down Americana echoes in Adams" },
-  { source: "emma_ruth_rundle",   target: "pj_harvey",            type: "influence",     weight: 0.60, note: "Rundle's post-folk darkness traces Harvey's line" },
+  { source: "nina_simone",        target: "pj_harvey",            type: "influence",  weight: 0.75, note: "Harvey has cited Simone's directness as essential" },
+  { source: "nina_simone",        target: "mazzy_star",           type: "influence",  weight: 0.65, note: "Hope Sandoval's tone carries Simone's twilight weight" },
+  { source: "tom_waits",          target: "ryan_adams",           type: "influence",  weight: 0.65, note: "Waits's broken-down Americana echoes in Adams" },
+  { source: "emma_ruth_rundle",   target: "pj_harvey",            type: "influence",  weight: 0.60, note: "Rundle's post-folk darkness traces Harvey's line" },
 
   // Psychedelic rock chain
-  { source: "the_beatles",        target: "the_doors",            type: "influence",     weight: 0.75, note: "The British Invasion gave Morrison permission to be strange" },
-  { source: "the_beatles",        target: "neil_young",           type: "influence",     weight: 0.65, note: "Young absorbed Beatle melodicism early on" },
-  { source: "the_doors",          target: "dead_meadow",          type: "influence",     weight: 0.90, note: "Dead Meadow are The Doors at lower BPM — same hypnosis" },
-  { source: "pink_floyd",         target: "dead_meadow",          type: "influence",     weight: 0.85, note: "The lysergic heavy-psych lineage is unbroken" },
-  { source: "pink_floyd",         target: "radiohead",            type: "influence",     weight: 0.80, note: "Yorke has cited Wish You Were Here specifically" },
-  { source: "can",                target: "radiohead",            type: "influence",     weight: 0.90, note: "Can is Yorke's most-cited influence for Kid A onward" },
-  { source: "can",                target: "pink_floyd",           type: "scene",         weight: 0.70, note: "Kosmische and Pink Floyd shared studio experiments" },
-  { source: "radiohead",          target: "bjork",                type: "scene",         weight: 0.80, note: "Mutual admiration; shared producers (Godrich, Hooper)" },
-  { source: "the_dandy_warhols",  target: "dead_meadow",          type: "scene",         weight: 0.65, note: "Both part of the early 2000s psychedelic rock revival" },
-  { source: "r_e_m",              target: "wilco",                type: "scene",         weight: 0.65, note: "REM's American alt-rock paved the ground Wilco walks" },
+  { source: "the_beatles",        target: "the_doors",            type: "influence",  weight: 0.75, note: "The British Invasion gave Morrison permission to be strange" },
+  { source: "the_beatles",        target: "neil_young",           type: "influence",  weight: 0.65, note: "Young absorbed Beatle melodicism early on" },
+  { source: "the_doors",          target: "dead_meadow",          type: "influence",  weight: 0.90, note: "Dead Meadow are The Doors at lower BPM — same hypnosis" },
+  { source: "pink_floyd",         target: "dead_meadow",          type: "influence",  weight: 0.85, note: "The lysergic heavy-psych lineage is unbroken" },
+  { source: "pink_floyd",         target: "radiohead",            type: "influence",  weight: 0.80, note: "Yorke has cited Wish You Were Here specifically" },
+  { source: "can",                target: "radiohead",            type: "influence",  weight: 0.90, note: "Can is Yorke's most-cited influence for Kid A onward" },
+  { source: "can",                target: "pink_floyd",           type: "scene",      weight: 0.70, note: "Kosmische and Pink Floyd shared studio experiments" },
+  { source: "radiohead",          target: "bjork",                type: "scene",      weight: 0.80, note: "Mutual admiration; shared producers (Godrich, Hooper)" },
+  { source: "the_dandy_warhols",  target: "dead_meadow",          type: "scene",      weight: 0.65, note: "Both part of the early 2000s psychedelic rock revival" },
+  { source: "r_e_m",              target: "wilco",                type: "scene",      weight: 0.65, note: "REM's American alt-rock paved the ground Wilco walks" },
 
   // Noise / avant-garde
-  { source: "thurston_moore",     target: "nirvana",              type: "influence",     weight: 0.90, note: "Moore championed Cobain; Sonic Youth directly enabled Nirvana" },
-  { source: "thurston_moore",     target: "devendra_banhart",     type: "influence",     weight: 0.55, note: "Moore's anti-folk blessing opened doors for Banhart" },
-  { source: "nirvana",            target: "big_thief",            type: "influence",     weight: 0.65, note: "Adrianne Lenker has cited Cobain's unguarded rawness" },
+  { source: "thurston_moore",     target: "nirvana",              type: "influence",  weight: 0.90, note: "Moore championed Cobain; Sonic Youth directly enabled Nirvana" },
+  { source: "thurston_moore",     target: "devendra_banhart",     type: "influence",  weight: 0.55, note: "Moore's anti-folk blessing opened doors for Banhart" },
+  { source: "nirvana",            target: "big_thief",            type: "influence",  weight: 0.65, note: "Adrianne Lenker has cited Cobain's unguarded rawness" },
 
   // Electronic / ambient thread
-  { source: "bjork",              target: "grouper",              type: "influence",     weight: 0.70, note: "Liz Harris (Grouper) echoes Björk's textural intimacy" },
-  { source: "grouper",            target: "kali_malone",          type: "scene",         weight: 0.80, note: "Both work with drone, silence, and minimal organ composition" },
-  { source: "mazzy_star",         target: "grouper",              type: "influence",     weight: 0.70, note: "Mazzy Star's gauze-wrapped sound prefigures Grouper's fog" },
-  { source: "mazzy_star",         target: "htrk",                 type: "scene",         weight: 0.65, note: "Shared aesthetic: texture and mood over rhythm" },
+  { source: "bjork",              target: "grouper",              type: "influence",  weight: 0.70, note: "Liz Harris (Grouper) echoes Björk's textural intimacy" },
+  { source: "grouper",            target: "kali_malone",          type: "scene",      weight: 0.80, note: "Both work with drone, silence, and minimal organ composition" },
+  { source: "mazzy_star",         target: "grouper",              type: "influence",  weight: 0.70, note: "Mazzy Star's gauze-wrapped sound prefigures Grouper's fog" },
+  { source: "mazzy_star",         target: "htrk",                 type: "scene",      weight: 0.65, note: "Shared aesthetic: texture and mood over rhythm" },
 
   // Jazz thread
-  { source: "miles_davis",        target: "nina_simone",          type: "scene",         weight: 0.80, note: "Peers at the height of American jazz's golden era" },
-  { source: "miles_davis",        target: "can",                  type: "influence",     weight: 0.70, note: "Miles's Bitches Brew is a direct ancestor of Kosmische" },
+  { source: "miles_davis",        target: "nina_simone",          type: "scene",      weight: 0.80, note: "Peers at the height of American jazz's golden era" },
+  { source: "miles_davis",        target: "can",                  type: "influence",  weight: 0.70, note: "Miles's Bitches Brew is a direct ancestor of Kosmische" },
+
+  // Label connections
+  { source: "smog",               target: "bonnie_prince_billy",  type: "label",      weight: 0.80, note: "Long-term Drag City labelmates — same roster, same audience", via: "Drag City" },
+
+  // Producer connections
+  { source: "pj_harvey",          target: "nirvana",              type: "production", weight: 0.85, note: "Both recorded defining albums with Steve Albini — Rid of Me (1993) and In Utero (1993)", via: "Steve Albini" },
 ];
 
-// Hand-placed initial positions (xFrac, yFrac of canvas)
-// Americana left → dark gothic bottom → rock/psych center → electronic right
+// ── Hand-placed positions ──────────────────────────────────────────────────────
+// Americana left → dark gothic bottom → rock/psych center-right → electronic far right
+
 const POSITIONS: Record<string, [number, number]> = {
   // Twin suns — top center
   bob_dylan:          [0.42, 0.24],
@@ -166,6 +176,27 @@ const INSIGHTS = [
   { heading: "Can bridges your worlds", body: "One of the only nodes connecting the folk/rock cluster to the electronic cluster. Miles Davis → Can → Radiohead → the rest." },
 ];
 
+// ── Genre watermarks — placed to match cluster regions ────────────────────────
+// xF/yF are fractions of the canvas; match the POSITIONS of nearby artists.
+
+const GENRE_MARKS = [
+  { text: "FOLK",              xF: 0.08, yF: 0.46, size: 62, rot: -0.06 }, // john_fahey region
+  { text: "AMERICANA",         xF: 0.18, yF: 0.80, size: 44, rot:  0.04 }, // smog/songs_ohia region
+  { text: "SINGER-SONGWRITER", xF: 0.36, yF: 0.16, size: 28, rot: -0.03 }, // bob_dylan/neil_young area
+  { text: "ALT-COUNTRY",       xF: 0.50, yF: 0.40, size: 32, rot:  0.02 }, // wilco area (not psychedelic!)
+  { text: "COUNTRY",           xF: 0.20, yF: 0.88, size: 38, rot:  0.05 }, // townes/lee_hazlewood area
+  { text: "GOTHIC",            xF: 0.46, yF: 0.82, size: 44, rot:  0.06 }, // nick_cave/birthday_party area
+  { text: "BLUES",             xF: 0.64, yF: 0.74, size: 40, rot: -0.04 }, // nina_simone area
+  { text: "PSYCHEDELIC",       xF: 0.70, yF: 0.28, size: 52, rot:  0.03 }, // pink_floyd/doors area
+  { text: "KRAUTROCK",         xF: 0.82, yF: 0.20, size: 44, rot: -0.07 }, // can area
+  { text: "NOISE ROCK",        xF: 0.76, yF: 0.52, size: 36, rot:  0.05 }, // nirvana/thurston area
+  { text: "AVANT-GARDE",       xF: 0.38, yF: 0.54, size: 32, rot: -0.05 }, // general experimental
+  { text: "DRONE",             xF: 0.88, yF: 0.76, size: 54, rot: -0.04 }, // grouper/kali_malone area
+  { text: "AMBIENT",           xF: 0.90, yF: 0.88, size: 38, rot:  0.06 }, // far right bottom
+  { text: "ELECTRONIC",        xF: 0.92, yF: 0.28, size: 48, rot: -0.03 }, // skee_mask/bjork area
+  { text: "JAZZ",              xF: 0.58, yF: 0.56, size: 60, rot: -0.02 }, // miles_davis area
+];
+
 // ── Utilities ──────────────────────────────────────────────────────────────────
 
 function seededRng(seed: number) {
@@ -188,6 +219,8 @@ const REL_LABEL: Record<RelType, string> = {
   collaboration: "Collaborated",
   influence:     "Influenced",
   scene:         "Scene peers",
+  label:         "Same label",
+  production:    "Same producer",
 };
 
 const REL_VERB: Record<RelType, string> = {
@@ -195,6 +228,8 @@ const REL_VERB: Record<RelType, string> = {
   collaboration: "↔ collaborated with",
   influence:     "→ influenced",
   scene:         "↔ scene peers with",
+  label:         "↔ labelmates",
+  production:    "↔ produced by",
 };
 
 // ── Component ──────────────────────────────────────────────────────────────────
@@ -202,30 +237,30 @@ const REL_VERB: Record<RelType, string> = {
 interface Props { username?: string; }
 
 export default function ConstellationPOC({ username }: Props) {
-  const canvasRef       = useRef<HTMLCanvasElement>(null);
-  const nodesRef        = useRef<ArtistNode[]>([]);
-  const edgesRef        = useRef<Edge[]>([]);
-  const animRef         = useRef<number>(0);
-  const hoveredRef      = useRef<string | null>(null);
+  const canvasRef          = useRef<HTMLCanvasElement>(null);
+  const nodesRef           = useRef<ArtistNode[]>([]);
+  const edgesRef           = useRef<Edge[]>([]);
+  const animRef            = useRef<number>(0);
+  const hoveredRef         = useRef<string | null>(null);
   const selectedRef        = useRef<string | null>(null);
   const selectedEdgeKeyRef = useRef<string | null>(null);
-  const draggingNodeRef = useRef<string | null>(null);
-  const isPanningRef    = useRef(false);
-  const mouseDownPosRef = useRef({ x: 0, y: 0 });
-  const panLastRef      = useRef({ x: 0, y: 0 });
-  const cameraRef       = useRef<Camera>({ x: 0, y: 0, scale: 1 });
-  const targetCamRef    = useRef<Camera>({ x: 0, y: 0, scale: 1 });
-  const autoZoomRef     = useRef(false);
-  const dprRef          = useRef(1);
-  const influenceRef    = useRef<Map<string, number>>(new Map());
-  const spawnAnimsRef   = useRef<{ id: string; birthMs: number }[]>([]);
+  const draggingNodeRef    = useRef<string | null>(null);
+  const isPanningRef       = useRef(false);
+  const mouseDownPosRef    = useRef({ x: 0, y: 0 });
+  const panLastRef         = useRef({ x: 0, y: 0 });
+  const cameraRef          = useRef<Camera>({ x: 0, y: 0, scale: 1 });
+  const targetCamRef       = useRef<Camera>({ x: 0, y: 0, scale: 1 });
+  const autoZoomRef        = useRef(false);
+  const dprRef             = useRef(1);
+  const influenceRef       = useRef<Map<string, number>>(new Map());
+  const spawnAnimsRef      = useRef<{ id: string; birthMs: number }[]>([]);
 
-  const [selectedArtist,  setSelectedArtist]  = useState<ArtistNode | null>(null);
-  const [selectedEdge,    setSelectedEdge]    = useState<Edge | null>(null);
-  const [isReady,         setIsReady]         = useState(false);
-  const [loadingMsg,      setLoadingMsg]      = useState<string | null>(username ? "Loading collection…" : null);
-  const [totalRecords,    setTotalRecords]    = useState(0);
-  const [insightIdx,      setInsightIdx]      = useState(0);
+  const [selectedArtist, setSelectedArtist] = useState<ArtistNode | null>(null);
+  const [selectedEdge,   setSelectedEdge]   = useState<Edge | null>(null);
+  const [isReady,        setIsReady]        = useState(false);
+  const [loadingMsg,     setLoadingMsg]     = useState<string | null>(username ? "Loading collection…" : null);
+  const [totalRecords,   setTotalRecords]   = useState(0);
+  const [insightIdx,     setInsightIdx]     = useState(0);
 
   // ── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -293,26 +328,24 @@ export default function ConstellationPOC({ username }: Props) {
         }
       }
 
-      // Build nodes: for each artist in POSITIONS, use real album count if available
-      // For demo mode, use seeded placeholder counts
+      // Show all curated artists; mark owned vs discovery
       const nodes: ArtistNode[] = Object.entries(POSITIONS).map(([id, [xF, yF]]) => {
-        // Find the display name from curated edges
         const displayName = findDisplayName(id) ?? id.replace(/_/g, " ");
         const exactCount  = albumCounts.get(displayName);
-        // Fuzzy match: also try case-insensitive partial
         const count = exactCount ?? fuzzyCount(displayName, albumCounts) ?? (username ? 0 : Math.floor(seededRng(strHash(id)) * 10 + 3));
+        const owned = !username || count > 0;
         const h = strHash(id);
         return {
           id, name: displayName,
           albums: count,
+          owned,
           x: xF * W + (seededRng(h)     - 0.5) * 40,
           y: yF * H + (seededRng(h + 1) - 0.5) * 40,
           vx: 0, vy: 0,
-          radius: 6 + Math.sqrt(count) * 2.4,
+          radius: owned ? 6 + Math.sqrt(count) * 2.4 : 7,
         };
-      }).filter(n => n.albums > 0 || !username); // in real mode, hide zero-count artists
+      });
 
-      // Build edges (only where both nodes exist)
       const nodeIds = new Set(nodes.map(n => n.id));
       const edges = CURATED_EDGES
         .filter(e => nodeIds.has(e.source) && nodeIds.has(e.target))
@@ -362,14 +395,11 @@ export default function ConstellationPOC({ username }: Props) {
       const nodes = nodesRef.current, edges = edgesRef.current;
       for (const n of nodes) {
         if (draggingNodeRef.current === n.id) continue;
-        // Very gentle center gravity
         n.vx += (W * 0.5 - n.x) * 0.0002;
         n.vy += (H * 0.5 - n.y) * 0.0002;
-        // Home position gravity (much stronger — keeps layout stable)
         const [hxF, hyF] = POSITIONS[n.id] ?? [0.5, 0.5];
         n.vx += (hxF * W - n.x) * 0.006;
         n.vy += (hyF * H - n.y) * 0.006;
-        // Node repulsion
         for (const o of nodes) {
           if (o.id === n.id) continue;
           const dx = n.x - o.x, dy = n.y - o.y;
@@ -377,7 +407,6 @@ export default function ConstellationPOC({ username }: Props) {
           const minD = n.radius + o.radius + 18;
           if (d < minD * 2.5) { const f = 800 / d2; n.vx += (dx/d)*f; n.vy += (dy/d)*f; }
         }
-        // Edge springs (gentle — home position is primary)
         for (const e of edges) {
           const isS = e.source === n.id, isT = e.target === n.id;
           if (!isS && !isT) continue;
@@ -398,7 +427,6 @@ export default function ConstellationPOC({ username }: Props) {
       }
     }
 
-    // Camera lerp
     function lerpCamera() {
       if (!autoZoomRef.current) return;
       const c = cameraRef.current, t = targetCamRef.current, k = 0.09;
@@ -419,7 +447,7 @@ export default function ConstellationPOC({ username }: Props) {
       const influence = influenceRef.current;
       const spawns    = spawnAnimsRef.current;
 
-      ctx.fillStyle = WHITE; ctx.fillRect(0, 0, W, H);
+      ctx.fillStyle = BG; ctx.fillRect(0, 0, W, H);
 
       const selEdgeKey     = selectedEdgeKeyRef.current;
       const activeEdgeKeys = new Set<string>();
@@ -444,30 +472,13 @@ export default function ConstellationPOC({ username }: Props) {
       ctx.translate(cam.x, cam.y);
       ctx.scale(cam.scale, cam.scale);
 
-      // ── Layer 0: Genre / style watermarks ────────────────────────────────
-      const GENRES = [
-        { text: "FOLK",              xF: 0.10, yF: 0.42, size: 62, rot: -0.06 },
-        { text: "AMERICANA",         xF: 0.22, yF: 0.74, size: 48, rot:  0.04 },
-        { text: "SINGER-SONGWRITER", xF: 0.16, yF: 0.26, size: 32, rot: -0.03 },
-        { text: "COUNTRY",           xF: 0.28, yF: 0.88, size: 44, rot:  0.05 },
-        { text: "BLUES",             xF: 0.44, yF: 0.90, size: 52, rot: -0.04 },
-        { text: "GOTHIC",            xF: 0.52, yF: 0.70, size: 40, rot:  0.06 },
-        { text: "AVANT-GARDE",       xF: 0.36, yF: 0.54, size: 36, rot: -0.05 },
-        { text: "PSYCHEDELIC",       xF: 0.60, yF: 0.38, size: 56, rot:  0.03 },
-        { text: "KRAUTROCK",         xF: 0.72, yF: 0.20, size: 48, rot: -0.07 },
-        { text: "NOISE ROCK",        xF: 0.76, yF: 0.52, size: 40, rot:  0.05 },
-        { text: "DRONE",             xF: 0.84, yF: 0.66, size: 58, rot: -0.04 },
-        { text: "AMBIENT",           xF: 0.88, yF: 0.82, size: 44, rot:  0.06 },
-        { text: "ELECTRONIC",        xF: 0.90, yF: 0.32, size: 50, rot: -0.03 },
-        { text: "POST-ROCK",         xF: 0.80, yF: 0.90, size: 34, rot:  0.07 },
-        { text: "JAZZ",              xF: 0.58, yF: 0.56, size: 66, rot: -0.02 },
-      ];
-      for (const m of GENRES) {
+      // ── Layer 0: Genre watermarks ──────────────────────────────────────────
+      for (const m of GENRE_MARKS) {
         ctx.save();
         ctx.translate(m.xF * W, m.yF * H);
         ctx.rotate(m.rot);
         ctx.font = `700 ${m.size}px ${MONO}`;
-        ctx.fillStyle = "rgba(10,10,10,0.028)";
+        ctx.fillStyle = "rgba(255,255,255,0.032)";
         ctx.textAlign = "center"; ctx.textBaseline = "middle";
         ctx.fillText(m.text, 0, 0);
         ctx.restore();
@@ -489,32 +500,45 @@ export default function ConstellationPOC({ username }: Props) {
         ctx.quadraticCurveTo(mx, my, tgt.x, tgt.y);
 
         if (isActive) {
-          ctx.globalAlpha = 0.92;
+          ctx.globalAlpha = 0.90;
           ctx.strokeStyle = ORANGE;
-          ctx.lineWidth   = e.type === "splinter" ? 3.0
+          ctx.lineWidth   = e.type === "splinter"     ? 3.0
                           : e.type === "collaboration" ? 2.0
-                          : e.type === "influence" ? 1.5
-                          : 1.0;
-          ctx.setLineDash(e.type === "influence" ? [7, 5] : e.type === "scene" ? [2, 4] : []);
+                          : e.type === "production"    ? 1.8
+                          : e.type === "influence"     ? 1.5
+                          : e.type === "label"         ? 1.4
+                          :                             1.0; // scene
+          ctx.setLineDash(e.type === "influence"  ? [7, 5]
+                        : e.type === "scene"      ? [2, 4]
+                        : e.type === "label"      ? [8, 4]
+                        : e.type === "production" ? [3, 2, 8, 2]
+                        : []);
         } else {
-          const baseAlpha = e.type === "splinter" ? 0.55
+          const baseAlpha = e.type === "splinter"     ? 0.55
                           : e.type === "collaboration" ? 0.35
-                          : e.type === "influence" ? 0.18
-                          : 0.10;
-          ctx.globalAlpha = activeId ? baseAlpha * 0.3 : baseAlpha;
-          ctx.strokeStyle = INK;
-          ctx.lineWidth   = e.type === "splinter" ? 2.5
+                          : e.type === "production"    ? 0.30
+                          : e.type === "influence"     ? 0.22
+                          : e.type === "label"         ? 0.20
+                          :                             0.14; // scene
+          ctx.globalAlpha = hasSelection ? baseAlpha * 0.25 : baseAlpha;
+          ctx.strokeStyle = EDGE_C;
+          ctx.lineWidth   = e.type === "splinter"     ? 2.5
                           : e.type === "collaboration" ? 1.5
-                          : e.type === "influence" ? 1.0
-                          : 0.6;
-          ctx.setLineDash(e.type === "influence" ? [6, 4] : e.type === "scene" ? [2, 4] : []);
+                          : e.type === "production"    ? 1.4
+                          : e.type === "influence"     ? 1.0
+                          : e.type === "label"         ? 1.0
+                          :                             0.6; // scene
+          ctx.setLineDash(e.type === "influence"  ? [6, 4]
+                        : e.type === "scene"      ? [2, 4]
+                        : e.type === "label"      ? [8, 4]
+                        : e.type === "production" ? [3, 2, 8, 2]
+                        : []);
         }
         ctx.stroke();
         ctx.setLineDash([]);
 
-        // Arrow for directional edges (influence/splinter)
-        if ((e.type === "influence" || e.type === "splinter") && (isActive || !activeId)) {
-          // Place arrow at 65% along the curve
+        // Arrow for directional edges
+        if ((e.type === "influence" || e.type === "splinter") && (isActive || !hasSelection)) {
           const t2 = 0.65;
           const ax = (1-t2)*(1-t2)*src.x + 2*(1-t2)*t2*mx + t2*t2*tgt.x;
           const ay = (1-t2)*(1-t2)*src.y + 2*(1-t2)*t2*my + t2*t2*tgt.y;
@@ -531,16 +555,19 @@ export default function ConstellationPOC({ username }: Props) {
           ctx.stroke();
         }
 
-        // Relationship label on active edge
+        // Label chip on active edge
         if (isActive) {
           const lx = (src.x + tgt.x) / 2 + e.cpDx * 0.5;
           const ly = (src.y + tgt.y) / 2 + e.cpDy * 0.5;
-          ctx.globalAlpha = 0.85;
+          ctx.globalAlpha = 0.88;
           ctx.font = `400 8px ${MONO}`;
-          const label = e.type === "splinter" ? "BECAME" : e.type.toUpperCase();
+          const label = e.type === "splinter" ? "BECAME"
+                      : e.type === "production" ? "ALBINI"
+                      : e.type === "label" ? e.via?.toUpperCase() ?? "LABEL"
+                      : e.type.toUpperCase();
           const tw = ctx.measureText(label).width;
-          ctx.fillStyle = WHITE;
-          ctx.fillRect(lx - tw/2 - 4, ly - 7, tw + 8, 13);
+          ctx.fillStyle = BG;
+          ctx.fillRect(lx - tw/2 - 5, ly - 7, tw + 10, 14);
           ctx.fillStyle = ORANGE;
           ctx.textAlign = "center"; ctx.textBaseline = "middle";
           ctx.fillText(label, lx, ly);
@@ -548,7 +575,7 @@ export default function ConstellationPOC({ username }: Props) {
         ctx.restore();
       }
 
-      // ── Layer 2: Node ink blots + crowns ──────────────────────────────────
+      // ── Layer 2: Nodes ─────────────────────────────────────────────────────
       const sorted = [...nodes].sort((a, b) => b.radius - a.radius);
       for (const node of sorted) {
         const isHov  = hovered  === node.id;
@@ -562,48 +589,69 @@ export default function ConstellationPOC({ username }: Props) {
         const r = node.radius * spawnSc;
 
         ctx.save();
-        ctx.globalAlpha = isDim ? 0.12 : 1;
 
-        // Selected orange ring (before blot so it shows behind)
+        if (!node.owned) {
+          // Discovery node — faint dashed ring in constellation blue
+          const ghostAlpha = isDim ? 0.06 : isAct ? 0.90 : 0.35;
+          ctx.globalAlpha = ghostAlpha;
+          ctx.beginPath(); ctx.arc(node.x, node.y, r, 0, Math.PI * 2);
+          ctx.strokeStyle = isAct ? ORANGE : "rgba(140,170,240,0.8)";
+          ctx.lineWidth = isAct ? 1.8 : 1;
+          ctx.setLineDash([3, 4]);
+          ctx.stroke();
+          ctx.setLineDash([]);
+          if (isSel) {
+            ctx.globalAlpha = 0.30;
+            ctx.beginPath(); ctx.arc(node.x, node.y, r + 9, 0, Math.PI * 2);
+            ctx.strokeStyle = ORANGE; ctx.lineWidth = 1;
+            ctx.stroke();
+          }
+          ctx.restore();
+          continue;
+        }
+
+        ctx.globalAlpha = isDim ? 0.10 : 1;
+
+        // Orange selection ring
         if (isSel) {
           ctx.beginPath(); ctx.arc(node.x, node.y, r + 10, 0, Math.PI * 2);
           ctx.strokeStyle = ORANGE; ctx.lineWidth = 1.5;
-          ctx.globalAlpha = 0.5; ctx.stroke(); ctx.globalAlpha = 1;
+          ctx.globalAlpha = 0.45; ctx.stroke(); ctx.globalAlpha = 1;
         }
 
-        // Ink blot — radial gradient simulating ink on paper
-        const blotR  = r * (1.0 + inf * 0.5); // more influential = more bleed
-        const grad   = ctx.createRadialGradient(node.x, node.y, 0, node.x, node.y, blotR);
-        grad.addColorStop(0,    isAct ? ORANGE : INK);
-        grad.addColorStop(0.62, isAct ? ORANGE : INK);
-        grad.addColorStop(0.82, isAct ? "rgba(204,85,0,0.5)" : "rgba(10,10,10,0.5)");
-        grad.addColorStop(1.0,  "rgba(10,10,10,0.0)");
+        // Star glow — radial gradient (warm white → transparent)
+        const blotR = r * (1.0 + inf * 0.5);
+        const grad  = ctx.createRadialGradient(node.x, node.y, 0, node.x, node.y, blotR);
+        grad.addColorStop(0,    isAct ? ORANGE              : "rgba(232,225,205,1)");
+        grad.addColorStop(0.50, isAct ? ORANGE              : "rgba(220,212,190,0.65)");
+        grad.addColorStop(0.78, isAct ? "rgba(204,85,0,0.4)": "rgba(205,198,175,0.18)");
+        grad.addColorStop(1.0,  "rgba(200,190,165,0.0)");
         ctx.beginPath(); ctx.arc(node.x, node.y, blotR, 0, Math.PI * 2);
         ctx.fillStyle = grad; ctx.fill();
 
-        // White centre (the star within)
-        ctx.beginPath(); ctx.arc(node.x, node.y, r * 0.13, 0, Math.PI * 2);
+        // Bright star core
+        ctx.beginPath(); ctx.arc(node.x, node.y, r * 0.22, 0, Math.PI * 2);
         ctx.fillStyle = WHITE; ctx.fill();
 
         // Crown for high-influence artists
         if (inf >= 0.68 && !isDim) {
-          const cs = 6 + (inf - 0.68) * 16;
-          const cy = node.y - blotR - 4;
+          const cs  = 6 + (inf - 0.68) * 16;
+          const cy  = node.y - blotR - 4;
           const col = isAct ? ORANGE : INK;
-          const h2 = strHash(node.id + "c");
-          const j = (i: number) => (seededRng(h2 + i * 4.1) - 0.5) * cs * 0.08;
-          ctx.globalAlpha = isDim ? 0.1 : 0.75 + inf * 0.25;
+          const h2  = strHash(node.id + "c");
+          const j   = (i: number) => (seededRng(h2 + i * 4.1) - 0.5) * cs * 0.08;
+          ctx.globalAlpha = 0.75 + inf * 0.25;
           ctx.beginPath();
-          ctx.moveTo(node.x - cs     + j(0), cy          + j(1));
-          ctx.lineTo(node.x - cs*0.5 + j(2), cy - cs*0.9 + j(3));
-          ctx.lineTo(node.x - cs*0.18+ j(4), cy - cs*0.25+ j(5));
-          ctx.lineTo(node.x          + j(6), cy - cs*1.3 + j(7));
-          ctx.lineTo(node.x + cs*0.18+ j(8), cy - cs*0.25+ j(9));
-          ctx.lineTo(node.x + cs*0.5 + j(10),cy - cs*0.9 + j(11));
-          ctx.lineTo(node.x + cs     + j(12),cy          + j(13));
+          ctx.moveTo(node.x - cs      + j(0),  cy            + j(1));
+          ctx.lineTo(node.x - cs*0.5  + j(2),  cy - cs*0.9   + j(3));
+          ctx.lineTo(node.x - cs*0.18 + j(4),  cy - cs*0.25  + j(5));
+          ctx.lineTo(node.x           + j(6),  cy - cs*1.3   + j(7));
+          ctx.lineTo(node.x + cs*0.18 + j(8),  cy - cs*0.25  + j(9));
+          ctx.lineTo(node.x + cs*0.5  + j(10), cy - cs*0.9   + j(11));
+          ctx.lineTo(node.x + cs      + j(12), cy            + j(13));
           ctx.strokeStyle = col; ctx.lineWidth = 1.8;
           ctx.lineJoin = "round"; ctx.lineCap = "round"; ctx.stroke();
-          ctx.globalAlpha = isDim ? 0.12 : 1;
+          ctx.globalAlpha = isDim ? 0.10 : 1;
         }
 
         // Spawn ripples
@@ -613,7 +661,7 @@ export default function ConstellationPOC({ username }: Props) {
             if (rt <= 0) continue;
             ctx.beginPath(); ctx.arc(node.x, node.y, blotR * (1 + rt * 2), 0, Math.PI * 2);
             ctx.strokeStyle = INK; ctx.lineWidth = 0.8;
-            ctx.globalAlpha = (1 - rt) * 0.4; ctx.stroke();
+            ctx.globalAlpha = (1 - rt) * 0.3; ctx.stroke();
           }
         }
         ctx.restore();
@@ -627,7 +675,7 @@ export default function ConstellationPOC({ username }: Props) {
         const spawn = spawns.find(s => s.id === node.id);
         const spawnT = spawn ? (now - spawn.birthMs) / 480 : 1;
         if (spawnT < 0.3) continue;
-        const blotR = node.radius * (1.0 + inf * 0.5) * (spawnT < 1 ? easeOutBack(clamp(spawnT, 0, 1)) : 1);
+        const blotR = node.radius * (node.owned ? (1.0 + inf * 0.5) : 1) * (spawnT < 1 ? easeOutBack(clamp(spawnT, 0, 1)) : 1);
 
         const h = strHash(node.id);
         const tilt = (seededRng(h + 7) - 0.5) * 0.025;
@@ -638,19 +686,23 @@ export default function ConstellationPOC({ username }: Props) {
         const fs    = isAct ? 11 + node.radius * 0.20 : 9 + node.radius * 0.14;
 
         ctx.save();
-        ctx.globalAlpha = isDim ? 0.10 : clamp(spawnT, 0, 1);
+        ctx.globalAlpha = isDim ? 0.08 : clamp(spawnT, 0, 1);
         ctx.translate(node.x, node.y + blotR + (isAct ? 14 : 11));
         ctx.rotate(tilt);
-        ctx.font      = isAct ? `600 ${fs}px ${SERIF}` : `400 ${fs}px ${SERIF}`;
-        ctx.fillStyle = isAct ? ORANGE : INK;
+        ctx.font      = isAct ? `600 ${fs}px ${SERIF}`
+                      : node.owned ? `400 ${fs}px ${SERIF}`
+                      : `300 italic ${fs * 0.88}px ${SERIF}`;
+        ctx.fillStyle = isAct ? ORANGE
+                      : node.owned ? INK
+                      : "rgba(140,170,240,0.55)";
         ctx.textAlign = "center"; ctx.textBaseline = "top";
         ctx.fillText(line1, 0, 0);
         if (line2) ctx.fillText(line2, 0, fs + 1);
         if (isAct) {
           const lineH = line2 ? (fs + 1) * 2 : fs + 1;
           ctx.font = `400 8px ${MONO}`;
-          ctx.fillStyle = "#999";
-          ctx.fillText(`${node.albums} records`, 0, lineH + 4);
+          ctx.fillStyle = "rgba(220,213,195,0.6)";
+          ctx.fillText(node.owned ? `${node.albums} records` : "not in collection", 0, lineH + 4);
         }
         ctx.restore();
       }
@@ -677,13 +729,12 @@ export default function ConstellationPOC({ username }: Props) {
       const sc = cameraRef.current.scale;
       for (const n of [...nodesRef.current].reverse()) {
         const inf = influenceRef.current.get(n.id) ?? 0;
-        const blotR = n.radius * (1.0 + inf * 0.5);
+        const blotR = n.owned ? n.radius * (1.0 + inf * 0.5) : n.radius;
         const dx = wx - n.x, dy = wy - n.y;
         if (Math.sqrt(dx*dx + dy*dy) <= blotR + 8 / sc) return n;
       }
       return null;
     }
-
     function hitEdge(sx: number, sy: number): Edge | null {
       const { x: wx, y: wy } = s2w(sx, sy);
       const sc = cameraRef.current.scale;
@@ -806,7 +857,7 @@ export default function ConstellationPOC({ username }: Props) {
         const otherId  = e.source === nodeId ? e.target : e.source;
         const other    = nodesRef.current.find(n => n.id === otherId);
         const isSource = e.source === nodeId;
-        return { node: other!, type: e.type, weight: e.weight, note: e.note, isSource };
+        return { node: other!, type: e.type, weight: e.weight, note: e.note, via: e.via, isSource };
       })
       .filter(c => c.node)
       .sort((a, b) => b.weight - a.weight);
@@ -822,14 +873,18 @@ export default function ConstellationPOC({ username }: Props) {
   const edgeSrc = selectedEdge ? (nodesRef.current.find(n => n.id === selectedEdge.source) ?? null) : null;
   const edgeTgt = selectedEdge ? (nodesRef.current.find(n => n.id === selectedEdge.target) ?? null) : null;
 
+  const DIM2 = "rgba(220,213,195,0.45)"; // secondary text on dark bg
+  const DIM3 = "rgba(220,213,195,0.28)"; // tertiary text on dark bg
+  const BORD = "rgba(220,213,195,0.10)"; // panel borders
+
   return (
-    <div className="relative w-full h-screen overflow-hidden select-none" style={{ background: WHITE }}>
+    <div className="relative w-full h-screen overflow-hidden select-none" style={{ background: BG }}>
 
       {/* Loading */}
       {loadingMsg && (
-        <div className="absolute inset-0 z-50 flex flex-col items-center justify-center" style={{ background: WHITE }}>
+        <div className="absolute inset-0 z-50 flex flex-col items-center justify-center" style={{ background: BG }}>
           <p style={{ fontFamily: SERIF, fontSize: "22px", color: INK, marginBottom: "10px" }}>Collector Constellation</p>
-          <p style={{ fontFamily: MONO, fontSize: "9px", color: "#bbb", letterSpacing: "0.22em", textTransform: "uppercase" }}>{loadingMsg}</p>
+          <p style={{ fontFamily: MONO, fontSize: "9px", color: DIM3, letterSpacing: "0.22em", textTransform: "uppercase" }}>{loadingMsg}</p>
         </div>
       )}
 
@@ -839,15 +894,15 @@ export default function ConstellationPOC({ username }: Props) {
       {/* Header */}
       {isReady && (
         <div className="absolute top-6 left-7 z-10 pointer-events-none">
-          <p style={{ fontFamily: MONO, fontSize: "8px", color: "#ccc", letterSpacing: "0.25em", textTransform: "uppercase", marginBottom: "3px" }}>
+          <p style={{ fontFamily: MONO, fontSize: "8px", color: DIM3, letterSpacing: "0.25em", textTransform: "uppercase", marginBottom: "3px" }}>
             Rekōdo {username ? `· @${username}` : ""}
           </p>
           <h1 style={{ fontFamily: SERIF, fontSize: "19px", fontWeight: 700, lineHeight: 1.25, color: INK, margin: 0 }}>
             Collector<br />Constellation
           </h1>
           {totalRecords > 0 && (
-            <p style={{ fontFamily: MONO, fontSize: "8px", color: "#bbb", marginTop: "6px", letterSpacing: "0.08em" }}>
-              {totalRecords.toLocaleString()} records · {nodesRef.current.filter(n => n.albums > 0).length} artists
+            <p style={{ fontFamily: MONO, fontSize: "8px", color: DIM3, marginTop: "6px", letterSpacing: "0.08em" }}>
+              {totalRecords.toLocaleString()} records · {nodesRef.current.filter(n => n.owned).length} artists
             </p>
           )}
         </div>
@@ -855,37 +910,43 @@ export default function ConstellationPOC({ username }: Props) {
 
       {/* Legend */}
       {isReady && (
-        <div className="absolute top-6 right-6 z-10" style={{ minWidth: 148 }}>
-          <div style={{ background: WHITE, border: `1px solid rgba(10,10,10,0.12)`, padding: "14px 16px" }}>
-            <p style={{ fontFamily: MONO, fontSize: "7px", color: "#bbb", letterSpacing: "0.22em", textTransform: "uppercase", marginBottom: "10px" }}>
+        <div className="absolute top-6 right-6 z-10" style={{ minWidth: 156 }}>
+          <div style={{ background: SURFACE, border: `1px solid ${BORD}`, padding: "14px 16px" }}>
+            <p style={{ fontFamily: MONO, fontSize: "7px", color: DIM3, letterSpacing: "0.22em", textTransform: "uppercase", marginBottom: "10px" }}>
               Connection type
             </p>
-            {(["splinter", "collaboration", "influence", "scene"] as RelType[]).map(t => (
+            {(["splinter", "collaboration", "influence", "scene", "label", "production"] as RelType[]).map(t => (
               <div key={t} style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "6px" }}>
                 <svg width="22" height="8" style={{ flexShrink: 0 }}>
                   <line x1="0" y1="4" x2="22" y2="4" stroke={INK}
-                    strokeWidth={t === "splinter" ? 2.2 : t === "collaboration" ? 1.4 : t === "influence" ? 1 : 0.6}
-                    strokeDasharray={t === "influence" ? "5,3" : t === "scene" ? "2,3" : undefined}
-                    strokeOpacity={t === "scene" ? 0.4 : 0.8}
+                    strokeWidth={t === "splinter" ? 2.2 : t === "collaboration" || t === "production" ? 1.4 : t === "influence" || t === "label" ? 1 : 0.6}
+                    strokeDasharray={t === "influence" ? "5,3" : t === "scene" ? "2,3" : t === "label" ? "8,4" : t === "production" ? "3,2,8,2" : undefined}
+                    strokeOpacity={t === "scene" ? 0.35 : 0.75}
                   />
                   {(t === "influence" || t === "splinter") && (
-                    <polygon points="17,1 22,4 17,7" fill={INK} fillOpacity={0.7} />
+                    <polygon points="17,1 22,4 17,7" fill={INK} fillOpacity={0.65} />
                   )}
                 </svg>
-                <span style={{ fontFamily: MONO, fontSize: "8px", color: "#666" }}>{REL_LABEL[t]}</span>
+                <span style={{ fontFamily: MONO, fontSize: "8px", color: DIM2 }}>{REL_LABEL[t]}</span>
               </div>
             ))}
-            <div style={{ marginTop: "10px", paddingTop: "10px", borderTop: "1px solid rgba(0,0,0,0.08)" }}>
-              <p style={{ fontFamily: MONO, fontSize: "7px", color: "#bbb", lineHeight: 1.6 }}>
+            <div style={{ marginTop: "10px", paddingTop: "10px", borderTop: `1px solid ${BORD}` }}>
+              <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "5px" }}>
+                <svg width="22" height="8" style={{ flexShrink: 0 }}>
+                  <circle cx="11" cy="4" r="3.5" fill="none" stroke="rgba(140,170,240,0.7)" strokeWidth="1" strokeDasharray="3,3" />
+                </svg>
+                <span style={{ fontFamily: MONO, fontSize: "8px", color: DIM2 }}>Not in collection</span>
+              </div>
+              <p style={{ fontFamily: MONO, fontSize: "7px", color: DIM3, lineHeight: 1.6, marginTop: "6px" }}>
                 ♛ Crown = high influence<br />
-                Node size = records owned<br />
-                Ink depth = connections
+                Star size = records owned<br />
+                Glow depth = connections
               </p>
             </div>
           </div>
           <button
             onClick={() => { selectedRef.current = null; setSelectedArtist(null); selectedEdgeKeyRef.current = null; setSelectedEdge(null); targetCamRef.current = { x: 0, y: 0, scale: 1 }; autoZoomRef.current = true; }}
-            style={{ marginTop: "6px", width: "100%", fontFamily: MONO, fontSize: "7px", letterSpacing: "0.14em", textTransform: "uppercase", color: "#aaa", background: WHITE, border: "1px solid rgba(0,0,0,0.12)", padding: "7px", cursor: "pointer" }}
+            style={{ marginTop: "6px", width: "100%", fontFamily: MONO, fontSize: "7px", letterSpacing: "0.14em", textTransform: "uppercase", color: DIM3, background: SURFACE, border: `1px solid ${BORD}`, padding: "7px", cursor: "pointer" }}
           >
             Reset view
           </button>
@@ -895,21 +956,21 @@ export default function ConstellationPOC({ username }: Props) {
       {/* Insight panel */}
       {isReady && !selectedArtist && !selectedEdge && (
         <div className="absolute bottom-6 left-7 z-10" style={{ maxWidth: 260 }}>
-          <div style={{ borderLeft: `2px solid ${INK}`, paddingLeft: "14px" }}>
-            <p style={{ fontFamily: MONO, fontSize: "7px", color: "#bbb", letterSpacing: "0.22em", textTransform: "uppercase", marginBottom: "6px" }}>
+          <div style={{ borderLeft: `2px solid rgba(220,213,195,0.25)`, paddingLeft: "14px" }}>
+            <p style={{ fontFamily: MONO, fontSize: "7px", color: DIM3, letterSpacing: "0.22em", textTransform: "uppercase", marginBottom: "6px" }}>
               Observation {insightIdx + 1} / {INSIGHTS.length}
             </p>
             <p style={{ fontFamily: SERIF, fontSize: "14px", fontWeight: 600, color: INK, lineHeight: 1.3, marginBottom: "6px" }}>
               {INSIGHTS[insightIdx].heading}
             </p>
-            <p style={{ fontFamily: MONO, fontSize: "9px", color: "#666", lineHeight: 1.65 }}>
+            <p style={{ fontFamily: MONO, fontSize: "9px", color: DIM2, lineHeight: 1.65 }}>
               {INSIGHTS[insightIdx].body}
             </p>
           </div>
           <div style={{ display: "flex", gap: "5px", marginTop: "8px" }}>
             {INSIGHTS.map((_, i) => (
               <button key={i} onClick={() => setInsightIdx(i)}
-                style={{ width: 18, height: 2, background: i === insightIdx ? INK : "#ddd", border: "none", cursor: "pointer", padding: 0 }} />
+                style={{ width: 18, height: 2, background: i === insightIdx ? INK : "rgba(220,213,195,0.2)", border: "none", cursor: "pointer", padding: 0 }} />
             ))}
           </div>
         </div>
@@ -917,20 +978,27 @@ export default function ConstellationPOC({ username }: Props) {
 
       {/* Edge panel */}
       {isReady && selectedEdge && !selectedArtist && edgeSrc && edgeTgt && (
-        <div className="absolute bottom-6 left-7 z-10" style={{ width: 265, background: WHITE, border: `1px solid rgba(10,10,10,0.14)` }}>
+        <div className="absolute bottom-6 left-7 z-10" style={{ width: 265, background: SURFACE, border: `1px solid ${BORD}` }}>
           <div style={{ padding: "18px" }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "14px" }}>
-              <p style={{ fontFamily: MONO, fontSize: "7px", color: "#bbb", letterSpacing: "0.22em", textTransform: "uppercase" }}>
-                {REL_LABEL[selectedEdge.type]}
-              </p>
-              <button onClick={() => { selectedEdgeKeyRef.current = null; setSelectedEdge(null); }} style={{ fontFamily: MONO, fontSize: "10px", color: "#ccc", background: "none", border: "none", cursor: "pointer" }}>✕</button>
+              <div>
+                <p style={{ fontFamily: MONO, fontSize: "7px", color: DIM3, letterSpacing: "0.22em", textTransform: "uppercase" }}>
+                  {REL_LABEL[selectedEdge.type]}
+                </p>
+                {selectedEdge.via && (
+                  <p style={{ fontFamily: MONO, fontSize: "7px", color: ORANGE, letterSpacing: "0.12em", marginTop: "2px" }}>
+                    via {selectedEdge.via}
+                  </p>
+                )}
+              </div>
+              <button onClick={() => { selectedEdgeKeyRef.current = null; setSelectedEdge(null); }} style={{ fontFamily: MONO, fontSize: "10px", color: DIM3, background: "none", border: "none", cursor: "pointer" }}>✕</button>
             </div>
             <div style={{ marginBottom: "14px" }}>
               <p style={{ fontFamily: SERIF, fontSize: "15px", fontWeight: 700, color: INK, margin: 0 }}>{edgeSrc.name}</p>
               <p style={{ fontFamily: MONO, fontSize: "8px", color: ORANGE, margin: "5px 0" }}>{REL_VERB[selectedEdge.type]}</p>
               <p style={{ fontFamily: SERIF, fontSize: "15px", fontWeight: 700, color: INK, margin: 0 }}>{edgeTgt.name}</p>
             </div>
-            <p style={{ fontFamily: MONO, fontSize: "9px", color: "#666", lineHeight: 1.65, margin: 0 }}>
+            <p style={{ fontFamily: MONO, fontSize: "9px", color: DIM2, lineHeight: 1.65, margin: 0 }}>
               {selectedEdge.note}
             </p>
           </div>
@@ -939,7 +1007,7 @@ export default function ConstellationPOC({ username }: Props) {
 
       {/* Artist panel */}
       {selectedArtist && (
-        <div className="absolute bottom-6 left-7 z-10" style={{ width: 265, background: WHITE, border: `1px solid rgba(10,10,10,0.14)` }}>
+        <div className="absolute bottom-6 left-7 z-10" style={{ width: 265, background: SURFACE, border: `1px solid ${BORD}` }}>
           <div style={{ padding: "18px" }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
               <div>
@@ -948,30 +1016,38 @@ export default function ConstellationPOC({ username }: Props) {
                     ♛ Influential
                   </p>
                 )}
+                {!selectedArtist.owned && (
+                  <p style={{ fontFamily: MONO, fontSize: "7px", color: "rgba(140,170,240,0.7)", letterSpacing: "0.18em", textTransform: "uppercase", marginBottom: "3px" }}>
+                    ◌ Discovery
+                  </p>
+                )}
               </div>
-              <button onClick={dismiss} style={{ fontFamily: MONO, fontSize: "10px", color: "#ccc", background: "none", border: "none", cursor: "pointer" }}>✕</button>
+              <button onClick={dismiss} style={{ fontFamily: MONO, fontSize: "10px", color: DIM3, background: "none", border: "none", cursor: "pointer" }}>✕</button>
             </div>
             <h2 style={{ fontFamily: SERIF, fontSize: "18px", fontWeight: 700, color: INK, lineHeight: 1.2, margin: "4px 0 10px" }}>
               {selectedArtist.name}
             </h2>
-            <p style={{ fontFamily: MONO, fontSize: "8px", color: "#aaa", marginBottom: "14px" }}>
-              {selectedArtist.albums} records in collection
+            <p style={{ fontFamily: MONO, fontSize: "8px", color: DIM3, marginBottom: "14px" }}>
+              {selectedArtist.owned ? `${selectedArtist.albums} records in collection` : "Not in your collection"}
             </p>
 
             {getConnections(selectedArtist.id).length > 0 && (
-              <div style={{ borderTop: "1px solid rgba(0,0,0,0.08)", paddingTop: "12px" }}>
-                <p style={{ fontFamily: MONO, fontSize: "7px", color: "#bbb", letterSpacing: "0.2em", textTransform: "uppercase", marginBottom: "10px" }}>
+              <div style={{ borderTop: `1px solid ${BORD}`, paddingTop: "12px" }}>
+                <p style={{ fontFamily: MONO, fontSize: "7px", color: DIM3, letterSpacing: "0.2em", textTransform: "uppercase", marginBottom: "10px" }}>
                   Connections
                 </p>
-                {getConnections(selectedArtist.id).slice(0, 6).map(({ node, type, note, isSource }) => (
+                {getConnections(selectedArtist.id).slice(0, 6).map(({ node, type, note, via, isSource }) => (
                   <div key={node.id} style={{ marginBottom: "12px" }}>
                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
                       <p style={{ fontFamily: SERIF, fontSize: "13px", fontWeight: 600, color: INK, margin: 0 }}>{node.name}</p>
-                      <span style={{ fontFamily: MONO, fontSize: "7px", color: "#bbb", flexShrink: 0, marginLeft: "8px" }}>
+                      <span style={{ fontFamily: MONO, fontSize: "7px", color: DIM3, flexShrink: 0, marginLeft: "8px" }}>
                         {isSource ? "→" : "←"} {REL_LABEL[type].toLowerCase()}
                       </span>
                     </div>
-                    <p style={{ fontFamily: MONO, fontSize: "8px", color: "#888", lineHeight: 1.5, margin: "3px 0 0" }}>{note}</p>
+                    {via && (
+                      <p style={{ fontFamily: MONO, fontSize: "7px", color: ORANGE, margin: "2px 0 0" }}>via {via}</p>
+                    )}
+                    <p style={{ fontFamily: MONO, fontSize: "8px", color: DIM2, lineHeight: 1.5, margin: "3px 0 0" }}>{note}</p>
                   </div>
                 ))}
               </div>
@@ -983,7 +1059,7 @@ export default function ConstellationPOC({ username }: Props) {
       {/* Bottom hint */}
       {isReady && !selectedArtist && !selectedEdge && (
         <div className="absolute bottom-6 right-6 z-10 pointer-events-none">
-          <p style={{ fontFamily: MONO, fontSize: "7px", color: "#ccc", letterSpacing: "0.2em", textTransform: "uppercase" }}>
+          <p style={{ fontFamily: MONO, fontSize: "7px", color: DIM3, letterSpacing: "0.2em", textTransform: "uppercase" }}>
             Scroll · Drag · Click
           </p>
         </div>
@@ -992,10 +1068,9 @@ export default function ConstellationPOC({ username }: Props) {
   );
 }
 
-// ── Helpers outside component ──────────────────────────────────────────────────
+// ── Helpers ────────────────────────────────────────────────────────────────────
 
 function findDisplayName(id: string): string | null {
-  // Reconstruct display name from curated edge source/target IDs
   const known: Record<string, string> = {
     bob_dylan:              "Bob Dylan",
     neil_young:             "Neil Young",
