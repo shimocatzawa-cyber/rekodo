@@ -11,6 +11,7 @@ import {
   compatibilityLabel,
   CACHE_TTL_MS,
 } from "@/lib/compatibility";
+import { starSignCompatibility } from "@/lib/starSignCompatibility";
 
 export const dynamic = "force-dynamic";
 
@@ -33,13 +34,17 @@ export async function GET(request: NextRequest) {
 
   // ── Check cache ───────────────────────────────────────────────────────────
   const cacheExpiry = new Date(Date.now() - CACHE_TTL_MS).toISOString();
-  const { data: cachedRows } = await supabase
-    .from("compatibility_scores")
-    .select("user_id_b, score, shared_tags")
-    .eq("user_id_a", userId)
-    .gt("calculated_at", cacheExpiry)
-    .order("score", { ascending: false })
-    .limit(1000);
+  const [{ data: cachedRows }, { data: ownerProfile }] = await Promise.all([
+    supabase
+      .from("compatibility_scores")
+      .select("user_id_b, score, shared_tags")
+      .eq("user_id_a", userId)
+      .gt("calculated_at", cacheExpiry)
+      .order("score", { ascending: false })
+      .limit(1000),
+    supabase.from("profiles").select("star_sign").eq("id", userId).maybeSingle(),
+  ]);
+  const ownerStarSign = ownerProfile?.star_sign ?? null;
 
   // ── Helpers used by both cache and fresh paths ────────────────────────────
   async function enrichMatches(rows: { user_id_b: string; score: number; style_score?: number; shared_tags: string[] }[]) {
@@ -50,7 +55,7 @@ export async function GET(request: NextRequest) {
     // single .in() select can silently truncate at PostgREST's default row
     // cap when the matched users have large collections.
     const [profilesRes, followerRes, followingRes] = await Promise.all([
-      supabase.from("profiles").select("id, username, display_name, avatar_url, city, country, is_donor, is_test").in("id", ids),
+      supabase.from("profiles").select("id, username, display_name, avatar_url, city, country, is_donor, is_test, star_sign").in("id", ids),
       supabase.from("follows").select("following_id").in("following_id", ids),
       viewer
         ? supabase.from("follows").select("following_id").eq("follower_id", viewer.id).in("following_id", ids)
@@ -83,20 +88,21 @@ export async function GET(request: NextRequest) {
       if (!p || p.is_test) return null;
       const { label, description } = compatibilityLabel(row.score);
       return {
-        userId:        p.id,
-        username:      p.username,
-        displayName:   p.display_name,
-        avatarUrl:     p.avatar_url ?? null,
-        location:      p.city && p.country ? `${p.city}, ${p.country}` : (p.city ?? null),
-        recordCount:   recCounts.get(p.id) ?? 0,
-        followerCount: followerCounts.get(p.id) ?? 0,
-        score:         row.score,
-        styleScore:    row.style_score ?? 0,
+        userId:         p.id,
+        username:       p.username,
+        displayName:    p.display_name,
+        avatarUrl:      p.avatar_url ?? null,
+        location:       p.city && p.country ? `${p.city}, ${p.country}` : (p.city ?? null),
+        recordCount:    recCounts.get(p.id) ?? 0,
+        followerCount:  followerCounts.get(p.id) ?? 0,
+        score:          row.score,
+        styleScore:     row.style_score ?? 0,
+        starSignScore:  starSignCompatibility(ownerStarSign, p.star_sign),
         label,
         description,
-        sharedTags:    row.shared_tags ?? [],
-        isFollowing:   viewerFollowing.has(p.id),
-        isDonor:       p.is_donor ?? false,
+        sharedTags:     row.shared_tags ?? [],
+        isFollowing:    viewerFollowing.has(p.id),
+        isDonor:        p.is_donor ?? false,
       };
     }).filter(Boolean);
   }

@@ -34,6 +34,7 @@ type Match = {
   recordCount: number;
   score: number;
   styleScore: number;
+  starSignScore: number | null;
   label: string;
   description: string;
   sharedTags: string[];
@@ -132,7 +133,13 @@ function MatchCard({ match, isFollowing, canFollow, onFollow }: {
       <div>
         <span style={{ fontFamily: MONO, fontSize: "0.5rem", letterSpacing: "0.08em", textTransform: "uppercase", color: ORANGE }}>{match.score}% Collection Similarity</span>
         <br />
-        <span style={{ fontFamily: MONO, fontSize: "0.5rem", letterSpacing: "0.08em", textTransform: "uppercase", color: "#888" }}>{match.styleScore}% Style Similarity</span>
+        <span style={{ fontFamily: MONO, fontSize: "0.5rem", letterSpacing: "0.08em", textTransform: "uppercase", color: "#888" }}>{match.styleScore}% Style</span>
+        {match.starSignScore !== null && (
+          <>
+            <span style={{ fontFamily: MONO, fontSize: "0.5rem", color: "#888" }}> · </span>
+            <span style={{ fontFamily: MONO, fontSize: "0.5rem", letterSpacing: "0.08em", textTransform: "uppercase", color: "#7c6b9e" }}>{match.starSignScore}% Star Sign</span>
+          </>
+        )}
         <p style={{ fontFamily: SERIF, fontStyle: "italic", fontSize: "0.85rem", color: "#505050", lineHeight: 1.4, margin: "5px 0 0" }}>
           {match.label}
         </p>
