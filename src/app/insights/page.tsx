@@ -295,11 +295,13 @@ export default async function InsightsPage() {
     : false;
 
   const lifespanCounts = new Map<string, number>();
-  for (const d of addedDates) {
+  for (const link of allLinks) {
+    const d = link.date_added ? new Date(link.date_added) : null;
+    if (!d || isNaN(d.getTime())) continue;
     const key = lifespanByYear
       ? String(d.getFullYear())
       : `${MONTH_NAMES[d.getMonth()]} ${d.getFullYear()}`;
-    lifespanCounts.set(key, (lifespanCounts.get(key) ?? 0) + 1);
+    lifespanCounts.set(key, (lifespanCounts.get(key) ?? 0) + (link.copies ?? 1));
   }
   const collectionLifespan = [...lifespanCounts.entries()]
     .map(([period, count]) => ({
