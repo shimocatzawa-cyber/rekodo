@@ -881,7 +881,7 @@ ${JSON_SCHEMA}`;
     // so future digs (any session/device) don't repeat them and can learn
     // from what's accepted, dismissed, or shown repeatedly with no action.
     if (mode === "discover" || mode === "style") {
-      const rows = (recommendations as Array<{ artist?: string; album?: string; genre?: string; region?: string; sub_style?: string }>)
+      const rows = (recommendations as Array<{ artist?: string; album?: string; genre?: string; region?: string; sub_style?: string; reason?: string }>)
         .filter((r) => r.artist && r.album)
         .map((r) => ({
           user_id: user.id, artist: r.artist, album: r.album, mode,
@@ -889,6 +889,7 @@ ${JSON_SCHEMA}`;
           sub_style: mode === "style" ? (r.sub_style ?? null) : null,
           style: mode === "style" ? style : null,
           angle: digAngleUsed,
+          reason: r.reason ?? null,
         }));
       if (rows.length > 0) after(() => (supabase as any).from("dig_history").insert(rows));
     }

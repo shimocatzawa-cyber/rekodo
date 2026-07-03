@@ -573,35 +573,8 @@ function NavBar({ idx, total, onNav, onDigAgain }: {
 
 // ─── Dig History ─────────────────────────────────────────────────────────────
 
-type HistorySession = {
-  id:   string;
-  date: string; // ISO
-  mode: DigMode;
-  recs: Recommendation[];
-};
-
-const HISTORY_KEY = "dig-history";
-const SEVEN_DAYS  = 7 * 24 * 60 * 60 * 1000;
-
-function saveToHistory(mode: DigMode, recs: Recommendation[]) {
-  if (mode === "explore") return;
-  try {
-    const session: HistorySession = { id: Date.now().toString(), date: new Date().toISOString(), mode, recs };
-    const existing = (() => { try { return JSON.parse(localStorage.getItem(HISTORY_KEY) ?? "[]") as HistorySession[]; } catch { return [] as HistorySession[]; } })();
-    const cutoff   = Date.now() - SEVEN_DAYS;
-    const fresh    = existing.filter(s => new Date(s.date).getTime() > cutoff);
-    fresh.unshift(session);
-    localStorage.setItem(HISTORY_KEY, JSON.stringify(fresh.slice(0, 50)));
-  } catch {}
-}
-
-function loadHistory(): HistorySession[] {
-  try {
-    const all    = JSON.parse(localStorage.getItem(HISTORY_KEY) ?? "[]") as HistorySession[];
-    const cutoff = Date.now() - SEVEN_DAYS;
-    return all.filter(s => new Date(s.date).getTime() > cutoff);
-  } catch { return []; }
-}
+type HistoryRec = { artist: string; album: string; reason: string | null };
+type HistorySession = { id: string; date: string; mode: string; recs: HistoryRec[] };
 
 function fmtSessionDate(iso: string): string {
   const d    = new Date(iso);
@@ -620,12 +593,29 @@ const MODE_LABEL: Record<DigMode, string> = {
 };
 
 function DigHistoryView({ onAddToWantlist, wantlistAdded }: {
-  onAddToWantlist: (rec: Recommendation) => void;
+  onAddToWantlist: (rec: { artist: string; album: string }) => void;
   wantlistAdded:   Set<string>;
 }) {
   const t = useTranslations("dig");
   const [sessions, setSessions] = useState<HistorySession[]>([]);
-  useEffect(() => { setSessions(loadHistory()); }, []);
+  const [loading,  setLoading]  = useState(true);
+  useEffect(() => {
+    fetch("/api/dig/history")
+      .then(r => r.json())
+      .then(d => { if (Array.isArray(d.sessions)) setSessions(d.sessions); })
+      .catch(() => {})
+      .finally(() => setLoading(false));
+  }, []);
+
+  if (loading) {
+    return (
+      <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center" }}>
+        <p style={{ fontFamily: SERIF, fontSize: "15px", fontStyle: "italic", color: "#888888", margin: 0 }}>
+          Loading…
+        </p>
+      </div>
+    );
+  }
 
   if (sessions.length === 0) {
     return (
@@ -651,7 +641,7 @@ function DigHistoryView({ onAddToWantlist, wantlistAdded }: {
             </span>
             <span style={{ width: "3px", height: "3px", borderRadius: "50%", background: "#d0d0d0", flexShrink: 0 }} />
             <span style={{ fontFamily: MONO, fontSize: "8px", letterSpacing: "0.12em", textTransform: "uppercase", color: ORANGE }}>
-              {MODE_LABEL[session.mode]}
+              {MODE_LABEL[session.mode as DigMode] ?? session.mode}
             </span>
           </div>
           <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
@@ -673,10 +663,10 @@ function DigHistoryView({ onAddToWantlist, wantlistAdded }: {
                       {rec.album}
                     </p>
                     <p style={{ fontFamily: MONO, fontSize: "9px", color: "#888888", margin: "0 0 6px", letterSpacing: "0.04em" }}>
-                      {rec.artist}{rec.year ? ` · ${rec.year}` : ""}
+                      {rec.artist}
                     </p>
                     <p style={{ fontFamily: SERIF, fontSize: "11px", fontStyle: "italic", color: "#666666", margin: 0, lineHeight: 1.55 }}>
-                      {rec.reason.length > 180 ? rec.reason.slice(0, 180) + "…" : rec.reason}
+                      {rec.reason ? (rec.reason.length > 180 ? rec.reason.slice(0, 180) + "…" : rec.reason) : null}
                     </p>
                   </div>
                   <button
@@ -928,7 +918,6 @@ export default function DigClient({ userId, username, displayLabel, avatarUrl, c
             shownRecs.current.push({ artist: r.artist, album: r.album });
           }
         }
-        saveToHistory(fetchKey.mode, newRecs);
         setRecs(newRecs);
         setIdx(0);
         setError(null);
@@ -986,7 +975,7 @@ export default function DigClient({ userId, username, displayLabel, avatarUrl, c
     setFetchKey(prev => ({ ...prev, n: prev.n + 1 }));
   }
 
-  async function handleAddToWantlist(rec: Recommendation) {
+  async function handleAddToWantlist(rec: { artist: string; album: string }) {
     const key = `${rec.artist}||${rec.album}`;
     setWantlistAdded(prev => new Set(prev).add(key));
     setWantlistError(null);
@@ -1062,7 +1051,7 @@ export default function DigClient({ userId, username, displayLabel, avatarUrl, c
           song_title:  rec.album,
           song_artist: rec.artist,
           song_album:  rec.album,
-          song_year:   rec.year ?? null,
+          song_year:   ("year" in rec ? (rec as { year?: number | null }).year : null) ?? null,
           source:      "dig",
         })
         .select("id")
