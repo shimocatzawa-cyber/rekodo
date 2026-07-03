@@ -47,7 +47,7 @@ export async function signup(
       { id: data.user.id, username, referral_source: referralSource },
       { onConflict: "id" }
     );
-    await sendSignupNotification(email, username);
+    await sendSignupNotification(email, username, referralSource);
 
     // Add to Brevo list 5 so the onboarding automation fires.
     // Non-blocking — a Brevo outage must never break signup.

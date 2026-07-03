@@ -22,7 +22,7 @@ async function sendViaBrevo(subject: string, html: string, to?: string): Promise
   }
 }
 
-export async function sendSignupNotification(email: string, username: string) {
+export async function sendSignupNotification(email: string, username: string, referralSource?: string | null) {
   await sendViaBrevo(`new signup — ${username}`, `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -51,7 +51,7 @@ export async function sendSignupNotification(email: string, username: string) {
             </td>
           </tr>
           <tr>
-            <td style="padding-bottom:8px;">
+            <td style="padding-bottom:16px;">
               <p style="margin:0;font-family:'Courier New',monospace;font-size:11px;letter-spacing:0.08em;text-transform:uppercase;color:rgba(255,255,255,0.4);">
                 email
               </p>
@@ -60,6 +60,16 @@ export async function sendSignupNotification(email: string, username: string) {
               </p>
             </td>
           </tr>
+          ${referralSource ? `<tr>
+            <td style="padding-bottom:8px;">
+              <p style="margin:0;font-family:'Courier New',monospace;font-size:11px;letter-spacing:0.08em;text-transform:uppercase;color:rgba(255,255,255,0.4);">
+                how they found us
+              </p>
+              <p style="margin:4px 0 0;font-family:'Courier New',monospace;font-size:14px;color:#ffffff;">
+                ${referralSource}
+              </p>
+            </td>
+          </tr>` : ""}
         </table>
       </td>
     </tr>
