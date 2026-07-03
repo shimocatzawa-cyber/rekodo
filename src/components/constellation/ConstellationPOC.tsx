@@ -1154,6 +1154,21 @@ export default function ConstellationPOC({ username }: Props) {
     targetCamRef.current = { x: 0, y: 0, scale: 1 }; autoZoomRef.current = true;
   };
 
+  const zoom = useCallback((factor: number) => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const W = canvas.clientWidth, H = canvas.clientHeight;
+    const t = targetCamRef.current;
+    const ns = Math.max(0.15, Math.min(6, t.scale * factor));
+    const sf = ns / t.scale;
+    targetCamRef.current = {
+      x: W / 2 + (t.x - W / 2) * sf,
+      y: H / 2 + (t.y - H / 2) * sf,
+      scale: ns,
+    };
+    autoZoomRef.current = false;
+  }, []);
+
   const inf     = selectedArtist ? (influenceRef.current.get(selectedArtist.id) ?? 0) : 0;
   const edgeSrc = selectedEdge ? (nodesRef.current.find(n => n.id === selectedEdge.source) ?? null) : null;
   const edgeTgt = selectedEdge ? (nodesRef.current.find(n => n.id === selectedEdge.target) ?? null) : null;
@@ -1235,6 +1250,16 @@ export default function ConstellationPOC({ username }: Props) {
           >
             Reset view
           </button>
+          <div style={{ display: "flex", gap: "4px", marginTop: "4px" }}>
+            <button onClick={() => zoom(1.35)}
+              style={{ flex: 1, fontFamily: MONO, fontSize: "16px", lineHeight: 1, color: DIM2, background: SURFACE, border: `1px solid ${BORD}`, padding: "6px", cursor: "pointer" }}
+              title="Zoom in"
+            >+</button>
+            <button onClick={() => zoom(1 / 1.35)}
+              style={{ flex: 1, fontFamily: MONO, fontSize: "16px", lineHeight: 1, color: DIM2, background: SURFACE, border: `1px solid ${BORD}`, padding: "6px", cursor: "pointer" }}
+              title="Zoom out"
+            >−</button>
+          </div>
         </div>
       )}
 
