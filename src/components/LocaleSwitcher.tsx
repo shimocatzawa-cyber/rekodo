@@ -4,7 +4,7 @@ import { useTransition } from "react";
 
 const LOCALES: { value: string; label: string }[] = [
   { value: "en", label: "EN" },
-  { value: "ja", label: "JA" },
+  { value: "ja", label: "日本語" },
   { value: "de", label: "DE" },
   { value: "pt", label: "PT" },
 ];
