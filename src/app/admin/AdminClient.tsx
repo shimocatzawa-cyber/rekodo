@@ -442,9 +442,17 @@ export default function AdminClient({
         <span style={{ fontFamily: SERIF, fontSize: "22px", fontWeight: 700, color: ORANGE, lineHeight: 1 }}>
           rekōdo
         </span>
-        <span style={{ fontFamily: MONO, fontSize: "0.65rem", letterSpacing: "0.14em", textTransform: "uppercase", color: MUTED }}>
-          Admin
-        </span>
+        <div style={{ display: "flex", alignItems: "center", gap: 20 }}>
+          <a
+            href="/admin/spotlights"
+            style={{ fontFamily: MONO, fontSize: "0.6rem", letterSpacing: "0.12em", textTransform: "uppercase", color: ORANGE, textDecoration: "none" }}
+          >
+            Spotlights
+          </a>
+          <span style={{ fontFamily: MONO, fontSize: "0.65rem", letterSpacing: "0.14em", textTransform: "uppercase", color: MUTED }}>
+            Admin
+          </span>
+        </div>
       </header>
 
       {/* Compact stats strip */}

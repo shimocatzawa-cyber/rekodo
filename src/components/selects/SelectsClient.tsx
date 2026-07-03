@@ -6,8 +6,9 @@ import { useTranslations } from "next-intl";
 import AppNav from "@/components/AppNav";
 import { createClient } from "@/lib/supabase/client";
 import { useUrlTab } from "@/lib/useUrlTab";
-import MariaBCSpotlight from "./MariaBCSpotlight";
-import LightInTheAtticSpotlight from "./LightInTheAtticSpotlight";
+import SpotlightView from "./SpotlightView";
+import SpotlightArchivePicker from "./SpotlightArchivePicker";
+import type { Spotlight, SpotlightSummary } from "@/lib/spotlights/types";
 
 const SERIF  = "var(--font-editorial)";
 const MONO   = "var(--font-mono)";
@@ -422,6 +423,49 @@ interface Props {
 
 // ─── Main component ───────────────────────────────────────────────────────────
 
+interface SpotlightState {
+  current: Spotlight | null;
+  selected: Spotlight | null;
+  archive: SpotlightSummary[];
+  loading: boolean;
+}
+
+function useSpotlight(type: "artist" | "label", active: boolean) {
+  const [state, setState] = useState<SpotlightState>({ current: null, selected: null, archive: [], loading: true });
+
+  useEffect(() => {
+    if (!active) return;
+    let cancelled = false;
+    setState(s => ({ ...s, loading: true }));
+    fetch(`/api/spotlights?type=${type}`)
+      .then(r => r.json())
+      .then((data: { current: Spotlight | null; archive: SpotlightSummary[] }) => {
+        if (cancelled) return;
+        // Check for ?spotlight=<id> in URL
+        const params = new URLSearchParams(window.location.search);
+        const spotlightParam = params.get("spotlight");
+        let selected = data.current;
+        if (spotlightParam) {
+          const archived = data.archive.find(a => a.id === spotlightParam);
+          if (archived) {
+            fetch(`/api/spotlights/${spotlightParam}`)
+              .then(r => r.json())
+              .then((full: Spotlight) => {
+                if (!cancelled) setState({ current: data.current, selected: full, archive: data.archive, loading: false });
+              })
+              .catch(() => { if (!cancelled) setState({ current: data.current, selected, archive: data.archive, loading: false }); });
+            return;
+          }
+        }
+        setState({ current: data.current, selected, archive: data.archive, loading: false });
+      })
+      .catch(() => { if (!cancelled) setState(s => ({ ...s, loading: false })); });
+    return () => { cancelled = true; };
+  }, [type, active]);
+
+  return [state, (s: Spotlight) => setState(prev => ({ ...prev, selected: s }))] as const;
+}
+
 export default function SelectsClient({ username, displayLabel, avatarUrl }: Props) {
   const t = useTranslations("selects");
   const TABS: { key: SelectsTab; label: string }[] = [
@@ -431,6 +475,9 @@ export default function SelectsClient({ username, displayLabel, avatarUrl }: Pro
     { key: "live",         label: t("live") },
   ];
   const [activeTab, setActiveTab] = useUrlTab<SelectsTab>("tab", TAB_KEYS, "artist");
+
+  const [artistState, setArtistSelected] = useSpotlight("artist", activeTab === "artist");
+  const [labelState,  setLabelSelected]  = useSpotlight("label",  activeTab === "label");
 
   return (
     <div style={{ minHeight: "100vh", background: "#ffffff" }}>
@@ -489,12 +536,44 @@ export default function SelectsClient({ username, displayLabel, avatarUrl }: Pro
           <div style={{ maxWidth: 600, margin: "0 auto" }}><NewReleasesSection /></div>
         ) : activeTab === "live" ? (
           <LiveSection />
+        ) : activeTab === "artist" ? (
+          <>
+            {artistState.loading && (
+              <p style={{ fontFamily: MONO, fontSize: "11px", color: "#aaaaaa" }}>Loading…</p>
+            )}
+            {!artistState.loading && artistState.selected && (
+              <>
+                <SpotlightView spotlight={artistState.selected} />
+                <SpotlightArchivePicker
+                  currentId={artistState.current?.id ?? null}
+                  selectedId={artistState.selected.id}
+                  archive={artistState.archive}
+                  onSelect={setArtistSelected}
+                />
+              </>
+            )}
+            {!artistState.loading && !artistState.selected && (
+              <p style={{ fontFamily: MONO, fontSize: "11px", color: "#aaaaaa" }}>No spotlight available.</p>
+            )}
+          </>
         ) : (
           <>
-            {activeTab === "artist" ? (
-              <MariaBCSpotlight />
-            ) : (
-              <LightInTheAtticSpotlight />
+            {labelState.loading && (
+              <p style={{ fontFamily: MONO, fontSize: "11px", color: "#aaaaaa" }}>Loading…</p>
+            )}
+            {!labelState.loading && labelState.selected && (
+              <>
+                <SpotlightView spotlight={labelState.selected} />
+                <SpotlightArchivePicker
+                  currentId={labelState.current?.id ?? null}
+                  selectedId={labelState.selected.id}
+                  archive={labelState.archive}
+                  onSelect={setLabelSelected}
+                />
+              </>
+            )}
+            {!labelState.loading && !labelState.selected && (
+              <p style={{ fontFamily: MONO, fontSize: "11px", color: "#aaaaaa" }}>No spotlight available.</p>
             )}
           </>
         )}
