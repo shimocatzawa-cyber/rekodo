@@ -876,6 +876,31 @@ export default function DigClient({ userId, username, displayLabel, avatarUrl, c
   const initialFetchMode: DigMode = activeTab === "history" ? "discover" : (activeTab as DigMode);
   const [fetchKey, setFetchKey] = useState<{ mode: DigMode; n: number; style?: string }>({ mode: initialFetchMode, n: 0 });
 
+  // One-time backfill: if the browser still has old localStorage dig history
+  // from before server-side persistence, upload it and clear the key.
+  useEffect(() => {
+    const MIGRATED_KEY = "dig-history-migrated";
+    if (typeof window === "undefined") return;
+    if (localStorage.getItem(MIGRATED_KEY)) return;
+    try {
+      const raw = localStorage.getItem("dig-history");
+      if (!raw) { localStorage.setItem(MIGRATED_KEY, "1"); return; }
+      const sessions = JSON.parse(raw);
+      if (!Array.isArray(sessions) || sessions.length === 0) { localStorage.setItem(MIGRATED_KEY, "1"); return; }
+      fetch("/api/dig/backfill-history", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ sessions }),
+      }).then(r => {
+        if (r.ok) {
+          localStorage.removeItem("dig-history");
+          localStorage.setItem(MIGRATED_KEY, "1");
+        }
+      }).catch(() => {});
+    } catch {}
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   // Clear player on mode/fetch change and also on rec navigation — until the
   // new card's onPreviewReady fires, the player should show nothing rather than
   // the previous album's metadata.
