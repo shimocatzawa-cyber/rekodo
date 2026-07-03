@@ -712,8 +712,8 @@ export async function computeArchetypes(
     ),
     ritualist: clamp(
       sig(s.conditionStandard) * 0.20 +
-      (100 - sig(s.acquisitionRhythm)) * 0.30 +
-      sig(s.sonicCoherence) * 0.15 +
+      (100 - sig(s.acquisitionRhythm)) * 0.15 +
+      sig(s.sonicCoherence) * 0.30 +
       (100 - sig(s.aspirationRatio)) * 0.15 +
       sig(s.listeningIntensity) * 0.20
     ),
