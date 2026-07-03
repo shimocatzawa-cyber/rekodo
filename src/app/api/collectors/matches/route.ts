@@ -150,9 +150,21 @@ export async function GET(request: NextRequest) {
   );
 
   // 2+3+4. Single RPC: JOIN runs server-side, one round-trip replaces 350+ HTTP calls.
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: collectionRows } = await adminDb.rpc("get_user_collection_data" as any, { user_ids: allUserIds });
-  const collRows = (collectionRows ?? []) as RecRow[];
+  // Paginated to avoid PostgREST's 1000-row default cap silently truncating large collections.
+  const collRows: RecRow[] = [];
+  const RPC_PAGE = 1000;
+  for (let from = 0; ; from += RPC_PAGE) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data: batch, error: rpcError } = await (adminDb.rpc("get_user_collection_data" as any, { user_ids: allUserIds }) as any)
+      .range(from, from + RPC_PAGE - 1);
+    if (rpcError) {
+      console.error("[matches] get_user_collection_data RPC failed:", rpcError.message);
+      return Response.json({ error: "Scoring unavailable — DB function missing. Run: supabase db push", matches: [], allScores: [] }, { status: 503 });
+    }
+    if (!batch || batch.length === 0) break;
+    collRows.push(...(batch as RecRow[]));
+    if (batch.length < RPC_PAGE) break;
+  }
 
   const recordsByUser = new Map<string, RecRow[]>();
   for (const uid of allUserIds) recordsByUser.set(uid, []);
