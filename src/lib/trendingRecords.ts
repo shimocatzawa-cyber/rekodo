@@ -22,35 +22,29 @@ export const getCachedTrending = unstable_cache(
     const { data: trendingRows, error } = await supabase.rpc("get_trending_records", { limit_count: 40 });
     if (error || !trendingRows || trendingRows.length === 0) return [];
 
-    const topIds = (trendingRows as { record_id: string; collector_count: number }[]).map(r => r.record_id);
-    const countMap = new Map(
-      (trendingRows as { record_id: string; collector_count: number }[]).map(r => [r.record_id, r.collector_count]),
-    );
+    // RPC now returns artist+album aggregated across all pressings; record_id is the most-collected pressing
+    const rows = trendingRows as { record_id: string; artist: string; album: string; collector_count: number }[];
+    const topIds = rows.map(r => r.record_id);
 
-    const { data: records } = await supabase
+    const { data: meta } = await supabase
       .from("records")
-      .select("id, artist, album, cover_url, year, genre")
-      .in("id", topIds)
-      .not("album", "is", null)
-      .neq("album", "");
+      .select("id, cover_url, year, genre")
+      .in("id", topIds);
 
-    if (!records) return [];
+    const metaMap = new Map((meta ?? []).map(r => [r.id, r]));
 
-    return topIds
-      .map(id => {
-        const rec = records.find(r => r.id === id);
-        if (!rec) return null;
-        return {
-          id,
-          artist: rec.artist,
-          album: rec.album,
-          coverUrl: rec.cover_url,
-          year: rec.year,
-          genre: rec.genre,
-          collectorCount: countMap.get(id)!,
-        };
-      })
-      .filter((r): r is TrendingRecord => r !== null);
+    return rows.map(row => {
+      const m = metaMap.get(row.record_id);
+      return {
+        id:             row.record_id,
+        artist:         row.artist,
+        album:          row.album,
+        coverUrl:       m?.cover_url ?? null,
+        year:           m?.year ?? null,
+        genre:          m?.genre ?? null,
+        collectorCount: row.collector_count,
+      };
+    });
   },
   ["trending-records"],
   { revalidate: 86400 },
