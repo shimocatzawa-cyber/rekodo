@@ -133,16 +133,12 @@ export async function GET(request: NextRequest) {
 
   const testIds = new Set((testRows ?? []).map((r: { id: string }) => r.id));
 
-  // Followers first (mutual interest signal), then following, deduped, test-filtered.
-  // Cap at MAX_CANDIDATES: the RPC query times out against Supabase's statement
-  // limit when the candidate pool exceeds ~50 users with large collections.
-  const MAX_CANDIDATES = 50;
-  const allFollowers  = (followerRows  ?? []).map((r: { follower_id:  string }) => r.follower_id).filter(id => !testIds.has(id));
-  const allFollowing  = (followingRows ?? []).map((r: { following_id: string }) => r.following_id).filter(id => !testIds.has(id));
+  const allFollowers = (followerRows  ?? []).map((r: { follower_id:  string }) => r.follower_id).filter(id => !testIds.has(id));
+  const allFollowing = (followingRows ?? []).map((r: { following_id: string }) => r.following_id).filter(id => !testIds.has(id));
   const seen = new Set<string>();
   const eligibleIds: string[] = [];
   for (const id of [...allFollowers, ...allFollowing]) {
-    if (!seen.has(id) && eligibleIds.length < MAX_CANDIDATES) { seen.add(id); eligibleIds.push(id); }
+    if (!seen.has(id)) { seen.add(id); eligibleIds.push(id); }
   }
 
   if (eligibleIds.length === 0) return Response.json({ matches: [], allScores: [] });
@@ -156,22 +152,39 @@ export async function GET(request: NextRequest) {
     { auth: { persistSession: false } }
   );
 
-  // 2+3+4. Single RPC: JOIN runs server-side, one round-trip replaces 350+ HTTP calls.
-  // Paginated to avoid PostgREST's 1000-row default cap silently truncating large collections.
-  const collRows: RecRow[] = [];
-  const RPC_PAGE = 1000;
-  for (let from = 0; ; from += RPC_PAGE) {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: batch, error: rpcError } = await (adminDb.rpc("get_user_collection_data" as any, { user_ids: allUserIds }) as any)
-      .range(from, from + RPC_PAGE - 1);
-    if (rpcError) {
-      console.error("[matches] get_user_collection_data RPC failed:", rpcError.message);
-      return Response.json({ error: "Scoring unavailable — DB function missing. Run: supabase db push", matches: [], allScores: [] }, { status: 503 });
+  // Fetch all records via paginated RPC for a given set of user IDs.
+  const RPC_PAGE  = 1000;
+  const BATCH     = 10;   // user IDs per RPC call — keeps each query under the statement timeout
+  const CONCURRENCY = 10; // parallel RPC calls per round
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  async function fetchRows(ids: string[]): Promise<RecRow[]> {
+    const rows: RecRow[] = [];
+    for (let from = 0; ; from += RPC_PAGE) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { data, error } = await (adminDb.rpc("get_user_collection_data" as any, { user_ids: ids }) as any)
+        .range(from, from + RPC_PAGE - 1);
+      if (error) { console.error("[matches] RPC failed:", error.message); break; }
+      if (!data || data.length === 0) break;
+      rows.push(...(data as RecRow[]));
+      if (data.length < RPC_PAGE) break;
     }
-    if (!batch || batch.length === 0) break;
-    collRows.push(...(batch as RecRow[]));
-    if (batch.length < RPC_PAGE) break;
+    return rows;
   }
+
+  // Viewer fetched separately so their ~2k records don't inflate every candidate batch.
+  const viewerRows = await fetchRows([userId]);
+
+  // Candidates in parallel rounds — 10 concurrent batches of 10 users each.
+  const allCandidateRows: RecRow[] = [];
+  for (let i = 0; i < eligibleIds.length; i += BATCH * CONCURRENCY) {
+    const window = eligibleIds.slice(i, i + BATCH * CONCURRENCY);
+    const chunks: string[][] = [];
+    for (let j = 0; j < window.length; j += BATCH) chunks.push(window.slice(j, j + BATCH));
+    const results = await Promise.all(chunks.map(c => fetchRows(c)));
+    for (const rows of results) allCandidateRows.push(...rows);
+  }
+
+  const collRows = [...viewerRows, ...allCandidateRows];
 
   const recordsByUser = new Map<string, RecRow[]>();
   for (const uid of allUserIds) recordsByUser.set(uid, []);
