@@ -149,64 +149,14 @@ export async function GET(request: NextRequest) {
     { auth: { persistSession: false } }
   );
 
-  // 2. Fetch user_records per-user in parallel chunks.
-  //    Per-user eq() queries hit the user_id index directly; most users have
-  //    <1000 records so only 1 round-trip each. Avoids the slow offset-based
-  //    pagination of a single large IN() clause across 100k+ rows.
-  const PARALLEL = 25;
-  const urData: { user_id: string; record_id: string }[] = [];
-  for (let i = 0; i < allUserIds.length; i += PARALLEL) {
-    const slice = allUserIds.slice(i, i + PARALLEL);
-    const sliceResults = await Promise.all(slice.map(async uid => {
-      const rows: { user_id: string; record_id: string }[] = [];
-      for (let from = 0; ; from += PAGE) {
-        const { data } = await adminDb
-          .from("user_records")
-          .select("user_id, record_id")
-          .eq("user_id", uid)
-          .range(from, from + PAGE - 1);
-        if (!data || data.length === 0) break;
-        rows.push(...data);
-        if (data.length < PAGE) break;
-      }
-      return rows;
-    }));
-    for (const rows of sliceResults) urData.push(...rows);
-  }
+  // 2+3+4. Single RPC: JOIN runs server-side, one round-trip replaces 350+ HTTP calls.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: collectionRows } = await adminDb.rpc("get_user_collection_data" as any, { user_ids: allUserIds });
+  const collRows = (collectionRows ?? []) as RecRow[];
 
-  // Build record_id → set of user_ids mapping, and per-user record_ids
-  const recordUserSets  = new Map<string, Set<string>>();   // record_id → user_ids
-  const userRecordIds   = new Map<string, string[]>();       // user_id → record_ids
-  for (const { user_id, record_id } of urData) {
-    if (!recordUserSets.has(record_id)) recordUserSets.set(record_id, new Set());
-    recordUserSets.get(record_id)!.add(user_id);
-    if (!userRecordIds.has(user_id)) userRecordIds.set(user_id, []);
-    userRecordIds.get(user_id)!.push(record_id);
-  }
-
-  // 3. Fetch record details (artist, genre, year, country) — parallel batches
-  const allRecordIds = [...recordUserSets.keys()];
-  const recordDetail  = new Map<string, { artist: string; genre: string | null; year: number | null; country: string | null }>();
-  const BATCH = 400;
-  const detailResults = await Promise.all(
-    Array.from({ length: Math.ceil(allRecordIds.length / BATCH) }, (_, i) =>
-      supabase.from("records").select("id, artist, genre, year, country").in("id", allRecordIds.slice(i * BATCH, (i + 1) * BATCH))
-    )
-  );
-  for (const res of detailResults) {
-    for (const r of res.data ?? []) recordDetail.set(r.id, r);
-  }
-
-  // 4. Build per-user flat record rows
   const recordsByUser = new Map<string, RecRow[]>();
   for (const uid of allUserIds) recordsByUser.set(uid, []);
-  for (const [recordId, userIds] of recordUserSets) {
-    const d = recordDetail.get(recordId);
-    if (!d) continue;
-    for (const uid of userIds) {
-      recordsByUser.get(uid)?.push({ user_id: uid, ...d });
-    }
-  }
+  for (const row of collRows) recordsByUser.get(row.user_id)?.push(row);
 
   // 5. Fetch list artists for all users
   const { data: listsData } = await supabase
@@ -243,15 +193,14 @@ export async function GET(request: NextRequest) {
   // 6. Build user profiles
   const targetProfile = buildProfile(recordsByUser.get(userId) ?? [], listRowsByUser.get(userId) ?? []);
 
-  // Artist frequency map (how many users own each artist)
-  const artistFreq = new Map<string, number>();
-  for (const [recordId, userIds] of recordUserSets) {
-    const artist = recordDetail.get(recordId)?.artist;
-    if (!artist) continue;
-    // Sum up unique users per artist
-    const existing = artistFreq.get(artist) ?? 0;
-    artistFreq.set(artist, Math.max(existing, userIds.size)); // upper bound
+  // Artist frequency map (how many users own each artist) — built from RPC rows
+  const artistUserSets = new Map<string, Set<string>>();
+  for (const row of collRows) {
+    if (!artistUserSets.has(row.artist)) artistUserSets.set(row.artist, new Set());
+    artistUserSets.get(row.artist)!.add(row.user_id);
   }
+  const artistFreq = new Map<string, number>();
+  for (const [artist, userSet] of artistUserSets) artistFreq.set(artist, userSet.size);
 
   // 7. Fetch star signs for all candidates (single query, used for score boost)
   const { data: starSignRows } = await supabase
