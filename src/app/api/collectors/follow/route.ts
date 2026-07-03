@@ -46,17 +46,15 @@ export async function POST(request: Request) {
     }
   }
 
-  // Bust compatibility score cache for both parties so the matches tab
-  // recomputes fresh on next load with the updated follow graph.
+  // Bust only the follower's cache — they changed their follow graph so their
+  // match rankings need recomputing. The followee's cache stays valid for up to
+  // 24 h (the natural TTL), avoiding a slow recompute on their next page load.
   const adminDb = createServiceClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.SUPABASE_SERVICE_ROLE_KEY!,
     { auth: { persistSession: false } }
   );
-  await Promise.all([
-    adminDb.from("compatibility_scores").delete().eq("user_id_a", user.id),
-    adminDb.from("compatibility_scores").delete().eq("user_id_a", followingId),
-  ]);
+  await adminDb.from("compatibility_scores").delete().eq("user_id_a", user.id);
 
   return Response.json({ isFollowing: action === "follow" });
 }

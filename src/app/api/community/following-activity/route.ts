@@ -1,5 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
-import { getOrComputeCompatibility } from "@/lib/compatibility";
+import { compatibilityLabel } from "@/lib/compatibility";
 import { type NextRequest } from "next/server";
 
 export const dynamic = "force-dynamic";
@@ -43,15 +43,18 @@ export async function GET(request: NextRequest) {
   const actorIds  = [...new Set(events.map(e => e.user_id))];
   const recordIds = [...new Set(events.map(e => e.record_id))];
 
-  const [profilesRes, recordsRes, scores] = await Promise.all([
+  // Single batch lookup — never trigger expensive fresh score computation for a feed
+  const [profilesRes, recordsRes, cachedScoresRes] = await Promise.all([
     supabase.from("profiles").select("id, username, display_name, avatar_url").in("id", actorIds),
     supabase.from("records").select("id, artist, album, cover_url").in("id", recordIds),
-    Promise.all(actorIds.map(actorId => getOrComputeCompatibility(supabase, viewer.id, actorId))),
+    supabase.from("compatibility_scores").select("user_id_b, score").eq("user_id_a", viewer.id).in("user_id_b", actorIds),
   ]);
 
-  const profileById = new Map((profilesRes.data ?? []).map(p => [p.id, p]));
-  const recordById  = new Map((recordsRes.data ?? []).map(r => [r.id, r]));
-  const scoreByActor = new Map(actorIds.map((id, i) => [id, scores[i]]));
+  const profileById  = new Map((profilesRes.data ?? []).map(p => [p.id, p]));
+  const recordById   = new Map((recordsRes.data ?? []).map(r => [r.id, r]));
+  const scoreByActor = new Map(
+    (cachedScoresRes.data ?? []).map(s => [s.user_id_b, { score: s.score, ...compatibilityLabel(s.score) }])
+  );
 
   const items = events.map(e => {
     const actor  = profileById.get(e.user_id);
