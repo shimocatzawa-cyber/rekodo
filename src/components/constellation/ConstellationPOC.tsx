@@ -1213,7 +1213,7 @@ export default function ConstellationPOC({ username }: Props) {
             Rekōdo {username ? `· @${username}` : ""}
           </p>
           <h1 style={{ fontFamily: SERIF, fontSize: "22px", fontWeight: 700, lineHeight: 1.25, color: INK, margin: 0 }}>
-            Collector<br />Constellation
+            Collection<br />Constellation
           </h1>
           {totalRecords > 0 && (
             <p style={{ fontFamily: MONO, fontSize: "10px", color: DIM3, marginTop: "6px", letterSpacing: "0.08em" }}>
