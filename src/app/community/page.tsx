@@ -6,6 +6,7 @@ import { getUserWithTimeout } from "@/lib/supabase/withTimeout";
 import { getCachedTrending } from "@/lib/trendingRecords";
 
 export const dynamic = "force-dynamic";
+export const preferredRegion = "syd1";
 
 export default async function CommunityPage() {
   const supabase = await createClient();

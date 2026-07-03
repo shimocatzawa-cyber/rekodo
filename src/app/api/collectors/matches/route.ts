@@ -14,6 +14,7 @@ import {
 import { starSignCompatibility } from "@/lib/starSignCompatibility";
 
 export const dynamic = "force-dynamic";
+export const preferredRegion = "syd1";
 
 // ─── Route ────────────────────────────────────────────────────────────────────
 
@@ -259,17 +260,20 @@ export async function GET(request: NextRequest) {
       { auth: { persistSession: false } }
     );
     await adminDb.from("compatibility_scores").delete().eq("user_id_a", userId);
-    const toInsert = scored.slice(0, 50).map(s => ({
-      user_id_a:    userId,
-      user_id_b:    s.userId,
-      score:        s.score,
-      shared_tags:  s.sharedTags,
+    const toInsert = scored.map(s => ({
+      user_id_a:     userId,
+      user_id_b:     s.userId,
+      score:         s.score,
+      shared_tags:   s.sharedTags,
       calculated_at: new Date().toISOString(),
     }));
-    // Insert in chunks to avoid request size limits
-    for (let i = 0; i < toInsert.length; i += 20) {
-      await adminDb.from("compatibility_scores").insert(toInsert.slice(i, i + 20));
-    }
+    // Parallel batches of 100 to avoid request body limits
+    const BATCH = 100;
+    await Promise.all(
+      Array.from({ length: Math.ceil(toInsert.length / BATCH) }, (_, i) =>
+        adminDb.from("compatibility_scores").insert(toInsert.slice(i * BATCH, (i + 1) * BATCH))
+      )
+    );
   }
 
   const topMatches = scored.slice(offset, offset + DISPLAY_COUNT).map(s => ({

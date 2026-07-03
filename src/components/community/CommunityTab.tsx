@@ -391,16 +391,14 @@ export default function CommunityTab({ profileOwnerId, hideSocialPanel = false, 
         .from("follows")
         .select("follower_id")
         .eq("following_id", profileOwnerId)
-        .order("created_at", { ascending: false })
-        .limit(100);
+        .order("created_at", { ascending: false });
 
       // Who this profile follows
       const { data: followingRows } = await supabase
         .from("follows")
         .select("following_id")
         .eq("follower_id", profileOwnerId)
-        .order("created_at", { ascending: false })
-        .limit(100);
+        .order("created_at", { ascending: false });
 
       const [followerProfiles, followingProfiles] = await Promise.all([
         resolveProfiles((followerRows ?? []).map(r => r.follower_id)),
@@ -643,7 +641,7 @@ export default function CommunityTab({ profileOwnerId, hideSocialPanel = false, 
   }
 
   const TABS: Array<{ key: SubTab; label: string }> = [
-    { key: "trending",   label: "Popular" },
+    { key: "trending",   label: "Top 40" },
     { key: "matches",    label: "Top Matches" },
     { key: "following",  label: "Collectors I Follow" },
     { key: "offers",     label: "Open to Offers" },

@@ -2,6 +2,7 @@ import { getCachedTrending } from "@/lib/trendingRecords";
 import { createClient } from "@/lib/supabase/server";
 
 export const dynamic = "force-dynamic";
+export const preferredRegion = "syd1";
 
 export async function GET() {
   const supabase = await createClient();

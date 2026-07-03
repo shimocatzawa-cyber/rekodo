@@ -3,6 +3,7 @@ import { type NextRequest } from "next/server";
 import { buildProfile, computeScore, computeStyleScore, type RecRow } from "@/lib/compatibility";
 
 export const dynamic = "force-dynamic";
+export const preferredRegion = "syd1";
 
 export async function GET(request: NextRequest) {
   const supabase = await createClient();

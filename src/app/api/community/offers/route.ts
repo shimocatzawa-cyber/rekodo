@@ -3,6 +3,7 @@ import { createClient as createServiceClient } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase/server";
 
 export const dynamic = "force-dynamic";
+export const preferredRegion = "syd1";
 
 const getCachedOffers = unstable_cache(
   async () => {

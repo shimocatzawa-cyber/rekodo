@@ -93,9 +93,9 @@ export default function TrendingRecords({ initialRecords }: { initialRecords?: T
         </div>
       ) : records.length === 0 ? (
         <div style={{ padding: "48px 0", textAlign: "center" }}>
-          <p style={{ fontFamily: SERIF, fontSize: "1.1rem", color: INK, margin: "0 0 8px" }}>Nothing popular yet.</p>
+          <p style={{ fontFamily: SERIF, fontSize: "1.1rem", color: INK, margin: "0 0 8px" }}>Nothing in the Top 40 yet.</p>
           <p style={{ fontFamily: MONO, fontSize: "0.65rem", color: MUTED, lineHeight: 1.7 }}>
-            Records shared across multiple collections will appear here.
+            The 40 most-collected albums across rekōdo will appear here.
           </p>
         </div>
       ) : (

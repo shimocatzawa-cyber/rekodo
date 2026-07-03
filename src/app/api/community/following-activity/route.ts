@@ -3,6 +3,7 @@ import { compatibilityLabel } from "@/lib/compatibility";
 import { type NextRequest } from "next/server";
 
 export const dynamic = "force-dynamic";
+export const preferredRegion = "syd1";
 
 const PAGE_SIZE = 30;
 

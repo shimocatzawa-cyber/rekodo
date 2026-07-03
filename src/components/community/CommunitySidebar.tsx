@@ -137,8 +137,8 @@ export default function CommunitySidebar({ profileOwnerId, onTierClick, onTierDa
     }
 
     Promise.all([
-      supabase.from("follows").select("follower_id").eq("following_id", profileOwnerId).order("created_at", { ascending: false }).limit(100),
-      supabase.from("follows").select("following_id").eq("follower_id", profileOwnerId).order("created_at", { ascending: false }).limit(100),
+      supabase.from("follows").select("follower_id").eq("following_id", profileOwnerId).order("created_at", { ascending: false }),
+      supabase.from("follows").select("following_id").eq("follower_id", profileOwnerId).order("created_at", { ascending: false }),
     ]).then(async ([followerRes, followingRes]) => {
       const [followerProfiles, followingProfiles] = await Promise.all([
         resolveProfiles((followerRes.data ?? []).map((r: any) => r.follower_id)),
