@@ -5,8 +5,8 @@ import { useTransition } from "react";
 const LOCALES: { value: string; label: string }[] = [
   { value: "en", label: "EN" },
   { value: "ja", label: "日本語" },
-  { value: "de", label: "DE" },
-  { value: "pt", label: "PT" },
+  { value: "de", label: "Deutsch" },
+  { value: "pt", label: "Português" },
 ];
 
 export default function LocaleSwitcher({ locale }: { locale: string }) {
