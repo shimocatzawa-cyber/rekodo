@@ -164,8 +164,9 @@ function SleeveCard({ rec, mode, onAddToWantlist, wantlistAdded, onDismiss, dism
 
   const STREAM = [
     { label: t("openAppleMusic"), href: `https://music.apple.com/search?term=${q}` },
-    { label: t("openTidal"),      href: `https://tidal.com/search?q=${q}` },
     { label: t("openSpotify"),    href: `https://open.spotify.com/search/${q}` },
+    { label: t("openTidal"),      href: `https://tidal.com/search?q=${q}` },
+    { label: t("openDeezer"),     href: `https://www.deezer.com/search/${q}` },
   ];
   const BUY = [
     { label: t("buyDiscogs"),      href: `https://www.discogs.com/search/?q=${q}&type=release` },
