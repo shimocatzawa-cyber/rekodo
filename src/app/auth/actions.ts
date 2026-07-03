@@ -13,9 +13,10 @@ export async function signup(
   state: AuthState,
   formData: FormData
 ): Promise<AuthState> {
-  const username = (formData.get("username") as string)?.trim();
-  const email    = (formData.get("email") as string)?.trim();
-  const password = formData.get("password") as string;
+  const username        = (formData.get("username") as string)?.trim();
+  const email           = (formData.get("email") as string)?.trim();
+  const password        = formData.get("password") as string;
+  const referralSource  = (formData.get("referral_source") as string)?.trim() || null;
 
   if (!username) return { error: "Username is required." };
   if (!/^[a-zA-Z0-9_]+$/.test(username)) return { error: "Username may only contain letters, numbers, and underscores." };
@@ -43,7 +44,7 @@ export async function signup(
   if (data.session && data.user) {
     // Persist the chosen username straight away so onboarding is pre-filled
     await supabase.from("profiles").upsert(
-      { id: data.user.id, username },
+      { id: data.user.id, username, referral_source: referralSource },
       { onConflict: "id" }
     );
     await sendSignupNotification(email, username);

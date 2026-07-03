@@ -7,6 +7,8 @@ export const dynamic = "force-dynamic";
 export default async function AdminPage() {
   const adminDb = getAdminDb();
 
+  const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
+
   const [
     totalUsersResult,
     supportersResult,
@@ -18,6 +20,7 @@ export default async function AdminPage() {
     countryResult,
     shareCardResult,
     archetypeResult,
+    recentSignupsResult,
   ] = await Promise.all([
     adminDb.from("profiles").select("*", { count: "exact", head: true }),
     adminDb.from("profiles").select("*", { count: "exact", head: true }).in("subscription_tier", ["plus", "premium", "supporter"]),
@@ -31,6 +34,7 @@ export default async function AdminPage() {
     adminDb.from("profiles").select("country"),
     adminDb.from("page_views").select("path").eq("section", "Share Card").limit(5000),
     adminDb.from("archetype_cache").select("primary_archetype").limit(10000),
+    adminDb.from("profiles").select("created_at").gte("created_at", sevenDaysAgo),
   ]);
 
   const total        = totalUsersResult.count ?? 0;
@@ -97,6 +101,18 @@ export default async function AdminPage() {
     .map(([id, count]) => [ARCHETYPES[id]?.name ?? id, count] as [string, number])
     .sort((a, b) => b[1] - a[1]);
 
+  // Build signups-per-day for the past 7 days, filling in zeros for empty days
+  const dayCountMap = new Map<string, number>();
+  for (const row of recentSignupsResult.data ?? []) {
+    const day = (row.created_at as string).slice(0, 10);
+    dayCountMap.set(day, (dayCountMap.get(day) ?? 0) + 1);
+  }
+  const signupsPerDay: { date: string; count: number }[] = Array.from({ length: 7 }, (_, i) => {
+    const d = new Date(Date.now() - (6 - i) * 24 * 60 * 60 * 1000);
+    const date = d.toISOString().slice(0, 10);
+    return { date, count: dayCountMap.get(date) ?? 0 };
+  });
+
   return (
     <AdminClient
       users={users}
@@ -108,6 +124,7 @@ export default async function AdminPage() {
       countryData={countryData}
       shareCardData={shareCardData}
       archetypeBreakdown={archetypeBreakdown}
+      signupsPerDay={signupsPerDay}
     />
   );
 }

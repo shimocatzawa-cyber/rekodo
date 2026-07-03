@@ -36,6 +36,7 @@ export interface AdminUser {
   playlists_generated: number;
   digs_count: number;
   top_sections: { section: string; count: number }[];
+  referral_source: string | null;
   connections: {
     collection: boolean;
     wantlist: boolean;
@@ -503,6 +504,12 @@ export default function UserRow({ user, showFinancial, columnCount }: { user: Ad
           )}
         </td>
 
+        {showFinancial && (
+          <td style={{ ...cellSt, color: user.referral_source ? INK : MUTED }}>
+            {user.referral_source ?? "—"}
+          </td>
+        )}
+
         <td style={cellSt}>
           <button
             onClick={() => setOpen(o => !o)}
@@ -708,6 +715,16 @@ export default function UserRow({ user, showFinancial, columnCount }: { user: Ad
                   {idPending ? "Saving…" : "Save identity"}
                 </button>
               </div>
+
+              {/* Referral source (read-only) */}
+              {user.referral_source && (
+                <div style={{ paddingTop: "4px", borderTop: `1px solid ${RULE}` }}>
+                  <label style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.1em", textTransform: "uppercase", color: MUTED, display: "block", marginBottom: "6px" }}>
+                    How they heard about us
+                  </label>
+                  <span style={{ fontFamily: MONO, fontSize: "11px", color: INK }}>{user.referral_source}</span>
+                </div>
+              )}
 
               {/* Row 3: feature usage */}
               <div style={{ paddingTop: "4px", borderTop: `1px solid ${RULE}` }}>

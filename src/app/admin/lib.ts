@@ -18,10 +18,11 @@ export type ProfileRow = {
   is_test: boolean;
   spotify_connected: boolean;
   bandcamp_username: string | null;
+  referral_source: string | null;
 };
 
 export const PROFILE_COLUMNS =
-  "id, username, display_name, subscription_tier, role, created_at, last_synced_at, last_active_at, city, country, is_donor, is_supporter, is_test, spotify_connected, bandcamp_username";
+  "id, username, display_name, subscription_tier, role, created_at, last_synced_at, last_active_at, city, country, is_donor, is_supporter, is_test, spotify_connected, bandcamp_username, referral_source";
 
 export const ADMIN_PAGE_SIZE = 20;
 
@@ -181,6 +182,7 @@ export async function enrichProfiles(
         .sort((a, b) => b[1] - a[1])
         .slice(0, 3)
         .map(([section, count]) => ({ section, count })),
+      referral_source: p.referral_source,
       connections: {
         collection: recordCount > 0,
         wantlist:   wantlistIds.has(p.id),

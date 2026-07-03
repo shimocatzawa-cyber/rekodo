@@ -30,7 +30,7 @@ type SortKey =
   | "username" | "email" | "location" | "archetype" | "record_count"
   | "lists_created" | "playlists_generated" | "digs_count"
   | "subscription_spend" | "donation_total" | "connected" | "discogs_username"
-  | "subscription_tier" | "joined" | "last_active" | "status";
+  | "subscription_tier" | "joined" | "last_active" | "status" | "referral_source";
 
 type ConnectionKey = keyof AdminUser["connections"];
 
@@ -51,6 +51,7 @@ const ALL_COLUMNS: { label: string; key: SortKey | null; optional?: boolean }[] 
   { label: "Joined",           key: "joined" },
   { label: "Last active",      key: "last_active" },
   { label: "Status",           key: "status" },
+  { label: "Source",           key: "referral_source", optional: true },
   { label: "",                 key: null },
 ];
 
@@ -90,6 +91,7 @@ function getSortValue(u: AdminUser, key: SortKey): string | number {
     case "joined":              return new Date(u.created_at).getTime();
     case "last_active":         return new Date(u.last_active_at ?? u.last_sign_in_at ?? 0).getTime();
     case "status":              return isBlocked(u.banned_until) ? 1 : 0;
+    case "referral_source":     return (u.referral_source ?? "").toLowerCase();
   }
 }
 
@@ -105,7 +107,7 @@ function buildCSV(users: AdminUser[]): string {
   const headers = [
     "Username", "Email", "Location", "Archetype", "Collection",
     "Lists", "Playlists", "Digs", "Sub. spend", "Donated",
-    "Connected", "Discogs username", "Tier", "Joined", "Last active", "Status",
+    "Connected", "Discogs username", "Tier", "Joined", "Last active", "Status", "Source",
   ];
   const lines = [headers.map(csvEscape).join(",")];
   for (const u of users) {
@@ -123,6 +125,7 @@ function buildCSV(users: AdminUser[]): string {
       isSupporterTier(u.subscription_tier) ? "Supporter" : "Free",
       u.created_at, u.last_active_at ?? u.last_sign_in_at ?? "",
       isBlocked(u.banned_until) ? "Blocked" : "Active",
+      u.referral_source ?? "",
     ];
     lines.push(row.map(csvEscape).join(","));
   }
@@ -173,6 +176,7 @@ export default function AdminClient({
   countryData,
   shareCardData,
   archetypeBreakdown,
+  signupsPerDay,
 }: {
   users: AdminUser[];
   total: number;
@@ -183,6 +187,7 @@ export default function AdminClient({
   countryData: { country: string; count: number }[];
   shareCardData: { cardType: string; download: number; copy: number; total: number }[];
   archetypeBreakdown: [string, number][];
+  signupsPerDay: { date: string; count: number }[];
 }) {
   const [activeTab, setActiveTab]             = useState<AdminTab>("users");
   const [activeSyncs,    setActiveSyncs]    = useState<ActiveSyncJob[]>([]);
@@ -487,6 +492,45 @@ export default function AdminClient({
       {/* ── Users tab ── */}
       {activeTab === "users" && (
         <div className="ra-content">
+
+          {/* Signups per day — last 7 days */}
+          {(() => {
+            const maxCount = Math.max(...signupsPerDay.map(d => d.count), 1);
+            const BAR_H = 56;
+            const BAR_W = 28;
+            const GAP   = 8;
+            const totalW = signupsPerDay.length * (BAR_W + GAP) - GAP;
+            return (
+              <div style={{ padding: "20px 0 8px", borderBottom: `1px solid ${RULE}`, marginBottom: "0" }}>
+                <p style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.14em", textTransform: "uppercase", color: ORANGE, margin: "0 0 14px" }}>
+                  Signups — last 7 days
+                </p>
+                <div style={{ display: "flex", alignItems: "flex-end", gap: `${GAP}px` }}>
+                  {signupsPerDay.map(({ date, count }) => {
+                    const barH = count === 0 ? 2 : Math.max(4, Math.round((count / maxCount) * BAR_H));
+                    const label = new Date(date + "T12:00:00Z").toLocaleDateString("en-GB", { weekday: "short", day: "numeric" });
+                    return (
+                      <div key={date} style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "6px", width: `${BAR_W}px` }}>
+                        <span style={{ fontFamily: MONO, fontSize: "9px", color: count > 0 ? INK : MUTED }}>{count > 0 ? count : ""}</span>
+                        <div
+                          style={{
+                            width: `${BAR_W}px`,
+                            height: `${barH}px`,
+                            background: count > 0 ? ORANGE : RULE,
+                          }}
+                        />
+                        <span style={{ fontFamily: MONO, fontSize: "8px", color: MUTED, textAlign: "center", whiteSpace: "nowrap", letterSpacing: "0.03em" }}>
+                          {label}
+                        </span>
+                      </div>
+                    );
+                  })}
+                  <div style={{ width: `${totalW}px`, display: "none" }} />
+                </div>
+              </div>
+            );
+          })()}
+
           <div className="ra-controls">
             <div style={{ display: "flex", alignItems: "baseline", gap: "10px", flexWrap: "wrap" }}>
               <span style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.14em", textTransform: "uppercase", color: ORANGE }}>
