@@ -873,7 +873,7 @@ export default function AdminClient({
                       <td style={{ fontFamily: MONO, fontSize: "11px", color: ORANGE, padding: "10px 16px 10px 0" }}>
                         @{job.username}
                       </td>
-                      <td style={{ fontFamily: MONO, fontSize: "11px", color: job.status === "running" ? "#16a34a" : INK, padding: "10px 16px 10px 0" }}>
+                      <td style={{ fontFamily: MONO, fontSize: "11px", color: job.status === "processing" ? "#16a34a" : INK, padding: "10px 16px 10px 0" }}>
                         {job.status}
                       </td>
                       <td style={{ fontFamily: MONO, fontSize: "11px", color: MUTED, padding: "10px 16px 10px 0" }}>
