@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import UserRow, { isBlocked, type AdminUser } from "./UserRow";
 
 const SERIF  = "var(--font-editorial)";
@@ -215,29 +215,25 @@ export default function AdminClient({
     catch { /* ignore */ }
   }, [sortKey, sortDir]);
 
-  // Poll active syncs whenever the Syncs tab is open (every 5s)
+  // Load active syncs on tab open; manual refresh via button
+  const fetchActiveSyncs = useCallback(async () => {
+    setSyncsLoading(true);
+    try {
+      const res = await fetch("/api/admin/active-syncs");
+      const data = await res.json() as { jobs?: ActiveSyncJob[]; error?: string };
+      if (data.error) setSyncsError(data.error);
+      else { setActiveSyncs(data.jobs ?? []); setSyncsError(null); }
+    } catch (e) {
+      setSyncsError(String(e));
+    } finally {
+      setSyncsLoading(false);
+    }
+  }, []);
+
   useEffect(() => {
     if (activeTab !== "syncs") return;
-    let cancelled = false;
-    async function poll() {
-      setSyncsLoading(true);
-      try {
-        const res = await fetch("/api/admin/active-syncs");
-        const data = await res.json() as { jobs?: ActiveSyncJob[]; error?: string };
-        if (!cancelled) {
-          if (data.error) setSyncsError(data.error);
-          else { setActiveSyncs(data.jobs ?? []); setSyncsError(null); }
-        }
-      } catch (e) {
-        if (!cancelled) setSyncsError(String(e));
-      } finally {
-        if (!cancelled) setSyncsLoading(false);
-      }
-    }
-    poll();
-    const iv = setInterval(poll, 5000);
-    return () => { cancelled = true; clearInterval(iv); };
-  }, [activeTab]);
+    fetchActiveSyncs();
+  }, [activeTab, fetchActiveSyncs]);
 
   function handleSort(key: SortKey) {
     if (key === sortKey) setSortDir(d => d === "asc" ? "desc" : "asc");
@@ -822,13 +818,17 @@ export default function AdminClient({
       {/* ── Active Syncs tab ── */}
       {activeTab === "syncs" && (
         <div className="ra-content" style={{ padding: "28px 40px" }}>
-          <div style={{ display: "flex", alignItems: "baseline", gap: "12px", marginBottom: "24px" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: "16px", marginBottom: "24px" }}>
             <p style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.14em", textTransform: "uppercase", color: MUTED, margin: 0 }}>
               Active Discogs Syncs
             </p>
-            <span style={{ fontFamily: MONO, fontSize: "9px", color: MUTED }}>
-              — auto-refreshes every 5s
-            </span>
+            <button
+              onClick={fetchActiveSyncs}
+              disabled={syncsLoading}
+              style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.12em", textTransform: "uppercase", color: MUTED, background: "none", border: `1px solid ${RULE}`, borderRadius: "3px", padding: "3px 10px", cursor: syncsLoading ? "default" : "pointer", opacity: syncsLoading ? 0.5 : 1 }}
+            >
+              {syncsLoading ? "Loading…" : "Refresh"}
+            </button>
           </div>
 
           {syncsError && (
