@@ -183,6 +183,20 @@ function easeOutBack(t: number) {
 }
 function clamp(v: number, lo: number, hi: number) { return Math.max(lo, Math.min(hi, v)); }
 
+const REL_LABEL: Record<RelType, string> = {
+  splinter:      "Band lineage",
+  collaboration: "Collaborated",
+  influence:     "Influenced",
+  scene:         "Scene peers",
+};
+
+const REL_VERB: Record<RelType, string> = {
+  splinter:      "→ became",
+  collaboration: "↔ collaborated with",
+  influence:     "→ influenced",
+  scene:         "↔ scene peers with",
+};
+
 // ── Component ──────────────────────────────────────────────────────────────────
 
 interface Props { username?: string; }
@@ -193,7 +207,8 @@ export default function ConstellationPOC({ username }: Props) {
   const edgesRef        = useRef<Edge[]>([]);
   const animRef         = useRef<number>(0);
   const hoveredRef      = useRef<string | null>(null);
-  const selectedRef     = useRef<string | null>(null);
+  const selectedRef        = useRef<string | null>(null);
+  const selectedEdgeKeyRef = useRef<string | null>(null);
   const draggingNodeRef = useRef<string | null>(null);
   const isPanningRef    = useRef(false);
   const mouseDownPosRef = useRef({ x: 0, y: 0 });
@@ -406,6 +421,7 @@ export default function ConstellationPOC({ username }: Props) {
 
       ctx.fillStyle = WHITE; ctx.fillRect(0, 0, W, H);
 
+      const selEdgeKey     = selectedEdgeKeyRef.current;
       const activeEdgeKeys = new Set<string>();
       const connectedIds   = new Set<string>();
       if (activeId) {
@@ -415,7 +431,14 @@ export default function ConstellationPOC({ username }: Props) {
             connectedIds.add(e.source === activeId ? e.target : e.source);
           }
         }
+        connectedIds.add(activeId);
+      } else if (selEdgeKey) {
+        activeEdgeKeys.add(selEdgeKey);
+        const [srcId, tgtId] = selEdgeKey.split(":");
+        connectedIds.add(srcId);
+        connectedIds.add(tgtId);
       }
+      const hasSelection = !!activeId || !!selEdgeKey;
 
       ctx.save();
       ctx.translate(cam.x, cam.y);
@@ -518,7 +541,7 @@ export default function ConstellationPOC({ username }: Props) {
         const isHov  = hovered  === node.id;
         const isSel  = selected === node.id;
         const isAct  = isHov || isSel;
-        const isDim  = !!activeId && !isAct && !connectedIds.has(node.id);
+        const isDim  = hasSelection && !isAct && !connectedIds.has(node.id);
         const inf    = influence.get(node.id) ?? 0;
         const spawn  = spawns.find(s => s.id === node.id);
         const spawnT = spawn ? (now - spawn.birthMs) / 480 : 1;
@@ -586,7 +609,7 @@ export default function ConstellationPOC({ username }: Props) {
       // ── Layer 3: Labels ────────────────────────────────────────────────────
       for (const node of nodes) {
         const isAct = hovered === node.id || selected === node.id;
-        const isDim = !!activeId && !isAct && !connectedIds.has(node.id);
+        const isDim = hasSelection && !isAct && !connectedIds.has(node.id);
         const inf   = influence.get(node.id) ?? 0;
         const spawn = spawns.find(s => s.id === node.id);
         const spawnT = spawn ? (now - spawn.birthMs) / 480 : 1;
@@ -648,6 +671,25 @@ export default function ConstellationPOC({ username }: Props) {
       return null;
     }
 
+    function hitEdge(sx: number, sy: number): Edge | null {
+      const { x: wx, y: wy } = s2w(sx, sy);
+      const sc = cameraRef.current.scale;
+      const threshold = 10 / sc;
+      for (const e of edgesRef.current) {
+        const src = nodesRef.current.find(n => n.id === e.source);
+        const tgt = nodesRef.current.find(n => n.id === e.target);
+        if (!src || !tgt) continue;
+        const mx = (src.x + tgt.x) / 2 + e.cpDx;
+        const my = (src.y + tgt.y) / 2 + e.cpDy;
+        for (let i = 0; i <= 24; i++) {
+          const t = i / 24;
+          const bx = (1-t)*(1-t)*src.x + 2*(1-t)*t*mx + t*t*tgt.x;
+          const by = (1-t)*(1-t)*src.y + 2*(1-t)*t*my + t*t*tgt.y;
+          if (Math.hypot(wx - bx, wy - by) < threshold) return e;
+        }
+      }
+      return null;
+    }
     function onWheel(e: WheelEvent) {
       e.preventDefault();
       const r  = canvas.getBoundingClientRect();
@@ -685,17 +727,42 @@ export default function ConstellationPOC({ username }: Props) {
       const { x: sx, y: sy } = cvPos(e);
       const { W, H } = cssSize();
       const dx = sx - mouseDownPosRef.current.x, dy = sy - mouseDownPosRef.current.y;
-      if (draggingNodeRef.current && Math.sqrt(dx*dx + dy*dy) < 6) {
-        const hit = nodesRef.current.find(n => n.id === draggingNodeRef.current);
-        if (hit) {
-          if (selectedRef.current === hit.id) {
-            selectedRef.current = null; setSelectedArtist(null); setSelectedEdge(null);
-            targetCamRef.current = { x: 0, y: 0, scale: 1 }; autoZoomRef.current = true;
+      const isClick = Math.sqrt(dx*dx + dy*dy) < 6;
+      if (isClick) {
+        if (draggingNodeRef.current) {
+          const hit = nodesRef.current.find(n => n.id === draggingNodeRef.current);
+          if (hit) {
+            if (selectedRef.current === hit.id) {
+              selectedRef.current = null; setSelectedArtist(null);
+              selectedEdgeKeyRef.current = null; setSelectedEdge(null);
+              targetCamRef.current = { x: 0, y: 0, scale: 1 }; autoZoomRef.current = true;
+            } else {
+              selectedRef.current = hit.id; setSelectedArtist({ ...hit });
+              selectedEdgeKeyRef.current = null; setSelectedEdge(null);
+              const ts = clamp(cameraRef.current.scale < 1.6 ? 1.8 : cameraRef.current.scale, 1.2, 2.6);
+              targetCamRef.current = { x: W/2 - hit.x * ts, y: H/2 - hit.y * ts, scale: ts };
+              autoZoomRef.current = true;
+            }
+          }
+        } else {
+          const edgeHit = hitEdge(sx, sy);
+          if (edgeHit) {
+            selectedRef.current = null; setSelectedArtist(null);
+            const key = `${edgeHit.source}:${edgeHit.target}`;
+            selectedEdgeKeyRef.current = key; setSelectedEdge({ ...edgeHit });
+            const src = nodesRef.current.find(n => n.id === edgeHit.source);
+            const tgt = nodesRef.current.find(n => n.id === edgeHit.target);
+            if (src && tgt) {
+              const midX = (src.x + tgt.x) / 2;
+              const midY = (src.y + tgt.y) / 2;
+              const ts = clamp(cameraRef.current.scale < 1.6 ? 1.8 : cameraRef.current.scale, 1.2, 2.4);
+              targetCamRef.current = { x: W/2 - midX * ts, y: H/2 - midY * ts, scale: ts };
+              autoZoomRef.current = true;
+            }
           } else {
-            selectedRef.current = hit.id; setSelectedArtist({ ...hit }); setSelectedEdge(null);
-            const ts = clamp(cameraRef.current.scale < 1.6 ? 1.8 : cameraRef.current.scale, 1.2, 2.6);
-            targetCamRef.current = { x: W/2 - hit.x * ts, y: H/2 - hit.y * ts, scale: ts };
-            autoZoomRef.current = true;
+            selectedRef.current = null; setSelectedArtist(null);
+            selectedEdgeKeyRef.current = null; setSelectedEdge(null);
+            targetCamRef.current = { x: 0, y: 0, scale: 1 }; autoZoomRef.current = true;
           }
         }
       }
@@ -733,18 +800,14 @@ export default function ConstellationPOC({ username }: Props) {
   }, []);
 
   const dismiss = () => {
-    selectedRef.current = null; setSelectedArtist(null); setSelectedEdge(null);
+    selectedRef.current = null; setSelectedArtist(null);
+    selectedEdgeKeyRef.current = null; setSelectedEdge(null);
     targetCamRef.current = { x: 0, y: 0, scale: 1 }; autoZoomRef.current = true;
   };
 
-  const inf = selectedArtist ? (influenceRef.current.get(selectedArtist.id) ?? 0) : 0;
-
-  const REL_LABEL: Record<RelType, string> = {
-    splinter:      "Band lineage",
-    collaboration: "Collaborated",
-    influence:     "Influenced",
-    scene:         "Scene peers",
-  };
+  const inf     = selectedArtist ? (influenceRef.current.get(selectedArtist.id) ?? 0) : 0;
+  const edgeSrc = selectedEdge ? (nodesRef.current.find(n => n.id === selectedEdge.source) ?? null) : null;
+  const edgeTgt = selectedEdge ? (nodesRef.current.find(n => n.id === selectedEdge.target) ?? null) : null;
 
   return (
     <div className="relative w-full h-screen overflow-hidden select-none" style={{ background: WHITE }}>
@@ -808,7 +871,7 @@ export default function ConstellationPOC({ username }: Props) {
             </div>
           </div>
           <button
-            onClick={() => { selectedRef.current = null; setSelectedArtist(null); setSelectedEdge(null); targetCamRef.current = { x: 0, y: 0, scale: 1 }; autoZoomRef.current = true; }}
+            onClick={() => { selectedRef.current = null; setSelectedArtist(null); selectedEdgeKeyRef.current = null; setSelectedEdge(null); targetCamRef.current = { x: 0, y: 0, scale: 1 }; autoZoomRef.current = true; }}
             style={{ marginTop: "6px", width: "100%", fontFamily: MONO, fontSize: "7px", letterSpacing: "0.14em", textTransform: "uppercase", color: "#aaa", background: WHITE, border: "1px solid rgba(0,0,0,0.12)", padding: "7px", cursor: "pointer" }}
           >
             Reset view
@@ -817,7 +880,7 @@ export default function ConstellationPOC({ username }: Props) {
       )}
 
       {/* Insight panel */}
-      {isReady && !selectedArtist && (
+      {isReady && !selectedArtist && !selectedEdge && (
         <div className="absolute bottom-6 left-7 z-10" style={{ maxWidth: 260 }}>
           <div style={{ borderLeft: `2px solid ${INK}`, paddingLeft: "14px" }}>
             <p style={{ fontFamily: MONO, fontSize: "7px", color: "#bbb", letterSpacing: "0.22em", textTransform: "uppercase", marginBottom: "6px" }}>
@@ -835,6 +898,28 @@ export default function ConstellationPOC({ username }: Props) {
               <button key={i} onClick={() => setInsightIdx(i)}
                 style={{ width: 18, height: 2, background: i === insightIdx ? INK : "#ddd", border: "none", cursor: "pointer", padding: 0 }} />
             ))}
+          </div>
+        </div>
+      )}
+
+      {/* Edge panel */}
+      {isReady && selectedEdge && !selectedArtist && edgeSrc && edgeTgt && (
+        <div className="absolute bottom-6 left-7 z-10" style={{ width: 265, background: WHITE, border: `1px solid rgba(10,10,10,0.14)` }}>
+          <div style={{ padding: "18px" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "14px" }}>
+              <p style={{ fontFamily: MONO, fontSize: "7px", color: "#bbb", letterSpacing: "0.22em", textTransform: "uppercase" }}>
+                {REL_LABEL[selectedEdge.type]}
+              </p>
+              <button onClick={() => { selectedEdgeKeyRef.current = null; setSelectedEdge(null); }} style={{ fontFamily: MONO, fontSize: "10px", color: "#ccc", background: "none", border: "none", cursor: "pointer" }}>✕</button>
+            </div>
+            <div style={{ marginBottom: "14px" }}>
+              <p style={{ fontFamily: SERIF, fontSize: "15px", fontWeight: 700, color: INK, margin: 0 }}>{edgeSrc.name}</p>
+              <p style={{ fontFamily: MONO, fontSize: "8px", color: ORANGE, margin: "5px 0" }}>{REL_VERB[selectedEdge.type]}</p>
+              <p style={{ fontFamily: SERIF, fontSize: "15px", fontWeight: 700, color: INK, margin: 0 }}>{edgeTgt.name}</p>
+            </div>
+            <p style={{ fontFamily: MONO, fontSize: "9px", color: "#666", lineHeight: 1.65, margin: 0 }}>
+              {selectedEdge.note}
+            </p>
           </div>
         </div>
       )}
@@ -883,7 +968,7 @@ export default function ConstellationPOC({ username }: Props) {
       )}
 
       {/* Bottom hint */}
-      {isReady && !selectedArtist && (
+      {isReady && !selectedArtist && !selectedEdge && (
         <div className="absolute bottom-6 right-6 z-10 pointer-events-none">
           <p style={{ fontFamily: MONO, fontSize: "7px", color: "#ccc", letterSpacing: "0.2em", textTransform: "uppercase" }}>
             Scroll · Drag · Click
