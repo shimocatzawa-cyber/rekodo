@@ -31,14 +31,16 @@ export async function GET(request: NextRequest) {
   // on user_records that restricts SELECT to own rows only — without it, other
   // users' profiles come back empty and all scores compute as 0.
   const allIds = [viewerId, ...targetIds];
-  const { data: rpcData } = await (supabase as any).rpc("get_user_collection_data", { user_ids: allIds });
-  const recRows: RecRow[] = (rpcData ?? []).map((row: any) => ({
-    user_id: row.user_id,
-    artist:  row.artist,
-    genre:   row.genre,
-    year:    row.year,
-    country: row.country,
-  }));
+  const recRows: RecRow[] = [];
+  const RPC_PAGE = 1000;
+  for (let from = 0; ; from += RPC_PAGE) {
+    const { data: batch } = await (supabase as any)
+      .rpc("get_user_collection_data", { user_ids: allIds })
+      .range(from, from + RPC_PAGE - 1);
+    if (!batch || batch.length === 0) break;
+    for (const row of batch) recRows.push({ user_id: row.user_id, artist: row.artist, genre: row.genre, year: row.year, country: row.country });
+    if (batch.length < RPC_PAGE) break;
+  }
 
   const byUser = new Map<string, RecRow[]>();
   for (const r of recRows) {
