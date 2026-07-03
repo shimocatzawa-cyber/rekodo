@@ -1,7 +1,7 @@
 import ConstellationPOC from "@/components/constellation/ConstellationPOC";
 
 export const metadata = {
-  title: "Collector Constellation – shimocatzawa",
+  title: "Collection Constellation – shimocatzawa",
   robots: "noindex, nofollow",
 };
 

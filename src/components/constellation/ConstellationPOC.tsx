@@ -1168,7 +1168,7 @@ export default function ConstellationPOC({ username }: Props) {
       {/* Loading */}
       {loadingMsg && (
         <div className="absolute inset-0 z-50 flex flex-col items-center justify-center" style={{ background: BG }}>
-          <p style={{ fontFamily: SERIF, fontSize: "22px", color: INK, marginBottom: "10px" }}>Collector Constellation</p>
+          <p style={{ fontFamily: SERIF, fontSize: "22px", color: INK, marginBottom: "10px" }}>Collection Constellation</p>
           <p style={{ fontFamily: MONO, fontSize: "9px", color: DIM3, letterSpacing: "0.22em", textTransform: "uppercase" }}>{loadingMsg}</p>
         </div>
       )}
