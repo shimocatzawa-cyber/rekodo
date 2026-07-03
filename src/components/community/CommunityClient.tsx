@@ -5,6 +5,7 @@ import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 import CommunitySidebar from "./CommunitySidebar";
 import CommunityTab from "./CommunityTab";
+import type { TrendingRecord } from "@/lib/trendingRecords";
 
 const SERIF  = "var(--font-editorial)";
 const MONO   = "var(--font-mono)";
@@ -223,11 +224,12 @@ function TierPanel({ tier, items, viewerId, onClose }: {
   );
 }
 
-export default function CommunityClient({ profileId, username, displayName, avatarUrl }: {
+export default function CommunityClient({ profileId, username, displayName, avatarUrl, initialTrending }: {
   profileId: string;
   username: string;
   displayName?: string;
   avatarUrl?: string;
+  initialTrending?: TrendingRecord[];
 }) {
   const [activeTier, setActiveTier] = useState<string | null>(null);
   const [tierItems,  setTierItems]  = useState<Map<string, TierItem[]>>(new Map());
@@ -252,7 +254,7 @@ export default function CommunityClient({ profileId, username, displayName, avat
             onClose={() => setActiveTier(null)}
           />
         ) : (
-          <CommunityTab profileOwnerId={profileId} hideSocialPanel />
+          <CommunityTab profileOwnerId={profileId} hideSocialPanel initialTrending={initialTrending} />
         )}
       </div>
     </div>

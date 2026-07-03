@@ -5,6 +5,7 @@ import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 import TrendingRecords from "./TrendingRecords";
 import OpenToOffers from "./OpenToOffers";
+import type { TrendingRecord } from "@/lib/trendingRecords";
 
 const SERIF  = "var(--font-editorial)";
 const MONO   = "var(--font-mono)";
@@ -307,7 +308,7 @@ function ActivityRow({ item }: { item: ActivityItem }) {
 
 // ── Main component ─────────────────────────────────────────────────────────────
 
-export default function CommunityTab({ profileOwnerId, hideSocialPanel = false }: { profileOwnerId: string; hideSocialPanel?: boolean }) {
+export default function CommunityTab({ profileOwnerId, hideSocialPanel = false, initialTrending }: { profileOwnerId: string; hideSocialPanel?: boolean; initialTrending?: TrendingRecord[] }) {
   const [viewerUserId, setViewerUserId] = useState<string | null>(null);
   const viewerUserIdRef  = useRef<string | null>(null);
   const pendingTogglesRef = useRef<Set<string>>(new Set());
@@ -787,7 +788,7 @@ export default function CommunityTab({ profileOwnerId, hideSocialPanel = false }
         </select>
 
         {/* ── Top Matches ────────────────────────────────────────────────────── */}
-        {subTab === "trending" && <TrendingRecords />}
+        {subTab === "trending" && <TrendingRecords initialRecords={initialTrending} />}
         {subTab === "offers"   && <OpenToOffers />}
 
         {subTab === "matches" && (

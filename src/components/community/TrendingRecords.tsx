@@ -1,21 +1,12 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import type { TrendingRecord } from "@/lib/trendingRecords";
 
 const SERIF = "var(--font-editorial)";
 const MONO  = "var(--font-mono)";
 const INK   = "#0a0a0a";
 const MUTED = "#aaaaaa";
-
-type TrendingRecord = {
-  id: string;
-  artist: string;
-  album: string;
-  coverUrl: string | null;
-  year: number | null;
-  genre: string | null;
-  collectorCount: number;
-};
 
 function RecordCard({ rec, rank }: { rec: TrendingRecord; rank: number }) {
   const [hovered, setHovered] = useState(false);
@@ -80,15 +71,17 @@ function SkeletonCard() {
   );
 }
 
-export default function TrendingRecords() {
-  const [records, setRecords] = useState<TrendingRecord[]>([]);
-  const [loading, setLoading] = useState(true);
+export default function TrendingRecords({ initialRecords }: { initialRecords?: TrendingRecord[] }) {
+  const [records, setRecords] = useState<TrendingRecord[]>(initialRecords ?? []);
+  const [loading, setLoading] = useState(!initialRecords);
 
   useEffect(() => {
+    if (initialRecords) return;
     fetch("/api/community/trending")
       .then(r => r.ok ? r.json() : { records: [] })
       .then(d => setRecords(d.records ?? []))
       .finally(() => setLoading(false));
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   return (
