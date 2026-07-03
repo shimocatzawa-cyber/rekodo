@@ -444,6 +444,10 @@ const FAQ_SECTIONS: { section: string; items: { q: string; a: React.ReactNode }[
         q: "Where does the Spotify player appear?",
         a: "The player is embedded across four areas: your Collection (open any record's detail panel to play the matching album), Dig (play a recommendation before you decide to buy), Deep Dive (listen to podcast episodes about an artist), and the Playlist generator (play your generated mood playlist track by track). A Spotify Premium account is required for full-track playback; free accounts can preview short clips only.",
       },
+      {
+        q: "What languages does rekōdo support?",
+        a: "rekōdo is available in English, Japanese (日本語), German (Deutsch), and Brazilian Portuguese (Português). Switch language using the selector next to your username in the top navigation bar.",
+      },
     ],
   },
   {
