@@ -456,7 +456,8 @@ export default function ConstellationPOC({ username }: Props) {
       const H = canvas.parentElement!.clientHeight;
 
       let albumCounts    = new Map<string, number>();
-      const topStyles    = new Map<string, string[]>();
+      const topStyles    = new Map<string, string[]>(); // artist → styles (lowercase)
+      const topGenres    = new Map<string, string>();   // artist → most common Discogs genre (lowercase)
       const labelArtists    = new Map<string, Set<string>>();
       const producerArtists = new Map<string, Set<string>>();
       const discogsIdMap    = new Map<string, number>();
@@ -485,11 +486,12 @@ export default function ConstellationPOC({ username }: Props) {
 
         setLoadingMsg("Building graph…");
         const artistStyles = new Map<string, Record<string, number>>();
+        const artistGenres = new Map<string, Record<string, number>>();
 
         const BATCH = 400;
         for (let i = 0; i < recordIds.length; i += BATCH) {
           const { data } = await supabase
-            .from("records").select("artist, styles, label, producers, discogs_artist_id")
+            .from("records").select("artist, styles, genre, label, producers, discogs_artist_id")
             .in("id", recordIds.slice(i, i + BATCH));
           for (const r of data ?? []) {
             if (!r.artist || r.artist === "Various") continue;
@@ -498,6 +500,11 @@ export default function ConstellationPOC({ username }: Props) {
               const styleMap = artistStyles.get(r.artist) ?? {};
               for (const s of r.styles as string[]) styleMap[s] = (styleMap[s] ?? 0) + 1;
               artistStyles.set(r.artist, styleMap);
+            }
+            if (r.genre) {
+              const gMap = artistGenres.get(r.artist) ?? {};
+              gMap[r.genre] = (gMap[r.genre] ?? 0) + 1;
+              artistGenres.set(r.artist, gMap);
             }
             if (r.label) {
               const s = labelArtists.get(r.label) ?? new Set<string>();
@@ -514,9 +521,13 @@ export default function ConstellationPOC({ username }: Props) {
             }
           }
         }
-        // Derive top styles per artist (sorted by frequency)
+        // Derive top styles and genres per artist (sorted by frequency)
         for (const [artist, styleMap] of artistStyles) {
           topStyles.set(artist, Object.entries(styleMap).sort((a, b) => b[1] - a[1]).map(e => e[0].toLowerCase()));
+        }
+        for (const [artist, gMap] of artistGenres) {
+          const top = Object.entries(gMap).sort((a, b) => b[1] - a[1])[0]?.[0] ?? "";
+          topGenres.set(artist, top.toLowerCase());
         }
       }
 
@@ -558,9 +569,12 @@ export default function ConstellationPOC({ username }: Props) {
           const id = toId(artistName);
           if (posMap.has(id)) continue; // already added under a different display name
           const h = strHash(id);
-          // Use Discogs style tags to place in the correct genre zone when available
-          const styles = topStyles.get(artistName) ?? [];
-          const zone   = zoneForTags(styles);
+          // Use Discogs styles + broad genre as combined signal for zone placement
+          const styles     = topStyles.get(artistName) ?? [];
+          const genreStr   = topGenres.get(artistName) ?? "";
+          // Include the genre string as additional tags (split on comma/space for multi-word genres)
+          const genreTags  = genreStr ? [genreStr, ...genreStr.split(/[,&]+/).map(s => s.trim())] : [];
+          const zone       = zoneForTags([...styles, ...genreTags]);
           let xF: number, yF: number;
           if (zone) {
             xF = zone.xRange[0] + seededRng(h)     * (zone.xRange[1] - zone.xRange[0]);

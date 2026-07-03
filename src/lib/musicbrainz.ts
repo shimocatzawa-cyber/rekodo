@@ -100,28 +100,38 @@ export async function fetchMBArtist(artistName: string): Promise<MBArtistData | 
 // Keywords are matched against MB tags (lowercase). First matching zone wins
 // in priority order, so put more specific zones earlier.
 
+// Zones checked in order — more specific first, broad last.
+// Keywords use t.includes(kw), so short keywords match substrings.
+// xRange/yRange match the canvas layout in POSITIONS (folk = left, electronic = right).
 export const MB_GENRE_ZONES: Array<{
   keywords: string[];
   xRange:   [number, number];
   yRange:   [number, number];
 }> = [
-  // Specific subgenres first
-  { keywords: ["krautrock", "kosmische musik", "kraut"],                   xRange: [0.76, 0.92], yRange: [0.16, 0.36] },
-  { keywords: ["ambient", "drone", "minimalism"],                           xRange: [0.82, 0.98], yRange: [0.54, 0.92] },
-  { keywords: ["electronic", "techno", "house", "minimal techno", "idm", "electronica", "club"], xRange: [0.84, 0.98], yRange: [0.18, 0.54] },
-  { keywords: ["post-punk", "gothic rock", "dark wave", "industrial", "noise rock"], xRange: [0.36, 0.60], yRange: [0.70, 0.94] },
-  { keywords: ["psychedelic rock", "heavy metal", "doom metal", "stoner rock", "hard rock"], xRange: [0.64, 0.82], yRange: [0.18, 0.50] },
-  { keywords: ["noise", "experimental", "avant-garde"],                    xRange: [0.34, 0.56], yRange: [0.46, 0.72] },
-  { keywords: ["delta blues", "electric blues", "chicago blues"],          xRange: [0.46, 0.66], yRange: [0.62, 0.90] },
-  { keywords: ["blues"],                                                    xRange: [0.48, 0.68], yRange: [0.60, 0.90] },
-  { keywords: ["jazz", "bebop", "free jazz", "fusion", "cool jazz"],       xRange: [0.48, 0.68], yRange: [0.50, 0.72] },
-  { keywords: ["post-rock", "shoegaze", "dream pop"],                      xRange: [0.76, 0.92], yRange: [0.38, 0.66] },
-  { keywords: ["alternative rock", "indie rock", "lo-fi", "noise pop"],    xRange: [0.60, 0.82], yRange: [0.30, 0.68] },
-  { keywords: ["rock", "hard rock"],                                        xRange: [0.62, 0.80], yRange: [0.28, 0.60] },
-  { keywords: ["country", "bluegrass", "outlaw country", "alt-country"],   xRange: [0.08, 0.30], yRange: [0.52, 0.88] },
-  { keywords: ["folk", "singer-songwriter", "americana", "acoustic"],      xRange: [0.06, 0.36], yRange: [0.18, 0.72] },
-  { keywords: ["soul", "r&b", "gospel", "funk"],                           xRange: [0.56, 0.72], yRange: [0.62, 0.88] },
-  { keywords: ["hip-hop", "hip hop", "rap"],                               xRange: [0.64, 0.80], yRange: [0.60, 0.80] },
+  // Specific subgenres / genres first
+  { keywords: ["krautrock", "kosmische", "kraut"],                                    xRange: [0.76, 0.92], yRange: [0.16, 0.36] },
+  { keywords: ["ambient", "drone", "minimalism", "modern classical", "contemporary"], xRange: [0.82, 0.98], yRange: [0.54, 0.92] },
+  { keywords: ["electronic", "techno", "house", "minimal", "idm", "electronica", "club", "synth"], xRange: [0.84, 0.98], yRange: [0.18, 0.54] },
+  { keywords: ["post-punk", "gothic", "dark wave", "industrial", "noise rock", "coldwave"], xRange: [0.36, 0.60], yRange: [0.70, 0.94] },
+  { keywords: ["heavy metal", "doom", "stoner", "psych rock", "garage rock"],          xRange: [0.64, 0.82], yRange: [0.18, 0.50] },
+  { keywords: ["psychedelic"],                                                          xRange: [0.64, 0.80], yRange: [0.18, 0.45] },
+  { keywords: ["noise", "experimental", "avant-garde", "free improvisation"],          xRange: [0.34, 0.56], yRange: [0.46, 0.72] },
+  { keywords: ["delta blues", "electric blues", "chicago blues", "country blues"],     xRange: [0.46, 0.66], yRange: [0.62, 0.90] },
+  { keywords: ["blues"],                                                                xRange: [0.48, 0.68], yRange: [0.60, 0.90] },
+  { keywords: ["jazz", "bebop", "free jazz", "fusion", "cool jazz", "soul jazz"],      xRange: [0.48, 0.68], yRange: [0.50, 0.72] },
+  { keywords: ["post-rock", "shoegaze", "dream pop", "slowcore", "space rock"],        xRange: [0.76, 0.92], yRange: [0.38, 0.66] },
+  { keywords: ["alternative rock", "indie rock", "lo-fi", "noise pop", "indie pop"],  xRange: [0.60, 0.82], yRange: [0.30, 0.68] },
+  { keywords: ["rock", "hard rock", "punk"],                                            xRange: [0.62, 0.80], yRange: [0.28, 0.60] },
+  // Country/folk-adjacent — left side, lower
+  { keywords: ["country", "bluegrass", "outlaw", "alt-country", "country rock",
+               "honky tonk", "western", "appalachian"],                                xRange: [0.06, 0.30], yRange: [0.52, 0.88] },
+  // Folk / singer-songwriter — left side, full height
+  // Discogs uses "Singer/Songwriter" (slash), "Folk, World, & Country" (broad genre),
+  // "Acoustic", "Indie Folk", "Neofolk", "Traditional Folk", "British Folk" etc.
+  { keywords: ["folk", "singer", "americana", "acoustic", "neofolk",
+               "traditional", "british folk", "indie folk", "world"],                  xRange: [0.06, 0.38], yRange: [0.16, 0.76] },
+  { keywords: ["soul", "r&b", "gospel", "funk", "rhythm"],                             xRange: [0.56, 0.72], yRange: [0.62, 0.88] },
+  { keywords: ["hip-hop", "hip hop", "rap"],                                            xRange: [0.64, 0.80], yRange: [0.60, 0.80] },
 ];
 
 export function zoneForTags(tags: string[]): (typeof MB_GENRE_ZONES)[number] | null {
