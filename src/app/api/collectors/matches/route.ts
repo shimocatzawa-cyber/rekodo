@@ -142,18 +142,36 @@ export async function GET(request: NextRequest) {
 
   const allUserIds = [userId, ...eligibleIds];
 
-  // 2. Fetch all user_records for relevant users (paginated to handle large datasets)
+  // Service-role client reused across read + write operations
+  const adminDb = createServiceClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!,
+    { auth: { persistSession: false } }
+  );
+
+  // 2. Fetch user_records per-user in parallel chunks.
+  //    Per-user eq() queries hit the user_id index directly; most users have
+  //    <1000 records so only 1 round-trip each. Avoids the slow offset-based
+  //    pagination of a single large IN() clause across 100k+ rows.
+  const PARALLEL = 25;
   const urData: { user_id: string; record_id: string }[] = [];
-  for (let from = 0; ; from += PAGE) {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data } = await (supabase as any)
-      .from("public_collection_summary")
-      .select("user_id, record_id")
-      .in("user_id", allUserIds)
-      .range(from, from + PAGE - 1);
-    if (!data || data.length === 0) break;
-    urData.push(...data);
-    if (data.length < PAGE) break;
+  for (let i = 0; i < allUserIds.length; i += PARALLEL) {
+    const slice = allUserIds.slice(i, i + PARALLEL);
+    const sliceResults = await Promise.all(slice.map(async uid => {
+      const rows: { user_id: string; record_id: string }[] = [];
+      for (let from = 0; ; from += PAGE) {
+        const { data } = await adminDb
+          .from("user_records")
+          .select("user_id, record_id")
+          .eq("user_id", uid)
+          .range(from, from + PAGE - 1);
+        if (!data || data.length === 0) break;
+        rows.push(...data);
+        if (data.length < PAGE) break;
+      }
+      return rows;
+    }));
+    for (const rows of sliceResults) urData.push(...rows);
   }
 
   // Build record_id → set of user_ids mapping, and per-user record_ids
@@ -166,16 +184,17 @@ export async function GET(request: NextRequest) {
     userRecordIds.get(user_id)!.push(record_id);
   }
 
-  // 3. Fetch record details (artist, genre, year, country) in batches
+  // 3. Fetch record details (artist, genre, year, country) — parallel batches
   const allRecordIds = [...recordUserSets.keys()];
   const recordDetail  = new Map<string, { artist: string; genre: string | null; year: number | null; country: string | null }>();
   const BATCH = 400;
-  for (let i = 0; i < allRecordIds.length; i += BATCH) {
-    const { data } = await supabase
-      .from("records")
-      .select("id, artist, genre, year, country")
-      .in("id", allRecordIds.slice(i, i + BATCH));
-    for (const r of data ?? []) recordDetail.set(r.id, r);
+  const detailResults = await Promise.all(
+    Array.from({ length: Math.ceil(allRecordIds.length / BATCH) }, (_, i) =>
+      supabase.from("records").select("id, artist, genre, year, country").in("id", allRecordIds.slice(i * BATCH, (i + 1) * BATCH))
+    )
+  );
+  for (const res of detailResults) {
+    for (const r of res.data ?? []) recordDetail.set(r.id, r);
   }
 
   // 4. Build per-user flat record rows
@@ -264,11 +283,6 @@ export async function GET(request: NextRequest) {
   // computes and writes them on the viewer's behalf rather than the viewer
   // writing their own rows, so this can't go through the viewer's RLS-scoped session.
   if (scored.length > 0) {
-    const adminDb = createServiceClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.SUPABASE_SERVICE_ROLE_KEY!,
-      { auth: { persistSession: false } }
-    );
     await adminDb.from("compatibility_scores").delete().eq("user_id_a", userId);
     const toInsert = scored.map(s => ({
       user_id_a:     userId,
