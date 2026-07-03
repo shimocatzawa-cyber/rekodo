@@ -3,10 +3,10 @@
 import { useTransition } from "react";
 
 const LOCALES: { value: string; label: string }[] = [
-  { value: "en", label: "English" },
-  { value: "ja", label: "日本語" },
-  { value: "de", label: "Deutsch" },
-  { value: "pt", label: "Português (BR)" },
+  { value: "en", label: "EN" },
+  { value: "ja", label: "JA" },
+  { value: "de", label: "DE" },
+  { value: "pt", label: "PT" },
 ];
 
 export default function LocaleSwitcher({ locale }: { locale: string }) {

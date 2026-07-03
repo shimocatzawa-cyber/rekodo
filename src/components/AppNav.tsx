@@ -132,9 +132,8 @@ export default function AppNav({ username, displayLabel, avatarUrl }: { username
           })}
         </div>
 
-        {/* Right — locale switcher + avatar + @username dropdown */}
+        {/* Right — avatar + @username dropdown (locale switcher sits inside, next to avatar) */}
         <div className="flex items-center gap-3">
-          <LocaleSwitcher locale={locale} />
           <div ref={userDropRef} style={{ position: "relative" }}>
             <button
               onClick={() => setUserDropOpen(o => !o)}
@@ -161,6 +160,7 @@ export default function AppNav({ username, displayLabel, avatarUrl }: { username
                   {(displayLabel ?? username).charAt(0)}
                 </span>
               )}
+              <LocaleSwitcher locale={locale} />
               <span style={{ fontFamily: MONO, fontSize: "10px", letterSpacing: "0.06em", color: "#888888" }}>
                 @{username}{isSupporter && <span style={{ fontFamily: SERIF, fontSize: "10px", color: "#B8860B", marginLeft: "3px" }} title="rekōdo supporter">ō</span>}
               </span>
