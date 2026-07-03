@@ -1166,7 +1166,7 @@ export default function ConstellationPOC({ username }: Props) {
       y: H / 2 + (t.y - H / 2) * sf,
       scale: ns,
     };
-    autoZoomRef.current = false;
+    autoZoomRef.current = true;
   }, []);
 
   const inf     = selectedArtist ? (influenceRef.current.get(selectedArtist.id) ?? 0) : 0;
