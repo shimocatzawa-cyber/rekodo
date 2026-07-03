@@ -213,13 +213,14 @@ export default async function InsightsPage() {
     totalMed  = convertPrice(profileMed,  cvCurrency) ?? 0;
     totalHigh = convertPrice(profileHigh, cvCurrency) ?? 0;
   } else {
-    // Fallback: aggregate from user_records stored prices
+    // Fallback: aggregate from user_records stored prices, scaled by copies
     let aggLow = 0, aggMed = 0;
     for (const link of allLinks) {
+      const copies = link.copies ?? 1;
       const low = convertPrice(link.price_low,    link.price_currency);
       const med = convertPrice(link.price_median, link.price_currency);
-      if (low != null) aggLow += low;
-      if (med != null) aggMed += med;
+      if (low != null) aggLow += low * copies;
+      if (med != null) aggMed += med * copies;
     }
     totalLow  = aggLow;
     totalMed  = aggMed;
@@ -334,11 +335,12 @@ export default async function InsightsPage() {
   // ── Genre analysis ─────────────────────────────────────────────────────────
   const genreCounts = new Map<string, { count: number; valueSum: number }>();
   for (const link of allLinks) {
-    const rec   = recordsMap.get(link.record_id);
-    const genre = rec?.genre ?? "Unknown";
-    const val   = convertPrice(link.price_median, link.price_currency) ?? 0;
-    const curr  = genreCounts.get(genre) ?? { count: 0, valueSum: 0 };
-    genreCounts.set(genre, { count: curr.count + 1, valueSum: curr.valueSum + (val > 0 ? val : 0) });
+    const rec    = recordsMap.get(link.record_id);
+    const genre  = rec?.genre ?? "Unknown";
+    const copies = link.copies ?? 1;
+    const val    = convertPrice(link.price_median, link.price_currency) ?? 0;
+    const curr   = genreCounts.get(genre) ?? { count: 0, valueSum: 0 };
+    genreCounts.set(genre, { count: curr.count + copies, valueSum: curr.valueSum + (val > 0 ? val * copies : 0) });
   }
   const totalRecords  = allLinks.reduce((s, l) => s + (l.copies ?? 1), 0);
   const genreBreakdown: InsightsProps["genreBreakdown"] = [...genreCounts.entries()]
@@ -430,9 +432,10 @@ export default async function InsightsPage() {
     const rec     = recordsMap.get(link.record_id);
     const country = rec?.country?.trim() || null;
     if (!country) continue; // skip records without country data
-    const val  = convertPrice(link.price_median, link.price_currency) ?? 0;
-    const curr = countryCounts.get(country) ?? { count: 0, valueSum: 0 };
-    countryCounts.set(country, { count: curr.count + 1, valueSum: curr.valueSum + (val > 0 ? val : 0) });
+    const copies = link.copies ?? 1;
+    const val    = convertPrice(link.price_median, link.price_currency) ?? 0;
+    const curr   = countryCounts.get(country) ?? { count: 0, valueSum: 0 };
+    countryCounts.set(country, { count: curr.count + copies, valueSum: curr.valueSum + (val > 0 ? val * copies : 0) });
   }
   const countryTotal = [...countryCounts.values()].reduce((a, b) => a + b.count, 0);
   const countryBreakdown: InsightsProps["countryBreakdown"] = [...countryCounts.entries()]
@@ -459,7 +462,8 @@ export default async function InsightsPage() {
     if (!tier) continue;
     const val  = convertPrice(link.price_median, link.price_currency) ?? 0;
     const curr = desirabilityGroups.get(tier) ?? { count: 0, valueSum: 0 };
-    desirabilityGroups.set(tier, { count: curr.count + 1, valueSum: curr.valueSum + (val > 0 ? val : 0) });
+    const copies = link.copies ?? 1;
+    desirabilityGroups.set(tier, { count: curr.count + copies, valueSum: curr.valueSum + (val > 0 ? val * copies : 0) });
   }
   const desirabilityBreakdown: InsightsProps["desirabilityBreakdown"] = TIER_ORDER
     .filter((t) => desirabilityGroups.has(t))
@@ -469,14 +473,18 @@ export default async function InsightsPage() {
     });
 
   // ── Top Artists ───────────────────────────────────────────────────────────
-  const artistCounts = new Map<string, { count: number; valueSum: number }>();
+  // count = copies-weighted (physical items by this artist)
+  // uniqueCount = unique pressings (used for completist dimension so that
+  //   1 album × 3 copies doesn't classify someone as completist for that artist)
+  const artistCounts = new Map<string, { count: number; uniqueCount: number; valueSum: number }>();
   for (const link of allLinks) {
     const rec    = recordsMap.get(link.record_id);
     const artist = rec?.artist?.trim();
     if (!artist || artist === "Unknown" || artist === "Various") continue;
-    const val  = convertPrice(link.price_median, link.price_currency) ?? 0;
-    const curr = artistCounts.get(artist) ?? { count: 0, valueSum: 0 };
-    artistCounts.set(artist, { count: curr.count + 1, valueSum: curr.valueSum + (val > 0 ? val : 0) });
+    const copies = link.copies ?? 1;
+    const val    = convertPrice(link.price_median, link.price_currency) ?? 0;
+    const curr   = artistCounts.get(artist) ?? { count: 0, uniqueCount: 0, valueSum: 0 };
+    artistCounts.set(artist, { count: curr.count + copies, uniqueCount: curr.uniqueCount + 1, valueSum: curr.valueSum + (val > 0 ? val * copies : 0) });
   }
   const topArtists: InsightsProps["topArtists"] = [...artistCounts.entries()]
     .sort((a, b) => b[1].count - a[1].count)
@@ -492,7 +500,7 @@ export default async function InsightsPage() {
     if (!VINYL_FMTS.has(fmt)) continue;
     const artist = rec.artist?.trim();
     if (!artist || artist === "Unknown" || artist === "Various") continue;
-    vinylArtistCounts.set(artist, (vinylArtistCounts.get(artist) ?? 0) + 1);
+    vinylArtistCounts.set(artist, (vinylArtistCounts.get(artist) ?? 0) + (link.copies ?? 1));
   }
   const topVinylArtistEntry = [...vinylArtistCounts.entries()].sort((a, b) => b[1] - a[1])[0];
   const topVinylArtist = topVinylArtistEntry?.[0] ?? null;
@@ -504,9 +512,10 @@ export default async function InsightsPage() {
     const rec   = recordsMap.get(link.record_id);
     const label = rec?.label?.trim();
     if (!label) continue;
-    const val  = convertPrice(link.price_median, link.price_currency) ?? 0;
-    const curr = labelCounts.get(label) ?? { count: 0, valueSum: 0 };
-    labelCounts.set(label, { count: curr.count + 1, valueSum: curr.valueSum + (val > 0 ? val : 0) });
+    const copies = link.copies ?? 1;
+    const val    = convertPrice(link.price_median, link.price_currency) ?? 0;
+    const curr   = labelCounts.get(label) ?? { count: 0, valueSum: 0 };
+    labelCounts.set(label, { count: curr.count + copies, valueSum: curr.valueSum + (val > 0 ? val * copies : 0) });
   }
   const topLabels: InsightsProps["topLabels"] = [...labelCounts.entries()]
     .sort((a, b) => b[1].count - a[1].count)
@@ -518,12 +527,13 @@ export default async function InsightsPage() {
   for (const link of allLinks) {
     const rec = recordsMap.get(link.record_id);
     if (!rec?.producers?.length) continue;
-    const val = convertPrice(link.price_median, link.price_currency) ?? 0;
+    const copies = link.copies ?? 1;
+    const val    = convertPrice(link.price_median, link.price_currency) ?? 0;
     for (const producer of rec.producers) {
       const p = producer?.trim();
       if (!p) continue;
       const curr = producerCounts.get(p) ?? { count: 0, valueSum: 0 };
-      producerCounts.set(p, { count: curr.count + 1, valueSum: curr.valueSum + (val > 0 ? val : 0) });
+      producerCounts.set(p, { count: curr.count + copies, valueSum: curr.valueSum + (val > 0 ? val * copies : 0) });
     }
   }
   const topProducers: InsightsProps["topProducers"] = [...producerCounts.entries()]
@@ -740,7 +750,7 @@ export default async function InsightsPage() {
   // 4. Broad ↔ Completist — % of distinct artists with 3+ records owned.
   let completistPosition: number | null = null;
   if (artistCounts.size > 0) {
-    const completistArtists = [...artistCounts.values()].filter((v) => v.count >= 3).length;
+    const completistArtists = [...artistCounts.values()].filter((v) => v.uniqueCount >= 3).length;
     completistPosition = Math.round((completistArtists / artistCounts.size) * 100);
   }
 
