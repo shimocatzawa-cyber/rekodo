@@ -31,7 +31,7 @@ export async function GET(request: NextRequest) {
   // on user_records that restricts SELECT to own rows only — without it, other
   // users' profiles come back empty and all scores compute as 0.
   const allIds = [viewerId, ...targetIds];
-  const { data: rpcData } = await supabase.rpc("get_user_collection_data", { user_ids: allIds }) as any;
+  const { data: rpcData } = await (supabase as any).rpc("get_user_collection_data", { user_ids: allIds });
   const recRows: RecRow[] = (rpcData ?? []).map((row: any) => ({
     user_id: row.user_id,
     artist:  row.artist,
