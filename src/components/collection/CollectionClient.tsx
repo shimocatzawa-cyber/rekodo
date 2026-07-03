@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useMemo, useRef } from "react";
+import { useState, useEffect, useMemo, useRef, useDeferredValue } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useTranslations } from "next-intl";
@@ -11,7 +11,9 @@ import { createClient } from "@/lib/supabase/client";
 import { getDesirabilityTier, type DesirabilityTier } from "@/lib/desirability";
 import { FEELINGS, feelingLabel } from "@/lib/feelings";
 import { openAppleMusicLink } from "@/lib/openAppleMusic";
-import SpotifyPlayer, { getFreshSpotifyToken } from "@/components/SpotifyPlayer";
+import dynamic from "next/dynamic";
+import { getFreshSpotifyToken } from "@/components/SpotifyPlayer";
+const SpotifyPlayer = dynamic(() => import("@/components/SpotifyPlayer"), { ssr: false });
 import { isPlausibleAlbumMatch } from "@/lib/textMatch";
 
 const SERIF  = "var(--font-editorial)";
@@ -315,6 +317,17 @@ const [filterFormat,       setFilterFormat]       = useState("");
   const [filterFeeling,      setFilterFeeling]      = useState("");
   const [sortBy,             setSortBy]             = useState("artist-az");
 
+  // Deferred values: filter/sort re-renders are treated as non-urgent so the
+  // input field updates instantly while the expensive re-filter runs async.
+  // Directly reduces INP on mobile where 500-record sorts are slow.
+  const deferredSearch        = useDeferredValue(searchQuery);
+  const deferredGenre         = useDeferredValue(filterGenre);
+  const deferredYear          = useDeferredValue(filterYear);
+  const deferredFormat        = useDeferredValue(filterFormat);
+  const deferredDesirability  = useDeferredValue(filterDesirability);
+  const deferredFeeling       = useDeferredValue(filterFeeling);
+  const deferredSortBy        = useDeferredValue(sortBy);
+
   const [mobileDetailOpen, setMobileDetailOpen] = useState(false);
 
   const [collection, setCollection] = useState<CollectionRecord[]>(initialCollection);
@@ -327,18 +340,12 @@ const [filterFormat,       setFilterFormat]       = useState("");
   // Client-side fallback: fetch user_records joined to records when the server
   // prop is empty (e.g. due to a silent query error on the server).
   useEffect(() => {
-    console.log('[collection] initialCollection.length on mount:', initialCollection.length);
     if (initialCollection.length > 0) return;
 
     async function loadCollection() {
       const supabase = createClient();
-      const { data: { user }, error: authError } = await supabase.auth.getUser();
-      console.log('Auth user ID:', user?.id);
-      console.log('[collection] auth error:', authError);
-      if (!user) {
-        console.log('[collection] no user — browser session not authenticated');
-        return;
-      }
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
 
       type LinkRow = {
         record_id:        string;
@@ -363,7 +370,6 @@ const [filterFormat,       setFilterFormat]       = useState("");
           .select("record_id, value, price_low, price_median, price_currency, media_condition, sleeve_condition, open_to_offers, is_essential, feeling, memory_text, copies" as any)
           .eq("user_id", user.id)
           .range(from, from + PAGE - 1);
-        console.log(`[collection] user_records page from=${from}: count=${data?.length ?? 0} error=${JSON.stringify(error)}`);
         if (!data || data.length === 0) break;
         allLinks.push(...(data as unknown as LinkRow[]));
         if (data.length < PAGE) break;
@@ -388,7 +394,6 @@ const [filterFormat,       setFilterFormat]       = useState("");
           .from("records")
           .select("id, discogs_id, artist, album, year, genre, cover_url, label, format, country, community_have, community_want, community_num_for_sale, edition_size")
           .in("id", recordIds.slice(i, i + BATCH));
-        console.log(`[collection] records batch i=${i}: count=${data?.length ?? 0} error=${JSON.stringify(error)}`);
         for (const r of data ?? []) recordsMap.set(r.id, r as Omit<CollectionRecord, "value" | "price_low" | "price_low_usd" | "price_median" | "price_currency" | "media_condition" | "sleeve_condition" | "copies">);
       }
 
@@ -414,7 +419,6 @@ const [filterFormat,       setFilterFormat]       = useState("");
         })
         .filter((r): r is CollectionRecord => r !== undefined);
 
-      console.log('[collection] client fetch returned:', fetched.length, 'records');
       if (fetched.length > 0) setCollection(fetched);
     }
 
@@ -661,10 +665,8 @@ const [filterFormat,       setFilterFormat]       = useState("");
       `/api/bandcamp/search?artist=${encodeURIComponent(record.artist)}&album=${encodeURIComponent(record.album)}`
     );
 
-    console.log("selectRecord discogs_id:", record.discogs_id, "| record id:", record.id);
     try {
       if (record.discogs_id) {
-        console.log("FETCHING PRICE FOR:", record.discogs_id);
         const [relRes, priceRes, bcRes] = await Promise.all([
           fetch(`/api/discogs/release/${record.discogs_id}`),
           fetch(`/api/discogs/price/${record.discogs_id}?currency=${encodeURIComponent(valueCurrency)}`, { cache: "no-store" }),
@@ -688,7 +690,7 @@ const [filterFormat,       setFilterFormat]       = useState("");
 
   const filteredCollection = useMemo(() => {
     let result = collection;
-    const q = searchQuery.trim().toLowerCase();
+    const q = deferredSearch.trim().toLowerCase();
     if (q) {
       result = result.filter(r =>
         r.artist.toLowerCase().includes(q) ||
@@ -696,19 +698,19 @@ const [filterFormat,       setFilterFormat]       = useState("");
         (r.label ?? "").toLowerCase().includes(q)
       );
     }
-    if (filterGenre)        result = result.filter(r => r.genre === filterGenre);
-    if (filterYear)         result = result.filter(r => matchesDecade(r.year, filterYear));
-    if (filterFormat)       result = result.filter(r => r.format === filterFormat);
-    if (filterDesirability) result = result.filter(r =>
-      getDesirabilityTier(r.community_have, r.community_want, r.price_low_usd, r.community_num_for_sale, r.edition_size) === filterDesirability
+    if (deferredGenre)        result = result.filter(r => r.genre === deferredGenre);
+    if (deferredYear)         result = result.filter(r => matchesDecade(r.year, deferredYear));
+    if (deferredFormat)       result = result.filter(r => r.format === deferredFormat);
+    if (deferredDesirability) result = result.filter(r =>
+      getDesirabilityTier(r.community_have, r.community_want, r.price_low_usd, r.community_num_for_sale, r.edition_size) === deferredDesirability
     );
-    if (filterFeeling)      result = result.filter(r => r.feeling === filterFeeling);
+    if (deferredFeeling)      result = result.filter(r => r.feeling === deferredFeeling);
     return result;
-  }, [collection, searchQuery, filterGenre, filterYear, filterFormat, filterDesirability, filterFeeling]);
+  }, [collection, deferredSearch, deferredGenre, deferredYear, deferredFormat, deferredDesirability, deferredFeeling]);
 
   const sortedCollection = useMemo(() => {
     const arr = [...filteredCollection];
-    switch (sortBy) {
+    switch (deferredSortBy) {
       case "artist-az":
         return arr.sort((a, b) =>
           stripArticle(a.artist || "").toLowerCase()
@@ -742,10 +744,10 @@ const [filterFormat,       setFilterFormat]       = useState("");
       default:
         return arr;
     }
-  }, [filteredCollection, sortBy]);
+  }, [filteredCollection, deferredSortBy]);
 
-  const useGrouped   = sortBy === "artist-az" || sortBy === "artist-za" || sortBy === "artist-lastname-az" || sortBy === "artist-lastname-za";
-  const byLastName   = sortBy === "artist-lastname-az" || sortBy === "artist-lastname-za";
+  const useGrouped   = deferredSortBy === "artist-az" || deferredSortBy === "artist-za" || deferredSortBy === "artist-lastname-az" || deferredSortBy === "artist-lastname-za";
+  const byLastName   = deferredSortBy === "artist-lastname-az" || deferredSortBy === "artist-lastname-za";
   const filteredGroups = useMemo(() => {
     if (!useGrouped) return [];
     return groupByLetter(sortedCollection, byLastName);
@@ -1841,13 +1843,19 @@ function TracklistPanel({ tracks, loading, bandcamp, record, username, collectio
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, [feelingOpen]);
 
-  // ── Spotify ───────────────────────────────────────────────────────────────
+  // ── Spotify (desktop only) ────────────────────────────────────────────────
+  const [isDesktop, setIsDesktop] = useState(false);
+  useEffect(() => {
+    setIsDesktop(window.matchMedia("(min-width: 768px)").matches);
+  }, []);
+
   const [spotifyPremium,  setSpotifyPremium]  = useState(false);
   // undefined = searching (loading), null = no match found, string = match
   const [currentSpotifyUri, setCurrentSpotifyUri] = useState<string | null | undefined>(undefined);
   const spotifyUriCache = useRef<Map<string, string | null>>(new Map());
 
   useEffect(() => {
+    if (!isDesktop) return;
     fetch("/api/spotify/token")
       .then(r => r.json() as Promise<{ connected: boolean; access_token?: string; product?: string }>)
       .then(data => {
@@ -1856,7 +1864,7 @@ function TracklistPanel({ tracks, loading, bandcamp, record, username, collectio
         }
       })
       .catch(() => {});
-  }, []);
+  }, [isDesktop]);
 
   useEffect(() => {
     // Reset immediately so SpotifyPlayer's reset effect fires for the new album.

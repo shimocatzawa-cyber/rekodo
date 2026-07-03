@@ -5,7 +5,7 @@ import dynamic from "next/dynamic";
 import { useUrlTab } from "@/lib/useUrlTab";
 import Link from "next/link";
 import AppNav from "@/components/AppNav";
-import TasteProfile, { type SpectrumData } from "@/components/insights/TasteProfile";
+import type { SpectrumData } from "@/components/insights/TasteProfile";
 import LunarListeningRitual from "@/components/LunarListeningRitual";
 import DailyPick, { type DailyPickData } from "@/components/DailyPick";
 import OnThisDay, { type OnThisDayPick } from "@/components/OnThisDay";
@@ -24,6 +24,7 @@ const CollectionStoryModal   = dynamic(() => import("@/components/insights/Colle
 const RecordShelfModal       = dynamic(() => import("@/components/insights/RecordShelfModal"),       { ssr: false });
 const SpectrumShareModal     = dynamic(() => import("@/components/insights/SpectrumShareModal"),     { ssr: false });
 const ArchetypeShareModal    = dynamic(() => import("@/components/archetypes/ArchetypeShareModal"),  { ssr: false });
+const TasteProfile           = dynamic(() => import("@/components/insights/TasteProfile"),           { ssr: false });
 
 const SERIF  = "var(--font-editorial)";
 const MONO   = "var(--font-mono)";

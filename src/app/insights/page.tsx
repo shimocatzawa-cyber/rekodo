@@ -1,12 +1,100 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { cookies } from "next/headers";
+import { unstable_cache } from "next/cache";
+import { createClient as createServiceClient } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase/server";
 import InsightsClient, { type InsightsProps } from "@/components/insights/InsightsClient";
 import { getDesirabilityTier, type DesirabilityTier } from "@/lib/desirability";
 import { selectDailyPick, dailyPickBlurb } from "@/lib/dailyPick";
 import { seededRandom, dayKey } from "@/lib/dailyRotation";
 import { getUserWithTimeout } from "@/lib/supabase/withTimeout";
+
+// ── Hoisted types (needed by fetchInsightsRaw outside request scope) ─────────
+
+type LinkRow = {
+  record_id:        string;
+  price_low:        number | null;
+  price_median:     number | null;
+  price_high:       number | null;
+  price_currency:   string | null;
+  media_condition:  string | null;
+  sleeve_condition: string | null;
+  date_added:       string | null;
+  last_played_at:   string | null;
+  play_count:       number;
+  is_essential:     boolean;
+  feeling:          string | null;
+  copies:           number;
+};
+
+type RecordRow = {
+  id: string; artist: string; album: string;
+  year: number | null;
+  genre: string | null; styles: string[] | null;
+  label: string | null; country: string | null; format: string | null;
+  vinyl_colour: string | null;
+  producers: string[] | null;
+  cover_url: string | null;
+  community_have: number | null; community_want: number | null;
+  community_num_for_sale: number | null;
+  edition_size: number | null;
+};
+
+// Cached per-user, invalidated by revalidateTag(`collection-${userId}`) on
+// every Discogs sync and CSV import — so insights always reflects the latest
+// collection without re-fetching on every page visit.
+function fetchInsightsRaw(userId: string) {
+  return unstable_cache(
+    async (): Promise<{ allLinks: LinkRow[]; recordsArray: RecordRow[] }> => {
+      const admin = createServiceClient(
+        process.env.NEXT_PUBLIC_SUPABASE_URL!,
+        process.env.SUPABASE_SERVICE_ROLE_KEY!
+      );
+
+      // Count first so pages can be fetched in parallel
+      const allLinks: LinkRow[] = [];
+      const PAGE = 1000;
+      const { count: linkCount } = await admin
+        .from("user_records")
+        .select("record_id", { count: "exact", head: true })
+        .eq("user_id", userId);
+      const pageCount = Math.ceil((linkCount ?? 0) / PAGE);
+      if (pageCount > 0) {
+        const pages = await Promise.all(
+          Array.from({ length: pageCount }, (_, i) =>
+            admin
+              .from("user_records")
+              .select("record_id, price_low, price_median, price_high, price_currency, media_condition, sleeve_condition, date_added, last_played_at, play_count, is_essential, feeling, copies")
+              .eq("user_id", userId)
+              .order("record_id")
+              .range(i * PAGE, (i + 1) * PAGE - 1)
+          )
+        );
+        allLinks.push(...pages.flatMap(({ data }) => (data ?? []) as unknown as LinkRow[]));
+      }
+
+      const recordIds = allLinks.map(l => l.record_id);
+      const recordsArray: RecordRow[] = [];
+      if (recordIds.length > 0) {
+        const BATCH = 400;
+        const batches = await Promise.all(
+          Array.from({ length: Math.ceil(recordIds.length / BATCH) }, (_, i) =>
+            admin
+              .from("records")
+              .select("id, artist, album, year, genre, styles, label, country, format, vinyl_colour, producers, cover_url, community_have, community_want, community_num_for_sale, edition_size")
+              .in("id", recordIds.slice(i * BATCH, (i + 1) * BATCH))
+          )
+        );
+        for (const { data } of batches) recordsArray.push(...((data ?? []) as unknown as RecordRow[]));
+      }
+
+      return { allLinks, recordsArray };
+    },
+    [`insights-raw-${userId}`],
+    { tags: [`collection-${userId}`], revalidate: false }
+  )();
+}
 
 export const metadata: Metadata = {
   title: "Insights",
@@ -82,68 +170,11 @@ export default async function InsightsPage() {
     return price;
   };
 
-  // ── Fetch user_records (paginated) ─────────────────────────────────────────
-  type LinkRow = {
-    record_id:        string;
-    price_low:        number | null;
-    price_median:     number | null;
-    price_high:       number | null;
-    price_currency:   string | null;
-    media_condition:  string | null;
-    sleeve_condition: string | null;
-    date_added:       string | null;
-    last_played_at:   string | null;
-    play_count:       number;
-    is_essential:     boolean;
-    feeling:          string | null;
-    copies:           number;
-  };
-  // Count total rows first so we can fetch all pages in parallel
-  const PAGE = 1000;
-  const { count: linkCount } = await supabase
-    .from("user_records")
-    .select("record_id", { count: "exact", head: true })
-    .eq("user_id", user.id);
-  const pageCount = Math.ceil((linkCount ?? 0) / PAGE);
-  const linkPages = await Promise.all(
-    Array.from({ length: pageCount }, (_, i) =>
-      supabase
-        .from("user_records")
-        .select("record_id, price_low, price_median, price_high, price_currency, media_condition, sleeve_condition, date_added, last_played_at, play_count, is_essential, feeling, copies")
-        .eq("user_id", user.id)
-        .order("record_id")
-        .range(i * PAGE, (i + 1) * PAGE - 1)
-    )
-  );
-  const allLinks: LinkRow[] = linkPages.flatMap(({ data }) => (data ?? []) as unknown as LinkRow[]);
-
+  // ── Fetch raw collection data (cached, busted on sync/import) ─────────────
+  const { allLinks, recordsArray } = await fetchInsightsRaw(user.id);
   const recordIds = allLinks.map((l) => l.record_id);
-
-  // ── Fetch records (parallelised batches) ──────────────────────────────────
-  type RecordRow = {
-    id: string; artist: string; album: string;
-    year: number | null;
-    genre: string | null; styles: string[] | null;
-    label: string | null; country: string | null; format: string | null;
-    vinyl_colour: string | null;
-    producers: string[] | null;
-    cover_url: string | null;
-    community_have: number | null; community_want: number | null;
-    community_num_for_sale: number | null;
-    edition_size: number | null;
-  };
   const recordsMap = new Map<string, RecordRow>();
-  const BATCH = 400;
-  const batches = Array.from({ length: Math.ceil(recordIds.length / BATCH) }, (_, i) =>
-    supabase
-      .from("records")
-      .select("id, artist, album, year, genre, styles, label, country, format, vinyl_colour, producers, cover_url, community_have, community_want, community_num_for_sale, edition_size")
-      .in("id", recordIds.slice(i * BATCH, (i + 1) * BATCH))
-  );
-  const batchResults = await Promise.all(batches);
-  for (const { data, error } of batchResults) {
-    if (!error) for (const r of data ?? []) recordsMap.set(r.id, r as RecordRow);
-  }
+  for (const r of recordsArray) recordsMap.set(r.id, r);
 
   // ── Daily pick ──────────────────────────────────────────────────────────────
   const cookieStore = await cookies();
@@ -807,10 +838,15 @@ export default async function InsightsPage() {
     formatAgnosticPosition,
   };
 
-  // ── Listening History (play_count + last_played_at) ──────────────────────
-  const playedLinks = allLinks
-    .filter((l) => l.play_count > 0 || l.last_played_at != null)
-    .sort((a, b) => b.play_count - a.play_count || new Date(b.last_played_at!).getTime() - new Date(a.last_played_at!).getTime());
+  // ── Listening History (live — not cached, updates without a re-sync) ────────
+  const { data: playedLinksRaw } = await supabase
+    .from("user_records")
+    .select("record_id, play_count, last_played_at")
+    .eq("user_id", user.id)
+    .or("play_count.gt.0,last_played_at.not.is.null");
+
+  const playedLinks = ((playedLinksRaw ?? []) as unknown as { record_id: string; play_count: number; last_played_at: string | null }[])
+    .sort((a, b) => b.play_count - a.play_count || new Date(b.last_played_at ?? 0).getTime() - new Date(a.last_played_at ?? 0).getTime());
 
   const topPlayedRecords: InsightsProps["topPlayedRecords"] = playedLinks
     .slice(0, 5)

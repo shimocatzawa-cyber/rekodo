@@ -427,6 +427,10 @@ export default function ConstellationPOC({ username }: Props) {
   const [minAlbums,      setMinAlbums]      = useState(1);
   const minAlbumsRef = useRef(1);
 
+  const ALL_REL_TYPES: RelType[] = ["splinter", "collaboration", "influence", "scene", "label", "production"];
+  const [enabledTypes, setEnabledTypes] = useState<Set<RelType>>(new Set(ALL_REL_TYPES));
+  const enabledTypesRef = useRef<Set<RelType>>(new Set(ALL_REL_TYPES));
+
   // ── Helpers ─────────────────────────────────────────────────────────────────
 
   function buildEdge(e: Omit<Edge, "cpDx" | "cpDy">): Edge {
@@ -684,8 +688,9 @@ export default function ConstellationPOC({ username }: Props) {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [username]);
 
-  // Keep minAlbums ref in sync so the canvas loop can read it without stale closures
+  // Keep filter refs in sync so the canvas loop can read them without stale closures
   useEffect(() => { minAlbumsRef.current = minAlbums; }, [minAlbums]);
+  useEffect(() => { enabledTypesRef.current = enabledTypes; }, [enabledTypes]);
 
   // Rotate insight every 8 seconds
   useEffect(() => {
@@ -867,7 +872,7 @@ export default function ConstellationPOC({ username }: Props) {
     function tick() {
       const { W, H } = cssSize();
       const nodes = nodesRef.current;
-      const edges = [...edgesRef.current, ...mbEdgesRef.current, ...discogsEdgesRef.current];
+      const edges = [...edgesRef.current, ...mbEdgesRef.current, ...discogsEdgesRef.current].filter(e => enabledTypesRef.current.has(e.type));
       for (const n of nodes) {
         if (draggingNodeRef.current === n.id) continue;
         if (isFiltered(n)) continue; // filtered-out nodes stay put
@@ -918,7 +923,7 @@ export default function ConstellationPOC({ username }: Props) {
     function render() {
       const { W, H } = cssSize();
       const nodes    = nodesRef.current;
-      const edges    = [...edgesRef.current, ...mbEdgesRef.current, ...discogsEdgesRef.current];
+      const edges    = [...edgesRef.current, ...mbEdgesRef.current, ...discogsEdgesRef.current].filter(e => enabledTypesRef.current.has(e.type));
       const cam      = cameraRef.current;
       const hovered  = hoveredRef.current, selected = selectedRef.current;
       const activeId = hovered || selected;
@@ -1224,7 +1229,7 @@ export default function ConstellationPOC({ username }: Props) {
       const { x: wx, y: wy } = s2w(sx, sy);
       const sc = cameraRef.current.scale;
       const threshold = 10 / sc;
-      for (const e of [...edgesRef.current, ...mbEdgesRef.current, ...discogsEdgesRef.current]) {
+      for (const e of [...edgesRef.current, ...mbEdgesRef.current, ...discogsEdgesRef.current].filter(e => enabledTypesRef.current.has(e.type))) {
         const src = nodesRef.current.find(n => n.id === e.source);
         const tgt = nodesRef.current.find(n => n.id === e.target);
         if (!src || !tgt) continue;
@@ -1336,7 +1341,7 @@ export default function ConstellationPOC({ username }: Props) {
   }, [isReady]);
 
   const getConnections = useCallback((nodeId: string) => {
-    return [...edgesRef.current, ...mbEdgesRef.current, ...discogsEdgesRef.current]
+    return [...edgesRef.current, ...mbEdgesRef.current, ...discogsEdgesRef.current].filter(e => enabledTypesRef.current.has(e.type))
       .filter(e => e.source === nodeId || e.target === nodeId)
       .map(e => {
         const otherId  = e.source === nodeId ? e.target : e.source;
@@ -1416,7 +1421,11 @@ export default function ConstellationPOC({ username }: Props) {
               Connection type
             </p>
             {(["splinter", "collaboration", "influence", "scene", "label", "production"] as RelType[]).map(t => (
-              <div key={t} style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "7px" }}>
+              <div
+                key={t}
+                onClick={() => setEnabledTypes(prev => { const next = new Set(prev); next.has(t) ? next.delete(t) : next.add(t); return next; })}
+                style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "7px", cursor: "pointer", opacity: enabledTypes.has(t) ? 1 : 0.32 }}
+              >
                 <svg width="22" height="8" style={{ flexShrink: 0 }}>
                   <line x1="0" y1="4" x2="22" y2="4" stroke={INK}
                     strokeWidth={t === "splinter" ? 2.2 : t === "collaboration" || t === "production" ? 1.4 : t === "influence" || t === "label" ? 1 : 0.6}
@@ -1427,7 +1436,13 @@ export default function ConstellationPOC({ username }: Props) {
                     <polygon points="17,1 22,4 17,7" fill={INK} fillOpacity={0.65} />
                   )}
                 </svg>
-                <span style={{ fontFamily: MONO, fontSize: "10px", color: DIM2 }}>{REL_LABEL[t]}</span>
+                <span style={{ fontFamily: MONO, fontSize: "10px", color: DIM2, flex: 1 }}>{REL_LABEL[t]}</span>
+                <span style={{
+                  width: "9px", height: "9px", flexShrink: 0,
+                  border: `1px solid ${DIM3}`,
+                  background: enabledTypes.has(t) ? DIM2 : "transparent",
+                  display: "inline-block",
+                }} />
               </div>
             ))}
             <div style={{ marginTop: "10px", paddingTop: "10px", borderTop: `1px solid ${BORD}` }}>

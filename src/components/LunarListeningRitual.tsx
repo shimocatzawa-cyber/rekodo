@@ -1,3 +1,5 @@
+"use client";
+
 // components/LunarListeningRitual.tsx
 
 const LUNAR_CYCLE = 29.53058770576;

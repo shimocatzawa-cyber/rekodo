@@ -19,8 +19,6 @@
   /* Fonts */
   --font-editorial: var(--font-shippori), "Georgia", serif;
   --font-mono: var(--font-dm-mono), "Courier New", monospace;
-  --font-script: var(--font-caveat), "cursive";
-
   /* Spacing extras */
   --spacing-18: 4.5rem;
   --spacing-22: 5.5rem;

@@ -304,6 +304,10 @@ const FAQ_SECTIONS: { section: string; items: { q: string; a: React.ReactNode }[
         q: "What is the collection lifespan chart?",
         a: "It shows when you added records to your collection over time — by month for collections spanning a few years, by year for longer ones. It's a picture of how your collecting habit has evolved.",
       },
+      {
+        q: "What is the Collection Constellation?",
+        a: "Collection Constellation is an interactive star-map that visualises every artist in your collection as a node on a canvas, with edges showing the connections between them — band splinters, collaborations, influences, shared labels, and production relationships. Artists are placed by genre (folk and acoustic acts cluster left, electronic right, and so on). Click any artist to see their connections; click any edge to read a note about the relationship. Use the connection-type toggles in the top-right legend to show or hide specific edge types, the min-records filter to focus on artists you own multiple records by, and the zoom controls to navigate. Artists not in your collection appear as faint rings and are drawn in automatically as MusicBrainz and Discogs relationship data loads in the background.",
+      },
     ],
   },
   {

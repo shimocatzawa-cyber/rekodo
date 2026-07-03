@@ -845,6 +845,11 @@ export default function DigClient({ userId, username, displayLabel, avatarUrl, c
   // Consumed exactly once: the first time the explore fetch effect fires.
   const skipInitialExploreRef = useRef(hasInitialPicks);
 
+  const [isDesktop, setIsDesktop] = useState(false);
+  useEffect(() => {
+    setIsDesktop(window.matchMedia("(min-width: 768px)").matches);
+  }, []);
+
   const [recs,              setRecs]              = useState<Recommendation[] | null>(hasInitialPicks ? initialExplorePicks : null);
   const [loading,           setLoading]           = useState(!hasInitialPicks);
   const [error,             setError]             = useState<string | null>(null);
@@ -1386,19 +1391,19 @@ export default function DigClient({ userId, username, displayLabel, avatarUrl, c
             </>
           )}
 
-          {/* Always mounted outside the loading gate so the SDK never disconnects
-              between "Dig Again" fetches. Renders null internally when nothing is playable. */}
-          <div className="dig-spotify-player">
-            <DigCompactPlayer
-              recIdx={idx}
-              previewUrl={digSpotify?.previewUrl ?? null}
-              albumUri={digSpotify?.albumUri ?? null}
-              trackUri={digSpotify?.trackUri ?? null}
-              artist={digSpotify?.artist ?? ""}
-              album={digSpotify?.album ?? ""}
-              onTrackEnd={() => navigate(1)}
-            />
-          </div>
+          {isDesktop && (
+            <div className="dig-spotify-player">
+              <DigCompactPlayer
+                recIdx={idx}
+                previewUrl={digSpotify?.previewUrl ?? null}
+                albumUri={digSpotify?.albumUri ?? null}
+                trackUri={digSpotify?.trackUri ?? null}
+                artist={digSpotify?.artist ?? ""}
+                album={digSpotify?.album ?? ""}
+                onTrackEnd={() => navigate(1)}
+              />
+            </div>
+          )}
 
         </div>
       </main>

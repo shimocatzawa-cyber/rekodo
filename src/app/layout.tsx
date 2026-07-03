@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Shippori_Mincho, DM_Mono, Caveat, Noto_Sans_JP } from "next/font/google";
+import { Shippori_Mincho, DM_Mono, Noto_Sans_JP } from "next/font/google";
 import Script from "next/script";
 import { Analytics } from "@vercel/analytics/next";
 import { SpeedInsights } from "@vercel/speed-insights/next";
@@ -21,13 +21,6 @@ const dmMono = DM_Mono({
   variable: "--font-dm-mono",
   subsets: ["latin"],
   weight: ["400", "500"],
-  display: "swap",
-});
-
-const caveat = Caveat({
-  variable: "--font-caveat",
-  subsets: ["latin"],
-  weight: ["400", "700"],
   display: "swap",
 });
 
@@ -114,7 +107,7 @@ export default async function RootLayout({
   return (
     <html
       lang={locale}
-      className={`${shipporiMincho.variable} ${dmMono.variable} ${caveat.variable} ${notoSansJp.variable} h-full`}
+      className={`${shipporiMincho.variable} ${dmMono.variable} ${notoSansJp.variable} h-full`}
     >
       <head>
         <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />

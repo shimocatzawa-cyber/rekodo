@@ -5,7 +5,9 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { createList, appendSongToList } from "@/app/lists/actions";
 import PlaylistPromptPanel, { type Mood, type MatchStatus } from "@/components/lists/playlist/PlaylistPromptPanel";
-import PlaylistPlayer from "@/components/lists/playlist/PlaylistPlayer";
+import dynamic from "next/dynamic";
+
+const PlaylistPlayer = dynamic(() => import("@/components/lists/playlist/PlaylistPlayer"), { ssr: false });
 import PlaylistTrackList from "@/components/lists/playlist/PlaylistTrackList";
 import SavedPlaylistsPanel, { type SavedPlaylistSummary } from "@/components/lists/playlist/SavedPlaylistsPanel";
 import PlaylistShareModal from "@/components/lists/playlist/PlaylistShareModal";
@@ -64,6 +66,11 @@ export default function PlaylistTab({ username }: { username: string }) {
   const [activeSavedId,  setActiveSavedId]  = useState<string | null>(null);
 
   const [showShare, setShowShare] = useState(false);
+  const [isDesktop, setIsDesktop] = useState(false);
+
+  useEffect(() => {
+    setIsDesktop(window.matchMedia("(min-width: 768px)").matches);
+  }, []);
 
   const matchPollRef     = useRef<ReturnType<typeof setInterval> | null>(null);
   const resequenceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -363,9 +370,11 @@ export default function PlaylistTab({ username }: { username: string }) {
                 </button>
               </div>
 
-              <div style={{ marginBottom: "16px" }}>
-                <PlaylistPlayer tracks={tracks} moodLabel={mood ?? titleDraft} />
-              </div>
+              {isDesktop && (
+                <div style={{ marginBottom: "16px" }}>
+                  <PlaylistPlayer tracks={tracks} moodLabel={mood ?? titleDraft} />
+                </div>
+              )}
 
               <PlaylistTrackList tracks={tracks} onReorder={handleReorder} resequencing={resequencing} />
             </>
