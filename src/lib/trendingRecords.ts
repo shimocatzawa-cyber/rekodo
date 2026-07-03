@@ -19,32 +19,58 @@ export const getCachedTrending = unstable_cache(
       { auth: { persistSession: false } },
     );
 
-    const { data: trendingRows, error } = await supabase.rpc("get_trending_records", { limit_count: 40 });
+    // Fetch top 200 pressings — fast single-table scan, no joins in SQL
+    const { data: trendingRows, error } = await supabase.rpc("get_trending_records", { limit_count: 200 });
     if (error || !trendingRows || trendingRows.length === 0) return [];
 
-    // RPC now returns artist+album aggregated across all pressings; record_id is the most-collected pressing
-    const rows = trendingRows as { record_id: string; artist: string; album: string; collector_count: number }[];
+    const rows = trendingRows as { record_id: string; collector_count: number }[];
     const topIds = rows.map(r => r.record_id);
+    const countById = new Map(rows.map(r => [r.record_id, r.collector_count]));
 
-    const { data: meta } = await supabase
+    const { data: records } = await supabase
       .from("records")
-      .select("id, cover_url, year, genre")
-      .in("id", topIds);
+      .select("id, artist, album, cover_url, year, genre")
+      .in("id", topIds)
+      .not("album", "is", null)
+      .neq("album", "");
 
-    const metaMap = new Map((meta ?? []).map(r => [r.id, r]));
+    if (!records) return [];
 
-    return rows.map(row => {
-      const m = metaMap.get(row.record_id);
-      return {
-        id:             row.record_id,
-        artist:         row.artist,
-        album:          row.album,
-        coverUrl:       m?.cover_url ?? null,
-        year:           m?.year ?? null,
-        genre:          m?.genre ?? null,
-        collectorCount: row.collector_count,
-      };
-    });
+    // Aggregate by artist+album: sum collector counts across pressings,
+    // keeping the most-collected pressing for cover art
+    type AlbumAgg = { count: number; bestId: string; bestCount: number; artist: string; album: string; coverUrl: string | null; year: number | null; genre: string | null };
+    const albumMap = new Map<string, AlbumAgg>();
+
+    for (const rec of records) {
+      const key = `${rec.artist}|||${rec.album}`;
+      const cnt = countById.get(rec.id) ?? 0;
+      const existing = albumMap.get(key);
+      if (!existing) {
+        albumMap.set(key, { count: cnt, bestId: rec.id, bestCount: cnt, artist: rec.artist, album: rec.album, coverUrl: rec.cover_url ?? null, year: rec.year ?? null, genre: rec.genre ?? null });
+      } else {
+        existing.count += cnt;
+        if (cnt > existing.bestCount) {
+          existing.bestId = rec.id;
+          existing.bestCount = cnt;
+          existing.coverUrl = rec.cover_url ?? null;
+          existing.year = rec.year ?? null;
+          existing.genre = rec.genre ?? null;
+        }
+      }
+    }
+
+    return [...albumMap.values()]
+      .sort((a, b) => b.count - a.count)
+      .slice(0, 40)
+      .map(a => ({
+        id:             a.bestId,
+        artist:         a.artist,
+        album:          a.album,
+        coverUrl:       a.coverUrl,
+        year:           a.year,
+        genre:          a.genre,
+        collectorCount: a.count,
+      }));
   },
   ["trending-records"],
   { revalidate: 86400 },
