@@ -2,6 +2,7 @@
 
 import { useRef, useEffect, useState, useCallback } from "react";
 import { createClient } from "@/lib/supabase/client";
+import { fetchMBArtist, zoneForTags, mbRelToConstellation } from "@/lib/musicbrainz";
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
@@ -412,6 +413,7 @@ export default function ConstellationPOC({ username }: Props) {
   const influenceRef       = useRef<Map<string, number>>(new Map());
   const spawnAnimsRef      = useRef<{ id: string; birthMs: number }[]>([]);
   const nodePosRef         = useRef<Map<string, [number, number]>>(new Map());
+  const mbEdgesRef         = useRef<Edge[]>([]);
 
   const [selectedArtist, setSelectedArtist] = useState<ArtistNode | null>(null);
   const [selectedEdge,   setSelectedEdge]   = useState<Edge | null>(null);
@@ -449,6 +451,7 @@ export default function ConstellationPOC({ username }: Props) {
       const H = canvas.parentElement!.clientHeight;
 
       let albumCounts = new Map<string, number>();
+      const topStyles = new Map<string, string[]>(); // artist → top Discogs styles (lowercase)
 
       if (username) {
         const supabase = createClient();
@@ -473,16 +476,25 @@ export default function ConstellationPOC({ username }: Props) {
         setTotalRecords(recordIds.length);
 
         setLoadingMsg("Building graph…");
+        const artistStyles = new Map<string, Record<string, number>>(); // artist → style → count
         const BATCH = 400;
         for (let i = 0; i < recordIds.length; i += BATCH) {
           const { data } = await supabase
-            .from("records").select("artist")
+            .from("records").select("artist, styles")
             .in("id", recordIds.slice(i, i + BATCH));
           for (const r of data ?? []) {
-            if (r.artist && r.artist !== "Various") {
-              albumCounts.set(r.artist, (albumCounts.get(r.artist) ?? 0) + 1);
+            if (!r.artist || r.artist === "Various") continue;
+            albumCounts.set(r.artist, (albumCounts.get(r.artist) ?? 0) + 1);
+            if (r.styles?.length) {
+              const styleMap = artistStyles.get(r.artist) ?? {};
+              for (const s of r.styles as string[]) styleMap[s] = (styleMap[s] ?? 0) + 1;
+              artistStyles.set(r.artist, styleMap);
             }
           }
+        }
+        // Derive top styles per artist (sorted by frequency)
+        for (const [artist, styleMap] of artistStyles) {
+          topStyles.set(artist, Object.entries(styleMap).sort((a, b) => b[1] - a[1]).map(e => e[0].toLowerCase()));
         }
       }
 
@@ -524,11 +536,22 @@ export default function ConstellationPOC({ username }: Props) {
           const id = toId(artistName);
           if (posMap.has(id)) continue; // already added under a different display name
           const h = strHash(id);
-          // Place in an outer ring using seeded angle + radius
-          const angle = seededRng(h)         * Math.PI * 2;
-          const dist  = 0.34 + seededRng(h + 7) * 0.12;
-          const xF = clamp(0.5 + Math.cos(angle) * dist,        0.03, 0.97);
-          const yF = clamp(0.5 + Math.sin(angle) * dist * 0.78, 0.03, 0.97);
+          // Use Discogs style tags to place in the correct genre zone when available
+          const styles = topStyles.get(artistName) ?? [];
+          const zone   = zoneForTags(styles);
+          let xF: number, yF: number;
+          if (zone) {
+            xF = zone.xRange[0] + seededRng(h)     * (zone.xRange[1] - zone.xRange[0]);
+            yF = zone.yRange[0] + seededRng(h + 1) * (zone.yRange[1] - zone.yRange[0]);
+          } else {
+            // No style data — fall back to seeded outer ring
+            const angle = seededRng(h + 2) * Math.PI * 2;
+            const dist  = 0.34 + seededRng(h + 7) * 0.12;
+            xF = 0.5 + Math.cos(angle) * dist;
+            yF = 0.5 + Math.sin(angle) * dist * 0.78;
+          }
+          xF = clamp(xF, 0.03, 0.97);
+          yF = clamp(yF, 0.03, 0.97);
           posMap.set(id, [xF, yF]);
           extraNodes.push({
             id, name: artistName, albums: count, owned: true,
@@ -565,6 +588,65 @@ export default function ConstellationPOC({ username }: Props) {
     return () => clearInterval(t);
   }, [isReady]);
 
+  // ── MusicBrainz background enrichment ────────────────────────────────────────
+  // Runs after constellation is ready. Fetches relationship data for all owned
+  // nodes and adds discovered edges where both endpoints exist in the graph.
+
+  useEffect(() => {
+    if (!isReady || !username) return;
+    let cancelled = false;
+
+    const run = async () => {
+      const ownedNodes = nodesRef.current.filter(n => n.owned);
+      const nodeByName = new Map(nodesRef.current.map(n => [n.name.toLowerCase(), n]));
+      const existingKeys = new Set(
+        [...edgesRef.current].map(e => `${e.source}|${e.target}`)
+      );
+
+      const discovered: Edge[] = [];
+
+      for (const node of ownedNodes) {
+        if (cancelled) return;
+        const data = await fetchMBArtist(node.name);
+        if (!data || cancelled) continue;
+
+        for (const rel of data.relations) {
+          const mapped = mbRelToConstellation(rel, node.name);
+          if (!mapped) continue;
+
+          // Resolve source and target names → node IDs
+          const srcNode = nodeByName.get(mapped.source.toLowerCase());
+          const tgtNode = nodeByName.get(mapped.target.toLowerCase());
+          if (!srcNode || !tgtNode || srcNode.id === tgtNode.id) continue;
+
+          // Skip if already covered by a curated or already-discovered edge
+          const key    = `${srcNode.id}|${tgtNode.id}`;
+          const revKey = `${tgtNode.id}|${srcNode.id}`;
+          if (existingKeys.has(key) || existingKeys.has(revKey)) continue;
+          existingKeys.add(key);
+
+          const h = strHash(srcNode.id + tgtNode.id + "mb");
+          discovered.push({
+            source: srcNode.id,
+            target: tgtNode.id,
+            type:   mapped.type,
+            weight: 0.55,
+            note:   `${rel.type} (via MusicBrainz)`,
+            cpDx:   (seededRng(h)     - 0.5) * 100,
+            cpDy:   (seededRng(h + 1) - 0.5) * 70,
+          });
+        }
+
+        if (discovered.length > 0) {
+          mbEdgesRef.current = [...discovered]; // picked up on next animation frame
+        }
+      }
+    };
+
+    run();
+    return () => { cancelled = true; };
+  }, [isReady, username]);
+
   // ── Animation loop ────────────────────────────────────────────────────────────
 
   useEffect(() => {
@@ -589,7 +671,8 @@ export default function ConstellationPOC({ username }: Props) {
     // Physics
     function tick() {
       const { W, H } = cssSize();
-      const nodes = nodesRef.current, edges = edgesRef.current;
+      const nodes = nodesRef.current;
+      const edges = [...edgesRef.current, ...mbEdgesRef.current];
       for (const n of nodes) {
         if (draggingNodeRef.current === n.id) continue;
         n.vx += (W * 0.5 - n.x) * 0.0002;
@@ -638,7 +721,8 @@ export default function ConstellationPOC({ username }: Props) {
     // ── Render ────────────────────────────────────────────────────────────────
     function render() {
       const { W, H } = cssSize();
-      const nodes    = nodesRef.current, edges = edgesRef.current;
+      const nodes    = nodesRef.current;
+      const edges    = [...edgesRef.current, ...mbEdgesRef.current];
       const cam      = cameraRef.current;
       const hovered  = hoveredRef.current, selected = selectedRef.current;
       const activeId = hovered || selected;
@@ -940,7 +1024,7 @@ export default function ConstellationPOC({ username }: Props) {
       const { x: wx, y: wy } = s2w(sx, sy);
       const sc = cameraRef.current.scale;
       const threshold = 10 / sc;
-      for (const e of edgesRef.current) {
+      for (const e of [...edgesRef.current, ...mbEdgesRef.current]) {
         const src = nodesRef.current.find(n => n.id === e.source);
         const tgt = nodesRef.current.find(n => n.id === e.target);
         if (!src || !tgt) continue;
@@ -1052,7 +1136,7 @@ export default function ConstellationPOC({ username }: Props) {
   }, [isReady]);
 
   const getConnections = useCallback((nodeId: string) => {
-    return edgesRef.current
+    return [...edgesRef.current, ...mbEdgesRef.current]
       .filter(e => e.source === nodeId || e.target === nodeId)
       .map(e => {
         const otherId  = e.source === nodeId ? e.target : e.source;
@@ -1074,9 +1158,9 @@ export default function ConstellationPOC({ username }: Props) {
   const edgeSrc = selectedEdge ? (nodesRef.current.find(n => n.id === selectedEdge.source) ?? null) : null;
   const edgeTgt = selectedEdge ? (nodesRef.current.find(n => n.id === selectedEdge.target) ?? null) : null;
 
-  const DIM2 = "rgba(220,213,195,0.45)"; // secondary text on dark bg
-  const DIM3 = "rgba(220,213,195,0.28)"; // tertiary text on dark bg
-  const BORD = "rgba(220,213,195,0.10)"; // panel borders
+  const DIM2 = "rgba(220,213,195,0.72)"; // secondary text on dark bg
+  const DIM3 = "rgba(220,213,195,0.50)"; // tertiary text on dark bg
+  const BORD = "rgba(220,213,195,0.15)"; // panel borders
 
   return (
     <div className="relative w-full h-screen overflow-hidden select-none" style={{ background: BG }}>
@@ -1095,14 +1179,14 @@ export default function ConstellationPOC({ username }: Props) {
       {/* Header */}
       {isReady && (
         <div className="absolute top-6 left-7 z-10 pointer-events-none">
-          <p style={{ fontFamily: MONO, fontSize: "8px", color: DIM3, letterSpacing: "0.25em", textTransform: "uppercase", marginBottom: "3px" }}>
+          <p style={{ fontFamily: MONO, fontSize: "10px", color: DIM3, letterSpacing: "0.25em", textTransform: "uppercase", marginBottom: "3px" }}>
             Rekōdo {username ? `· @${username}` : ""}
           </p>
-          <h1 style={{ fontFamily: SERIF, fontSize: "19px", fontWeight: 700, lineHeight: 1.25, color: INK, margin: 0 }}>
+          <h1 style={{ fontFamily: SERIF, fontSize: "22px", fontWeight: 700, lineHeight: 1.25, color: INK, margin: 0 }}>
             Collector<br />Constellation
           </h1>
           {totalRecords > 0 && (
-            <p style={{ fontFamily: MONO, fontSize: "8px", color: DIM3, marginTop: "6px", letterSpacing: "0.08em" }}>
+            <p style={{ fontFamily: MONO, fontSize: "10px", color: DIM3, marginTop: "6px", letterSpacing: "0.08em" }}>
               {totalRecords.toLocaleString()} records · {nodesRef.current.filter(n => n.owned).length} artists
             </p>
           )}
@@ -1113,11 +1197,11 @@ export default function ConstellationPOC({ username }: Props) {
       {isReady && (
         <div className="absolute top-6 right-6 z-10" style={{ minWidth: 156 }}>
           <div style={{ background: SURFACE, border: `1px solid ${BORD}`, padding: "14px 16px" }}>
-            <p style={{ fontFamily: MONO, fontSize: "7px", color: DIM3, letterSpacing: "0.22em", textTransform: "uppercase", marginBottom: "10px" }}>
+            <p style={{ fontFamily: MONO, fontSize: "9px", color: DIM3, letterSpacing: "0.22em", textTransform: "uppercase", marginBottom: "10px" }}>
               Connection type
             </p>
             {(["splinter", "collaboration", "influence", "scene", "label", "production"] as RelType[]).map(t => (
-              <div key={t} style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "6px" }}>
+              <div key={t} style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "7px" }}>
                 <svg width="22" height="8" style={{ flexShrink: 0 }}>
                   <line x1="0" y1="4" x2="22" y2="4" stroke={INK}
                     strokeWidth={t === "splinter" ? 2.2 : t === "collaboration" || t === "production" ? 1.4 : t === "influence" || t === "label" ? 1 : 0.6}
@@ -1128,7 +1212,7 @@ export default function ConstellationPOC({ username }: Props) {
                     <polygon points="17,1 22,4 17,7" fill={INK} fillOpacity={0.65} />
                   )}
                 </svg>
-                <span style={{ fontFamily: MONO, fontSize: "8px", color: DIM2 }}>{REL_LABEL[t]}</span>
+                <span style={{ fontFamily: MONO, fontSize: "10px", color: DIM2 }}>{REL_LABEL[t]}</span>
               </div>
             ))}
             <div style={{ marginTop: "10px", paddingTop: "10px", borderTop: `1px solid ${BORD}` }}>
@@ -1136,9 +1220,9 @@ export default function ConstellationPOC({ username }: Props) {
                 <svg width="22" height="8" style={{ flexShrink: 0 }}>
                   <circle cx="11" cy="4" r="3.5" fill="none" stroke="rgba(140,170,240,0.7)" strokeWidth="1" strokeDasharray="3,3" />
                 </svg>
-                <span style={{ fontFamily: MONO, fontSize: "8px", color: DIM2 }}>Not in collection</span>
+                <span style={{ fontFamily: MONO, fontSize: "10px", color: DIM2 }}>Not in collection</span>
               </div>
-              <p style={{ fontFamily: MONO, fontSize: "7px", color: DIM3, lineHeight: 1.6, marginTop: "6px" }}>
+              <p style={{ fontFamily: MONO, fontSize: "9px", color: DIM3, lineHeight: 1.6, marginTop: "6px" }}>
                 ♛ Crown = high influence<br />
                 Star size = records owned<br />
                 Glow depth = connections
@@ -1147,7 +1231,7 @@ export default function ConstellationPOC({ username }: Props) {
           </div>
           <button
             onClick={() => { selectedRef.current = null; setSelectedArtist(null); selectedEdgeKeyRef.current = null; setSelectedEdge(null); targetCamRef.current = { x: 0, y: 0, scale: 1 }; autoZoomRef.current = true; }}
-            style={{ marginTop: "6px", width: "100%", fontFamily: MONO, fontSize: "7px", letterSpacing: "0.14em", textTransform: "uppercase", color: DIM3, background: SURFACE, border: `1px solid ${BORD}`, padding: "7px", cursor: "pointer" }}
+            style={{ marginTop: "6px", width: "100%", fontFamily: MONO, fontSize: "9px", letterSpacing: "0.14em", textTransform: "uppercase", color: DIM2, background: SURFACE, border: `1px solid ${BORD}`, padding: "8px", cursor: "pointer" }}
           >
             Reset view
           </button>
@@ -1158,13 +1242,13 @@ export default function ConstellationPOC({ username }: Props) {
       {isReady && !selectedArtist && !selectedEdge && (
         <div className="absolute bottom-6 left-7 z-10" style={{ maxWidth: 260 }}>
           <div style={{ borderLeft: `2px solid rgba(220,213,195,0.25)`, paddingLeft: "14px" }}>
-            <p style={{ fontFamily: MONO, fontSize: "7px", color: DIM3, letterSpacing: "0.22em", textTransform: "uppercase", marginBottom: "6px" }}>
+            <p style={{ fontFamily: MONO, fontSize: "9px", color: DIM3, letterSpacing: "0.22em", textTransform: "uppercase", marginBottom: "6px" }}>
               Observation {insightIdx + 1} / {INSIGHTS.length}
             </p>
-            <p style={{ fontFamily: SERIF, fontSize: "14px", fontWeight: 600, color: INK, lineHeight: 1.3, marginBottom: "6px" }}>
+            <p style={{ fontFamily: SERIF, fontSize: "16px", fontWeight: 600, color: INK, lineHeight: 1.3, marginBottom: "6px" }}>
               {INSIGHTS[insightIdx].heading}
             </p>
-            <p style={{ fontFamily: MONO, fontSize: "9px", color: DIM2, lineHeight: 1.65 }}>
+            <p style={{ fontFamily: MONO, fontSize: "11px", color: DIM2, lineHeight: 1.65 }}>
               {INSIGHTS[insightIdx].body}
             </p>
           </div>
