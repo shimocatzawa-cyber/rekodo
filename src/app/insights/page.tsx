@@ -955,6 +955,7 @@ export default async function InsightsPage() {
       collectorArchetypeShadow={collectorArchetypeShadow}
       collectorArchetypeScore={collectorArchetypeScore}
       collectorArchetypeScores={collectorArchetypeScores}
+      isSupporter={!!(profile?.is_supporter || profile?.role === "admin")}
       collectorSinceYear={collectorSinceYear}
       collectionPhotoUrl={collectionPhotoUrl}
       oldestAlbum={oldestAlbum}

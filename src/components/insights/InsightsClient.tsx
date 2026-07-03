@@ -79,6 +79,7 @@ export interface InsightsProps {
   collectorArchetypeShadow:  string | null;
   collectorArchetypeScore:   number | null;
   collectorArchetypeScores:  Record<string, number> | null;
+  isSupporter:  boolean;
   dailyPick:    DailyPickData | null;
   onThisDay:    OnThisDayPick | null;
   usageStats:   {
@@ -265,6 +266,7 @@ export default function InsightsClient({
   topPlayedRecords, playedStyleBreakdown,
   dailyPick, onThisDay, usageStats,
   avgReleaseYear, topDecade, collectorArchetype, collectorArchetypeId, collectorArchetypeShadow, collectorArchetypeScore, collectorArchetypeScores, collectorSinceYear, collectionPhotoUrl, oldestAlbum, newestAlbum, topVinylArtist, topVinylArtistCount,
+  isSupporter,
 }: InsightsProps) {
 
   const [oneLiner, setOneLiner] = useState<string | null>(null);
@@ -1008,7 +1010,7 @@ export default function InsightsClient({
                   { label: "Genre Map",            onClick: () => setShowGenreMap(true) },
                   { label: "Style Map",            onClick: () => setShowStyleMap(true) },
                   { label: "Spectrum",             onClick: () => setShowSpectrum(true) },
-                  ...(collectorArchetypeId ? [{ label: "Archetype", onClick: () => setShowArchetype(true) }] : []),
+                  ...(collectorArchetypeId && isSupporter ? [{ label: "Archetype", onClick: () => setShowArchetype(true) }] : []),
                 ].map(({ label, onClick }) => (
                   <button key={label} onClick={onClick} style={{
                     fontFamily: MONO, fontSize: 9, letterSpacing: "0.1em", textTransform: "uppercase",
