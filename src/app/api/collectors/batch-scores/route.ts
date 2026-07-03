@@ -26,25 +26,19 @@ export async function GET(request: NextRequest) {
   for (const r of scoresA.data ?? []) collectionScore.set(r.user_id_b, r.score);
   for (const r of scoresB.data ?? []) collectionScore.set(r.user_id_a, r.score);
 
-  // Fetch genre/year for viewer + all targets to compute style similarity
+  // Fetch genre/year for viewer + all targets to compute style similarity.
+  // Uses get_user_collection_data (security definer) to bypass the RLS policy
+  // on user_records that restricts SELECT to own rows only — without it, other
+  // users' profiles come back empty and all scores compute as 0.
   const allIds = [viewerId, ...targetIds];
-  const PAGE = 1000;
-  const recRows: RecRow[] = [];
-
-  for (let from = 0; ; from += PAGE) {
-    const { data } = await supabase
-      .from("user_records")
-      .select("user_id, records(artist, genre, year, country)")
-      .in("user_id", allIds)
-      .range(from, from + PAGE - 1) as any;
-    if (!data || data.length === 0) break;
-    for (const row of data) {
-      const r = row.records;
-      if (!r) continue;
-      recRows.push({ user_id: row.user_id, artist: r.artist, genre: r.genre, year: r.year, country: r.country });
-    }
-    if (data.length < PAGE) break;
-  }
+  const { data: rpcData } = await supabase.rpc("get_user_collection_data", { user_ids: allIds }) as any;
+  const recRows: RecRow[] = (rpcData ?? []).map((row: any) => ({
+    user_id: row.user_id,
+    artist:  row.artist,
+    genre:   row.genre,
+    year:    row.year,
+    country: row.country,
+  }));
 
   const byUser = new Map<string, RecRow[]>();
   for (const r of recRows) {
