@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
+import { createClient as createServiceClient } from "@supabase/supabase-js";
 
 export const dynamic = "force-dynamic";
 
@@ -32,7 +33,6 @@ export async function POST(request: Request) {
       console.error("Follow insert error:", error);
       return Response.json({ error: error.message }, { status: 500 });
     }
-    return Response.json({ isFollowing: true });
   } else {
     // Delete — safe to call even if the row doesn't exist
     const { error } = await supabase
@@ -44,6 +44,19 @@ export async function POST(request: Request) {
       console.error("Unfollow delete error:", error);
       return Response.json({ error: error.message }, { status: 500 });
     }
-    return Response.json({ isFollowing: false });
   }
+
+  // Bust compatibility score cache for both parties so the matches tab
+  // recomputes fresh on next load with the updated follow graph.
+  const adminDb = createServiceClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!,
+    { auth: { persistSession: false } }
+  );
+  await Promise.all([
+    adminDb.from("compatibility_scores").delete().eq("user_id_a", user.id),
+    adminDb.from("compatibility_scores").delete().eq("user_id_a", followingId),
+  ]);
+
+  return Response.json({ isFollowing: action === "follow" });
 }

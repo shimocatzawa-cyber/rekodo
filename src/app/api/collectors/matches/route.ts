@@ -117,50 +117,21 @@ export async function GET(request: NextRequest) {
 
   // ── Fresh computation ─────────────────────────────────────────────────────
 
-  // 1. Find eligible users (any collection, not the target, not a test account)
-  // A single .limit(200000) call here used to look like it fetched
-  // everything, but PostgREST's db-max-rows server config (1000) silently
-  // caps any client-requested limit above that — so it only ever saw the
-  // first 1000 rows. Once total rows across users passed that, smaller
-  // collectors (e.g. a 33-record collection sorted behind two collectors
-  // with 1000+ rows between them) were missing from candidacy entirely,
-  // before scoring ever ran. Paginate past the cap instead.
-  async function fetchAllEligibleLinks(): Promise<{ user_id: string }[]> {
-    const rows: { user_id: string }[] = [];
-    for (let from = 0; ; from += PAGE) {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { data } = await (supabase as any)
-        .from("public_collection_summary")
-        .select("user_id")
-        .neq("user_id", userId)
-        .range(from, from + PAGE - 1);
-      if (!data || data.length === 0) break;
-      rows.push(...data);
-      if (data.length < PAGE) break;
-    }
-    return rows;
-  }
-
-  const [eligibleLinks, { data: testRows }] = await Promise.all([
-    fetchAllEligibleLinks(),
+  // 1. Candidates are strictly followers + following — not the entire platform.
+  const [{ data: followerRows }, { data: followingRows }, { data: testRows }] = await Promise.all([
+    supabase.from("follows").select("follower_id").eq("following_id", userId),
+    supabase.from("follows").select("following_id").eq("follower_id", userId),
     supabase.from("profiles").select("id").eq("is_test", true),
   ]);
 
-  const testIds = new Set((testRows ?? []).map(r => r.id));
+  const testIds = new Set((testRows ?? []).map((r: { id: string }) => r.id));
 
-  const countPerUser = new Map<string, number>();
-  for (const l of eligibleLinks) {
-    if (testIds.has(l.user_id)) continue;
-    countPerUser.set(l.user_id, (countPerUser.get(l.user_id) ?? 0) + 1);
-  }
+  const eligibleIds = [...new Set([
+    ...(followerRows ?? []).map((r: { follower_id: string }) => r.follower_id),
+    ...(followingRows ?? []).map((r: { following_id: string }) => r.following_id),
+  ])].filter(id => !testIds.has(id));
 
-  const eligibleIds = [...countPerUser.entries()]
-    .filter(([, n]) => n >= 1)
-    .sort((a, b) => b[1] - a[1])
-    .slice(0, 50)                 // cap at 50 candidates for performance
-    .map(([id]) => id);
-
-  if (eligibleIds.length === 0) return Response.json({ matches: [] });
+  if (eligibleIds.length === 0) return Response.json({ matches: [], allScores: [] });
 
   const allUserIds = [userId, ...eligibleIds];
 
