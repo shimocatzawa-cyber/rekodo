@@ -72,11 +72,12 @@ function SkeletonCard() {
 }
 
 export default function TrendingRecords({ initialRecords }: { initialRecords?: TrendingRecord[] }) {
+  const hasInitial = (initialRecords?.length ?? 0) > 0;
   const [records, setRecords] = useState<TrendingRecord[]>(initialRecords ?? []);
-  const [loading, setLoading] = useState(!initialRecords);
+  const [loading, setLoading] = useState(!hasInitial);
 
   useEffect(() => {
-    if (initialRecords) return;
+    if (hasInitial) return;
     fetch("/api/community/trending")
       .then(r => r.ok ? r.json() : { records: [] })
       .then(d => setRecords(d.records ?? []))

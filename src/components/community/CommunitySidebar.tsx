@@ -116,11 +116,13 @@ export default function CommunitySidebar({ profileOwnerId, onTierClick, onTierDa
   onTierData?: (map: Map<string, TierItem[]>) => void;
   activeTier?: string | null;
 }) {
-  const [followers,  setFollowers]  = useState<Person[]>([]);
-  const [following,  setFollowing]  = useState<Person[]>([]);
-  const [tierItems,  setTierItems]  = useState<Map<string, TierItem[]>>(new Map());
-  const [loaded,     setLoaded]     = useState(false);
+  const [followers,     setFollowers]     = useState<Person[]>([]);
+  const [following,     setFollowing]     = useState<Person[]>([]);
+  const [tierItems,     setTierItems]     = useState<Map<string, TierItem[]>>(new Map());
+  const [socialLoaded,  setSocialLoaded]  = useState(false);
+  const [tiersLoaded,   setTiersLoaded]   = useState(false);
 
+  // Phase 1: load followers/following immediately (fast)
   useEffect(() => {
     const supabase = createClient();
 
@@ -137,31 +139,39 @@ export default function CommunitySidebar({ profileOwnerId, onTierClick, onTierDa
     Promise.all([
       supabase.from("follows").select("follower_id").eq("following_id", profileOwnerId).order("created_at", { ascending: false }).limit(100),
       supabase.from("follows").select("following_id").eq("follower_id", profileOwnerId).order("created_at", { ascending: false }).limit(100),
-      fetch(`/api/collectors/matches?userId=${profileOwnerId}`).then(r => r.ok ? r.json() : { allScores: [] }),
-    ]).then(async ([followerRes, followingRes, matchesData]) => {
+    ]).then(async ([followerRes, followingRes]) => {
       const [followerProfiles, followingProfiles] = await Promise.all([
         resolveProfiles((followerRes.data ?? []).map((r: any) => r.follower_id)),
         resolveProfiles((followingRes.data ?? []).map((r: any) => r.following_id)),
       ]);
-
-      const byTier = new Map<string, TierItem[]>();
-      for (const { userId, score, sharedTags } of (matchesData.allScores ?? [])) {
-        const label = compatLabel(score);
-        const arr = byTier.get(label) ?? [];
-        arr.push({ userId, score, sharedTags: sharedTags ?? [] });
-        byTier.set(label, arr);
-      }
-
       setFollowers(followerProfiles);
       setFollowing(followingProfiles);
-      setTierItems(byTier);
-      onTierData?.(byTier);
-      setLoaded(true);
+      setSocialLoaded(true);
     });
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [profileOwnerId]);
 
-  if (!loaded) return (
+  // Phase 2: load tier counts separately (can be slow on cache miss)
+  useEffect(() => {
+    fetch(`/api/collectors/matches?userId=${profileOwnerId}`)
+      .then(r => r.ok ? r.json() : { allScores: [] })
+      .then(matchesData => {
+        const byTier = new Map<string, TierItem[]>();
+        for (const { userId, score, sharedTags } of (matchesData.allScores ?? [])) {
+          const label = compatLabel(score);
+          const arr = byTier.get(label) ?? [];
+          arr.push({ userId, score, sharedTags: sharedTags ?? [] });
+          byTier.set(label, arr);
+        }
+        setTierItems(byTier);
+        onTierData?.(byTier);
+        setTiersLoaded(true);
+      })
+      .catch(() => setTiersLoaded(true));
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [profileOwnerId]);
+
+  if (!socialLoaded) return (
     <div style={{ padding: "28px 0" }}>
       <div style={{ width: "60%", height: "0.6rem", background: "#f0ede8", marginBottom: "16px" }} />
       <div style={{ display: "flex", gap: "8px" }}>
@@ -194,7 +204,9 @@ export default function CommunitySidebar({ profileOwnerId, onTierClick, onTierDa
                 <span style={{ fontFamily: MONO, fontSize: "0.64rem", color: activeTier === tier ? ORANGE : MUTED, letterSpacing: "0.04em", lineHeight: 1.4 }}>
                   {tier}
                 </span>
-                {items.length > 0 ? (
+                {!tiersLoaded ? (
+                  <span style={{ fontFamily: MONO, fontSize: "0.64rem", color: MUTED, flexShrink: 0 }}>—</span>
+                ) : items.length > 0 ? (
                   <button
                     onClick={() => onTierClick?.(tier, items)}
                     style={{ fontFamily: MONO, fontSize: "0.64rem", color: activeTier === tier ? ORANGE : "#0a0a0a", flexShrink: 0, background: "none", border: "none", padding: 0, cursor: "pointer" }}
