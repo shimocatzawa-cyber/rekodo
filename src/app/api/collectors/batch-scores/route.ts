@@ -34,9 +34,13 @@ export async function GET(request: NextRequest) {
   const recRows: RecRow[] = [];
   const RPC_PAGE = 1000;
   for (let from = 0; ; from += RPC_PAGE) {
-    const { data: batch } = await (supabase as any)
+    const { data: batch, error: rpcErr } = await (supabase as any)
       .rpc("get_user_collection_data", { user_ids: allIds })
       .range(from, from + RPC_PAGE - 1);
+    if (rpcErr) {
+      console.error("[batch-scores] get_user_collection_data failed:", rpcErr.message);
+      break;
+    }
     if (!batch || batch.length === 0) break;
     for (const row of batch) recRows.push({ user_id: row.user_id, artist: row.artist, genre: row.genre, year: row.year, country: row.country });
     if (batch.length < RPC_PAGE) break;

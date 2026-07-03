@@ -133,10 +133,17 @@ export async function GET(request: NextRequest) {
 
   const testIds = new Set((testRows ?? []).map((r: { id: string }) => r.id));
 
-  const eligibleIds = [...new Set([
-    ...(followerRows ?? []).map((r: { follower_id: string }) => r.follower_id),
-    ...(followingRows ?? []).map((r: { following_id: string }) => r.following_id),
-  ])].filter(id => !testIds.has(id));
+  // Followers first (mutual interest signal), then following, deduped, test-filtered.
+  // Cap at MAX_CANDIDATES: the RPC query times out against Supabase's statement
+  // limit when the candidate pool exceeds ~50 users with large collections.
+  const MAX_CANDIDATES = 50;
+  const allFollowers  = (followerRows  ?? []).map((r: { follower_id:  string }) => r.follower_id).filter(id => !testIds.has(id));
+  const allFollowing  = (followingRows ?? []).map((r: { following_id: string }) => r.following_id).filter(id => !testIds.has(id));
+  const seen = new Set<string>();
+  const eligibleIds: string[] = [];
+  for (const id of [...allFollowers, ...allFollowing]) {
+    if (!seen.has(id) && eligibleIds.length < MAX_CANDIDATES) { seen.add(id); eligibleIds.push(id); }
+  }
 
   if (eligibleIds.length === 0) return Response.json({ matches: [], allScores: [] });
 
