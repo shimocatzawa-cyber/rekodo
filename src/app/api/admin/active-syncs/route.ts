@@ -14,11 +14,13 @@ export async function GET() {
 
   const adminDb = getAdminDb();
 
+  const threeHoursAgo = new Date(Date.now() - 3 * 60 * 60 * 1000).toISOString();
+
   const { data: jobs, error } = await adminDb
     .from("sync_queue")
     .select("id, user_id, status, phase, progress_done, total_records, current_page, total_pages, created_at, updated_at")
-    .in("status", ["pending", "processing"])
-    .order("created_at", { ascending: true });
+    .or(`status.in.(pending,processing),and(status.in.(completed,failed),updated_at.gte.${threeHoursAgo})`)
+    .order("created_at", { ascending: false });
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
   if (!jobs || jobs.length === 0) return NextResponse.json({ jobs: [] });

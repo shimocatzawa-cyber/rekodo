@@ -828,7 +828,7 @@ export default function AdminClient({
         <div className="ra-content" style={{ padding: "28px 40px" }}>
           <div style={{ display: "flex", alignItems: "center", gap: "16px", marginBottom: "24px" }}>
             <p style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.14em", textTransform: "uppercase", color: MUTED, margin: 0 }}>
-              Active Discogs Syncs
+              Discogs Syncs — last 3 hrs
             </p>
             <button
               onClick={fetchActiveSyncs}
@@ -845,7 +845,7 @@ export default function AdminClient({
 
           {!syncsLoading && activeSyncs.length === 0 && !syncsError && (
             <p style={{ fontFamily: MONO, fontSize: "13px", color: MUTED }}>
-              No active syncs — safe to run the backfill.
+              No syncs in the last 3 hours — safe to run the backfill.
             </p>
           )}
 
@@ -877,7 +877,7 @@ export default function AdminClient({
                       <td style={{ fontFamily: MONO, fontSize: "11px", color: ORANGE, padding: "10px 16px 10px 0" }}>
                         @{job.username}
                       </td>
-                      <td style={{ fontFamily: MONO, fontSize: "11px", color: job.status === "processing" ? "#16a34a" : INK, padding: "10px 16px 10px 0" }}>
+                      <td style={{ fontFamily: MONO, fontSize: "11px", color: job.status === "processing" ? "#16a34a" : job.status === "failed" ? "#c00" : job.status === "completed" ? MUTED : INK, padding: "10px 16px 10px 0" }}>
                         {job.status}
                       </td>
                       <td style={{ fontFamily: MONO, fontSize: "11px", color: MUTED, padding: "10px 16px 10px 0" }}>
