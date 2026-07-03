@@ -2,6 +2,13 @@
 
 import { useTransition } from "react";
 
+const LOCALES: { value: string; label: string }[] = [
+  { value: "en", label: "English" },
+  { value: "ja", label: "日本語" },
+  { value: "de", label: "Deutsch" },
+  { value: "pt", label: "Português (BR)" },
+];
+
 export default function LocaleSwitcher({ locale }: { locale: string }) {
   const [isPending, startTransition] = useTransition();
 
@@ -17,9 +24,10 @@ export default function LocaleSwitcher({ locale }: { locale: string }) {
   }
 
   return (
-    <button
-      onClick={() => switchLocale(locale === "en" ? "ja" : "en")}
+    <select
+      value={locale}
       disabled={isPending}
+      onChange={e => switchLocale(e.target.value)}
       style={{
         fontFamily: "var(--font-noto-jp), var(--font-dm-mono), sans-serif",
         fontSize: "11px",
@@ -29,9 +37,14 @@ export default function LocaleSwitcher({ locale }: { locale: string }) {
         border: "none",
         cursor: "pointer",
         padding: "0",
+        appearance: "none",
+        WebkitAppearance: "none",
+        outline: "none",
       }}
     >
-      {locale === "en" ? "日本語" : "English"}
-    </button>
+      {LOCALES.map(l => (
+        <option key={l.value} value={l.value}>{l.label}</option>
+      ))}
+    </select>
   );
 }
