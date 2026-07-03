@@ -728,11 +728,10 @@ ${JSON_SCHEMA}`;
     const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
     const message = await anthropic.messages.create({
       model: "claude-sonnet-4-6",
-      // Discover/style modes ask for 5 objects (not 3) so post-filtering has
-      // headroom — 1024 was already close to the ceiling for 3 full objects
-      // (reason text + three search URLs each), and routinely truncated mid-
-      // string for 5, surfacing as "Unterminated string in JSON" parse errors.
-      max_tokens: 3000,
+      // Discover/style modes ask for 10 objects so post-filtering has headroom.
+      // 3000 tokens (~8500 chars) was the exact ceiling for 10 objects and
+      // routinely truncated mid-string, surfacing as "Unterminated string in JSON".
+      max_tokens: 5000,
       messages: [{ role: "user", content: prompt }],
     });
 
@@ -787,7 +786,7 @@ ${JSON_SCHEMA}`;
           r.artist && r.album && (await verifyOnDiscogs(r.artist, r.album)) ? r : null
         )
       );
-      recommendations = verified.filter((r): r is { artist?: string; album?: string } => r !== null).slice(0, 3);
+      recommendations = verified.filter((r): r is { artist?: string; album?: string } => r !== null);
 
       // Hybrid fallback: fill remaining slots from rekōdo's internal library when
       // Discogs verification or the owned-artist filter reduces Claude's picks below 3.
@@ -883,6 +882,7 @@ ${JSON_SCHEMA}`;
     if (mode === "discover" || mode === "style") {
       const rows = (recommendations as Array<{ artist?: string; album?: string; genre?: string; region?: string; sub_style?: string; reason?: string }>)
         .filter((r) => r.artist && r.album)
+        .slice(0, 3)
         .map((r) => ({
           user_id: user.id, artist: r.artist, album: r.album, mode,
           genre: r.genre ?? null, region: r.region ?? null,

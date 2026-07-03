@@ -859,6 +859,9 @@ export default function DigClient({ userId, username, displayLabel, avatarUrl, c
   // repeating the same artists, genres, and stylistic territory
   const shownArtists = useRef<string[]>([]);
   const shownRecs    = useRef<Array<{ artist: string; album: string }>>([]);
+  // Surplus candidates from the last API response — drained by "Dig again"
+  // before triggering a new API call, saving a round-trip when picks remain.
+  const queueRef     = useRef<Recommendation[]>([]);
 
   // Mobile swipe — tracks touch start to detect a horizontal swipe on the sleeve card
   const touchStart = useRef<{ x: number; y: number } | null>(null);
@@ -909,9 +912,10 @@ export default function DigClient({ userId, username, displayLabel, avatarUrl, c
           return;
         }
         if (!res.ok) throw new Error(data.error ?? "Failed to get recommendations");
-        const newRecs: Recommendation[] = data.recommendations;
-        // Accumulate artists + recs for future exclusion — reset only when mode changes
-        for (const r of newRecs) {
+        const allRecs: Recommendation[] = data.recommendations;
+        // Register every returned candidate now so the next API call excludes
+        // them all — whether they were shown immediately or served from the queue.
+        for (const r of allRecs) {
           if (r.artist && !shownArtists.current.includes(r.artist)) {
             shownArtists.current.push(r.artist);
           }
@@ -919,7 +923,8 @@ export default function DigClient({ userId, username, displayLabel, avatarUrl, c
             shownRecs.current.push({ artist: r.artist, album: r.album });
           }
         }
-        setRecs(newRecs);
+        queueRef.current = allRecs.slice(3);
+        setRecs(allRecs.slice(0, 3));
         setIdx(0);
         setError(null);
       } catch (e) {
@@ -940,6 +945,7 @@ export default function DigClient({ userId, username, displayLabel, avatarUrl, c
     // Switching to a dig mode — reset and fetch
     shownArtists.current = [];
     shownRecs.current    = [];
+    queueRef.current     = [];
     setActiveTab(tab);
     setError(null);
     setRecs(null);
@@ -956,6 +962,7 @@ export default function DigClient({ userId, username, displayLabel, avatarUrl, c
   function handleStyleSelect(style: string) {
     shownArtists.current = [];
     shownRecs.current    = [];
+    queueRef.current     = [];
     setSelectedStyle(style);
     setLoading(true);
     setError(null);
@@ -970,6 +977,14 @@ export default function DigClient({ userId, username, displayLabel, avatarUrl, c
   }
 
   function handleDigAgain() {
+    if (queueRef.current.length > 0) {
+      const queued = queueRef.current;
+      queueRef.current = [];
+      setIdx(0);
+      setError(null);
+      setRecs(queued);
+      return;
+    }
     setLoading(true);
     setError(null);
     setRecs(null);
