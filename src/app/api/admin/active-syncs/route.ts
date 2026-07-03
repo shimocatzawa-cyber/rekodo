@@ -18,7 +18,7 @@ export async function GET() {
 
   const { data: jobs, error } = await adminDb
     .from("sync_queue")
-    .select("id, user_id, status, phase, progress_done, total_records, current_page, total_pages, created_at, updated_at")
+    .select("id, user_id, status, phase, progress_done, total_records, current_page, total_pages, error_message, created_at, updated_at")
     .or(`status.in.(pending,processing),and(status.in.(completed,failed),updated_at.gte.${threeHoursAgo})`)
     .order("created_at", { ascending: false });
 
@@ -44,8 +44,9 @@ export async function GET() {
       totalRecords: j.total_records,
       currentPage:  j.current_page,
       totalPages:   j.total_pages,
-      startedAt:    j.created_at,
-      updatedAt:    j.updated_at,
+      startedAt:     j.created_at,
+      updatedAt:     j.updated_at,
+      errorMessage:  j.error_message ?? null,
     })),
   });
 }

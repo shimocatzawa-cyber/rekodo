@@ -696,6 +696,7 @@ async function processSync(supabase: SB, jobId: string, userId: string) {
       new_added:       newAdded,
       records_updated: savedRecordIds.length - newAdded,
       completed_at:    new Date().toISOString(),
+      ...(total === 0 ? { error_message: "0 records returned — Discogs collection may be set to private" } : {}),
     });
 
   } catch (err) {

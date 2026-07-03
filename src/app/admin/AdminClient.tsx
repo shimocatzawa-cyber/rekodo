@@ -24,6 +24,7 @@ type ActiveSyncJob = {
   totalPages: number | null;
   startedAt: string;
   updatedAt: string;
+  errorMessage: string | null;
 };
 
 type SortKey =
@@ -853,7 +854,7 @@ export default function AdminClient({
             <table style={{ width: "100%", maxWidth: "860px", borderCollapse: "collapse" }}>
               <thead>
                 <tr style={{ borderBottom: `1px solid ${RULE}` }}>
-                  {["User", "Status", "Phase", "Progress", "Pages", "Started", "Last update"].map(h => (
+                  {["User", "Status", "Phase", "Progress", "Pages", "Started", "Last update", "Note"].map(h => (
                     <th key={h} style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.12em", textTransform: "uppercase", color: MUTED, padding: "0 16px 10px 0", textAlign: "left", fontWeight: 400 }}>
                       {h}
                     </th>
@@ -896,8 +897,11 @@ export default function AdminClient({
                       <td style={{ fontFamily: MONO, fontSize: "11px", color: MUTED, padding: "10px 16px 10px 0" }}>
                         {age(job.startedAt)}
                       </td>
-                      <td style={{ fontFamily: MONO, fontSize: "11px", color: MUTED, padding: "10px 0" }}>
+                      <td style={{ fontFamily: MONO, fontSize: "11px", color: MUTED, padding: "10px 16px 10px 0" }}>
                         {age(job.updatedAt)}
+                      </td>
+                      <td style={{ fontFamily: MONO, fontSize: "11px", color: "#b45309", padding: "10px 0" }}>
+                        {job.errorMessage ?? ""}
                       </td>
                     </tr>
                   );
