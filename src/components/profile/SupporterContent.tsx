@@ -13,11 +13,9 @@ const INK        = "#0a0a0a";
 const SUBSCRIPTION_PERKS = [
   { category: "Identity",   description: "Golden ō badge" },
   { category: "Deep Dive",  description: "Access to Deep Dive Artist feature" },
-  { category: "Insights",   description: "Taste Profile" },
   { category: "Archetypes", description: "What your collection says about you" },
   { category: "Discovery",  description: "Dig unlimited regeneration" },
   { category: "Lists",      description: "Unlimited playlist generations" },
-  { category: "Wantlist",   description: "Wantlist Upload feature" },
 ];
 
 const PRESET_AMOUNTS = [5, 10, 20];
