@@ -1,6 +1,6 @@
 const MB_API   = "https://musicbrainz.org/ws/2";
 const UA       = "rekodo/1.0 (shimocatzawa@gmail.com)";
-const CACHE_KEY = "rekodo_mb_v1";
+const CACHE_KEY = "rekodo_mb_v2";
 const CACHE_TTL = 30 * 24 * 60 * 60 * 1000; // 30 days
 const RATE_MS  = 1200; // MusicBrainz allows 1 req/sec; 1.2s is safe
 
