@@ -54,8 +54,6 @@ function CardBack() {
 
 // ─── Individual card slot ─────────────────────────────────────────────────────
 
-type FaceState = "back" | "flipping" | "front";
-
 type SlotProps = {
   def: CardDefinition;
   userCard: UserCardRow | null;
@@ -64,30 +62,57 @@ type SlotProps = {
 };
 
 function CardSlot({ def, userCard, pendingReveal, onFlipEnd }: SlotProps) {
-  const [faceState, setFaceState] = useState<FaceState>(
-    userCard?.revealed_at ? "front" : "back"
-  );
   const [hovered, setHovered] = useState(false);
   const didFlipRef = useRef(false);
+  const innerRef = useRef<HTMLDivElement>(null);
 
+  // Set initial back position via DOM so React never owns the transform prop.
+  // This prevents React re-renders from overriding our direct manipulation below.
+  useEffect(() => {
+    const el = innerRef.current;
+    if (el) el.style.transform = "rotateY(180deg)";
+  }, []); // mount only
+
+  // When data arrives and this card is already revealed, jump straight to front.
+  useEffect(() => {
+    if (!userCard?.revealed_at) return;
+    const el = innerRef.current;
+    if (!el) return;
+    el.style.transition = "none";
+    el.style.transform = "rotateY(0deg)";
+  }, [userCard?.revealed_at]);
+
+  // Play the flip animation using direct DOM manipulation.
+  // React-state-driven CSS transitions are unreliable in React 18 concurrent mode
+  // because React can batch/defer commits, meaning the browser may never observe
+  // the 180deg starting position before the 0deg target is committed.
+  // offsetHeight forces a synchronous reflow that guarantees the starting position
+  // is committed before the transition begins.
   useEffect(() => {
     if (!pendingReveal || didFlipRef.current) return;
     didFlipRef.current = true;
-    setFaceState("back");
-    requestAnimationFrame(() => requestAnimationFrame(() => setFaceState("flipping")));
-  }, [pendingReveal]);
 
-  const handleTransitionEnd = useCallback(
-    (e: React.TransitionEvent<HTMLDivElement>) => {
-      if (e.propertyName !== "transform" || faceState !== "flipping") return;
-      setFaceState("front");
+    const el = innerRef.current;
+    if (!el) return;
+
+    // Commit back position with no transition, then force reflow.
+    el.style.transition = "none";
+    el.style.transform = "rotateY(180deg)";
+    void el.offsetHeight; // ← synchronous reflow; browser commits 180deg here
+
+    // Now start the animated flip to front.
+    el.style.transition = "transform 1.5s cubic-bezier(0.4, 0, 0.2, 1)";
+    el.style.transform = "rotateY(0deg)";
+
+    const handleEnd = (e: TransitionEvent) => {
+      if (e.propertyName !== "transform") return;
+      el.removeEventListener("transitionend", handleEnd);
+      el.style.transition = "";
       onFlipEnd(def.id);
-    },
-    [faceState, def.id, onFlipEnd]
-  );
-
-  const rotateY  = faceState === "back" ? "180deg" : "0deg";
-  const animated = faceState === "flipping";
+    };
+    el.addEventListener("transitionend", handleEnd);
+    return () => el.removeEventListener("transitionend", handleEnd);
+  }, [pendingReveal, def.id, onFlipEnd]);
 
   const formattedDate = userCard?.unlocked_at
     ? new Date(userCard.unlocked_at).toLocaleDateString("en-GB", {
@@ -102,14 +127,13 @@ function CardSlot({ def, userCard, pendingReveal, onFlipEnd }: SlotProps) {
       onMouseLeave={() => setHovered(false)}
     >
       <div
+        ref={innerRef}
         style={{
           position: "relative",
           aspectRatio: "5 / 8",
           transformStyle: "preserve-3d",
-          transform: `rotateY(${rotateY})`,
-          transition: animated ? "transform 1.5s cubic-bezier(0.4, 0, 0.2, 1)" : "none",
+          // transform intentionally absent — owned entirely by the ref effects above
         }}
-        onTransitionEnd={handleTransitionEnd}
       >
         {/* ── Front face ── */}
         <div style={{
