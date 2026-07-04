@@ -914,7 +914,7 @@ export default function AdminClient({
                     const isSupporter = ["plus", "premium", "supporter"].includes(u.subscription_tier ?? "");
                     const joinedDate  = new Date(u.created_at);
                     const daysSinceJoined = Math.max(1, Math.floor((Date.now() - joinedDate.getTime()) / 86_400_000));
-                    const dailyUsePct = Math.round((u.unique_days / daysSinceJoined) * 100);
+                    const dailyUsePct = Math.min(100, Math.round((u.unique_days / daysSinceJoined) * 100));
                     const joinedLabel = joinedDate.toLocaleDateString("en-AU", { day: "numeric", month: "short", year: "numeric" });
                     return (
                       <tr key={u.user_id} style={{ borderBottom: `1px solid ${RULE}` }}>
