@@ -119,7 +119,7 @@ export default async function PublicProfilePage({ params }: { params: Params }) 
     }
   }
 
-  const [userRecordsResult, followerRes, followingRes, collectionPhotoRes, photoLikeCountRes, viewerLikedRes] = await Promise.all([
+  const [userRecordsResult, followerRes, followingRes, collectionPhotoRes, photoLikeCountRes, viewerLikedRes, essLikeCountRes, viewerEssLikedRes] = await Promise.all([
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (supabase as any).from("public_collection_summary").select("record_id, copies").eq("user_id", profile.id),
     supabase.from("follows").select("id", { count: "exact", head: true }).eq("following_id", profile.id),
@@ -128,6 +128,10 @@ export default async function PublicProfilePage({ params }: { params: Params }) 
     supabase.from("collection_photo_likes").select("id", { count: "exact", head: true }).eq("photo_owner_id", profile.id),
     viewer && !isOwner
       ? supabase.from("collection_photo_likes").select("id", { count: "exact", head: true }).eq("photo_owner_id", profile.id).eq("liker_id", viewer.id)
+      : Promise.resolve({ count: 0 }),
+    supabase.from("essentials_wall_likes").select("id", { count: "exact", head: true }).eq("essentials_owner_id", profile.id),
+    viewer && !isOwner
+      ? supabase.from("essentials_wall_likes").select("id", { count: "exact", head: true }).eq("essentials_owner_id", profile.id).eq("liker_id", viewer.id)
       : Promise.resolve({ count: 0 }),
   ]);
 
@@ -200,6 +204,8 @@ export default async function PublicProfilePage({ params }: { params: Params }) 
       viewerId={viewer?.id ?? null}
       compatibility={compatibility ? { score: compatibility.score, label: compatibility.label } : null}
       essentials={essentials}
+      essentialsLikeCount={essLikeCountRes.count ?? 0}
+      essentialsLiked={(viewerEssLikedRes.count ?? 0) > 0}
     />
   );
 }

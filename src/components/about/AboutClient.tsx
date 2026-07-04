@@ -278,7 +278,7 @@ const FAQ_SECTIONS: { section: string; items: { q: string; a: React.ReactNode }[
       },
       {
         q: "What is the Essentials Wall?",
-        a: "A thumbnail wall of every record you've tagged Essential, with a shareable card showing your record count, primary genre, and your @username. Tag records as Essential from the Collection view to build it.",
+        a: "A thumbnail wall of every record you've tagged Essential, shown on your profile below the Collection Similarity section. Visitors can like your Essentials Wall — the heart count appears next to the heading. Tag records as Essential from the Collection view to build it, and use the shareable card to post it to social media.",
       },
       {
         q: "What are the share cards?",

@@ -39,6 +39,12 @@ export type Database = {
         Update: never;
         Relationships: [];
       };
+      essentials_wall_likes: {
+        Row: { id: string; essentials_owner_id: string; liker_id: string; created_at: string };
+        Insert: { id?: string; essentials_owner_id: string; liker_id: string; created_at?: string };
+        Update: never;
+        Relationships: [];
+      };
       records: {
         Row: {
           id: string;

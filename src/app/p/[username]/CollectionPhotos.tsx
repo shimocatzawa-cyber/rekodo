@@ -134,7 +134,7 @@ export default function CollectionPhotos({ initialPhoto, isOwner, photoOwnerId, 
             isOwner ? (
               likeCount > 0 && (
                 <span style={{ display: "flex", alignItems: "center", gap: "4px" }}>
-                  <span style={{ fontSize: "12px", color: ORANGE, lineHeight: 1 }}>♥</span>
+                  <span style={{ fontSize: "16px", color: ORANGE, lineHeight: 1 }}>♥</span>
                   <span style={{ fontFamily: MONO, fontSize: "0.55rem", letterSpacing: "0.06em", color: MUTED }}>{likeCount}</span>
                 </span>
               )

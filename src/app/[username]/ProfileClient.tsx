@@ -58,6 +58,8 @@ interface Props {
   viewerId?: string | null;
   compatibility?: { score: number; label: string } | null;
   essentials?: { total: number; primaryGenre: string | null; primaryGenrePct: number; covers: { artist: string; album: string; coverUrl: string | null }[] } | null;
+  essentialsLikeCount?: number;
+  essentialsLiked?: boolean;
   bcSyncTotal?: number;
   bcSyncDuplicates?: number;
   bcSyncDate?: string | null;
@@ -75,12 +77,51 @@ export default function ProfileClient({
   viewerId = null,
   compatibility = null,
   essentials = null,
+  essentialsLikeCount = 0,
+  essentialsLiked = false,
   bcSyncTotal = 0, bcSyncDuplicates = 0, bcSyncDate = null,
   hasPassword = false,
 }: Props) {
   const router       = useRouter();
   const searchParams = useSearchParams();
   const [essentialsModalOpen, setEssentialsModalOpen] = useState(false);
+  const [essLikeCount, setEssLikeCount] = useState(essentialsLikeCount);
+  const [essLiked,     setEssLiked]     = useState(essentialsLiked);
+  const [essLiking,    setEssLiking]    = useState(false);
+
+  async function handleEssentialsLike() {
+    if (!viewerId || isOwner || essLiking) return;
+    setEssLiking(true);
+    const optimistic = !essLiked;
+    setEssLiked(optimistic);
+    setEssLikeCount(c => c + (optimistic ? 1 : -1));
+    try {
+      const res = await fetch("/api/essentials/like", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ownerId: profile.id }),
+      });
+      const data = await res.json() as { liked: boolean; count: number };
+      setEssLiked(data.liked);
+      setEssLikeCount(data.count);
+    } catch {
+      setEssLiked(!optimistic);
+      setEssLikeCount(c => c + (optimistic ? -1 : 1));
+    } finally {
+      setEssLiking(false);
+    }
+  }
+
+  const COMPAT_DESCRIPTION: Record<string, string> = {
+    "Twins": "Your collections nearly mirror each other — you're probably buying from the same sources.",
+    "Same Record, Different Pressing": "Deep artist overlap with strong style alignment — you'd have a lot to talk about.",
+    "Bandmates": "Strong shared taste — different takes on similar sounds.",
+    "Label Mate": "Solid overlap — you'd find common ground browsing the same sections.",
+    "The A Side to My B": "Enough in common to spark a good conversation about music.",
+    "Regular at the Same Shop": "A few shared favourites — you're orbiting similar scenes.",
+    "Passing Acquaintance": "Light overlap — maybe one or two artists in common.",
+    "Complete Stranger": "Little overlap — but that's what makes discovery interesting.",
+  };
 
   // ── Avatar ────────────────────────────────────────────────────────────────
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -400,7 +441,7 @@ export default function ProfileClient({
                   </p>
                 )}
 
-                <div style={{ display: "flex", alignItems: "center", gap: "8px", margin: "0 0 12px 0" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: "8px", margin: "0 0 6px 0" }}>
                   <p style={{ fontFamily: MONO, fontSize: "12px", letterSpacing: "0.04em", color: MUTED, margin: 0 }}>
                     @{profile.username}
                   </p>
@@ -411,33 +452,10 @@ export default function ProfileClient({
                   )}
                 </div>
 
-                {(followerCount > 0 || followingCount > 0) && (
-                  <p style={{ fontFamily: MONO, fontSize: "12px", letterSpacing: "0.04em", color: MUTED, margin: "0 0 12px 0" }}>
-                    {followerCount > 0 && <span>{followerCount} {followerCount === 1 ? "follower" : "followers"}</span>}
-                    {followerCount > 0 && followingCount > 0 && <span style={{ margin: "0 8px" }}>·</span>}
-                    {followingCount > 0 && <span>following {followingCount}</span>}
-                  </p>
-                )}
-
-                {!isOwner && compatibility && (
-                  <div style={{ margin: "0 0 12px 0" }}>
-                    <span style={{ fontFamily: MONO, fontSize: "0.65rem", letterSpacing: "0.08em", textTransform: "uppercase", color: ORANGE }}>
-                      {compatibility.score}% Collection Similarity
-                    </span>
-                    <p style={{ fontFamily: SERIF, fontStyle: "italic", fontSize: "0.9rem", color: "#505050", lineHeight: 1.4, margin: "4px 0 0" }}>
-                      {compatibility.label}
-                    </p>
-                  </div>
-                )}
-
-                {(cityValue || countryValue) && (
-                  <p style={{ fontFamily: MONO, fontSize: "12px", letterSpacing: "0.04em", color: MUTED, margin: "0 0 12px 0" }}>
-                    {[cityValue || profile.city, countryValue || profile.country].filter(Boolean).join(", ")}
-                  </p>
-                )}
-
-                {(starSignValue || profile.star_sign) && (() => {
-                  const sign = starSignValue || profile.star_sign!;
+                {/* Location + star sign — directly under @username */}
+                {(() => {
+                  const loc = [cityValue || profile.city, countryValue || profile.country].filter(Boolean).join(", ");
+                  const sign = starSignValue || profile.star_sign;
                   const SIGN_SVG: Record<string, string> = {
                     Aries:       "https://upload.wikimedia.org/wikipedia/commons/0/00/Aries_symbol_%28fixed_width%29.svg",
                     Taurus:      "https://upload.wikimedia.org/wikipedia/commons/0/0b/Taurus_symbol_%28fixed_width%29.svg",
@@ -452,16 +470,47 @@ export default function ProfileClient({
                     Aquarius:    "https://upload.wikimedia.org/wikipedia/commons/f/fd/Aquarius_symbol_%28fixed_width%29.svg",
                     Pisces:      "https://upload.wikimedia.org/wikipedia/commons/2/21/Pisces_symbol_%28fixed_width%29.svg",
                   };
+                  if (!loc && !sign) return null;
                   return (
-                    <p style={{ fontFamily: MONO, fontSize: "12px", letterSpacing: "0.04em", color: MUTED, margin: "0 0 16px 0", display: "flex", alignItems: "center", gap: "6px" }}>
-                      {SIGN_SVG[sign] && (
-                        // eslint-disable-next-line @next/next/no-img-element
-                        <img src={SIGN_SVG[sign]} alt={sign} style={{ height: "18px", width: "auto", opacity: 0.5 }} />
+                    <p style={{ fontFamily: MONO, fontSize: "11px", letterSpacing: "0.04em", color: MUTED, margin: "0 0 14px 0", display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap" }}>
+                      {loc && <span>{loc}</span>}
+                      {loc && sign && <span style={{ opacity: 0.35 }}>·</span>}
+                      {sign && (
+                        <>
+                          {SIGN_SVG[sign] && (
+                            // eslint-disable-next-line @next/next/no-img-element
+                            <img src={SIGN_SVG[sign]} alt={sign} style={{ height: "14px", width: "auto", opacity: 0.45 }} />
+                          )}
+                          <span>{sign}</span>
+                        </>
                       )}
-                      {sign}
                     </p>
                   );
                 })()}
+
+                {(followerCount > 0 || followingCount > 0) && (
+                  <p style={{ fontFamily: MONO, fontSize: "11px", letterSpacing: "0.04em", color: MUTED, margin: "0 0 20px 0" }}>
+                    {followerCount > 0 && <span>{followerCount} {followerCount === 1 ? "follower" : "followers"}</span>}
+                    {followerCount > 0 && followingCount > 0 && <span style={{ margin: "0 8px" }}>·</span>}
+                    {followingCount > 0 && <span>following {followingCount}</span>}
+                  </p>
+                )}
+
+                {!isOwner && compatibility && (
+                  <div style={{ margin: "0 0 16px 0" }}>
+                    <span style={{ fontFamily: MONO, fontSize: "0.65rem", letterSpacing: "0.08em", textTransform: "uppercase", color: ORANGE }}>
+                      {compatibility.score}% Collection Similarity
+                    </span>
+                    <p style={{ fontFamily: SERIF, fontStyle: "italic", fontSize: "0.95rem", color: "#404040", lineHeight: 1.35, margin: "5px 0 2px" }}>
+                      {compatibility.label}
+                    </p>
+                    {COMPAT_DESCRIPTION[compatibility.label] && (
+                      <p style={{ fontFamily: MONO, fontSize: "0.6rem", letterSpacing: "0.03em", color: MUTED, lineHeight: 1.6, margin: "4px 0 0", maxWidth: 400 }}>
+                        {COMPAT_DESCRIPTION[compatibility.label]}
+                      </p>
+                    )}
+                  </div>
+                )}
 
                 {!isOwner && (bandcampValue || profile.bandcamp_username) && (
                   <p style={{ fontFamily: MONO, fontSize: "12px", letterSpacing: "0.04em", color: MUTED, margin: 0, overflowWrap: "anywhere" }}>
@@ -485,9 +534,38 @@ export default function ProfileClient({
                 {/* ── Essentials wall ── */}
                 {essentials && essentials.total > 0 && (
                   <div style={{ marginTop: "16px", marginBottom: "16px" }}>
-                    <p style={{ fontFamily: MONO, fontSize: "0.55rem", letterSpacing: "0.14em", textTransform: "uppercase", color: ORANGE, margin: "0 0 10px 0" }}>
-                      Essentials Wall
-                    </p>
+                    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", margin: "0 0 10px 0" }}>
+                      <p style={{ fontFamily: MONO, fontSize: "0.7rem", letterSpacing: "0.14em", textTransform: "uppercase", color: ORANGE, margin: 0 }}>
+                        Essentials Wall
+                      </p>
+                      {isOwner ? (
+                        essLikeCount > 0 && (
+                          <span style={{ display: "flex", alignItems: "center", gap: "5px" }}>
+                            <span style={{ fontSize: "16px", color: ORANGE, lineHeight: 1 }}>♥</span>
+                            <span style={{ fontFamily: MONO, fontSize: "0.55rem", letterSpacing: "0.06em", color: MUTED }}>{essLikeCount}</span>
+                          </span>
+                        )
+                      ) : (
+                        <button
+                          onClick={handleEssentialsLike}
+                          disabled={!viewerId || essLiking}
+                          title={!viewerId ? "Log in to like" : essLiked ? "Unlike" : "Like"}
+                          style={{
+                            display: "flex", alignItems: "center", gap: "5px",
+                            background: "none", border: "none", padding: 0,
+                            cursor: !viewerId ? "default" : "pointer",
+                            transition: "transform 0.1s",
+                            transform: essLiking ? "scale(0.85)" : "scale(1)",
+                          }}
+                          aria-label={essLiked ? "Unlike essentials wall" : "Like essentials wall"}
+                        >
+                          <span style={{ fontSize: "16px", color: essLiked ? ORANGE : "#cccccc", lineHeight: 1, transition: "color 0.15s" }}>♥</span>
+                          {essLikeCount > 0 && (
+                            <span style={{ fontFamily: MONO, fontSize: "0.55rem", letterSpacing: "0.06em", color: MUTED }}>{essLikeCount}</span>
+                          )}
+                        </button>
+                      )}
+                    </div>
                     {/* Was a fixed 9-col/360px box left over from the old 9-cover
                         teaser cap — now that every cover renders, that squeezed
                         the whole wall into well under half the page width
