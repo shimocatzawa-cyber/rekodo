@@ -353,12 +353,12 @@ const INSIGHTS = [
 const GENRE_MARKS = [
   { text: "FOLK",              xF: 0.10, yF: 0.56, size: 62, rot: -0.06 }, // john_fahey region
   { text: "AMERICANA",         xF: 0.22, yF: 0.82, size: 44, rot:  0.04 }, // smog/songs_ohia
-  { text: "SINGER-SONGWRITER", xF: 0.30, yF: 0.12, size: 28, rot: -0.03 },
+  { text: "SINGER-SONGWRITER", xF: 0.16, yF: 0.28, size: 28, rot: -0.03 },
   { text: "ALT-COUNTRY",       xF: 0.46, yF: 0.42, size: 32, rot:  0.02 }, // wilco/big thief
   { text: "COUNTRY",           xF: 0.16, yF: 0.90, size: 38, rot:  0.05 }, // hank williams area
   { text: "GOTHIC",            xF: 0.48, yF: 0.80, size: 44, rot:  0.06 }, // nick cave area
   { text: "BLUES",             xF: 0.58, yF: 0.88, size: 40, rot: -0.04 }, // muddy/robert johnson
-  { text: "PSYCHEDELIC",       xF: 0.16, yF: 0.26, size: 52, rot:  0.03 }, // pink floyd/doors
+  { text: "PSYCHEDELIC",       xF: 0.16, yF: 0.18, size: 52, rot:  0.03 },
   { text: "KRAUTROCK",         xF: 0.64, yF: 0.20, size: 44, rot: -0.07 }, // can/neu
   { text: "NOISE ROCK",        xF: 0.24, yF: 0.50, size: 36, rot:  0.05 }, // nirvana/thurston
   { text: "POST-ROCK",         xF: 0.32, yF: 0.64, size: 32, rot: -0.05 }, // godspeed/low
