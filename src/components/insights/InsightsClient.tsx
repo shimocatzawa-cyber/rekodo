@@ -20,8 +20,7 @@ const EssentialsWallModal    = dynamic(() => import("@/components/insights/Essen
 const CollectorDNAModal      = dynamic(() => import("@/components/insights/CollectorDNAModal"),      { ssr: false });
 const CollectionStyleMapModal = dynamic(() => import("@/components/insights/CollectionStyleMapModal"), { ssr: false });
 const CollectionGenreMapModal = dynamic(() => import("@/components/insights/CollectionGenreMapModal"), { ssr: false });
-const CollectionStoryModal   = dynamic(() => import("@/components/insights/CollectionStoryModal"),   { ssr: false });
-const CollectionStoryV2Modal = dynamic(() => import("@/components/insights/CollectionStoryV2Modal"), { ssr: false });
+const CollectionStoryModal   = dynamic(() => import("@/components/insights/CollectionStoryV2Modal"), { ssr: false });
 const RecordShelfModal       = dynamic(() => import("@/components/insights/RecordShelfModal"),       { ssr: false });
 const SpectrumShareModal     = dynamic(() => import("@/components/insights/SpectrumShareModal"),     { ssr: false });
 const ArchetypeShareModal    = dynamic(() => import("@/components/archetypes/ArchetypeShareModal"),  { ssr: false });
@@ -292,7 +291,6 @@ export default function InsightsClient({
   const [showStyleMap, setShowStyleMap]       = useState(false);
   const [showGenreMap, setShowGenreMap]       = useState(false);
   const [showStory, setShowStory]             = useState(false);
-  const [showStoryV2, setShowStoryV2]         = useState(false);
   const [showShelf, setShowShelf]             = useState(false);
   const [showSpectrum, setShowSpectrum]         = useState(false);
   const [showArchetype, setShowArchetype]       = useState(false);
@@ -990,17 +988,6 @@ export default function InsightsClient({
           onClose={() => setShowStory(false)}
           username={username}
           totalRecords={totalRecords}
-          collectionLifespan={collectionLifespan}
-          collectorSinceYear={collectorSinceYear}
-          yearRange={yearRange}
-          countryCount={countryBreakdown.length}
-        />
-      )}
-      {showStoryV2 && (
-        <CollectionStoryV2Modal
-          onClose={() => setShowStoryV2(false)}
-          username={username}
-          totalRecords={totalRecords}
           countryCount={countryBreakdown.length}
           yearRange={yearRange}
           biggestCollectingYear={biggestCollectingYear}
@@ -1038,7 +1025,6 @@ export default function InsightsClient({
                   { label: "Essentials Wall",      onClick: () => setShowEssentialsShare(true) },
                   { label: "Collector DNA",        onClick: () => setShowDNAModal(true) },
                   { label: "Collection Story",     onClick: () => setShowStory(true) },
-                  ...(isAdmin && eraPhases.length > 0 ? [{ label: "Story ↗ (new)", onClick: () => setShowStoryV2(true) }] : []),
                   { label: "Genre Map",            onClick: () => setShowGenreMap(true) },
                   { label: "Style Map",            onClick: () => setShowStyleMap(true) },
                   { label: "Spectrum",             onClick: () => setShowSpectrum(true) },
