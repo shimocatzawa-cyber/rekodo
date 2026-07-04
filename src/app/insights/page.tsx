@@ -558,17 +558,24 @@ export default async function InsightsPage() {
       });
       const essFirst = [...withCover.filter(l => l.is_essential), ...withCover.filter(l => !l.is_essential)];
 
-      // Prefer records where the target style is one of their first 2 Discogs tags
-      // (i.e. it's their primary identity, not just a side tag on a post-punk record).
-      // Fall back to full pool only if nothing qualifies.
-      const primaryPool = essFirst.filter(l => {
-        const styles = recordsMap.get(l.record_id)?.styles ?? [];
-        const idx = styles.findIndex(s => s?.trim() === style.trim());
-        return idx >= 0 && idx <= 1;
-      });
-      const pool = primaryPool.length > 0 ? primaryPool : essFirst;
+      // Count how many records each artist has with this style across the whole collection.
+      // This distinguishes "primarily ambient artist" (Brian Eno: 8 ambient records) from
+      // "one ambient album among many" (Nick Cave: 1 ambient record out of 15).
+      const artistStyleCount = new Map<string, number>();
+      for (const l of datedLinks) {
+        const rec = recordsMap.get(l.record_id);
+        if (!rec?.artist || !rec.styles?.some(s => s?.trim() === style.trim())) continue;
+        artistStyleCount.set(rec.artist, (artistStyleCount.get(rec.artist) ?? 0) + 1);
+      }
 
-      const sorted = pool.sort((a, b) => (recordsMap.get(b.record_id)?.community_have ?? 0) - (recordsMap.get(a.record_id)?.community_have ?? 0));
+      const sorted = essFirst.sort((a, b) => {
+        const recA = recordsMap.get(a.record_id)!;
+        const recB = recordsMap.get(b.record_id)!;
+        const cntA = artistStyleCount.get(recA.artist) ?? 0;
+        const cntB = artistStyleCount.get(recB.artist) ?? 0;
+        if (cntA !== cntB) return cntB - cntA;
+        return (recB.community_have ?? 0) - (recA.community_have ?? 0);
+      });
       const pickedRec = sorted[0] ? recordsMap.get(sorted[0].record_id) : null;
 
       return {
