@@ -447,6 +447,9 @@ export default async function InsightsPage() {
         const s = style?.trim();
         if (s) styleCounts.set(s, (styleCounts.get(s) ?? 0) + 1);
       }
+    } else if (rec?.genre) {
+      const g = rec.genre.trim();
+      if (g) styleCounts.set(g, (styleCounts.get(g) ?? 0) + 1);
     }
   }
   const totalStyleEntries = [...styleCounts.values()].reduce((a, b) => a + b, 0);
