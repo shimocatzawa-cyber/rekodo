@@ -223,25 +223,25 @@ function StoryV2Card({
               </div>
               <div style={{ flex: 1, height: 1, background: RULE }} />
             </div>
-            {/* Small cover + artist/album centred */}
-            <div style={{ display: "flex", justifyContent: "center", alignItems: "center", gap: 12 }}>
+            {/* Cover + artist/album centred */}
+            <div style={{ display: "flex", justifyContent: "center", alignItems: "center", gap: 16 }}>
               {forExport ? (
-                <div data-shadow-cover style={{ width: 44, height: 44, background: ART_BG, flexShrink: 0 }} />
+                <div data-shadow-cover style={{ width: 64, height: 64, background: ART_BG, flexShrink: 0 }} />
               ) : (
                 <div style={{
-                  width: 44, height: 44, background: ART_BG, flexShrink: 0,
+                  width: 64, height: 64, background: ART_BG, flexShrink: 0,
                   backgroundImage: anomalyCoverSrc ? `url(${anomalyCoverSrc})` : "none",
                   backgroundSize: "cover", backgroundPosition: "center",
                 }} />
               )}
               <div>
                 <div style={{
-                  fontFamily: SERIF, fontSize: 14, fontWeight: 700, color: INK,
-                  marginBottom: 3, letterSpacing: "-0.01em",
+                  fontFamily: SERIF, fontSize: 17, fontWeight: 700, color: INK,
+                  marginBottom: 4, letterSpacing: "-0.01em",
                 }}>
                   {anomalyRecord.artist}
                 </div>
-                <div style={{ fontFamily: MONO, fontSize: 10, letterSpacing: "0.04em", color: INK }}>
+                <div style={{ fontFamily: MONO, fontSize: 12, letterSpacing: "0.04em", color: INK }}>
                   {anomalyRecord.album}
                 </div>
               </div>
@@ -249,22 +249,6 @@ function StoryV2Card({
           </div>
         )}
 
-        {/* Timeline rule */}
-        <div style={{ position: "relative", height: 2, background: RULE }}>
-          {eraPhases.map((_, i) => {
-            const pct = eraPhases.length > 1
-              ? (i / (eraPhases.length - 1)) * 100
-              : 50;
-            const color = ERA_COLORS[i] ?? ERA_COLORS[0];
-            return (
-              <div key={i} style={{
-                position: "absolute", top: "50%", transform: "translate(-50%, -50%)",
-                left: `${pct}%`,
-                width: 10, height: 10, borderRadius: "50%", background: color,
-              }} />
-            );
-          })}
-        </div>
       </div>
 
       {/* ── Stats strip ── */}

@@ -557,10 +557,8 @@ export default async function InsightsPage() {
         return true;
       });
       const essFirst  = [...withCover.filter(l => l.is_essential), ...withCover.filter(l => !l.is_essential)];
-      // Obscure era: prefer low community_have. Top style: prefer high.
-      const sorted = pickObscure
-        ? essFirst.sort((a, b) => (recordsMap.get(a.record_id)?.community_have ?? 9999) - (recordsMap.get(b.record_id)?.community_have ?? 9999))
-        : essFirst.sort((a, b) => (recordsMap.get(b.record_id)?.community_have ?? 0)   - (recordsMap.get(a.record_id)?.community_have ?? 0));
+      // Always prefer the most well-known record (highest community_have) — the style itself is what's niche, not the cover.
+      const sorted = essFirst.sort((a, b) => (recordsMap.get(b.record_id)?.community_have ?? 0) - (recordsMap.get(a.record_id)?.community_have ?? 0));
       const pickedRec = sorted[0] ? recordsMap.get(sorted[0].record_id) : null;
 
       return {
