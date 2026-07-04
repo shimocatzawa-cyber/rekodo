@@ -581,18 +581,27 @@ export default async function InsightsPage() {
 
     const phases: import("@/components/insights/CollectionStoryV2Modal").EraPhase[] = [];
 
-    // ── Era 1: The Early Years — first record added ────────────────────────
-    if (firstRec) {
-      const domStyle = firstRec.styles?.[0]?.trim() ?? firstRec.genre ?? "Eclectic";
-      phases.push({
-        eraNum:        1,
-        phaseName:     "The Early Years",
-        years:         String(firstYear),
-        dominantStyle: domStyle.toUpperCase(),
-        coverAlbum:    firstRec.cover_url
-          ? { artist: firstRec.artist, album: firstRec.album, coverUrl: firstRec.cover_url }
-          : null,
-      });
+    // ── Era 1: The Early Years — most iconic record from early collecting ────
+    // Take the first 25% of the collection (min 10 records) ordered by date_added,
+    // then pick the highest community_have record with a cover — "classic" feel.
+    {
+      const earlyPool    = datedLinks.slice(0, Math.max(10, Math.ceil(datedLinks.length * 0.25)));
+      const withCover    = earlyPool.filter(l => !!recordsMap.get(l.record_id)?.cover_url);
+      const essFirst     = [...withCover.filter(l => l.is_essential), ...withCover.filter(l => !l.is_essential)];
+      const byPopularity = essFirst.sort((a, b) => (recordsMap.get(b.record_id)?.community_have ?? 0) - (recordsMap.get(a.record_id)?.community_have ?? 0));
+      const pickedRec    = byPopularity[0] ? recordsMap.get(byPopularity[0].record_id) : firstRec;
+      if (pickedRec) {
+        const domStyle = pickedRec.styles?.[0]?.trim() ?? pickedRec.genre ?? "Eclectic";
+        phases.push({
+          eraNum:        1,
+          phaseName:     "The Early Years",
+          years:         String(firstYear),
+          dominantStyle: domStyle.toUpperCase(),
+          coverAlbum:    pickedRec.cover_url
+            ? { artist: pickedRec.artist, album: pickedRec.album, coverUrl: pickedRec.cover_url }
+            : null,
+        });
+      }
     }
 
     // ── Era 2: #1 Style ────────────────────────────────────────────────────
