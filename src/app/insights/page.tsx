@@ -693,7 +693,7 @@ export default async function InsightsPage() {
       const score = rec.styles.reduce((sum, s) => sum + (styleCounts.get(s?.trim() ?? "") ?? 0), 0);
       if (score < lowestScore) { lowestScore = score; picked = rec; }
     }
-    return picked ? { artist: picked.artist, album: picked.album, coverUrl: picked.cover_url ?? null } : null;
+    return picked ? { artist: picked.artist, album: picked.album, coverUrl: picked.cover_url ?? null, style: picked.styles?.[0] ?? null } : null;
   })();
 
   // ── Geographic DNA ─────────────────────────────────────────────────────────

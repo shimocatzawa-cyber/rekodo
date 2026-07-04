@@ -88,7 +88,7 @@ export interface InsightsProps {
   isAdmin:      boolean;
   eraPhases:    import("@/components/insights/CollectionStoryV2Modal").EraPhase[];
   biggestCollectingYear: number | null;
-  anomalyRecord: { artist: string; album: string; coverUrl: string | null } | null;
+  anomalyRecord: { artist: string; album: string; coverUrl: string | null; style: string | null } | null;
   dailyPick:    DailyPickData | null;
   onThisDay:    OnThisDayPick | null;
   usageStats:   {
@@ -1021,21 +1021,31 @@ export default function InsightsClient({
               <p style={{ fontFamily: MONO, fontSize: "0.65rem", letterSpacing: "0.14em", textTransform: "uppercase", color: ORANGE, margin: "0 0 20px" }}>Share your collection on socials</p>
               <div style={{ display: "flex", gap: 8, flexWrap: "wrap", justifyContent: "space-between" }}>
                 {[
-                  { label: "Record Shelf",         onClick: () => setShowShelf(true) },
-                  { label: "Essentials Wall",      onClick: () => setShowEssentialsShare(true) },
-                  { label: "Collector DNA",        onClick: () => setShowDNAModal(true) },
-                  { label: "Collection Story",     onClick: () => setShowStory(true) },
-                  { label: "Genre Map",            onClick: () => setShowGenreMap(true) },
-                  { label: "Style Map",            onClick: () => setShowStyleMap(true) },
-                  { label: "Spectrum",             onClick: () => setShowSpectrum(true) },
-                  ...(collectorArchetypeId && isSupporter ? [{ label: "Archetype", onClick: () => setShowArchetype(true) }] : []),
-                ].map(({ label, onClick }) => (
+                  { label: "Record Shelf",         onClick: () => setShowShelf(true),          updated: false },
+                  { label: "Essentials Wall",      onClick: () => setShowEssentialsShare(true), updated: false },
+                  { label: "Collector DNA",        onClick: () => setShowDNAModal(true),        updated: false },
+                  { label: "Collection Story",     onClick: () => setShowStory(true),           updated: true  },
+                  { label: "Genre Map",            onClick: () => setShowGenreMap(true),        updated: false },
+                  { label: "Style Map",            onClick: () => setShowStyleMap(true),        updated: false },
+                  { label: "Spectrum",             onClick: () => setShowSpectrum(true),        updated: false },
+                  ...(collectorArchetypeId && isSupporter ? [{ label: "Archetype", onClick: () => setShowArchetype(true), updated: false }] : []),
+                ].map(({ label, onClick, updated }) => (
                   <button key={label} onClick={onClick} style={{
                     fontFamily: MONO, fontSize: 9, letterSpacing: "0.1em", textTransform: "uppercase",
                     background: "none", border: `1px solid ${RULE}`, cursor: "pointer",
                     padding: "8px 14px", color: INK, flex: 1, textAlign: "center",
+                    position: "relative", paddingBottom: updated ? 18 : "8px",
                   }}>
                     {label}
+                    {updated && (
+                      <span style={{
+                        position: "absolute", bottom: 4, left: "50%", transform: "translateX(-50%)",
+                        fontFamily: MONO, fontSize: 6.5, letterSpacing: "0.14em",
+                        color: ORANGE, textTransform: "uppercase",
+                      }}>
+                        Updated
+                      </span>
+                    )}
                   </button>
                 ))}
               </div>

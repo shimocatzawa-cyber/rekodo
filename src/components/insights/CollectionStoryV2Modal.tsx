@@ -11,7 +11,7 @@ const UI_MONO = "var(--font-mono)";
 const BG      = "#F6F3EB";
 const ORANGE  = "#C96A2B";
 const INK     = "#1a1a1a";
-const MUTED   = "#666666";
+const MUTED   = "#575757";
 const RULE    = "#dddad2";
 const ART_BG  = "#e8e4da";
 
@@ -34,7 +34,7 @@ interface CardProps {
   yearRange:            { oldest: number; newest: number } | null;
   biggestCollectingYear: number | null;
   eraPhases:            EraPhase[];
-  anomalyRecord:        { artist: string; album: string } | null;
+  anomalyRecord:        { artist: string; album: string; style: string | null } | null;
   anomalyCoverSrc:      string | null;
   coverSrcs:            CoverSrcs;
   forExport?:           boolean;
@@ -42,7 +42,7 @@ interface CardProps {
 
 interface Props extends Omit<CardProps, "coverSrcs" | "forExport" | "anomalyCoverSrc" | "anomalyRecord"> {
   onClose: () => void;
-  anomalyRecord: { artist: string; album: string; coverUrl: string | null } | null;
+  anomalyRecord: { artist: string; album: string; coverUrl: string | null; style: string | null } | null;
 }
 
 async function blobToDataUrl(blob: Blob): Promise<string> {
@@ -224,7 +224,20 @@ function StoryV2Card({
               <div style={{ flex: 1, height: 1, background: RULE }} />
             </div>
             {/* Cover + artist/album centred */}
-            <div style={{ display: "flex", justifyContent: "center", alignItems: "center", gap: 16 }}>
+            <div style={{ display: "flex", justifyContent: "center", alignItems: "center", gap: 12 }}>
+              {/* Style tag — rotated, to the left of the cover */}
+              {anomalyRecord.style && (
+                <div style={{
+                  fontFamily: MONO, fontSize: 7.5, letterSpacing: "0.14em",
+                  textTransform: "uppercase", color: INK,
+                  border: `1px solid ${ERA_COLORS[3]}`, padding: "3px 8px",
+                  whiteSpace: "nowrap", flexShrink: 0,
+                  writingMode: "vertical-rl", transform: "rotate(180deg)",
+                  maxHeight: 64, overflow: "hidden", textOverflow: "ellipsis",
+                }}>
+                  {anomalyRecord.style}
+                </div>
+              )}
               {forExport ? (
                 <div data-shadow-cover style={{ width: 64, height: 64, background: ART_BG, flexShrink: 0 }} />
               ) : (
