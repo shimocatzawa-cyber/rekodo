@@ -527,56 +527,61 @@ export default async function InsightsPage() {
     const firstYear = new Date(firstLink.date_added!).getFullYear();
     const lastYear  = new Date(lastLink.date_added!).getFullYear();
 
-    // Top 2 styles across the whole collection, ordered by their temporal
-    // centre-of-mass so we get chronological ordering for eras 2 & 3.
-    const topStyles = [...styleCounts.entries()]
-      .sort((a, b) => b[1] - a[1])
-      .slice(0, 2)
-      .map(([style]) => {
-        // Centre-of-mass: average year the records of this style were added
-        const styleYears = datedLinks
-          .filter(l => recordsMap.get(l.record_id)?.styles?.includes(style))
-          .map(l => new Date(l.date_added!).getFullYear());
-        const center = styleYears.length > 0
-          ? styleYears.reduce((a, b) => a + b, 0) / styleYears.length
-          : firstYear;
-        const minYear = styleYears.length > 0 ? Math.min(...styleYears) : null;
-        const maxYear = styleYears.length > 0 ? Math.max(...styleYears) : null;
+    // Helper: year range label + best cover for a style
+    const buildStyleData = (style: string, pickObscure = false) => {
+      const styleLinks = datedLinks.filter(l => recordsMap.get(l.record_id)?.styles?.includes(style));
+      const styleYears = styleLinks.map(l => new Date(l.date_added!).getFullYear());
+      const minYear = styleYears.length > 0 ? Math.min(...styleYears) : null;
+      const maxYear = styleYears.length > 0 ? Math.max(...styleYears) : null;
+      const years   = minYear != null && maxYear != null
+        ? (minYear === maxYear ? String(minYear) : `${minYear}–${maxYear}`)
+        : null;
 
-        // Best cover: style match required, essentials first, then most-wanted
-        const withCover = datedLinks.filter(l => {
-          const rec = recordsMap.get(l.record_id);
-          return rec?.cover_url && rec.styles?.includes(style);
-        });
-        const essentialsFirst = [
-          ...withCover.filter(l => l.is_essential),
-          ...withCover.filter(l => !l.is_essential),
-        ];
-        const picked = essentialsFirst.sort(
-          (a, b) => (recordsMap.get(b.record_id)?.community_have ?? 0) - (recordsMap.get(a.record_id)?.community_have ?? 0)
-        )[0];
-        const pickedRec = picked ? recordsMap.get(picked.record_id) : null;
+      const withCover = styleLinks.filter(l => !!recordsMap.get(l.record_id)?.cover_url);
+      const essFirst  = [...withCover.filter(l => l.is_essential), ...withCover.filter(l => !l.is_essential)];
+      // Obscure era: prefer low community_have (rarest pressing). Top style: prefer high.
+      const sorted = pickObscure
+        ? essFirst.sort((a, b) => (recordsMap.get(a.record_id)?.community_have ?? 9999) - (recordsMap.get(b.record_id)?.community_have ?? 9999))
+        : essFirst.sort((a, b) => (recordsMap.get(b.record_id)?.community_have ?? 0)   - (recordsMap.get(a.record_id)?.community_have ?? 0));
+      const pickedRec = sorted[0] ? recordsMap.get(sorted[0].record_id) : null;
 
-        return {
-          style,
-          center,
-          minYear,
-          maxYear,
-          coverAlbum: pickedRec?.cover_url
-            ? { artist: pickedRec.artist, album: pickedRec.album, coverUrl: pickedRec.cover_url }
-            : null,
-        };
-      })
-      .sort((a, b) => a.center - b.center); // chronological order
+      return {
+        years,
+        coverAlbum: pickedRec?.cover_url
+          ? { artist: pickedRec.artist, album: pickedRec.album, coverUrl: pickedRec.cover_url }
+          : null,
+      };
+    };
+
+    const sortedStyles = [...styleCounts.entries()].sort((a, b) => b[1] - a[1]);
+    const topStyle = sortedStyles[0]?.[0] ?? null;
+
+    // Obscure style: not the #1 style, 2+ records, lowest average community_have
+    const obscureStyle = (() => {
+      const candidates = sortedStyles
+        .filter(([s, count]) => s !== topStyle && count >= 2)
+        .map(([style]) => {
+          const haveVals = allLinks
+            .map(l => recordsMap.get(l.record_id))
+            .filter((r): r is RecordRow => !!r?.styles?.includes(style) && r.community_have != null && r.community_have > 0)
+            .map(r => r.community_have as number);
+          const avg = haveVals.length > 0 ? haveVals.reduce((a, b) => a + b, 0) / haveVals.length : null;
+          return { style, avg };
+        })
+        .filter(c => c.avg != null)
+        .sort((a, b) => (a.avg ?? 0) - (b.avg ?? 0));
+      // Fallback to rank #2 if no community_have data exists
+      return candidates[0]?.style ?? sortedStyles[1]?.[0] ?? null;
+    })();
 
     const phases: import("@/components/insights/CollectionStoryV2Modal").EraPhase[] = [];
 
-    // ── Era 1: first record added ──────────────────────────────────────────
+    // ── Era 1: The Early Years — first record added ────────────────────────
     if (firstRec) {
       const domStyle = firstRec.styles?.[0]?.trim() ?? firstRec.genre ?? "Eclectic";
       phases.push({
         eraNum:        1,
-        phaseName:     STYLE_PHASE_NAMES[domStyle] ?? `The ${domStyle} Beginning`,
+        phaseName:     "The Early Years",
         years:         String(firstYear),
         dominantStyle: domStyle.toUpperCase(),
         coverAlbum:    firstRec.cover_url
@@ -585,27 +590,36 @@ export default async function InsightsPage() {
       });
     }
 
-    // ── Eras 2 & 3: top 2 styles (chronologically ordered) ────────────────
-    topStyles.forEach((sp, i) => {
-      let years: string | null = null;
-      if (sp.minYear != null && sp.maxYear != null) {
-        years = sp.minYear === sp.maxYear ? String(sp.minYear) : `${sp.minYear}–${sp.maxYear}`;
-      }
+    // ── Era 2: #1 Style ────────────────────────────────────────────────────
+    if (topStyle) {
+      const sp = buildStyleData(topStyle);
       phases.push({
-        eraNum:        i + 2,
-        phaseName:     STYLE_PHASE_NAMES[sp.style] ?? `The ${sp.style} ${ERA_SUFFIXES[(i + 1) % ERA_SUFFIXES.length]}`,
-        years,
-        dominantStyle: sp.style.toUpperCase(),
+        eraNum:        2,
+        phaseName:     STYLE_PHASE_NAMES[topStyle] ?? `The ${topStyle} ${ERA_SUFFIXES[1]}`,
+        years:         sp.years,
+        dominantStyle: topStyle.toUpperCase(),
         coverAlbum:    sp.coverAlbum,
       });
-    });
+    }
 
-    // ── Era 4: last record added (skip if same as first) ──────────────────
+    // ── Era 3: Obscure style — lowest avg community_have ──────────────────
+    if (obscureStyle) {
+      const sp = buildStyleData(obscureStyle, true);
+      phases.push({
+        eraNum:        3,
+        phaseName:     STYLE_PHASE_NAMES[obscureStyle] ?? `The ${obscureStyle} ${ERA_SUFFIXES[2]}`,
+        years:         sp.years,
+        dominantStyle: obscureStyle.toUpperCase(),
+        coverAlbum:    sp.coverAlbum,
+      });
+    }
+
+    // ── Era 4: Present Day — last record added ─────────────────────────────
     if (lastRec && lastLink.record_id !== firstLink.record_id) {
       const domStyle = lastRec.styles?.[0]?.trim() ?? lastRec.genre ?? "Eclectic";
       phases.push({
-        eraNum:        phases.length + 1,
-        phaseName:     STYLE_PHASE_NAMES[domStyle] ?? `The ${domStyle} ${ERA_SUFFIXES[3]}`,
+        eraNum:        4,
+        phaseName:     "Present Day",
         years:         lastYear >= currentYear ? `${lastYear}–Today` : String(lastYear),
         dominantStyle: domStyle.toUpperCase(),
         coverAlbum:    lastRec.cover_url

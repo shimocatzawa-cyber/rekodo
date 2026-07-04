@@ -69,19 +69,40 @@ async function loadCovers(phases: EraPhase[]): Promise<CoverSrcs> {
   return Object.fromEntries(entries);
 }
 
-// ── Era icon: colored circle with roman numeral ───────────────────────────
-function EraCircle({ index }: { index: number }) {
-  const color   = ERA_COLORS[index] ?? ERA_COLORS[0];
-  const numerals = ["I", "II", "III", "IV"];
+// ── Era icons: one per position, themed to the era type ──────────────────
+// 0 = Early Years (vinyl record), 1 = #1 Style (crown),
+// 2 = Obscure (diamond), 3 = Present Day (lightning bolt)
+const ERA_SVG_ICONS = [
+  // vinyl record
+  <svg key="vinyl" viewBox="0 0 24 24" width="22" height="22" fill="none">
+    <circle cx="12" cy="12" r="9.5" stroke="#fff" strokeWidth="1.5"/>
+    <circle cx="12" cy="12" r="5" stroke="#fff" strokeWidth="1"/>
+    <circle cx="12" cy="12" r="2" fill="#fff"/>
+  </svg>,
+  // crown
+  <svg key="crown" viewBox="0 0 24 24" width="22" height="22" fill="#fff">
+    <path d="M2 18 L5 9 L9 13 L12 6 L15 13 L19 9 L22 18 Z"/>
+  </svg>,
+  // diamond gem
+  <svg key="diamond" viewBox="0 0 24 24" width="22" height="22" fill="#fff">
+    <path d="M12 2 L22 12 L12 22 L2 12 Z"/>
+  </svg>,
+  // lightning bolt
+  <svg key="bolt" viewBox="0 0 24 24" width="22" height="22" fill="#fff">
+    <path d="M13 2 L6 13 L11 13 L11 22 L18 11 L13 11 Z"/>
+  </svg>,
+];
+
+function EraIcon({ index }: { index: number }) {
+  const color = ERA_COLORS[index] ?? ERA_COLORS[0];
   return (
     <div style={{
       width: 50, height: 50, borderRadius: "50%",
       background: color,
       display: "flex", alignItems: "center", justifyContent: "center",
-      fontFamily: SERIF, fontSize: 16, fontWeight: 700, color: "#fff",
       margin: "0 auto 12px", flexShrink: 0,
     }}>
-      {numerals[index] ?? index + 1}
+      {ERA_SVG_ICONS[index] ?? ERA_SVG_ICONS[0]}
     </div>
   );
 }
@@ -149,7 +170,7 @@ function StoryV2Card({
               <div key={phase.eraNum} style={{ width: colW, flexShrink: 0, display: "flex", flexDirection: "column", alignItems: "center" }}>
 
                 {/* Circle icon */}
-                <EraCircle index={i} />
+                <EraIcon index={i} />
 
                 {/* ERA label */}
                 <div style={{
