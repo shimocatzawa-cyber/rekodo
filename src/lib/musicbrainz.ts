@@ -1,6 +1,6 @@
 const MB_API   = "https://musicbrainz.org/ws/2";
 const UA       = "rekodo/1.0 (shimocatzawa@gmail.com)";
-const CACHE_KEY = "rekodo_mb_v2";
+const CACHE_KEY = "rekodo_mb_v3";
 const CACHE_TTL = 30 * 24 * 60 * 60 * 1000; // 30 days
 const RATE_MS  = 1200; // MusicBrainz allows 1 req/sec; 1.2s is safe
 
@@ -118,7 +118,7 @@ export const MB_GENRE_ZONES: Array<{
   // Rock / psych — LEFT
   { keywords: ["heavy metal", "doom", "stoner", "garage rock"],                       xRange: [0.06, 0.26], yRange: [0.20, 0.52] },
   { keywords: ["psych rock", "psychedelic rock", "acid rock"],                        xRange: [0.08, 0.28], yRange: [0.18, 0.48] },
-  { keywords: ["psychedelic", "acid folk"],                                            xRange: [0.04, 0.24], yRange: [0.30, 0.70] }, // acid folk → folk-left
+  { keywords: ["psychedelic", "acid folk"],                                            xRange: [0.08, 0.28], yRange: [0.22, 0.54] },
   { keywords: ["noise rock", "noise pop"],                                             xRange: [0.16, 0.34], yRange: [0.44, 0.66] },
   { keywords: ["noise", "experimental", "avant-garde", "free improvisation"],         xRange: [0.28, 0.52], yRange: [0.46, 0.72] },
   // Blues / Jazz — center-bottom / center
@@ -133,8 +133,10 @@ export const MB_GENRE_ZONES: Array<{
   // Country / folk roots — far LEFT
   { keywords: ["country", "bluegrass", "outlaw", "alt-country", "country rock",
                "honky tonk", "western", "appalachian"],                               xRange: [0.04, 0.22], yRange: [0.54, 0.92] },
-  // Folk / singer-songwriter — LEFT, spanning full height
-  { keywords: ["folk", "singer", "americana", "acoustic", "neofolk",
+  // Singer-Songwriter — upper-left, between folk and americana (closer to folk cluster)
+  { keywords: ["singer/songwriter", "singer-songwriter", "singer songwriter"],        xRange: [0.16, 0.36], yRange: [0.12, 0.40] },
+  // Folk — LEFT, spanning full height (broad catch-all after singer-songwriter)
+  { keywords: ["folk", "americana", "acoustic", "neofolk",
                "traditional", "british folk", "indie folk", "world"],                 xRange: [0.04, 0.36], yRange: [0.16, 0.78] },
   // Soul / R&B / hip-hop — center
   { keywords: ["soul", "r&b", "gospel", "funk", "rhythm"],                            xRange: [0.46, 0.62], yRange: [0.60, 0.86] },
