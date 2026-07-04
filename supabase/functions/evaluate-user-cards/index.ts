@@ -44,12 +44,11 @@ async function evaluate(userId: string): Promise<{ newly_unlocked: string[] }> {
     // librarian: lists count
     db.from("lists").select("*", { count: "exact", head: true }).eq("user_id", userId),
 
-    // completionist: records with BOTH feeling and is_essential null
+    // completionist: records missing EITHER feeling OR is_essential (stricter OR check)
     db.from("user_records")
       .select("*", { count: "exact", head: true })
       .eq("user_id", userId)
-      .is("feeling", null)
-      .is("is_essential", null),
+      .or("feeling.is.null,is_essential.is.null"),
 
     // purist denominator: records where open_to_offers has been set
     db.from("user_records")
@@ -172,6 +171,11 @@ async function evaluate(userId: string): Promise<{ newly_unlocked: string[] }> {
   check("sonic-archaeologist", sonicCount >= 10);
   check("dreamer",             wantlistCount >= 25);
   check("librarian",           listCount >= 3);
+  // TODO(Phase 4): oracle requires a dedicated archetype_viewed event fired from
+  // the archetype page. archetype_cache is populated by both user visits and
+  // admin backfill, making it an unreliable proxy. Wire logUserEvent("archetype_viewed")
+  // in the archetype UI, then replace false with the event check below.
+  check("oracle",              false);
 
   // Event-based
   check("historian",    events.some(e => e.event_type === "memory_logged"));

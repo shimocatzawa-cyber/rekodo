@@ -25,6 +25,7 @@ const RecordShelfModal       = dynamic(() => import("@/components/insights/Recor
 const SpectrumShareModal     = dynamic(() => import("@/components/insights/SpectrumShareModal"),     { ssr: false });
 const ArchetypeShareModal    = dynamic(() => import("@/components/archetypes/ArchetypeShareModal"),  { ssr: false });
 const TasteProfile           = dynamic(() => import("@/components/insights/TasteProfile"),           { ssr: false });
+const CardsTab               = dynamic(() => import("@/components/cards/CardsClient"),                { ssr: false });
 
 const SERIF  = "var(--font-editorial)";
 const MONO   = "var(--font-mono)";
@@ -35,6 +36,7 @@ const RULE   = "#e0e0da";
 // ── Types ──────────────────────────────────────────────────────────────────────
 
 export interface InsightsProps {
+  userId:         string;
   username:       string;
   displayLabel?:  string;
   avatarUrl?:     string | null;
@@ -263,7 +265,7 @@ function StatBar({ tiles }: { tiles: StatTile[] }) {
 // ── Main component ─────────────────────────────────────────────────────────────
 
 export default function InsightsClient({
-  username, displayLabel, avatarUrl, currency,
+  userId, username, displayLabel, avatarUrl, currency,
   totalMed, totalRecords, topRecordsByValue,
   mediaConditionBreakdown, sleeveConditionBreakdown,
   genreBreakdown, styleBreakdown, hasStyles,
@@ -284,7 +286,7 @@ export default function InsightsClient({
 
   const [oneLiner, setOneLiner] = useState<string | null>(null);
   const defaultTab = "taste-profile";
-  const [insightsTab, setInsightsTab] = useUrlTab<"collection" | "taste-profile">("tab", ["collection", "taste-profile"], defaultTab);
+  const [insightsTab, setInsightsTab] = useUrlTab<"collection" | "taste-profile" | "cards">("tab", ["collection", "taste-profile", "cards"], defaultTab);
   const [showShare, setShowShare] = useState(false);
   const [showEssentialsShare, setShowEssentialsShare] = useState(false);
   const [showDNAModal, setShowDNAModal]       = useState(false);
@@ -335,8 +337,8 @@ export default function InsightsClient({
 
       {/* ── Tab bar ── */}
       <div className="rk-profile-tabs" style={{ display: "flex", justifyContent: "center", gap: "24px", paddingTop: "14px", paddingBottom: "2px", background: "#ffffff" }}>
-        {(["taste-profile", "collection"] as const).map((tab) => {
-          const label = tab === "collection" ? "Collection" : "Taste Profile";
+        {(["taste-profile", "collection", "cards"] as const).map((tab) => {
+          const label = tab === "collection" ? "Collection" : tab === "cards" ? "Cards" : "Taste Profile";
           return (
             <button
               key={tab}
@@ -1076,6 +1078,12 @@ export default function InsightsClient({
               usageStats={usageStats}
             />
           </div>
+        </main>
+      )}
+
+      {insightsTab === "cards" && (
+        <main style={{ maxWidth: 960, margin: "0 auto", padding: "0 24px" }}>
+          <CardsTab userId={userId} />
         </main>
       )}
     </div>
