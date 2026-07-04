@@ -224,20 +224,7 @@ function StoryV2Card({
               <div style={{ flex: 1, height: 1, background: RULE }} />
             </div>
             {/* Cover + artist/album centred */}
-            <div style={{ display: "flex", justifyContent: "center", alignItems: "center", gap: 12 }}>
-              {/* Style tag — rotated, to the left of the cover */}
-              {anomalyRecord.style && (
-                <div style={{
-                  fontFamily: MONO, fontSize: 7.5, letterSpacing: "0.14em",
-                  textTransform: "uppercase", color: INK,
-                  border: `1px solid ${ERA_COLORS[3]}`, padding: "3px 8px",
-                  whiteSpace: "nowrap", flexShrink: 0,
-                  writingMode: "vertical-rl", transform: "rotate(180deg)",
-                  maxHeight: 64, overflow: "hidden", textOverflow: "ellipsis",
-                }}>
-                  {anomalyRecord.style}
-                </div>
-              )}
+            <div style={{ display: "flex", justifyContent: "center", alignItems: "center", gap: 16 }}>
               {forExport ? (
                 <div data-shadow-cover style={{ width: 64, height: 64, background: ART_BG, flexShrink: 0 }} />
               ) : (
@@ -254,9 +241,20 @@ function StoryV2Card({
                 }}>
                   {anomalyRecord.artist}
                 </div>
-                <div style={{ fontFamily: MONO, fontSize: 12, letterSpacing: "0.04em", color: INK }}>
+                <div style={{ fontFamily: MONO, fontSize: 12, letterSpacing: "0.04em", color: INK, marginBottom: anomalyRecord.style ? 8 : 0 }}>
                   {anomalyRecord.album}
                 </div>
+                {anomalyRecord.style && (
+                  <div style={{
+                    fontFamily: MONO, fontSize: 8, letterSpacing: "0.14em",
+                    textTransform: "uppercase", color: INK,
+                    border: `1px solid ${ERA_COLORS[3]}`, padding: "3px 8px",
+                    display: "inline-block",
+                    overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
+                  }}>
+                    {anomalyRecord.style}
+                  </div>
+                )}
               </div>
             </div>
           </div>
