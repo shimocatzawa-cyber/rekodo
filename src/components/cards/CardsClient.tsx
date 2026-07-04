@@ -104,7 +104,7 @@ function CardSlot({ def, userCard, pendingReveal, onFlipEnd }: SlotProps) {
       <div
         style={{
           position: "relative",
-          aspectRatio: "5 / 7",
+          aspectRatio: "5 / 8",
           transformStyle: "preserve-3d",
           transform: `rotateY(${rotateY})`,
           transition: animated ? "transform 1.5s cubic-bezier(0.4, 0, 0.2, 1)" : "none",
