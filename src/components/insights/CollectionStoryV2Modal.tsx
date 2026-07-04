@@ -34,6 +34,7 @@ interface CardProps {
   yearRange:            { oldest: number; newest: number } | null;
   biggestCollectingYear: number | null;
   eraPhases:            EraPhase[];
+  anomalyRecord:        { artist: string; album: string } | null;
   coverSrcs:            CoverSrcs;
   forExport?:           boolean;
 }
@@ -73,7 +74,7 @@ async function loadCovers(phases: EraPhase[]): Promise<CoverSrcs> {
 // ── Card ──────────────────────────────────────────────────────────────────
 function StoryV2Card({
   username, totalRecords, countryCount, yearRange, biggestCollectingYear,
-  eraPhases, coverSrcs, forExport = false,
+  eraPhases, anomalyRecord, coverSrcs, forExport = false,
 }: CardProps) {
   const PAD     = 28;
   const GAP     = 12;
@@ -204,8 +205,43 @@ function StoryV2Card({
         </div>
       </div>
 
-      {/* ── Timeline rule ── */}
+      {/* ── The Anomaly + timeline ── */}
       <div style={{ padding: `32px ${PAD}px 0` }}>
+
+        {anomalyRecord && (
+          <div style={{ marginBottom: 20 }}>
+            {/* Section label */}
+            <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 12 }}>
+              <div style={{ flex: 1, height: 1, background: RULE }} />
+              <div style={{
+                fontFamily: MONO, fontSize: 9.5, letterSpacing: "0.18em",
+                textTransform: "uppercase", color: MUTED, flexShrink: 0,
+              }}>
+                The Anomaly
+              </div>
+              <div style={{ flex: 1, height: 1, background: RULE }} />
+            </div>
+            {/* Boxed artist + album */}
+            <div style={{
+              border: `1px solid ${RULE}`, padding: "12px 16px",
+              background: ART_BG,
+            }}>
+              <div style={{
+                fontFamily: SERIF, fontSize: 15, fontWeight: 700, color: INK,
+                marginBottom: 4, letterSpacing: "-0.01em",
+              }}>
+                {anomalyRecord.artist}
+              </div>
+              <div style={{
+                fontFamily: MONO, fontSize: 10, letterSpacing: "0.04em", color: INK,
+              }}>
+                {anomalyRecord.album}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Timeline rule */}
         <div style={{ position: "relative", height: 2, background: RULE }}>
           {eraPhases.map((_, i) => {
             const pct = eraPhases.length > 1

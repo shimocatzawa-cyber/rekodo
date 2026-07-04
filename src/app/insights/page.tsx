@@ -510,6 +510,17 @@ export default async function InsightsPage() {
       .sort((a, b) => b[1].length - a[1].length)[0][0];
   })();
 
+  // Exclude test pressings, acetates, and promos from all era/anomaly picks.
+  // Discogs stores "Test Pressing" in format, album, OR label — check all three.
+  const isTestPressing = (rec: RecordRow) => {
+    const f = (rec.format ?? "").toLowerCase();
+    const a = (rec.album  ?? "").toLowerCase();
+    const l = (rec.label  ?? "").toLowerCase();
+    return f.includes("test pressing") || a.includes("test pressing") || l.includes("test pressing")
+        || f.includes("acetate")       || a.includes("acetate")       || l.includes("acetate")
+        || f.includes("promo")         || a.includes("promo");
+  };
+
   const eraPhases = (() => {
     const currentYear = new Date().getFullYear();
 
@@ -526,15 +537,6 @@ export default async function InsightsPage() {
     const lastRec   = recordsMap.get(lastLink.record_id);
     const firstYear = new Date(firstLink.date_added!).getFullYear();
     const lastYear  = new Date(lastLink.date_added!).getFullYear();
-
-    // Exclude test pressings, acetates, and promos — they look bad as cover picks
-    const isTestPressing = (rec: RecordRow) => {
-      const f = (rec.format ?? "").toLowerCase();
-      const a = (rec.album  ?? "").toLowerCase();
-      return f.includes("test pressing") || a.includes("test pressing")
-          || f.includes("acetate")       || a.includes("acetate")
-          || f.includes("promo")         || a.includes("promo");
-    };
 
     // Helper: year range label + best cover for a style
     const buildStyleData = (style: string, pickObscure = false) => {
@@ -655,6 +657,24 @@ export default async function InsightsPage() {
     }
 
     return phases;
+  })();
+
+  // ── The Anomaly — most style-mismatched record in the collection ───────────
+  // For each record, sum how often each of its styles appears in the collection.
+  // The record with the lowest total is the most genre-anomalous.
+  const anomalyRecord = (() => {
+    if (styleCounts.size === 0) return null;
+    let lowestScore = Infinity;
+    let picked: RecordRow | null = null;
+    for (const link of allLinks) {
+      const rec = recordsMap.get(link.record_id);
+      if (!rec?.styles?.length) continue;
+      if (!rec.artist || rec.artist === "Unknown" || rec.artist === "Various") continue;
+      if (isTestPressing(rec)) continue;
+      const score = rec.styles.reduce((sum, s) => sum + (styleCounts.get(s?.trim() ?? "") ?? 0), 0);
+      if (score < lowestScore) { lowestScore = score; picked = rec; }
+    }
+    return picked ? { artist: picked.artist, album: picked.album } : null;
   })();
 
   // ── Geographic DNA ─────────────────────────────────────────────────────────
@@ -1193,6 +1213,7 @@ export default async function InsightsPage() {
       isAdmin={profile?.role === "admin"}
       eraPhases={eraPhases}
       biggestCollectingYear={biggestCollectingYear}
+      anomalyRecord={anomalyRecord}
       collectorSinceYear={collectorSinceYear}
       collectionPhotoUrl={collectionPhotoUrl}
       oldestAlbum={oldestAlbum}

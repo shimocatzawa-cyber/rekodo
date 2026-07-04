@@ -89,6 +89,7 @@ export interface InsightsProps {
   isAdmin:      boolean;
   eraPhases:    import("@/components/insights/CollectionStoryV2Modal").EraPhase[];
   biggestCollectingYear: number | null;
+  anomalyRecord: { artist: string; album: string } | null;
   dailyPick:    DailyPickData | null;
   onThisDay:    OnThisDayPick | null;
   usageStats:   {
@@ -279,6 +280,7 @@ export default function InsightsClient({
   isAdmin,
   eraPhases,
   biggestCollectingYear,
+  anomalyRecord,
 }: InsightsProps) {
 
   const [oneLiner, setOneLiner] = useState<string | null>(null);
@@ -1003,6 +1005,7 @@ export default function InsightsClient({
           yearRange={yearRange}
           biggestCollectingYear={biggestCollectingYear}
           eraPhases={eraPhases}
+          anomalyRecord={anomalyRecord}
         />
       )}
       {showShelf && (
