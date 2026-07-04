@@ -153,6 +153,28 @@ export default function CommunitySidebar({ profileOwnerId, onTierClick, onTierDa
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [profileOwnerId]);
 
+  // On mount: silently hydrate from cache — no spinner, no click required
+  useEffect(() => {
+    fetch(`/api/collectors/matches?userId=${profileOwnerId}`)
+      .then(r => r.ok ? r.json() : null)
+      .then((data: { cached?: boolean; allScores?: { userId: string; score: number; sharedTags: string[] }[] } | null) => {
+        if (!data?.cached || !data.allScores?.length) return;
+        const byTier = new Map<string, TierItem[]>();
+        for (const { userId, score, sharedTags } of data.allScores) {
+          const label = compatLabel(score);
+          const arr = byTier.get(label) ?? [];
+          arr.push({ userId, score, sharedTags: sharedTags ?? [] });
+          byTier.set(label, arr);
+        }
+        setTierItems(byTier);
+        onTierData?.(byTier);
+        setTiersTriggered(true);
+        setTiersLoaded(true);
+      })
+      .catch(() => {});
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [profileOwnerId]);
+
   function loadTiers() {
     setTiersTriggered(true);
     setTiersLoading(true);
