@@ -1,4 +1,6 @@
-CREATE OR REPLACE FUNCTION public.top_power_users()
+DROP FUNCTION IF EXISTS public.top_power_users();
+
+CREATE FUNCTION public.top_power_users()
 RETURNS TABLE(
   user_id uuid,
   username text,

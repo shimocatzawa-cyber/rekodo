@@ -139,6 +139,7 @@ export default async function AdminPage() {
     username: string | null;
     display_name: string | null;
     subscription_tier: string | null;
+    created_at: string;
     unique_days: number;
   }[];
 

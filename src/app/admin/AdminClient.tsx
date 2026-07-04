@@ -193,7 +193,7 @@ export default function AdminClient({
   archetypeBreakdown: [string, number][];
   signupsPerDay: { date: string; count: number }[];
   visitsPerDay: { date: string; count: number }[];
-  powerUsers: { user_id: string; username: string | null; display_name: string | null; subscription_tier: string | null; unique_days: number }[];
+  powerUsers: { user_id: string; username: string | null; display_name: string | null; subscription_tier: string | null; created_at: string; unique_days: number }[];
   starSignData: [string, number][];
 }) {
   const [activeTab, setActiveTab]             = useState<AdminTab>("users");
@@ -900,16 +900,22 @@ export default function AdminClient({
                   <tr>
                     <th style={{ ...thSt, paddingLeft: 0, width: "40px" }}>#</th>
                     <th style={{ ...thSt }}>Username</th>
+                    <th style={{ ...thSt, textAlign: "right" }}>Joined</th>
                     <th style={{ ...thSt, textAlign: "right" }}>Unique days</th>
                     <th style={{ ...thSt, width: "200px" }}></th>
+                    <th style={{ ...thSt, textAlign: "right" }}>% daily</th>
                     <th style={{ ...thSt, textAlign: "right", paddingRight: 0 }}>Tier</th>
                   </tr>
                 </thead>
                 <tbody>
                   {powerUsers.map((u, i) => {
-                    const maxDays = powerUsers[0]?.unique_days ?? 1;
-                    const handle  = u.username ?? u.display_name ?? u.user_id.slice(0, 8);
+                    const maxDays     = powerUsers[0]?.unique_days ?? 1;
+                    const handle      = u.username ?? u.display_name ?? u.user_id.slice(0, 8);
                     const isSupporter = ["plus", "premium", "supporter"].includes(u.subscription_tier ?? "");
+                    const joinedDate  = new Date(u.created_at);
+                    const daysSinceJoined = Math.max(1, Math.floor((Date.now() - joinedDate.getTime()) / 86_400_000));
+                    const dailyUsePct = Math.round((u.unique_days / daysSinceJoined) * 100);
+                    const joinedLabel = joinedDate.toLocaleDateString("en-AU", { day: "numeric", month: "short", year: "numeric" });
                     return (
                       <tr key={u.user_id} style={{ borderBottom: `1px solid ${RULE}` }}>
                         <td style={{ fontFamily: MONO, fontSize: "10px", color: MUTED, padding: "10px 16px 10px 0", textAlign: "right" }}>
@@ -917,13 +923,16 @@ export default function AdminClient({
                         </td>
                         <td style={{ fontFamily: MONO, fontSize: "11px", padding: "10px 16px" }}>
                           <a
-                            href={`/${handle}`}
+                            href={`/@${handle}`}
                             target="_blank"
                             rel="noopener noreferrer"
                             style={{ color: ORANGE, textDecoration: "none" }}
                           >
                             @{handle}
                           </a>
+                        </td>
+                        <td style={{ fontFamily: MONO, fontSize: "10px", color: MUTED, padding: "10px 16px", textAlign: "right", whiteSpace: "nowrap" }}>
+                          {joinedLabel}
                         </td>
                         <td style={{ fontFamily: MONO, fontSize: "11px", color: INK, padding: "10px 16px", textAlign: "right", whiteSpace: "nowrap" }}>
                           {u.unique_days.toLocaleString()}
@@ -932,6 +941,9 @@ export default function AdminClient({
                           <div style={{ background: "#f0f0ea", height: "6px" }}>
                             <div style={{ width: `${(u.unique_days / maxDays) * 100}%`, height: "100%", background: INK }} />
                           </div>
+                        </td>
+                        <td style={{ fontFamily: MONO, fontSize: "10px", color: MUTED, padding: "10px 16px", textAlign: "right", whiteSpace: "nowrap" }}>
+                          {dailyUsePct}%
                         </td>
                         <td style={{ fontFamily: MONO, fontSize: "10px", color: isSupporter ? ORANGE : MUTED, padding: "10px 0 10px 16px", textAlign: "right", whiteSpace: "nowrap" }}>
                           {isSupporter ? "supporter" : "free"}
