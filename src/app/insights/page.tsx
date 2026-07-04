@@ -565,10 +565,17 @@ export default async function InsightsPage() {
         const dominantStyle = [...groupStyleCounts.entries()]
           .sort((a, b) => b[1] - a[1])[0]?.[0] ?? "Eclectic";
 
-        // Pick cover album: essentials first, then highest community_have, must have cover_url
-        const withCover = group.entries.filter(e => e.record.cover_url);
-        const essentialWithCover = withCover.filter(e => e.isEssential);
-        const candidates = essentialWithCover.length > 0 ? essentialWithCover : withCover;
+        // Pick cover album: must match dominant style, essentials preferred, then community_have
+        const matchesStyle = (e: { record: RecordRow }) =>
+          (e.record.styles ?? []).some(s => s?.trim() === dominantStyle);
+        const withStyleAndCover     = group.entries.filter(e => e.record.cover_url && matchesStyle(e));
+        const essentialStyleCover   = withStyleAndCover.filter(e => e.isEssential);
+        const styleCandidates       = essentialStyleCover.length > 0 ? essentialStyleCover : withStyleAndCover;
+        // Fallback: any cover (no style filter), essentials first
+        const withAnyCover          = group.entries.filter(e => e.record.cover_url);
+        const essentialAnyCover     = withAnyCover.filter(e => e.isEssential);
+        const fallbackCandidates    = essentialAnyCover.length > 0 ? essentialAnyCover : withAnyCover;
+        const candidates            = styleCandidates.length > 0 ? styleCandidates : fallbackCandidates;
         const picked = candidates.sort((a, b) => (b.record.community_have ?? 0) - (a.record.community_have ?? 0))[0] ?? null;
 
         const coverAlbum = picked
