@@ -303,11 +303,14 @@ export default function CommunityTab({ profileOwnerId, hideSocialPanel = false, 
 
       async function resolveProfiles(ids: string[]): Promise<Follower[]> {
         if (ids.length === 0) return [];
-        const { data } = await supabase
-          .from("profiles")
-          .select("id, username, display_name, avatar_url, is_donor")
-          .in("id", ids);
-        const byId = new Map((data ?? []).map(p => [p.id, p]));
+        // Batch into 100-ID chunks to stay within PostgREST URL length limits
+        const BATCH = 100;
+        const batches: string[][] = [];
+        for (let i = 0; i < ids.length; i += BATCH) batches.push(ids.slice(i, i + BATCH));
+        const results = await Promise.all(batches.map(batch =>
+          supabase.from("profiles").select("id, username, display_name, avatar_url, is_donor").in("id", batch)
+        ));
+        const byId = new Map(results.flatMap(r => (r.data ?? []).map(p => [p.id, p])));
         return ids.map(id => byId.get(id)).filter(Boolean) as Follower[];
       }
 
@@ -390,10 +393,14 @@ export default function CommunityTab({ profileOwnerId, hideSocialPanel = false, 
         .select("id, username, display_name, avatar_url, city, country, is_donor")
         .eq("is_public", true)
         .eq("is_test", false)
-        .limit(50);
+        .limit(200);
 
-      if (excludeIds.size > 0) {
-        q = q.not("id", "in", `(${[...excludeIds].join(",")})`);
+      // Cap the URL-based exclusion at 200 IDs to avoid PostgREST URL length limits.
+      // Users following many people may see some already-followed profiles in results;
+      // the Follow button shows "Following" for those so they're still clearly marked.
+      const idsToExclude = [...excludeIds].slice(0, 200);
+      if (idsToExclude.length > 0) {
+        q = q.not("id", "in", `(${idsToExclude.join(",")})`);
       }
 
       if (query.trim()) {
@@ -404,11 +411,18 @@ export default function CommunityTab({ profileOwnerId, hideSocialPanel = false, 
 
       const { data } = await q;
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const profiles = (data ?? []).map((p: any) => ({ ...p, collectionScore: null, styleScore: null })) as Collector[];
+      let profiles = (data ?? []).map((p: any) => ({ ...p, collectionScore: null, styleScore: null })) as Collector[];
+      // For users following >200 people we couldn't exclude all IDs in SQL,
+      // so filter them out client-side and cap at 50.
+      if (excludeIds.size > 200) {
+        profiles = profiles.filter(p => !excludeIds.has(p.id)).slice(0, 50);
+      } else {
+        profiles = profiles.slice(0, 50);
+      }
       setCollectors(profiles);
 
       if (vid && profiles.length > 0) {
-        const ids = profiles.map(c => c.id);
+        const ids = profiles.slice(0, 50).map(c => c.id);
 
         const scoresRes = await fetch(`/api/collectors/batch-scores?targetIds=${ids.join(",")}`)
           .then(r => r.ok ? r.json() : { scores: [] });

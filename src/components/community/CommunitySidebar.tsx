@@ -130,11 +130,14 @@ export default function CommunitySidebar({ profileOwnerId, onTierClick, onTierDa
 
     async function resolveProfiles(ids: string[]): Promise<Person[]> {
       if (ids.length === 0) return [];
-      const { data } = await supabase
-        .from("profiles")
-        .select("id, username, display_name, avatar_url, is_donor")
-        .in("id", ids);
-      const byId = new Map((data ?? []).map(p => [p.id, p]));
+      // Batch into 100-ID chunks to stay within PostgREST URL length limits
+      const BATCH = 100;
+      const batches: string[][] = [];
+      for (let i = 0; i < ids.length; i += BATCH) batches.push(ids.slice(i, i + BATCH));
+      const results = await Promise.all(batches.map(batch =>
+        supabase.from("profiles").select("id, username, display_name, avatar_url, is_donor").in("id", batch)
+      ));
+      const byId = new Map(results.flatMap(r => (r.data ?? []).map((p: any) => [p.id, p])));
       return ids.map(id => byId.get(id)).filter(Boolean) as Person[];
     }
 
