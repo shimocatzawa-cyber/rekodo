@@ -1393,6 +1393,22 @@ export default function ConstellationPOC({ username }: Props) {
         </div>
       )}
 
+      {/* Full-screen canvas — elements extend freely beyond the ring */}
+      <canvas ref={canvasRef} className="absolute inset-0 w-full h-full"
+        style={{ cursor: "grab", opacity: isReady ? 1 : 0, transition: "opacity 0.8s" }} />
+
+      {/* Decorative ring — centring reference only, no clip */}
+      <div style={{
+        position: "absolute", top: "50%", left: "50%",
+        transform: "translate(-50%, -50%)",
+        width: "min(84vh, 84vw)",
+        height: "min(84vh, 84vw)",
+        borderRadius: "50%",
+        border: "1px solid rgba(220,213,195,0.28)",
+        pointerEvents: "none",
+        zIndex: 2,
+      }} />
+
       {/* Outer decorative ring */}
       <div style={{
         position: "absolute", top: "50%", left: "50%",
@@ -1404,21 +1420,6 @@ export default function ConstellationPOC({ username }: Props) {
         pointerEvents: "none",
         zIndex: 2,
       }} />
-
-      {/* Circular canvas frame */}
-      <div style={{
-        position: "absolute", top: "50%", left: "50%",
-        transform: "translate(-50%, -50%)",
-        width: "min(84vh, 84vw)",
-        height: "min(84vh, 84vw)",
-        borderRadius: "50%",
-        overflow: "hidden",
-        border: "1px solid rgba(220,213,195,0.28)",
-        zIndex: 1,
-      }}>
-        <canvas ref={canvasRef} className="absolute inset-0 w-full h-full"
-          style={{ cursor: "grab", opacity: isReady ? 1 : 0, transition: "opacity 0.8s" }} />
-      </div>
 
       {/* Header */}
       {isReady && (
