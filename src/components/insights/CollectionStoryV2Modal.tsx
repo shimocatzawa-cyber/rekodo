@@ -91,10 +91,10 @@ function StoryV2Card({
   ];
 
   return (
-    <div style={{ width: CARD_W, background: BG, boxSizing: "border-box" }}>
+    <div style={{ width: CARD_W, background: BG, boxSizing: "border-box", minHeight: 660 }}>
 
       {/* ── Header ── */}
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", padding: `28px ${PAD}px 0` }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", padding: `36px ${PAD}px 0` }}>
         <div style={{ fontFamily: SERIF, fontSize: 34, fontWeight: 700, color: INK, lineHeight: 1.05, letterSpacing: "-0.02em" }}>
           My Collection Story
         </div>
@@ -104,14 +104,14 @@ function StoryV2Card({
       </div>
 
       {/* Rule */}
-      <div style={{ height: 1, background: RULE, margin: `18px ${PAD}px 0` }} />
+      <div style={{ height: 1, background: RULE, margin: `22px ${PAD}px 0` }} />
 
       {/* ── "Four Lives" section ── */}
-      <div style={{ padding: `28px ${PAD}px 0` }}>
+      <div style={{ padding: `32px ${PAD}px 0` }}>
 
         {/* Section heading */}
         <div style={{
-          display: "flex", alignItems: "center", gap: 12, marginBottom: 28,
+          display: "flex", alignItems: "center", gap: 12, marginBottom: 32,
         }}>
           <div style={{ flex: 1, height: 1, background: RULE }} />
           <div style={{
@@ -128,17 +128,18 @@ function StoryV2Card({
           {eraPhases.map((phase, i) => {
             const color   = ERA_COLORS[i] ?? ERA_COLORS[0];
             const src     = coverSrcs[i] ?? null;
+            const coverH  = Math.round(colW * 1.2); // slight portrait crop for visual weight
 
             return (
               <div key={phase.eraNum} style={{ width: colW, flexShrink: 0, display: "flex", flexDirection: "column", alignItems: "center" }}>
 
                 {/* Colored accent bar */}
-                <div style={{ width: "100%", height: 4, background: color, marginBottom: 14 }} />
+                <div style={{ width: "100%", height: 4, background: color, marginBottom: 16 }} />
 
                 {/* Phase name */}
                 <div style={{
                   fontFamily: SERIF, fontSize: 15.5, fontWeight: 700, color: INK,
-                  lineHeight: 1.25, textAlign: "center", marginBottom: 10, minHeight: 40,
+                  lineHeight: 1.25, textAlign: "center", marginBottom: 14, minHeight: 40,
                 }}>
                   {phase.phaseName}
                 </div>
@@ -157,20 +158,20 @@ function StoryV2Card({
                 {forExport ? (
                   <div
                     data-cover-slot={i}
-                    style={{ width: coverSz, height: coverSz, background: ART_BG, marginBottom: 6 }}
+                    style={{ width: colW, height: coverH, background: ART_BG, marginBottom: 8 }}
                   />
                 ) : (
                   <div style={{
-                    width: coverSz, height: coverSz, background: ART_BG,
+                    width: colW, height: coverH, background: ART_BG,
                     backgroundImage: src ? `url(${src})` : "none",
-                    backgroundSize: "cover", backgroundPosition: "center",
-                    marginBottom: 6, flexShrink: 0,
+                    backgroundSize: "cover", backgroundPosition: "center top",
+                    marginBottom: 8, flexShrink: 0,
                   }} />
                 )}
 
                 {/* Artist + album name */}
                 {phase.coverAlbum && (
-                  <div style={{ width: "100%", marginBottom: 8, textAlign: "center" }}>
+                  <div style={{ width: "100%", marginBottom: 10, textAlign: "center" }}>
                     <div style={{
                       fontFamily: MONO, fontSize: 7.5, letterSpacing: "0.06em",
                       color: INK, fontWeight: 700,
@@ -206,7 +207,7 @@ function StoryV2Card({
       </div>
 
       {/* ── Timeline rule ── */}
-      <div style={{ padding: `24px ${PAD}px 0` }}>
+      <div style={{ padding: `32px ${PAD}px 0` }}>
         <div style={{ position: "relative", height: 2, background: RULE }}>
           {eraPhases.map((_, i) => {
             const pct = eraPhases.length > 1
@@ -225,8 +226,8 @@ function StoryV2Card({
       </div>
 
       {/* ── Stats strip ── */}
-      <div style={{ margin: `20px ${PAD}px 0`, height: 1, background: RULE }} />
-      <div style={{ display: "flex", padding: `16px ${PAD}px 0` }}>
+      <div style={{ margin: `24px ${PAD}px 0`, height: 1, background: RULE }} />
+      <div style={{ display: "flex", padding: `20px ${PAD}px 0` }}>
         {stats.map((s, i) => (
           <div key={i} style={{
             flex: 1, textAlign: "center", paddingLeft: i > 0 ? 12 : 0, paddingRight: i < stats.length - 1 ? 12 : 0,
