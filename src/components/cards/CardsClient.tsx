@@ -24,25 +24,18 @@ function CardBack() {
   return (
     <div style={{
       width: "100%", height: "100%",
-      background: INK,
+      background: "#ffffff",
+      border: "1.5px solid " + INK,
+      boxSizing: "border-box",
       display: "flex", alignItems: "center", justifyContent: "center",
-      flexDirection: "column",
-      gap: 5,
       userSelect: "none",
     }}>
       <span style={{
         fontFamily: SERIF, fontWeight: 700,
-        fontSize: 24,
+        fontSize: 36,
         color: ORANGE, lineHeight: 1,
       }}>
         ō
-      </span>
-      <span style={{
-        fontFamily: MONO, fontSize: 7,
-        letterSpacing: "0.22em", color: "rgba(255,255,255,0.2)",
-        textTransform: "uppercase",
-      }}>
-        rekōdo
       </span>
     </div>
   );
