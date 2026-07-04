@@ -34,7 +34,7 @@ function CardBack({ def }: { def?: CardDefinition }) {
     }}>
       <span style={{
         fontFamily: SERIF, fontWeight: 700,
-        fontSize: 20,
+        fontSize: 30,
         color: ORANGE, lineHeight: 1,
       }}>
         ō
@@ -42,16 +42,16 @@ function CardBack({ def }: { def?: CardDefinition }) {
       {def && (
         <>
           <span style={{
-            fontFamily: MONO, fontSize: 7,
-            letterSpacing: "0.1em", textTransform: "uppercase",
+            fontFamily: MONO, fontSize: 10,
+            letterSpacing: "0.08em", textTransform: "uppercase",
             color: INK, textAlign: "center",
             lineHeight: 1.35, marginTop: 2,
           }}>
             {def.name}
           </span>
           <span style={{
-            fontFamily: MONO, fontSize: 6,
-            letterSpacing: "0.14em",
+            fontFamily: MONO, fontSize: 8,
+            letterSpacing: "0.12em",
             color: "rgba(10,10,10,0.38)",
           }}>
             {`RK-${String(def.number).padStart(3, "0")}`}
