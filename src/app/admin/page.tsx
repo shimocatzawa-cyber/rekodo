@@ -29,6 +29,8 @@ export default async function AdminPage() {
     archetypeResult,
     recentSignupsResult,
     visitsPerDayResult,
+    powerUsersResult,
+    starSignResult,
   ] = await Promise.all([
     adminDb.from("profiles").select("*", { count: "exact", head: true }),
     adminDb.from("profiles").select("*", { count: "exact", head: true }).in("subscription_tier", ["plus", "premium", "supporter"]),
@@ -45,6 +47,10 @@ export default async function AdminPage() {
     adminDb.from("profiles").select("created_at").gte("created_at", sevenDaysAgo),
     // Server-side aggregate — avoids PostgREST row cap
     adminDb.rpc("visits_per_day"),
+    // Top 50 users by unique visit days — server-side to bypass row cap
+    adminDb.rpc("top_power_users"),
+    // Star sign breakdown — server-side to bypass row cap
+    adminDb.rpc("star_sign_breakdown"),
   ]);
 
   const total        = totalUsersResult.count ?? 0;
@@ -128,6 +134,17 @@ export default async function AdminPage() {
     return { date, count: visitMap.get(date) ?? 0 };
   });
 
+  const powerUsers = (powerUsersResult.data ?? []) as {
+    user_id: string;
+    username: string | null;
+    display_name: string | null;
+    subscription_tier: string | null;
+    unique_days: number;
+  }[];
+
+  const starSignData: [string, number][] = ((starSignResult.data ?? []) as { star_sign: string; count: number }[])
+    .map(r => [r.star_sign, Number(r.count)]);
+
   return (
     <AdminClient
       users={users}
@@ -141,6 +158,8 @@ export default async function AdminPage() {
       archetypeBreakdown={archetypeBreakdown}
       signupsPerDay={signupsPerDay}
       visitsPerDay={visitsPerDay}
+      powerUsers={powerUsers}
+      starSignData={starSignData}
     />
   );
 }

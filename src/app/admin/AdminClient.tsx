@@ -10,7 +10,7 @@ const RULE   = "#e0e0da";
 const MUTED  = "#aaaaaa";
 const INK    = "#0d0d0d";
 
-type AdminTab = "users" | "countries" | "features" | "syncs";
+type AdminTab = "users" | "countries" | "features" | "power_users" | "syncs";
 
 type ActiveSyncJob = {
   id: string;
@@ -179,6 +179,8 @@ export default function AdminClient({
   archetypeBreakdown,
   signupsPerDay,
   visitsPerDay,
+  powerUsers,
+  starSignData,
 }: {
   users: AdminUser[];
   total: number;
@@ -191,6 +193,8 @@ export default function AdminClient({
   archetypeBreakdown: [string, number][];
   signupsPerDay: { date: string; count: number }[];
   visitsPerDay: { date: string; count: number }[];
+  powerUsers: { user_id: string; username: string | null; display_name: string | null; subscription_tier: string | null; unique_days: number }[];
+  starSignData: [string, number][];
 }) {
   const [activeTab, setActiveTab]             = useState<AdminTab>("users");
   const [activeSyncs,    setActiveSyncs]    = useState<ActiveSyncJob[]>([]);
@@ -379,9 +383,10 @@ export default function AdminClient({
     );
   }, [countryData, countrySortKey, countrySortDir]);
 
-  const maxCountryCount = countryData[0]?.count ?? 1;
-  const maxFeatureCount    = featurePopularity[0]?.[1] ?? 1;
-  const maxArchetypeCount  = archetypeBreakdown[0]?.[1] ?? 1;
+  const maxCountryCount   = countryData[0]?.count ?? 1;
+  const maxFeatureCount   = featurePopularity[0]?.[1] ?? 1;
+  const maxArchetypeCount = archetypeBreakdown[0]?.[1] ?? 1;
+  const maxStarSignCount  = starSignData[0]?.[1] ?? 1;
 
   const columns = useMemo(
     () => ALL_COLUMNS.filter(c => showAllColumns || !c.optional),
@@ -474,8 +479,8 @@ export default function AdminClient({
 
       {/* Tab bar */}
       <div className="ra-tabs" style={{ borderBottom: `1px solid ${RULE}`, display: "flex" }}>
-        {(["users", "countries", "features", "syncs"] as AdminTab[]).map(tab => {
-          const labels: Record<AdminTab, string> = { users: "Users", countries: "Countries", features: "Features", syncs: "Active Syncs" };
+        {(["users", "countries", "features", "power_users", "syncs"] as AdminTab[]).map(tab => {
+          const labels: Record<AdminTab, string> = { users: "Users", countries: "Countries", features: "Features", power_users: "Power Users", syncs: "Active Syncs" };
           const active = activeTab === tab;
           return (
             <button
@@ -725,76 +730,141 @@ export default function AdminClient({
             );
           })()}
 
-          <p style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.14em", textTransform: "uppercase", color: ORANGE, margin: "0 0 20px" }}>
-            Feature popularity · unique users
-          </p>
-          {featurePopularity.length === 0 ? (
-            <p style={{ fontFamily: MONO, fontSize: "11px", color: MUTED }}>
-              No page views tracked yet.
-            </p>
-          ) : (
-            <div style={{ display: "flex", flexDirection: "column", gap: "14px", maxWidth: "560px" }}>
-              {featurePopularity.map(([section, count]) => (
-                <div key={section} style={{ display: "flex", alignItems: "center", gap: "16px" }}>
-                  <span className="ra-feat-label" style={{ fontFamily: MONO, fontSize: "11px", color: INK, flexShrink: 0 }}>
-                    {section}
-                  </span>
-                  <div style={{ flex: 1, background: "#f0f0ea", height: "8px" }}>
-                    <div style={{ width: `${(count / maxFeatureCount) * 100}%`, height: "100%", background: ORANGE }} />
-                  </div>
-                  <span style={{ fontFamily: MONO, fontSize: "10px", color: MUTED, width: "48px", textAlign: "right", flexShrink: 0 }}>
-                    {count.toLocaleString()}
-                  </span>
+          {/* Row 1: Feature Popularity + Share Card Exports */}
+          <div style={{ display: "flex", gap: "48px", flexWrap: "wrap", marginBottom: "36px", paddingBottom: "36px", borderBottom: `1px solid ${RULE}` }}>
+            {/* Feature Popularity */}
+            <div style={{ flex: "1 1 420px", minWidth: 0 }}>
+              <p style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.14em", textTransform: "uppercase", color: ORANGE, margin: "0 0 20px" }}>
+                Feature popularity · unique users
+              </p>
+              {featurePopularity.length === 0 ? (
+                <p style={{ fontFamily: MONO, fontSize: "11px", color: MUTED }}>No page views tracked yet.</p>
+              ) : (
+                <div style={{ display: "flex", flexDirection: "column", gap: "14px" }}>
+                  {featurePopularity.map(([section, count]) => (
+                    <div key={section} style={{ display: "flex", alignItems: "center", gap: "16px" }}>
+                      <span className="ra-feat-label" style={{ fontFamily: MONO, fontSize: "11px", color: INK, flexShrink: 0 }}>
+                        {section}
+                      </span>
+                      <div style={{ flex: 1, background: "#f0f0ea", height: "8px" }}>
+                        <div style={{ width: `${(count / maxFeatureCount) * 100}%`, height: "100%", background: ORANGE }} />
+                      </div>
+                      <span style={{ fontFamily: MONO, fontSize: "10px", color: MUTED, width: "48px", textAlign: "right", flexShrink: 0 }}>
+                        {count.toLocaleString()}
+                      </span>
+                    </div>
+                  ))}
                 </div>
-              ))}
+              )}
             </div>
-          )}
 
-          {/* Archetype breakdown */}
-          <div style={{ display: "flex", alignItems: "center", gap: "16px", margin: "36px 0 16px", flexWrap: "wrap" }}>
-            <p style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.14em", textTransform: "uppercase", color: ORANGE, margin: 0 }}>
-              Users by archetype
-            </p>
-            <button
-              onClick={() => runBackfill(false)}
-              disabled={backfillRunning}
-              style={{ ...btnSt, opacity: backfillRunning ? 0.5 : 1, cursor: backfillRunning ? "default" : "pointer" }}
-            >
-              {backfillRunning ? "Running…" : "Backfill all"}
-            </button>
-            <button
-              onClick={() => runBackfill(true)}
-              disabled={backfillRunning}
-              style={{ ...btnSt, opacity: backfillRunning ? 0.5 : 1, cursor: backfillRunning ? "default" : "pointer", marginLeft: "8px" }}
-            >
-              Force recompute all
-            </button>
-            {backfillStatus && (
-              <span style={{ fontFamily: MONO, fontSize: "10px", color: MUTED }}>{backfillStatus}</span>
-            )}
-          </div>
-          {archetypeBreakdown.length === 0 ? (
-            <p style={{ fontFamily: MONO, fontSize: "11px", color: MUTED }}>No archetypes computed yet.</p>
-          ) : (
-            <div style={{ display: "flex", flexDirection: "column", gap: "14px", maxWidth: "560px" }}>
-              {archetypeBreakdown.map(([name, count]) => (
-                <div key={name} style={{ display: "flex", alignItems: "center", gap: "16px" }}>
-                  <span className="ra-feat-label" style={{ fontFamily: MONO, fontSize: "11px", color: INK, flexShrink: 0 }}>
-                    {name}
-                  </span>
-                  <div style={{ flex: 1, background: "#f0f0ea", height: "8px" }}>
-                    <div style={{ width: `${(count / maxArchetypeCount) * 100}%`, height: "100%", background: "#555" }} />
-                  </div>
-                  <span style={{ fontFamily: MONO, fontSize: "10px", color: MUTED, width: "48px", textAlign: "right", flexShrink: 0 }}>
-                    {count.toLocaleString()}
-                  </span>
-                </div>
-              ))}
+            {/* Share Card Exports */}
+            <div style={{ flex: "1 1 360px", minWidth: 0 }}>
+              <p style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.14em", textTransform: "uppercase", color: ORANGE, margin: "0 0 20px" }}>
+                Share card exports
+              </p>
+              {shareCardData.length === 0 ? (
+                <p style={{ fontFamily: MONO, fontSize: "11px", color: MUTED }}>No share cards exported yet.</p>
+              ) : (
+                <table style={{ borderCollapse: "collapse", width: "100%" }}>
+                  <thead>
+                    <tr>
+                      {["Card", "Downloads", "Copies", "Total"].map((h, i) => (
+                        <th key={h} style={{ ...thSt, paddingLeft: i === 0 ? 0 : "16px", textAlign: i === 0 ? "left" : "right", cursor: "default" }}>{h}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {shareCardData.map(({ cardType, download, copy, total: tot }) => (
+                      <tr key={cardType} style={{ borderBottom: `1px solid ${RULE}` }}>
+                        <td style={{ fontFamily: MONO, fontSize: "11px", color: INK, padding: "9px 16px 9px 0" }}>{cardType}</td>
+                        <td style={{ fontFamily: MONO, fontSize: "11px", color: INK, padding: "9px 16px", textAlign: "right" }}>{download}</td>
+                        <td style={{ fontFamily: MONO, fontSize: "11px", color: INK, padding: "9px 16px", textAlign: "right" }}>{copy}</td>
+                        <td style={{ fontFamily: MONO, fontSize: "11px", color: INK, padding: "9px 0 9px 16px", textAlign: "right", fontWeight: 600 }}>{tot}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
             </div>
-          )}
+          </div>
+
+          {/* Row 2: Archetypes + Star Signs */}
+          <div style={{ display: "flex", gap: "48px", flexWrap: "wrap", marginBottom: "36px" }}>
+            {/* Archetypes */}
+            <div style={{ flex: "1 1 420px", minWidth: 0 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: "16px", marginBottom: "16px", flexWrap: "wrap" }}>
+                <p style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.14em", textTransform: "uppercase", color: ORANGE, margin: 0 }}>
+                  Users by archetype
+                </p>
+                <button
+                  onClick={() => runBackfill(false)}
+                  disabled={backfillRunning}
+                  style={{ ...btnSt, opacity: backfillRunning ? 0.5 : 1, cursor: backfillRunning ? "default" : "pointer" }}
+                >
+                  {backfillRunning ? "Running…" : "Backfill all"}
+                </button>
+                <button
+                  onClick={() => runBackfill(true)}
+                  disabled={backfillRunning}
+                  style={{ ...btnSt, opacity: backfillRunning ? 0.5 : 1, cursor: backfillRunning ? "default" : "pointer", marginLeft: "8px" }}
+                >
+                  Force recompute all
+                </button>
+                {backfillStatus && (
+                  <span style={{ fontFamily: MONO, fontSize: "10px", color: MUTED }}>{backfillStatus}</span>
+                )}
+              </div>
+              {archetypeBreakdown.length === 0 ? (
+                <p style={{ fontFamily: MONO, fontSize: "11px", color: MUTED }}>No archetypes computed yet.</p>
+              ) : (
+                <div style={{ display: "flex", flexDirection: "column", gap: "14px" }}>
+                  {archetypeBreakdown.map(([name, count]) => (
+                    <div key={name} style={{ display: "flex", alignItems: "center", gap: "16px" }}>
+                      <span className="ra-feat-label" style={{ fontFamily: MONO, fontSize: "11px", color: INK, flexShrink: 0 }}>
+                        {name}
+                      </span>
+                      <div style={{ flex: 1, background: "#f0f0ea", height: "8px" }}>
+                        <div style={{ width: `${(count / maxArchetypeCount) * 100}%`, height: "100%", background: "#555" }} />
+                      </div>
+                      <span style={{ fontFamily: MONO, fontSize: "10px", color: MUTED, width: "48px", textAlign: "right", flexShrink: 0 }}>
+                        {count.toLocaleString()}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Star Signs */}
+            <div style={{ flex: "1 1 360px", minWidth: 0 }}>
+              <p style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.14em", textTransform: "uppercase", color: ORANGE, margin: "0 0 16px" }}>
+                Users by star sign
+              </p>
+              {starSignData.length === 0 ? (
+                <p style={{ fontFamily: MONO, fontSize: "11px", color: MUTED }}>No star sign data yet.</p>
+              ) : (
+                <div style={{ display: "flex", flexDirection: "column", gap: "14px" }}>
+                  {starSignData.map(([sign, count]) => (
+                    <div key={sign} style={{ display: "flex", alignItems: "center", gap: "16px" }}>
+                      <span className="ra-feat-label" style={{ fontFamily: MONO, fontSize: "11px", color: INK, flexShrink: 0 }}>
+                        {sign}
+                      </span>
+                      <div style={{ flex: 1, background: "#f0f0ea", height: "8px" }}>
+                        <div style={{ width: `${(count / maxStarSignCount) * 100}%`, height: "100%", background: "#8b5cf6" }} />
+                      </div>
+                      <span style={{ fontFamily: MONO, fontSize: "10px", color: MUTED, width: "48px", textAlign: "right", flexShrink: 0 }}>
+                        {count.toLocaleString()}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
 
           {/* Waitlist invites */}
-          <div style={{ display: "flex", alignItems: "center", gap: "16px", margin: "36px 0 16px", flexWrap: "wrap" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: "16px", margin: "0 0 16px", flexWrap: "wrap", borderTop: `1px solid ${RULE}`, paddingTop: "36px" }}>
             <p style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.14em", textTransform: "uppercase", color: ORANGE, margin: 0 }}>
               Waitlist invites
             </p>
@@ -812,33 +882,66 @@ export default function AdminClient({
           <p style={{ fontFamily: MONO, fontSize: "10px", color: MUTED, margin: "0 0 8px", lineHeight: 1.6 }}>
             Emails everyone on the waitlist who hasn&apos;t already created an account, with a link to /signup. Safe to run multiple times — already signed-up emails are skipped.
           </p>
+        </div>
+      )}
 
-          {/* Share card breakdown */}
-          <p style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.14em", textTransform: "uppercase", color: ORANGE, margin: "36px 0 16px" }}>
-            Share card exports
+      {/* ── Power Users tab ── */}
+      {activeTab === "power_users" && (
+        <div className="ra-content">
+          <p style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.14em", textTransform: "uppercase", color: ORANGE, margin: "0 0 20px" }}>
+            Top 50 users · unique visit days (all time)
           </p>
-          {shareCardData.length === 0 ? (
-            <p style={{ fontFamily: MONO, fontSize: "11px", color: MUTED }}>No share cards exported yet.</p>
+          {powerUsers.length === 0 ? (
+            <p style={{ fontFamily: MONO, fontSize: "11px", color: MUTED }}>No visit data yet.</p>
           ) : (
-            <table style={{ borderCollapse: "collapse", maxWidth: "560px", width: "100%" }}>
-              <thead>
-                <tr>
-                  {["Card", "Downloads", "Copies", "Total"].map((h, i) => (
-                    <th key={h} style={{ ...thSt, paddingLeft: i === 0 ? 0 : "16px", textAlign: i === 0 ? "left" : "right", cursor: "default" }}>{h}</th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {shareCardData.map(({ cardType, download, copy, total: tot }) => (
-                  <tr key={cardType} style={{ borderBottom: `1px solid ${RULE}` }}>
-                    <td style={{ fontFamily: MONO, fontSize: "11px", color: INK, padding: "9px 16px 9px 0" }}>{cardType}</td>
-                    <td style={{ fontFamily: MONO, fontSize: "11px", color: INK, padding: "9px 16px", textAlign: "right" }}>{download}</td>
-                    <td style={{ fontFamily: MONO, fontSize: "11px", color: INK, padding: "9px 16px", textAlign: "right" }}>{copy}</td>
-                    <td style={{ fontFamily: MONO, fontSize: "11px", color: INK, padding: "9px 0 9px 16px", textAlign: "right", fontWeight: 600 }}>{tot}</td>
+            <div style={{ overflowX: "auto" }}>
+              <table style={{ width: "100%", maxWidth: "680px", borderCollapse: "collapse" }}>
+                <thead>
+                  <tr>
+                    <th style={{ ...thSt, paddingLeft: 0, width: "40px" }}>#</th>
+                    <th style={{ ...thSt }}>Username</th>
+                    <th style={{ ...thSt, textAlign: "right" }}>Unique days</th>
+                    <th style={{ ...thSt, width: "200px" }}></th>
+                    <th style={{ ...thSt, textAlign: "right", paddingRight: 0 }}>Tier</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {powerUsers.map((u, i) => {
+                    const maxDays = powerUsers[0]?.unique_days ?? 1;
+                    const handle  = u.username ?? u.display_name ?? u.user_id.slice(0, 8);
+                    const isSupporter = ["plus", "premium", "supporter"].includes(u.subscription_tier ?? "");
+                    return (
+                      <tr key={u.user_id} style={{ borderBottom: `1px solid ${RULE}` }}>
+                        <td style={{ fontFamily: MONO, fontSize: "10px", color: MUTED, padding: "10px 16px 10px 0", textAlign: "right" }}>
+                          {i + 1}
+                        </td>
+                        <td style={{ fontFamily: MONO, fontSize: "11px", padding: "10px 16px" }}>
+                          <a
+                            href={`/${handle}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            style={{ color: ORANGE, textDecoration: "none" }}
+                          >
+                            @{handle}
+                          </a>
+                        </td>
+                        <td style={{ fontFamily: MONO, fontSize: "11px", color: INK, padding: "10px 16px", textAlign: "right", whiteSpace: "nowrap" }}>
+                          {u.unique_days.toLocaleString()}
+                        </td>
+                        <td style={{ padding: "10px 16px", width: "200px" }}>
+                          <div style={{ background: "#f0f0ea", height: "6px" }}>
+                            <div style={{ width: `${(u.unique_days / maxDays) * 100}%`, height: "100%", background: INK }} />
+                          </div>
+                        </td>
+                        <td style={{ fontFamily: MONO, fontSize: "10px", color: isSupporter ? ORANGE : MUTED, padding: "10px 0 10px 16px", textAlign: "right", whiteSpace: "nowrap" }}>
+                          {isSupporter ? "supporter" : "free"}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
           )}
         </div>
       )}
