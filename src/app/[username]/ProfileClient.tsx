@@ -53,6 +53,9 @@ interface Props {
   followingCount: number;
   viewer?: { username: string; displayName: string | null; avatarUrl: string | null } | null;
   collectionPhoto?: string | null;
+  photoLikeCount?: number;
+  photoLiked?: boolean;
+  viewerId?: string | null;
   compatibility?: { score: number; label: string } | null;
   essentials?: { total: number; primaryGenre: string | null; primaryGenrePct: number; covers: { artist: string; album: string; coverUrl: string | null }[] } | null;
   bcSyncTotal?: number;
@@ -67,6 +70,9 @@ export default function ProfileClient({
   profile, isOwner, isSupporter,
   followerCount, followingCount, viewer,
   collectionPhoto = null,
+  photoLikeCount = 0,
+  photoLiked = false,
+  viewerId = null,
   compatibility = null,
   essentials = null,
   bcSyncTotal = 0, bcSyncDuplicates = 0, bcSyncDate = null,
@@ -466,7 +472,14 @@ export default function ProfileClient({
                 {/* ── Collection photo ── */}
                 {/* CollectionPhotos self-guards (returns null for non-owners with no photo set) */}
                 <div style={{ marginTop: "16px", marginBottom: "16px" }}>
-                  <CollectionPhotos initialPhoto={collectionPhoto} isOwner={isOwner} />
+                  <CollectionPhotos
+                    initialPhoto={collectionPhoto}
+                    isOwner={isOwner}
+                    photoOwnerId={profile.id}
+                    viewerId={viewerId}
+                    initialLikeCount={photoLikeCount}
+                    initialLiked={photoLiked}
+                  />
                 </div>
 
                 {/* ── Essentials wall ── */}

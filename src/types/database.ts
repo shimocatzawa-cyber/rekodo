@@ -33,6 +33,12 @@ export type Database = {
         Update: { storage_path?: string; display_order?: number };
         Relationships: [];
       };
+      collection_photo_likes: {
+        Row: { id: string; photo_owner_id: string; liker_id: string; created_at: string };
+        Insert: { id?: string; photo_owner_id: string; liker_id: string; created_at?: string };
+        Update: never;
+        Relationships: [];
+      };
       records: {
         Row: {
           id: string;

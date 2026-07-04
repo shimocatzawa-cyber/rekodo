@@ -5,13 +5,18 @@ import { useRouter } from "next/navigation";
 
 const MONO   = "var(--font-mono)";
 const ORANGE = "#CC5500";
+const MUTED  = "#aaaaaa";
 
 interface Props {
   initialPhoto: string | null;
   isOwner: boolean;
+  photoOwnerId?: string;
+  viewerId?: string | null;
+  initialLikeCount?: number;
+  initialLiked?: boolean;
 }
 
-export default function CollectionPhotos({ initialPhoto, isOwner }: Props) {
+export default function CollectionPhotos({ initialPhoto, isOwner, photoOwnerId, viewerId, initialLikeCount = 0, initialLiked = false }: Props) {
   const router = useRouter();
   const [photo,       setPhoto]       = useState<string | null>(initialPhoto);
   const [loading,     setLoading]     = useState(false);
@@ -19,7 +24,33 @@ export default function CollectionPhotos({ initialPhoto, isOwner }: Props) {
   const [dragging,    setDragging]    = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
   const [lightboxUrl, setLightboxUrl] = useState<string | null>(null);
+  const [likeCount,   setLikeCount]   = useState(initialLikeCount);
+  const [liked,       setLiked]       = useState(initialLiked);
+  const [liking,      setLiking]      = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
+
+  async function handleLike() {
+    if (!photoOwnerId || !viewerId || isOwner || liking) return;
+    setLiking(true);
+    const optimisticLiked = !liked;
+    setLiked(optimisticLiked);
+    setLikeCount(c => c + (optimisticLiked ? 1 : -1));
+    try {
+      const res = await fetch("/api/collection/photo/like", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ownerId: photoOwnerId }),
+      });
+      const data = await res.json() as { liked: boolean; count: number };
+      setLiked(data.liked);
+      setLikeCount(data.count);
+    } catch {
+      setLiked(!optimisticLiked);
+      setLikeCount(c => c + (optimisticLiked ? -1 : 1));
+    } finally {
+      setLiking(false);
+    }
+  }
 
   useEffect(() => {
     function onKey(e: KeyboardEvent) { if (e.key === "Escape") setLightboxUrl(null); }
@@ -202,6 +233,33 @@ export default function CollectionPhotos({ initialPhoto, isOwner }: Props) {
             </button>
           )}
         </div>
+
+        {photo && (
+          <div style={{ display: "flex", alignItems: "center", gap: "6px", marginTop: "8px" }}>
+            <button
+              onClick={handleLike}
+              disabled={!viewerId || isOwner || liking}
+              title={!viewerId ? "Log in to like" : isOwner ? "Your photo" : liked ? "Unlike" : "Like"}
+              style={{
+                background: "none", border: "none", padding: 0,
+                cursor: !viewerId || isOwner ? "default" : "pointer",
+                fontFamily: MONO, fontSize: "14px", lineHeight: 1,
+                color: liked ? ORANGE : "#cccccc",
+                transition: "color 0.15s, transform 0.1s",
+                transform: liking ? "scale(0.85)" : "scale(1)",
+                opacity: liking ? 0.6 : 1,
+              }}
+              aria-label={liked ? "Unlike photo" : "Like photo"}
+            >
+              ♥
+            </button>
+            {likeCount > 0 && (
+              <span style={{ fontFamily: MONO, fontSize: "0.55rem", letterSpacing: "0.06em", color: MUTED }}>
+                {likeCount}
+              </span>
+            )}
+          </div>
+        )}
 
         <input
           ref={fileRef}

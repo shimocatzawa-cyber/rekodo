@@ -91,12 +91,16 @@ export default async function PublicProfilePage({ params }: { params: Params }) 
   }
 
   // Parallel: user records + follow counts + collection photo
-  const [userRecordsResult, followerRes, followingRes, collectionPhotoRes] = await Promise.all([
+  const [userRecordsResult, followerRes, followingRes, collectionPhotoRes, photoLikeCountRes, viewerLikedRes] = await Promise.all([
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (supabase as any).from("public_collection_summary").select("record_id, copies").eq("user_id", profile.id),
     supabase.from("follows").select("id", { count: "exact", head: true }).eq("following_id", profile.id),
     supabase.from("follows").select("id", { count: "exact", head: true }).eq("follower_id",  profile.id),
     supabase.from("collection_photos").select("storage_path").eq("user_id", profile.id).eq("display_order", 1).maybeSingle(),
+    supabase.from("collection_photo_likes").select("id", { count: "exact", head: true }).eq("photo_owner_id", profile.id),
+    viewer && !isOwner
+      ? supabase.from("collection_photo_likes").select("id", { count: "exact", head: true }).eq("photo_owner_id", profile.id).eq("liker_id", viewer.id)
+      : Promise.resolve({ count: 0 }),
   ]);
 
   const userRecords    = userRecordsResult.data ?? [];
@@ -263,6 +267,9 @@ export default async function PublicProfilePage({ params }: { params: Params }) 
       followingCount={followingCount}
       viewer={viewerNav}
       collectionPhoto={collectionPhoto}
+      photoLikeCount={photoLikeCountRes.count ?? 0}
+      photoLiked={(viewerLikedRes.count ?? 0) > 0}
+      viewerId={viewer?.id ?? null}
       compatibility={compatibility ? { score: compatibility.score, label: compatibility.label } : null}
       essentials={essentials}
       bcSyncTotal={bcSyncTotal}
