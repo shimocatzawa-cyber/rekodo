@@ -123,12 +123,43 @@ export default function CollectionPhotos({ initialPhoto, isOwner, photoOwnerId, 
   return (
     <>
       <div>
-        <p style={{
-          fontFamily: MONO, fontSize: "0.55rem", letterSpacing: "0.14em",
-          textTransform: "uppercase", color: ORANGE, margin: "0 0 4px 0",
-        }}>
-          My Collection
-        </p>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", margin: "0 0 4px 0" }}>
+          <p style={{
+            fontFamily: MONO, fontSize: "0.7rem", letterSpacing: "0.14em",
+            textTransform: "uppercase", color: ORANGE, margin: 0,
+          }}>
+            My Collection
+          </p>
+          {photo && (
+            isOwner ? (
+              likeCount > 0 && (
+                <span style={{ display: "flex", alignItems: "center", gap: "4px" }}>
+                  <span style={{ fontSize: "12px", color: ORANGE, lineHeight: 1 }}>♥</span>
+                  <span style={{ fontFamily: MONO, fontSize: "0.55rem", letterSpacing: "0.06em", color: MUTED }}>{likeCount}</span>
+                </span>
+              )
+            ) : (
+              <button
+                onClick={handleLike}
+                disabled={!viewerId || liking}
+                title={!viewerId ? "Log in to like" : liked ? "Unlike" : "Like"}
+                style={{
+                  display: "flex", alignItems: "center", gap: "4px",
+                  background: "none", border: "none", padding: 0,
+                  cursor: !viewerId ? "default" : "pointer",
+                  transition: "transform 0.1s",
+                  transform: liking ? "scale(0.85)" : "scale(1)",
+                }}
+                aria-label={liked ? "Unlike photo" : "Like photo"}
+              >
+                <span style={{ fontSize: "12px", color: liked ? ORANGE : "#cccccc", lineHeight: 1, transition: "color 0.15s" }}>♥</span>
+                {likeCount > 0 && (
+                  <span style={{ fontFamily: MONO, fontSize: "0.55rem", letterSpacing: "0.06em", color: MUTED }}>{likeCount}</span>
+                )}
+              </button>
+            )
+          )}
+        </div>
         {isOwner && (
           <>
             <p style={{
@@ -233,44 +264,6 @@ export default function CollectionPhotos({ initialPhoto, isOwner, photoOwnerId, 
             </button>
           )}
 
-          {photo && !isOwner && (
-            <button
-              onClick={e => { e.stopPropagation(); handleLike(); }}
-              disabled={!viewerId || liking}
-              title={!viewerId ? "Log in to like" : liked ? "Unlike" : "Like"}
-              style={{
-                position: "absolute", top: "8px", right: "8px",
-                background: "rgba(0,0,0,0.45)", backdropFilter: "blur(4px)",
-                border: "none", cursor: !viewerId ? "default" : "pointer",
-                padding: "5px 8px", lineHeight: 1,
-                display: "flex", alignItems: "center", gap: "5px",
-                transition: "transform 0.1s",
-                transform: liking ? "scale(0.85)" : "scale(1)",
-              }}
-              aria-label={liked ? "Unlike photo" : "Like photo"}
-            >
-              <span style={{ fontSize: "13px", color: liked ? ORANGE : "#ffffff", lineHeight: 1, transition: "color 0.15s" }}>♥</span>
-              {likeCount > 0 && (
-                <span style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.04em", color: "#ffffff" }}>
-                  {likeCount}
-                </span>
-              )}
-            </button>
-          )}
-
-          {photo && isOwner && likeCount > 0 && (
-            <div style={{
-              position: "absolute", top: "8px", right: "8px",
-              background: "rgba(0,0,0,0.45)", backdropFilter: "blur(4px)",
-              padding: "5px 8px", lineHeight: 1,
-              display: "flex", alignItems: "center", gap: "5px",
-            }}>
-              <span style={{ fontSize: "13px", color: ORANGE, lineHeight: 1 }}>♥</span>
-              <span style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.04em", color: "#ffffff" }}>
-                {likeCount}
-              </span>
-            </div>
-          )}
         </div>
 
 
