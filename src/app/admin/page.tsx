@@ -28,6 +28,7 @@ export default async function AdminPage() {
     shareCardResult,
     archetypeResult,
     recentSignupsResult,
+    visitsPerDayResult,
   ] = await Promise.all([
     adminDb.from("profiles").select("*", { count: "exact", head: true }),
     adminDb.from("profiles").select("*", { count: "exact", head: true }).in("subscription_tier", ["plus", "premium", "supporter"]),
@@ -42,6 +43,8 @@ export default async function AdminPage() {
     adminDb.from("page_views").select("path").eq("section", "Share Card").limit(5000),
     adminDb.from("archetype_cache").select("primary_archetype").limit(10000),
     adminDb.from("profiles").select("created_at").gte("created_at", sevenDaysAgo),
+    // Server-side aggregate — avoids PostgREST row cap
+    adminDb.rpc("visits_per_day"),
   ]);
 
   const total        = totalUsersResult.count ?? 0;
@@ -114,6 +117,17 @@ export default async function AdminPage() {
     return { date, count: dayCountMap.get(date) ?? 0 };
   });
 
+  // Build unique-visits-per-day for the past 7 days in Sydney time (aggregated via RPC)
+  const visitMap = new Map<string, number>();
+  for (const row of (visitsPerDayResult.data ?? []) as { date: string; unique_visitors: number }[]) {
+    visitMap.set(row.date, Number(row.unique_visitors));
+  }
+  const visitsPerDay: { date: string; count: number }[] = Array.from({ length: 7 }, (_, i) => {
+    const d = new Date(new Date(todaySydney + "T00:00:00+10:00").getTime() + (i - 6) * 24 * 60 * 60 * 1000);
+    const date = toSydneyDate(d.toISOString());
+    return { date, count: visitMap.get(date) ?? 0 };
+  });
+
   return (
     <AdminClient
       users={users}
@@ -126,6 +140,7 @@ export default async function AdminPage() {
       shareCardData={shareCardData}
       archetypeBreakdown={archetypeBreakdown}
       signupsPerDay={signupsPerDay}
+      visitsPerDay={visitsPerDay}
     />
   );
 }

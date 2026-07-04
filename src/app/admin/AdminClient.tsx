@@ -178,6 +178,7 @@ export default function AdminClient({
   shareCardData,
   archetypeBreakdown,
   signupsPerDay,
+  visitsPerDay,
 }: {
   users: AdminUser[];
   total: number;
@@ -189,6 +190,7 @@ export default function AdminClient({
   shareCardData: { cardType: string; download: number; copy: number; total: number }[];
   archetypeBreakdown: [string, number][];
   signupsPerDay: { date: string; count: number }[];
+  visitsPerDay: { date: string; count: number }[];
 }) {
   const [activeTab, setActiveTab]             = useState<AdminTab>("users");
   const [activeSyncs,    setActiveSyncs]    = useState<ActiveSyncJob[]>([]);
@@ -679,36 +681,46 @@ export default function AdminClient({
       {activeTab === "features" && (
         <div className="ra-content">
 
-          {/* Signups per day — last 7 days (Sydney time) */}
+          {/* Signups + Visits — last 7 days (Sydney time) */}
           {(() => {
-            const maxCount = Math.max(...signupsPerDay.map(d => d.count), 1);
             const BAR_H = 64;
             const BAR_W = 32;
             const GAP   = 10;
-            const total7 = signupsPerDay.reduce((s, d) => s + d.count, 0);
+
+            function MiniBarChart({ data, label, barColor }: { data: { date: string; count: number }[]; label: string; barColor: string }) {
+              const maxCount = Math.max(...data.map(d => d.count), 1);
+              const total7   = data.reduce((s, d) => s + d.count, 0);
+              return (
+                <div>
+                  <div style={{ display: "flex", alignItems: "baseline", gap: "14px", marginBottom: "20px" }}>
+                    <p style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.14em", textTransform: "uppercase", color: ORANGE, margin: 0 }}>
+                      {label}
+                    </p>
+                    <span style={{ fontFamily: MONO, fontSize: "9px", color: MUTED }}>{total7} total</span>
+                  </div>
+                  <div style={{ display: "flex", alignItems: "flex-end", gap: `${GAP}px` }}>
+                    {data.map(({ date, count }) => {
+                      const barH = count === 0 ? 2 : Math.max(4, Math.round((count / maxCount) * BAR_H));
+                      const dayLabel = new Date(date + "T12:00:00+10:00").toLocaleDateString("en-AU", { weekday: "short", day: "numeric", timeZone: "Australia/Sydney" });
+                      return (
+                        <div key={date} style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "6px", width: `${BAR_W}px` }}>
+                          <span style={{ fontFamily: MONO, fontSize: "10px", color: count > 0 ? INK : MUTED }}>{count > 0 ? count : ""}</span>
+                          <div style={{ width: `${BAR_W}px`, height: `${barH}px`, background: count > 0 ? barColor : RULE }} />
+                          <span style={{ fontFamily: MONO, fontSize: "8px", color: MUTED, textAlign: "center", whiteSpace: "nowrap", letterSpacing: "0.03em" }}>
+                            {dayLabel}
+                          </span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              );
+            }
+
             return (
-              <div style={{ marginBottom: "36px", paddingBottom: "32px", borderBottom: `1px solid ${RULE}` }}>
-                <div style={{ display: "flex", alignItems: "baseline", gap: "14px", marginBottom: "20px" }}>
-                  <p style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.14em", textTransform: "uppercase", color: ORANGE, margin: 0 }}>
-                    Signups — last 7 days (Sydney)
-                  </p>
-                  <span style={{ fontFamily: MONO, fontSize: "9px", color: MUTED }}>{total7} total</span>
-                </div>
-                <div style={{ display: "flex", alignItems: "flex-end", gap: `${GAP}px` }}>
-                  {signupsPerDay.map(({ date, count }) => {
-                    const barH = count === 0 ? 2 : Math.max(4, Math.round((count / maxCount) * BAR_H));
-                    const label = new Date(date + "T12:00:00+10:00").toLocaleDateString("en-AU", { weekday: "short", day: "numeric", timeZone: "Australia/Sydney" });
-                    return (
-                      <div key={date} style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "6px", width: `${BAR_W}px` }}>
-                        <span style={{ fontFamily: MONO, fontSize: "10px", color: count > 0 ? INK : MUTED }}>{count > 0 ? count : ""}</span>
-                        <div style={{ width: `${BAR_W}px`, height: `${barH}px`, background: count > 0 ? ORANGE : RULE }} />
-                        <span style={{ fontFamily: MONO, fontSize: "8px", color: MUTED, textAlign: "center", whiteSpace: "nowrap", letterSpacing: "0.03em" }}>
-                          {label}
-                        </span>
-                      </div>
-                    );
-                  })}
-                </div>
+              <div style={{ marginBottom: "36px", paddingBottom: "32px", borderBottom: `1px solid ${RULE}`, display: "flex", gap: "48px", flexWrap: "wrap" }}>
+                <MiniBarChart data={signupsPerDay} label="Signups — last 7 days (Sydney)" barColor={ORANGE} />
+                <MiniBarChart data={visitsPerDay}  label="Unique visitors — last 7 days (Sydney)" barColor={INK} />
               </div>
             );
           })()}
