@@ -556,22 +556,27 @@ export default async function InsightsPage() {
     const sortedStyles = [...styleCounts.entries()].sort((a, b) => b[1] - a[1]);
     const topStyle = sortedStyles[0]?.[0] ?? null;
 
-    // Obscure style: not the #1 style, 2+ records, lowest average community_have
+    // Obscure style: the most-collected niche style in the user's library.
+    // "Niche" = specific enough to be interesting, not a broad catch-all genre.
+    // Sorted by count so we surface what they actually collect heavily.
+    const NICHE_STYLES = new Set([
+      "Psychedelic Rock", "Krautrock", "Shoegaze", "Post-Punk", "Noise Rock",
+      "Industrial", "Drone", "Free Jazz", "Avant-garde Jazz", "Ambient",
+      "Electro", "Acid", "Techno", "Minimal", "Kosmische Musik",
+      "Art Rock", "Progressive Rock", "Canterbury Scene", "Post-Rock",
+      "Math Rock", "Experimental", "Musique Concrète", "Darkwave",
+      "Gothic Rock", "Synth-pop", "New Wave", "Oi!", "Hardcore Punk",
+      "Bossa Nova", "Tropicália", "Cumbia", "Dub", "Lovers Rock",
+      "Afrobeat", "Highlife", "Boogie", "Library", "Exotica",
+      "Country Blues", "Delta Blues", "Chicago Blues",
+      "Chamber Pop", "Baroque Pop", "Lo-fi", "Indie Pop",
+    ]);
     const obscureStyle = (() => {
-      const candidates = sortedStyles
-        .filter(([s, count]) => s !== topStyle && count >= 2)
-        .map(([style]) => {
-          const haveVals = allLinks
-            .map(l => recordsMap.get(l.record_id))
-            .filter((r): r is RecordRow => !!r?.styles?.includes(style) && r.community_have != null && r.community_have > 0)
-            .map(r => r.community_have as number);
-          const avg = haveVals.length > 0 ? haveVals.reduce((a, b) => a + b, 0) / haveVals.length : null;
-          return { style, avg };
-        })
-        .filter(c => c.avg != null)
-        .sort((a, b) => (a.avg ?? 0) - (b.avg ?? 0));
-      // Fallback to rank #2 if no community_have data exists
-      return candidates[0]?.style ?? sortedStyles[1]?.[0] ?? null;
+      // First: most-collected style that's in the niche set, not #1
+      const nicheMatch = sortedStyles.find(([s]) => s !== topStyle && NICHE_STYLES.has(s));
+      if (nicheMatch) return nicheMatch[0];
+      // Fallback: 3rd-ranked style overall (skip top 2 already used)
+      return sortedStyles.filter(([s]) => s !== topStyle)[1]?.[0] ?? null;
     })();
 
     const phases: import("@/components/insights/CollectionStoryV2Modal").EraPhase[] = [];

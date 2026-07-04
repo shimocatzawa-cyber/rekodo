@@ -69,43 +69,6 @@ async function loadCovers(phases: EraPhase[]): Promise<CoverSrcs> {
   return Object.fromEntries(entries);
 }
 
-// ── Era icons: one per position, themed to the era type ──────────────────
-// 0 = Early Years (vinyl record), 1 = #1 Style (crown),
-// 2 = Obscure (diamond), 3 = Present Day (lightning bolt)
-const ERA_SVG_ICONS = [
-  // vinyl record
-  <svg key="vinyl" viewBox="0 0 24 24" width="22" height="22" fill="none">
-    <circle cx="12" cy="12" r="9.5" stroke="#fff" strokeWidth="1.5"/>
-    <circle cx="12" cy="12" r="5" stroke="#fff" strokeWidth="1"/>
-    <circle cx="12" cy="12" r="2" fill="#fff"/>
-  </svg>,
-  // crown
-  <svg key="crown" viewBox="0 0 24 24" width="22" height="22" fill="#fff">
-    <path d="M2 18 L5 9 L9 13 L12 6 L15 13 L19 9 L22 18 Z"/>
-  </svg>,
-  // diamond gem
-  <svg key="diamond" viewBox="0 0 24 24" width="22" height="22" fill="#fff">
-    <path d="M12 2 L22 12 L12 22 L2 12 Z"/>
-  </svg>,
-  // lightning bolt
-  <svg key="bolt" viewBox="0 0 24 24" width="22" height="22" fill="#fff">
-    <path d="M13 2 L6 13 L11 13 L11 22 L18 11 L13 11 Z"/>
-  </svg>,
-];
-
-function EraIcon({ index }: { index: number }) {
-  const color = ERA_COLORS[index] ?? ERA_COLORS[0];
-  return (
-    <div style={{
-      width: 50, height: 50, borderRadius: "50%",
-      background: color,
-      display: "flex", alignItems: "center", justifyContent: "center",
-      margin: "0 auto 12px", flexShrink: 0,
-    }}>
-      {ERA_SVG_ICONS[index] ?? ERA_SVG_ICONS[0]}
-    </div>
-  );
-}
 
 // ── Card ──────────────────────────────────────────────────────────────────
 function StoryV2Card({
@@ -169,27 +132,19 @@ function StoryV2Card({
             return (
               <div key={phase.eraNum} style={{ width: colW, flexShrink: 0, display: "flex", flexDirection: "column", alignItems: "center" }}>
 
-                {/* Circle icon */}
-                <EraIcon index={i} />
-
-                {/* ERA label */}
-                <div style={{
-                  fontFamily: MONO, fontSize: 8.5, letterSpacing: "0.18em",
-                  textTransform: "uppercase", color, marginBottom: 5,
-                }}>
-                  Era {phase.eraNum}
-                </div>
+                {/* Colored accent bar */}
+                <div style={{ width: "100%", height: 4, background: color, marginBottom: 14 }} />
 
                 {/* Phase name */}
                 <div style={{
                   fontFamily: SERIF, fontSize: 15.5, fontWeight: 700, color: INK,
-                  lineHeight: 1.25, textAlign: "center", marginBottom: 5, minHeight: 40,
+                  lineHeight: 1.25, textAlign: "center", marginBottom: 10, minHeight: 40,
                 }}>
                   {phase.phaseName}
                 </div>
 
-                {/* Year range */}
-                {phase.years && (
+                {/* Year range — hidden for now, kept in data for future use */}
+                {false && phase.years && (
                   <div style={{
                     fontFamily: MONO, fontSize: 9, letterSpacing: "0.08em",
                     color, marginBottom: 12,
@@ -202,15 +157,35 @@ function StoryV2Card({
                 {forExport ? (
                   <div
                     data-cover-slot={i}
-                    style={{ width: coverSz, height: coverSz, background: ART_BG, marginBottom: 10 }}
+                    style={{ width: coverSz, height: coverSz, background: ART_BG, marginBottom: 6 }}
                   />
                 ) : (
                   <div style={{
                     width: coverSz, height: coverSz, background: ART_BG,
                     backgroundImage: src ? `url(${src})` : "none",
                     backgroundSize: "cover", backgroundPosition: "center",
-                    marginBottom: 10, flexShrink: 0,
+                    marginBottom: 6, flexShrink: 0,
                   }} />
+                )}
+
+                {/* Artist + album name */}
+                {phase.coverAlbum && (
+                  <div style={{ width: "100%", marginBottom: 8, textAlign: "center" }}>
+                    <div style={{
+                      fontFamily: MONO, fontSize: 7.5, letterSpacing: "0.06em",
+                      color: INK, fontWeight: 700,
+                      overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
+                    }}>
+                      {phase.coverAlbum.artist}
+                    </div>
+                    <div style={{
+                      fontFamily: MONO, fontSize: 7, letterSpacing: "0.04em",
+                      color: MUTED,
+                      overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
+                    }}>
+                      {phase.coverAlbum.album}
+                    </div>
+                  </div>
                 )}
 
                 {/* Style tag */}
