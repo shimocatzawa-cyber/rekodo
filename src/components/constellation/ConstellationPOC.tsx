@@ -230,95 +230,106 @@ const CURATED_EDGES: Omit<Edge, "cpDx" | "cpDy">[] = [
 ];
 
 // ── Hand-placed positions ──────────────────────────────────────────────────────
-// Americana left → dark gothic bottom → rock/psych center-right → electronic far right
+// Flow: folk roots (far-left) → rock/psych (left) → singer-songwriter (top-center)
+//       → americana (center-left) → jazz/gothic/blues (center) → krautrock (bridge)
+//       → electronic/ambient/drone (right)
+// X_SHIFT +0.04 applied in code nudges centroid to ~0.50.
 
 const POSITIONS: Record<string, [number, number]> = {
-  // Twin suns — top center
-  bob_dylan:          [0.42, 0.24],
-  neil_young:         [0.55, 0.22],
-  // Folk/Americana — left
-  the_beatles:        [0.28, 0.18],
-  joni_mitchell:      [0.36, 0.20],
-  sufjan_stevens:     [0.40, 0.30],
-  townes_van_zandt:   [0.20, 0.38],
-  john_fahey:         [0.13, 0.48],
-  joanna_newsom:      [0.07, 0.36],
-  m_ward:             [0.20, 0.30],
-  devendra_banhart:   [0.26, 0.42],
-  nick_drake:         [0.22, 0.48],
-  iron_and_wine:      [0.30, 0.46],
-  bonnie_prince_billy:[0.14, 0.60],
-  smog:               [0.18, 0.68],
-  songs_ohia:         [0.14, 0.76],
-  leonard_cohen:      [0.22, 0.82],
-  ryan_adams:         [0.30, 0.52],
-  richmond_fontaine:  [0.22, 0.56],
-  wilco:              [0.52, 0.34],
-  big_thief:          [0.45, 0.42],
-  lee_hazlewood:      [0.30, 0.72],
-  // Dark/Gothic — bottom center
-  the_birthday_party: [0.38, 0.84],
-  current_93:         [0.32, 0.88],
-  nick_cave:          [0.48, 0.76],
-  scott_walker:       [0.32, 0.76],
-  einsturzende_neubauten: [0.46, 0.92],
-  tom_waits:          [0.38, 0.66],
-  pj_harvey:          [0.58, 0.80],
-  nina_simone:        [0.62, 0.68],
-  emma_ruth_rundle:   [0.60, 0.88],
-  // Rock/Post-rock — center/right
-  pink_floyd:         [0.68, 0.24],
-  the_doors:          [0.62, 0.30],
-  galaxie_500:        [0.58, 0.30],
-  dead_meadow:        [0.72, 0.36],
-  dirty_three:        [0.60, 0.42],
-  r_e_m:              [0.65, 0.50],
-  nirvana:            [0.72, 0.56],
-  low:                [0.70, 0.66],
-  thurston_moore:     [0.78, 0.48],
-  the_dandy_warhols:  [0.68, 0.40],
-  can:                [0.80, 0.28],
-  neu:                [0.86, 0.22],
-  radiohead:          [0.75, 0.38],
-  godspeed_you:       [0.82, 0.48],
-  mazzy_star:         [0.82, 0.62],
-  // Electronic / Ambient — right
-  bjork:              [0.86, 0.36],
-  aphex_twin:         [0.96, 0.32],
-  boards_of_canada:   [0.90, 0.40],
-  htrk:               [0.88, 0.54],
-  burial:             [0.86, 0.60],
-  grouper:            [0.88, 0.70],
-  stars_of_the_lid:   [0.94, 0.74],
-  tim_hecker:         [0.84, 0.66],
-  kali_malone:        [0.90, 0.80],
-  skee_mask:          [0.92, 0.28],
-  acronym:            [0.94, 0.44],
-  anthony_naples:     [0.92, 0.90],
-  dj_python:          [0.88, 0.88],
-  beck:               [0.76, 0.64],
-  gi_gi:              [0.94, 0.62],
-  // Jazz
-  miles_davis:        [0.56, 0.58],
-  john_coltrane:      [0.52, 0.64],
-  beastie_boys:       [0.70, 0.70],
-  // Blues roots — centre-bottom
-  robert_johnson:     [0.52, 0.82],
-  muddy_waters:       [0.54, 0.72],
-  // Folk / Country roots — far left
-  woody_guthrie:      [0.10, 0.22],
-  lead_belly:         [0.08, 0.52],
-  hank_williams:      [0.10, 0.82],
-  gram_parsons:       [0.32, 0.62],
-  the_band:           [0.36, 0.50],
-  // Singer-songwriter
-  elliott_smith:      [0.48, 0.38],
-  // Rock / Psych additions
-  black_sabbath:          [0.72, 0.30],
-  the_velvet_underground: [0.66, 0.46],
-  // Others
-  neil_young_crazy_horse: [0.60, 0.18],
-  ryan_adams_cardinals:   [0.36, 0.60],
+  // ── Singer-Songwriter — top center (twin suns) ────────────────────────────
+  bob_dylan:              [0.42, 0.16],
+  neil_young:             [0.34, 0.14],
+  neil_young_crazy_horse: [0.28, 0.12],
+  joni_mitchell:          [0.38, 0.22],
+  leonard_cohen:          [0.34, 0.28],
+  nick_drake:             [0.30, 0.32],
+  elliott_smith:          [0.44, 0.28],
+  sufjan_stevens:         [0.42, 0.34],
+
+  // ── Americana / Alt-country / Indie folk — center-left ───────────────────
+  the_band:               [0.32, 0.42],
+  wilco:                  [0.42, 0.40],
+  big_thief:              [0.38, 0.46],
+  gram_parsons:           [0.24, 0.48],
+  ryan_adams:             [0.34, 0.52],
+  ryan_adams_cardinals:   [0.28, 0.56],
+  devendra_banhart:       [0.24, 0.40],
+  m_ward:                 [0.20, 0.36],
+  iron_and_wine:          [0.26, 0.38],
+  joanna_newsom:          [0.16, 0.32],
+  beck:                   [0.42, 0.56],
+  beastie_boys:           [0.40, 0.62],
+
+  // ── Rock / Psych / Noise / Post-rock — left ──────────────────────────────
+  the_beatles:            [0.18, 0.16],
+  pink_floyd:             [0.14, 0.24],
+  the_doors:              [0.10, 0.32],
+  black_sabbath:          [0.08, 0.42],
+  dead_meadow:            [0.10, 0.50],
+  the_velvet_underground: [0.20, 0.44],
+  nirvana:                [0.16, 0.54],
+  thurston_moore:         [0.22, 0.50],
+  the_dandy_warhols:      [0.14, 0.60],
+  r_e_m:                  [0.24, 0.58],
+  radiohead:              [0.32, 0.38],
+  galaxie_500:            [0.18, 0.64],
+  mazzy_star:             [0.14, 0.70],
+  low:                    [0.26, 0.66],
+  dirty_three:            [0.32, 0.64],
+  godspeed_you:           [0.28, 0.60],
+
+  // ── Folk roots — far left ─────────────────────────────────────────────────
+  john_fahey:             [0.06, 0.56],
+  townes_van_zandt:       [0.08, 0.66],
+  bonnie_prince_billy:    [0.10, 0.74],
+  smog:                   [0.14, 0.80],
+  songs_ohia:             [0.10, 0.86],
+  richmond_fontaine:      [0.18, 0.76],
+
+  // ── Country / Americana roots — bottom-left ───────────────────────────────
+  lead_belly:             [0.04, 0.72],
+  woody_guthrie:          [0.06, 0.82],
+  hank_williams:          [0.10, 0.92],
+  lee_hazlewood:          [0.18, 0.84],
+
+  // ── Gothic / Dark — bottom center-left ───────────────────────────────────
+  tom_waits:              [0.34, 0.66],
+  scott_walker:           [0.36, 0.74],
+  the_birthday_party:     [0.42, 0.80],
+  current_93:             [0.34, 0.82],
+  nick_cave:              [0.48, 0.74],
+  einsturzende_neubauten: [0.46, 0.88],
+  emma_ruth_rundle:       [0.52, 0.84],
+
+  // ── Blues / Soul — bottom center ──────────────────────────────────────────
+  pj_harvey:              [0.54, 0.78],
+  nina_simone:            [0.56, 0.68],
+  muddy_waters:           [0.50, 0.88],
+  robert_johnson:         [0.46, 0.94],
+
+  // ── Jazz — center ─────────────────────────────────────────────────────────
+  miles_davis:            [0.54, 0.56],
+  john_coltrane:          [0.58, 0.64],
+
+  // ── Krautrock — center bridge (rock → electronic) ─────────────────────────
+  can:                    [0.54, 0.30],
+  neu:                    [0.60, 0.20],
+
+  // ── Electronic / Ambient / Drone — right ─────────────────────────────────
+  bjork:                  [0.66, 0.26],
+  aphex_twin:             [0.84, 0.20],
+  boards_of_canada:       [0.74, 0.32],
+  skee_mask:              [0.86, 0.26],
+  acronym:                [0.88, 0.38],
+  burial:                 [0.70, 0.48],
+  htrk:                   [0.68, 0.64],
+  grouper:                [0.68, 0.72],
+  tim_hecker:             [0.78, 0.56],
+  stars_of_the_lid:       [0.84, 0.64],
+  kali_malone:            [0.80, 0.74],
+  gi_gi:                  [0.88, 0.66],
+  anthony_naples:         [0.82, 0.82],
+  dj_python:              [0.86, 0.86],
 };
 
 function toId(name: string): string {
@@ -338,22 +349,23 @@ const INSIGHTS = [
 // ── Genre watermarks — placed to match cluster regions ────────────────────────
 // xF/yF are fractions of the canvas; match the POSITIONS of nearby artists.
 
+// Genre mark xF values are final canvas positions (POSITIONS xF + X_SHIFT 0.04).
 const GENRE_MARKS = [
-  { text: "FOLK",              xF: 0.03, yF: 0.46, size: 62, rot: -0.06 },
-  { text: "AMERICANA",         xF: 0.13, yF: 0.80, size: 44, rot:  0.04 },
-  { text: "SINGER-SONGWRITER", xF: 0.31, yF: 0.16, size: 28, rot: -0.03 },
-  { text: "ALT-COUNTRY",       xF: 0.45, yF: 0.40, size: 32, rot:  0.02 },
-  { text: "COUNTRY",           xF: 0.15, yF: 0.88, size: 38, rot:  0.05 },
-  { text: "GOTHIC",            xF: 0.41, yF: 0.82, size: 44, rot:  0.06 },
-  { text: "BLUES",             xF: 0.59, yF: 0.74, size: 40, rot: -0.04 },
-  { text: "PSYCHEDELIC",       xF: 0.65, yF: 0.28, size: 52, rot:  0.03 },
-  { text: "KRAUTROCK",         xF: 0.77, yF: 0.20, size: 44, rot: -0.07 },
-  { text: "NOISE ROCK",        xF: 0.71, yF: 0.52, size: 36, rot:  0.05 },
-  { text: "AVANT-GARDE",       xF: 0.33, yF: 0.54, size: 32, rot: -0.05 },
-  { text: "DRONE",             xF: 0.83, yF: 0.76, size: 54, rot: -0.04 },
-  { text: "AMBIENT",           xF: 0.85, yF: 0.88, size: 38, rot:  0.06 },
-  { text: "ELECTRONIC",        xF: 0.87, yF: 0.28, size: 48, rot: -0.03 },
-  { text: "JAZZ",              xF: 0.53, yF: 0.56, size: 60, rot: -0.02 },
+  { text: "FOLK",              xF: 0.10, yF: 0.56, size: 62, rot: -0.06 }, // john_fahey region
+  { text: "AMERICANA",         xF: 0.22, yF: 0.82, size: 44, rot:  0.04 }, // smog/songs_ohia
+  { text: "SINGER-SONGWRITER", xF: 0.46, yF: 0.14, size: 28, rot: -0.03 }, // dylan/young area
+  { text: "ALT-COUNTRY",       xF: 0.46, yF: 0.42, size: 32, rot:  0.02 }, // wilco/big thief
+  { text: "COUNTRY",           xF: 0.16, yF: 0.90, size: 38, rot:  0.05 }, // hank williams area
+  { text: "GOTHIC",            xF: 0.48, yF: 0.80, size: 44, rot:  0.06 }, // nick cave area
+  { text: "BLUES",             xF: 0.58, yF: 0.88, size: 40, rot: -0.04 }, // muddy/robert johnson
+  { text: "PSYCHEDELIC",       xF: 0.16, yF: 0.26, size: 52, rot:  0.03 }, // pink floyd/doors
+  { text: "KRAUTROCK",         xF: 0.64, yF: 0.20, size: 44, rot: -0.07 }, // can/neu
+  { text: "NOISE ROCK",        xF: 0.24, yF: 0.50, size: 36, rot:  0.05 }, // nirvana/thurston
+  { text: "POST-ROCK",         xF: 0.32, yF: 0.64, size: 32, rot: -0.05 }, // godspeed/low
+  { text: "DRONE",             xF: 0.84, yF: 0.72, size: 54, rot: -0.04 }, // grouper/kali malone
+  { text: "AMBIENT",           xF: 0.88, yF: 0.86, size: 38, rot:  0.06 }, // far right
+  { text: "ELECTRONIC",        xF: 0.90, yF: 0.28, size: 48, rot: -0.03 }, // aphex/boards area
+  { text: "JAZZ",              xF: 0.60, yF: 0.58, size: 60, rot: -0.02 }, // miles davis area
 ];
 
 // ── Utilities ──────────────────────────────────────────────────────────────────
@@ -539,9 +551,8 @@ export default function ConstellationPOC({ username }: Props) {
       const posMap = new Map<string, [number, number]>();
       const consumed = new Set<string>(); // lowercase keys from albumCounts that matched a curated node
 
-      // Shift x positions left so the dense central cluster (folk/rock/gothic) sits inside the
-      // circular frame. The raw centroid of POSITIONS is ~x=0.55; shift to ~0.50.
-      const X_SHIFT = -0.05;
+      // Nudge x positions right to centre the layout — raw POSITIONS centroid is ~x=0.46.
+      const X_SHIFT = 0.04;
 
       const curatedNodes: ArtistNode[] = Object.entries(POSITIONS).map(([id, [xF, yF]]) => {
         const axF = clamp(xF + X_SHIFT, 0.01, 0.99);
