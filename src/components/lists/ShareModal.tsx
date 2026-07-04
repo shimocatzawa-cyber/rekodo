@@ -13,7 +13,7 @@ const UI_MONO = "var(--font-mono)";
 const BG     = "#FDF6F0";
 const ORANGE = "#CC5500";
 const INK    = "#0d0d0d";
-const MUTED  = "#888888";
+const MUTED  = "#747474";
 const RULE   = "#e0e0da";
 
 type Format  = "portrait" | "landscape";
@@ -171,7 +171,7 @@ function LandscapeCard({ title, slots, username, covers, forExport }: CardProps)
         </div>
         <div>
           <div style={{ fontFamily: MONO, fontSize: 9, color: MUTED, letterSpacing: "0.07em", marginBottom: 3 }}>@{username}</div>
-          <div style={{ fontFamily: MONO, fontSize: 10, color: "#bbb", letterSpacing: "0.07em" }}>rekodo.co</div>
+          <div style={{ fontFamily: MONO, fontSize: 10, color: "#9f9f9f", letterSpacing: "0.07em" }}>rekodo.co</div>
         </div>
       </div>
 
