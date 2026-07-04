@@ -459,6 +459,146 @@ export default async function InsightsPage() {
       pct: totalStyleEntries > 0 ? Math.round((count / totalStyleEntries) * 100) : 0,
     }));
 
+  // ── Era Phases (Collection Story V2) ──────────────────────────────────────
+  const STYLE_PHASE_NAMES: Record<string, string> = {
+    "Classic Rock":      "The Rock Foundation",
+    "Rock":              "The Rock Years",
+    "Jazz":              "The Jazz Obsession",
+    "Electronic":        "The Electronic Chapter",
+    "Soul":              "The Soul Years",
+    "Blues":             "The Blues Period",
+    "Psychedelic Rock":  "The Psych Era",
+    "Funk":              "The Funk Chapter",
+    "Hip Hop":           "The Hip Hop Era",
+    "Folk":              "The Folk Years",
+    "Pop":               "The Pop Chapter",
+    "Experimental":      "The Deep Cuts Chapter",
+    "World Music":       "The Explorer Era",
+    "Ambient":           "The Ambient Phase",
+    "Disco":             "The Disco Years",
+    "Country":           "The Country Chapter",
+    "Reggae":            "The Reggae Era",
+    "Metal":             "The Metal Years",
+    "Punk":              "The Punk Era",
+    "Indie Rock":        "The Indie Years",
+    "Alternative Rock":  "The Alt Rock Era",
+    "Synth-pop":         "The Synth Years",
+    "Post-Punk":         "The Post-Punk Phase",
+    "New Wave":          "The New Wave Era",
+    "Krautrock":         "The Krautrock Chapter",
+    "Shoegaze":          "The Shoegaze Years",
+  };
+  const ERA_SUFFIXES = ["Years", "Obsession", "Era", "Chapter"] as const;
+
+  // Build year → records map (keyed by year records were *added*)
+  const recordsByAddedYear = new Map<number, { record: RecordRow; isEssential: boolean }[]>();
+  for (const link of allLinks) {
+    if (!link.date_added) continue;
+    const d = new Date(link.date_added);
+    if (isNaN(d.getTime())) continue;
+    const year = d.getFullYear();
+    const rec  = recordsMap.get(link.record_id);
+    if (!rec) continue;
+    const bucket = recordsByAddedYear.get(year) ?? [];
+    bucket.push({ record: rec, isEssential: !!link.is_essential });
+    recordsByAddedYear.set(year, bucket);
+  }
+
+  const biggestCollectingYear = (() => {
+    if (recordsByAddedYear.size === 0) return null;
+    return [...recordsByAddedYear.entries()]
+      .sort((a, b) => b[1].length - a[1].length)[0][0];
+  })();
+
+  const eraPhases = (() => {
+    const sortedYears = [...recordsByAddedYear.keys()].sort((a, b) => a - b);
+    if (sortedYears.length === 0) return [];
+
+    // Detect bulk-import: all in one year, or no date_added data at all
+    const hasTrend = sortedYears.length > 1;
+
+    const NUM_ERAS = 4;
+
+    // Build 4 groups of years (or 4 groups of styles if no trend)
+    let groups: { yearRange: [number, number] | null; entries: { record: RecordRow; isEssential: boolean }[] }[] = [];
+
+    if (hasTrend) {
+      const chunkSize = Math.ceil(sortedYears.length / NUM_ERAS);
+      for (let i = 0; i < NUM_ERAS; i++) {
+        const slice = sortedYears.slice(i * chunkSize, (i + 1) * chunkSize);
+        if (slice.length === 0) continue;
+        const entries = slice.flatMap(y => recordsByAddedYear.get(y) ?? []);
+        groups.push({ yearRange: [slice[0], slice[slice.length - 1]], entries });
+      }
+    } else {
+      // No temporal trend: split by overall top-4 styles
+      const topStyles = [...styleCounts.entries()]
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, NUM_ERAS)
+        .map(([s]) => s);
+      if (topStyles.length === 0) return [];
+      for (const style of topStyles) {
+        const entries: { record: RecordRow; isEssential: boolean }[] = [];
+        for (const link of allLinks) {
+          const rec = recordsMap.get(link.record_id);
+          if (rec?.styles?.includes(style)) {
+            entries.push({ record: rec, isEssential: !!link.is_essential });
+          }
+        }
+        groups.push({ yearRange: null, entries });
+      }
+    }
+
+    const currentYear = new Date().getFullYear();
+
+    return groups
+      .filter(g => g.entries.length > 0)
+      .map((group, i) => {
+        // Dominant style for this group
+        const groupStyleCounts = new Map<string, number>();
+        for (const { record } of group.entries) {
+          for (const s of (record.styles ?? [])) {
+            const t = s?.trim();
+            if (t) groupStyleCounts.set(t, (groupStyleCounts.get(t) ?? 0) + 1);
+          }
+        }
+        const dominantStyle = [...groupStyleCounts.entries()]
+          .sort((a, b) => b[1] - a[1])[0]?.[0] ?? "Eclectic";
+
+        // Pick cover album: essentials first, then highest community_have, must have cover_url
+        const withCover = group.entries.filter(e => e.record.cover_url);
+        const essentialWithCover = withCover.filter(e => e.isEssential);
+        const candidates = essentialWithCover.length > 0 ? essentialWithCover : withCover;
+        const picked = candidates.sort((a, b) => (b.record.community_have ?? 0) - (a.record.community_have ?? 0))[0] ?? null;
+
+        const coverAlbum = picked
+          ? { artist: picked.record.artist, album: picked.record.album, coverUrl: picked.record.cover_url! }
+          : null;
+
+        const phaseName = STYLE_PHASE_NAMES[dominantStyle]
+          ?? `The ${dominantStyle} ${ERA_SUFFIXES[i % ERA_SUFFIXES.length]}`;
+
+        let years: string | null = null;
+        if (group.yearRange) {
+          const [from, to] = group.yearRange;
+          const isLast = i === groups.filter(g => g.entries.length > 0).length - 1;
+          if (from === to) {
+            years = isLast && to >= currentYear ? `${from}–Today` : String(from);
+          } else {
+            years = isLast && to >= currentYear ? `${from}–Today` : `${from}–${to}`;
+          }
+        }
+
+        return {
+          eraNum:        i + 1,
+          phaseName,
+          years,
+          dominantStyle: dominantStyle.toUpperCase(),
+          coverAlbum,
+        };
+      });
+  })();
+
   // ── Geographic DNA ─────────────────────────────────────────────────────────
   const countryCounts = new Map<string, { count: number; valueSum: number }>();
   for (const link of allLinks) {
@@ -992,6 +1132,8 @@ export default async function InsightsPage() {
       collectorArchetypeScore={collectorArchetypeScore}
       collectorArchetypeScores={collectorArchetypeScores}
       isSupporter={!!(profile?.is_supporter || profile?.role === "admin")}
+      eraPhases={eraPhases}
+      biggestCollectingYear={biggestCollectingYear}
       collectorSinceYear={collectorSinceYear}
       collectionPhotoUrl={collectionPhotoUrl}
       oldestAlbum={oldestAlbum}

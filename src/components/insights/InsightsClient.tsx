@@ -21,6 +21,7 @@ const CollectorDNAModal      = dynamic(() => import("@/components/insights/Colle
 const CollectionStyleMapModal = dynamic(() => import("@/components/insights/CollectionStyleMapModal"), { ssr: false });
 const CollectionGenreMapModal = dynamic(() => import("@/components/insights/CollectionGenreMapModal"), { ssr: false });
 const CollectionStoryModal   = dynamic(() => import("@/components/insights/CollectionStoryModal"),   { ssr: false });
+const CollectionStoryV2Modal = dynamic(() => import("@/components/insights/CollectionStoryV2Modal"), { ssr: false });
 const RecordShelfModal       = dynamic(() => import("@/components/insights/RecordShelfModal"),       { ssr: false });
 const SpectrumShareModal     = dynamic(() => import("@/components/insights/SpectrumShareModal"),     { ssr: false });
 const ArchetypeShareModal    = dynamic(() => import("@/components/archetypes/ArchetypeShareModal"),  { ssr: false });
@@ -85,6 +86,8 @@ export interface InsightsProps {
   collectorArchetypeScore:   number | null;
   collectorArchetypeScores:  Record<string, number> | null;
   isSupporter:  boolean;
+  eraPhases:    import("@/components/insights/CollectionStoryV2Modal").EraPhase[];
+  biggestCollectingYear: number | null;
   dailyPick:    DailyPickData | null;
   onThisDay:    OnThisDayPick | null;
   usageStats:   {
@@ -272,6 +275,8 @@ export default function InsightsClient({
   dailyPick, onThisDay, usageStats,
   avgReleaseYear, topDecade, collectorArchetype, collectorArchetypeId, collectorArchetypeShadow, collectorArchetypeScore, collectorArchetypeScores, collectorSinceYear, collectionPhotoUrl, oldestAlbum, newestAlbum, topVinylArtist, topVinylArtistCount,
   isSupporter,
+  eraPhases,
+  biggestCollectingYear,
 }: InsightsProps) {
 
   const [oneLiner, setOneLiner] = useState<string | null>(null);
@@ -283,6 +288,7 @@ export default function InsightsClient({
   const [showStyleMap, setShowStyleMap]       = useState(false);
   const [showGenreMap, setShowGenreMap]       = useState(false);
   const [showStory, setShowStory]             = useState(false);
+  const [showStoryV2, setShowStoryV2]         = useState(false);
   const [showShelf, setShowShelf]             = useState(false);
   const [showSpectrum, setShowSpectrum]         = useState(false);
   const [showArchetype, setShowArchetype]       = useState(false);
@@ -986,6 +992,17 @@ export default function InsightsClient({
           countryCount={countryBreakdown.length}
         />
       )}
+      {showStoryV2 && (
+        <CollectionStoryV2Modal
+          onClose={() => setShowStoryV2(false)}
+          username={username}
+          totalRecords={totalRecords}
+          countryCount={countryBreakdown.length}
+          yearRange={yearRange}
+          biggestCollectingYear={biggestCollectingYear}
+          eraPhases={eraPhases}
+        />
+      )}
       {showShelf && (
         <RecordShelfModal
           onClose={() => setShowShelf(false)}
@@ -1016,6 +1033,7 @@ export default function InsightsClient({
                   { label: "Essentials Wall",      onClick: () => setShowEssentialsShare(true) },
                   { label: "Collector DNA",        onClick: () => setShowDNAModal(true) },
                   { label: "Collection Story",     onClick: () => setShowStory(true) },
+                  ...(isSupporter && eraPhases.length > 0 ? [{ label: "Story ↗ (new)", onClick: () => setShowStoryV2(true) }] : []),
                   { label: "Genre Map",            onClick: () => setShowGenreMap(true) },
                   { label: "Style Map",            onClick: () => setShowStyleMap(true) },
                   { label: "Spectrum",             onClick: () => setShowSpectrum(true) },
