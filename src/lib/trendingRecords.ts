@@ -52,25 +52,46 @@ export const getCachedTrending = unstable_cache(
         if (cnt > existing.bestCount) {
           existing.bestId = rec.id;
           existing.bestCount = cnt;
-          existing.coverUrl = rec.cover_url ?? null;
+          // Only overwrite cover/year/genre if the new pressing actually has a cover;
+          // otherwise keep whatever cover we already found from a lower-count pressing.
+          if (rec.cover_url) existing.coverUrl = rec.cover_url;
           existing.year = rec.year ?? null;
           existing.genre = rec.genre ?? null;
+        } else if (!existing.coverUrl && rec.cover_url) {
+          // This pressing has fewer collectors but a cover — use it as a fallback.
+          existing.coverUrl = rec.cover_url;
         }
       }
     }
 
-    return [...albumMap.values()]
-      .sort((a, b) => b.count - a.count)
-      .slice(0, 40)
-      .map(a => ({
-        id:             a.bestId,
-        artist:         a.artist,
-        album:          a.album,
-        coverUrl:       a.coverUrl,
-        year:           a.year,
-        genre:          a.genre,
-        collectorCount: a.count,
+    const sorted = [...albumMap.values()].sort((a, b) => b.count - a.count).slice(0, 40);
+
+    // Second-pass cover lookup: for albums still missing a cover, find any pressing
+    // in the records table that has one (not limited to the top-200 pressings).
+    const noCoverKeys = sorted.filter(a => !a.coverUrl);
+    if (noCoverKeys.length > 0) {
+      await Promise.all(noCoverKeys.map(async a => {
+        const { data } = await supabase
+          .from("records")
+          .select("cover_url")
+          .eq("artist", a.artist)
+          .eq("album", a.album)
+          .not("cover_url", "is", null)
+          .limit(1)
+          .maybeSingle();
+        if (data?.cover_url) a.coverUrl = data.cover_url;
       }));
+    }
+
+    return sorted.map(a => ({
+      id:             a.bestId,
+      artist:         a.artist,
+      album:          a.album,
+      coverUrl:       a.coverUrl,
+      year:           a.year,
+      genre:          a.genre,
+      collectorCount: a.count,
+    }));
   },
   ["trending-records"],
   { revalidate: 86400 },
