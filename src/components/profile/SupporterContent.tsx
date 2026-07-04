@@ -11,11 +11,12 @@ const RULE       = "#e0e0da";
 const INK        = "#0a0a0a";
 
 const SUBSCRIPTION_PERKS = [
-  { category: "Identity",   description: "Golden ō badge" },
-  { category: "Deep Dive",  description: "Access to Deep Dive Artist feature" },
-  { category: "Archetypes", description: "What your collection says about you" },
-  { category: "Discovery",  description: "Dig unlimited regeneration" },
-  { category: "Lists",      description: "Unlimited playlist generations" },
+  { category: "Identity",      description: "Golden ō badge" },
+  { category: "Deep Dive",     description: "Access to Deep Dive Artist feature" },
+  { category: "Archetypes",    description: "What your collection says about you" },
+  { category: "Discovery",     description: "Dig unlimited regeneration" },
+  { category: "Lists",         description: "Unlimited playlist generations" },
+  { category: "Constellation", description: "Collection Constellation — coming soon" },
 ];
 
 const PRESET_AMOUNTS = [5, 10, 20];
