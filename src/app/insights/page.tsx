@@ -1139,6 +1139,7 @@ export default async function InsightsPage() {
       collectorArchetypeScore={collectorArchetypeScore}
       collectorArchetypeScores={collectorArchetypeScores}
       isSupporter={!!(profile?.is_supporter || profile?.role === "admin")}
+      isAdmin={profile?.role === "admin"}
       eraPhases={eraPhases}
       biggestCollectingYear={biggestCollectingYear}
       collectorSinceYear={collectorSinceYear}
