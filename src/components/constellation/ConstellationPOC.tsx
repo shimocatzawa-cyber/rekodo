@@ -236,15 +236,15 @@ const CURATED_EDGES: Omit<Edge, "cpDx" | "cpDy">[] = [
 // X_SHIFT +0.04 applied in code nudges centroid to ~0.50.
 
 const POSITIONS: Record<string, [number, number]> = {
-  // ── Singer-Songwriter — top center (twin suns) ────────────────────────────
-  bob_dylan:              [0.42, 0.16],
-  neil_young:             [0.34, 0.14],
-  neil_young_crazy_horse: [0.28, 0.12],
-  joni_mitchell:          [0.38, 0.22],
-  leonard_cohen:          [0.34, 0.28],
-  nick_drake:             [0.30, 0.32],
-  elliott_smith:          [0.44, 0.28],
-  sufjan_stevens:         [0.42, 0.34],
+  // ── Singer-Songwriter — upper-left, close to folk cluster ────────────────
+  bob_dylan:              [0.32, 0.16],
+  neil_young:             [0.24, 0.14],
+  neil_young_crazy_horse: [0.18, 0.12],
+  joni_mitchell:          [0.28, 0.22],
+  leonard_cohen:          [0.24, 0.30],
+  nick_drake:             [0.20, 0.34],
+  elliott_smith:          [0.34, 0.26],
+  sufjan_stevens:         [0.30, 0.34],
 
   // ── Americana / Alt-country / Indie folk — center-left ───────────────────
   the_band:               [0.32, 0.42],
@@ -353,7 +353,7 @@ const INSIGHTS = [
 const GENRE_MARKS = [
   { text: "FOLK",              xF: 0.10, yF: 0.56, size: 62, rot: -0.06 }, // john_fahey region
   { text: "AMERICANA",         xF: 0.22, yF: 0.82, size: 44, rot:  0.04 }, // smog/songs_ohia
-  { text: "SINGER-SONGWRITER", xF: 0.46, yF: 0.14, size: 28, rot: -0.03 }, // dylan/young area
+  { text: "SINGER-SONGWRITER", xF: 0.30, yF: 0.12, size: 28, rot: -0.03 },
   { text: "ALT-COUNTRY",       xF: 0.46, yF: 0.42, size: 32, rot:  0.02 }, // wilco/big thief
   { text: "COUNTRY",           xF: 0.16, yF: 0.90, size: 38, rot:  0.05 }, // hank williams area
   { text: "GOTHIC",            xF: 0.48, yF: 0.80, size: 44, rot:  0.06 }, // nick cave area
