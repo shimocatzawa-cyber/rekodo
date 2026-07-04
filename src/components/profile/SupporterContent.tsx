@@ -342,16 +342,29 @@ export default function SupporterContent({ isOwner, isSubscriber, userId, succes
             Includes
           </p>
 
-          <div style={{ display: "flex", gap: 12, alignItems: "baseline", marginBottom: 32, flex: 1 }}>
-            <span style={{
-              fontFamily: MONO, fontSize: "0.48rem", letterSpacing: "0.1em",
-              textTransform: "uppercase", color: BADGE_GOLD, flexShrink: 0, minWidth: 88,
-            }}>
-              Identity
-            </span>
-            <span style={{ fontFamily: SERIF, fontSize: "0.9rem", color: INK }}>
-              Golden <span style={{ color: BADGE_GOLD }}>ō</span> badge
-            </span>
+          <div style={{ display: "flex", flexDirection: "column", gap: 14, marginBottom: 32, flex: 1 }}>
+            <div style={{ display: "flex", gap: 12, alignItems: "baseline" }}>
+              <span style={{
+                fontFamily: MONO, fontSize: "0.48rem", letterSpacing: "0.1em",
+                textTransform: "uppercase", color: BADGE_GOLD, flexShrink: 0, minWidth: 88,
+              }}>
+                Identity
+              </span>
+              <span style={{ fontFamily: SERIF, fontSize: "0.9rem", color: INK }}>
+                Golden <span style={{ color: BADGE_GOLD }}>ō</span> badge
+              </span>
+            </div>
+            <div style={{ display: "flex", gap: 12, alignItems: "baseline" }}>
+              <span style={{
+                fontFamily: MONO, fontSize: "0.48rem", letterSpacing: "0.1em",
+                textTransform: "uppercase", color: ORANGE, flexShrink: 0, minWidth: 88,
+              }}>
+                Supporter
+              </span>
+              <span style={{ fontFamily: SERIF, fontSize: "0.9rem", color: INK }}>
+                Donations over A$80 automatically unlock all Supporter benefits
+              </span>
+            </div>
           </div>
 
           {isOwner && (
