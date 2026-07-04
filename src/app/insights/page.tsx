@@ -551,14 +551,24 @@ export default async function InsightsPage() {
       const withCover = styleLinks.filter(l => {
         const rec = recordsMap.get(l.record_id);
         if (!rec?.cover_url || isTestPressing(rec)) return false;
-        // For the obscure pick, skip very low community_have — test pressings
-        // and private releases often slip the keyword filter but land here (e.g. Barwick).
-        if (pickObscure && (rec.community_have ?? 0) < 15) return false;
+        // Only exclude low community_have when data is actually present — avoids
+        // filtering out everyone for users whose backfill hasn't run yet.
+        if (pickObscure && rec.community_have !== null && rec.community_have < 15) return false;
         return true;
       });
-      const essFirst  = [...withCover.filter(l => l.is_essential), ...withCover.filter(l => !l.is_essential)];
-      // Always prefer the most well-known record (highest community_have) — the style itself is what's niche, not the cover.
-      const sorted = essFirst.sort((a, b) => (recordsMap.get(b.record_id)?.community_have ?? 0) - (recordsMap.get(a.record_id)?.community_have ?? 0));
+      const essFirst = [...withCover.filter(l => l.is_essential), ...withCover.filter(l => !l.is_essential)];
+
+      // Prefer records where the target style is one of their first 2 Discogs tags
+      // (i.e. it's their primary identity, not just a side tag on a post-punk record).
+      // Fall back to full pool only if nothing qualifies.
+      const primaryPool = essFirst.filter(l => {
+        const styles = recordsMap.get(l.record_id)?.styles ?? [];
+        const idx = styles.findIndex(s => s?.trim() === style.trim());
+        return idx >= 0 && idx <= 1;
+      });
+      const pool = primaryPool.length > 0 ? primaryPool : essFirst;
+
+      const sorted = pool.sort((a, b) => (recordsMap.get(b.record_id)?.community_have ?? 0) - (recordsMap.get(a.record_id)?.community_have ?? 0));
       const pickedRec = sorted[0] ? recordsMap.get(sorted[0].record_id) : null;
 
       return {
