@@ -256,8 +256,8 @@ async function main() {
         if (!record.format)       { const f = extractFormat(rd.formats);       if (f)  patch.format = f; }
         if (!record.vinyl_colour) patch.vinyl_colour = extractVinylColour(rd.formats) ?? '';
         if (!record.country)      { patch.country      = rd.country ?? ''; }
-        if (!record.genre && rd.genres?.length)  patch.genre  = rd.genres[0];
-        if (!record.styles && rd.styles?.length) patch.styles = rd.styles;
+        if (!record.genre && rd.genres?.length)         patch.genre  = rd.genres[0];
+        if (!record.styles?.length && rd.styles?.length) patch.styles = rd.styles;
         if (!record.year && rd.year)             patch.year   = rd.year;
 
         // Producers — only write from API result, never default-wipe existing data
