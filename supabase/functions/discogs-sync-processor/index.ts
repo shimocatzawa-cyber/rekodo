@@ -348,33 +348,39 @@ async function processSync(supabase: SB, jobId: string, userId: string) {
       await updateJob(supabase, jobId, { progress_done: Math.min(i + BATCH, newItems.length), new_added: newAdded });
     }
 
-    // ── Phase 2b: Backfill styles for records that have styles = null ───────────
-    // Only touches records where styles IS NULL — pre-migration records.
-    // After the first backfill this query returns 0 rows and becomes a no-op,
-    // so it adds negligible time to every subsequent sync.
+    // ── Phase 2b: Backfill styles for records that have null or empty styles ────
+    // Catches both styles IS NULL (pre-migration records) and styles = [] (records
+    // inserted when Discogs returned no styles but now may have data). Only writes
+    // when the current Discogs API response has non-empty styles for that release,
+    // so genuine no-style releases are left alone and this stays a no-op once done.
     try {
       await updateJob(supabase, jobId, { phase: "updating" });
 
       // Build discogs_id → styles lookup from the already-fetched collection data
+      // Only keep entries where Discogs actually returned styles — no point writing [].
       const stylesLookup = new Map<string, string[]>(
-        collectionItems.map((item) => [item.discogs_id, item.styles])
+        collectionItems
+          .filter((item) => item.styles.length > 0)
+          .map((item) => [item.discogs_id, item.styles])
       );
 
-      // Query only records that still have null styles
+      // Nothing to backfill if this sync fetched no styles at all
       const allRecordIds = [...new Set(existingMap.values())];
       const toUpdate: { id: string; styles: string[] }[] = [];
 
-      for (let i = 0; i < allRecordIds.length; i += BATCH) {
-        const { data } = await supabase
-          .from("records")
-          .select("id, discogs_id")
-          .in("id", allRecordIds.slice(i, i + BATCH))
-          .is("styles", null);
+      if (stylesLookup.size > 0) {
+        for (let i = 0; i < allRecordIds.length; i += BATCH) {
+          const { data } = await supabase
+            .from("records")
+            .select("id, discogs_id, styles")
+            .in("id", allRecordIds.slice(i, i + BATCH));
 
-        for (const r of data ?? []) {
-          if (!r.discogs_id) continue;
-          const styles = stylesLookup.get(r.discogs_id);
-          if (styles !== undefined) toUpdate.push({ id: r.id, styles });
+          for (const r of data ?? []) {
+            if (!r.discogs_id) continue;
+            if (r.styles?.length) continue; // already populated — skip
+            const styles = stylesLookup.get(r.discogs_id);
+            if (styles) toUpdate.push({ id: r.id, styles });
+          }
         }
       }
 
