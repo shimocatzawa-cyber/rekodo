@@ -4,7 +4,7 @@ import { useState, useRef, useEffect } from "react";
 import { toPng } from "html-to-image";
 import { trackShareCard } from "@/lib/shareCard";
 
-const CARD_W  = 800;
+const CARD_W  = 560;
 const SERIF   = '"Shippori Mincho", Georgia, serif';
 const MONO    = '"DM Mono", "Courier New", monospace';
 const UI_MONO = "var(--font-mono)";
@@ -91,8 +91,8 @@ function StoryV2Card({
   username, totalRecords, countryCount, yearRange, biggestCollectingYear,
   eraPhases, coverSrcs, forExport = false,
 }: CardProps) {
-  const PAD     = 32;
-  const GAP     = 16;
+  const PAD     = 28;
+  const GAP     = 12;
   const cols    = eraPhases.length || 1;
   const colW    = Math.floor((CARD_W - PAD * 2 - GAP * (cols - 1)) / cols);
   const coverSz = colW; // square covers
@@ -236,7 +236,7 @@ function StoryV2Card({
             flex: 1, textAlign: "center", paddingLeft: i > 0 ? 12 : 0, paddingRight: i < stats.length - 1 ? 12 : 0,
             borderLeft: i > 0 ? `1px solid ${RULE}` : "none",
           }}>
-            <div style={{ fontFamily: SERIF, fontSize: 26, fontWeight: 700, color: INK, lineHeight: 1 }}>
+            <div style={{ fontFamily: SERIF, fontSize: 22, fontWeight: 700, color: INK, lineHeight: 1 }}>
               {s.value}
             </div>
             <div style={{
@@ -276,8 +276,8 @@ export default function CollectionStoryV2Modal({ onClose, eraPhases, ...cardProp
   const [copyState,    setCopyState]    = useState<"idle" | "copied" | "failed">("idle");
   const [scale, setScale] = useState(() => {
     if (typeof window === "undefined") return 508 / CARD_W;
-    const avail = Math.min(700, window.innerWidth - 48) - 40;
-    return Math.min(1, Math.max(0.25, avail / CARD_W));
+    const avail = Math.min(560, window.innerWidth - 48) - 40;
+    return Math.min(1, Math.max(0.3, avail / CARD_W));
   });
   const exportRef = useRef<HTMLDivElement>(null);
 
@@ -291,8 +291,8 @@ export default function CollectionStoryV2Modal({ onClose, eraPhases, ...cardProp
       if (exportRef.current) setCardH(exportRef.current.offsetHeight);
     });
     const onResize = () => {
-      const avail = Math.min(700, window.innerWidth - 48) - 40;
-      setScale(Math.min(1, Math.max(0.25, avail / CARD_W)));
+      const avail = Math.min(560, window.innerWidth - 48) - 40;
+      setScale(Math.min(1, Math.max(0.3, avail / CARD_W)));
     };
     window.addEventListener("resize", onResize);
     return () => window.removeEventListener("resize", onResize);
@@ -390,7 +390,7 @@ export default function CollectionStoryV2Modal({ onClose, eraPhases, ...cardProp
         </div>
       </div>
 
-      <div style={{ background: "#fff", maxWidth: 720, width: "100%", maxHeight: "94vh", display: "flex", flexDirection: "column" }}>
+      <div style={{ background: "#fff", maxWidth: 560, width: "100%", maxHeight: "94vh", display: "flex", flexDirection: "column" }}>
 
         {/* Modal header */}
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "14px 16px", borderBottom: "1px solid rgba(0,0,0,0.08)", flexShrink: 0 }}>

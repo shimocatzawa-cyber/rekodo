@@ -511,99 +511,110 @@ export default async function InsightsPage() {
   })();
 
   const eraPhases = (() => {
-    const sortedYears = [...recordsByAddedYear.keys()].sort((a, b) => a - b);
-    if (sortedYears.length === 0) return [];
-
-    // Detect bulk-import: all in one year, or no date_added data at all
-    const hasTrend = sortedYears.length > 1;
-
-    const NUM_ERAS = 4;
-
-    // Build 4 groups of years (or 4 groups of styles if no trend)
-    let groups: { yearRange: [number, number] | null; entries: { record: RecordRow; isEssential: boolean }[] }[] = [];
-
-    if (hasTrend) {
-      const chunkSize = Math.ceil(sortedYears.length / NUM_ERAS);
-      for (let i = 0; i < NUM_ERAS; i++) {
-        const slice = sortedYears.slice(i * chunkSize, (i + 1) * chunkSize);
-        if (slice.length === 0) continue;
-        const entries = slice.flatMap(y => recordsByAddedYear.get(y) ?? []);
-        groups.push({ yearRange: [slice[0], slice[slice.length - 1]], entries });
-      }
-    } else {
-      // No temporal trend: split by overall top-4 styles
-      const topStyles = [...styleCounts.entries()]
-        .sort((a, b) => b[1] - a[1])
-        .slice(0, NUM_ERAS)
-        .map(([s]) => s);
-      if (topStyles.length === 0) return [];
-      for (const style of topStyles) {
-        const entries: { record: RecordRow; isEssential: boolean }[] = [];
-        for (const link of allLinks) {
-          const rec = recordsMap.get(link.record_id);
-          if (rec?.styles?.includes(style)) {
-            entries.push({ record: rec, isEssential: !!link.is_essential });
-          }
-        }
-        groups.push({ yearRange: null, entries });
-      }
-    }
-
     const currentYear = new Date().getFullYear();
 
-    return groups
-      .filter(g => g.entries.length > 0)
-      .map((group, i) => {
-        // Dominant style for this group
-        const groupStyleCounts = new Map<string, number>();
-        for (const { record } of group.entries) {
-          for (const s of (record.styles ?? [])) {
-            const t = s?.trim();
-            if (t) groupStyleCounts.set(t, (groupStyleCounts.get(t) ?? 0) + 1);
-          }
-        }
-        const dominantStyle = [...groupStyleCounts.entries()]
-          .sort((a, b) => b[1] - a[1])[0]?.[0] ?? "Eclectic";
+    // All links with a valid date_added, sorted chronologically
+    const datedLinks = allLinks
+      .filter(l => l.date_added && !isNaN(new Date(l.date_added).getTime()))
+      .sort((a, b) => new Date(a.date_added!).getTime() - new Date(b.date_added!).getTime());
 
-        // Pick cover album: must match dominant style, essentials preferred, then community_have
-        const matchesStyle = (e: { record: RecordRow }) =>
-          (e.record.styles ?? []).some(s => s?.trim() === dominantStyle);
-        const withStyleAndCover     = group.entries.filter(e => e.record.cover_url && matchesStyle(e));
-        const essentialStyleCover   = withStyleAndCover.filter(e => e.isEssential);
-        const styleCandidates       = essentialStyleCover.length > 0 ? essentialStyleCover : withStyleAndCover;
-        // Fallback: any cover (no style filter), essentials first
-        const withAnyCover          = group.entries.filter(e => e.record.cover_url);
-        const essentialAnyCover     = withAnyCover.filter(e => e.isEssential);
-        const fallbackCandidates    = essentialAnyCover.length > 0 ? essentialAnyCover : withAnyCover;
-        const candidates            = styleCandidates.length > 0 ? styleCandidates : fallbackCandidates;
-        const picked = candidates.sort((a, b) => (b.record.community_have ?? 0) - (a.record.community_have ?? 0))[0] ?? null;
+    if (datedLinks.length === 0) return [];
 
-        const coverAlbum = picked
-          ? { artist: picked.record.artist, album: picked.record.album, coverUrl: picked.record.cover_url! }
-          : null;
+    const firstLink = datedLinks[0];
+    const lastLink  = datedLinks[datedLinks.length - 1];
+    const firstRec  = recordsMap.get(firstLink.record_id);
+    const lastRec   = recordsMap.get(lastLink.record_id);
+    const firstYear = new Date(firstLink.date_added!).getFullYear();
+    const lastYear  = new Date(lastLink.date_added!).getFullYear();
 
-        const phaseName = STYLE_PHASE_NAMES[dominantStyle]
-          ?? `The ${dominantStyle} ${ERA_SUFFIXES[i % ERA_SUFFIXES.length]}`;
+    // Top 2 styles across the whole collection, ordered by their temporal
+    // centre-of-mass so we get chronological ordering for eras 2 & 3.
+    const topStyles = [...styleCounts.entries()]
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 2)
+      .map(([style]) => {
+        // Centre-of-mass: average year the records of this style were added
+        const styleYears = datedLinks
+          .filter(l => recordsMap.get(l.record_id)?.styles?.includes(style))
+          .map(l => new Date(l.date_added!).getFullYear());
+        const center = styleYears.length > 0
+          ? styleYears.reduce((a, b) => a + b, 0) / styleYears.length
+          : firstYear;
+        const minYear = styleYears.length > 0 ? Math.min(...styleYears) : null;
+        const maxYear = styleYears.length > 0 ? Math.max(...styleYears) : null;
 
-        let years: string | null = null;
-        if (group.yearRange) {
-          const [from, to] = group.yearRange;
-          const isLast = i === groups.filter(g => g.entries.length > 0).length - 1;
-          if (from === to) {
-            years = isLast && to >= currentYear ? `${from}–Today` : String(from);
-          } else {
-            years = isLast && to >= currentYear ? `${from}–Today` : `${from}–${to}`;
-          }
-        }
+        // Best cover: style match required, essentials first, then most-wanted
+        const withCover = datedLinks.filter(l => {
+          const rec = recordsMap.get(l.record_id);
+          return rec?.cover_url && rec.styles?.includes(style);
+        });
+        const essentialsFirst = [
+          ...withCover.filter(l => l.is_essential),
+          ...withCover.filter(l => !l.is_essential),
+        ];
+        const picked = essentialsFirst.sort(
+          (a, b) => (recordsMap.get(b.record_id)?.community_have ?? 0) - (recordsMap.get(a.record_id)?.community_have ?? 0)
+        )[0];
+        const pickedRec = picked ? recordsMap.get(picked.record_id) : null;
 
         return {
-          eraNum:        i + 1,
-          phaseName,
-          years,
-          dominantStyle: dominantStyle.toUpperCase(),
-          coverAlbum,
+          style,
+          center,
+          minYear,
+          maxYear,
+          coverAlbum: pickedRec?.cover_url
+            ? { artist: pickedRec.artist, album: pickedRec.album, coverUrl: pickedRec.cover_url }
+            : null,
         };
+      })
+      .sort((a, b) => a.center - b.center); // chronological order
+
+    const phases: import("@/components/insights/CollectionStoryV2Modal").EraPhase[] = [];
+
+    // ── Era 1: first record added ──────────────────────────────────────────
+    if (firstRec) {
+      const domStyle = firstRec.styles?.[0]?.trim() ?? firstRec.genre ?? "Eclectic";
+      phases.push({
+        eraNum:        1,
+        phaseName:     STYLE_PHASE_NAMES[domStyle] ?? `The ${domStyle} Beginning`,
+        years:         String(firstYear),
+        dominantStyle: domStyle.toUpperCase(),
+        coverAlbum:    firstRec.cover_url
+          ? { artist: firstRec.artist, album: firstRec.album, coverUrl: firstRec.cover_url }
+          : null,
       });
+    }
+
+    // ── Eras 2 & 3: top 2 styles (chronologically ordered) ────────────────
+    topStyles.forEach((sp, i) => {
+      let years: string | null = null;
+      if (sp.minYear != null && sp.maxYear != null) {
+        years = sp.minYear === sp.maxYear ? String(sp.minYear) : `${sp.minYear}–${sp.maxYear}`;
+      }
+      phases.push({
+        eraNum:        i + 2,
+        phaseName:     STYLE_PHASE_NAMES[sp.style] ?? `The ${sp.style} ${ERA_SUFFIXES[(i + 1) % ERA_SUFFIXES.length]}`,
+        years,
+        dominantStyle: sp.style.toUpperCase(),
+        coverAlbum:    sp.coverAlbum,
+      });
+    });
+
+    // ── Era 4: last record added (skip if same as first) ──────────────────
+    if (lastRec && lastLink.record_id !== firstLink.record_id) {
+      const domStyle = lastRec.styles?.[0]?.trim() ?? lastRec.genre ?? "Eclectic";
+      phases.push({
+        eraNum:        phases.length + 1,
+        phaseName:     STYLE_PHASE_NAMES[domStyle] ?? `The ${domStyle} ${ERA_SUFFIXES[3]}`,
+        years:         lastYear >= currentYear ? `${lastYear}–Today` : String(lastYear),
+        dominantStyle: domStyle.toUpperCase(),
+        coverAlbum:    lastRec.cover_url
+          ? { artist: lastRec.artist, album: lastRec.album, coverUrl: lastRec.cover_url }
+          : null,
+      });
+    }
+
+    return phases;
   })();
 
   // ── Geographic DNA ─────────────────────────────────────────────────────────
