@@ -339,21 +339,21 @@ const INSIGHTS = [
 // xF/yF are fractions of the canvas; match the POSITIONS of nearby artists.
 
 const GENRE_MARKS = [
-  { text: "FOLK",              xF: 0.08, yF: 0.46, size: 62, rot: -0.06 }, // john_fahey region
-  { text: "AMERICANA",         xF: 0.18, yF: 0.80, size: 44, rot:  0.04 }, // smog/songs_ohia region
-  { text: "SINGER-SONGWRITER", xF: 0.36, yF: 0.16, size: 28, rot: -0.03 }, // bob_dylan/neil_young area
-  { text: "ALT-COUNTRY",       xF: 0.50, yF: 0.40, size: 32, rot:  0.02 }, // wilco area (not psychedelic!)
-  { text: "COUNTRY",           xF: 0.20, yF: 0.88, size: 38, rot:  0.05 }, // townes/lee_hazlewood area
-  { text: "GOTHIC",            xF: 0.46, yF: 0.82, size: 44, rot:  0.06 }, // nick_cave/birthday_party area
-  { text: "BLUES",             xF: 0.64, yF: 0.74, size: 40, rot: -0.04 }, // nina_simone area
-  { text: "PSYCHEDELIC",       xF: 0.70, yF: 0.28, size: 52, rot:  0.03 }, // pink_floyd/doors area
-  { text: "KRAUTROCK",         xF: 0.82, yF: 0.20, size: 44, rot: -0.07 }, // can area
-  { text: "NOISE ROCK",        xF: 0.76, yF: 0.52, size: 36, rot:  0.05 }, // nirvana/thurston area
-  { text: "AVANT-GARDE",       xF: 0.38, yF: 0.54, size: 32, rot: -0.05 }, // general experimental
-  { text: "DRONE",             xF: 0.88, yF: 0.76, size: 54, rot: -0.04 }, // grouper/kali_malone area
-  { text: "AMBIENT",           xF: 0.90, yF: 0.88, size: 38, rot:  0.06 }, // far right bottom
-  { text: "ELECTRONIC",        xF: 0.92, yF: 0.28, size: 48, rot: -0.03 }, // skee_mask/bjork area
-  { text: "JAZZ",              xF: 0.58, yF: 0.56, size: 60, rot: -0.02 }, // miles_davis area
+  { text: "FOLK",              xF: 0.03, yF: 0.46, size: 62, rot: -0.06 },
+  { text: "AMERICANA",         xF: 0.13, yF: 0.80, size: 44, rot:  0.04 },
+  { text: "SINGER-SONGWRITER", xF: 0.31, yF: 0.16, size: 28, rot: -0.03 },
+  { text: "ALT-COUNTRY",       xF: 0.45, yF: 0.40, size: 32, rot:  0.02 },
+  { text: "COUNTRY",           xF: 0.15, yF: 0.88, size: 38, rot:  0.05 },
+  { text: "GOTHIC",            xF: 0.41, yF: 0.82, size: 44, rot:  0.06 },
+  { text: "BLUES",             xF: 0.59, yF: 0.74, size: 40, rot: -0.04 },
+  { text: "PSYCHEDELIC",       xF: 0.65, yF: 0.28, size: 52, rot:  0.03 },
+  { text: "KRAUTROCK",         xF: 0.77, yF: 0.20, size: 44, rot: -0.07 },
+  { text: "NOISE ROCK",        xF: 0.71, yF: 0.52, size: 36, rot:  0.05 },
+  { text: "AVANT-GARDE",       xF: 0.33, yF: 0.54, size: 32, rot: -0.05 },
+  { text: "DRONE",             xF: 0.83, yF: 0.76, size: 54, rot: -0.04 },
+  { text: "AMBIENT",           xF: 0.85, yF: 0.88, size: 38, rot:  0.06 },
+  { text: "ELECTRONIC",        xF: 0.87, yF: 0.28, size: 48, rot: -0.03 },
+  { text: "JAZZ",              xF: 0.53, yF: 0.56, size: 60, rot: -0.02 },
 ];
 
 // ── Utilities ──────────────────────────────────────────────────────────────────
@@ -539,8 +539,13 @@ export default function ConstellationPOC({ username }: Props) {
       const posMap = new Map<string, [number, number]>();
       const consumed = new Set<string>(); // lowercase keys from albumCounts that matched a curated node
 
+      // Shift x positions left so the dense central cluster (folk/rock/gothic) sits inside the
+      // circular frame. The raw centroid of POSITIONS is ~x=0.55; shift to ~0.50.
+      const X_SHIFT = -0.05;
+
       const curatedNodes: ArtistNode[] = Object.entries(POSITIONS).map(([id, [xF, yF]]) => {
-        posMap.set(id, [xF, yF]);
+        const axF = clamp(xF + X_SHIFT, 0.01, 0.99);
+        posMap.set(id, [axF, yF]);
         const displayName = findDisplayName(id) ?? id.replace(/_/g, " ");
         let count = 0;
         if (username) {
@@ -557,8 +562,8 @@ export default function ConstellationPOC({ username }: Props) {
         const h = strHash(id);
         return {
           id, name: displayName, albums: count, owned,
-          x: xF * W + (seededRng(h)     - 0.5) * 40,
-          y: yF * H + (seededRng(h + 1) - 0.5) * 40,
+          x: axF * W + (seededRng(h)     - 0.5) * 40,
+          y: yF  * H + (seededRng(h + 1) - 0.5) * 40,
           vx: 0, vy: 0,
           radius: owned ? 6 + Math.sqrt(count) * 2.4 : 7,
         };
@@ -590,7 +595,7 @@ export default function ConstellationPOC({ username }: Props) {
             xF = 0.5 + Math.cos(angle) * dist;
             yF = 0.5 + Math.sin(angle) * dist * 0.78;
           }
-          xF = clamp(xF, 0.03, 0.97);
+          xF = clamp(xF + X_SHIFT, 0.01, 0.99);
           yF = clamp(yF, 0.03, 0.97);
           posMap.set(id, [xF, yF]);
           extraNodes.push({
