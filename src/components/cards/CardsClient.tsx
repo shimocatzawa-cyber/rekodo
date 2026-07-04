@@ -10,10 +10,6 @@ const INK    = "#0a0a0a";
 const ORANGE = "#CC5500";
 const RULE   = "#e0e0da";
 
-const ROMAN = [
-  "", "I", "II", "III", "IV", "V", "VI", "VII", "VIII", "IX", "X",
-  "XI", "XII", "XIII", "XIV", "XV", "XVI", "XVII", "XVIII", "XIX", "XX", "XXI", "XXII",
-];
 
 type UserCardRow = {
   card_id: string;
@@ -150,25 +146,6 @@ function CardSlot({ def, userCard, pendingReveal, onFlipEnd }: SlotProps) {
                 alt={def.name}
                 style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
               />
-              <div style={{
-                position: "absolute", bottom: 0, left: 0, right: 0,
-                padding: "24px 10px 10px",
-                background: "linear-gradient(to bottom, transparent, rgba(10,10,10,0.78))",
-              }}>
-                <div style={{
-                  fontFamily: MONO, fontSize: 8,
-                  letterSpacing: "0.14em", color: "rgba(255,255,255,0.45)",
-                  marginBottom: 3,
-                }}>
-                  {ROMAN[def.number]}
-                </div>
-                <div style={{
-                  fontFamily: SERIF, fontSize: 12,
-                  color: "#ffffff", lineHeight: 1.2,
-                }}>
-                  {def.name}
-                </div>
-              </div>
               {hovered && formattedDate && (
                 <div style={{
                   position: "absolute", inset: 0,
