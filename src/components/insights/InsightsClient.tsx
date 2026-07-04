@@ -89,7 +89,7 @@ export interface InsightsProps {
   isAdmin:      boolean;
   eraPhases:    import("@/components/insights/CollectionStoryV2Modal").EraPhase[];
   biggestCollectingYear: number | null;
-  anomalyRecord: { artist: string; album: string } | null;
+  anomalyRecord: { artist: string; album: string; coverUrl: string | null } | null;
   dailyPick:    DailyPickData | null;
   onThisDay:    OnThisDayPick | null;
   usageStats:   {

@@ -35,12 +35,14 @@ interface CardProps {
   biggestCollectingYear: number | null;
   eraPhases:            EraPhase[];
   anomalyRecord:        { artist: string; album: string } | null;
+  anomalyCoverSrc:      string | null;
   coverSrcs:            CoverSrcs;
   forExport?:           boolean;
 }
 
-interface Props extends Omit<CardProps, "coverSrcs" | "forExport"> {
+interface Props extends Omit<CardProps, "coverSrcs" | "forExport" | "anomalyCoverSrc" | "anomalyRecord"> {
   onClose: () => void;
+  anomalyRecord: { artist: string; album: string; coverUrl: string | null } | null;
 }
 
 async function blobToDataUrl(blob: Blob): Promise<string> {
@@ -74,7 +76,7 @@ async function loadCovers(phases: EraPhase[]): Promise<CoverSrcs> {
 // ── Card ──────────────────────────────────────────────────────────────────
 function StoryV2Card({
   username, totalRecords, countryCount, yearRange, biggestCollectingYear,
-  eraPhases, anomalyRecord, coverSrcs, forExport = false,
+  eraPhases, anomalyRecord, anomalyCoverSrc, coverSrcs, forExport = false,
 }: CardProps) {
   const PAD     = 28;
   const GAP     = 12;
@@ -85,7 +87,7 @@ function StoryV2Card({
   const yearSpan = yearRange ? yearRange.newest - yearRange.oldest : null;
 
   const stats: { value: string; label: string }[] = [
-    { value: totalRecords.toLocaleString(), label: "Records Owned" },
+    { value: totalRecords.toLocaleString(), label: "Items in Collection" },
     ...(countryCount > 0 ? [{ value: String(countryCount), label: "Countries" }] : []),
     ...(yearSpan != null && yearSpan > 0 ? [{ value: String(yearSpan + 1), label: `Years of Music\n(${yearRange!.oldest}–${yearRange!.newest})` }] : []),
     ...(biggestCollectingYear ? [{ value: String(biggestCollectingYear), label: "Biggest\nCollecting Year" }] : []),
@@ -97,7 +99,7 @@ function StoryV2Card({
       {/* ── Header ── */}
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", padding: `36px ${PAD}px 0` }}>
         <div style={{ fontFamily: SERIF, fontSize: 34, fontWeight: 700, color: INK, lineHeight: 1.05, letterSpacing: "-0.02em" }}>
-          My Collection Story
+          Collection Story
         </div>
         <div style={{ fontFamily: SERIF, fontSize: 22, fontWeight: 600, color: INK, lineHeight: 1, flexShrink: 0, paddingTop: 4 }}>
           rek<span style={{ color: ORANGE }}>ō</span>do
@@ -211,31 +213,37 @@ function StoryV2Card({
         {anomalyRecord && (
           <div style={{ marginBottom: 20 }}>
             {/* Section label */}
-            <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 12 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 14 }}>
               <div style={{ flex: 1, height: 1, background: RULE }} />
               <div style={{
                 fontFamily: MONO, fontSize: 9.5, letterSpacing: "0.18em",
                 textTransform: "uppercase", color: MUTED, flexShrink: 0,
               }}>
-                The Anomaly
+                Shadow Side
               </div>
               <div style={{ flex: 1, height: 1, background: RULE }} />
             </div>
-            {/* Boxed artist + album */}
-            <div style={{
-              border: `1px solid ${RULE}`, padding: "12px 16px",
-              background: ART_BG,
-            }}>
-              <div style={{
-                fontFamily: SERIF, fontSize: 15, fontWeight: 700, color: INK,
-                marginBottom: 4, letterSpacing: "-0.01em",
-              }}>
-                {anomalyRecord.artist}
-              </div>
-              <div style={{
-                fontFamily: MONO, fontSize: 10, letterSpacing: "0.04em", color: INK,
-              }}>
-                {anomalyRecord.album}
+            {/* Small cover + artist/album centred */}
+            <div style={{ display: "flex", justifyContent: "center", alignItems: "center", gap: 12 }}>
+              {forExport ? (
+                <div data-shadow-cover style={{ width: 44, height: 44, background: ART_BG, flexShrink: 0 }} />
+              ) : (
+                <div style={{
+                  width: 44, height: 44, background: ART_BG, flexShrink: 0,
+                  backgroundImage: anomalyCoverSrc ? `url(${anomalyCoverSrc})` : "none",
+                  backgroundSize: "cover", backgroundPosition: "center",
+                }} />
+              )}
+              <div>
+                <div style={{
+                  fontFamily: SERIF, fontSize: 14, fontWeight: 700, color: INK,
+                  marginBottom: 3, letterSpacing: "-0.01em",
+                }}>
+                  {anomalyRecord.artist}
+                </div>
+                <div style={{ fontFamily: MONO, fontSize: 10, letterSpacing: "0.04em", color: INK }}>
+                  {anomalyRecord.album}
+                </div>
               </div>
             </div>
           </div>
@@ -299,12 +307,13 @@ function StoryV2Card({
 }
 
 // ── Modal ─────────────────────────────────────────────────────────────────
-export default function CollectionStoryV2Modal({ onClose, eraPhases, ...cardProps }: Props) {
-  const [coverSrcs,    setCoverSrcs]    = useState<CoverSrcs>({});
-  const [coversLoaded, setCoversLoaded] = useState(eraPhases.every(p => !p.coverAlbum));
-  const [cardH,        setCardH]        = useState<number | null>(null);
-  const [exporting,    setExporting]    = useState(false);
-  const [copyState,    setCopyState]    = useState<"idle" | "copied" | "failed">("idle");
+export default function CollectionStoryV2Modal({ onClose, eraPhases, anomalyRecord, ...cardProps }: Props) {
+  const [coverSrcs,       setCoverSrcs]       = useState<CoverSrcs>({});
+  const [coversLoaded,    setCoversLoaded]    = useState(eraPhases.every(p => !p.coverAlbum));
+  const [anomalyCoverSrc, setAnomalyCoverSrc] = useState<string | null>(null);
+  const [cardH,           setCardH]           = useState<number | null>(null);
+  const [exporting,       setExporting]       = useState(false);
+  const [copyState,       setCopyState]       = useState<"idle" | "copied" | "failed">("idle");
   const [scale, setScale] = useState(() => {
     if (typeof window === "undefined") return 508 / CARD_W;
     const avail = Math.min(560, window.innerWidth - 48) - 40;
@@ -315,6 +324,16 @@ export default function CollectionStoryV2Modal({ onClose, eraPhases, ...cardProp
   useEffect(() => {
     if (eraPhases.every(p => !p.coverAlbum)) return;
     loadCovers(eraPhases).then((srcs) => { setCoverSrcs(srcs); setCoversLoaded(true); });
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    const url = anomalyRecord?.coverUrl;
+    if (!url) return;
+    fetch(`/api/image-proxy?url=${encodeURIComponent(url)}`)
+      .then(r => r.ok ? r.blob() : Promise.reject())
+      .then(blobToDataUrl)
+      .then(setAnomalyCoverSrc)
+      .catch(() => {});
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
@@ -362,7 +381,7 @@ export default function CollectionStoryV2Modal({ onClose, eraPhases, ...cardProp
       img.src = layoutDataUrl;
     });
 
-    // Overlay each cover image at its slot position
+    // Overlay each era cover image at its slot position
     await Promise.all(slotRects.map(({ idx, x, y, w, h }) => {
       const dataUrl = coverSrcs[idx];
       if (!dataUrl) return Promise.resolve();
@@ -373,6 +392,20 @@ export default function CollectionStoryV2Modal({ onClose, eraPhases, ...cardProp
         img.src = dataUrl;
       });
     }));
+
+    // Overlay shadow side cover
+    const shadowSlot = exportRef.current.querySelector<HTMLElement>("[data-shadow-cover]");
+    if (shadowSlot && anomalyCoverSrc) {
+      const r  = shadowSlot.getBoundingClientRect();
+      const sx = r.left - cardBCR.left;
+      const sy = r.top  - cardBCR.top;
+      await new Promise<void>((resolve) => {
+        const img = new Image();
+        img.onload  = () => { ctx.drawImage(img, sx * PR, sy * PR, r.width * PR, r.height * PR); resolve(); };
+        img.onerror = () => resolve();
+        img.src = anomalyCoverSrc;
+      });
+    }
 
     return canvas;
   }
@@ -417,7 +450,7 @@ export default function CollectionStoryV2Modal({ onClose, eraPhases, ...cardProp
       {/* Off-screen export target */}
       <div style={{ position: "fixed", left: -9999, top: -9999, zIndex: -1 }}>
         <div ref={exportRef}>
-          <StoryV2Card {...cardProps} eraPhases={eraPhases} coverSrcs={coverSrcs} forExport />
+          <StoryV2Card {...cardProps} eraPhases={eraPhases} anomalyRecord={anomalyRecord} anomalyCoverSrc={anomalyCoverSrc} coverSrcs={coverSrcs} forExport />
         </div>
       </div>
 
@@ -436,7 +469,7 @@ export default function CollectionStoryV2Modal({ onClose, eraPhases, ...cardProp
           ) : (
             <div style={{ width: PRV_W, height: PRV_H, overflow: "hidden", flexShrink: 0, outline: "1px solid rgba(0,0,0,0.07)" }}>
               <div style={{ transform: `scale(${scale})`, transformOrigin: "top left", display: "inline-block" }}>
-                <StoryV2Card {...cardProps} eraPhases={eraPhases} coverSrcs={coverSrcs} />
+                <StoryV2Card {...cardProps} eraPhases={eraPhases} anomalyRecord={anomalyRecord} anomalyCoverSrc={anomalyCoverSrc} coverSrcs={coverSrcs} />
               </div>
             </div>
           )}

@@ -550,10 +550,14 @@ export default async function InsightsPage() {
 
       const withCover = styleLinks.filter(l => {
         const rec = recordsMap.get(l.record_id);
-        return rec?.cover_url && !isTestPressing(rec);
+        if (!rec?.cover_url || isTestPressing(rec)) return false;
+        // For the obscure pick, skip very low community_have — test pressings
+        // and private releases often slip the keyword filter but land here (e.g. Barwick).
+        if (pickObscure && (rec.community_have ?? 0) < 15) return false;
+        return true;
       });
       const essFirst  = [...withCover.filter(l => l.is_essential), ...withCover.filter(l => !l.is_essential)];
-      // Obscure era: prefer low community_have (rarest pressing). Top style: prefer high.
+      // Obscure era: prefer low community_have. Top style: prefer high.
       const sorted = pickObscure
         ? essFirst.sort((a, b) => (recordsMap.get(a.record_id)?.community_have ?? 9999) - (recordsMap.get(b.record_id)?.community_have ?? 9999))
         : essFirst.sort((a, b) => (recordsMap.get(b.record_id)?.community_have ?? 0)   - (recordsMap.get(a.record_id)?.community_have ?? 0));
@@ -674,7 +678,7 @@ export default async function InsightsPage() {
       const score = rec.styles.reduce((sum, s) => sum + (styleCounts.get(s?.trim() ?? "") ?? 0), 0);
       if (score < lowestScore) { lowestScore = score; picked = rec; }
     }
-    return picked ? { artist: picked.artist, album: picked.album } : null;
+    return picked ? { artist: picked.artist, album: picked.album, coverUrl: picked.cover_url ?? null } : null;
   })();
 
   // ── Geographic DNA ─────────────────────────────────────────────────────────
