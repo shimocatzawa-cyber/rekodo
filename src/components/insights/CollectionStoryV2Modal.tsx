@@ -128,8 +128,6 @@ function StoryV2Card({
           {eraPhases.map((phase, i) => {
             const color   = ERA_COLORS[i] ?? ERA_COLORS[0];
             const src     = coverSrcs[i] ?? null;
-            const coverH  = Math.round(colW * 1.2); // slight portrait crop for visual weight
-
             return (
               <div key={phase.eraNum} style={{ width: colW, flexShrink: 0, display: "flex", flexDirection: "column", alignItems: "center" }}>
 
@@ -154,17 +152,17 @@ function StoryV2Card({
                   </div>
                 )}
 
-                {/* Album cover */}
+                {/* Album cover — square */}
                 {forExport ? (
                   <div
                     data-cover-slot={i}
-                    style={{ width: colW, height: coverH, background: ART_BG, marginBottom: 8 }}
+                    style={{ width: colW, height: colW, background: ART_BG, marginBottom: 8 }}
                   />
                 ) : (
                   <div style={{
-                    width: colW, height: coverH, background: ART_BG,
+                    width: colW, height: colW, background: ART_BG,
                     backgroundImage: src ? `url(${src})` : "none",
-                    backgroundSize: "cover", backgroundPosition: "center top",
+                    backgroundSize: "cover", backgroundPosition: "center",
                     marginBottom: 8, flexShrink: 0,
                   }} />
                 )}
@@ -173,15 +171,15 @@ function StoryV2Card({
                 {phase.coverAlbum && (
                   <div style={{ width: "100%", marginBottom: 10, textAlign: "center" }}>
                     <div style={{
-                      fontFamily: MONO, fontSize: 7.5, letterSpacing: "0.06em",
+                      fontFamily: MONO, fontSize: 9, letterSpacing: "0.05em",
                       color: INK, fontWeight: 700,
                       overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
                     }}>
                       {phase.coverAlbum.artist}
                     </div>
                     <div style={{
-                      fontFamily: MONO, fontSize: 7, letterSpacing: "0.04em",
-                      color: MUTED,
+                      fontFamily: MONO, fontSize: 8.5, letterSpacing: "0.04em",
+                      color: INK,
                       overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
                     }}>
                       {phase.coverAlbum.album}

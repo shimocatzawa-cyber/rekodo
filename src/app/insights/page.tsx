@@ -527,6 +527,15 @@ export default async function InsightsPage() {
     const firstYear = new Date(firstLink.date_added!).getFullYear();
     const lastYear  = new Date(lastLink.date_added!).getFullYear();
 
+    // Exclude test pressings, acetates, and promos — they look bad as cover picks
+    const isTestPressing = (rec: RecordRow) => {
+      const f = (rec.format ?? "").toLowerCase();
+      const a = (rec.album  ?? "").toLowerCase();
+      return f.includes("test pressing") || a.includes("test pressing")
+          || f.includes("acetate")       || a.includes("acetate")
+          || f.includes("promo")         || a.includes("promo");
+    };
+
     // Helper: year range label + best cover for a style
     const buildStyleData = (style: string, pickObscure = false) => {
       const styleLinks = datedLinks.filter(l => recordsMap.get(l.record_id)?.styles?.includes(style));
@@ -537,7 +546,10 @@ export default async function InsightsPage() {
         ? (minYear === maxYear ? String(minYear) : `${minYear}–${maxYear}`)
         : null;
 
-      const withCover = styleLinks.filter(l => !!recordsMap.get(l.record_id)?.cover_url);
+      const withCover = styleLinks.filter(l => {
+        const rec = recordsMap.get(l.record_id);
+        return rec?.cover_url && !isTestPressing(rec);
+      });
       const essFirst  = [...withCover.filter(l => l.is_essential), ...withCover.filter(l => !l.is_essential)];
       // Obscure era: prefer low community_have (rarest pressing). Top style: prefer high.
       const sorted = pickObscure
@@ -586,7 +598,7 @@ export default async function InsightsPage() {
     // then pick the highest community_have record with a cover — "classic" feel.
     {
       const earlyPool    = datedLinks.slice(0, Math.max(10, Math.ceil(datedLinks.length * 0.25)));
-      const withCover    = earlyPool.filter(l => !!recordsMap.get(l.record_id)?.cover_url);
+      const withCover    = earlyPool.filter(l => { const rec = recordsMap.get(l.record_id); return rec?.cover_url && !isTestPressing(rec); });
       const essFirst     = [...withCover.filter(l => l.is_essential), ...withCover.filter(l => !l.is_essential)];
       const byPopularity = essFirst.sort((a, b) => (recordsMap.get(b.record_id)?.community_have ?? 0) - (recordsMap.get(a.record_id)?.community_have ?? 0));
       const pickedRec    = byPopularity[0] ? recordsMap.get(byPopularity[0].record_id) : firstRec;
