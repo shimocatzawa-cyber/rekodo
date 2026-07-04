@@ -36,13 +36,13 @@ function CardBack() {
     }}>
       <span style={{
         fontFamily: SERIF, fontWeight: 700,
-        fontSize: "clamp(18px, 5cqw, 28px)",
+        fontSize: 24,
         color: ORANGE, lineHeight: 1,
       }}>
         ō
       </span>
       <span style={{
-        fontFamily: MONO, fontSize: "clamp(5px, 1.4cqw, 8px)",
+        fontFamily: MONO, fontSize: 7,
         letterSpacing: "0.22em", color: "rgba(255,255,255,0.2)",
         textTransform: "uppercase",
       }}>
@@ -97,7 +97,7 @@ function CardSlot({ def, userCard, pendingReveal, onFlipEnd }: SlotProps) {
 
   return (
     <div
-      style={{ perspective: "700px", containerType: "inline-size" }}
+      style={{ perspective: "700px" }}
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
     >
@@ -132,14 +132,14 @@ function CardSlot({ def, userCard, pendingReveal, onFlipEnd }: SlotProps) {
                 background: "linear-gradient(to bottom, transparent, rgba(10,10,10,0.78))",
               }}>
                 <div style={{
-                  fontFamily: MONO, fontSize: "clamp(6px, 1.6cqw, 8px)",
+                  fontFamily: MONO, fontSize: 8,
                   letterSpacing: "0.14em", color: "rgba(255,255,255,0.45)",
                   marginBottom: 3,
                 }}>
                   {ROMAN[def.number]}
                 </div>
                 <div style={{
-                  fontFamily: SERIF, fontSize: "clamp(10px, 2.8cqw, 13px)",
+                  fontFamily: SERIF, fontSize: 12,
                   color: "#ffffff", lineHeight: 1.2,
                 }}>
                   {def.name}
@@ -153,14 +153,14 @@ function CardSlot({ def, userCard, pendingReveal, onFlipEnd }: SlotProps) {
                   flexDirection: "column", gap: 6,
                 }}>
                   <div style={{
-                    fontFamily: MONO, fontSize: "clamp(7px, 1.8cqw, 9px)",
+                    fontFamily: MONO, fontSize: 9,
                     letterSpacing: "0.14em", textTransform: "uppercase",
                     color: "rgba(255,255,255,0.45)",
                   }}>
                     Unlocked
                   </div>
                   <div style={{
-                    fontFamily: MONO, fontSize: "clamp(9px, 2.5cqw, 12px)",
+                    fontFamily: MONO, fontSize: 11,
                     color: "#ffffff", letterSpacing: "0.06em",
                   }}>
                     {formattedDate}

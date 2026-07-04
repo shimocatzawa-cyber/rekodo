@@ -337,7 +337,7 @@ export default function InsightsClient({
 
       {/* ── Tab bar ── */}
       <div className="rk-profile-tabs" style={{ display: "flex", justifyContent: "center", gap: "24px", paddingTop: "14px", paddingBottom: "2px", background: "#ffffff" }}>
-        {(["taste-profile", "collection", "cards"] as const).map((tab) => {
+        {(["taste-profile", "collection", ...(isAdmin ? ["cards" as const] : [])] as const).map((tab) => {
           const label = tab === "collection" ? "Collection" : tab === "cards" ? "Cards" : "Taste Profile";
           return (
             <button
@@ -1081,7 +1081,7 @@ export default function InsightsClient({
         </main>
       )}
 
-      {insightsTab === "cards" && (
+      {insightsTab === "cards" && isAdmin && (
         <main style={{ maxWidth: 960, margin: "0 auto", padding: "0 24px" }}>
           <CardsTab userId={userId} />
         </main>
