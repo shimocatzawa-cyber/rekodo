@@ -654,7 +654,7 @@ export default async function InsightsPage() {
       const sp = buildStyleData(obscureStyle, true);
       phases.push({
         eraNum:        3,
-        phaseName:     STYLE_PHASE_NAMES[obscureStyle] ?? `The ${obscureStyle} ${ERA_SUFFIXES[2]}`,
+        phaseName:     `${obscureStyle} Drift`,
         years:         sp.years,
         dominantStyle: obscureStyle.toUpperCase(),
         coverAlbum:    sp.coverAlbum,

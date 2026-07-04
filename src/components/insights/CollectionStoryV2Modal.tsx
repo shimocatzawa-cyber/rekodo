@@ -121,7 +121,7 @@ function StoryV2Card({
             fontFamily: MONO, fontSize: 9.5, letterSpacing: "0.18em",
             textTransform: "uppercase", color: MUTED, flexShrink: 0,
           }}>
-            Your Collection Had Four Lives
+            Your Collection Tells Four Stories
           </div>
           <div style={{ flex: 1, height: 1, background: RULE }} />
         </div>
