@@ -17,10 +17,9 @@ type UserCardRow = {
   revealed_at: string | null;
 };
 
-// ─── Card back placeholder ────────────────────────────────────────────────────
-// NOTE: this is a placeholder — replace with real card-back artwork
+// ─── Card back / locked face ──────────────────────────────────────────────────
 
-function CardBack() {
+function CardBack({ def }: { def?: CardDefinition }) {
   return (
     <div style={{
       width: "100%", height: "100%",
@@ -28,15 +27,37 @@ function CardBack() {
       border: "1.5px solid " + INK,
       boxSizing: "border-box",
       display: "flex", alignItems: "center", justifyContent: "center",
+      flexDirection: "column",
+      gap: def ? 6 : 0,
+      padding: "0 8px",
       userSelect: "none",
     }}>
       <span style={{
         fontFamily: SERIF, fontWeight: 700,
-        fontSize: 36,
+        fontSize: 20,
         color: ORANGE, lineHeight: 1,
       }}>
         ō
       </span>
+      {def && (
+        <>
+          <span style={{
+            fontFamily: MONO, fontSize: 7,
+            letterSpacing: "0.1em", textTransform: "uppercase",
+            color: INK, textAlign: "center",
+            lineHeight: 1.35, marginTop: 2,
+          }}>
+            {def.name}
+          </span>
+          <span style={{
+            fontFamily: MONO, fontSize: 6,
+            letterSpacing: "0.14em",
+            color: "rgba(10,10,10,0.38)",
+          }}>
+            {`RK-${String(def.number).padStart(3, "0")}`}
+          </span>
+        </>
+      )}
     </div>
   );
 }
@@ -174,7 +195,7 @@ function CardSlot({ def, userCard, pendingReveal, onFlipEnd }: SlotProps) {
           WebkitBackfaceVisibility: "hidden",
           transform: "rotateY(180deg)",
         }}>
-          <CardBack />
+          <CardBack def={def} />
         </div>
       </div>
     </div>
@@ -264,7 +285,7 @@ export default function CardsClient({ userId }: { userId: string }) {
           fontFamily: SERIF, fontWeight: 400, fontSize: 24,
           margin: "0 0 12px", lineHeight: 1.1, color: INK,
         }}>
-          {cards === null ? "—" : unlockedCount} of 22 revealed
+          {cards === null ? "—" : unlockedCount} of 22 collected
         </h2>
         <div style={{ width: 32, height: 1, background: RULE }} />
       </div>
