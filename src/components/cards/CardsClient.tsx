@@ -9,6 +9,7 @@ const MONO   = "var(--font-mono)";
 const INK    = "#0a0a0a";
 const ORANGE = "#CC5500";
 const RULE   = "#e0e0da";
+const WARM   = "#FDF6F0";
 
 
 type UserCardRow = {
@@ -28,8 +29,8 @@ function CardBack({ def }: { def?: CardDefinition }) {
       boxSizing: "border-box",
       display: "flex", alignItems: "center", justifyContent: "center",
       flexDirection: "column",
-      gap: def ? 6 : 0,
-      padding: "0 8px",
+      gap: def ? 4 : 0,
+      padding: "0 10px",
       userSelect: "none",
     }}>
       <span style={{
@@ -56,9 +57,193 @@ function CardBack({ def }: { def?: CardDefinition }) {
           }}>
             {`RK-${String(def.number).padStart(3, "0")}`}
           </span>
+          {def.hint && (
+            <>
+              <div style={{ width: "60%", height: "1px", background: RULE, margin: "5px 0 3px" }} />
+              <span style={{
+                fontFamily: MONO, fontSize: 7,
+                letterSpacing: "0.05em",
+                color: "rgba(10,10,10,0.32)",
+                textAlign: "center",
+                lineHeight: 1.55,
+              }}>
+                {def.hint}
+              </span>
+            </>
+          )}
         </>
       )}
     </div>
+  );
+}
+
+// ─── Detail panel (right drawer) ─────────────────────────────────────────────
+
+function CardPanel({
+  def,
+  userCard,
+  onClose,
+}: {
+  def: CardDefinition;
+  userCard: UserCardRow | null;
+  onClose: () => void;
+}) {
+  useEffect(() => {
+    const handle = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
+    window.addEventListener("keydown", handle);
+    return () => window.removeEventListener("keydown", handle);
+  }, [onClose]);
+
+  const isUnlocked = !!userCard;
+  const rk = `RK-${String(def.number).padStart(3, "0")}`;
+  const formattedDate = userCard?.unlocked_at
+    ? new Date(userCard.unlocked_at).toLocaleDateString("en-GB", {
+        day: "numeric", month: "long", year: "numeric",
+      })
+    : null;
+
+  return (
+    <>
+      {/* Backdrop */}
+      <div
+        onClick={onClose}
+        style={{
+          position: "fixed", inset: 0,
+          background: "rgba(10,10,10,0.22)",
+          zIndex: 90,
+        }}
+      />
+
+      {/* Panel */}
+      <div style={{
+        position: "fixed",
+        top: 0, right: 0,
+        width: "min(400px, 100vw)",
+        height: "100dvh",
+        background: "#ffffff",
+        borderLeft: `1px solid ${RULE}`,
+        boxShadow: "-12px 0 40px rgba(10,10,10,0.1)",
+        zIndex: 100,
+        display: "flex",
+        flexDirection: "column",
+        overflowY: "auto",
+      }}>
+        {/* Close bar */}
+        <div style={{
+          padding: "0.9rem 1.5rem",
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
+          borderBottom: `1px solid ${RULE}`,
+          flexShrink: 0,
+        }}>
+          <span style={{ fontFamily: MONO, fontSize: 8, letterSpacing: "0.18em", textTransform: "uppercase", color: "rgba(10,10,10,0.35)" }}>
+            Card Detail
+          </span>
+          <button
+            onClick={onClose}
+            style={{
+              fontFamily: MONO, fontSize: "0.65rem", letterSpacing: "0.1em",
+              color: "#aaa", background: "none", border: "none",
+              cursor: "pointer", padding: 0,
+            }}
+          >
+            CLOSE ×
+          </button>
+        </div>
+
+        {/* Card artwork */}
+        <div style={{
+          background: WARM,
+          padding: "2.5rem 2rem",
+          display: "flex",
+          justifyContent: "center",
+          flexShrink: 0,
+        }}>
+          {/* 5:8 ratio at 180px wide → 288px tall */}
+          <div style={{ width: 180, height: 288 }}>
+            {isUnlocked ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={def.image}
+                alt={def.name}
+                style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
+              />
+            ) : (
+              <CardBack def={def} />
+            )}
+          </div>
+        </div>
+
+        {/* Info */}
+        <div style={{ padding: "2rem 2rem 2.5rem", flex: 1 }}>
+          <div style={{
+            fontFamily: MONO, fontSize: 8,
+            letterSpacing: "0.18em", textTransform: "uppercase",
+            color: "rgba(10,10,10,0.35)",
+            marginBottom: 10,
+          }}>
+            {rk}
+          </div>
+          <h3 style={{
+            fontFamily: SERIF, fontSize: 26,
+            fontWeight: 400, color: INK,
+            margin: "0 0 16px",
+            letterSpacing: "-0.02em",
+            lineHeight: 1.1,
+          }}>
+            {def.name}
+          </h3>
+          <p style={{
+            fontFamily: MONO,
+            fontSize: "0.72rem",
+            letterSpacing: "0.04em",
+            color: INK,
+            lineHeight: 1.8,
+            margin: "0 0 28px",
+          }}>
+            {def.description}
+          </p>
+
+          <div style={{ borderTop: `1px solid ${RULE}`, paddingTop: 20 }}>
+            {isUnlocked ? (
+              <>
+                <div style={{
+                  fontFamily: MONO, fontSize: 8,
+                  letterSpacing: "0.18em", textTransform: "uppercase",
+                  color: "#aaa", marginBottom: 8,
+                }}>
+                  Unlocked
+                </div>
+                <div style={{ fontFamily: SERIF, fontSize: 16, color: INK, letterSpacing: "-0.01em" }}>
+                  {formattedDate}
+                </div>
+              </>
+            ) : (
+              <>
+                <div style={{
+                  fontFamily: MONO, fontSize: 8,
+                  letterSpacing: "0.18em", textTransform: "uppercase",
+                  color: ORANGE, marginBottom: 10,
+                }}>
+                  How to unlock
+                </div>
+                <p style={{
+                  fontFamily: MONO,
+                  fontSize: "0.72rem",
+                  letterSpacing: "0.04em",
+                  color: INK,
+                  lineHeight: 1.75,
+                  margin: 0,
+                }}>
+                  {def.hint}
+                </p>
+              </>
+            )}
+          </div>
+        </div>
+      </div>
+    </>
   );
 }
 
@@ -69,9 +254,10 @@ type SlotProps = {
   userCard: UserCardRow | null;
   pendingReveal: boolean;
   onFlipEnd: (cardId: string) => void;
+  onClick: () => void;
 };
 
-function CardSlot({ def, userCard, pendingReveal, onFlipEnd }: SlotProps) {
+function CardSlot({ def, userCard, pendingReveal, onFlipEnd, onClick }: SlotProps) {
   const [hovered, setHovered] = useState(false);
   const didFlipRef = useRef(false);
   const innerRef = useRef<HTMLDivElement>(null);
@@ -132,9 +318,10 @@ function CardSlot({ def, userCard, pendingReveal, onFlipEnd }: SlotProps) {
 
   return (
     <div
-      style={{ perspective: "700px" }}
+      style={{ perspective: "700px", cursor: "pointer" }}
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
+      onClick={onClick}
     >
       <div
         ref={innerRef}
@@ -207,6 +394,7 @@ function CardSlot({ def, userCard, pendingReveal, onFlipEnd }: SlotProps) {
 export default function CardsClient({ userId }: { userId: string }) {
   const [cards, setCards] = useState<UserCardRow[] | null>(null);
   const [flipping, setFlipping] = useState<Set<string>>(new Set());
+  const [selectedCardId, setSelectedCardId] = useState<string | null>(null);
 
   // Fetch user's cards on mount
   useEffect(() => {
@@ -276,26 +464,62 @@ export default function CardsClient({ userId }: { userId: string }) {
 
   const unlockedMap = new Map((cards ?? []).map(c => [c.card_id, c]));
   const unlockedCount = cards?.length ?? 0;
+  const total = CARD_DEFINITIONS.length;
+
+  const selectedDef = CARD_DEFINITIONS.find(d => d.id === selectedCardId) ?? null;
+  const selectedUserCard = selectedDef ? (unlockedMap.get(selectedDef.id) ?? null) : null;
 
   return (
     <div style={{ padding: "32px 0 64px" }}>
-      {/* Header */}
-      <div style={{ marginBottom: 36 }}>
-        <h2 style={{
-          fontFamily: SERIF, fontWeight: 400, fontSize: 24,
-          margin: "0 0 12px", lineHeight: 1.1, color: INK,
-        }}>
-          {cards === null ? "—" : unlockedCount} of 22 collected
-        </h2>
-        <div style={{ width: 32, height: 1, background: RULE }} />
+      <style>{`
+        .cards-grid { grid-template-columns: repeat(5, 1fr); }
+        @media (max-width: 640px) { .cards-grid { grid-template-columns: repeat(3, 1fr) !important; } }
+      `}</style>
+
+      {/* ── Luxury counter ── */}
+      <div style={{
+        display: "flex",
+        alignItems: "flex-end",
+        justifyContent: "flex-end",
+        marginBottom: 40,
+        gap: 20,
+      }}>
+        <div style={{ flex: 1, height: "1px", background: RULE, alignSelf: "center" }} />
+        <div style={{ textAlign: "right", flexShrink: 0 }}>
+          <div style={{
+            display: "flex",
+            alignItems: "baseline",
+            gap: 6,
+            justifyContent: "flex-end",
+            lineHeight: 1,
+          }}>
+            <span style={{
+              fontFamily: SERIF, fontSize: 56,
+              fontWeight: 400, color: INK, lineHeight: 1,
+            }}>
+              {cards === null ? "—" : unlockedCount}
+            </span>
+            <span style={{
+              fontFamily: MONO, fontSize: 15,
+              letterSpacing: "0.04em",
+              color: "rgba(10,10,10,0.3)",
+            }}>
+              / {total}
+            </span>
+          </div>
+          <div style={{
+            fontFamily: MONO, fontSize: 8,
+            letterSpacing: "0.2em", textTransform: "uppercase",
+            color: "rgba(10,10,10,0.32)",
+            marginTop: 4,
+          }}>
+            collected
+          </div>
+        </div>
       </div>
 
-      {/* 22-slot grid */}
-      <div style={{
-        display: "grid",
-        gridTemplateColumns: "repeat(auto-fill, minmax(130px, 1fr))",
-        gap: 16,
-      }}>
+      {/* ── 22-slot grid ── */}
+      <div className="cards-grid" style={{ display: "grid", gap: 14 }}>
         {CARD_DEFINITIONS.map((def) => (
           <CardSlot
             key={def.id}
@@ -303,9 +527,19 @@ export default function CardsClient({ userId }: { userId: string }) {
             userCard={unlockedMap.get(def.id) ?? null}
             pendingReveal={flipping.has(def.id)}
             onFlipEnd={handleFlipEnd}
+            onClick={() => setSelectedCardId(def.id)}
           />
         ))}
       </div>
+
+      {/* ── Detail panel ── */}
+      {selectedDef && (
+        <CardPanel
+          def={selectedDef}
+          userCard={selectedUserCard}
+          onClose={() => setSelectedCardId(null)}
+        />
+      )}
     </div>
   );
 }

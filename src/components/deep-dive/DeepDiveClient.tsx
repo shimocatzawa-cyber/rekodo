@@ -1634,57 +1634,151 @@ export default function DeepDiveClient({
 
       {/* ── Mobile layout ──────────────────────────────────────────────────── */}
       <div className="md:hidden">
-        {/* Artist picker */}
-        {mergedArtists.length > 0 && (
-          <div style={{ padding: "0.75rem 1rem", borderBottom: `1px solid ${RULE}` }}>
-            <select
-              value={selectedArtist ?? ""}
-              onChange={(e) => selectArtist(e.target.value)}
-              style={{
-                width: "100%",
-                fontFamily: MONO,
-                fontSize: "0.75rem",
-                letterSpacing: "0.06em",
-                color: selectedArtist ? ORANGE : INK,
-                background: "#ffffff",
-                border: "none",
-                borderBottom: `2px solid ${ORANGE}`,
-                padding: "0.5rem 0",
-                outline: "none",
-                cursor: "pointer",
-                appearance: "none",
-                WebkitAppearance: "none",
-              }}
-            >
-              <option value="" disabled>Select artist…</option>
-              {mergedArtists.map((a) => (
-                <option key={a.name} value={a.name}>{a.name}</option>
-              ))}
-            </select>
-            <button
-              type="button"
-              onClick={() => {
-                const idx = Math.floor(Math.random() * mergedArtists.length);
-                selectArtist(mergedArtists[idx].name);
-              }}
-              style={{
-                fontFamily: MONO, fontSize: "10px", letterSpacing: "0.06em",
-                color: ORANGE, background: "none", border: "none",
-                cursor: "pointer", padding: 0, marginTop: "10px",
-              }}
-            >
-              ↺ Randomiser
-            </button>
-          </div>
-        )}
+        {/* Artist selector */}
+        <div style={{ borderBottom: `1px solid ${RULE}` }}>
 
-        {mergedArtists.length === 0 && (
-          <div style={{ padding: "2rem 1rem" }}>
-            <p style={{ fontFamily: MONO, fontSize: "0.72rem", letterSpacing: "0.06em", color: INK, lineHeight: 1.6 }}>
-              Sync your Discogs collection first to unlock Deep Dive.
-            </p>
+          {/* Inside / Outside toggle */}
+          <div style={{ padding: "8px 1rem 0", display: "flex", gap: 16 }}>
+            {(["inside", "outside"] as const).map((m) => {
+              const active = searchMode === m;
+              return (
+                <button
+                  key={m}
+                  type="button"
+                  onClick={() => handleSearchModeSwitch(m)}
+                  style={{
+                    fontFamily: MONO, fontSize: "10px", letterSpacing: "0.08em",
+                    textTransform: "uppercase",
+                    color: active ? INK : "#bbb",
+                    background: "none", border: "none",
+                    borderBottom: `1.5px solid ${active ? ORANGE : "transparent"}`,
+                    padding: "4px 0", cursor: active ? "default" : "pointer",
+                  }}
+                >
+                  {m === "inside" ? "Inside Collection" : "Outside Collection"}
+                </button>
+              );
+            })}
           </div>
-        )}
+
+          {/* Search input */}
+          <input
+            type="text"
+            value={query}
+            onChange={(e) => handleQueryChange(e.target.value)}
+            placeholder={searchMode === "inside" ? t("searchYourArtists") : t("searchAnyArtist")}
+            style={{
+              width: "100%",
+              fontFamily: MONO,
+              fontSize: "0.75rem",
+              letterSpacing: "0.06em",
+              color: INK,
+              background: "#ffffff",
+              border: "none",
+              borderBottom: `1px solid ${RULE}`,
+              padding: "0.6rem 1rem",
+              outline: "none",
+              display: "block",
+              boxSizing: "border-box",
+            }}
+          />
+
+          {/* Inside Collection: filtered artist list */}
+          {searchMode === "inside" && mergedArtists.length > 0 && (
+            <div style={{ maxHeight: 220, overflowY: "auto" }}>
+              {filtered.map((a) => (
+                <ArtistRow
+                  key={a.name}
+                  artist={a}
+                  isSelected={selectedArtist === a.name && !isExternalArtist}
+                  imageUrl={imageMap[a.name]}
+                  onSelect={selectArtist}
+                />
+              ))}
+              {filtered.length === 0 && query && (
+                <p style={{ fontFamily: MONO, fontSize: "0.68rem", letterSpacing: "0.06em", color: INK, padding: "0.75rem 1rem", margin: 0 }}>
+                  No artists match &ldquo;{query}&rdquo;
+                </p>
+              )}
+              {filtered.length === 0 && !query && favoritesOnly && (
+                <p style={{ fontFamily: MONO, fontSize: "0.68rem", letterSpacing: "0.06em", color: INK, padding: "0.75rem 1rem", margin: 0 }}>
+                  No favourites yet — click ♡ next to an artist&rsquo;s name to add one.
+                </p>
+              )}
+            </div>
+          )}
+
+          {searchMode === "inside" && mergedArtists.length === 0 && (
+            <div style={{ padding: "1rem" }}>
+              <p style={{ fontFamily: MONO, fontSize: "0.68rem", letterSpacing: "0.06em", color: INK, lineHeight: 1.6, margin: 0 }}>
+                Sync your Discogs collection first to unlock Deep Dive.
+              </p>
+            </div>
+          )}
+
+          {/* Outside Collection: Discogs results */}
+          {searchMode === "outside" && (
+            <div>
+              {discogsSearching && (
+                <p style={{ fontFamily: MONO, fontSize: "0.68rem", letterSpacing: "0.06em", color: "#aaa", padding: "0.75rem 1rem", margin: 0 }}>
+                  Searching…
+                </p>
+              )}
+              {!discogsSearching && discogsResults.map((r) => (
+                <button
+                  key={r.id}
+                  type="button"
+                  onClick={() => selectExternalArtist(r.name)}
+                  style={{
+                    display: "flex", alignItems: "center", gap: 10,
+                    width: "100%", textAlign: "left",
+                    padding: "0.6rem 1rem",
+                    background: selectedArtist === r.name ? WARM : "none",
+                    border: "none", borderBottom: `1px solid ${RULE}`,
+                    cursor: "pointer",
+                  }}
+                >
+                  {r.thumb
+                    // eslint-disable-next-line @next/next/no-img-element
+                    ? <img src={r.thumb} alt="" aria-hidden style={{ width: 32, height: 32, objectFit: "cover", flexShrink: 0 }} />
+                    : <div style={{ width: 32, height: 32, background: SUBTLE, flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: MONO, fontSize: "10px", color: "#aaa" }}>{r.name[0]}</div>
+                  }
+                  <span style={{ fontFamily: MONO, fontSize: "0.72rem", letterSpacing: "0.04em", color: INK }}>{r.name}</span>
+                </button>
+              ))}
+              {!discogsSearching && query.trim().length >= 2 && discogsResults.length === 0 && (
+                <p style={{ fontFamily: MONO, fontSize: "0.68rem", letterSpacing: "0.06em", color: INK, padding: "0.75rem 1rem", margin: 0 }}>
+                  No artists found for &ldquo;{query}&rdquo;
+                </p>
+              )}
+              {!query.trim() && (
+                <p style={{ fontFamily: MONO, fontSize: "0.68rem", letterSpacing: "0.06em", color: "#aaa", padding: "0.75rem 1rem", margin: 0, lineHeight: 1.6 }}>
+                  Search any artist to explore their essential albums.
+                </p>
+              )}
+            </div>
+          )}
+
+          {/* Randomiser — inside mode only */}
+          {searchMode === "inside" && mergedArtists.length > 0 && (
+            <div style={{ padding: "6px 1rem 8px" }}>
+              <button
+                type="button"
+                onClick={() => {
+                  const idx = Math.floor(Math.random() * mergedArtists.length);
+                  selectArtist(mergedArtists[idx].name);
+                }}
+                style={{
+                  fontFamily: MONO, fontSize: "10px", letterSpacing: "0.06em",
+                  color: ORANGE, background: "none", border: "none",
+                  cursor: "pointer", padding: 0,
+                }}
+              >
+                ↺ Randomiser
+              </button>
+            </div>
+          )}
+        </div>
 
         {/* Mobile content panel */}
         {RightPanelContent()}
