@@ -193,7 +193,7 @@ export default function AdminClient({
   archetypeBreakdown: [string, number][];
   signupsPerDay: { date: string; count: number }[];
   visitsPerDay: { date: string; count: number }[];
-  powerUsers: { user_id: string; username: string | null; display_name: string | null; subscription_tier: string | null; created_at: string; unique_days: number }[];
+  powerUsers: { user_id: string; username: string | null; display_name: string | null; subscription_tier: string | null; created_at: string; unique_days: number; last_active_at: string | null }[];
   starSignData: [string, number][];
 }) {
   const [activeTab, setActiveTab]             = useState<AdminTab>("users");
@@ -901,6 +901,7 @@ export default function AdminClient({
                     <th style={{ ...thSt, paddingLeft: 0, width: "40px" }}>#</th>
                     <th style={{ ...thSt }}>Username</th>
                     <th style={{ ...thSt, textAlign: "right" }}>Joined</th>
+                    <th style={{ ...thSt, textAlign: "right" }}>Last login</th>
                     <th style={{ ...thSt, textAlign: "right" }}>Unique days</th>
                     <th style={{ ...thSt, width: "200px" }}></th>
                     <th style={{ ...thSt, textAlign: "right" }}>% daily</th>
@@ -935,6 +936,11 @@ export default function AdminClient({
                         </td>
                         <td style={{ fontFamily: MONO, fontSize: "10px", color: MUTED, padding: "10px 16px", textAlign: "right", whiteSpace: "nowrap" }}>
                           {joinedLabel}
+                        </td>
+                        <td style={{ fontFamily: MONO, fontSize: "10px", color: MUTED, padding: "10px 16px", textAlign: "right", whiteSpace: "nowrap" }}>
+                          {u.last_active_at
+                            ? new Date(u.last_active_at).toLocaleDateString("en-AU", { day: "numeric", month: "short", year: "numeric" })
+                            : "—"}
                         </td>
                         <td style={{ fontFamily: MONO, fontSize: "11px", color: INK, padding: "10px 16px", textAlign: "right", whiteSpace: "nowrap" }}>
                           {u.unique_days.toLocaleString()}

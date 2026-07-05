@@ -134,7 +134,7 @@ export default async function AdminPage() {
     return { date, count: visitMap.get(date) ?? 0 };
   });
 
-  const powerUsers = (powerUsersResult.data ?? []) as {
+  const rawPowerUsers = (powerUsersResult.data ?? []) as {
     user_id: string;
     username: string | null;
     display_name: string | null;
@@ -142,6 +142,20 @@ export default async function AdminPage() {
     created_at: string;
     unique_days: number;
   }[];
+
+  const powerUserIds = rawPowerUsers.map(u => u.user_id);
+  const powerUserProfilesResult = powerUserIds.length > 0
+    ? await adminDb.from("profiles").select("id, last_active_at").in("id", powerUserIds)
+    : { data: [] };
+  const lastActiveMap = new Map(
+    ((powerUserProfilesResult.data ?? []) as { id: string; last_active_at: string | null }[])
+      .map(r => [r.id, r.last_active_at])
+  );
+
+  const powerUsers = rawPowerUsers.map(u => ({
+    ...u,
+    last_active_at: lastActiveMap.get(u.user_id) ?? null,
+  }));
 
   const starSignData: [string, number][] = ((starSignResult.data ?? []) as { star_sign: string; count: number }[])
     .map(r => [r.star_sign, Number(r.count)]);
