@@ -265,9 +265,9 @@ export type Database = {
         Relationships: [];
       };
 compatibility_scores: {
-        Row: { id: string; user_id_a: string; user_id_b: string; score: number; shared_tags: string[]; calculated_at: string };
-        Insert: { id?: string; user_id_a: string; user_id_b: string; score: number; shared_tags?: string[]; calculated_at?: string };
-        Update: { score?: number; shared_tags?: string[]; calculated_at?: string };
+        Row: { id: string; user_id_a: string; user_id_b: string; score: number; style_score: number | null; shared_tags: string[]; calculated_at: string };
+        Insert: { id?: string; user_id_a: string; user_id_b: string; score: number; style_score?: number | null; shared_tags?: string[]; calculated_at?: string };
+        Update: { score?: number; style_score?: number | null; shared_tags?: string[]; calculated_at?: string };
         Relationships: [];
       };
       follows: {

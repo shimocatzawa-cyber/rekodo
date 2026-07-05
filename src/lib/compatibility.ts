@@ -206,7 +206,7 @@ async function fetchUserProfile(supabase: SupabaseClient, userId: string): Promi
   return buildProfile(records, listArtists);
 }
 
-export type CompatibilityResult = { score: number; label: string; description: string; sharedTags: string[] };
+export type CompatibilityResult = { score: number; styleScore: number | null; label: string; description: string; sharedTags: string[] };
 
 export async function getOrComputeCompatibility(
   supabase: SupabaseClient,
@@ -218,7 +218,7 @@ export async function getOrComputeCompatibility(
   const cacheExpiry = new Date(Date.now() - CACHE_TTL_MS).toISOString();
   const { data: cached } = await supabase
     .from("compatibility_scores")
-    .select("score, shared_tags")
+    .select("score, style_score, shared_tags")
     .eq("user_id_a", viewerId)
     .eq("user_id_b", otherUserId)
     .gt("calculated_at", cacheExpiry)
@@ -226,7 +226,7 @@ export async function getOrComputeCompatibility(
 
   if (cached) {
     const { label, description } = compatibilityLabel(cached.score);
-    return { score: cached.score, label, description, sharedTags: cached.shared_tags ?? [] };
+    return { score: cached.score, styleScore: cached.style_score ?? null, label, description, sharedTags: cached.shared_tags ?? [] };
   }
 
   const [viewerProfile, otherProfile] = await Promise.all([
@@ -245,6 +245,7 @@ export async function getOrComputeCompatibility(
   }
 
   const score      = computeScore(viewerProfile, otherProfile, artistFreq);
+  const styleScore = computeStyleScore(viewerProfile, otherProfile);
   const sharedTags = buildSharedTags(viewerProfile, otherProfile, artistFreq);
   const { label, description } = compatibilityLabel(score);
 
@@ -259,11 +260,12 @@ export async function getOrComputeCompatibility(
       user_id_a: viewerId,
       user_id_b: otherUserId,
       score,
+      style_score: styleScore,
       shared_tags: sharedTags,
       calculated_at: new Date().toISOString(),
     },
     { onConflict: "user_id_a,user_id_b" }
   );
 
-  return { score, label, description, sharedTags };
+  return { score, styleScore, label, description, sharedTags };
 }

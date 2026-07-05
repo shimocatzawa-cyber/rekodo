@@ -202,7 +202,7 @@ export default async function PublicProfilePage({ params }: { params: Params }) 
       photoLikeCount={photoLikeCountRes.count ?? 0}
       photoLiked={(viewerLikedRes.count ?? 0) > 0}
       viewerId={viewer?.id ?? null}
-      compatibility={compatibility ? { score: compatibility.score, label: compatibility.label } : null}
+      compatibility={compatibility ? { score: compatibility.score, styleScore: compatibility.styleScore ?? null, label: compatibility.label } : null}
       essentials={essentials}
       essentialsLikeCount={essLikeCountRes.count ?? 0}
       essentialsLiked={(viewerEssLikedRes.count ?? 0) > 0}

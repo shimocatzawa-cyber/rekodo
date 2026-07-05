@@ -56,7 +56,7 @@ interface Props {
   photoLikeCount?: number;
   photoLiked?: boolean;
   viewerId?: string | null;
-  compatibility?: { score: number; label: string } | null;
+  compatibility?: { score: number; styleScore: number | null; label: string } | null;
   essentials?: { total: number; primaryGenre: string | null; primaryGenrePct: number; covers: { artist: string; album: string; coverUrl: string | null }[] } | null;
   essentialsLikeCount?: number;
   essentialsLiked?: boolean;
@@ -499,7 +499,7 @@ export default function ProfileClient({
                 {!isOwner && compatibility && (
                   <div style={{ margin: "0 0 16px 0" }}>
                     <p style={{ fontFamily: SERIF, fontStyle: "italic", fontSize: "0.95rem", color: "#404040", lineHeight: 1.35, margin: "0 0 4px" }}>
-                      {compatibility.label} — {compatibility.score}% Collection Similarity
+                      {compatibility.label} — {compatibility.score}% Collection Similarity{compatibility.styleScore !== null ? ` · ${compatibility.styleScore}% Style Similarity` : ""}
                     </p>
                     {COMPAT_DESCRIPTION[compatibility.label] && (
                       <p style={{ fontFamily: MONO, fontSize: "0.6rem", letterSpacing: "0.03em", color: MUTED, lineHeight: 1.6, margin: 0, maxWidth: 400 }}>
