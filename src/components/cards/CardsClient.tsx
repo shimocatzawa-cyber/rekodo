@@ -11,7 +11,6 @@ const ORANGE = "#CC5500";
 const RULE   = "#e0e0da";
 const WARM   = "#FDF6F0";
 
-
 type UserCardRow = {
   card_id: string;
   unlocked_at: string;
@@ -33,39 +32,26 @@ function CardBack({ def }: { def?: CardDefinition }) {
       padding: "0 10px",
       userSelect: "none",
     }}>
-      <span style={{
-        fontFamily: SERIF, fontWeight: 700,
-        fontSize: 30,
-        color: ORANGE, lineHeight: 1,
-      }}>
+      <span style={{ fontFamily: SERIF, fontWeight: 700, fontSize: 30, color: ORANGE, lineHeight: 1 }}>
         ō
       </span>
       {def && (
         <>
           <span style={{
-            fontFamily: MONO, fontSize: 10,
-            letterSpacing: "0.08em", textTransform: "uppercase",
-            color: INK, textAlign: "center",
-            lineHeight: 1.35, marginTop: 2,
+            fontFamily: MONO, fontSize: 10, letterSpacing: "0.08em", textTransform: "uppercase",
+            color: INK, textAlign: "center", lineHeight: 1.35, marginTop: 2,
           }}>
             {def.name}
           </span>
-          <span style={{
-            fontFamily: MONO, fontSize: 8,
-            letterSpacing: "0.12em",
-            color: "rgba(10,10,10,0.38)",
-          }}>
+          <span style={{ fontFamily: MONO, fontSize: 8, letterSpacing: "0.12em", color: "rgba(10,10,10,0.38)" }}>
             {`RK-${String(def.number).padStart(3, "0")}`}
           </span>
           {def.hint && (
             <>
               <div style={{ width: "60%", height: "1px", background: RULE, margin: "5px 0 3px" }} />
               <span style={{
-                fontFamily: MONO, fontSize: 7,
-                letterSpacing: "0.05em",
-                color: "rgba(10,10,10,0.32)",
-                textAlign: "center",
-                lineHeight: 1.55,
+                fontFamily: MONO, fontSize: 7, letterSpacing: "0.05em",
+                color: "rgba(10,10,10,0.32)", textAlign: "center", lineHeight: 1.55,
               }}>
                 {def.hint}
               </span>
@@ -77,16 +63,18 @@ function CardBack({ def }: { def?: CardDefinition }) {
   );
 }
 
-// ─── Detail panel (right drawer) ─────────────────────────────────────────────
+// ─── Panel inner content (shared by desktop sidebar + mobile overlay) ─────────
 
-function CardPanel({
+function CardPanelContent({
   def,
   userCard,
   onClose,
+  cardSize,
 }: {
   def: CardDefinition;
   userCard: UserCardRow | null;
   onClose: () => void;
+  cardSize: { w: number; h: number };
 }) {
   useEffect(() => {
     const handle = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
@@ -103,147 +91,104 @@ function CardPanel({
     : null;
 
   return (
-    <>
-      {/* Backdrop */}
-      <div
-        onClick={onClose}
-        style={{
-          position: "fixed", inset: 0,
-          background: "rgba(10,10,10,0.22)",
-          zIndex: 90,
-        }}
-      />
-
-      {/* Panel */}
+    <div style={{ display: "flex", flexDirection: "column", minHeight: "100%" }}>
+      {/* Close bar */}
       <div style={{
-        position: "fixed",
-        top: 0, right: 0,
-        width: "min(400px, 100vw)",
-        height: "100dvh",
-        background: "#ffffff",
-        borderLeft: `1px solid ${RULE}`,
-        boxShadow: "-12px 0 40px rgba(10,10,10,0.1)",
-        zIndex: 100,
-        display: "flex",
-        flexDirection: "column",
-        overflowY: "auto",
+        padding: "0.9rem 1.5rem",
+        display: "flex", justifyContent: "space-between", alignItems: "center",
+        borderBottom: `1px solid ${RULE}`,
+        flexShrink: 0,
       }}>
-        {/* Close bar */}
-        <div style={{
-          padding: "0.9rem 1.5rem",
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "center",
-          borderBottom: `1px solid ${RULE}`,
-          flexShrink: 0,
+        <span style={{
+          fontFamily: MONO, fontSize: 8, letterSpacing: "0.18em",
+          textTransform: "uppercase", color: "rgba(10,10,10,0.35)",
         }}>
-          <span style={{ fontFamily: MONO, fontSize: 8, letterSpacing: "0.18em", textTransform: "uppercase", color: "rgba(10,10,10,0.35)" }}>
-            Card Detail
-          </span>
-          <button
-            onClick={onClose}
-            style={{
-              fontFamily: MONO, fontSize: "0.65rem", letterSpacing: "0.1em",
-              color: "#aaa", background: "none", border: "none",
-              cursor: "pointer", padding: 0,
-            }}
-          >
-            CLOSE ×
-          </button>
-        </div>
+          Card Detail
+        </span>
+        <button
+          onClick={onClose}
+          style={{
+            fontFamily: MONO, fontSize: "0.65rem", letterSpacing: "0.1em",
+            color: "#aaa", background: "none", border: "none", cursor: "pointer", padding: 0,
+          }}
+        >
+          CLOSE ×
+        </button>
+      </div>
 
-        {/* Card artwork */}
-        <div style={{
-          background: WARM,
-          padding: "2.5rem 2rem",
-          display: "flex",
-          justifyContent: "center",
-          flexShrink: 0,
-        }}>
-          {/* 5:8 ratio at 180px wide → 288px tall */}
-          <div style={{ width: 180, height: 288 }}>
-            {isUnlocked ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img
-                src={def.image}
-                alt={def.name}
-                style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
-              />
-            ) : (
-              <CardBack def={def} />
-            )}
-          </div>
-        </div>
-
-        {/* Info */}
-        <div style={{ padding: "2rem 2rem 2.5rem", flex: 1 }}>
-          <div style={{
-            fontFamily: MONO, fontSize: 8,
-            letterSpacing: "0.18em", textTransform: "uppercase",
-            color: "rgba(10,10,10,0.35)",
-            marginBottom: 10,
-          }}>
-            {rk}
-          </div>
-          <h3 style={{
-            fontFamily: SERIF, fontSize: 26,
-            fontWeight: 400, color: INK,
-            margin: "0 0 16px",
-            letterSpacing: "-0.02em",
-            lineHeight: 1.1,
-          }}>
-            {def.name}
-          </h3>
-          <p style={{
-            fontFamily: MONO,
-            fontSize: "0.72rem",
-            letterSpacing: "0.04em",
-            color: INK,
-            lineHeight: 1.8,
-            margin: "0 0 28px",
-          }}>
-            {def.description}
-          </p>
-
-          <div style={{ borderTop: `1px solid ${RULE}`, paddingTop: 20 }}>
-            {isUnlocked ? (
-              <>
-                <div style={{
-                  fontFamily: MONO, fontSize: 8,
-                  letterSpacing: "0.18em", textTransform: "uppercase",
-                  color: "#aaa", marginBottom: 8,
-                }}>
-                  Unlocked
-                </div>
-                <div style={{ fontFamily: SERIF, fontSize: 16, color: INK, letterSpacing: "-0.01em" }}>
-                  {formattedDate}
-                </div>
-              </>
-            ) : (
-              <>
-                <div style={{
-                  fontFamily: MONO, fontSize: 8,
-                  letterSpacing: "0.18em", textTransform: "uppercase",
-                  color: ORANGE, marginBottom: 10,
-                }}>
-                  How to unlock
-                </div>
-                <p style={{
-                  fontFamily: MONO,
-                  fontSize: "0.72rem",
-                  letterSpacing: "0.04em",
-                  color: INK,
-                  lineHeight: 1.75,
-                  margin: 0,
-                }}>
-                  {def.hint}
-                </p>
-              </>
-            )}
-          </div>
+      {/* Card artwork */}
+      <div style={{
+        background: WARM, flexShrink: 0,
+        display: "flex", justifyContent: "center", alignItems: "center",
+        padding: "2.5rem 2rem",
+      }}>
+        <div style={{ width: cardSize.w, height: cardSize.h }}>
+          {isUnlocked ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={def.image}
+              alt={def.name}
+              style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
+            />
+          ) : (
+            <CardBack def={def} />
+          )}
         </div>
       </div>
-    </>
+
+      {/* Info */}
+      <div style={{ padding: "2rem 2rem 2.5rem", flex: 1 }}>
+        <div style={{
+          fontFamily: MONO, fontSize: 8, letterSpacing: "0.18em",
+          textTransform: "uppercase", color: "rgba(10,10,10,0.35)", marginBottom: 10,
+        }}>
+          {rk}
+        </div>
+        <h3 style={{
+          fontFamily: SERIF, fontSize: 26, fontWeight: 400, color: INK,
+          margin: "0 0 16px", letterSpacing: "-0.02em", lineHeight: 1.1,
+        }}>
+          {def.name}
+        </h3>
+        <p style={{
+          fontFamily: MONO, fontSize: "0.72rem", letterSpacing: "0.04em",
+          color: INK, lineHeight: 1.8, margin: "0 0 28px",
+        }}>
+          {def.description}
+        </p>
+
+        <div style={{ borderTop: `1px solid ${RULE}`, paddingTop: 20 }}>
+          {isUnlocked ? (
+            <>
+              <div style={{
+                fontFamily: MONO, fontSize: 8, letterSpacing: "0.18em",
+                textTransform: "uppercase", color: "#aaa", marginBottom: 8,
+              }}>
+                Unlocked
+              </div>
+              <div style={{ fontFamily: SERIF, fontSize: 16, color: INK, letterSpacing: "-0.01em" }}>
+                {formattedDate}
+              </div>
+            </>
+          ) : (
+            <>
+              <div style={{
+                fontFamily: MONO, fontSize: 8, letterSpacing: "0.18em",
+                textTransform: "uppercase", color: ORANGE, marginBottom: 10,
+              }}>
+                How to unlock
+              </div>
+              <p style={{
+                fontFamily: MONO, fontSize: "0.72rem", letterSpacing: "0.04em",
+                color: INK, lineHeight: 1.75, margin: 0,
+              }}>
+                {def.hint}
+              </p>
+            </>
+          )}
+        </div>
+      </div>
+    </div>
   );
 }
 
@@ -253,23 +198,21 @@ type SlotProps = {
   def: CardDefinition;
   userCard: UserCardRow | null;
   pendingReveal: boolean;
+  isSelected: boolean;
   onFlipEnd: (cardId: string) => void;
   onClick: () => void;
 };
 
-function CardSlot({ def, userCard, pendingReveal, onFlipEnd, onClick }: SlotProps) {
+function CardSlot({ def, userCard, pendingReveal, isSelected, onFlipEnd, onClick }: SlotProps) {
   const [hovered, setHovered] = useState(false);
   const didFlipRef = useRef(false);
   const innerRef = useRef<HTMLDivElement>(null);
 
-  // Set initial back position via DOM so React never owns the transform prop.
-  // This prevents React re-renders from overriding our direct manipulation below.
   useEffect(() => {
     const el = innerRef.current;
     if (el) el.style.transform = "rotateY(180deg)";
-  }, []); // mount only
+  }, []);
 
-  // When data arrives and this card is already revealed, jump straight to front.
   useEffect(() => {
     if (!userCard?.revealed_at) return;
     const el = innerRef.current;
@@ -278,28 +221,16 @@ function CardSlot({ def, userCard, pendingReveal, onFlipEnd, onClick }: SlotProp
     el.style.transform = "rotateY(0deg)";
   }, [userCard?.revealed_at]);
 
-  // Play the flip animation using direct DOM manipulation.
-  // React-state-driven CSS transitions are unreliable in React 18 concurrent mode
-  // because React can batch/defer commits, meaning the browser may never observe
-  // the 180deg starting position before the 0deg target is committed.
-  // offsetHeight forces a synchronous reflow that guarantees the starting position
-  // is committed before the transition begins.
   useEffect(() => {
     if (!pendingReveal || didFlipRef.current) return;
     didFlipRef.current = true;
-
     const el = innerRef.current;
     if (!el) return;
-
-    // Commit back position with no transition, then force reflow.
     el.style.transition = "none";
     el.style.transform = "rotateY(180deg)";
-    void el.offsetHeight; // ← synchronous reflow; browser commits 180deg here
-
-    // Now start the animated flip to front.
+    void el.offsetHeight;
     el.style.transition = "transform 1.5s cubic-bezier(0.4, 0, 0.2, 1)";
     el.style.transform = "rotateY(0deg)";
-
     const handleEnd = (e: TransitionEvent) => {
       if (e.propertyName !== "transform") return;
       el.removeEventListener("transitionend", handleEnd);
@@ -318,53 +249,42 @@ function CardSlot({ def, userCard, pendingReveal, onFlipEnd, onClick }: SlotProp
 
   return (
     <div
-      style={{ perspective: "700px", cursor: "pointer" }}
+      style={{
+        perspective: "700px", cursor: "pointer",
+        outline: isSelected ? `2px solid ${ORANGE}` : "2px solid transparent",
+        outlineOffset: 2,
+        transition: "outline-color 0.15s",
+      }}
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
       onClick={onClick}
     >
       <div
         ref={innerRef}
-        style={{
-          position: "relative",
-          aspectRatio: "5 / 8",
-          transformStyle: "preserve-3d",
-          // transform intentionally absent — owned entirely by the ref effects above
-        }}
+        style={{ position: "relative", aspectRatio: "5 / 8", transformStyle: "preserve-3d" }}
       >
-        {/* ── Front face ── */}
+        {/* Front face */}
         <div style={{
           position: "absolute", inset: 0,
-          backfaceVisibility: "hidden",
-          WebkitBackfaceVisibility: "hidden",
-          overflow: "hidden",
+          backfaceVisibility: "hidden", WebkitBackfaceVisibility: "hidden", overflow: "hidden",
         }}>
           {userCard ? (
             <div style={{ position: "relative", width: "100%", height: "100%", background: "#111" }}>
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
-                src={def.image}
-                alt={def.name}
+                src={def.image} alt={def.name}
                 style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
               />
               {hovered && formattedDate && (
                 <div style={{
-                  position: "absolute", inset: 0,
-                  background: "rgba(10,10,10,0.62)",
+                  position: "absolute", inset: 0, background: "rgba(10,10,10,0.62)",
                   display: "flex", alignItems: "center", justifyContent: "center",
                   flexDirection: "column", gap: 6,
                 }}>
-                  <div style={{
-                    fontFamily: MONO, fontSize: 9,
-                    letterSpacing: "0.14em", textTransform: "uppercase",
-                    color: "rgba(255,255,255,0.45)",
-                  }}>
+                  <div style={{ fontFamily: MONO, fontSize: 9, letterSpacing: "0.14em", textTransform: "uppercase", color: "rgba(255,255,255,0.45)" }}>
                     Unlocked
                   </div>
-                  <div style={{
-                    fontFamily: MONO, fontSize: 11,
-                    color: "#ffffff", letterSpacing: "0.06em",
-                  }}>
+                  <div style={{ fontFamily: MONO, fontSize: 11, color: "#ffffff", letterSpacing: "0.06em" }}>
                     {formattedDate}
                   </div>
                 </div>
@@ -375,11 +295,10 @@ function CardSlot({ def, userCard, pendingReveal, onFlipEnd, onClick }: SlotProp
           )}
         </div>
 
-        {/* ── Back face ── */}
+        {/* Back face */}
         <div style={{
           position: "absolute", inset: 0,
-          backfaceVisibility: "hidden",
-          WebkitBackfaceVisibility: "hidden",
+          backfaceVisibility: "hidden", WebkitBackfaceVisibility: "hidden",
           transform: "rotateY(180deg)",
         }}>
           <CardBack def={def} />
@@ -391,10 +310,40 @@ function CardSlot({ def, userCard, pendingReveal, onFlipEnd, onClick }: SlotProp
 
 // ─── Cards tab (embedded in Insights) ────────────────────────────────────────
 
+const PANEL_WIDTH = 440;
+// Card in panel: 360×576 (5:8, double the old 180×288)
+const PANEL_CARD = { w: 360, h: 576 };
+// Card in mobile overlay: slightly smaller but still generous
+const MOBILE_CARD = { w: 260, h: 416 };
+
 export default function CardsClient({ userId }: { userId: string }) {
   const [cards, setCards] = useState<UserCardRow[] | null>(null);
   const [flipping, setFlipping] = useState<Set<string>>(new Set());
+
+  // Two-state panel so the close animation plays before unmounting content
   const [selectedCardId, setSelectedCardId] = useState<string | null>(null);
+  const [panelVisible, setPanelVisible] = useState(false);
+  const closeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  function openPanel(id: string) {
+    if (closeTimerRef.current) clearTimeout(closeTimerRef.current);
+    setSelectedCardId(id);
+    // One frame delay so the content mounts at width:0 before we animate to full width
+    setTimeout(() => setPanelVisible(true), 20);
+  }
+
+  function closePanel() {
+    setPanelVisible(false);
+    closeTimerRef.current = setTimeout(() => setSelectedCardId(null), 340);
+  }
+
+  function handleCardClick(id: string) {
+    if (selectedCardId === id) {
+      closePanel();
+    } else {
+      openPanel(id);
+    }
+  }
 
   // Fetch user's cards on mount
   useEffect(() => {
@@ -415,13 +364,10 @@ export default function CardsClient({ userId }: { userId: string }) {
       });
   }, [userId]);
 
-  // Trigger state-based evaluation on mount (fire-and-forget)
   useEffect(() => {
     fetch("/api/cards/evaluate", { method: "POST" }).catch(() => {});
   }, []);
 
-  // Realtime: new card unlocked while on page
-  // Requires: Supabase Dashboard → Database → Replication → user_cards → enable
   useEffect(() => {
     const supabase = createClient();
     const channel = supabase
@@ -447,11 +393,7 @@ export default function CardsClient({ userId }: { userId: string }) {
   }, [userId]);
 
   const handleFlipEnd = useCallback((cardId: string) => {
-    setFlipping(prev => {
-      const next = new Set(prev);
-      next.delete(cardId);
-      return next;
-    });
+    setFlipping(prev => { const n = new Set(prev); n.delete(cardId); return n; });
     setCards(prev =>
       prev ? prev.map(c => c.card_id === cardId ? { ...c, revealed_at: new Date().toISOString() } : c) : prev
     );
@@ -474,71 +416,123 @@ export default function CardsClient({ userId }: { userId: string }) {
       <style>{`
         .cards-grid { grid-template-columns: repeat(5, 1fr); }
         @media (max-width: 640px) { .cards-grid { grid-template-columns: repeat(3, 1fr) !important; } }
+        /* Desktop sidebar panel */
+        .cards-panel-desktop { display: block; }
+        .cards-panel-mobile  { display: none; }
+        @media (max-width: 767px) {
+          .cards-panel-desktop { display: none !important; }
+          .cards-panel-mobile  { display: flex !important; }
+        }
       `}</style>
 
       {/* ── Luxury counter ── */}
       <div style={{
-        display: "flex",
-        alignItems: "flex-end",
-        justifyContent: "flex-end",
-        marginBottom: 40,
-        gap: 20,
+        display: "flex", alignItems: "flex-end", justifyContent: "flex-end",
+        marginBottom: 40, gap: 20,
       }}>
         <div style={{ flex: 1, height: "1px", background: RULE, alignSelf: "center" }} />
         <div style={{ textAlign: "right", flexShrink: 0 }}>
-          <div style={{
-            display: "flex",
-            alignItems: "baseline",
-            gap: 6,
-            justifyContent: "flex-end",
-            lineHeight: 1,
-          }}>
-            <span style={{
-              fontFamily: SERIF, fontSize: 56,
-              fontWeight: 400, color: INK, lineHeight: 1,
-            }}>
+          <div style={{ display: "flex", alignItems: "baseline", gap: 6, justifyContent: "flex-end", lineHeight: 1 }}>
+            <span style={{ fontFamily: SERIF, fontSize: 56, fontWeight: 400, color: INK, lineHeight: 1 }}>
               {cards === null ? "—" : unlockedCount}
             </span>
-            <span style={{
-              fontFamily: MONO, fontSize: 15,
-              letterSpacing: "0.04em",
-              color: "rgba(10,10,10,0.3)",
-            }}>
+            <span style={{ fontFamily: MONO, fontSize: 15, letterSpacing: "0.04em", color: "rgba(10,10,10,0.3)" }}>
               / {total}
             </span>
           </div>
           <div style={{
-            fontFamily: MONO, fontSize: 8,
-            letterSpacing: "0.2em", textTransform: "uppercase",
-            color: "rgba(10,10,10,0.32)",
-            marginTop: 4,
+            fontFamily: MONO, fontSize: 8, letterSpacing: "0.2em",
+            textTransform: "uppercase", color: "rgba(10,10,10,0.32)", marginTop: 4,
           }}>
             collected
           </div>
         </div>
       </div>
 
-      {/* ── 22-slot grid ── */}
-      <div className="cards-grid" style={{ display: "grid", gap: 14 }}>
-        {CARD_DEFINITIONS.map((def) => (
-          <CardSlot
-            key={def.id}
-            def={def}
-            userCard={unlockedMap.get(def.id) ?? null}
-            pendingReveal={flipping.has(def.id)}
-            onFlipEnd={handleFlipEnd}
-            onClick={() => setSelectedCardId(def.id)}
-          />
-        ))}
+      {/* ── Grid + desktop panel row ── */}
+      <div style={{ display: "flex", alignItems: "flex-start" }}>
+
+        {/* Card grid */}
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div className="cards-grid" style={{ display: "grid", gap: 14 }}>
+            {CARD_DEFINITIONS.map((def) => (
+              <CardSlot
+                key={def.id}
+                def={def}
+                userCard={unlockedMap.get(def.id) ?? null}
+                pendingReveal={flipping.has(def.id)}
+                isSelected={selectedCardId === def.id}
+                onFlipEnd={handleFlipEnd}
+                onClick={() => handleCardClick(def.id)}
+              />
+            ))}
+          </div>
+        </div>
+
+        {/* Desktop sidebar panel — width animates from 0 → PANEL_WIDTH */}
+        <div
+          className="cards-panel-desktop"
+          style={{
+            width: panelVisible ? PANEL_WIDTH : 0,
+            flexShrink: 0,
+            overflow: "hidden",
+            transition: "width 0.32s cubic-bezier(0.4, 0, 0.2, 1)",
+          }}
+        >
+          {selectedDef && (
+            <div style={{
+              width: PANEL_WIDTH,
+              position: "sticky",
+              top: 0,
+              height: "100vh",
+              overflowY: "auto",
+              borderLeft: `1px solid ${RULE}`,
+              background: "#ffffff",
+            }}>
+              <CardPanelContent
+                def={selectedDef}
+                userCard={selectedUserCard}
+                onClose={closePanel}
+                cardSize={PANEL_CARD}
+              />
+            </div>
+          )}
+        </div>
       </div>
 
-      {/* ── Detail panel ── */}
+      {/* Mobile overlay panel — full-screen fixed */}
       {selectedDef && (
-        <CardPanel
-          def={selectedDef}
-          userCard={selectedUserCard}
-          onClose={() => setSelectedCardId(null)}
-        />
+        <>
+          <div
+            onClick={closePanel}
+            className="cards-panel-mobile"
+            style={{
+              position: "fixed", inset: 0,
+              background: "rgba(10,10,10,0.22)",
+              zIndex: 90,
+              display: "none", // overridden to flex by media query
+            }}
+          />
+          <div
+            className="cards-panel-mobile"
+            style={{
+              position: "fixed", top: 0, right: 0,
+              width: "100vw", height: "100dvh",
+              background: "#ffffff",
+              zIndex: 100,
+              overflowY: "auto",
+              display: "none", // overridden to flex by media query
+              flexDirection: "column",
+            }}
+          >
+            <CardPanelContent
+              def={selectedDef}
+              userCard={selectedUserCard}
+              onClose={closePanel}
+              cardSize={MOBILE_CARD}
+            />
+          </div>
+        </>
       )}
     </div>
   );
