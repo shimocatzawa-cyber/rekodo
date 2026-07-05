@@ -965,7 +965,7 @@ const [filterFormat,       setFilterFormat]       = useState("");
 
       {/* ── Three-column panel ── */}
       {collection.length > 0 && (
-      <div className="flex flex-col md:grid" style={{ flex: 1, overflow: "hidden", gridTemplateColumns: "380px 1fr 440px" }}>
+      <div className="flex flex-col md:grid" style={{ flex: 1, overflow: "hidden", gridTemplateColumns: "380px 1fr 415px" }}>
         <style>{`
           @media (max-width: 767px) {
             /* Album detail no longer owns its own internal scroll on mobile — its
