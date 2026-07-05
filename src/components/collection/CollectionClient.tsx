@@ -2064,12 +2064,7 @@ function TracklistPanel({ tracks, loading, bandcamp, record, username, collectio
       {/* ── Played Today + Essential + Feeling ── */}
       {record && (
         <div style={{ padding: "16px 20px 0" }}>
-          <p style={{ fontFamily: MONO, fontSize: "8px", letterSpacing: "0.08em", color: "#bbbbbb", margin: "0 0 10px", lineHeight: 1.7 }}>
-            <span style={{ marginRight: "16px" }}>Played Today — record a play</span>
-            <span style={{ marginRight: "16px" }}>Add To Essentials — build your Essentials Wall</span>
-            <span>+ Feeling — tag a mood for playlists &amp; catalogue</span>
-          </p>
-          <div style={{ display: "flex", gap: "8px", flexWrap: "wrap", alignItems: "center" }}>
+<div style={{ display: "flex", gap: "8px", flexWrap: "wrap", alignItems: "center" }}>
 
             {/* Played Today */}
             <button
