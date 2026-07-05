@@ -63,6 +63,12 @@ function UpdatePasswordForm() {
       if (event === "PASSWORD_RECOVERY") markReady();
     });
 
+    // Fallback: arrived here via PasswordRecoveryHandler redirect — session
+    // is already set so PASSWORD_RECOVERY won't fire again.
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (session) markReady();
+    });
+
     // If neither path fires within 5s, the link is invalid/expired.
     const timer = setTimeout(markExpired, 5000);
 

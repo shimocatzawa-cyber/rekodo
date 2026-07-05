@@ -8,6 +8,7 @@ import { getMessages, getLocale } from "next-intl/server";
 import { SpotifyPlayerProvider } from "@/components/SpotifyPlayerProvider";
 import PageViewTracker from "@/components/PageViewTracker";
 import TimezoneSetter from "@/components/TimezoneSetter";
+import PasswordRecoveryHandler from "@/components/PasswordRecoveryHandler";
 import "./globals.css";
 
 const shipporiMincho = Shippori_Mincho({
@@ -115,6 +116,7 @@ export default async function RootLayout({
       <body className="min-h-full flex flex-col bg-white text-black antialiased">
         <PageViewTracker />
         <TimezoneSetter />
+        <PasswordRecoveryHandler />
         <NextIntlClientProvider messages={messages}>
           <SpotifyPlayerProvider>
             {children}
