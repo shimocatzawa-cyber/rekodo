@@ -498,14 +498,11 @@ export default function ProfileClient({
 
                 {!isOwner && compatibility && (
                   <div style={{ margin: "0 0 16px 0" }}>
-                    <span style={{ fontFamily: MONO, fontSize: "0.65rem", letterSpacing: "0.08em", textTransform: "uppercase", color: ORANGE }}>
-                      {compatibility.score}% Collection Similarity
-                    </span>
-                    <p style={{ fontFamily: SERIF, fontStyle: "italic", fontSize: "0.95rem", color: "#404040", lineHeight: 1.35, margin: "5px 0 2px" }}>
-                      {compatibility.label}
+                    <p style={{ fontFamily: SERIF, fontStyle: "italic", fontSize: "0.95rem", color: "#404040", lineHeight: 1.35, margin: "0 0 4px" }}>
+                      {compatibility.label} — {compatibility.score}% Collection Similarity
                     </p>
                     {COMPAT_DESCRIPTION[compatibility.label] && (
-                      <p style={{ fontFamily: MONO, fontSize: "0.6rem", letterSpacing: "0.03em", color: MUTED, lineHeight: 1.6, margin: "4px 0 0", maxWidth: 400 }}>
+                      <p style={{ fontFamily: MONO, fontSize: "0.6rem", letterSpacing: "0.03em", color: MUTED, lineHeight: 1.6, margin: 0, maxWidth: 400 }}>
                         {COMPAT_DESCRIPTION[compatibility.label]}
                       </p>
                     )}
