@@ -965,7 +965,7 @@ const [filterFormat,       setFilterFormat]       = useState("");
 
       {/* ── Three-column panel ── */}
       {collection.length > 0 && (
-      <div className="flex flex-col md:grid" style={{ flex: 1, overflow: "hidden", gridTemplateColumns: "380px 1fr 380px" }}>
+      <div className="flex flex-col md:grid" style={{ flex: 1, overflow: "hidden", gridTemplateColumns: "360px 1fr 380px" }}>
         <style>{`
           @media (max-width: 767px) {
             /* Album detail no longer owns its own internal scroll on mobile — its
@@ -2063,7 +2063,7 @@ function TracklistPanel({ tracks, loading, bandcamp, record, username, collectio
 
       {/* ── Played Today + Essential + Feeling ── */}
       {record && (
-        <div style={{ padding: "16px 28px 0" }}>
+        <div style={{ padding: "16px 20px 0" }}>
           <p style={{ fontFamily: MONO, fontSize: "8px", letterSpacing: "0.08em", color: "#bbbbbb", margin: "0 0 10px", lineHeight: 1.7 }}>
             <span style={{ marginRight: "16px" }}>Played Today — record a play</span>
             <span style={{ marginRight: "16px" }}>Add To Essentials — build your Essentials Wall</span>
