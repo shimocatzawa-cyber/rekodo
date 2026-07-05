@@ -140,7 +140,7 @@ export async function requestPasswordReset(
   if (!email) return { error: "Email is required." };
 
   const siteUrl = (process.env.NEXT_PUBLIC_SITE_URL ?? "https://rekodo.app").replace(/\/$/, "");
-  const redirectTo = `${siteUrl}/auth/callback?next=/auth/update-password`;
+  const redirectTo = `${siteUrl}/auth/update-password`;
 
   const supabase = await createClient();
   const { error } = await supabase.auth.resetPasswordForEmail(email, { redirectTo });

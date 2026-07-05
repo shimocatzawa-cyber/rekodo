@@ -45,12 +45,15 @@ function UpdatePasswordForm() {
     function markReady() {
       if (!settled) { settled = true; setReady(true); }
     }
+    function markExpired() {
+      if (!settled) { settled = true; setExpired(true); }
+    }
 
-    // PKCE flow: callback route already exchanged the code and set the session;
-    // page arrives with ?recovery=1.
-    if (searchParams.get("recovery") === "1") {
-      supabase.auth.getSession().then(({ data: { session } }) => {
-        if (session) markReady();
+    // PKCE flow: Supabase redirects directly to this page with ?code=
+    const code = new URLSearchParams(window.location.search).get("code");
+    if (code) {
+      supabase.auth.exchangeCodeForSession(code).then(({ error }) => {
+        if (error) markExpired(); else markReady();
       });
     }
 
@@ -61,9 +64,7 @@ function UpdatePasswordForm() {
     });
 
     // If neither path fires within 5s, the link is invalid/expired.
-    const timer = setTimeout(() => {
-      if (!settled) { settled = true; setExpired(true); }
-    }, 5000);
+    const timer = setTimeout(markExpired, 5000);
 
     return () => { subscription.unsubscribe(); clearTimeout(timer); };
   // eslint-disable-next-line react-hooks/exhaustive-deps
