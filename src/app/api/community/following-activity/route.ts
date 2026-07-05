@@ -26,18 +26,34 @@ export async function GET(request: NextRequest) {
     return Response.json({ items: [], nextCursor: null });
   }
 
-  let query = supabase
-    .from("activity_events")
-    .select("id, user_id, event_type, record_id, created_at")
-    .in("user_id", followingIds)
-    .order("created_at", { ascending: false })
-    .limit(PAGE_SIZE);
+  // Batch followingIds into 100-ID chunks to stay within PostgREST URL length limits
+  const BATCH = 100;
+  const batches: string[][] = [];
+  for (let i = 0; i < followingIds.length; i += BATCH) batches.push(followingIds.slice(i, i + BATCH));
 
-  if (cursor) query = query.lt("created_at", cursor);
+  const batchResults = await Promise.all(batches.map(batch => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    let q: any = supabase
+      .from("activity_events")
+      .select("id, user_id, event_type, record_id, created_at")
+      .in("user_id", batch)
+      .order("created_at", { ascending: false })
+      .limit(PAGE_SIZE);
+    if (cursor) q = q.lt("created_at", cursor);
+    return q;
+  }));
 
-  const { data: events, error } = await query;
-  if (error) return Response.json({ error: error.message }, { status: 500 });
-  if (!events || events.length === 0) {
+  const firstError = batchResults.find(r => r.error);
+  if (firstError?.error) return Response.json({ error: firstError.error.message }, { status: 500 });
+
+  const events = batchResults
+    .flatMap(r => r.data ?? [])
+    .sort((a: { created_at: string }, b: { created_at: string }) =>
+      new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+    )
+    .slice(0, PAGE_SIZE);
+
+  if (events.length === 0) {
     return Response.json({ items: [], nextCursor: null });
   }
 
