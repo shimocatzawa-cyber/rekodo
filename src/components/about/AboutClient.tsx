@@ -244,7 +244,7 @@ const FAQ_SECTIONS: { section: string; items: { q: string; a: React.ReactNode }[
       },
       {
         q: "What does the Essential tag do?",
-        a: "Mark a record Essential from its detail view to add it to your Essentials Wall — a thumbnail wall of the records that matter most to you, shown at the top of Insights with a shareable card.",
+        a: "Hit 'Add To Essentials' on any record in your collection to add it to your Essentials Wall — a thumbnail wall of the records that matter most to you. The button turns orange and reads 'Essential' to confirm it's been added. Tap it again to remove.",
       },
       {
         q: "What is the Feeling tag?",

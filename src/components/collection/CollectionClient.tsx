@@ -2064,12 +2064,18 @@ function TracklistPanel({ tracks, loading, bandcamp, record, username, collectio
       {/* ── Played Today + Essential + Feeling ── */}
       {record && (
         <div style={{ padding: "16px 28px 0" }}>
+          <p style={{ fontFamily: MONO, fontSize: "8px", letterSpacing: "0.08em", color: "#bbbbbb", margin: "0 0 10px", lineHeight: 1.7 }}>
+            <span style={{ marginRight: "16px" }}>Played Today — record a play</span>
+            <span style={{ marginRight: "16px" }}>Add To Essentials — build your Essentials Wall</span>
+            <span>+ Feeling — tag a mood for playlists &amp; catalogue</span>
+          </p>
           <div style={{ display: "flex", gap: "8px", flexWrap: "wrap", alignItems: "center" }}>
 
             {/* Played Today */}
             <button
               onClick={handlePlayedToday}
               disabled={playedLoading}
+              title="Record a play of this record today"
               style={{
                 fontFamily: MONO, fontSize: "9px", letterSpacing: "0.12em",
                 textTransform: "uppercase", color: playedLoading ? "#aaaaaa" : ORANGE,
@@ -2085,6 +2091,7 @@ function TracklistPanel({ tracks, loading, bandcamp, record, username, collectio
             <button
               onClick={handleEssential}
               disabled={essentialLoading}
+              title={isEssential ? "Remove from your Essentials Wall" : "Add to your Essentials Wall"}
               style={{
                 fontFamily: MONO, fontSize: "9px", letterSpacing: "0.12em",
                 textTransform: "uppercase",
@@ -2096,7 +2103,7 @@ function TracklistPanel({ tracks, loading, bandcamp, record, username, collectio
               }}
             >
               <span style={{ fontFamily: SERIF, fontSize: "11px", lineHeight: 1 }}>ō</span>
-              {essentialLoading ? "Saving…" : "Essential"}
+              {essentialLoading ? "Saving…" : isEssential ? "Essential" : "Add To Essentials"}
             </button>
 
             {/* Feeling */}
