@@ -1,7 +1,6 @@
 "use server";
 
 import { redirect } from "next/navigation";
-import { headers } from "next/headers";
 import { createClient } from "@/lib/supabase/server";
 import { sendSignupNotification } from "@/lib/email";
 
@@ -140,10 +139,8 @@ export async function requestPasswordReset(
   const email = (formData.get("email") as string)?.trim();
   if (!email) return { error: "Email is required." };
 
-  const h = await headers();
-  const host = h.get("host") ?? "rekodo.app";
-  const proto = host.startsWith("localhost") ? "http" : "https";
-  const redirectTo = `${proto}://${host}/auth/callback?next=/auth/update-password`;
+  const siteUrl = (process.env.NEXT_PUBLIC_SITE_URL ?? "https://rekodo.app").replace(/\/$/, "");
+  const redirectTo = `${siteUrl}/auth/callback?next=/auth/update-password`;
 
   const supabase = await createClient();
   const { error } = await supabase.auth.resetPasswordForEmail(email, { redirectTo });

@@ -913,7 +913,9 @@ export default function AdminClient({
                     const handle      = u.username ?? u.display_name ?? u.user_id.slice(0, 8);
                     const isSupporter = ["plus", "premium", "supporter"].includes(u.subscription_tier ?? "");
                     const joinedDate  = new Date(u.created_at);
-                    const daysSinceJoined = Math.max(1, Math.floor((Date.now() - joinedDate.getTime()) / 86_400_000));
+                    const todayDay   = Date.UTC(new Date().getUTCFullYear(), new Date().getUTCMonth(), new Date().getUTCDate());
+                    const joinedDay  = Date.UTC(joinedDate.getUTCFullYear(), joinedDate.getUTCMonth(), joinedDate.getUTCDate());
+                    const daysSinceJoined = Math.max(1, Math.floor((todayDay - joinedDay) / 86_400_000));
                     const dailyUsePct = Math.min(100, Math.round((u.unique_days / daysSinceJoined) * 100));
                     const joinedLabel = joinedDate.toLocaleDateString("en-AU", { day: "numeric", month: "short", year: "numeric" });
                     return (
