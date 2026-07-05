@@ -914,11 +914,13 @@ export default function AdminClient({
                     const handle      = u.username ?? u.display_name ?? u.user_id.slice(0, 8);
                     const isSupporter = ["plus", "premium", "supporter"].includes(u.subscription_tier ?? "");
                     const joinedDate  = new Date(u.created_at);
-                    const todayDay   = Date.UTC(new Date().getUTCFullYear(), new Date().getUTCMonth(), new Date().getUTCDate());
-                    const joinedDay  = Date.UTC(joinedDate.getUTCFullYear(), joinedDate.getUTCMonth(), joinedDate.getUTCDate());
-                    const daysSinceJoined = Math.max(1, Math.floor((todayDay - joinedDay) / 86_400_000));
+                    const toSydDay = (d: Date) =>
+                      new Intl.DateTimeFormat("en-CA", { timeZone: "Australia/Sydney", year: "numeric", month: "2-digit", day: "2-digit" }).format(d);
+                    const todaySyd  = toSydDay(new Date());
+                    const joinedSyd = toSydDay(joinedDate);
+                    const daysSinceJoined = Math.max(1, Math.floor((new Date(todaySyd).getTime() - new Date(joinedSyd).getTime()) / 86_400_000));
                     const dailyUsePct = Math.min(100, Math.round((u.unique_days / daysSinceJoined) * 100));
-                    const joinedLabel = joinedDate.toLocaleDateString("en-AU", { day: "numeric", month: "short", year: "numeric" });
+                    const joinedLabel = joinedDate.toLocaleDateString("en-AU", { day: "numeric", month: "short", year: "numeric", timeZone: "Australia/Sydney" });
                     return (
                       <tr key={u.user_id} style={{ borderBottom: `1px solid ${RULE}` }}>
                         <td style={{ fontFamily: MONO, fontSize: "10px", color: MUTED, padding: "10px 16px 10px 0", textAlign: "right" }}>
@@ -939,7 +941,7 @@ export default function AdminClient({
                         </td>
                         <td style={{ fontFamily: MONO, fontSize: "10px", color: MUTED, padding: "10px 16px", textAlign: "right", whiteSpace: "nowrap" }}>
                           {u.last_active_at
-                            ? new Date(u.last_active_at).toLocaleDateString("en-AU", { day: "numeric", month: "short", year: "numeric" })
+                            ? new Date(u.last_active_at).toLocaleDateString("en-AU", { day: "numeric", month: "short", year: "numeric", timeZone: "Australia/Sydney" })
                             : "—"}
                         </td>
                         <td style={{ fontFamily: MONO, fontSize: "11px", color: INK, padding: "10px 16px", textAlign: "right", whiteSpace: "nowrap" }}>
