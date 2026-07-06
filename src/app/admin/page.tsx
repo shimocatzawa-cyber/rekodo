@@ -163,6 +163,12 @@ export default async function AdminPage() {
   const starSignData: [string, number][] = ((starSignResult.data ?? []) as { star_sign: string; count: number }[])
     .map(r => [r.star_sign, Number(r.count)]);
 
+  console.log("[admin] referral query — error:", referralResult.error?.message ?? "none", "| rows:", referralResult.data?.length ?? "null");
+  if (referralResult.data?.length) {
+    const sample = referralResult.data.slice(0, 5).map((r: Record<string, unknown>) => r.referral_source);
+    console.log("[admin] referral sample:", sample);
+  }
+
   const referralCounts = new Map<string, number>();
   for (const row of (referralResult.data ?? []) as { referral_source: string | null }[]) {
     const src = row.referral_source?.trim();
