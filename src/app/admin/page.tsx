@@ -53,7 +53,7 @@ export default async function AdminPage() {
     // Star sign breakdown — server-side to bypass row cap
     adminDb.rpc("star_sign_breakdown"),
     // Referral source breakdown
-    adminDb.from("profiles").select("referral_source").not("referral_source", "is", null).neq("referral_source", ""),
+    adminDb.from("profiles").select("referral_source").limit(10000),
   ]);
 
   const total        = totalUsersResult.count ?? 0;
