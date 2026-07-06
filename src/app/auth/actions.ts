@@ -41,11 +41,12 @@ export async function signup(
 
   // Email confirmation disabled — session available immediately
   if (data.session && data.user) {
-    // Persist the chosen username straight away so onboarding is pre-filled
-    await supabase.from("profiles").upsert(
-      { id: data.user.id, username, referral_source: referralSource },
-      { onConflict: "id" }
-    );
+    // Persist the chosen username straight away so onboarding is pre-filled.
+    // Use update (not upsert) — the on_auth_user_created trigger always creates
+    // the profile row first, and upsert with onConflict can fail silently.
+    await supabase.from("profiles")
+      .update({ username, referral_source: referralSource })
+      .eq("id", data.user.id);
     await sendSignupNotification(email, username, referralSource);
 
     // Add to Brevo list 5 so the onboarding automation fires.
