@@ -31,6 +31,7 @@ export default async function AdminPage() {
     visitsPerDayResult,
     powerUsersResult,
     starSignResult,
+    referralResult,
   ] = await Promise.all([
     adminDb.from("profiles").select("*", { count: "exact", head: true }),
     adminDb.from("profiles").select("*", { count: "exact", head: true }).in("subscription_tier", ["plus", "premium", "supporter"]),
@@ -51,6 +52,8 @@ export default async function AdminPage() {
     adminDb.rpc("top_power_users"),
     // Star sign breakdown — server-side to bypass row cap
     adminDb.rpc("star_sign_breakdown"),
+    // Referral source breakdown
+    adminDb.from("profiles").select("referral_source").not("referral_source", "is", null).neq("referral_source", ""),
   ]);
 
   const total        = totalUsersResult.count ?? 0;
@@ -160,6 +163,14 @@ export default async function AdminPage() {
   const starSignData: [string, number][] = ((starSignResult.data ?? []) as { star_sign: string; count: number }[])
     .map(r => [r.star_sign, Number(r.count)]);
 
+  const referralCounts = new Map<string, number>();
+  for (const row of (referralResult.data ?? []) as { referral_source: string | null }[]) {
+    const src = row.referral_source?.trim();
+    if (!src) continue;
+    referralCounts.set(src, (referralCounts.get(src) ?? 0) + 1);
+  }
+  const referralData: [string, number][] = [...referralCounts.entries()].sort((a, b) => b[1] - a[1]);
+
   return (
     <AdminClient
       users={users}
@@ -175,6 +186,7 @@ export default async function AdminPage() {
       visitsPerDay={visitsPerDay}
       powerUsers={powerUsers}
       starSignData={starSignData}
+      referralData={referralData}
     />
   );
 }

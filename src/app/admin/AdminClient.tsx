@@ -181,6 +181,7 @@ export default function AdminClient({
   visitsPerDay,
   powerUsers,
   starSignData,
+  referralData,
 }: {
   users: AdminUser[];
   total: number;
@@ -195,6 +196,7 @@ export default function AdminClient({
   visitsPerDay: { date: string; count: number }[];
   powerUsers: { user_id: string; username: string | null; display_name: string | null; subscription_tier: string | null; created_at: string; unique_days: number; last_active_at: string | null }[];
   starSignData: [string, number][];
+  referralData: [string, number][];
 }) {
   const [activeTab, setActiveTab]             = useState<AdminTab>("users");
   const [activeSyncs,    setActiveSyncs]    = useState<ActiveSyncJob[]>([]);
@@ -723,9 +725,42 @@ export default function AdminClient({
             }
 
             return (
-              <div style={{ marginBottom: "36px", paddingBottom: "32px", borderBottom: `1px solid ${RULE}`, display: "flex", gap: "48px", flexWrap: "wrap" }}>
+              <div style={{ marginBottom: "36px", paddingBottom: "32px", borderBottom: `1px solid ${RULE}`, display: "flex", gap: "48px", flexWrap: "wrap", alignItems: "flex-start" }}>
                 <MiniBarChart data={signupsPerDay} label="Signups — last 7 days (Sydney)" barColor={ORANGE} />
                 <MiniBarChart data={visitsPerDay}  label="Unique visitors — last 7 days (Sydney)" barColor={INK} />
+                {/* Referral source breakdown */}
+                <div>
+                  <p style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.14em", textTransform: "uppercase", color: ORANGE, margin: "0 0 20px" }}>
+                    How they found us
+                  </p>
+                  {referralData.length === 0 ? (
+                    <p style={{ fontFamily: MONO, fontSize: "11px", color: MUTED }}>No data yet.</p>
+                  ) : (() => {
+                    const referralTotal = referralData.reduce((s, [, c]) => s + c, 0);
+                    return (
+                    <table style={{ borderCollapse: "collapse" }}>
+                      <tbody>
+                        {referralData.map(([source, count]) => {
+                          const pct = referralTotal > 0 ? Math.round((count / referralTotal) * 100) : 0;
+                          return (
+                            <tr key={source} style={{ borderBottom: `1px solid ${RULE}` }}>
+                              <td style={{ fontFamily: MONO, fontSize: "11px", color: INK, padding: "7px 20px 7px 0", whiteSpace: "nowrap" as const }}>
+                                {source}
+                              </td>
+                              <td style={{ fontFamily: MONO, fontSize: "11px", color: INK, padding: "7px 16px", textAlign: "right" as const }}>
+                                {count.toLocaleString()}
+                              </td>
+                              <td style={{ fontFamily: MONO, fontSize: "10px", color: MUTED, padding: "7px 0 7px 4px", textAlign: "right" as const }}>
+                                {pct}%
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                    );
+                  })()}
+                </div>
               </div>
             );
           })()}
