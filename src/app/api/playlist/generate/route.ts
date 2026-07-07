@@ -405,7 +405,8 @@ export async function POST(request: NextRequest) {
     const allOwned = await selectInBatches<{
       id: string; artist: string; album: string; year: number | null;
       genre: string | null; styles: string[] | null; cover_url: string | null;
-    }>(db, "records", "id, artist, album, year, genre, styles, cover_url", "id", ownedRecordIds);
+      discogs_id: string | null;
+    }>(db, "records", "id, artist, album, year, genre, styles, cover_url, discogs_id", "id", ownedRecordIds);
 
     const taggedOwned   = allOwned.filter(r => feelingByRecordId.get(r.id) === mood);
     let   untaggedOwned = allOwned.filter(r => feelingByRecordId.get(r.id) !== mood);
@@ -430,12 +431,15 @@ export async function POST(request: NextRequest) {
       artist: string; album: string; year: number | null; genre: string | null;
       cover_url: string | null; source: "collection" | "wantlist" | "discover";
       confidence: "tagged" | "inferred";
+      record_id?: string;
+      discogs_id?: string | null;
     };
 
     const albumPool: AlbumEntry[] = ownedPool.map(r => ({
       artist: r.artist, album: r.album, year: r.year, genre: r.genre,
       cover_url: r.cover_url, source: "collection",
       confidence: feelingByRecordId.get(r.id) === mood ? "tagged" : "inferred",
+      record_id: r.id, discogs_id: r.discogs_id,
     }));
 
     if (includeOutsideCollection) {
@@ -544,12 +548,24 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ error: "Generation failed." }, { status: 502 });
 
       const metaParsed = metaBlock.input as { tracks: Array<{ album_index: number; track_title: string; rationale: string }> };
-      const metaValidated: Array<{
+      type MetaTrack = {
         id: string; artist: string; title: string; album: string;
         year: number | null; cover_url: string | null; rationale: string;
         source: "collection" | "wantlist" | "discover";
-      }> = [];
+        _record_id?: string; _discogs_id?: string | null;
+      };
+      const metaValidated: MetaTrack[] = [];
       const seenArtistsMeta = new Set<string>();
+
+      function pushMetaTrack(album: AlbumEntry, track_title: string, rationale: string) {
+        const artistKey = album.artist.toLowerCase().trim();
+        metaValidated.push({
+          id: `${artistKey}||${track_title.toLowerCase().trim()}||${album.album.toLowerCase().trim()}`,
+          artist: album.artist, title: track_title, album: album.album,
+          year: album.year, cover_url: album.cover_url, rationale,
+          source: album.source, _record_id: album.record_id, _discogs_id: album.discogs_id,
+        });
+      }
 
       for (const t of metaParsed.tracks ?? []) {
         const album = capped[Math.round(t.album_index)];
@@ -557,12 +573,7 @@ export async function POST(request: NextRequest) {
         const artistKey = album.artist.toLowerCase().trim();
         if (seenArtistsMeta.has(artistKey)) continue;
         seenArtistsMeta.add(artistKey);
-        metaValidated.push({
-          id: `${artistKey}||${t.track_title.toLowerCase().trim()}||${album.album.toLowerCase().trim()}`,
-          artist: album.artist, title: t.track_title, album: album.album,
-          year: album.year, cover_url: album.cover_url, rationale: t.rationale ?? "",
-          source: album.source,
-        });
+        pushMetaTrack(album, t.track_title, t.rationale ?? "");
       }
 
       // Top-up: Claude came back short — ask it to fill the gap from the unused albums.
@@ -609,12 +620,7 @@ export async function POST(request: NextRequest) {
                 const artistKey = album.artist.toLowerCase().trim();
                 if (seenArtistsMeta.has(artistKey)) continue;
                 seenArtistsMeta.add(artistKey);
-                metaValidated.push({
-                  id: `${artistKey}||${t.track_title.toLowerCase().trim()}||${album.album.toLowerCase().trim()}`,
-                  artist: album.artist, title: t.track_title, album: album.album,
-                  year: album.year, cover_url: album.cover_url, rationale: t.rationale ?? "",
-                  source: album.source,
-                });
+                pushMetaTrack(album, t.track_title, t.rationale ?? "");
               }
             }
           } catch { /* best-effort — ship what we have */ }
@@ -627,7 +633,31 @@ export async function POST(request: NextRequest) {
         }, { status: 422 });
       }
 
-      return NextResponse.json({ tracks: metaValidated });
+      // Backfill missing cover art from Discogs for selected tracks — best-effort,
+      // runs only for the ~10 tracks returned so it's fast enough at request time.
+      const discogsKey    = process.env.DISCOGS_CONSUMER_KEY;
+      const discogsSecret = process.env.DISCOGS_CONSUMER_SECRET;
+      if (discogsKey && discogsSecret) {
+        for (const t of metaValidated) {
+          if (t.cover_url || !t._discogs_id) continue;
+          try {
+            const url = `https://api.discogs.com/releases/${encodeURIComponent(t._discogs_id)}?key=${discogsKey}&secret=${discogsSecret}`;
+            const res = await fetch(url, { headers: { "User-Agent": "rekodo/1.0" }, signal: AbortSignal.timeout(5000) });
+            if (!res.ok) continue;
+            const data = await res.json() as { images?: Array<{ type: string; uri: string }>; thumb?: string };
+            const coverUrl = data.images?.find(img => img.type === "primary")?.uri ?? data.images?.[0]?.uri ?? data.thumb ?? null;
+            if (!coverUrl) continue;
+            t.cover_url = coverUrl;
+            if (t._record_id) {
+              await db.from("records").update({ cover_url: coverUrl }).eq("id", t._record_id).is("cover_url", null);
+            }
+          } catch { /* best-effort */ }
+        }
+      }
+
+      // Strip internal fields before returning
+      const cleanedTracks = metaValidated.map(({ _record_id: _r, _discogs_id: _d, ...rest }) => rest);
+      return NextResponse.json({ tracks: cleanedTracks });
     } catch (err) {
       return NextResponse.json(
         { error: err instanceof Error ? err.message : "Failed to generate playlist." },
