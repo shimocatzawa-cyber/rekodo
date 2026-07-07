@@ -114,12 +114,6 @@ function SpotlightPanel({ spotlight }: { spotlight: Spotlight }) {
   );
 }
 
-function monthLabel(month: string, type: "artist" | "label"): string {
-  const [y, m] = month.split("-");
-  const date = new Date(Number(y), Number(m) - 1, 1);
-  const formatted = date.toLocaleDateString("en-GB", { month: "long", year: "numeric" });
-  return `${type === "artist" ? "Artist Spotlight" : "Label Spotlight"} · ${formatted}`;
-}
 
 export default function SpotlightView({ spotlight }: { spotlight: Spotlight }) {
   const pick = spotlight.rekoodos_pick;
@@ -138,7 +132,6 @@ export default function SpotlightView({ spotlight }: { spotlight: Spotlight }) {
 
         {/* 1. Header */}
         <div style={{ borderBottom: `1px solid ${RULE}`, paddingBottom: 32, marginBottom: 32 }}>
-          <SectionEyebrow>{monthLabel(spotlight.month, spotlight.type)}</SectionEyebrow>
           <h1 style={{
             fontFamily: SERIF, fontSize: "48px", fontWeight: 600,
             letterSpacing: "-0.03em", color: INK, margin: "0 0 16px", lineHeight: 1.05,
