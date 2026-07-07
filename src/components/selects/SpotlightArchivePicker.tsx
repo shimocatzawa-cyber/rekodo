@@ -13,14 +13,14 @@ function formatMonth(month: string): string {
 }
 
 interface Props {
+  current: Spotlight | null;
   currentId: string | null;
   selectedId: string | null;
   archive: SpotlightSummary[];
   onSelect: (spotlight: Spotlight) => void;
 }
 
-export default function SpotlightArchivePicker({ currentId, selectedId, archive, onSelect }: Props) {
-  if (archive.length === 0) return null;
+export default function SpotlightArchivePicker({ current, currentId, selectedId, archive, onSelect }: Props) {
 
   async function handleClick(id: string) {
     if (id === selectedId) return;
@@ -65,7 +65,7 @@ export default function SpotlightArchivePicker({ currentId, selectedId, archive,
               cursor: "pointer", padding: "6px 14px",
             }}
           >
-            Current
+            {current ? formatMonth(current.month) : "Current"}
           </button>
           {archive.map(item => {
             const active = item.id === selectedId;

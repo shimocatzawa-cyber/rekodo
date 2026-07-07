@@ -544,6 +544,7 @@ export default function SelectsClient({ username, displayLabel, avatarUrl }: Pro
             {!artistState.loading && artistState.selected && (
               <>
                 <SpotlightArchivePicker
+                  current={artistState.current}
                   currentId={artistState.current?.id ?? null}
                   selectedId={artistState.selected.id}
                   archive={artistState.archive}
@@ -564,6 +565,7 @@ export default function SelectsClient({ username, displayLabel, avatarUrl }: Pro
             {!labelState.loading && labelState.selected && (
               <>
                 <SpotlightArchivePicker
+                  current={labelState.current}
                   currentId={labelState.current?.id ?? null}
                   selectedId={labelState.selected.id}
                   archive={labelState.archive}
