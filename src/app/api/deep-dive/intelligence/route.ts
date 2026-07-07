@@ -143,6 +143,62 @@ function getSupabase() {
   return createClient(url, key);
 }
 
+// ── Discogs discography groundtruth ───────────────────────────────────────────
+// Fetched for rankings/blindspot so Claude has verified titles and years rather
+// than relying on training-data recall, which produces wrong chronology and
+// hallucinated "final album" claims (e.g. Kikagaku Moyo's Stone Garden ≠ their
+// final LP — Kumoyo Island (2022) is, but Claude placed Stone Garden last).
+
+type DiscogsAlbum = { title: string; year: number };
+
+async function fetchDiscogsDiscography(artistName: string): Promise<DiscogsAlbum[]> {
+  try {
+    const key    = process.env.DISCOGS_CONSUMER_KEY;
+    const secret = process.env.DISCOGS_CONSUMER_SECRET;
+    const headers: Record<string, string> = { "User-Agent": "rekodo/1.0 (shimocatzawa@gmail.com)" };
+    if (key && secret) headers["Authorization"] = `Discogs key=${key}, secret=${secret}`;
+
+    // Find the artist ID — take the first "artist" type result
+    const searchRes = await fetch(
+      `https://api.discogs.com/database/search?q=${encodeURIComponent(artistName)}&type=artist&per_page=5`,
+      { headers, signal: AbortSignal.timeout(5000) }
+    );
+    if (!searchRes.ok) return [];
+    const { results = [] } = await searchRes.json() as { results?: { id: number; type: string }[] };
+    const artistId = results.find(r => r.type === "artist")?.id;
+    if (!artistId) return [];
+
+    // Fetch releases sorted chronologically
+    const relRes = await fetch(
+      `https://api.discogs.com/artists/${artistId}/releases?per_page=100&sort=year&sort_order=asc`,
+      { headers, signal: AbortSignal.timeout(5000) }
+    );
+    if (!relRes.ok) return [];
+    const { releases = [] } = await relRes.json() as {
+      releases?: { type: string; role: string; title: string; year: number; format?: string }[];
+    };
+
+    // Masters where the artist is the primary act — exclude obvious live/single entries
+    const LIVE_PAT   = /\blive\b|\blive at\b|\bconcert\b/i;
+    const SINGLE_PAT = /\bb\/w\b/i;
+    const seen = new Set<string>();
+    const out: DiscogsAlbum[] = [];
+    for (const r of releases) {
+      if (r.role !== "Main" || r.type !== "master" || !r.year || r.year < 1900) continue;
+      if (LIVE_PAT.test(r.title) || SINGLE_PAT.test(r.title)) continue;
+      const fmt = (r.format ?? "").toLowerCase();
+      if (fmt && (fmt.includes("live") || fmt.includes("single"))) continue;
+      const norm = r.title.toLowerCase().trim();
+      if (seen.has(norm)) continue;
+      seen.add(norm);
+      out.push({ title: r.title, year: r.year });
+    }
+    return out;
+  } catch {
+    return [];
+  }
+}
+
 async function readCache(artist: string, section: string): Promise<unknown | null> {
   try {
     const supabase = getSupabase();
@@ -198,15 +254,21 @@ async function writeCache(artist: string, section: string, data: unknown): Promi
   }
 }
 
-const PROMPTS: Record<string, (artist: string, ownedAlbums?: string[]) => string> = {
-  rankings: (artist, ownedAlbums = []) => {
+const PROMPTS: Record<string, (artist: string, ownedAlbums?: string[], discogsAlbums?: DiscogsAlbum[]) => string> = {
+  rankings: (artist, ownedAlbums = [], discogsAlbums = []) => {
+    const verifiedBlock = discogsAlbums.length > 0
+      ? `\nVERIFIED CATALOGUE from Discogs — accurate titles and release years. You MUST only rank albums present in this list:\n${discogsAlbums.map(a => `- ${a.year}: ${a.title}`).join("\n")}\n`
+      : "";
     const ownedBlock = ownedAlbums.length > 0
-      ? `\nALBUMS THIS COLLECTOR OWNS — include as many of these as possible in the ranking (they are confirmed to exist):\n${ownedAlbums.map(a => `- ${a}`).join("\n")}\n`
+      ? `\nALBUMS THIS COLLECTOR OWNS — include as many of these as possible in the ranking:\n${ownedAlbums.map(a => `- ${a}`).join("\n")}\n`
       : "";
     return `You are a music critic writing for serious vinyl collectors. Rank ${artist}'s most essential studio albums from best to worst.
-
+${verifiedBlock}
 CRITICAL ACCURACY RULES:
-- Only include albums you are certain exist. If unsure, omit it.
+${discogsAlbums.length > 0
+  ? `- You MUST only rank albums present in the VERIFIED CATALOGUE above. Never add an album not on that list.`
+  : `- Only include albums you are certain exist. If unsure, omit it.`}
+- Use the year from the VERIFIED CATALOGUE exactly — do not guess or alter release years.
 - Do not confuse ${artist} with any other artist.
 - Studio albums only — no compilations, live records, or EPs unless universally regarded as a major work.
 - Return EXACTLY 6 albums maximum — choose the most essential, even for prolific artists. Do not exceed 6.
@@ -290,17 +352,22 @@ Do not fabricate URLs. Only include what you find via search.`,
 Return ONLY valid JSON, no markdown, no backticks, no preamble:
 {"artists":[{"name":"Artist Name","genre":"Style or genre","reason":"Why fans of ${artist} will connect with this artist","mustHear":"The one album to start with"}]}`,
 
-  blindspot: (artist, ownedAlbums = []) => {
+  blindspot: (artist, ownedAlbums = [], discogsAlbums = []) => {
     const ownedBlock = ownedAlbums.length > 0
       ? `ALREADY OWNED — do NOT recommend any of these under any circumstances:\n${ownedAlbums.map(a => `  - ${a}`).join("\n")}`
       : `The collector does not yet own any albums by ${artist}.`;
+    const verifiedBlock = discogsAlbums.length > 0
+      ? `\nCOMPLETE CATALOGUE from Discogs (verified titles and years — only recommend from this list):\n${discogsAlbums.map(a => `- ${a.year}: ${a.title}`).join("\n")}\n`
+      : "";
     return `You are a record collector's guide helping a vinyl enthusiast identify genuine gaps in their ${artist} collection.
 
 ${ownedBlock}
-
+${verifiedBlock}
 CRITICAL RULES:
 - NEVER recommend an album that appears in the ALREADY OWNED list above. If you are unsure whether an album matches one already owned, do not recommend it.
-- Only recommend albums you are certain ${artist} actually released. Do not fabricate or guess titles.
+${discogsAlbums.length > 0
+  ? `- Only recommend albums from the COMPLETE CATALOGUE list above. Do not fabricate or suggest albums not on that list.`
+  : `- Only recommend albums you are certain ${artist} actually released. Do not fabricate or guess titles.`}
 - Studio albums only — no live albums, compilations, or EPs unless they are genuinely essential to the artist's legacy.
 - Be selective: flag only albums a serious collector would consider essential gaps, not completionist picks.
 - If the collection already covers the essential catalogue, return {"albums":[]}.
@@ -350,6 +417,15 @@ export async function getOrGenerateSection(
     ? ownedAlbums.slice(0, 5)
     : ownedAlbums;
 
+  // ── Discogs discography fetch (rankings + blindspot only) ──────────────────
+  // Fetch verified album titles and years before calling Claude so the model
+  // cannot hallucinate albums that don't exist or assign wrong release years.
+  let discogsAlbums: DiscogsAlbum[] = [];
+  if (section === "rankings" || section === "blindspot") {
+    discogsAlbums = await fetchDiscogsDiscography(artist);
+    console.log(`[deep-dive] discogs — ${artist}: ${discogsAlbums.length > 0 ? `${discogsAlbums.length} albums` : "unavailable, proceeding without"}`);
+  }
+
   console.log(`[deep-dive] calling ${model} — ${artist}/${section} max_tokens=${maxTokens}`);
 
   // Interviews, podcasts, and books use Anthropic's built-in web search tool
@@ -361,7 +437,7 @@ export async function getOrGenerateSection(
   const message = (await (client.messages.create as any)({
     model,
     max_tokens: maxTokens,
-    messages: [{ role: "user", content: PROMPTS[section](artist, promptAlbums) }],
+    messages: [{ role: "user", content: PROMPTS[section](artist, promptAlbums, discogsAlbums) }],
     ...(WEB_SEARCH_SECTIONS.has(section) && {
       tools: [{ type: "web_search_20250305", name: "web_search" }],
     }),
