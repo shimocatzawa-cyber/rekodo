@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { createSpotlight, updateSpotlight, deleteSpotlight, type SpotlightPayload } from "./actions";
 import type { Spotlight } from "@/lib/spotlights/types";
+import SpotlightView from "@/components/selects/SpotlightView";
 
 const MONO   = "var(--font-mono)";
 const ORANGE = "#CC5500";
@@ -221,6 +222,9 @@ export default function SpotlightsAdminClient({ spotlights: initial }: Props) {
   const [spotlights, setSpotlights] = useState(initial);
   const [editing, setEditing]       = useState<Spotlight | null | "new">(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [previewId, setPreviewId]   = useState<string | null>(null);
+
+  const previewSpotlight = previewId ? spotlights.find(s => s.id === previewId) ?? null : null;
 
   async function handleDelete(id: string) {
     if (!confirm("Delete this spotlight?")) return;
@@ -295,6 +299,12 @@ export default function SpotlightsAdminClient({ spotlights: initial }: Props) {
                 <td style={{ padding: "10px 8px" }}>{statusBadge(s.status)}</td>
                 <td style={{ padding: "10px 8px", textAlign: "right", whiteSpace: "nowrap" }}>
                   <button
+                    onClick={() => setPreviewId(previewId === s.id ? null : s.id)}
+                    style={{ fontFamily: MONO, fontSize: 9, letterSpacing: "0.08em", background: previewId === s.id ? INK : "none", border: `1px solid ${previewId === s.id ? INK : RULE}`, cursor: "pointer", padding: "4px 10px", color: previewId === s.id ? "#fff" : INK, marginRight: 6 }}
+                  >
+                    {previewId === s.id ? "Close" : "Preview"}
+                  </button>
+                  <button
                     onClick={() => setEditing(s)}
                     style={{ fontFamily: MONO, fontSize: 9, letterSpacing: "0.08em", background: "none", border: `1px solid ${RULE}`, cursor: "pointer", padding: "4px 10px", color: INK, marginRight: 6 }}
                   >
@@ -312,6 +322,15 @@ export default function SpotlightsAdminClient({ spotlights: initial }: Props) {
             ))}
           </tbody>
         </table>
+      )}
+
+      {previewSpotlight && (
+        <div style={{ marginTop: 40, paddingTop: 32, borderTop: `2px solid ${RULE}` }}>
+          <p style={{ fontFamily: MONO, fontSize: 9, letterSpacing: "0.12em", textTransform: "uppercase", color: ORANGE, margin: "0 0 24px" }}>
+            Preview — {previewSpotlight.name}
+          </p>
+          <SpotlightView spotlight={previewSpotlight} />
+        </div>
       )}
     </div>
   );
