@@ -52,6 +52,7 @@ export async function POST(request: NextRequest) {
       await Promise.all([
         supabase.from("profiles").update({
           is_supporter: true,
+          subscription_tier: "premium",
           stripe_customer_id: customerId,
         }).eq("id", userId),
         session.amount_total != null && session.id
