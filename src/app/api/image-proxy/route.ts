@@ -8,6 +8,7 @@ const ALLOWED_HOSTS = [
   "t4.bcbits.com",
   "i.scdn.co",       // Spotify CDN (album art for discover / top-up matched tracks)
   "mosaic.scdn.co",
+  "www.silentradio.co.uk",
 ];
 
 export async function GET(req: NextRequest) {
