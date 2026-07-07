@@ -235,7 +235,7 @@ export default function SpotlightView({ spotlight }: { spotlight: Spotlight }) {
         {/* 5. Neighbors */}
         <div>
           <>
-            <SectionEyebrow>{spotlight.type === "label" ? "Beyond Drag City" : ownsLabel}</SectionEyebrow>
+            <SectionEyebrow>{spotlight.type === "label" ? `Beyond ${spotlight.name}` : ownsLabel}</SectionEyebrow>
             {spotlight.type === "artist" && (
               <p style={{ fontFamily: MONO, fontSize: "11px", color: "#888888", margin: "0 0 16px", fontWeight: 400 }}>
                 {ownsSubtitle}
