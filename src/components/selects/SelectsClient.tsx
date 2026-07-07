@@ -543,13 +543,13 @@ export default function SelectsClient({ username, displayLabel, avatarUrl }: Pro
             )}
             {!artistState.loading && artistState.selected && (
               <>
-                <SpotlightView spotlight={artistState.selected} />
                 <SpotlightArchivePicker
                   currentId={artistState.current?.id ?? null}
                   selectedId={artistState.selected.id}
                   archive={artistState.archive}
                   onSelect={setArtistSelected}
                 />
+                <SpotlightView spotlight={artistState.selected} />
               </>
             )}
             {!artistState.loading && !artistState.selected && (
@@ -563,13 +563,13 @@ export default function SelectsClient({ username, displayLabel, avatarUrl }: Pro
             )}
             {!labelState.loading && labelState.selected && (
               <>
-                <SpotlightView spotlight={labelState.selected} />
                 <SpotlightArchivePicker
                   currentId={labelState.current?.id ?? null}
                   selectedId={labelState.selected.id}
                   archive={labelState.archive}
                   onSelect={setLabelSelected}
                 />
+                <SpotlightView spotlight={labelState.selected} />
               </>
             )}
             {!labelState.loading && !labelState.selected && (
