@@ -54,7 +54,7 @@ const jsonLd = {
     "Artist deep dive discographies",
     "Taste profile and insights",
     "Curated list builder",
-    "AI-powered record recommendations",
+    "Personalised record recommendations",
     "Community and collection matching",
   ],
 };

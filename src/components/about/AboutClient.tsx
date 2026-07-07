@@ -315,7 +315,7 @@ const FAQ_SECTIONS: { section: string; items: { q: string; a: React.ReactNode }[
     items: [
       {
         q: "How does Dig work?",
-        a: "Dig analyses your collection — genres, styles, labels, and lists you've built — and uses that as a prompt to generate personalised record recommendations. Each session produces a fresh set. Picks are AI-generated where possible, and drawn from rekōdo's catalogue of over 369,000 records as a fallback so you always get a full set of suggestions.",
+        a: "Dig analyses your collection — genres, styles, labels, and lists you've built — and uses that to generate personalised record recommendations. Each session produces a fresh set matched from rekōdo's catalogue of over 369,000 records, so you always get a full set of suggestions.",
       },
       {
         q: "Is there a limit on how many times I can Dig?",
@@ -462,8 +462,8 @@ const FAQ_SECTIONS: { section: string; items: { q: string; a: React.ReactNode }[
         a: <>We store your Discogs collection data (artist, title, label, year, format, condition grades, and market values), your profile information, any Lists or Wantlist entries you create, and AI-generated content like your Taste Profile and Archetypes. Full details of every data category and why we hold it are in our{" "}<Link href="/privacy" style={{ color: ORANGE }}>Privacy Policy</Link>.</>,
       },
       {
-        q: "Does rekōdo send my data to AI models?",
-        a: <>Yes — features like Archetypes, Taste Profile, Deep Dive, Dig recommendations, and Playlist generation send a summary of your collection to Claude (Anthropic) to generate results. We send only what's needed for each feature and never sell your data to third parties. See{" "}<Link href="/privacy" style={{ color: ORANGE }}>our Privacy Policy</Link>{" "}for a full breakdown of what each feature sends.</>,
+        q: "Does rekōdo use my collection data to generate personalised features?",
+        a: <>Yes — features like Archetypes, Taste Profile, Deep Dive, Dig recommendations, and Playlist generation use a summary of your collection metadata (artist, title, genre, year, Feeling tags) to generate personalised results. We send only what&rsquo;s needed for each feature and never sell your data to third parties. See{" "}<Link href="/privacy" style={{ color: ORANGE }}>our Privacy Policy</Link>{" "}for a full breakdown of what each feature uses.</>,
       },
       {
         q: "How do I delete my account or request my data?",

@@ -125,7 +125,7 @@ export default function PrivacyPage() {
           How rekōdo handles your information.
         </h1>
         <p style={{ fontFamily: SERIF, fontSize: "1.05rem", lineHeight: 1.7, color: "#444444", maxWidth: 640, margin: "0 0 18px" }}>
-          This policy explains what we collect when you connect your Discogs collection, what we send to AI models to generate your taste profile, and how to access, correct, or delete your data.
+          This policy explains what we collect when you connect your Discogs collection, how we generate your taste profile and personalised recommendations, and how to access, correct, or delete your data.
         </p>
         <p style={{ fontFamily: MONO, fontSize: "11px", letterSpacing: "0.06em", color: "#999999", margin: "0 0 48px" }}>
           Last updated — 24 June 2026
@@ -200,14 +200,14 @@ export default function PrivacyPage() {
             <p style={pStyle}>We use your information to:</p>
             <ul style={listStyle}>
               <li>Provide the Service: sync and display your collection, generate Lists, power Dig recommendations</li>
-              <li>Generate AI-powered features: Jungian Archetypes, Taste Profiles, Cross-Signal Insights, Deep Dive artist content</li>
+              <li>Generate personalised features: Jungian Archetypes, Taste Profiles, Cross-Signal Insights, Deep Dive artist content</li>
               <li>Process payments for Supporter subscriptions</li>
               <li>Send transactional emails (account, billing) and, where you&rsquo;ve opted in, marketing emails</li>
               <li>Maintain and improve the Service, including security and fraud prevention</li>
               <li>Comply with legal obligations</li>
             </ul>
             <p style={pStyle}>
-              <strong>On AI-generated content:</strong> Archetypes, Taste Profiles, Spectrum Dimensions, and Cross-Signal Insights are generated using AI models (Claude, by Anthropic) based on your collection metadata (artist, title, genre, year) and Feeling tags you&rsquo;ve applied. Taste Profile generation also uses your self-reported star sign, if provided, to flavour recommendations. We do not send your name, email, username, account ID, or written Memory field notes to Claude for any of these features. These outputs are interpretive and for entertainment/informational purposes. They are not professional psychological assessment, financial advice, or a guarantee of market value. See the Terms of Service for further disclaimers.
+              <strong>On personalised content:</strong> Archetypes, Taste Profiles, Spectrum Dimensions, and Cross-Signal Insights are generated using automated systems based on your collection metadata (artist, title, genre, year) and Feeling tags you&rsquo;ve applied. Taste Profile generation also uses your self-reported star sign, if provided, to flavour recommendations. We do not send your name, email, username, account ID, or written Memory field notes to Claude for any of these features. These outputs are interpretive and for entertainment/informational purposes. They are not professional psychological assessment, financial advice, or a guarantee of market value. See the Terms of Service for further disclaimers.
             </p>
           </Section>
 
@@ -216,7 +216,7 @@ export default function PrivacyPage() {
             <DataTable
               headers={["Recipient", "Purpose", "Location"]}
               rows={[
-                ["Anthropic (Claude API)", "Processing collection data to generate Archetypes, Taste Profiles, Deep Dive content", "United States"],
+                ["Anthropic (Claude API)", "Generating personalised collection insights (Archetypes, Taste Profiles, recommendations)", "United States"],
                 ["Supabase", "Database hosting and storage", "Sydney (ap-southeast-2)"],
                 ["Vercel", "Application hosting", "Global CDN, primarily US"],
                 ["Discogs", "Reading your collection via your authorised OAuth connection", "United States"],

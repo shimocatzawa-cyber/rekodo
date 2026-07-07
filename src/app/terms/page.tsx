@@ -20,7 +20,7 @@ const TOC: Array<{ id: string; num: string; label: string }> = [
   { id: "s4",  num: "04", label: "Connecting third-party accounts" },
   { id: "s5",  num: "05", label: "Your content" },
   { id: "s6",  num: "06", label: "Subscriptions & payment" },
-  { id: "s7",  num: "07", label: "AI-generated content" },
+  { id: "s7",  num: "07", label: "Generated content" },
   { id: "s8",  num: "08", label: "Disclaimers & liability" },
   { id: "s9",  num: "09", label: "Discogs dependency" },
   { id: "s10", num: "10", label: "Acceptable use" },
@@ -90,7 +90,7 @@ export default function TermsPage() {
           The agreement between you and rekōdo.
         </h1>
         <p style={{ fontFamily: SERIF, fontSize: "1.05rem", lineHeight: 1.7, color: "#444444", maxWidth: 640, margin: "0 0 18px" }}>
-          What you&rsquo;re agreeing to when you create an account, connect Discogs or Spotify, subscribe to Supporter, and use AI-generated features like Archetypes and Taste Profiles.
+          What you&rsquo;re agreeing to when you create an account, connect Discogs or Spotify, subscribe to Supporter, and use personalised features like Archetypes, Taste Profiles, and Dig recommendations.
         </p>
         <p style={{ fontFamily: MONO, fontSize: "11px", letterSpacing: "0.06em", color: "#999999", margin: "0 0 48px" }}>
           Last updated — 24 June 2026
@@ -129,7 +129,7 @@ export default function TermsPage() {
 
           <Section id="s2" num="02" title="The Service">
             <p style={pStyle}>
-              rekōdo is a vinyl record collection intelligence platform. It syncs with your Discogs collection and provides AI-generated insights, taste profiling, discovery recommendations, and social/community features on top of it.
+              rekōdo is a vinyl record collection intelligence platform. It syncs with your Discogs collection and provides personalised insights, taste profiling, discovery recommendations, and social/community features on top of it.
             </p>
             <p style={pStyle}>
               rekōdo is not affiliated with, endorsed by, or operated by Discogs, Spotify, or any other connected third-party service. &ldquo;Powered by Discogs API&rdquo; attribution reflects our use of their API under licence, not a partnership unless separately stated.
@@ -172,9 +172,9 @@ export default function TermsPage() {
             </ul>
           </Section>
 
-          <Section id="s7" num="07" title="AI-generated content — important disclaimers">
+          <Section id="s7" num="07" title="Generated content — what to know">
             <p style={pStyle}>
-              rekōdo uses AI (Claude, by Anthropic) to generate Archetypes, Taste Profiles, Spectrum Dimensions, Cross-Signal Insights, and Deep Dive artist content based on your collection data.
+              rekōdo uses automated systems to generate Archetypes, Taste Profiles, Spectrum Dimensions, Cross-Signal Insights, and Deep Dive artist content based on your collection data.
             </p>
             <p style={pStyle}>You acknowledge and agree that:</p>
             <ul style={listStyle}>
