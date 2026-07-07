@@ -57,7 +57,7 @@ export default function PlaylistPlayer({ tracks, moodLabel }: { tracks: Generate
     if (!tracks.length) return;
     setActiveSource({
       mode: "playlist",
-      spotifyTrackUris: tracks.map(t => t.spotify_uri),
+      spotifyTrackUris: tracks.map(t => t.spotify_uri).filter((u): u is string => !!u),
       artist: tracks[0]?.artist,
       albumTitle: `${moodLabel} — via rekōdo`,
     });

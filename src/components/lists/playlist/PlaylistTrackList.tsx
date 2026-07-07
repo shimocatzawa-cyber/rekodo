@@ -33,6 +33,17 @@ function openInSpotifyUrl(uri: string): string {
   return `https://open.spotify.com/track/${id}`;
 }
 
+function exportCsv(tracks: GeneratedTrack[]) {
+  const esc = (s: string) => `"${s.replace(/"/g, '""')}"`;
+  const rows = tracks.map(t => [esc(t.title), esc(t.artist), esc(t.album)].join(","));
+  const csv = ["Track,Artist,Album", ...rows].join("\n");
+  const blob = new Blob([csv], { type: "text/plain;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url; a.download = "rekodo-playlist.csv"; a.click();
+  URL.revokeObjectURL(url);
+}
+
 function appleMusicSearchUrl(artist: string, title: string): string {
   return `https://music.apple.com/search?term=${encodeURIComponent(`${artist} ${title}`)}`;
 }
@@ -57,10 +68,10 @@ export default function PlaylistTrackList({ tracks, onReorder, resequencing }: P
     setOverIndex(null);
   }
 
-  const fromCollection = tracks.filter(t => t.source === "collection").length;
-  const fromWantlist   = tracks.filter(t => t.source === "wantlist").length;
-  const fromDiscover   = tracks.filter(t => t.source === "discover").length;
-  const totalDurationMs = tracks.reduce((sum, t) => sum + (t.duration_ms || 0), 0);
+  const fromCollection  = tracks.filter(t => t.source === "collection").length;
+  const fromWantlist    = tracks.filter(t => t.source === "wantlist").length;
+  const fromDiscover    = tracks.filter(t => t.source === "discover").length;
+  const totalDurationMs = tracks.reduce((sum, t) => sum + (t.duration_ms ?? 0), 0);
 
   return (
     <div style={{ background: "#ffffff", border: `1px solid ${RULE}` }}>
@@ -69,7 +80,7 @@ export default function PlaylistTrackList({ tracks, onReorder, resequencing }: P
         const dragOver = overIndex === i && dragIndex !== null && dragIndex !== i;
         return (
           <div
-            key={`${t.spotify_uri}-${i}`}
+            key={`${t.id}-${i}`}
             draggable
             onDragStart={() => setDragIndex(i)}
             onDragOver={e => { e.preventDefault(); setOverIndex(i); }}
@@ -127,22 +138,19 @@ export default function PlaylistTrackList({ tracks, onReorder, resequencing }: P
               <span style={{ fontFamily: MONO, fontSize: "9px", color: MUTED }}>
                 {t.duration_ms ? fmt(t.duration_ms) : ""}
               </span>
-              {/* draggable=false + stopPropagation: this row has draggable=true
-                  for reordering, and a plain click here has just enough mouse
-                  movement to often register as a native HTML5 drag-start on the
-                  row instead of a click — which could reorder tracks (changing
-                  the playlist's lead track key) right as the link opens,
-                  stopping playback via the source-key-changed pause path. */}
-              <a
-                href={openInSpotifyUrl(t.spotify_uri)}
-                target="_blank"
-                rel="noopener noreferrer"
-                draggable={false}
-                onMouseDown={e => e.stopPropagation()}
-                style={{ fontFamily: MONO, fontSize: "8px", letterSpacing: "0.04em", color: "#bbbbbb", textDecoration: "none", whiteSpace: "nowrap" }}
-              >
-                Spotify ↗
-              </a>
+              {/* draggable=false + stopPropagation: prevents drag-start firing on click */}
+              {t.spotify_uri && (
+                <a
+                  href={openInSpotifyUrl(t.spotify_uri)}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  draggable={false}
+                  onMouseDown={e => e.stopPropagation()}
+                  style={{ fontFamily: MONO, fontSize: "8px", letterSpacing: "0.04em", color: "#bbbbbb", textDecoration: "none", whiteSpace: "nowrap" }}
+                >
+                  Spotify ↗
+                </a>
+              )}
               <a
                 href={appleMusicSearchUrl(t.artist, t.title)}
                 target="_blank"
@@ -163,9 +171,17 @@ export default function PlaylistTrackList({ tracks, onReorder, resequencing }: P
         <span style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.04em", color: MUTED }}>
           {fromCollection} from your collection{fromWantlist > 0 ? ` · ${fromWantlist} from your wantlist` : ""}{fromDiscover > 0 ? ` · ${fromDiscover} discovered for you` : ""}
         </span>
-        <span style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.04em", color: MUTED, flexShrink: 0 }}>
-          {tracks.length} track{tracks.length === 1 ? "" : "s"} · {fmtTotal(totalDurationMs)}
-        </span>
+        <div style={{ display: "flex", alignItems: "center", gap: "16px", flexShrink: 0 }}>
+          <span style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.04em", color: MUTED }}>
+            {tracks.length} track{tracks.length === 1 ? "" : "s"}{totalDurationMs > 0 ? ` · ${fmtTotal(totalDurationMs)}` : ""}
+          </span>
+          <button
+            onClick={() => exportCsv(tracks)}
+            style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.04em", color: MUTED, background: "none", border: "none", cursor: "pointer", padding: 0, textDecoration: "underline" }}
+          >
+            Export playlist
+          </button>
+        </div>
       </div>
     </div>
   );

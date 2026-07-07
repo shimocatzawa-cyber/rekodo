@@ -7,7 +7,7 @@ export const dynamic = "force-dynamic";
 
 const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
-type TrackInput = { spotify_uri: string; artist: string; title: string; album: string };
+type TrackInput = { id: string; artist: string; title: string; album: string };
 
 // Cheap rationale-only regeneration after a manual drag-reorder — does not
 // re-run candidate selection, just asks for fresh one-liners for the new order.

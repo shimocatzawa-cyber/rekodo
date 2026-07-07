@@ -35,13 +35,13 @@ export default function PlaylistPromptPanel({
 }: Props) {
   const matching = !!matchStatus && matchStatus.pending > 0;
   const noMatches = !!matchStatus && matchStatus.pending === 0 && matchStatus.matched === 0;
-  const canGenerate = !!mood && !generating && !matching && !noMatches && spotifyConnected !== false;
+  const canGenerate = !!mood && !generating && !noMatches;
 
   return (
     <div style={{ background: "#ffffff", border: `1px solid ${RULE}`, padding: "28px 28px 24px" }}>
       {spotifyConnected === false && (
-        <p style={{ fontFamily: MONO, fontSize: "10px", letterSpacing: "0.04em", color: "#cc3300", marginBottom: "18px" }}>
-          Connect Spotify in Settings to build playlists from your collection.
+        <p style={{ fontFamily: MONO, fontSize: "10px", letterSpacing: "0.04em", color: MUTED, marginBottom: "18px" }}>
+          Connect Spotify in Settings for playback and enhanced matching.
         </p>
       )}
 

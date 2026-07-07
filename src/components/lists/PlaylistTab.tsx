@@ -19,16 +19,17 @@ const MUTED  = "#aaaaaa";
 const RULE   = "#e0e0da";
 
 export type GeneratedTrack = {
-  spotify_uri: string;
-  artist:      string;
-  title:       string;
-  album:       string;
-  year:        number | null;
-  cover_url:   string | null;
-  duration_ms: number;
-  preview_url: string | null;
-  rationale:   string;
-  source:      "collection" | "wantlist" | "discover";
+  id:           string;
+  spotify_uri?: string | null;
+  artist:       string;
+  title:        string;
+  album:        string;
+  year:         number | null;
+  cover_url:    string | null;
+  duration_ms?: number;
+  preview_url?: string | null;
+  rationale:    string;
+  source:       "collection" | "wantlist" | "discover";
 };
 
 const MATCH_POLL_MS = 5000;
@@ -80,12 +81,12 @@ export default function PlaylistTab({ username }: { username: string }) {
   // same mood reach further into the collection instead of converging on the
   // same safe picks every time. Reset whenever the mood or collection scope
   // changes, since those meaningfully change what "already seen" should mean.
-  const excludedUrisRef    = useRef<Set<string>>(new Set());
+  const excludedIdsRef     = useRef<Set<string>>(new Set());
   const excludedArtistsRef = useRef<Set<string>>(new Set());
 
   // Mood/scope change — start the "already seen" tracking fresh.
   useEffect(() => {
-    excludedUrisRef.current = new Set();
+    excludedIdsRef.current = new Set();
     excludedArtistsRef.current = new Set();
   }, [mood, includeOutsideCollection]);
 
@@ -224,7 +225,7 @@ export default function PlaylistTab({ username }: { username: string }) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           mood, includeOutsideCollection, trackCount, refinement,
-          excludeUris: [...excludedUrisRef.current],
+          excludeUris: [...excludedIdsRef.current],
           excludeArtists: [...excludedArtistsRef.current],
         }),
       });
@@ -237,7 +238,7 @@ export default function PlaylistTab({ username }: { username: string }) {
         setTracks([]);
       } else {
         for (const t of data.tracks) {
-          excludedUrisRef.current.add(t.spotify_uri);
+          excludedIdsRef.current.add(t.id);
           excludedArtistsRef.current.add(t.artist.toLowerCase().trim());
         }
         setTracks(data.tracks);
@@ -267,15 +268,15 @@ export default function PlaylistTab({ username }: { username: string }) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           mood,
-          tracks: snapshot.map(t => ({ spotify_uri: t.spotify_uri, artist: t.artist, title: t.title, album: t.album })),
+          tracks: snapshot.map(t => ({ id: t.id, artist: t.artist, title: t.title, album: t.album })),
         }),
       });
       const data = await res.json() as { rationales?: string[] };
       if (res.ok && data.rationales) {
         setTracks(current => {
-          // Only apply if the current order's URIs still match the snapshot we requested for —
+          // Only apply if the current order's IDs still match the snapshot we requested for —
           // avoids overwriting a newer reorder that happened while this request was in flight.
-          const sameOrder = current.length === snapshot.length && current.every((t, i) => t.spotify_uri === snapshot[i].spotify_uri);
+          const sameOrder = current.length === snapshot.length && current.every((t, i) => t.id === snapshot[i].id);
           if (!sameOrder) return current;
           return current.map((t, i) => ({ ...t, rationale: data.rationales![i] ?? t.rationale }));
         });
@@ -304,7 +305,9 @@ export default function PlaylistTab({ username }: { username: string }) {
       await appendSongToList(listId, {
         song_title: t.title, song_artist: t.artist, song_album: t.album,
         song_cover_url: t.cover_url, song_year: t.year,
-        spotify_uri: t.spotify_uri, duration_ms: t.duration_ms, preview_url: t.preview_url,
+        spotify_uri: t.spotify_uri ?? undefined,
+        duration_ms: t.duration_ms ?? undefined,
+        preview_url: t.preview_url ?? undefined,
       });
     }
     await loadSavedPlaylists();
@@ -370,7 +373,7 @@ export default function PlaylistTab({ username }: { username: string }) {
                 </button>
               </div>
 
-              {isDesktop && (
+              {isDesktop && tracks.some(t => t.spotify_uri) && (
                 <div style={{ marginBottom: "16px" }}>
                   <PlaylistPlayer tracks={tracks} moodLabel={mood ?? titleDraft} />
                 </div>

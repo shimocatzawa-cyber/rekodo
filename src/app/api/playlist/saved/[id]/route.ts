@@ -28,16 +28,20 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     song_title: string; song_artist: string; song_album: string;
     song_cover_url: string | null; song_year: number | null;
     spotify_tracks: SpotifyTrackJson[] | null;
-  }>)
-    .filter((i) => i.spotify_tracks?.[0]?.spotify_uri)
-    .map((i) => {
-      const t = i.spotify_tracks![0];
-      return {
-        spotify_uri: t.spotify_uri, artist: i.song_artist, title: i.song_title, album: i.song_album,
-        year: i.song_year, cover_url: i.song_cover_url, duration_ms: t.duration_ms,
-        preview_url: t.preview_url, rationale: "", source: "collection" as const,
-      };
-    });
+  }>).map((i) => {
+    const t = i.spotify_tracks?.[0] ?? null;
+    const spotifyUri = t?.spotify_uri ?? null;
+    const id = spotifyUri
+      ? spotifyUri
+      : `${i.song_artist.toLowerCase().trim()}||${i.song_title.toLowerCase().trim()}||${i.song_album.toLowerCase().trim()}`;
+    return {
+      id, spotify_uri: spotifyUri ?? undefined,
+      artist: i.song_artist, title: i.song_title, album: i.song_album,
+      year: i.song_year, cover_url: i.song_cover_url,
+      duration_ms: t?.duration_ms ?? undefined, preview_url: t?.preview_url ?? undefined,
+      rationale: "", source: "collection" as const,
+    };
+  });
 
   return NextResponse.json({ title: list.title, tracks });
 }

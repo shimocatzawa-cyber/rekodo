@@ -396,6 +396,191 @@ export async function POST(request: NextRequest) {
   );
   const ownedRecordIds = [...feelingByRecordId.keys()];
 
+  // ── Metadata-only path (no Spotify connected) ────────────────────────────
+  // Claude picks specific tracks by name using its knowledge of album track
+  // listings, so no pre-matching is needed. The Spotify path below runs only
+  // when the user has an active Spotify token.
+  const spotifyToken = await getSpotifyAccessToken(db, user.id);
+  if (!spotifyToken) {
+    const allOwned = await selectInBatches<{
+      id: string; artist: string; album: string; year: number | null;
+      genre: string | null; styles: string[] | null; cover_url: string | null;
+    }>(db, "records", "id, artist, album, year, genre, styles, cover_url", "id", ownedRecordIds);
+
+    const taggedOwned   = allOwned.filter(r => feelingByRecordId.get(r.id) === mood);
+    let   untaggedOwned = allOwned.filter(r => feelingByRecordId.get(r.id) !== mood);
+
+    if (untaggedOwned.length > MOOD_RELEVANCE_THRESHOLD) {
+      const pool: OwnedAlbumMeta[] = untaggedOwned.map(r => ({
+        id: r.id, artist: r.artist, album: r.album, year: r.year, genre: r.genre,
+        styles: r.styles, feeling: feelingByRecordId.get(r.id) ?? null,
+      }));
+      const relevantIds = await shortlistMoodRelevantAlbums(pool, mood, refinement);
+      untaggedOwned = untaggedOwned.filter(r => relevantIds.has(r.id));
+    }
+
+    let ownedPool = [...taggedOwned, ...untaggedOwned];
+    if (excludeArtists.size > 0) {
+      const filtered = ownedPool.filter(r => !excludeArtists.has(r.artist.toLowerCase().trim()));
+      if (new Set(filtered.map(r => r.artist.toLowerCase().trim())).size >= trackCount)
+        ownedPool = filtered;
+    }
+
+    type AlbumEntry = {
+      artist: string; album: string; year: number | null; genre: string | null;
+      cover_url: string | null; source: "collection" | "wantlist" | "discover";
+      confidence: "tagged" | "inferred";
+    };
+
+    const albumPool: AlbumEntry[] = ownedPool.map(r => ({
+      artist: r.artist, album: r.album, year: r.year, genre: r.genre,
+      cover_url: r.cover_url, source: "collection",
+      confidence: feelingByRecordId.get(r.id) === mood ? "tagged" : "inferred",
+    }));
+
+    if (includeOutsideCollection) {
+      // Wantlist records
+      const { data: wl } = await db
+        .from("lists").select("id").eq("user_id", user.id).eq("slug", "wantlist").maybeSingle();
+      const wlId = wl?.id ?? null;
+      if (wlId) {
+        const { data: wlRecordItems } = await db
+          .from("list_items").select("record_id")
+          .eq("list_id", wlId).eq("item_type", "record").not("record_id", "is", null);
+        const wlRecordIds = (wlRecordItems ?? []).map((r: { record_id: string }) => r.record_id);
+        if (wlRecordIds.length > 0) {
+          const wlRecords = await selectInBatches<{ artist: string; album: string; year: number | null; cover_url: string | null }>(
+            db, "records", "artist, album, year, cover_url", "id", wlRecordIds,
+          );
+          for (const r of wlRecords)
+            albumPool.push({ artist: r.artist, album: r.album, year: r.year, genre: null, cover_url: r.cover_url, source: "wantlist", confidence: "inferred" });
+        }
+        const { data: wlSongItems } = await db
+          .from("list_items").select("song_artist, song_album, song_year, song_cover_url")
+          .eq("list_id", wlId).eq("item_type", "song");
+        for (const r of (wlSongItems ?? []) as Array<{ song_artist: string; song_album: string; song_year: number | null; song_cover_url: string | null }>)
+          albumPool.push({ artist: r.song_artist, album: r.song_album, year: r.song_year, genre: null, cover_url: r.song_cover_url, source: "wantlist", confidence: "inferred" });
+      }
+      // Discover via Claude
+      const ownedArtistRows = await selectInBatches<{ artist: string; styles: string[] | null }>(
+        db, "records", "artist, styles", "id", ownedRecordIds,
+      );
+      const ownedStyles = [...new Set(ownedArtistRows.flatMap(r => r.styles ?? []))].sort();
+      const discoveries = await discoverOutsideCollection(
+        mood, refinement,
+        [...new Set(ownedArtistRows.map(r => r.artist))],
+        [], ownedStyles,
+      );
+      for (const d of discoveries)
+        albumPool.push({ artist: d.artist, album: d.album, year: d.year, genre: null, cover_url: null, source: "discover", confidence: "inferred" });
+    }
+
+    if (albumPool.length === 0)
+      return NextResponse.json({ error: "No records found in your collection." }, { status: 422 });
+
+    const MAX_ALBUMS = 150;
+    const taggedPool   = albumPool.filter(a => a.confidence === "tagged");
+    const discoverPool = albumPool.filter(a => a.confidence !== "tagged" && a.source === "discover");
+    const restPool     = albumPool.filter(a => a.confidence !== "tagged" && a.source !== "discover");
+    const capped       = taggedPool.concat(discoverPool, shuffle(restPool)).slice(0, MAX_ALBUMS);
+
+    const minCollectionCount = Math.ceil(trackCount * MIN_COLLECTION_RATIO);
+    const collectionAlbumCount = capped.filter(a => a.source === "collection").length;
+    const metaRatioBlock = includeOutsideCollection && collectionAlbumCount > 0
+      ? `\nAt least ${Math.min(minCollectionCount, collectionAlbumCount)} of the ${trackCount} tracks MUST come from source "collection".\n`
+      : "";
+
+    const albumListText = capped
+      .map((a, idx) => `${idx} :: ${a.source} :: ${a.confidence} :: ${a.artist} — ${a.album}${a.year ? ` (${a.year})` : ""}${a.genre ? `, ${a.genre}` : ""}`)
+      .join("\n");
+
+    const metaUserPrompt = [
+      `Mood: ${mood}`,
+      refinement && `Refinement: ${refinement}`,
+      `Target track count: ${trackCount}`,
+      metaRatioBlock,
+      "",
+      "Albums (index :: source :: confidence :: artist — album [year] [genre]):",
+      albumListText,
+    ].filter(Boolean).join("\n");
+
+    try {
+      const metaMsg = await anthropic.messages.create({
+        model: "claude-sonnet-4-6",
+        max_tokens: 2000,
+        system: [{
+          type: "text",
+          text: `You are rekōdo's DJ. Given a list of albums from a vinyl collector's collection (each with an index, source, confidence, and metadata) and a target mood, select exactly the requested number of tracks and sequence them as a coherent DJ set: an opening, building section, peak, and resolution. For each chosen album, use your knowledge of the actual track listing to pick one specific track that best fits the mood — use the exact artist name and album name as given, and use the exact track title as it appears on the record. Never select more than one track from the same artist. Prefer "tagged" albums over "inferred". Honor any refinement as a hard constraint. For each track, write one short rationale (max 20 words) for its place in the sequence.`,
+          cache_control: { type: "ephemeral" },
+        }],
+        tools: [{
+          name: "return_playlist",
+          description: "Return the selected, sequenced tracks.",
+          input_schema: {
+            type: "object",
+            properties: {
+              tracks: {
+                type: "array",
+                items: {
+                  type: "object",
+                  properties: {
+                    album_index: { type: "number", description: "Index from the album list" },
+                    track_title: { type: "string", description: "Exact track title from the album's track listing" },
+                    rationale:   { type: "string" },
+                  },
+                  required: ["album_index", "track_title", "rationale"],
+                },
+              },
+            },
+            required: ["tracks"],
+          },
+        }],
+        tool_choice: { type: "tool", name: "return_playlist" },
+        messages: [{ role: "user", content: metaUserPrompt }],
+      });
+
+      const metaBlock = metaMsg.content.find(b => b.type === "tool_use");
+      if (!metaBlock || metaBlock.type !== "tool_use")
+        return NextResponse.json({ error: "Generation failed." }, { status: 502 });
+
+      const metaParsed = metaBlock.input as { tracks: Array<{ album_index: number; track_title: string; rationale: string }> };
+      const metaValidated: Array<{
+        id: string; artist: string; title: string; album: string;
+        year: number | null; cover_url: string | null; rationale: string;
+        source: "collection" | "wantlist" | "discover";
+      }> = [];
+      const seenArtistsMeta = new Set<string>();
+
+      for (const t of metaParsed.tracks ?? []) {
+        const album = capped[Math.round(t.album_index)];
+        if (!album || !t.track_title?.trim()) continue;
+        const artistKey = album.artist.toLowerCase().trim();
+        if (seenArtistsMeta.has(artistKey)) continue;
+        seenArtistsMeta.add(artistKey);
+        metaValidated.push({
+          id: `${artistKey}||${t.track_title.toLowerCase().trim()}||${album.album.toLowerCase().trim()}`,
+          artist: album.artist, title: t.track_title, album: album.album,
+          year: album.year, cover_url: album.cover_url, rationale: t.rationale ?? "",
+          source: album.source,
+        });
+      }
+
+      if (metaValidated.length < Math.min(trackCount, 5)) {
+        return NextResponse.json({
+          error: `Only ${metaValidated.length} track${metaValidated.length === 1 ? "" : "s"} generated for "${mood}" — try a different mood or enable "Include tracks outside my collection".`,
+        }, { status: 422 });
+      }
+
+      return NextResponse.json({ tracks: metaValidated });
+    } catch (err) {
+      return NextResponse.json(
+        { error: err instanceof Error ? err.message : "Failed to generate playlist." },
+        { status: 502 },
+      );
+    }
+  }
+
+  // ── Spotify path ─────────────────────────────────────────────────────────
   let ownedMatchedRecords = await selectInBatches<{ id: string; artist: string; album: string; year: number | null; genre: string | null; styles: string[] | null; cover_url: string | null; spotify_tracks: SpotifyTrackJson[] | null }>(
     db, "records", "id, artist, album, year, genre, styles, cover_url, spotify_tracks", "id", ownedRecordIds,
     (q) => q.eq("spotify_matched", true),
@@ -922,7 +1107,7 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    return NextResponse.json({ tracks: validated });
+    return NextResponse.json({ tracks: validated.map(t => ({ ...t, id: t.spotify_uri })) });
   } catch (err) {
     return NextResponse.json(
       { error: err instanceof Error ? err.message : "Failed to generate playlist." },
