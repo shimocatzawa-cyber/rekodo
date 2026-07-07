@@ -53,7 +53,7 @@ function SpotlightPanel({ spotlight }: { spotlight: Spotlight }) {
 
   return (
     <div className="rk-spotlight-panel" style={{ width: 260, flexShrink: 0, position: "sticky", top: 24, alignSelf: "flex-start" }}>
-      <div className="rk-spotlight-img" style={{ width: "100%", aspectRatio: "1 / 1", background: "#f7f7f5", overflow: "hidden" }}>
+      <div className="rk-spotlight-img" style={{ width: "100%", aspectRatio: "1 / 1", background: spotlight.type === "label" ? "#ffffff" : "#f7f7f5", overflow: "hidden" }}>
         {imgUrl && !failed ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img
