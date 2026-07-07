@@ -62,6 +62,7 @@ export default function SpotlightArchivePicker({ current, currentId, selectedId,
             textAlign: "left", cursor: isCurrentSelected ? "default" : "pointer",
             color: isCurrentSelected ? ORANGE : INK,
             borderBottom: isCurrentSelected ? `1px solid ${ORANGE}` : "1px solid transparent",
+            width: "fit-content",
           }}
         >
           {current ? formatMonth(current.month) : "Current"}
@@ -78,6 +79,7 @@ export default function SpotlightArchivePicker({ current, currentId, selectedId,
                 textAlign: "left", cursor: active ? "default" : "pointer",
                 color: active ? ORANGE : "#888888",
                 borderBottom: active ? `1px solid ${ORANGE}` : "1px solid transparent",
+                width: "fit-content",
               }}
             >
               {formatMonth(item.month)}
