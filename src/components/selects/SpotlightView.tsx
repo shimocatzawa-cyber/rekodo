@@ -241,34 +241,64 @@ export default function SpotlightView({ spotlight }: { spotlight: Spotlight }) {
 
         {/* 5. Neighbors */}
         <div>
-          <SectionEyebrow>{ownsLabel}</SectionEyebrow>
-          <p style={{ fontFamily: MONO, fontSize: "11px", color: "#888888", margin: "0 0 16px", fontWeight: 400 }}>
-            {ownsSubtitle}
-          </p>
-          <div className="rk-neighbors-flex" style={{ display: "flex", border: `1px solid ${RULE}` }}>
-            {spotlight.neighbors.map((n, i) => (
-              <div
-                key={n.artist}
-                style={{
-                  flex: 1, padding: 16,
-                  borderLeft: i > 0 ? `1px solid ${RULE}` : "none",
-                }}
-              >
-                <p style={{ fontFamily: MONO, fontSize: "10px", textTransform: "uppercase", color: ORANGE, margin: "0 0 8px", fontWeight: 400 }}>
-                  {n.tag}
-                </p>
-                <p style={{ fontFamily: SERIF, fontSize: "14px", fontWeight: 600, color: INK, margin: "0 0 3px" }}>
-                  {n.artist}
-                </p>
-                <p style={{ fontFamily: MONO, fontSize: "11px", color: "#888888", margin: "0 0 8px", fontWeight: 400 }}>
-                  {n.album}
-                </p>
-                <p style={{ fontFamily: MONO, fontSize: "11px", color: INK, lineHeight: 1.6, margin: 0, fontWeight: 400 }}>
-                  {n.reason}
-                </p>
+          {spotlight.type === "label" ? (
+            <>
+              <SectionEyebrow>Start Here</SectionEyebrow>
+              <div style={{ border: `1px solid ${RULE}` }}>
+                {spotlight.neighbors.map((n, i) => (
+                  <div
+                    key={n.artist}
+                    style={{
+                      display: "flex", alignItems: "baseline", gap: 16, padding: "12px 16px",
+                      borderBottom: i < spotlight.neighbors.length - 1 ? `1px solid ${RULE}` : "none",
+                    }}
+                  >
+                    <span style={{ fontFamily: MONO, fontSize: "10px", textTransform: "uppercase", color: MUTED, letterSpacing: "0.06em", flexShrink: 0, width: 140 }}>
+                      {n.tag}
+                    </span>
+                    <span style={{ fontFamily: MONO, fontSize: "10px", color: MUTED, flexShrink: 0 }}>→</span>
+                    <span style={{ fontFamily: SERIF, fontSize: "14px", color: INK, fontWeight: 600 }}>
+                      {n.album}
+                    </span>
+                    <span style={{ fontFamily: MONO, fontSize: "10px", color: MUTED, fontWeight: 400 }}>
+                      {n.artist}
+                    </span>
+                  </div>
+                ))}
               </div>
-            ))}
-          </div>
+            </>
+          ) : (
+            <>
+              <SectionEyebrow>{ownsLabel}</SectionEyebrow>
+              <p style={{ fontFamily: MONO, fontSize: "11px", color: "#888888", margin: "0 0 16px", fontWeight: 400 }}>
+                {ownsSubtitle}
+              </p>
+              <div className="rk-neighbors-flex" style={{ display: "flex", border: `1px solid ${RULE}` }}>
+                {spotlight.neighbors.map((n, i) => (
+                  <div
+                    key={n.artist}
+                    style={{
+                      flex: 1, padding: 16,
+                      borderLeft: i > 0 ? `1px solid ${RULE}` : "none",
+                    }}
+                  >
+                    <p style={{ fontFamily: MONO, fontSize: "10px", textTransform: "uppercase", color: ORANGE, margin: "0 0 8px", fontWeight: 400 }}>
+                      {n.tag}
+                    </p>
+                    <p style={{ fontFamily: SERIF, fontSize: "14px", fontWeight: 600, color: INK, margin: "0 0 3px" }}>
+                      {n.artist}
+                    </p>
+                    <p style={{ fontFamily: MONO, fontSize: "11px", color: "#888888", margin: "0 0 8px", fontWeight: 400 }}>
+                      {n.album}
+                    </p>
+                    <p style={{ fontFamily: MONO, fontSize: "11px", color: INK, lineHeight: 1.6, margin: 0, fontWeight: 400 }}>
+                      {n.reason}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            </>
+          )}
         </div>
 
       </div>
