@@ -49,43 +49,41 @@ export default function SpotlightArchivePicker({ current, currentId, selectedId,
   const isCurrentSelected = selectedId === currentId;
 
   return (
-    <div style={{ marginBottom: 40, paddingBottom: 32, borderBottom: `1px solid ${RULE}` }}>
-      <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
-        <p style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.14em", textTransform: "uppercase", color: "#aaaaaa", margin: 0, flexShrink: 0 }}>
-          Edition
-        </p>
-        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-          <button
-            onClick={handleCurrentClick}
-            style={{
-              fontFamily: MONO, fontSize: "10px", letterSpacing: "0.08em",
-              background: isCurrentSelected ? INK : "none",
-              border: `1px solid ${isCurrentSelected ? INK : RULE}`,
-              color: isCurrentSelected ? "#ffffff" : INK,
-              cursor: "pointer", padding: "6px 14px",
-            }}
-          >
-            {current ? formatMonth(current.month) : "Current"}
-          </button>
-          {archive.map(item => {
-            const active = item.id === selectedId;
-            return (
-              <button
-                key={item.id}
-                onClick={() => handleClick(item.id)}
-                style={{
-                  fontFamily: MONO, fontSize: "10px", letterSpacing: "0.08em",
-                  background: active ? INK : "none",
-                  border: `1px solid ${active ? INK : RULE}`,
-                  color: active ? "#ffffff" : INK,
-                  cursor: "pointer", padding: "6px 14px",
-                }}
-              >
-                {formatMonth(item.month)}
-              </button>
-            );
-          })}
-        </div>
+    <div style={{ width: 110, flexShrink: 0, paddingTop: 4 }}>
+      <p style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.14em", textTransform: "uppercase", color: "#aaaaaa", margin: "0 0 12px" }}>
+        Edition
+      </p>
+      <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+        <button
+          onClick={handleCurrentClick}
+          style={{
+            fontFamily: MONO, fontSize: "10px", letterSpacing: "0.06em",
+            background: "none", border: "none", padding: "2px 0",
+            textAlign: "left", cursor: isCurrentSelected ? "default" : "pointer",
+            color: isCurrentSelected ? ORANGE : INK,
+            borderBottom: isCurrentSelected ? `1px solid ${ORANGE}` : "1px solid transparent",
+          }}
+        >
+          {current ? formatMonth(current.month) : "Current"}
+        </button>
+        {archive.map(item => {
+          const active = item.id === selectedId;
+          return (
+            <button
+              key={item.id}
+              onClick={() => handleClick(item.id)}
+              style={{
+                fontFamily: MONO, fontSize: "10px", letterSpacing: "0.06em",
+                background: "none", border: "none", padding: "2px 0",
+                textAlign: "left", cursor: active ? "default" : "pointer",
+                color: active ? ORANGE : "#888888",
+                borderBottom: active ? `1px solid ${ORANGE}` : "1px solid transparent",
+              }}
+            >
+              {formatMonth(item.month)}
+            </button>
+          );
+        })}
       </div>
     </div>
   );

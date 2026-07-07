@@ -542,7 +542,7 @@ export default function SelectsClient({ username, displayLabel, avatarUrl }: Pro
               <p style={{ fontFamily: MONO, fontSize: "11px", color: "#aaaaaa" }}>Loading…</p>
             )}
             {!artistState.loading && artistState.selected && (
-              <>
+              <div style={{ display: "flex", gap: 40, alignItems: "flex-start" }}>
                 <SpotlightArchivePicker
                   current={artistState.current}
                   currentId={artistState.current?.id ?? null}
@@ -550,8 +550,10 @@ export default function SelectsClient({ username, displayLabel, avatarUrl }: Pro
                   archive={artistState.archive}
                   onSelect={setArtistSelected}
                 />
-                <SpotlightView spotlight={artistState.selected} />
-              </>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <SpotlightView spotlight={artistState.selected} />
+                </div>
+              </div>
             )}
             {!artistState.loading && !artistState.selected && (
               <p style={{ fontFamily: MONO, fontSize: "11px", color: "#aaaaaa" }}>No spotlight available.</p>
@@ -563,7 +565,7 @@ export default function SelectsClient({ username, displayLabel, avatarUrl }: Pro
               <p style={{ fontFamily: MONO, fontSize: "11px", color: "#aaaaaa" }}>Loading…</p>
             )}
             {!labelState.loading && labelState.selected && (
-              <>
+              <div style={{ display: "flex", gap: 40, alignItems: "flex-start" }}>
                 <SpotlightArchivePicker
                   current={labelState.current}
                   currentId={labelState.current?.id ?? null}
@@ -571,8 +573,10 @@ export default function SelectsClient({ username, displayLabel, avatarUrl }: Pro
                   archive={labelState.archive}
                   onSelect={setLabelSelected}
                 />
-                <SpotlightView spotlight={labelState.selected} />
-              </>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <SpotlightView spotlight={labelState.selected} />
+                </div>
+              </div>
             )}
             {!labelState.loading && !labelState.selected && (
               <p style={{ fontFamily: MONO, fontSize: "11px", color: "#aaaaaa" }}>No spotlight available.</p>
