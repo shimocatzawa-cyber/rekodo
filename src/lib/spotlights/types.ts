@@ -28,6 +28,7 @@ export interface SpotlightMeta {
   website?: string;
   // shared
   location?: string;
+  image_url?: string;
 }
 
 export interface Spotlight {

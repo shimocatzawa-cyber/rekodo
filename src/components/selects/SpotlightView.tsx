@@ -27,6 +27,13 @@ function SpotlightPanel({ spotlight }: { spotlight: Spotlight }) {
   useEffect(() => {
     setImgUrl(null);
     setFailed(false);
+
+    // Use manual image override when set in meta
+    if (spotlight.meta.image_url) {
+      setImgUrl(`/api/image-proxy?url=${encodeURIComponent(spotlight.meta.image_url)}`);
+      return;
+    }
+
     let cancelled = false;
     fetch(`/api/selects/spotlight-image?type=${spotlight.type}&id=${spotlight.discogs_id}`)
       .then(res => {
@@ -40,7 +47,7 @@ function SpotlightPanel({ spotlight }: { spotlight: Spotlight }) {
       })
       .catch(() => { if (!cancelled) setFailed(true); });
     return () => { cancelled = true; };
-  }, [spotlight.discogs_id, spotlight.type]);
+  }, [spotlight.discogs_id, spotlight.type, spotlight.meta.image_url]);
 
   const { meta } = spotlight;
 
