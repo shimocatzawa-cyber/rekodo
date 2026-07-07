@@ -33,16 +33,6 @@ function openInSpotifyUrl(uri: string): string {
   return `https://open.spotify.com/track/${id}`;
 }
 
-function exportCsv(tracks: GeneratedTrack[]) {
-  const esc = (s: string) => `"${s.replace(/"/g, '""')}"`;
-  const rows = tracks.map(t => [esc(t.title), esc(t.artist), esc(t.album)].join(","));
-  const csv = ["Track,Artist,Album", ...rows].join("\n");
-  const blob = new Blob([csv], { type: "text/plain;charset=utf-8" });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url; a.download = "rekodo-playlist.csv"; a.click();
-  URL.revokeObjectURL(url);
-}
 
 function appleMusicSearchUrl(artist: string, title: string): string {
   return `https://music.apple.com/search?term=${encodeURIComponent(`${artist} ${title}`)}`;
@@ -171,17 +161,9 @@ export default function PlaylistTrackList({ tracks, onReorder, resequencing }: P
         <span style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.04em", color: MUTED }}>
           {fromCollection} from your collection{fromWantlist > 0 ? ` · ${fromWantlist} from your wantlist` : ""}{fromDiscover > 0 ? ` · ${fromDiscover} discovered for you` : ""}
         </span>
-        <div style={{ display: "flex", alignItems: "center", gap: "16px", flexShrink: 0 }}>
-          <span style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.04em", color: MUTED }}>
-            {tracks.length} track{tracks.length === 1 ? "" : "s"}{totalDurationMs > 0 ? ` · ${fmtTotal(totalDurationMs)}` : ""}
-          </span>
-          <button
-            onClick={() => exportCsv(tracks)}
-            style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.04em", color: MUTED, background: "none", border: "none", cursor: "pointer", padding: 0, textDecoration: "underline" }}
-          >
-            Export playlist
-          </button>
-        </div>
+        <span style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.04em", color: MUTED, flexShrink: 0 }}>
+          {tracks.length} track{tracks.length === 1 ? "" : "s"}{totalDurationMs > 0 ? ` · ${fmtTotal(totalDurationMs)}` : ""}
+        </span>
       </div>
     </div>
   );

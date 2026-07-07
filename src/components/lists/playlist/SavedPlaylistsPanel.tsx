@@ -9,27 +9,20 @@ const INK    = "#0d0d0d";
 const MUTED  = "#aaaaaa";
 const RULE   = "#e0e0da";
 
-function buildExportText(title: string, tracks: GeneratedTrack[]): string {
-  const lines = tracks.map((t, i) => {
-    const year = t.year ? ` (${t.year})` : "";
-    return `${i + 1}. ${t.artist} — ${t.title} — ${t.album}${year}`;
-  });
-  return [
-    title,
-    "",
-    ...lines,
-    "",
-    "Import into Apple Music, Spotify, or any service via Soundiiz (soundiiz.com) or TuneMyMusic (tunemymusic.com) — both free for playlists this size.",
-  ].join("\n");
+function copyTxt(tracks: GeneratedTrack[]) {
+  const text = tracks.map(t => `${t.artist} – ${t.title}`).join("\n");
+  navigator.clipboard.writeText(text).catch(() => {});
 }
 
-function downloadTextFile(filename: string, text: string) {
-  const blob = new Blob([text], { type: "text/plain" });
+function exportCsv(title: string, tracks: GeneratedTrack[]) {
+  const esc  = (s: string) => `"${s.replace(/"/g, '""')}"`;
+  const rows = tracks.map(t => [esc(t.title), esc(t.artist), esc(t.album)].join(","));
+  const csv  = ["Track,Artist,Album", ...rows].join("\n");
+  const blob = new Blob([csv], { type: "text/plain;charset=utf-8" });
   const url  = URL.createObjectURL(blob);
   const a    = document.createElement("a");
-  a.href     = url;
-  a.download = filename;
-  a.click();
+  const slug = title.toLowerCase().replace(/[^a-z0-9]+/g, "-").slice(0, 40);
+  a.href = url; a.download = `rekodo-${slug}.csv`; a.click();
   URL.revokeObjectURL(url);
 }
 
@@ -72,11 +65,6 @@ export default function SavedPlaylistsPanel({
   titleDraft, setTitleDraft, onRegenerate, generating, onSave, saving, saveDone, hasTracks,
   tracks, savedPlaylists, loadingSaved, activeSavedId, onLoadSaved, onDeleteSaved,
 }: Props) {
-  function handleExport() {
-    const title = titleDraft.trim() || "My Playlist";
-    const slug  = title.toLowerCase().replace(/[^a-z0-9]+/g, "-").slice(0, 40);
-    downloadTextFile(`rekodo-${slug}.txt`, buildExportText(title, tracks));
-  }
   return (
     <div style={{ background: "#ffffff", border: `1px solid ${RULE}`, padding: "28px 28px 24px" }}>
       <p style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.12em", textTransform: "uppercase", color: MUTED, marginBottom: "10px" }}>
@@ -110,12 +98,20 @@ export default function SavedPlaylistsPanel({
         </button>
 
         <button
-          onClick={handleExport}
+          onClick={() => copyTxt(tracks)}
           disabled={!hasTracks}
-          title="Downloads a track list you can import into Apple Music or Spotify via Soundiiz or TuneMyMusic (both free)"
           style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.1em", textTransform: "uppercase", color: hasTracks ? INK : "#cccccc", background: "none", border: `1px solid ${hasTracks ? "#c0bcb4" : RULE}`, borderRadius: "3px", cursor: !hasTracks ? "default" : "pointer", padding: "8px 0", width: "100%" }}
         >
-          Export Playlist
+          Copy TXT
+        </button>
+
+        <button
+          onClick={() => exportCsv(titleDraft.trim() || "My Playlist", tracks)}
+          disabled={!hasTracks}
+          title="CSV for Soundiiz / TuneMyMusic import"
+          style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.1em", textTransform: "uppercase", color: hasTracks ? INK : "#cccccc", background: "none", border: `1px solid ${hasTracks ? "#c0bcb4" : RULE}`, borderRadius: "3px", cursor: !hasTracks ? "default" : "pointer", padding: "8px 0", width: "100%" }}
+        >
+          Export CSV
         </button>
       </div>
 

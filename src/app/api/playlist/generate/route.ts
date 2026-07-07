@@ -507,10 +507,10 @@ export async function POST(request: NextRequest) {
     try {
       const metaMsg = await anthropic.messages.create({
         model: "claude-sonnet-4-6",
-        max_tokens: 2000,
+        max_tokens: 2500,
         system: [{
           type: "text",
-          text: `You are rekōdo's DJ. Given a list of albums from a vinyl collector's collection (each with an index, source, confidence, and metadata) and a target mood, select exactly the requested number of tracks and sequence them as a coherent DJ set: an opening, building section, peak, and resolution. For each chosen album, use your knowledge of the actual track listing to pick one specific track that best fits the mood — use the exact artist name and album name as given, and use the exact track title as it appears on the record. Never select more than one track from the same artist. Prefer "tagged" albums over "inferred". Honor any refinement as a hard constraint. For each track, write one short rationale (max 20 words) for its place in the sequence.`,
+          text: `You are rekōdo's DJ. Given a list of albums from a vinyl collector's collection (each with an index, source, confidence, and metadata) and a target mood, select EXACTLY the requested number of tracks — no more, no fewer — and sequence them as a coherent DJ set: an opening, building section, peak, and resolution. For each chosen album, use your knowledge of the actual track listing to pick one specific track that best fits the mood — use the exact artist name and album name as given, and use the exact track title as it appears on the record. If you are unsure of a track title, pick the most well-known or longest track on the album rather than skipping it. Never select more than one track from the same artist. Prefer "tagged" albums over "inferred". Honor any refinement as a hard constraint. For each track, write one short rationale (max 20 words) for its place in the sequence. You MUST always return the full requested count — partial lists are not acceptable.`,
           cache_control: { type: "ephemeral" },
         }],
         tools: [{
@@ -563,6 +563,62 @@ export async function POST(request: NextRequest) {
           year: album.year, cover_url: album.cover_url, rationale: t.rationale ?? "",
           source: album.source,
         });
+      }
+
+      // Top-up: Claude came back short — ask it to fill the gap from the unused albums.
+      if (metaValidated.length < trackCount) {
+        const usedAlbumIndices = new Set(
+          metaValidated.map(v => capped.findIndex(a => a.artist === v.artist && a.album === v.album))
+        );
+        const unusedAlbums = capped
+          .map((a, idx) => ({ ...a, idx }))
+          .filter(a => !usedAlbumIndices.has(a.idx) && !seenArtistsMeta.has(a.artist.toLowerCase().trim()));
+
+        if (unusedAlbums.length > 0) {
+          const needed = trackCount - metaValidated.length;
+          const topupListText = unusedAlbums
+            .slice(0, 60)
+            .map(a => `${a.idx} :: ${a.source} :: ${a.confidence} :: ${a.artist} — ${a.album}${a.year ? ` (${a.year})` : ""}${a.genre ? `, ${a.genre}` : ""}`)
+            .join("\n");
+          try {
+            const topupMsg = await anthropic.messages.create({
+              model: "claude-sonnet-4-6",
+              max_tokens: 800,
+              system: [{ type: "text", text: `You are rekōdo's DJ filling out a ${mood} playlist. Pick exactly ${needed} more tracks from the unused albums below — one track per artist, exact track title from the album. Write a short rationale (max 20 words) for each.` }],
+              tools: [{
+                name: "return_playlist",
+                description: "Return additional tracks.",
+                input_schema: {
+                  type: "object",
+                  properties: {
+                    tracks: { type: "array", items: { type: "object", properties: { album_index: { type: "number" }, track_title: { type: "string" }, rationale: { type: "string" } }, required: ["album_index", "track_title", "rationale"] } },
+                  },
+                  required: ["tracks"],
+                },
+              }],
+              tool_choice: { type: "tool", name: "return_playlist" },
+              messages: [{ role: "user", content: `Mood: ${mood}\nNeed: ${needed} more tracks\n\nUnused albums:\n${topupListText}` }],
+            });
+            const topupBlock = topupMsg.content.find(b => b.type === "tool_use");
+            if (topupBlock && topupBlock.type === "tool_use") {
+              const topupParsed = topupBlock.input as { tracks: Array<{ album_index: number; track_title: string; rationale: string }> };
+              for (const t of topupParsed.tracks ?? []) {
+                if (metaValidated.length >= trackCount) break;
+                const album = capped[Math.round(t.album_index)];
+                if (!album || !t.track_title?.trim()) continue;
+                const artistKey = album.artist.toLowerCase().trim();
+                if (seenArtistsMeta.has(artistKey)) continue;
+                seenArtistsMeta.add(artistKey);
+                metaValidated.push({
+                  id: `${artistKey}||${t.track_title.toLowerCase().trim()}||${album.album.toLowerCase().trim()}`,
+                  artist: album.artist, title: t.track_title, album: album.album,
+                  year: album.year, cover_url: album.cover_url, rationale: t.rationale ?? "",
+                  source: album.source,
+                });
+              }
+            }
+          } catch { /* best-effort — ship what we have */ }
+        }
       }
 
       if (metaValidated.length < Math.min(trackCount, 5)) {
