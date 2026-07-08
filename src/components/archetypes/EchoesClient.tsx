@@ -20,12 +20,25 @@ interface EchoAlbum {
   imageUrl?: string;
 }
 
+interface SignalCtx { score?: number; label?: string; rhythmType?: string; digitalOnlyArtists?: string[] }
+
 interface EchoesData {
   missingMiddle: { clusterA: string; clusterB: string; bridge: string; albums: EchoAlbum[] };
   unboughtClassic: { scene: string; intro: string; albums: EchoAlbum[] };
   scenePortals: Array<{ scene: string; adjacentTo: string; why: string; gatewayAlbum: EchoAlbum }>;
   tasteForks: { archetypePattern: string; yourDivergence: string; albums: EchoAlbum[] };
-  nextObsession: { prediction: string; reasoning: string; entryPoint: EchoAlbum };
+  nextObsession: { prediction: string; reasoning: string; entryPoint: EchoAlbum | null };
+  _context?: {
+    sonicCoherence?:      SignalCtx | null;
+    canonObscurity?:      SignalCtx | null;
+    labelLoyalty?:        SignalCtx | null;
+    artistConcentration?: SignalCtx | null;
+    transgressiveIndex?:  SignalCtx | null;
+    acquisitionRhythm?:   SignalCtx | null;
+    digitalDivergence?:   SignalCtx | null;
+    shadow?:              string | null;
+    namedPairing?:        string | null;
+  };
   cached?: boolean;
 }
 
@@ -78,6 +91,15 @@ function AlbumMeta({ album, muted = false }: { album: EchoAlbum; muted?: boolean
   );
 }
 
+// Small archetype signal tag shown under each module header
+function SignalTag({ label }: { label: string }) {
+  return (
+    <div style={{ fontFamily: MONO, fontSize: 7, letterSpacing: "0.16em", textTransform: "uppercase", color: ORANGE, marginBottom: 14, marginTop: -8 }}>
+      {label}
+    </div>
+  );
+}
+
 // ── Skeleton ──────────────────────────────────────────────────────────────────
 
 function Pulse({ w = "100%", h }: { w?: string | number; h: number }) {
@@ -112,10 +134,14 @@ function EchoesSkeleton() {
 
 // ── 01 Missing Middle ─────────────────────────────────────────────────────────
 
-function MissingMiddle({ data }: { data: EchoesData["missingMiddle"] }) {
+function MissingMiddle({ data, ctx }: { data: EchoesData["missingMiddle"]; ctx?: EchoesData["_context"] }) {
+  const sc = ctx?.sonicCoherence;
+  const ac = ctx?.artistConcentration;
+  const tag = sc?.label ? `Sonic Coherence: ${sc.label}${ac?.label ? ` · Artist Concentration: ${ac.label}` : ""}` : undefined;
   return (
     <div style={{ marginBottom: 48 }}>
       <ModuleHeader number="01" title="Missing Middle" />
+      {tag && <SignalTag label={tag} />}
 
       {/* Cluster connector */}
       <div style={{ display: "flex", alignItems: "center", marginBottom: 16, gap: 0 }}>
@@ -148,10 +174,13 @@ function MissingMiddle({ data }: { data: EchoesData["missingMiddle"] }) {
 
 // ── 02 Unbought Classic ───────────────────────────────────────────────────────
 
-function UnboughtClassic({ data }: { data: EchoesData["unboughtClassic"] }) {
+function UnboughtClassic({ data, ctx }: { data: EchoesData["unboughtClassic"]; ctx?: EchoesData["_context"] }) {
+  const co = ctx?.canonObscurity;
+  const tag = co?.label ? `Canon Obscurity: ${co.label}` : undefined;
   return (
     <div style={{ marginBottom: 48 }}>
       <ModuleHeader number="02" title="Unbought Classic" />
+      {tag && <SignalTag label={tag} />}
 
       <div style={{ display: "flex", alignItems: "baseline", gap: 10, marginBottom: 16 }}>
         <span style={{ fontFamily: SERIF, fontSize: "1rem", color: INK, letterSpacing: "-0.01em" }}>
@@ -190,10 +219,15 @@ function UnboughtClassic({ data }: { data: EchoesData["unboughtClassic"] }) {
 
 // ── 03 Scene Portals ──────────────────────────────────────────────────────────
 
-function ScenePortals({ data }: { data: EchoesData["scenePortals"] }) {
+function ScenePortals({ data, ctx }: { data: EchoesData["scenePortals"]; ctx?: EchoesData["_context"] }) {
+  const ll = ctx?.labelLoyalty;
+  const dd = ctx?.digitalDivergence;
+  const parts = [ll?.label && `Label Loyalty: ${ll.label}`, dd?.label && `Digital Divergence: ${dd.label}`].filter(Boolean);
+  const tag = parts.length ? parts.join(" · ") : undefined;
   return (
     <div style={{ marginBottom: 48 }}>
       <ModuleHeader number="03" title="Scene Portals" />
+      {tag && <SignalTag label={tag} />}
 
       <div className="echoes-portals" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 1, background: RULE }}>
         {data?.map((portal, i) => (
@@ -230,10 +264,13 @@ function ScenePortals({ data }: { data: EchoesData["scenePortals"] }) {
 
 // ── 04 Taste Forks ───────────────────────────────────────────────────────────
 
-function TasteForks({ data }: { data: EchoesData["tasteForks"] }) {
+function TasteForks({ data, ctx }: { data: EchoesData["tasteForks"]; ctx?: EchoesData["_context"] }) {
+  const shadow = ctx?.shadow;
+  const tag = shadow ? `Shadow: ${shadow.charAt(0).toUpperCase() + shadow.slice(1)}` : undefined;
   return (
     <div style={{ marginBottom: 48 }}>
       <ModuleHeader number="04" title="Taste Forks" />
+      {tag && <SignalTag label={tag} />}
 
       {/* Pattern vs. divergence — one line each */}
       <div className="echoes-fork-header" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 1, background: RULE, marginBottom: 20 }}>
@@ -267,28 +304,35 @@ function TasteForks({ data }: { data: EchoesData["tasteForks"] }) {
 
 // ── 05 Next Obsession ─────────────────────────────────────────────────────────
 
-function NextObsession({ data }: { data: EchoesData["nextObsession"] }) {
+function NextObsession({ data, ctx }: { data: EchoesData["nextObsession"]; ctx?: EchoesData["_context"] }) {
+  const ar = ctx?.acquisitionRhythm;
+  const shadow = ctx?.shadow;
+  const parts = [ar?.rhythmType && `Rhythm: ${ar.rhythmType}`, shadow && `Shadow: ${shadow.charAt(0).toUpperCase() + shadow.slice(1)}`].filter(Boolean);
+  const tag = parts.length ? parts.join(" · ") : undefined;
   return (
     <div style={{ marginBottom: 48 }}>
       <ModuleHeader number="05" title="Next Obsession" />
+      {tag && <SignalTag label={tag} />}
 
       <div style={{ background: INK, padding: "24px 24px 22px" }}>
         <div style={{ display: "flex", gap: 20, alignItems: "flex-start" }}>
           {/* Album art */}
-          <div style={{ flexShrink: 0 }}>
-            {data.entryPoint.imageUrl ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img
-                src={data.entryPoint.imageUrl}
-                alt={data.entryPoint.title}
-                style={{ width: 110, height: 110, objectFit: "cover", display: "block" }}
-              />
-            ) : (
-              <div style={{ width: 110, height: 110, background: "rgba(255,255,255,0.06)", display: "flex", alignItems: "center", justifyContent: "center" }}>
-                <span style={{ fontFamily: SERIF, fontSize: 36, color: ORANGE }}>ō</span>
-              </div>
-            )}
-          </div>
+          {data.entryPoint && (
+            <div style={{ flexShrink: 0 }}>
+              {data.entryPoint.imageUrl ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={data.entryPoint.imageUrl}
+                  alt={data.entryPoint.title}
+                  style={{ width: 110, height: 110, objectFit: "cover", display: "block" }}
+                />
+              ) : (
+                <div style={{ width: 110, height: 110, background: "rgba(255,255,255,0.06)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                  <span style={{ fontFamily: SERIF, fontSize: 36, color: ORANGE }}>ō</span>
+                </div>
+              )}
+            </div>
+          )}
 
           {/* Text */}
           <div style={{ flex: 1, minWidth: 0 }}>
@@ -301,17 +345,19 @@ function NextObsession({ data }: { data: EchoesData["nextObsession"] }) {
             <p style={{ fontFamily: MONO, fontSize: "0.65rem", color: "rgba(255,255,255,0.55)", letterSpacing: "0.03em", lineHeight: 1.75, margin: "0 0 16px" }}>
               {data.reasoning}
             </p>
-            <div style={{ borderTop: "1px solid rgba(255,255,255,0.1)", paddingTop: 12 }}>
-              <div style={{ fontFamily: MONO, fontSize: 7, letterSpacing: "0.16em", textTransform: "uppercase", color: "rgba(255,255,255,0.28)", marginBottom: 5 }}>
-                Entry point
+            {data.entryPoint && (
+              <div style={{ borderTop: "1px solid rgba(255,255,255,0.1)", paddingTop: 12 }}>
+                <div style={{ fontFamily: MONO, fontSize: 7, letterSpacing: "0.16em", textTransform: "uppercase", color: "rgba(255,255,255,0.28)", marginBottom: 5 }}>
+                  Entry point
+                </div>
+                <div style={{ fontFamily: SERIF, fontSize: "0.88rem", color: "#fff", letterSpacing: "-0.01em", marginBottom: 2 }}>
+                  {data.entryPoint.title}
+                </div>
+                <div style={{ fontFamily: MONO, fontSize: "0.6rem", color: "rgba(255,255,255,0.4)", letterSpacing: "0.06em" }}>
+                  {data.entryPoint.artist} · {data.entryPoint.year}
+                </div>
               </div>
-              <div style={{ fontFamily: SERIF, fontSize: "0.88rem", color: "#fff", letterSpacing: "-0.01em", marginBottom: 2 }}>
-                {data.entryPoint.title}
-              </div>
-              <div style={{ fontFamily: MONO, fontSize: "0.6rem", color: "rgba(255,255,255,0.4)", letterSpacing: "0.06em" }}>
-                {data.entryPoint.artist} · {data.entryPoint.year}
-              </div>
-            </div>
+            )}
           </div>
         </div>
       </div>
@@ -321,11 +367,75 @@ function NextObsession({ data }: { data: EchoesData["nextObsession"] }) {
 
 // ── Main component ────────────────────────────────────────────────────────────
 
+function extractAlbums(d: EchoesData): { artist: string; title: string }[] {
+  return [
+    ...(d.missingMiddle?.albums     ?? []),
+    ...(d.unboughtClassic?.albums   ?? []),
+    ...((d.scenePortals ?? []).map(p => p.gatewayAlbum).filter(Boolean)),
+    ...(d.tasteForks?.albums        ?? []),
+    ...(d.nextObsession?.entryPoint ? [d.nextObsession.entryPoint] : []),
+  ].map(a => ({ artist: a.artist, title: a.title }));
+}
+
+function applyArtworkAndValidation(
+  d: EchoesData,
+  images: Record<string, string>,
+  notFound: string[]
+): EchoesData {
+  const badKeys = new Set(notFound);
+  const albumKey = (a: EchoAlbum) => `${a.artist}|${a.title}`;
+
+  const fill = (a: EchoAlbum | null | undefined): EchoAlbum | null | undefined => {
+    if (!a) return a;
+    return { ...a, imageUrl: images[albumKey(a)] ?? a.imageUrl };
+  };
+  const keep = (a: EchoAlbum) => !badKeys.has(albumKey(a));
+  const keepPortal = (p: EchoesData["scenePortals"][number]) =>
+    !p.gatewayAlbum || !badKeys.has(albumKey(p.gatewayAlbum));
+
+  return {
+    ...d,
+    missingMiddle:   d.missingMiddle   ? { ...d.missingMiddle,   albums: d.missingMiddle.albums.filter(keep).map(a => fill(a)!)   } : d.missingMiddle,
+    unboughtClassic: d.unboughtClassic ? { ...d.unboughtClassic, albums: d.unboughtClassic.albums.filter(keep).map(a => fill(a)!) } : d.unboughtClassic,
+    tasteForks:      d.tasteForks      ? { ...d.tasteForks,      albums: d.tasteForks.albums.filter(keep).map(a => fill(a)!)      } : d.tasteForks,
+    scenePortals:    (d.scenePortals   ?? []).filter(keepPortal).map(p => ({ ...p, gatewayAlbum: fill(p.gatewayAlbum)! })),
+    nextObsession:   d.nextObsession
+      ? {
+          ...d.nextObsession,
+          entryPoint: d.nextObsession.entryPoint && !badKeys.has(albumKey(d.nextObsession.entryPoint))
+            ? fill(d.nextObsession.entryPoint) as EchoAlbum
+            : null,
+        }
+      : d.nextObsession,
+  };
+}
+
 export default function EchoesClient({ userId: _userId }: { userId: string }) {
   const [data, setData]           = useState<EchoesData | null>(null);
   const [loading, setLoading]     = useState(true);
   const [error, setError]         = useState<string | null>(null);
   const [regenerating, setRegen]  = useState(false);
+
+  async function fetchArtwork(d: EchoesData) {
+    const albums = extractAlbums(d);
+    if (albums.length === 0) return;
+    try {
+      const res = await fetch("/api/echoes/artwork", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ albums }),
+      });
+      if (!res.ok) {
+        console.error("[Echoes] artwork route failed:", res.status);
+        return;
+      }
+      const { images, notFound } = await res.json() as { images: Record<string, string>; notFound: string[] };
+      if (notFound.length > 0) console.log("[Echoes] not found on Discogs:", notFound);
+      setData(prev => prev ? applyArtworkAndValidation(prev, images, notFound) : prev);
+    } catch (e) {
+      console.error("[Echoes] artwork error:", e);
+    }
+  }
 
   function load() {
     setLoading(true);
@@ -336,7 +446,7 @@ export default function EchoesClient({ userId: _userId }: { userId: string }) {
         if (!r.ok) throw new Error("failed");
         return r.json() as Promise<EchoesData>;
       })
-      .then(d => setData(d))
+      .then(d => { setData(d); fetchArtwork(d); })
       .catch(e => setError(e instanceof Error ? e.message : "failed"))
       .finally(() => setLoading(false));
   }
@@ -347,7 +457,11 @@ export default function EchoesClient({ userId: _userId }: { userId: string }) {
     setRegen(true);
     try {
       const r = await fetch("/api/echoes", { method: "POST" });
-      if (r.ok) setData(await r.json() as EchoesData);
+      if (r.ok) {
+        const d = await r.json() as EchoesData;
+        setData(d);
+        fetchArtwork(d);
+      }
     } catch {}
     setRegen(false);
   }
@@ -409,11 +523,11 @@ export default function EchoesClient({ userId: _userId }: { userId: string }) {
 
       {!loading && data && (
         <>
-          {data.missingMiddle   && <MissingMiddle   data={data.missingMiddle} />}
-          {data.unboughtClassic && <UnboughtClassic data={data.unboughtClassic} />}
-          {data.scenePortals    && <ScenePortals    data={data.scenePortals} />}
-          {data.tasteForks      && <TasteForks      data={data.tasteForks} />}
-          {data.nextObsession   && <NextObsession   data={data.nextObsession} />}
+          {data.missingMiddle   && <MissingMiddle   data={data.missingMiddle}   ctx={data._context} />}
+          {data.unboughtClassic && <UnboughtClassic data={data.unboughtClassic} ctx={data._context} />}
+          {data.scenePortals    && <ScenePortals    data={data.scenePortals}    ctx={data._context} />}
+          {data.tasteForks      && <TasteForks      data={data.tasteForks}      ctx={data._context} />}
+          {data.nextObsession   && <NextObsession   data={data.nextObsession}   ctx={data._context} />}
         </>
       )}
     </div>
