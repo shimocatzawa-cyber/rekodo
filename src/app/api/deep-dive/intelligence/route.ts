@@ -171,9 +171,11 @@ async function fetchDiscogsDiscography(artistName: string): Promise<DiscogsAlbum
     const artistId = results.find(r => r.type === "artist")?.id;
     if (!artistId) return [];
 
-    // Fetch releases sorted chronologically
+    // Fetch releases sorted chronologically. per_page=500 ensures prolific artists
+    // (e.g. Radiohead) don't have their later catalogue cut off at 100 items —
+    // which would omit In Rainbows, Hail to the Thief, etc.
     const relRes = await fetch(
-      `https://api.discogs.com/artists/${artistId}/releases?per_page=100&sort=year&sort_order=asc`,
+      `https://api.discogs.com/artists/${artistId}/releases?per_page=500&sort=year&sort_order=asc`,
       { headers, signal: AbortSignal.timeout(5000) }
     );
     if (!relRes.ok) return [];
@@ -181,14 +183,17 @@ async function fetchDiscogsDiscography(artistName: string): Promise<DiscogsAlbum
       releases?: { type: string; role: string; title: string; year: number; format?: string }[];
     };
 
-    // Masters where the artist is the primary act — exclude obvious live/single entries
+    // Masters where the artist is the primary act — exclude obvious non-album entries.
+    // Note: Discogs master records have no format field, so singles (e.g. "Karma Police")
+    // appear alongside albums. The prompt instructs Claude to filter them out.
     const LIVE_PAT   = /\blive\b|\blive at\b|\bconcert\b/i;
     const SINGLE_PAT = /\bb\/w\b/i;
+    const REMIX_PAT  = /\bremix(es)?\b|\bdub\b|\bedit\b|\breworked?\b/i;
     const seen = new Set<string>();
     const out: DiscogsAlbum[] = [];
     for (const r of releases) {
       if (r.role !== "Main" || r.type !== "master" || !r.year || r.year < 1900) continue;
-      if (LIVE_PAT.test(r.title) || SINGLE_PAT.test(r.title)) continue;
+      if (LIVE_PAT.test(r.title) || SINGLE_PAT.test(r.title) || REMIX_PAT.test(r.title)) continue;
       const fmt = (r.format ?? "").toLowerCase();
       if (fmt && (fmt.includes("live") || fmt.includes("single"))) continue;
       const norm = r.title.toLowerCase().trim();
@@ -523,13 +528,12 @@ const PROMPTS: Record<string, (artist: string, ownedAlbums?: string[], discogsAl
 ${verifiedBlock}
 CRITICAL ACCURACY RULES:
 ${discogsAlbums.length > 0
-  ? `- You MUST only rank albums present in the VERIFIED CATALOGUE above. Never add an album not on that list.`
-  : `- Only include albums you are certain exist. If unsure, omit it.`}
+  ? `- The VERIFIED CATALOGUE above contains ALL release types including singles, EPs, and individual song titles alongside full albums. You MUST only rank full-length studio albums (typically 8+ tracks, released as LP). Discard any entry that is a single (an individual song title), an EP, a compilation, a live record, or a remix album — even if it appears in the catalogue list.`
+  : `- Only include full-length studio albums you are certain exist. If unsure, omit it.`}
 - Use the year from the VERIFIED CATALOGUE exactly — do not guess or alter release years.
 - Do not confuse ${artist} with any other artist.
-- Studio albums only — no compilations, live records, or EPs unless universally regarded as a major work.
 - Return EXACTLY 6 albums maximum — choose the most essential, even for prolific artists. Do not exceed 6.
-- Rank by genuine artistic significance and critical standing — do NOT include weaker early albums just because they came first. A debut with limited reputation belongs below later acclaimed records.
+- Rank by genuine artistic significance and critical standing — do NOT include weaker early albums just because they came first.
 - Keep each review to 2 sentences.
 - DESCRIPTION STYLE: Factual only — describe what the record sounds like, its instrumentation, production approach, or how it differs from the artist's other work. No vague assertions like "essential", "landmark", "apex", "grail", "masterclass", "rewarding", "vindicating" or similar critical boilerplate. State facts, not importance.
 ${ownedBlock}
