@@ -652,7 +652,7 @@ export default function ConstellationPOC({ username }: Props) {
           const ids = [...artistNames]
             .map(resolveId).filter((id): id is string => id !== null && nodeIds.has(id))
             .filter(id => nodes.find(n => n.id === id)?.owned);
-          if (ids.length < 2 || ids.length > 8) continue; // >8 = probably a major
+          if (ids.length < 2 || ids.length > 30) continue; // >30 = probably a major not caught by SKIP_LABELS
           for (let i = 0; i < ids.length; i++) {
             for (let j = i + 1; j < ids.length; j++) {
               const key = [ids[i], ids[j]].sort().join("|");
@@ -1021,7 +1021,7 @@ export default function ConstellationPOC({ username }: Props) {
                           : e.type === "influence"     ? 0.22
                           : e.type === "label"         ? 0.20
                           :                             0.14; // scene
-          ctx.globalAlpha = hasSelection ? baseAlpha * 0.25 : baseAlpha;
+          ctx.globalAlpha = hasSelection ? baseAlpha * 0.10 : baseAlpha;
           ctx.strokeStyle = EDGE_C;
           ctx.lineWidth   = e.type === "splinter"     ? 2.5
                           : e.type === "collaboration" ? 1.5
@@ -1063,7 +1063,7 @@ export default function ConstellationPOC({ username }: Props) {
           ctx.globalAlpha = 0.88;
           ctx.font = `400 8px ${MONO}`;
           const label = e.type === "splinter" ? "BECAME"
-                      : e.type === "production" ? "ALBINI"
+                      : e.type === "production" ? (e.via?.toUpperCase() ?? "PRODUCER")
                       : e.type === "label" ? e.via?.toUpperCase() ?? "LABEL"
                       : e.type.toUpperCase();
           const tw = ctx.measureText(label).width;
@@ -1112,7 +1112,7 @@ export default function ConstellationPOC({ username }: Props) {
           continue;
         }
 
-        ctx.globalAlpha = isDim ? 0.10 : 1;
+        ctx.globalAlpha = isDim ? 0.04 : 1;
 
         // Orange selection ring
         if (isSel) {
@@ -1153,7 +1153,7 @@ export default function ConstellationPOC({ username }: Props) {
           ctx.lineTo(node.x + cs      + j(12), cy            + j(13));
           ctx.strokeStyle = col; ctx.lineWidth = 1.8;
           ctx.lineJoin = "round"; ctx.lineCap = "round"; ctx.stroke();
-          ctx.globalAlpha = isDim ? 0.10 : 1;
+          ctx.globalAlpha = isDim ? 0.04 : 1;
         }
 
         // Spawn ripples
@@ -1191,7 +1191,7 @@ export default function ConstellationPOC({ username }: Props) {
         const fs    = isAct ? 11 + node.radius * 0.20 : 9 + node.radius * 0.14;
 
         ctx.save();
-        ctx.globalAlpha = isDim ? 0.08 : clamp(spawnT, 0, 1);
+        ctx.globalAlpha = isDim ? 0.03 : clamp(spawnT, 0, 1);
         ctx.translate(node.x, node.y + blotR + (isAct ? 14 : 11));
         ctx.rotate(tilt);
         ctx.font      = isAct ? `600 ${fs}px ${SERIF}`
@@ -1620,22 +1620,24 @@ export default function ConstellationPOC({ username }: Props) {
             {getConnections(selectedArtist.id).length > 0 && (
               <div style={{ borderTop: `1px solid ${BORD}`, paddingTop: "12px" }}>
                 <p style={{ fontFamily: MONO, fontSize: "7px", color: DIM3, letterSpacing: "0.2em", textTransform: "uppercase", marginBottom: "10px" }}>
-                  Connections
+                  Connections · {getConnections(selectedArtist.id).length}
                 </p>
-                {getConnections(selectedArtist.id).slice(0, 6).map(({ node, type, note, via, isSource }) => (
-                  <div key={node.id} style={{ marginBottom: "12px" }}>
-                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
-                      <p style={{ fontFamily: SERIF, fontSize: "13px", fontWeight: 600, color: INK, margin: 0 }}>{node.name}</p>
-                      <span style={{ fontFamily: MONO, fontSize: "7px", color: DIM3, flexShrink: 0, marginLeft: "8px" }}>
-                        {isSource ? "→" : "←"} {REL_LABEL[type].toLowerCase()}
-                      </span>
+                <div style={{ maxHeight: "260px", overflowY: "auto", paddingRight: "4px" }}>
+                  {getConnections(selectedArtist.id).map(({ node, type, note, via, isSource }) => (
+                    <div key={node.id} style={{ marginBottom: "12px" }}>
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
+                        <p style={{ fontFamily: SERIF, fontSize: "13px", fontWeight: 600, color: INK, margin: 0 }}>{node.name}</p>
+                        <span style={{ fontFamily: MONO, fontSize: "7px", color: DIM3, flexShrink: 0, marginLeft: "8px" }}>
+                          {isSource ? "→" : "←"} {REL_LABEL[type].toLowerCase()}
+                        </span>
+                      </div>
+                      {via && (
+                        <p style={{ fontFamily: MONO, fontSize: "7px", color: ORANGE, margin: "2px 0 0" }}>via {via}</p>
+                      )}
+                      <p style={{ fontFamily: MONO, fontSize: "8px", color: DIM2, lineHeight: 1.5, margin: "3px 0 0" }}>{note}</p>
                     </div>
-                    {via && (
-                      <p style={{ fontFamily: MONO, fontSize: "7px", color: ORANGE, margin: "2px 0 0" }}>via {via}</p>
-                    )}
-                    <p style={{ fontFamily: MONO, fontSize: "8px", color: DIM2, lineHeight: 1.5, margin: "3px 0 0" }}>{note}</p>
-                  </div>
-                ))}
+                  ))}
+                </div>
               </div>
             )}
           </div>

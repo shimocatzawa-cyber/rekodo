@@ -60,11 +60,14 @@ export async function fetchMBArtist(artistName: string): Promise<MBArtistData | 
   try {
     // 1. Search for artist MBID
     const searchRes  = await mbFetch(
-      `${MB_API}/artist/?query=artist:${encodeURIComponent(`"${artistName}"`)}&limit=1&fmt=json`
+      `${MB_API}/artist/?query=artist:${encodeURIComponent(`"${artistName}"`)}&limit=3&fmt=json`
     );
     const searchData = await searchRes.json();
     if (!searchData.artists?.length) return null;
-    const mbid: string = searchData.artists[0].id;
+    // Reject if the top result has low confidence — avoids wrong-artist matches for short/common names
+    const topResult = searchData.artists[0];
+    if ((topResult.score ?? 0) < 85) return null;
+    const mbid: string = topResult.id;
 
     // 2. Fetch detail — tags + artist relationships
     const detailRes  = await mbFetch(`${MB_API}/artist/${mbid}?inc=tags+artist-rels&fmt=json`);
@@ -175,6 +178,15 @@ export function mbRelToConstellation(
 
   if (rel.type === "collaboration" || rel.type === "supporting musician") {
     return { source: fetchedArtistName, target: rel.targetName, type: "collaboration" };
+  }
+
+  // "produced by" forward: fetchedArtist's work was produced by targetName
+  // We use this to create production edges between artists who share a producer
+  // but here both are artists, so target is the producer-artist themselves
+  if (rel.type === "produced by" || rel.type === "producer") {
+    return rel.direction === "forward"
+      ? { source: rel.targetName, target: fetchedArtistName, type: "production" }
+      : { source: fetchedArtistName, target: rel.targetName, type: "production" };
   }
 
   if (rel.type === "is person") return null;
