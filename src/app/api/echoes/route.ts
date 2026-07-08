@@ -156,10 +156,18 @@ function buildContext(rows: RecordRow[]) {
     return `${r.artist} — ${r.album}${tags ? ` [${tags}]` : ""}`;
   }).filter((x): x is string => x !== null);
 
+  // Styles the collector has touched but not committed to — these are half-open
+  // doors and the strongest candidates for Scene Portal anchors
+  const thinStyles = [...styleCounts.entries()]
+    .filter(([, c]) => c >= 2 && c <= 8)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 15) as [string, number][];
+
   return {
     total:       rows.length,
     topGenres:   [...genreCounts.entries()].sort((a, b) => b[1] - a[1]).slice(0, 10),
     topStyles:   [...styleCounts.entries()].sort((a, b) => b[1] - a[1]).slice(0, 25),
+    thinStyles,
     topLabels:   [...labelCounts.entries()].sort((a, b) => b[1] - a[1]).slice(0, 10),
     topArtists:  topArtists.slice(0, 20),
     deepArtists: topArtists.filter(([, c]) => c >= 3).map(([a]) => a),
@@ -327,8 +335,14 @@ function buildPrompt(
     : "Pick a genre outside the collector's top genre.";
 
   const portalFrame =
-    sval("labelLoyalty") > 55 ? "Collector navigates by label — the portal should be an adjacent label family." :
-                                 "Labels don't organise this world — use scene/genre portals instead.";
+    sval("labelLoyalty") > 55 ? "Collector navigates by label — anchor the portal to an adjacent label family." :
+                                 "Labels don't organise this world — anchor the portal to a style/scene.";
+
+  // Styles the collector has dipped into (2–8 records) — the most meaningful anchors
+  // for a portal because the collector has shown real but uncommitted interest
+  const portalCandidates = ctx.thinStyles.length
+    ? `Anchor the portal to one of these styles the collector has touched but not committed to: ${ctx.thinStyles.map(([s, c]) => `${s}(${c} records)`).join(", ")}.`
+    : `Anchor the portal to the collector's second-largest style cluster.`;
 
   return `Generate 5 Echoes discovery modules for this record collector. Output artist names and album titles as accurately as possible — recommendations will be validated against a music database and dropped if not found, so precision matters.
 
@@ -361,8 +375,9 @@ ${canonFrame}
 ${underrepLine} Give 4 canonical touchstones from that genre/scene they don't already own.
 
 MODULE 03 — SCENE PORTALS
-${portalFrame}${digitalOnly ? ` Consider connecting to digital-only artists: ${digitalOnly}.` : ""}
-Give 1 adjacent micro-scene: the most natural next-step from this collection. One gateway album.
+${portalCandidates}
+${portalFrame}${digitalOnly ? ` Also consider connecting to digital-only artists: ${digitalOnly}.` : ""}
+The "adjacentTo" field must name the specific style from the candidate list that you anchored to. Give 1 gateway album from the adjacent scene.
 
 MODULE 04 — TASTE FORKS
 Shadow archetype: ${archetype.shadow} — ${shadowTrait}
