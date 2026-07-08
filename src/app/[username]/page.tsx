@@ -118,33 +118,51 @@ export default async function PublicProfilePage({ params }: { params: Params }) 
   const recordIds      = (userRecords as { record_id: string }[]).map((r) => r.record_id).filter(Boolean) as string[];
 
   const recordDetailsResult = recordIds.length
-    ? await supabase.from("records").select("genre, country, label, artist, year").in("id", recordIds)
-    : { data: [] as { genre: string | null; country: string | null; label: string | null; artist: string | null; year: number | null }[] };
+    ? await supabase.from("records").select("id, genre, country, label, artist, year").in("id", recordIds)
+    : { data: [] as { id: string; genre: string | null; country: string | null; label: string | null; artist: string | null; year: number | null }[] };
 
   const details = recordDetailsResult.data ?? [];
+
+  // Build a copies map so stats are copies-weighted (matching Insights page)
+  const copiesMap = new Map((userRecords as { record_id: string; copies: number }[]).map(r => [r.record_id, r.copies ?? 1]));
 
   function topOf(arr: (string | null)[]): string | null {
     const m = new Map<string, number>();
     for (const v of arr) if (v) m.set(v, (m.get(v) ?? 0) + 1);
     return [...m.entries()].sort((a, b) => b[1] - a[1])[0]?.[0] ?? null;
   }
-  const topGenre   = topOf(details.map(r => r.genre));
   const topCountry = topOf(details.map(r => r.country));
   const topLabel   = topOf(details.map(r => r.label));
-  const topArtist  = topOf(details.map(r => r.artist));
 
-  const genreCount = topGenre
-    ? details.filter(r => r.genre === topGenre).length
-    : 0;
-  const topGenrePct = topGenre && details.length > 0
-    ? Math.round((genreCount / details.length) * 100)
+  // Copies-weighted genre
+  const genreCopies = new Map<string, number>();
+  let totalCopiesForGenre = 0;
+  for (const r of details) {
+    const copies = copiesMap.get(r.id) ?? 1;
+    totalCopiesForGenre += copies;
+    if (r.genre && r.genre !== "Unknown") genreCopies.set(r.genre, (genreCopies.get(r.genre) ?? 0) + copies);
+  }
+  const topGenreEntry = [...genreCopies.entries()].sort((a, b) => b[1] - a[1])[0];
+  const topGenre    = topGenreEntry?.[0] ?? null;
+  const topGenrePct = topGenre && totalCopiesForGenre > 0
+    ? Math.round((topGenreEntry![1] / totalCopiesForGenre) * 100)
     : null;
+
+  // Copies-weighted most collected artist
+  const artistCopies = new Map<string, number>();
+  for (const r of details) {
+    const copies = copiesMap.get(r.id) ?? 1;
+    const artist = r.artist?.trim();
+    if (!artist || artist === "Unknown" || artist === "Various") continue;
+    artistCopies.set(artist, (artistCopies.get(artist) ?? 0) + copies);
+  }
+  const topArtist = [...artistCopies.entries()].sort((a, b) => b[1] - a[1])[0]?.[0] ?? null;
 
   const validYears = details.map(r => r.year).filter((y): y is number => !!y && y > 1900 && y <= 2030);
   const collectionSpan = validYears.length > 0
     ? (Math.min(...validYears) === Math.max(...validYears)
       ? String(Math.min(...validYears))
-      : `${Math.min(...validYears)}–${Math.max(...validYears)}`)
+      : `${Math.min(...validYears)} → ${Math.max(...validYears)}`)
     : null;
 
   // ── Owner-only: ensure default lists exist (Lists tab fetches its own data

@@ -524,16 +524,16 @@ export default function ProfileClient({
 
                 {/* ── Collection stats ── */}
                 {totalRecords > 0 && (
-                  <div className="rk-collection-stats" style={{ display: "flex", gap: 0, margin: "20px 0 0", borderTop: `1px solid ${RULE}`, borderBottom: `1px solid ${RULE}`, padding: "14px 0" }}>
+                  <div className="rk-collection-stats" style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", margin: "20px 0 0", background: "#FEFBF8", borderTop: `1px solid ${RULE}`, borderBottom: `1px solid ${RULE}` }}>
                     {[
-                      { label: "Collection",      value: totalRecords.toLocaleString() },
-                      { label: "Top Genre",        value: topGenre ? (topGenrePct !== null ? `${topGenre} · ${topGenrePct}%` : topGenre) : "—" },
-                      { label: "Span",             value: collectionSpan ?? "—" },
-                      { label: "Most Collected",   value: topArtist ?? "—" },
-                    ].map((stat, i, arr) => (
-                      <div key={stat.label} style={{ flex: 1, minWidth: 0, paddingRight: i < arr.length - 1 ? "12px" : 0, borderRight: i < arr.length - 1 ? `1px solid ${RULE}` : "none", marginRight: i < arr.length - 1 ? "12px" : 0 }}>
-                        <p style={{ fontFamily: MONO, fontSize: "8px", letterSpacing: "0.14em", textTransform: "uppercase", color: ORANGE, margin: "0 0 4px" }}>{stat.label}</p>
-                        <p style={{ fontFamily: MONO, fontSize: "12px", letterSpacing: "0.02em", color: INK, margin: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{stat.value}</p>
+                      { hero: totalRecords.toLocaleString(),                                                      label: "Items" },
+                      { hero: topGenrePct !== null ? `${topGenrePct}%` : (topGenre ?? "—"),                       label: topGenre && topGenrePct !== null ? topGenre : "Top Genre" },
+                      { hero: collectionSpan ?? "—",                                                              label: "Span" },
+                      { hero: topArtist ?? "—",                                                                   label: "Most Collected" },
+                    ].map((stat, i) => (
+                      <div key={stat.label} style={{ padding: "14px 16px", borderLeft: i > 0 ? `1px solid ${RULE}` : "none", minWidth: 0 }}>
+                        <p style={{ fontFamily: SERIF, fontSize: "1.25rem", fontWeight: 400, color: INK, margin: "0 0 3px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{stat.hero}</p>
+                        <p style={{ fontFamily: MONO, fontSize: "0.58rem", letterSpacing: "0.14em", textTransform: "uppercase", color: MUTED, margin: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{stat.label}</p>
                       </div>
                     ))}
                   </div>
@@ -545,22 +545,33 @@ export default function ProfileClient({
                     <p style={{ fontFamily: MONO, fontSize: "0.7rem", letterSpacing: "0.14em", textTransform: "uppercase", color: ORANGE, margin: "0 0 10px" }}>
                       Top 5 All Time
                     </p>
-                    <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
-                      {top5AllTime.map(item => (
-                        <div key={item.position} style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-                          <span style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.06em", color: MUTED, width: "12px", flexShrink: 0, textAlign: "right" }}>{item.position}</span>
-                          <div style={{ width: 32, height: 32, flexShrink: 0, background: "#f0ede8", overflow: "hidden" }}>
-                            {item.coverUrl && (
-                              // eslint-disable-next-line @next/next/no-img-element
-                              <img src={item.coverUrl} alt="" style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
-                            )}
+                    <div className="rk-top5-grid" style={{ display: "grid", gridTemplateColumns: "repeat(5, 1fr)", gap: "12px" }}>
+                      {[1, 2, 3, 4, 5].map(pos => {
+                        const item = top5AllTime.find(i => i.position === pos) ?? null;
+                        return (
+                          <div key={pos} style={{ minWidth: 0 }}>
+                            <div style={{ position: "relative", overflow: "hidden", aspectRatio: "1 / 1", background: "#f0ede8" }}>
+                              {item?.coverUrl ? (
+                                // eslint-disable-next-line @next/next/no-img-element
+                                <img src={item.coverUrl} alt="" style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
+                              ) : (
+                                <div style={{ width: "100%", height: "100%", background: "#f4f4f4", border: "1px dashed rgba(0,0,0,0.14)" }} />
+                              )}
+                              <span style={{ position: "absolute", top: "6px", left: "6px", fontFamily: MONO, fontSize: "9px", color: item ? "rgba(255,255,255,0.85)" : "#c0c0c0", lineHeight: 1 }}>{pos}</span>
+                            </div>
+                            <div style={{ marginTop: "6px" }}>
+                              {item ? (
+                                <>
+                                  <p style={{ fontFamily: MONO, fontSize: "8px", textTransform: "uppercase", letterSpacing: "0.08em", color: MUTED, margin: "0 0 2px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{item.artist}</p>
+                                  <p style={{ fontFamily: SERIF, fontSize: "12px", color: INK, margin: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", lineHeight: 1.3 }}>{item.album}</p>
+                                </>
+                              ) : (
+                                <p style={{ fontFamily: MONO, fontSize: "8px", color: "#dddddd", margin: 0 }}>—</p>
+                              )}
+                            </div>
                           </div>
-                          <div style={{ minWidth: 0 }}>
-                            <p style={{ fontFamily: MONO, fontSize: "11px", letterSpacing: "0.02em", color: INK, margin: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{item.album}</p>
-                            <p style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.04em", color: MUTED, margin: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{item.artist}</p>
-                          </div>
-                        </div>
-                      ))}
+                        );
+                      })}
                     </div>
                   </div>
                 )}

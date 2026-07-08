@@ -140,17 +140,16 @@ h1, h2, h3, h4, h5, h6 {
   .rk-profile-main {
     padding: 1.25rem 1rem !important;
   }
-  /* Collection stats: 4-col → 2×2 wrap                                   */
+  /* Collection stats: 4-col grid → 2×2 on mobile                         */
   .rk-collection-stats {
-    flex-wrap: wrap !important;
+    grid-template-columns: repeat(2, 1fr) !important;
   }
-  .rk-collection-stats > div {
-    min-width: calc(50% - 12px) !important;
-    flex: none !important;
-    border-right: none !important;
-    margin-right: 0 !important;
-    padding-right: 0 !important;
-    margin-bottom: 12px !important;
+  .rk-collection-stats > div:nth-child(odd) {
+    border-left: none !important;
+  }
+  .rk-collection-stats > div:nth-child(3),
+  .rk-collection-stats > div:nth-child(4) {
+    border-top: 1px solid rgba(0,0,0,0.06) !important;
   }
   /* Lists grid: 5-col → 3-col (covers still readable at ~100px)          */
   .rk-profile-lists-grid {
