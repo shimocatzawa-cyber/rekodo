@@ -625,7 +625,7 @@ ${discogsAlbums.length > 0
 - If the collection already covers the essential catalogue, return {"albums":[]}.
 
 Return ONLY valid JSON, no markdown, no backticks, no preamble:
-{"albums":[{"title":"Album Title","year":1975,"why":"Why this album is essential and what the collector is missing","tip":"Edition or pressing worth seeking"}]}
+{"albums":[{"title":"Album Title","year":1975,"why":"Why this album is essential and what the collector is missing"}]}
 List at most 6 albums.`;
   },
 };
@@ -677,10 +677,13 @@ export async function getOrGenerateSection(
   const model     = SONNET_SECTIONS.has(section) ? "claude-sonnet-4-6" : "claude-haiku-4-5-20251001";
   const maxTokens = MAX_TOKENS[section] ?? 1500;
 
-  // Pass up to 5 owned albums for sections that use them; keeps prompt concise.
-  const promptAlbums = (section === "rankings" || section === "blindspot") && ownedAlbums?.length
-    ? ownedAlbums.slice(0, 5)
-    : ownedAlbums;
+  // Rankings: cap at 5 for prompt conciseness. Blindspot: pass all owned albums
+  // so Claude cannot recommend something the collector already has.
+  const promptAlbums = section === "blindspot"
+    ? ownedAlbums
+    : (section === "rankings" && ownedAlbums?.length)
+      ? ownedAlbums.slice(0, 5)
+      : ownedAlbums;
 
   // ── Discogs discography fetch (rankings + blindspot only) ──────────────────
   // Fetch verified album titles and years before calling Claude so the model

@@ -728,14 +728,6 @@ function BlindSpotContent({ data, artist }: { data: { albums?: BlindSpotAlbum[] 
               </p>
             </div>
           </div>
-          {a.tip && (
-            <>
-              <div style={{ borderTop: `1px solid ${RULE}`, margin: "0 0 10px" }} />
-              <p style={{ fontFamily: MONO, fontSize: "0.68rem", letterSpacing: "0.04em", color: INK, fontStyle: "italic", lineHeight: 1.6, margin: 0 }}>
-                {a.tip}
-              </p>
-            </>
-          )}
         </div>
       ))}
     </div>
