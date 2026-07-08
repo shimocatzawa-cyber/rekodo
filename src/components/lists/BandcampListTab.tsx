@@ -257,6 +257,40 @@ export default function BandcampListTab() {
   const [sort,        setSort]        = useState<Sort>("purchased");
   const [activeTag,   setActiveTag]   = useState<string | null>(null);
   const [activeLabel, setActiveLabel] = useState<string | null>(null);
+  const [syncing,     setSyncing]     = useState(false);
+  const [syncError,   setSyncError]   = useState<string | null>(null);
+
+  async function runSync() {
+    setSyncing(true);
+    setSyncError(null);
+    const supabase = createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) { setSyncing(false); return; }
+    try {
+      const res  = await fetch("/api/deep-dive/bandcamp-import", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ userId: user.id }),
+      });
+      const json = await res.json() as { success?: boolean; error?: string; total?: number };
+      if (!res.ok || json.error) {
+        setSyncError(json.error ?? "Sync failed. Please try again.");
+      } else {
+        // Reload fresh data
+        const { data } = await supabase
+          .from("digital_imports")
+          .select("id, artist, album, imported_at, purchased_at, item_url, release_date, label, tags")
+          .eq("user_id", user.id)
+          .eq("source", "bandcamp")
+          .order("purchased_at", { ascending: false, nullsFirst: false });
+        setItems((data ?? []) as Import[]);
+      }
+    } catch {
+      setSyncError("Network error. Please try again.");
+    } finally {
+      setSyncing(false);
+    }
+  }
 
   useEffect(() => {
     const supabase = createClient();
@@ -397,17 +431,37 @@ export default function BandcampListTab() {
             )}
 
             {/* Header */}
-            <div style={{ display: "flex", alignItems: "baseline", gap: "14px", marginBottom: "20px", flexWrap: "wrap" }}>
-              <p style={{ fontFamily: SERIF, fontSize: "1.5rem", fontWeight: 600, color: INK, margin: 0 }}>
+            <div style={{ marginBottom: "20px" }}>
+              <p style={{ fontFamily: SERIF, fontSize: "1.5rem", fontWeight: 600, color: INK, margin: "0 0 10px" }}>
                 {activeTag || activeLabel
                   ? `${filtered.length} of ${items.length.toLocaleString()} items in your digital collection`
                   : `${items.length.toLocaleString()} items in your digital collection`}
               </p>
-              {syncDate && (
-                <p style={{ fontFamily: MONO, fontSize: "0.6rem", letterSpacing: "0.06em", color: "#aaaaaa", margin: 0 }}>
-                  Last synced {syncDate}
-                </p>
-              )}
+              <div style={{ display: "flex", alignItems: "center", gap: "14px", flexWrap: "wrap" }}>
+                <button
+                  onClick={runSync}
+                  disabled={syncing}
+                  style={{
+                    fontFamily: MONO, fontSize: "0.65rem", letterSpacing: "0.1em", textTransform: "uppercase",
+                    color: syncing ? "#aaaaaa" : INK, background: "transparent",
+                    border: `1px solid ${syncing ? "#dddddd" : RULE}`,
+                    padding: "5px 12px", cursor: syncing ? "default" : "pointer",
+                    transition: "color 0.15s, border-color 0.15s",
+                  }}
+                  onMouseEnter={e => { if (!syncing) { (e.currentTarget as HTMLButtonElement).style.color = ORANGE; (e.currentTarget as HTMLButtonElement).style.borderColor = ORANGE; }}}
+                  onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.color = syncing ? "#aaaaaa" : INK; (e.currentTarget as HTMLButtonElement).style.borderColor = syncing ? "#dddddd" : RULE; }}
+                >
+                  {syncing ? "Syncing…" : "Sync with Bandcamp →"}
+                </button>
+                {syncDate && (
+                  <p style={{ fontFamily: MONO, fontSize: "0.6rem", letterSpacing: "0.06em", color: "#aaaaaa", margin: 0 }}>
+                    Last synced {syncDate}
+                  </p>
+                )}
+                {syncError && (
+                  <p style={{ fontFamily: MONO, fontSize: "0.6rem", color: "#cc3300", margin: 0 }}>{syncError}</p>
+                )}
+              </div>
             </div>
 
             {/* Active filter pills */}
