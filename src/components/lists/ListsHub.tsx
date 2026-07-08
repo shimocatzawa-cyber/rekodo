@@ -32,7 +32,13 @@ export default function ListsHub({ profileId, username, displayLabel, avatarUrl,
     { key: "playlist",  label: t("playlist") },
   ];
   const TABS = isAdmin
-    ? [...baseTabs, { key: "bandcamp" as SubTab, label: "Bandcamp" }]
+    ? [
+        { key: "top5" as SubTab,      label: t("myLists") },
+        { key: "bandcamp" as SubTab,  label: "Bandcamp" },
+        { key: "wantlist" as SubTab,  label: t("wantList") },
+        { key: "selllist" as SubTab,  label: t("sellList") },
+        { key: "playlist" as SubTab,  label: t("playlist") },
+      ]
     : baseTabs;
   const [activeTab, setActiveTab] = useUrlTab<SubTab>("tab", TABS.map(t => t.key), "top5");
 
