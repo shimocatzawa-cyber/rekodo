@@ -793,13 +793,21 @@ function formatPrice(value: number, currency: string): string {
   }
 }
 
-function PressingsContent({ data }: { data: { pressings?: PressingsAlbum[] } }) {
+function PressingsContent({ data, onRetry }: { data: { pressings?: PressingsAlbum[] }; onRetry?: () => void }) {
   const albums = (data.pressings ?? []).filter(a => a.variants.length > 0);
 
   if (albums.length === 0) {
     return (
       <p style={{ fontFamily: MONO, fontSize: "0.72rem", letterSpacing: "0.04em", color: INK, padding: "2rem 0" }}>
-        No vinyl pressing data available for this artist on Discogs.
+        No vinyl pressing data available for this artist on Discogs.{" "}
+        {onRetry && (
+          <button
+            onClick={onRetry}
+            style={{ fontFamily: MONO, fontSize: "0.72rem", letterSpacing: "0.04em", color: ORANGE, background: "none", border: "none", padding: 0, cursor: "pointer", textDecoration: "underline" }}
+          >
+            Retry
+          </button>
+        )}
       </p>
     );
   }
@@ -1430,7 +1438,7 @@ export default function DeepDiveClient({
     if (tab === "interviews") return <InterviewsContent data={data as { interviews?: InterviewItem[] }} artist={selectedArtist} />;
     if (tab === "related")    return <RelatedArtistsContent data={data as { artists?: RelatedArtist[] }} />;
     if (tab === "blindspot")  return <BlindSpotContent  data={data as { albums?: BlindSpotAlbum[] }} artist={selectedArtist} />;
-    if (tab === "pressings")  return <PressingsContent  data={data as { pressings?: PressingsAlbum[] }} />;
+    if (tab === "pressings")  return <PressingsContent  data={data as { pressings?: PressingsAlbum[] }} onRetry={() => retryFetch(selectedArtist, "pressings")} />;
     return null;
   }
 
