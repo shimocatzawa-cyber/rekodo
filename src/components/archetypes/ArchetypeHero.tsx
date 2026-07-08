@@ -187,19 +187,7 @@ export default function ArchetypeHero({
           <ArchetypeColumn role="shadow" archetypeId={shadow} score={shadowScore} />
         </div>
 
-        {/* Sub-section B — Short description */}
-        {primaryDef && (
-          <div style={{ borderBottom: `1px solid ${RULE}`, paddingBottom: 20, marginBottom: 20 }}>
-            <div style={{ fontFamily: MONO, fontSize: 9, textTransform: "uppercase", letterSpacing: "0.12em", color: ORANGE, marginBottom: 6 }}>
-              {primaryDef.name} Archetype
-            </div>
-            <div style={{ fontFamily: MONO, fontSize: 12, color: MUTED, lineHeight: 1.6 }}>
-              {primaryDef.shortDescription}
-            </div>
-          </div>
-        )}
-
-        {/* Sub-section C — Archetypal sentence */}
+        {/* Sub-section B — Archetypal sentence */}
         <div style={{ borderBottom: `1px solid ${RULE}`, paddingBottom: 20, marginBottom: 20 }}>
           <blockquote style={{
             fontFamily: SERIF,
@@ -212,6 +200,18 @@ export default function ArchetypeHero({
             &ldquo;{primaryDef?.sentence ?? ""}&rdquo;
           </blockquote>
         </div>
+
+        {/* Sub-section C — Short description */}
+        {primaryDef && (
+          <div style={{ borderBottom: `1px solid ${RULE}`, paddingBottom: 20, marginBottom: 20 }}>
+            <div style={{ fontFamily: MONO, fontSize: 9, textTransform: "uppercase", letterSpacing: "0.12em", color: ORANGE, marginBottom: 6 }}>
+              {primaryDef.name} Archetype
+            </div>
+            <div style={{ fontFamily: MONO, fontSize: 12, color: MUTED, lineHeight: 1.6 }}>
+              {primaryDef.shortDescription}
+            </div>
+          </div>
+        )}
 
         {/* Sub-section D — Named pairing block */}
         {secondary && (
