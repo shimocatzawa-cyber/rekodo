@@ -143,18 +143,19 @@ function MissingMiddle({ data, ctx }: { data: EchoesData["missingMiddle"]; ctx?:
       <ModuleHeader number="01" title="Missing Middle" />
       {tag && <SignalTag label={tag} />}
 
-      {/* Cluster connector */}
-      <div style={{ display: "flex", alignItems: "center", marginBottom: 16, gap: 0 }}>
-        <div style={{ fontFamily: MONO, fontSize: "0.6rem", letterSpacing: "0.1em", textTransform: "uppercase", background: INK, color: "#fff", padding: "3px 8px", flexShrink: 0 }}>
-          {data.clusterA}
+      {/* Cluster connector — stacked so long labels never overflow */}
+      <div style={{ marginBottom: 16 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 0, marginBottom: 0 }}>
+          <div style={{ fontFamily: MONO, fontSize: "0.6rem", letterSpacing: "0.1em", textTransform: "uppercase", background: INK, color: "#fff", padding: "3px 8px" }}>
+            {data.clusterA}
+          </div>
+          <div style={{ flex: 1, height: 1, background: RULE }} />
+          <div style={{ fontFamily: MONO, fontSize: "0.6rem", letterSpacing: "0.1em", textTransform: "uppercase", background: INK, color: "#fff", padding: "3px 8px" }}>
+            {data.clusterB}
+          </div>
         </div>
-        <div style={{ flex: 1, height: 1, background: RULE }} />
-        <div style={{ fontFamily: MONO, fontSize: "0.58rem", color: MUTED, padding: "0 10px", flexShrink: 0 }}>
+        <div style={{ fontFamily: MONO, fontSize: "0.62rem", color: MUTED, letterSpacing: "0.03em", lineHeight: 1.6, padding: "8px 0 0" }}>
           {data.bridge}
-        </div>
-        <div style={{ flex: 1, height: 1, background: RULE }} />
-        <div style={{ fontFamily: MONO, fontSize: "0.6rem", letterSpacing: "0.1em", textTransform: "uppercase", background: INK, color: "#fff", padding: "3px 8px", flexShrink: 0 }}>
-          {data.clusterB}
         </div>
       </div>
 
