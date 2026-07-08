@@ -318,6 +318,14 @@ function buildPrompt(
     sval("canonObscurity") < 35 ? "Collector is canonical — frame as genuine gaps they'd naturally own." :
                                    "Mixed balance — surface gaps that feel unresolved, not obviously avoided.";
 
+  // Genres the user has shown genuine interest in (≥5 records) but hasn't committed to (<15% of total)
+  const underrepGenres = ctx.topGenres
+    .filter(([, c]) => c >= 5 && c / ctx.total < 0.15)
+    .map(([g, c]) => `${g} (${Math.round((c / ctx.total) * 100)}%)`);
+  const underrepLine = underrepGenres.length
+    ? `Target one of these underrepresented genres: ${underrepGenres.join(", ")}.`
+    : "Pick a genre outside the collector's top genre.";
+
   const portalFrame =
     sval("labelLoyalty") > 55 ? "Collector navigates by label — the portal should be an adjacent label family." :
                                  "Labels don't organise this world — use scene/genre portals instead.";
@@ -350,7 +358,7 @@ Find the 2 most distinct genre/style clusters in this collection. Give 3–4 bri
 
 MODULE 02 — UNBOUGHT CLASSIC
 ${canonFrame}
-Do NOT pick the collector's single largest genre. Pick a well-represented but non-dominant scene from their collection — a style or era they clearly care about but haven't gone deep on. Give 4 canonical touchstones from that scene they don't already own.
+${underrepLine} Give 4 canonical touchstones from that genre/scene they don't already own.
 
 MODULE 03 — SCENE PORTALS
 ${portalFrame}${digitalOnly ? ` Consider connecting to digital-only artists: ${digitalOnly}.` : ""}
