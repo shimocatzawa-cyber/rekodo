@@ -169,7 +169,7 @@ function InsightsPanel({ items, activeTag, activeLabel, onTagClick, onLabelClick
     fontFamily: MONO, fontSize: "10px", letterSpacing: "0.05em",
     background: "none", border: "none", padding: "2px 0",
     textAlign: "left", cursor: active ? "default" : "pointer",
-    color: active ? ORANGE : "#888",
+    color: active ? ORANGE : INK,
     borderBottom: active ? `1px solid ${ORANGE}` : "1px solid transparent",
     width: "fit-content", transition: "color 0.1s",
     display: "flex", justifyContent: "space-between", gap: "6px",
@@ -193,7 +193,7 @@ function InsightsPanel({ items, activeTag, activeLabel, onTagClick, onLabelClick
             {topTags.map(({ value, count }) => (
               <button key={value} onClick={() => onTagClick(activeTag === value ? null : value)} style={btnStyle(activeTag === value)}>
                 <span>{value}</span>
-                <span style={{ color: "#ccc", fontSize: "9px" }}>{count}</span>
+                <span style={{ color: "#888", fontSize: "9px" }}>{count}</span>
               </button>
             ))}
           </div>
@@ -231,11 +231,11 @@ function InsightsPanel({ items, activeTag, activeLabel, onTagClick, onLabelClick
           <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
             {byYear.map(([year, count]) => (
               <div key={year} style={{ display: "flex", alignItems: "center", gap: "6px" }}>
-                <span style={{ fontFamily: MONO, fontSize: "9px", color: "#888", width: 30, flexShrink: 0 }}>{year}</span>
+                <span style={{ fontFamily: MONO, fontSize: "9px", color: INK, width: 30, flexShrink: 0 }}>{year}</span>
                 <div style={{ flex: 1, height: 3, background: RULE, borderRadius: 1 }}>
                   <div style={{ width: `${(count / maxYearCount) * 100}%`, height: "100%", background: ORANGE, borderRadius: 1 }} />
                 </div>
-                <span style={{ fontFamily: MONO, fontSize: "9px", color: "#bbb", width: 20, textAlign: "right", flexShrink: 0 }}>{count}</span>
+                <span style={{ fontFamily: MONO, fontSize: "9px", color: "#666", width: 20, textAlign: "right", flexShrink: 0 }}>{count}</span>
               </div>
             ))}
           </div>
@@ -308,12 +308,20 @@ export default function BandcampListTab() {
 
   const hasInsights = items.some(i => (i.tags && i.tags.length > 0) || i.label || i.purchased_at);
 
+  const mobileTopTags   = useMemo(() => topN(items.flatMap(i => i.tags ?? []), 12), [items]);
+  const mobileTopLabels = useMemo(() => topN(items.map(i => i.label).filter(Boolean) as string[], 8), [items]);
+
   return (
     <div style={{ maxWidth: 960, margin: "0 auto", padding: "2rem 1.5rem 4rem" }}>
       <style>{`
         @media (max-width: 767px) {
           .bc-insights-panel { display: none !important; }
+          .bc-mobile-filters { display: flex !important; }
         }
+        @media (min-width: 768px) {
+          .bc-mobile-filters { display: none !important; }
+        }
+        .bc-mobile-filters::-webkit-scrollbar { display: none; }
       `}</style>
 
       {loading && (
@@ -364,6 +372,30 @@ export default function BandcampListTab() {
 
           {/* Main list */}
           <div style={{ flex: 1, minWidth: 0 }}>
+            {/* Mobile filter strip */}
+            {hasInsights && (
+              <div className="bc-mobile-filters" style={{ gap: "6px", overflowX: "auto", marginBottom: "14px", paddingBottom: "2px" }}>
+                {mobileTopTags.map(({ value }) => (
+                  <button key={value} onClick={() => setActiveTag(prev => prev === value ? null : value)} style={{
+                    fontFamily: MONO, fontSize: "9px", letterSpacing: "0.07em", flexShrink: 0,
+                    color: activeTag === value ? "#fff" : INK,
+                    background: activeTag === value ? ORANGE : "none",
+                    border: `1px solid ${activeTag === value ? ORANGE : RULE}`,
+                    borderRadius: "2px", cursor: "pointer", padding: "3px 8px",
+                  }}>{value}</button>
+                ))}
+                {mobileTopLabels.map(({ value }) => (
+                  <button key={value} onClick={() => setActiveLabel(prev => prev === value ? null : value)} style={{
+                    fontFamily: MONO, fontSize: "9px", letterSpacing: "0.07em", flexShrink: 0,
+                    color: activeLabel === value ? "#fff" : INK,
+                    background: activeLabel === value ? INK : "none",
+                    border: `1px solid ${activeLabel === value ? INK : RULE}`,
+                    borderRadius: "2px", cursor: "pointer", padding: "3px 8px",
+                  }}>{value}</button>
+                ))}
+              </div>
+            )}
+
             {/* Header */}
             <div style={{ display: "flex", alignItems: "baseline", gap: "14px", marginBottom: "20px", flexWrap: "wrap" }}>
               <p style={{ fontFamily: SERIF, fontSize: "1.5rem", fontWeight: 600, color: INK, margin: 0 }}>
