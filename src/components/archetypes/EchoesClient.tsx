@@ -454,7 +454,7 @@ export default function EchoesClient({ userId: _userId }: { userId: string }) {
   }
 
   return (
-    <div style={{ padding: "28px 0 80px" }}>
+    <div style={{ padding: "0 0 80px" }}>
       <style>{`
         @keyframes echoes-pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
         .echoes-grid-4 { grid-template-columns: repeat(4, 1fr); }
