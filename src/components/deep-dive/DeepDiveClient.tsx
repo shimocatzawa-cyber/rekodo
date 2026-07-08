@@ -754,9 +754,6 @@ type PressingVariant = {
   inCollection: number;
   inWantlist: number;
   wantHaveRatio: number;
-  lowestPrice?: number;
-  currency?: string;
-  numForSale?: number;
 };
 
 type PressingsAlbum = {
@@ -766,8 +763,61 @@ type PressingsAlbum = {
   variants: PressingVariant[];
 };
 
+type PriceEntry = { lowestPrice: number | null; currency: string; numForSale: number };
+
+function detectCurrency(): string {
+  try {
+    const region = (navigator.language || "en-US").split("-").pop()?.toUpperCase() ?? "";
+    const map: Record<string, string> = {
+      US: "USD", GB: "GBP", AU: "AUD", CA: "CAD", NZ: "NZD",
+      DE: "EUR", FR: "EUR", IT: "EUR", ES: "EUR", NL: "EUR",
+      AT: "EUR", BE: "EUR", FI: "EUR", IE: "EUR", PT: "EUR",
+      JP: "JPY", SE: "SEK", NO: "NOK", DK: "DKK", CH: "CHF",
+      MX: "MXN", BR: "BRL", ZA: "ZAR", SG: "SGD", PL: "PLN",
+    };
+    return map[region] ?? "USD";
+  } catch {
+    return "USD";
+  }
+}
+
+function formatPrice(value: number, currency: string): string {
+  try {
+    return new Intl.NumberFormat(navigator.language, {
+      style: "currency", currency, maximumFractionDigits: 2,
+    }).format(value);
+  } catch {
+    return `${currency} ${value.toFixed(2)}`;
+  }
+}
+
 function PressingsContent({ data }: { data: { pressings?: PressingsAlbum[] } }) {
   const albums = data.pressings ?? [];
+  const [priceMap, setPriceMap] = useState<Record<number, PriceEntry>>({});
+  const [pricesLoading, setPricesLoading] = useState(false);
+
+  // Collect all releaseIds across all albums' variants
+  const allReleaseIds = albums.flatMap(a => a.variants.map(v => v.releaseId));
+  const releaseKey = allReleaseIds.join(",");
+
+  useEffect(() => {
+    if (allReleaseIds.length === 0) return;
+    const currency = detectCurrency();
+    setPricesLoading(true);
+    fetch("/api/deep-dive/pressing-prices", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ releaseIds: allReleaseIds, currency }),
+    })
+      .then(r => r.ok ? r.json() : null)
+      .then((d: { prices?: Record<number, PriceEntry> } | null) => {
+        if (d?.prices) setPriceMap(d.prices);
+      })
+      .catch(() => {})
+      .finally(() => setPricesLoading(false));
+  // releaseKey is stable once data loads — re-fetch only when a new artist is selected
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [releaseKey]);
 
   if (albums.length === 0) {
     return (
@@ -777,13 +827,28 @@ function PressingsContent({ data }: { data: { pressings?: PressingsAlbum[] } }) 
     );
   }
 
+  // Column definitions: label, width (px), alignment
+  const COLS: { label: string; w: number; align: "left" | "right" }[] = [
+    { label: "Format",  w: 110, align: "left"  },
+    { label: "Country", w: 80,  align: "left"  },
+    { label: "Year",    w: 50,  align: "right" },
+    { label: "Label",   w: 120, align: "left"  },
+    { label: "Cat#",    w: 100, align: "left"  },
+    { label: "Wants",   w: 58,  align: "right" },
+    { label: "Have",    w: 58,  align: "right" },
+    { label: "Ratio",   w: 60,  align: "right" },
+    { label: "Price",   w: 80,  align: "right" },
+    { label: "",        w: 64,  align: "left"  },
+  ];
+  const tableWidth = COLS.reduce((s, c) => s + c.w, 0);
+
   return (
     <div>
       {albums.map((a, ai) => {
         const hasVariants = a.variants.length > 0;
         return (
           <div key={ai} style={{ padding: "1.5rem 0", borderBottom: `1px solid ${RULE}` }}>
-            <div style={{ display: "flex", gap: 12, alignItems: "baseline", flexWrap: "wrap", marginBottom: hasVariants ? 16 : 0 }}>
+            <div style={{ display: "flex", gap: 12, alignItems: "baseline", flexWrap: "wrap", marginBottom: hasVariants ? 14 : 0 }}>
               <span style={{ fontFamily: SERIF, fontSize: "1rem", fontWeight: 600, color: INK, letterSpacing: "-0.01em" }}>
                 {a.album}
               </span>
@@ -800,60 +865,54 @@ function PressingsContent({ data }: { data: { pressings?: PressingsAlbum[] } }) 
 
             {hasVariants && (
               <div style={{ overflowX: "auto", WebkitOverflowScrolling: "touch" }}>
-                <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 520 }}>
+                <table style={{ borderCollapse: "collapse", tableLayout: "fixed", width: tableWidth }}>
+                  <colgroup>
+                    {COLS.map((c, i) => <col key={i} style={{ width: c.w }} />)}
+                  </colgroup>
                   <thead>
                     <tr>
-                      {(["Format", "Country", "Year", "Label", "Cat#", "Wants", "Have", "Ratio", "Price"] as const).map(col => (
-                        <th key={col} style={{
+                      {COLS.map((c, i) => (
+                        <th key={i} style={{
                           fontFamily: MONO, fontSize: "0.52rem", letterSpacing: "0.12em",
                           textTransform: "uppercase", color: ORANGE,
-                          textAlign: ["Format", "Country", "Label", "Cat#"].includes(col) ? "left" : "right",
-                          padding: "0 10px 6px 0",
+                          textAlign: c.align,
+                          padding: "0 8px 6px 0",
                           borderBottom: `1px solid ${RULE}`,
                           whiteSpace: "nowrap",
+                          overflow: "hidden",
                         }}>
-                          {col}
+                          {c.label}
                         </th>
                       ))}
-                      <th style={{ width: 16 }} />
                     </tr>
                   </thead>
                   <tbody>
                     {a.variants.map((v, vi) => {
-                      const isTop = vi === 0;
+                      const entry = priceMap[v.releaseId];
+                      const priceStr = pricesLoading
+                        ? "…"
+                        : entry?.lowestPrice != null
+                        ? formatPrice(entry.lowestPrice, entry.currency)
+                        : "—";
                       const discogsUrl = `https://www.discogs.com/release/${v.releaseId}`;
-                      const priceStr = v.lowestPrice != null ? `$${v.lowestPrice.toFixed(2)}` : "—";
-                      const tdBase: React.CSSProperties = { fontFamily: MONO, fontSize: "0.68rem", letterSpacing: "0.03em", color: INK, padding: "7px 10px 7px 0", borderBottom: `1px solid ${RULE}`, whiteSpace: "nowrap" };
+                      const tdBase: React.CSSProperties = {
+                        fontFamily: MONO, fontSize: "0.68rem", letterSpacing: "0.03em", color: INK,
+                        padding: "7px 8px 7px 0", borderBottom: `1px solid ${RULE}`,
+                        overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
+                      };
                       return (
-                        <tr key={vi} style={{ background: isTop ? WARM : "transparent" }}>
-                          <td style={{ ...tdBase, fontSize: "0.62rem", maxWidth: 120, overflow: "hidden", textOverflow: "ellipsis" }}>
-                            {v.format || "Vinyl"}
-                          </td>
-                          <td style={tdBase}>
-                            {isTop && <span style={{ color: ORANGE, marginRight: 5, fontSize: "0.55rem" }}>★</span>}
-                            {v.country}
-                          </td>
-                          <td style={{ ...tdBase, textAlign: "right" }}>
-                            {v.year || "—"}
-                          </td>
-                          <td style={{ ...tdBase, fontSize: "0.65rem", letterSpacing: "0.02em", maxWidth: 140, overflow: "hidden", textOverflow: "ellipsis" }}>
-                            {v.label}
-                          </td>
-                          <td style={{ ...tdBase, fontSize: "0.62rem", letterSpacing: "0.02em", color: "#777", maxWidth: 100, overflow: "hidden", textOverflow: "ellipsis" }}>
-                            {v.catno || "—"}
-                          </td>
-                          <td style={{ ...tdBase, textAlign: "right" }}>
-                            {v.inWantlist.toLocaleString()}
-                          </td>
-                          <td style={{ ...tdBase, textAlign: "right" }}>
-                            {v.inCollection.toLocaleString()}
-                          </td>
+                        <tr key={vi}>
+                          <td style={{ ...tdBase, fontSize: "0.62rem" }}>{v.format || "Vinyl"}</td>
+                          <td style={tdBase}>{v.country}</td>
+                          <td style={{ ...tdBase, textAlign: "right" }}>{v.year || "—"}</td>
+                          <td style={{ ...tdBase, fontSize: "0.65rem" }}>{v.label}</td>
+                          <td style={{ ...tdBase, fontSize: "0.62rem", color: "#777" }}>{v.catno || "—"}</td>
+                          <td style={{ ...tdBase, textAlign: "right" }}>{v.inWantlist.toLocaleString()}</td>
+                          <td style={{ ...tdBase, textAlign: "right" }}>{v.inCollection.toLocaleString()}</td>
                           <td style={{ ...tdBase, textAlign: "right", color: v.wantHaveRatio >= 2 ? ORANGE : INK }}>
                             {v.wantHaveRatio.toFixed(2)}×
                           </td>
-                          <td style={{ ...tdBase, textAlign: "right" }}>
-                            {priceStr}
-                          </td>
+                          <td style={{ ...tdBase, textAlign: "right" }}>{priceStr}</td>
                           <td style={{ padding: "7px 0 7px 4px", borderBottom: `1px solid ${RULE}` }}>
                             <a
                               href={discogsUrl}
@@ -877,7 +936,7 @@ function PressingsContent({ data }: { data: { pressings?: PressingsAlbum[] } }) 
         );
       })}
       <p style={{ fontFamily: MONO, fontSize: "0.6rem", letterSpacing: "0.06em", color: "#aaa", marginTop: 16 }}>
-        ★ Most wanted pressing. Ratio = wants ÷ haves. Price = current lowest Discogs listing in USD. Data via Discogs.
+        Ratio = wants ÷ haves. Price = current lowest Discogs listing. Data via Discogs.
       </p>
     </div>
   );

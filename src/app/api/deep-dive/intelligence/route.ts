@@ -217,9 +217,6 @@ type PressingVariant = {
   inCollection: number;
   inWantlist: number;
   wantHaveRatio: number;
-  lowestPrice?: number;
-  currency?: string;
-  numForSale?: number;
 };
 
 type PressingsAlbum = {
@@ -319,7 +316,6 @@ async function fetchPressingsData(artistName: string): Promise<{ pressings: Pres
     }
 
     // Sort each album's pressings by wantlist count, take top 5
-    type RawVariant = Omit<PressingVariant, "lowestPrice" | "currency" | "numForSale">;
     const processedAlbums = versionsResults.map(({ title, year, masterId, versions }) => {
       const vinyl = versions
         .filter(v => v.country && v.stats?.community)
@@ -336,50 +332,14 @@ async function fetchPressingsData(artistName: string): Promise<{ pressings: Pres
             inCollection,
             inWantlist,
             wantHaveRatio: Math.round((inWantlist / Math.max(inCollection, 1)) * 100) / 100,
-          } satisfies RawVariant;
+          } satisfies PressingVariant;
         })
         .sort((a, b) => b.inWantlist - a.inWantlist)
         .slice(0, 5);
       return { album: title, year, masterId, variants: vinyl };
     });
 
-    // Fetch marketplace stats for top 2 variants per album (price data)
-    const releaseIds = processedAlbums.flatMap(a => a.variants.slice(0, 2).map(v => v.releaseId));
-    const statsMap = new Map<number, { lowestPrice?: number; currency?: string; numForSale?: number }>();
-
-    await Promise.all(
-      releaseIds.map(async (releaseId) => {
-        try {
-          const res = await fetch(
-            `https://api.discogs.com/marketplace/stats/${releaseId}?curr_abbr=USD`,
-            { headers, signal: AbortSignal.timeout(5000) }
-          );
-          if (!res.ok) return;
-          const json = await res.json() as {
-            lowest_price?: { value: number; currency: string } | null;
-            num_for_sale?: number;
-            blocked_from_sale?: boolean;
-          };
-          if (!json.blocked_from_sale) {
-            statsMap.set(releaseId, {
-              lowestPrice: json.lowest_price?.value,
-              currency:    json.lowest_price?.currency,
-              numForSale:  json.num_for_sale,
-            });
-          }
-        } catch { /* skip — price is optional */ }
-      })
-    );
-
-    const pressings = processedAlbums.map(a => ({
-      ...a,
-      variants: a.variants.map(v => ({
-        ...v,
-        ...(statsMap.get(v.releaseId) ?? {}),
-      })),
-    }));
-
-    return { pressings };
+    return { pressings: processedAlbums };
   } catch {
     return { pressings: [] };
   }
