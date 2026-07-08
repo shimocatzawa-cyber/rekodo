@@ -367,12 +367,25 @@ export default function BandcampListTab() {
       )}
 
       {!loading && !error && hasBc === false && (
-        <div style={{ paddingTop: "2rem" }}>
-          <p style={{ fontFamily: SERIF, fontSize: "1rem", color: INK, lineHeight: 1.6, marginBottom: "1rem" }}>
-            No Bandcamp account connected yet.
+        <div style={{ maxWidth: 480, margin: "4rem auto", textAlign: "center", padding: "0 1.5rem" }}>
+          <p style={{ fontFamily: MONO, fontSize: "0.65rem", letterSpacing: "0.14em", textTransform: "uppercase", color: "#aaaaaa", marginBottom: "16px" }}>
+            Bandcamp not connected
           </p>
-          <Link href="/settings/profile" style={{ fontFamily: MONO, fontSize: "0.65rem", letterSpacing: "0.1em", textTransform: "uppercase", color: ORANGE, textDecoration: "none" }}>
-            Add your Bandcamp username →
+          <p style={{ fontFamily: SERIF, fontSize: "1.4rem", fontWeight: 600, color: INK, lineHeight: 1.3, marginBottom: "12px" }}>
+            Connect your Bandcamp account to see your digital collection here.
+          </p>
+          <p style={{ fontFamily: MONO, fontSize: "0.7rem", letterSpacing: "0.04em", color: "#888888", lineHeight: 1.8, marginBottom: "32px" }}>
+            Add your Bandcamp username in profile settings and rekōdo will sync your purchases — genre tags, labels, and purchase history included.
+          </p>
+          <Link
+            href="/settings/profile"
+            style={{
+              fontFamily: MONO, fontSize: "0.65rem", letterSpacing: "0.12em", textTransform: "uppercase",
+              color: "#ffffff", background: INK, textDecoration: "none",
+              padding: "12px 28px", display: "inline-block",
+            }}
+          >
+            Go to profile settings →
           </Link>
         </div>
       )}
