@@ -243,27 +243,84 @@ async function fetchPressingsData(artistName: string): Promise<{ pressings: Pres
     const artistId = results.find(r => r.type === "artist")?.id;
     if (!artistId) return { pressings: [] };
 
-    // Artist releases — studio albums (Main role, master type)
-    const relRes = await fetch(
-      `https://api.discogs.com/artists/${artistId}/releases?per_page=500&sort=year&sort_order=asc`,
-      { headers, signal: AbortSignal.timeout(5000) }
-    );
-    if (!relRes.ok) return { pressings: [] };
-    const { releases = [] } = await relRes.json() as {
-      releases?: { type: string; role: string; title: string; year: number; id: number }[];
-    };
+    // ── Build album list ─────────────────────────────────────────────────────
+    // Path A (preferred): use ranked albums from cached Deep Dive rankings.
+    //   6 targeted Discogs master searches instead of 100+ artist-release
+    //   fetches, staying comfortably within the 60 req/min consumer key limit.
+    // Path B (fallback): scan artist releases when no rankings cached yet.
 
-    const LIVE_PAT   = /\blive\b|\blive at\b|\bconcert\b/i;
-    const SINGLE_PAT = /\bb\/w\b/i;
-    const seen = new Set<string>();
-    const albums: { title: string; year: number; masterId: number }[] = [];
-    for (const r of releases) {
-      if (r.role !== "Main" || r.type !== "master" || !r.year || r.year < 1900) continue;
-      if (LIVE_PAT.test(r.title) || SINGLE_PAT.test(r.title)) continue;
-      const norm = r.title.toLowerCase().trim();
-      if (seen.has(norm)) continue;
-      seen.add(norm);
-      albums.push({ title: r.title, year: r.year, masterId: r.id });
+    let albums: { title: string; year: number; masterId: number }[] = [];
+
+    type RankingAlbum = { title: string; year: number };
+    const rankingsCache = await readCache(artistName, "rankings");
+    const rankedAlbums: RankingAlbum[] | undefined =
+      rankingsCache && typeof rankingsCache === "object" &&
+      Array.isArray((rankingsCache as { albums?: unknown }).albums)
+        ? (rankingsCache as { albums: RankingAlbum[] }).albums
+        : undefined;
+
+    if (rankedAlbums && rankedAlbums.length > 0) {
+      // Path A: search for each ranked album's Discogs master in pairs (2 req at a time)
+      const SEARCH_BATCH = 2;
+      const SEARCH_DELAY_MS = 2000;
+      for (let i = 0; i < rankedAlbums.length; i += SEARCH_BATCH) {
+        if (i > 0) await new Promise(r => setTimeout(r, SEARCH_DELAY_MS));
+        const batchResults = await Promise.all(
+          rankedAlbums.slice(i, i + SEARCH_BATCH).map(async (album) => {
+            try {
+              const res = await fetch(
+                `https://api.discogs.com/database/search?q=${encodeURIComponent(`${album.title} ${artistName}`)}&type=master&per_page=5`,
+                { headers, signal: AbortSignal.timeout(5000) }
+              );
+              if (!res.ok) return null;
+              const { results: sr = [] } = await res.json() as {
+                results?: { id: number; title?: string; year?: number | string }[];
+              };
+              if (sr.length === 0) return null;
+              // Prefer title+year match, then title-only, then first result
+              const norm = album.title.toLowerCase().trim();
+              const match =
+                sr.find(r => {
+                  const t = ((r.title ?? "").toLowerCase().split(" - ").pop() ?? "").trim();
+                  return t.includes(norm) && String(r.year) === String(album.year);
+                }) ??
+                sr.find(r => {
+                  const t = ((r.title ?? "").toLowerCase().split(" - ").pop() ?? "").trim();
+                  return t.includes(norm);
+                }) ??
+                sr[0];
+              return { title: album.title, year: album.year, masterId: match.id };
+            } catch {
+              return null;
+            }
+          })
+        );
+        albums.push(...batchResults.filter((m): m is { title: string; year: number; masterId: number } => m !== null));
+      }
+    } else {
+      // Path B: scan first 100 artist releases, take up to 30 Main album masters
+      const relRes = await fetch(
+        `https://api.discogs.com/artists/${artistId}/releases?per_page=100&sort=year&sort_order=asc`,
+        { headers, signal: AbortSignal.timeout(5000) }
+      );
+      if (!relRes.ok) return { pressings: [] };
+      const { releases = [] } = await relRes.json() as {
+        releases?: { type: string; role: string; title: string; year: number; id: number }[];
+      };
+
+      const LIVE_PAT   = /\blive\b|\blive at\b|\bconcert\b/i;
+      const SINGLE_PAT = /\bb\/w\b/i;
+      const REMIX_PAT  = /\bremix(es)?\b|\bdub\b|\bedit\b|\breworked?\b/i;
+      const seen = new Set<string>();
+      for (const r of releases) {
+        if (albums.length >= 30) break;
+        if (r.role !== "Main" || r.type !== "master" || !r.year || r.year < 1900) continue;
+        if (LIVE_PAT.test(r.title) || SINGLE_PAT.test(r.title) || REMIX_PAT.test(r.title)) continue;
+        const norm = r.title.toLowerCase().trim();
+        if (seen.has(norm)) continue;
+        seen.add(norm);
+        albums.push({ title: r.title, year: r.year, masterId: r.id });
+      }
     }
 
     if (albums.length === 0) return { pressings: [] };
@@ -281,11 +338,10 @@ async function fetchPressingsData(artistName: string): Promise<{ pressings: Pres
       stats?: { community?: { in_collection: number; in_wantlist: number } };
     };
 
-    // Fetch vinyl versions in batches to avoid hitting the Discogs rate limit.
-    // Firing all albums in parallel causes 429s for artists with many releases
-    // (e.g. Nina Simone), silently dropping everything after the first ~15 albums.
-    const BATCH = 5;
-    const BATCH_DELAY_MS = 1200;
+    // Fetch vinyl versions in batches of 3 with 3s delay → ≈36 req/min,
+    // comfortably under the 60 req/min consumer key limit.
+    const BATCH = 3;
+    const BATCH_DELAY_MS = 3000;
     const versionsResults: ({ title: string; year: number; masterId: number; versions: DiscogsVersion[] })[] = [];
     for (let i = 0; i < albums.length; i += BATCH) {
       if (i > 0) await new Promise(r => setTimeout(r, BATCH_DELAY_MS));
@@ -323,8 +379,9 @@ async function fetchPressingsData(artistName: string): Promise<{ pressings: Pres
       return (v.label as string | undefined) ?? "Unknown";
     }
 
-    // Sort each album's LP Album pressings by wantlist count, take top 5
-    const LP_PAT = /\bLP\b/i;
+    // LP\b catches both "LP, Album" and "2xLP, Album" — \bLP\b was too strict
+    // and excluded double-vinyl reissues entirely.
+    const LP_PAT = /LP\b/i;
     const processedAlbums = versionsResults.map(({ title, year, masterId, versions }) => {
       const vinyl = versions
         .filter(v =>
@@ -352,12 +409,14 @@ async function fetchPressingsData(artistName: string): Promise<{ pressings: Pres
       return { album: title, year, masterId, variants: vinyl };
     });
 
-    // Fetch prices for all variants server-side so they're bundled in the cache.
-    // Batched at 8 per 2s to stay within the Discogs 25 req/min consumer key limit.
-    const allReleaseIds = processedAlbums.flatMap(a => a.variants.map(v => v.releaseId));
+    // Fetch prices for albums that have LP variants, bundled into the cache.
+    // Batched at 4 per 4s = 60 req/min, matching the consumer key rate limit.
+    const allReleaseIds = processedAlbums
+      .filter(a => a.variants.length > 0)
+      .flatMap(a => a.variants.map(v => v.releaseId));
     const priceMap = new Map<number, { lowestPrice: number | null; numForSale: number }>();
-    const PRICE_BATCH = 8;
-    const PRICE_DELAY_MS = 2000;
+    const PRICE_BATCH = 4;
+    const PRICE_DELAY_MS = 4000;
     for (let i = 0; i < allReleaseIds.length; i += PRICE_BATCH) {
       if (i > 0) await new Promise(r => setTimeout(r, PRICE_DELAY_MS));
       await Promise.all(allReleaseIds.slice(i, i + PRICE_BATCH).map(async (releaseId) => {
