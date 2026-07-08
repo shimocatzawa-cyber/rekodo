@@ -5,7 +5,7 @@ import { createClient as createServiceClient } from "@supabase/supabase-js";
 const UA          = "rekodo/1.0";
 const BATCH_LIMIT = 50;
 const CONCURRENT  = 2;
-const SLEEP_MS    = 5_000; // 2 records × 2 calls per 5 s ≈ 24 req/min
+const SLEEP_MS    = 2_500; // 2 records × 2 calls per 2.5 s ≈ 48 req/min
 
 const sleep = (ms: number) => new Promise<void>(r => setTimeout(r, ms));
 

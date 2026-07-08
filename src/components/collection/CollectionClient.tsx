@@ -630,6 +630,7 @@ const [filterFormat,       setFilterFormat]       = useState("");
       let done = 0;
       let total = collectionTotal;
       let totalLocked = false;
+      let zeroStreak = 0;
       setPriceProgress({ done, total, phase });
       try {
         while (true) {
@@ -637,10 +638,12 @@ const [filterFormat,       setFilterFormat]       = useState("");
           if (!res.ok) break;
           const data: BatchData = await res.json();
           if (!totalLocked && data.total > 0) {
-            total = data.total;   // lock to actual count on first call
+            total = data.total;
             totalLocked = true;
           }
-          done += data.processed ?? data.priced;
+          const batch = data.processed ?? data.priced;
+          if (batch === 0) { if (++zeroStreak >= 3) break; } else { zeroStreak = 0; }
+          done += batch;
           setPriceProgress({ done, total, phase });
           if (data.remaining <= 0) break;
         }
