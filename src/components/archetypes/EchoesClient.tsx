@@ -17,225 +17,209 @@ interface EchoAlbum {
   artist: string;
   year: number;
   why: string;
+  imageUrl?: string;
 }
 
 interface EchoesData {
-  missingMiddle: {
-    clusterA: string;
-    clusterB: string;
-    bridge: string;
-    albums: EchoAlbum[];
-  };
-  unboughtClassic: {
-    scene: string;
-    intro: string;
-    albums: EchoAlbum[];
-  };
-  scenePortals: Array<{
-    scene: string;
-    adjacentTo: string;
-    why: string;
-    gatewayAlbum: EchoAlbum;
-  }>;
-  tasteForks: {
-    archetypePattern: string;
-    yourDivergence: string;
-    albums: EchoAlbum[];
-  };
-  nextObsession: {
-    prediction: string;
-    reasoning: string;
-    entryPoint: EchoAlbum;
-  };
+  missingMiddle: { clusterA: string; clusterB: string; bridge: string; albums: EchoAlbum[] };
+  unboughtClassic: { scene: string; intro: string; albums: EchoAlbum[] };
+  scenePortals: Array<{ scene: string; adjacentTo: string; why: string; gatewayAlbum: EchoAlbum }>;
+  tasteForks: { archetypePattern: string; yourDivergence: string; albums: EchoAlbum[] };
+  nextObsession: { prediction: string; reasoning: string; entryPoint: EchoAlbum };
   cached?: boolean;
 }
 
-// ── Shared components ─────────────────────────────────────────────────────────
+// ── Shared pieces ─────────────────────────────────────────────────────────────
 
 function ModuleHeader({ number, title }: { number: string; title: string }) {
   return (
-    <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 20 }}>
-      <span style={{ fontFamily: MONO, fontSize: 8, letterSpacing: "0.22em", color: "rgba(10,10,10,0.28)", flexShrink: 0 }}>
-        {number}
-      </span>
-      <span style={{ fontFamily: MONO, fontSize: 9, letterSpacing: "0.18em", textTransform: "uppercase", color: INK, flexShrink: 0 }}>
-        {title}
-      </span>
-      <div style={{ flex: 1, height: "1px", background: RULE }} />
+    <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 20 }}>
+      <span style={{ fontFamily: MONO, fontSize: 8, letterSpacing: "0.22em", color: "rgba(10,10,10,0.28)" }}>{number}</span>
+      <span style={{ fontFamily: MONO, fontSize: 9, letterSpacing: "0.18em", textTransform: "uppercase", color: INK }}>{title}</span>
+      <div style={{ flex: 1, height: 1, background: RULE }} />
     </div>
   );
 }
 
-function AlbumLine({ album, variant = "default" }: { album: EchoAlbum; variant?: "default" | "checklist" | "fork" }) {
+function ArtSquare({ album, size = 88 }: { album: EchoAlbum; size?: number }) {
+  return album.imageUrl ? (
+    // eslint-disable-next-line @next/next/no-img-element
+    <img
+      src={album.imageUrl}
+      alt={album.title}
+      style={{ width: size, height: size, objectFit: "cover", display: "block", flexShrink: 0 }}
+    />
+  ) : (
+    <div style={{
+      width: size, height: size, flexShrink: 0,
+      background: WARM, border: `1px solid ${RULE}`,
+      display: "flex", alignItems: "center", justifyContent: "center",
+    }}>
+      <span style={{ fontFamily: SERIF, fontSize: size * 0.28, color: ORANGE }}>ō</span>
+    </div>
+  );
+}
+
+function AlbumMeta({ album, muted = false }: { album: EchoAlbum; muted?: boolean }) {
   return (
-    <div style={{ marginBottom: 16 }}>
-      <div style={{ display: "flex", alignItems: "baseline", gap: 8 }}>
-        {variant === "checklist" && (
-          <span style={{ fontFamily: MONO, fontSize: 11, color: "rgba(10,10,10,0.25)", flexShrink: 0, marginTop: 1 }}>□</span>
-        )}
-        {variant === "fork" && (
-          <span style={{ fontFamily: MONO, fontSize: 11, color: ORANGE, flexShrink: 0 }}>↳</span>
-        )}
-        <span style={{ fontFamily: SERIF, fontSize: "1rem", fontWeight: 400, color: INK, letterSpacing: "-0.01em" }}>
-          {album.title}
-        </span>
-        <span style={{ fontFamily: MONO, fontSize: "0.65rem", color: MUTED, letterSpacing: "0.04em", flexShrink: 0 }}>
-          {album.artist} · {album.year}
-        </span>
+    <div>
+      <div style={{ fontFamily: SERIF, fontSize: "0.88rem", color: muted ? MUTED : INK, letterSpacing: "-0.01em", lineHeight: 1.2, marginBottom: 3 }}>
+        {album.title}
       </div>
-      <p style={{ fontFamily: MONO, fontSize: "0.68rem", color: MUTED, letterSpacing: "0.04em", lineHeight: 1.7, margin: "4px 0 0", paddingLeft: variant !== "default" ? 20 : 0 }}>
-        {album.why}
-      </p>
+      <div style={{ fontFamily: MONO, fontSize: "0.6rem", color: MUTED, letterSpacing: "0.06em", marginBottom: album.why ? 5 : 0 }}>
+        {album.artist} · {album.year}
+      </div>
+      {album.why && (
+        <div style={{ fontFamily: MONO, fontSize: "0.62rem", color: MUTED, letterSpacing: "0.03em", lineHeight: 1.55 }}>
+          {album.why}
+        </div>
+      )}
     </div>
   );
 }
 
 // ── Skeleton ──────────────────────────────────────────────────────────────────
 
-function SkeletonPulse({ height, width = "100%", style }: { height: number; width?: string | number; style?: React.CSSProperties }) {
-  return (
-    <div style={{
-      height,
-      width,
-      background: "#ede9e4",
-      animation: "pulse 1.5s ease-in-out infinite",
-      ...style,
-    }} />
-  );
+function Pulse({ w = "100%", h }: { w?: string | number; h: number }) {
+  return <div style={{ width: w, height: h, background: "#ede9e4", animation: "echoes-pulse 1.5s ease-in-out infinite", marginBottom: 8 }} />;
 }
 
 function EchoesSkeleton() {
   return (
     <div>
-      <style>{`@keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }`}</style>
+      <style>{`@keyframes echoes-pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }`}</style>
       {[1, 2, 3, 4, 5].map(i => (
-        <div key={i} style={{ marginBottom: 52 }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 20 }}>
-            <SkeletonPulse height={8} width={20} />
-            <SkeletonPulse height={8} width={120} />
+        <div key={i} style={{ marginBottom: 48 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 20 }}>
+            <Pulse w={20} h={8} />
+            <Pulse w={100} h={8} />
             <div style={{ flex: 1, height: 1, background: RULE }} />
           </div>
-          <SkeletonPulse height={22} width="60%" style={{ marginBottom: 10 }} />
-          <SkeletonPulse height={14} style={{ marginBottom: 6 }} />
-          <SkeletonPulse height={14} width="85%" style={{ marginBottom: 16 }} />
-          <SkeletonPulse height={18} width="50%" style={{ marginBottom: 6 }} />
-          <SkeletonPulse height={14} width="80%" style={{ marginBottom: 6 }} />
-          <SkeletonPulse height={18} width="55%" style={{ marginBottom: 6 }} />
-          <SkeletonPulse height={14} width="75%" />
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 10 }}>
+            {[1, 2, 3, 4].map(j => (
+              <div key={j}>
+                <Pulse h={88} />
+                <Pulse w="70%" h={11} />
+                <Pulse w="55%" h={9} />
+              </div>
+            ))}
+          </div>
         </div>
       ))}
     </div>
   );
 }
 
-// ── Module 1: Missing Middle ──────────────────────────────────────────────────
+// ── 01 Missing Middle ─────────────────────────────────────────────────────────
 
 function MissingMiddle({ data }: { data: EchoesData["missingMiddle"] }) {
   return (
-    <div style={{ marginBottom: 52 }}>
+    <div style={{ marginBottom: 48 }}>
       <ModuleHeader number="01" title="Missing Middle" />
 
       {/* Cluster connector */}
-      <div style={{ display: "flex", alignItems: "center", gap: 0, marginBottom: 18 }}>
-        <div style={{
-          fontFamily: MONO, fontSize: "0.65rem", letterSpacing: "0.1em", textTransform: "uppercase",
-          background: INK, color: "#fff", padding: "4px 10px",
-        }}>
+      <div style={{ display: "flex", alignItems: "center", marginBottom: 16, gap: 0 }}>
+        <div style={{ fontFamily: MONO, fontSize: "0.6rem", letterSpacing: "0.1em", textTransform: "uppercase", background: INK, color: "#fff", padding: "3px 8px", flexShrink: 0 }}>
           {data.clusterA}
         </div>
-        <div style={{ flex: 1, position: "relative", height: 1, background: RULE, margin: "0 -1px" }}>
-          <div style={{
-            position: "absolute", top: "50%", left: "50%", transform: "translate(-50%, -50%)",
-            background: "#fff", padding: "0 8px",
-            fontFamily: MONO, fontSize: 9, color: MUTED, letterSpacing: "0.1em",
-          }}>
-            ·····
-          </div>
+        <div style={{ flex: 1, height: 1, background: RULE }} />
+        <div style={{ fontFamily: MONO, fontSize: "0.58rem", color: MUTED, padding: "0 10px", flexShrink: 0 }}>
+          {data.bridge}
         </div>
-        <div style={{
-          fontFamily: MONO, fontSize: "0.65rem", letterSpacing: "0.1em", textTransform: "uppercase",
-          background: INK, color: "#fff", padding: "4px 10px",
-        }}>
+        <div style={{ flex: 1, height: 1, background: RULE }} />
+        <div style={{ fontFamily: MONO, fontSize: "0.6rem", letterSpacing: "0.1em", textTransform: "uppercase", background: INK, color: "#fff", padding: "3px 8px", flexShrink: 0 }}>
           {data.clusterB}
         </div>
       </div>
 
-      <p style={{ fontFamily: MONO, fontSize: "0.72rem", color: MUTED, letterSpacing: "0.04em", lineHeight: 1.75, margin: "0 0 20px" }}>
-        {data.bridge}
-      </p>
-
-      <div>
+      <div className="echoes-grid-4" style={{ display: "grid", gap: 16 }}>
         {data.albums?.map((album, i) => (
-          <AlbumLine key={i} album={album} />
+          <div key={i}>
+            <ArtSquare album={album} />
+            <div style={{ marginTop: 8 }}>
+              <AlbumMeta album={album} />
+            </div>
+          </div>
         ))}
       </div>
     </div>
   );
 }
 
-// ── Module 2: Unbought Classic ────────────────────────────────────────────────
+// ── 02 Unbought Classic ───────────────────────────────────────────────────────
 
 function UnboughtClassic({ data }: { data: EchoesData["unboughtClassic"] }) {
   return (
-    <div style={{ marginBottom: 52 }}>
+    <div style={{ marginBottom: 48 }}>
       <ModuleHeader number="02" title="Unbought Classic" />
 
-      <div style={{
-        background: WARM, borderLeft: `2px solid ${INK}`,
-        padding: "14px 20px", marginBottom: 20,
-      }}>
-        <div style={{ fontFamily: SERIF, fontSize: "1.1rem", fontWeight: 400, color: INK, marginBottom: 6, letterSpacing: "-0.01em" }}>
+      <div style={{ display: "flex", alignItems: "baseline", gap: 10, marginBottom: 16 }}>
+        <span style={{ fontFamily: SERIF, fontSize: "1rem", color: INK, letterSpacing: "-0.01em" }}>
           {data.scene}
-        </div>
-        <p style={{ fontFamily: MONO, fontSize: "0.68rem", color: MUTED, letterSpacing: "0.04em", lineHeight: 1.7, margin: 0 }}>
-          {data.intro}
-        </p>
+        </span>
+        <span style={{ fontFamily: MONO, fontSize: "0.63rem", color: MUTED, letterSpacing: "0.03em" }}>
+          — {data.intro}
+        </span>
       </div>
 
-      <div>
+      <div className="echoes-grid-4" style={{ display: "grid", gap: 16 }}>
         {data.albums?.map((album, i) => (
-          <AlbumLine key={i} album={album} variant="checklist" />
+          <div key={i}>
+            <div style={{ position: "relative" }}>
+              <ArtSquare album={album} />
+              {/* Checkbox overlay */}
+              <div style={{
+                position: "absolute", top: 6, right: 6,
+                width: 16, height: 16,
+                background: "rgba(255,255,255,0.88)",
+                border: `1.5px solid ${INK}`,
+                display: "flex", alignItems: "center", justifyContent: "center",
+              }}>
+                <span style={{ fontFamily: MONO, fontSize: 9, color: "rgba(10,10,10,0.18)" }}>□</span>
+              </div>
+            </div>
+            <div style={{ marginTop: 8 }}>
+              <AlbumMeta album={album} />
+            </div>
+          </div>
         ))}
       </div>
     </div>
   );
 }
 
-// ── Module 3: Scene Portals ───────────────────────────────────────────────────
+// ── 03 Scene Portals ──────────────────────────────────────────────────────────
 
 function ScenePortals({ data }: { data: EchoesData["scenePortals"] }) {
   return (
-    <div style={{ marginBottom: 52 }}>
+    <div style={{ marginBottom: 48 }}>
       <ModuleHeader number="03" title="Scene Portals" />
 
       <div className="echoes-portals" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 1, background: RULE }}>
         {data?.map((portal, i) => (
-          <div key={i} style={{ background: "#fff", padding: "20px 22px" }}>
-            <div style={{ fontFamily: MONO, fontSize: 8, letterSpacing: "0.18em", textTransform: "uppercase", color: ORANGE, marginBottom: 10 }}>
+          <div key={i} style={{ background: "#fff", padding: "18px 18px 20px" }}>
+            <div style={{ fontFamily: MONO, fontSize: 7, letterSpacing: "0.2em", textTransform: "uppercase", color: ORANGE, marginBottom: 10 }}>
               {i === 0 ? "Next door" : "Left turn"}
             </div>
-            <div style={{ fontFamily: SERIF, fontSize: "1.05rem", fontWeight: 400, color: INK, marginBottom: 4, letterSpacing: "-0.01em", lineHeight: 1.2 }}>
-              {portal.scene}
+            <div style={{ display: "flex", gap: 12, alignItems: "flex-start", marginBottom: 12 }}>
+              <ArtSquare album={portal.gatewayAlbum} size={72} />
+              <div>
+                <div style={{ fontFamily: SERIF, fontSize: "0.95rem", color: INK, letterSpacing: "-0.01em", lineHeight: 1.2, marginBottom: 4 }}>
+                  {portal.scene}
+                </div>
+                <div style={{ fontFamily: MONO, fontSize: "0.58rem", color: MUTED, letterSpacing: "0.06em", marginBottom: 8 }}>
+                  Adjacent to: {portal.adjacentTo}
+                </div>
+                <div style={{ fontFamily: MONO, fontSize: "0.63rem", color: MUTED, letterSpacing: "0.03em", lineHeight: 1.6 }}>
+                  {portal.why}
+                </div>
+              </div>
             </div>
-            <div style={{ fontFamily: MONO, fontSize: "0.62rem", color: MUTED, letterSpacing: "0.06em", marginBottom: 12 }}>
-              Adjacent to: {portal.adjacentTo}
-            </div>
-            <p style={{ fontFamily: MONO, fontSize: "0.68rem", color: MUTED, letterSpacing: "0.04em", lineHeight: 1.7, margin: "0 0 16px" }}>
-              {portal.why}
-            </p>
-            <div style={{ borderTop: `1px solid ${RULE}`, paddingTop: 12 }}>
-              <div style={{ fontFamily: MONO, fontSize: 8, letterSpacing: "0.16em", textTransform: "uppercase", color: "rgba(10,10,10,0.3)", marginBottom: 6 }}>
+            <div style={{ borderTop: `1px solid ${RULE}`, paddingTop: 10 }}>
+              <div style={{ fontFamily: MONO, fontSize: 7, letterSpacing: "0.16em", textTransform: "uppercase", color: "rgba(10,10,10,0.28)", marginBottom: 4 }}>
                 Gateway
               </div>
-              <div style={{ fontFamily: SERIF, fontSize: "0.9rem", color: INK, letterSpacing: "-0.01em", marginBottom: 2 }}>
-                {portal.gatewayAlbum.title}
-              </div>
-              <div style={{ fontFamily: MONO, fontSize: "0.62rem", color: MUTED, letterSpacing: "0.04em", marginBottom: 6 }}>
-                {portal.gatewayAlbum.artist} · {portal.gatewayAlbum.year}
-              </div>
-              <p style={{ fontFamily: MONO, fontSize: "0.65rem", color: MUTED, letterSpacing: "0.04em", lineHeight: 1.65, margin: 0 }}>
-                {portal.gatewayAlbum.why}
-              </p>
+              <AlbumMeta album={portal.gatewayAlbum} />
             </div>
           </div>
         ))}
@@ -244,74 +228,91 @@ function ScenePortals({ data }: { data: EchoesData["scenePortals"] }) {
   );
 }
 
-// ── Module 4: Taste Forks ─────────────────────────────────────────────────────
+// ── 04 Taste Forks ───────────────────────────────────────────────────────────
 
 function TasteForks({ data }: { data: EchoesData["tasteForks"] }) {
   return (
-    <div style={{ marginBottom: 52 }}>
+    <div style={{ marginBottom: 48 }}>
       <ModuleHeader number="04" title="Taste Forks" />
 
-      <div className="echoes-fork" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 1, background: RULE, marginBottom: 24 }}>
-        <div style={{ background: "#fff", padding: "16px 20px" }}>
-          <div style={{ fontFamily: MONO, fontSize: 8, letterSpacing: "0.18em", textTransform: "uppercase", color: "rgba(10,10,10,0.3)", marginBottom: 8 }}>
-            The pattern
-          </div>
-          <p style={{ fontFamily: MONO, fontSize: "0.7rem", color: MUTED, letterSpacing: "0.04em", lineHeight: 1.75, margin: 0 }}>
-            {data.archetypePattern}
-          </p>
+      {/* Pattern vs. divergence — one line each */}
+      <div className="echoes-fork-header" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 1, background: RULE, marginBottom: 20 }}>
+        <div style={{ background: "#fff", padding: "10px 14px" }}>
+          <div style={{ fontFamily: MONO, fontSize: 7, letterSpacing: "0.18em", textTransform: "uppercase", color: "rgba(10,10,10,0.3)", marginBottom: 5 }}>The pattern</div>
+          <div style={{ fontFamily: MONO, fontSize: "0.65rem", color: MUTED, letterSpacing: "0.03em", lineHeight: 1.6 }}>{data.archetypePattern}</div>
         </div>
-        <div style={{ background: WARM, padding: "16px 20px" }}>
-          <div style={{ fontFamily: MONO, fontSize: 8, letterSpacing: "0.18em", textTransform: "uppercase", color: ORANGE, marginBottom: 8 }}>
-            Your path
-          </div>
-          <p style={{ fontFamily: MONO, fontSize: "0.7rem", color: INK, letterSpacing: "0.04em", lineHeight: 1.75, margin: 0 }}>
-            {data.yourDivergence}
-          </p>
+        <div style={{ background: WARM, padding: "10px 14px" }}>
+          <div style={{ fontFamily: MONO, fontSize: 7, letterSpacing: "0.18em", textTransform: "uppercase", color: ORANGE, marginBottom: 5 }}>Your path</div>
+          <div style={{ fontFamily: MONO, fontSize: "0.65rem", color: INK, letterSpacing: "0.03em", lineHeight: 1.6 }}>{data.yourDivergence}</div>
         </div>
       </div>
 
-      <div style={{ fontFamily: MONO, fontSize: 8, letterSpacing: "0.18em", textTransform: "uppercase", color: "rgba(10,10,10,0.3)", marginBottom: 12 }}>
-        Roads not taken
-      </div>
-      <div>
+      {/* Road not taken albums */}
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
         {data.albums?.map((album, i) => (
-          <AlbumLine key={i} album={album} variant="fork" />
+          <div key={i} style={{ display: "flex", gap: 12, alignItems: "flex-start" }}>
+            <ArtSquare album={album} size={72} />
+            <div style={{ paddingTop: 2 }}>
+              <div style={{ fontFamily: MONO, fontSize: 7, color: ORANGE, letterSpacing: "0.14em", textTransform: "uppercase", marginBottom: 5 }}>
+                Road not taken
+              </div>
+              <AlbumMeta album={album} />
+            </div>
+          </div>
         ))}
       </div>
     </div>
   );
 }
 
-// ── Module 5: Next Obsession ──────────────────────────────────────────────────
+// ── 05 Next Obsession ─────────────────────────────────────────────────────────
 
 function NextObsession({ data }: { data: EchoesData["nextObsession"] }) {
   return (
-    <div style={{ marginBottom: 52 }}>
+    <div style={{ marginBottom: 48 }}>
       <ModuleHeader number="05" title="Next Obsession" />
 
-      <div style={{ background: INK, padding: "28px 28px 24px" }}>
-        <div style={{ fontFamily: MONO, fontSize: 8, letterSpacing: "0.22em", textTransform: "uppercase", color: ORANGE, marginBottom: 14 }}>
-          Incoming
-        </div>
-        <h2 style={{ fontFamily: SERIF, fontSize: "1.7rem", fontWeight: 400, color: "#fff", margin: "0 0 16px", letterSpacing: "-0.02em", lineHeight: 1.15 }}>
-          {data.prediction}
-        </h2>
-        <p style={{ fontFamily: MONO, fontSize: "0.7rem", color: "rgba(255,255,255,0.6)", letterSpacing: "0.04em", lineHeight: 1.8, margin: "0 0 22px" }}>
-          {data.reasoning}
-        </p>
-        <div style={{ borderTop: "1px solid rgba(255,255,255,0.12)", paddingTop: 18 }}>
-          <div style={{ fontFamily: MONO, fontSize: 8, letterSpacing: "0.18em", textTransform: "uppercase", color: "rgba(255,255,255,0.3)", marginBottom: 8 }}>
-            Entry point
+      <div style={{ background: INK, padding: "24px 24px 22px" }}>
+        <div style={{ display: "flex", gap: 20, alignItems: "flex-start" }}>
+          {/* Album art */}
+          <div style={{ flexShrink: 0 }}>
+            {data.entryPoint.imageUrl ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={data.entryPoint.imageUrl}
+                alt={data.entryPoint.title}
+                style={{ width: 110, height: 110, objectFit: "cover", display: "block" }}
+              />
+            ) : (
+              <div style={{ width: 110, height: 110, background: "rgba(255,255,255,0.06)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                <span style={{ fontFamily: SERIF, fontSize: 36, color: ORANGE }}>ō</span>
+              </div>
+            )}
           </div>
-          <div style={{ fontFamily: SERIF, fontSize: "1rem", color: "#fff", letterSpacing: "-0.01em", marginBottom: 3 }}>
-            {data.entryPoint.title}
+
+          {/* Text */}
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ fontFamily: MONO, fontSize: 7, letterSpacing: "0.22em", textTransform: "uppercase", color: ORANGE, marginBottom: 10 }}>
+              Incoming
+            </div>
+            <h2 style={{ fontFamily: SERIF, fontSize: "1.5rem", fontWeight: 400, color: "#fff", margin: "0 0 12px", letterSpacing: "-0.02em", lineHeight: 1.15 }}>
+              {data.prediction}
+            </h2>
+            <p style={{ fontFamily: MONO, fontSize: "0.65rem", color: "rgba(255,255,255,0.55)", letterSpacing: "0.03em", lineHeight: 1.75, margin: "0 0 16px" }}>
+              {data.reasoning}
+            </p>
+            <div style={{ borderTop: "1px solid rgba(255,255,255,0.1)", paddingTop: 12 }}>
+              <div style={{ fontFamily: MONO, fontSize: 7, letterSpacing: "0.16em", textTransform: "uppercase", color: "rgba(255,255,255,0.28)", marginBottom: 5 }}>
+                Entry point
+              </div>
+              <div style={{ fontFamily: SERIF, fontSize: "0.88rem", color: "#fff", letterSpacing: "-0.01em", marginBottom: 2 }}>
+                {data.entryPoint.title}
+              </div>
+              <div style={{ fontFamily: MONO, fontSize: "0.6rem", color: "rgba(255,255,255,0.4)", letterSpacing: "0.06em" }}>
+                {data.entryPoint.artist} · {data.entryPoint.year}
+              </div>
+            </div>
           </div>
-          <div style={{ fontFamily: MONO, fontSize: "0.65rem", color: "rgba(255,255,255,0.45)", letterSpacing: "0.06em", marginBottom: 8 }}>
-            {data.entryPoint.artist} · {data.entryPoint.year}
-          </div>
-          <p style={{ fontFamily: MONO, fontSize: "0.68rem", color: "rgba(255,255,255,0.5)", letterSpacing: "0.04em", lineHeight: 1.7, margin: 0 }}>
-            {data.entryPoint.why}
-          </p>
         </div>
       </div>
     </div>
@@ -321,12 +322,14 @@ function NextObsession({ data }: { data: EchoesData["nextObsession"] }) {
 // ── Main component ────────────────────────────────────────────────────────────
 
 export default function EchoesClient({ userId: _userId }: { userId: string }) {
-  const [data, setData] = useState<EchoesData | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [regenerating, setRegenerating] = useState(false);
+  const [data, setData]           = useState<EchoesData | null>(null);
+  const [loading, setLoading]     = useState(true);
+  const [error, setError]         = useState<string | null>(null);
+  const [regenerating, setRegen]  = useState(false);
 
-  useEffect(() => {
+  function load() {
+    setLoading(true);
+    setError(null);
     fetch("/api/echoes")
       .then(async r => {
         if (r.status === 412) throw new Error("archetypes_required");
@@ -336,49 +339,46 @@ export default function EchoesClient({ userId: _userId }: { userId: string }) {
       .then(d => setData(d))
       .catch(e => setError(e instanceof Error ? e.message : "failed"))
       .finally(() => setLoading(false));
-  }, []);
+  }
+
+  useEffect(() => { load(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   async function handleRegenerate() {
-    setRegenerating(true);
+    setRegen(true);
     try {
       const r = await fetch("/api/echoes", { method: "POST" });
       if (r.ok) setData(await r.json() as EchoesData);
     } catch {}
-    setRegenerating(false);
+    setRegen(false);
   }
 
   return (
-    <div style={{ padding: "32px 0 80px" }}>
+    <div style={{ padding: "28px 0 80px" }}>
       <style>{`
-        @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
+        @keyframes echoes-pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
+        .echoes-grid-4 { grid-template-columns: repeat(4, 1fr); }
         @media (max-width: 600px) {
-          .echoes-portals { grid-template-columns: 1fr !important; }
-          .echoes-fork    { grid-template-columns: 1fr !important; }
+          .echoes-grid-4    { grid-template-columns: repeat(2, 1fr) !important; }
+          .echoes-portals   { grid-template-columns: 1fr !important; }
+          .echoes-fork-header { grid-template-columns: 1fr !important; }
         }
       `}</style>
 
-      {/* Header */}
-      <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", marginBottom: 40 }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
-          <div style={{ flex: 1, height: 1, background: RULE, width: 40 }} />
-          <span style={{ fontFamily: SERIF, fontSize: "1.5rem", fontWeight: 400, color: INK, letterSpacing: "-0.02em" }}>
+      {/* Header row */}
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 36 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+          <span style={{ fontFamily: SERIF, fontSize: "1.4rem", fontWeight: 400, color: INK, letterSpacing: "-0.02em" }}>
             Echoes
           </span>
           {data?.cached && (
-            <span style={{ fontFamily: MONO, fontSize: 8, letterSpacing: "0.14em", color: "rgba(10,10,10,0.3)" }}>
-              CACHED
-            </span>
+            <span style={{ fontFamily: MONO, fontSize: 7, letterSpacing: "0.14em", color: "rgba(10,10,10,0.28)" }}>CACHED</span>
           )}
         </div>
         {!loading && data && (
           <button
             onClick={handleRegenerate}
             disabled={regenerating}
-            style={{
-              fontFamily: MONO, fontSize: "0.65rem", letterSpacing: "0.1em", textTransform: "uppercase",
-              color: regenerating ? MUTED : ORANGE, background: "none", border: "none",
-              cursor: regenerating ? "default" : "pointer", padding: 0,
-            }}
+            style={{ fontFamily: MONO, fontSize: "0.65rem", letterSpacing: "0.1em", textTransform: "uppercase", color: regenerating ? MUTED : ORANGE, background: "none", border: "none", cursor: regenerating ? "default" : "pointer", padding: 0 }}
           >
             {regenerating ? "Regenerating…" : "Regenerate"}
           </button>
@@ -390,7 +390,7 @@ export default function EchoesClient({ userId: _userId }: { userId: string }) {
 
       {!loading && error === "archetypes_required" && (
         <div style={{ padding: "60px 0", textAlign: "center" }}>
-          <p style={{ fontFamily: MONO, fontSize: "0.72rem", color: MUTED, letterSpacing: "0.04em", lineHeight: 1.75 }}>
+          <p style={{ fontFamily: MONO, fontSize: "0.72rem", color: MUTED, letterSpacing: "0.04em" }}>
             Generate your Archetype profile first — Echoes builds on top of it.
           </p>
         </div>
@@ -399,11 +399,8 @@ export default function EchoesClient({ userId: _userId }: { userId: string }) {
       {!loading && error && error !== "archetypes_required" && (
         <div style={{ padding: "60px 0", textAlign: "center" }}>
           <p style={{ fontFamily: MONO, fontSize: "0.72rem", color: MUTED, letterSpacing: "0.04em" }}>
-            Failed to generate Echoes.{" "}
-            <button
-              onClick={() => { setError(null); setLoading(true); fetch("/api/echoes").then(r => r.json()).then(setData).catch(() => setError("failed")).finally(() => setLoading(false)); }}
-              style={{ fontFamily: MONO, fontSize: "0.72rem", color: ORANGE, background: "none", border: "none", padding: 0, cursor: "pointer", textDecoration: "underline" }}
-            >
+            Failed to generate.{" "}
+            <button onClick={load} style={{ fontFamily: MONO, fontSize: "0.72rem", color: ORANGE, background: "none", border: "none", padding: 0, cursor: "pointer", textDecoration: "underline" }}>
               Try again
             </button>
           </p>
@@ -412,11 +409,11 @@ export default function EchoesClient({ userId: _userId }: { userId: string }) {
 
       {!loading && data && (
         <>
-          {data.missingMiddle && <MissingMiddle data={data.missingMiddle} />}
+          {data.missingMiddle   && <MissingMiddle   data={data.missingMiddle} />}
           {data.unboughtClassic && <UnboughtClassic data={data.unboughtClassic} />}
-          {data.scenePortals && <ScenePortals data={data.scenePortals} />}
-          {data.tasteForks && <TasteForks data={data.tasteForks} />}
-          {data.nextObsession && <NextObsession data={data.nextObsession} />}
+          {data.scenePortals    && <ScenePortals    data={data.scenePortals} />}
+          {data.tasteForks      && <TasteForks      data={data.tasteForks} />}
+          {data.nextObsession   && <NextObsession   data={data.nextObsession} />}
         </>
       )}
     </div>

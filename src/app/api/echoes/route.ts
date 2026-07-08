@@ -6,7 +6,7 @@ export const dynamic = "force-dynamic";
 export const maxDuration = 120;
 
 // ── DB setup ─────────────────────────────────────────────────────────────────
-// Before using this route, run in Supabase SQL editor:
+// Run in Supabase SQL editor before using this route:
 //   ALTER TABLE archetype_cache
 //     ADD COLUMN IF NOT EXISTS echoes_data jsonb,
 //     ADD COLUMN IF NOT EXISTS echoes_generated_at timestamptz;
@@ -34,9 +34,17 @@ type RecordRow = {
   } | null;
 };
 
+export interface EchoAlbum {
+  title: string;
+  artist: string;
+  year: number;
+  why: string;
+  imageUrl?: string;
+}
+
 // ── Collection fetch ──────────────────────────────────────────────────────────
 
-async function fetchCollection(userId: string, supabase: ReturnType<typeof createClient> extends Promise<infer T> ? T : never): Promise<RecordRow[]> {
+async function fetchCollection(userId: string, supabase: Awaited<ReturnType<typeof createClient>>): Promise<RecordRow[]> {
   const PAGE_SIZE = 1000;
   let all: RecordRow[] = [];
   let page = 0;
@@ -64,38 +72,32 @@ function getRecord(row: RecordRow) {
 // ── Context builder ───────────────────────────────────────────────────────────
 
 function buildContext(rows: RecordRow[]) {
-  const genreCounts  = new Map<string, number>();
-  const styleCounts  = new Map<string, number>();
-  const labelCounts  = new Map<string, number>();
-  const artistCounts = new Map<string, number>();
-  const decadeCounts = new Map<number, number>();
+  const genreCounts   = new Map<string, number>();
+  const styleCounts   = new Map<string, number>();
+  const labelCounts   = new Map<string, number>();
+  const artistCounts  = new Map<string, number>();
+  const decadeCounts  = new Map<number, number>();
   const countryCounts = new Map<string, number>();
+  // All owned albums — used to prevent Claude recommending owned records
+  const ownedAlbumsSet = new Set<string>();
 
   for (const row of rows) {
     const r = getRecord(row);
     if (!r) continue;
-    if (r.genre) genreCounts.set(r.genre, (genreCounts.get(r.genre) ?? 0) + 1);
-    if (r.styles) for (const s of r.styles) if (s) styleCounts.set(s, (styleCounts.get(s) ?? 0) + 1);
-    if (r.label) labelCounts.set(r.label, (labelCounts.get(r.label) ?? 0) + 1);
-    if (r.artist) artistCounts.set(r.artist, (artistCounts.get(r.artist) ?? 0) + 1);
+    if (r.genre)   genreCounts.set(r.genre, (genreCounts.get(r.genre) ?? 0) + 1);
+    if (r.styles)  for (const s of r.styles) if (s) styleCounts.set(s, (styleCounts.get(s) ?? 0) + 1);
+    if (r.label)   labelCounts.set(r.label, (labelCounts.get(r.label) ?? 0) + 1);
+    if (r.artist)  artistCounts.set(r.artist, (artistCounts.get(r.artist) ?? 0) + 1);
     if (r.year) {
       const decade = Math.floor(r.year / 10) * 10;
       decadeCounts.set(decade, (decadeCounts.get(decade) ?? 0) + 1);
     }
     if (r.country) countryCounts.set(r.country, (countryCounts.get(r.country) ?? 0) + 1);
+    // Include every owned album so Claude can't accidentally recommend them
+    if (r.artist && r.album) ownedAlbumsSet.add(`${r.artist} — ${r.album}`);
   }
 
   const topArtists = [...artistCounts.entries()].sort((a, b) => b[1] - a[1]);
-  const deepArtistNames = new Set(topArtists.filter(([, c]) => c >= 3).map(([a]) => a));
-
-  // Collect owned albums for top artists (to help Claude avoid re-recommending them)
-  const ownedAlbumsSet = new Set<string>();
-  for (const row of rows) {
-    const r = getRecord(row);
-    if (r?.artist && r?.album && deepArtistNames.has(r.artist)) {
-      ownedAlbumsSet.add(`${r.artist} — ${r.album}`);
-    }
-  }
 
   const recentAdds = rows
     .slice(0, 15)
@@ -113,11 +115,11 @@ function buildContext(rows: RecordRow[]) {
     topStyles:   [...styleCounts.entries()].sort((a, b) => b[1] - a[1]).slice(0, 25),
     topLabels:   [...labelCounts.entries()].sort((a, b) => b[1] - a[1]).slice(0, 10),
     topArtists:  topArtists.slice(0, 20),
-    deepArtists: [...deepArtistNames],
+    deepArtists: topArtists.filter(([, c]) => c >= 3).map(([a]) => a),
     decades:     [...decadeCounts.entries()].sort((a, b) => a[0] - b[0]),
     countries:   [...countryCounts.entries()].sort((a, b) => b[1] - a[1]).slice(0, 8),
     recentAdds,
-    ownedAlbums: [...ownedAlbumsSet].slice(0, 40),
+    ownedAlbums: [...ownedAlbumsSet],
   };
 }
 
@@ -129,6 +131,33 @@ type ArchetypeSignals = Record<string, {
   uniqueStyles?: number;
   modalDecade?: number | null;
 }>;
+
+// ── Artwork fetch ─────────────────────────────────────────────────────────────
+
+async function fetchArtwork(albums: EchoAlbum[], headers: Record<string, string>) {
+  const BATCH      = 4;
+  const DELAY_MS   = 4100; // keeps well under 60 req/min for consumer key
+  const PLACEHOLDER = "spacer"; // Discogs placeholder image fragment
+
+  for (let i = 0; i < albums.length; i += BATCH) {
+    if (i > 0) await new Promise(r => setTimeout(r, DELAY_MS));
+    await Promise.all(
+      albums.slice(i, i + BATCH).map(async (album) => {
+        try {
+          const q = encodeURIComponent(`${album.artist} ${album.title}`);
+          const res = await fetch(
+            `https://api.discogs.com/database/search?q=${q}&type=master&per_page=3`,
+            { headers, signal: AbortSignal.timeout(5000) }
+          );
+          if (!res.ok) return;
+          const json = await res.json() as { results?: { cover_image?: string }[] };
+          const cover = json.results?.[0]?.cover_image;
+          if (cover && !cover.includes(PLACEHOLDER)) album.imageUrl = cover;
+        } catch { /* skip — artwork is optional */ }
+      })
+    );
+  }
+}
 
 // ── Prompt builder ────────────────────────────────────────────────────────────
 
@@ -144,114 +173,89 @@ function buildPrompt(
     return s ? `${s.label} (${s.score}/100)` : "unknown";
   };
 
-  return `You are the Echoes engine for rekōdo, a vinyl collector app. Analyse this collector's data and generate 5 discovery modules. Every album and artist you name must be real. Ground each recommendation in the actual collection data provided.
+  // Pass all owned albums so Claude can reliably avoid them
+  const ownedBlock = ctx.ownedAlbums.length > 0
+    ? ctx.ownedAlbums.slice(0, 300).map(a => `  ${a}`).join("\n")
+    : "  (none recorded)";
+
+  return `You are the Echoes engine for rekōdo, a vinyl collector app. Generate 5 discovery modules. Every album/artist must be real. Ground every recommendation in the collection data below.
 
 COLLECTOR PROFILE:
-Records owned: ${ctx.total}
-Primary archetype: ${archetype.primary} (${archetype.primaryScore}/100)
-Secondary archetype: ${archetype.secondary ?? "none"}
-Shadow archetype: ${archetype.shadow}
+Records: ${ctx.total} | Archetype: ${archetype.primary} (${archetype.primaryScore}/100) | Secondary: ${archetype.secondary ?? "none"} | Shadow: ${archetype.shadow}
 
-COLLECTION SIGNALS:
-- Sonic Coherence: ${sig("sonicCoherence")}
-- Style Range: ${sig("styleRange")} — ${archetype.signals?.styleRange?.uniqueStyles ?? 0} unique styles
-- Historical Depth: ${sig("historicalDepth")} — modal decade: ${archetype.signals?.historicalDepth?.modalDecade ?? "?"}s
-- Canon Obscurity: ${sig("canonObscurity")}
-- Geographic Range: ${sig("geographicRange")}
-- Artist Concentration: ${sig("artistConcentration")}
-- Transgressive Index: ${sig("transgressiveIndex")}
+SIGNALS:
+Sonic Coherence: ${sig("sonicCoherence")} | Style Range: ${sig("styleRange")} (${archetype.signals?.styleRange?.uniqueStyles ?? 0} styles) | Historical Depth: ${sig("historicalDepth")} (modal ${archetype.signals?.historicalDepth?.modalDecade ?? "?"}s) | Canon Obscurity: ${sig("canonObscurity")} | Geographic Range: ${sig("geographicRange")} | Artist Concentration: ${sig("artistConcentration")} | Transgressive: ${sig("transgressiveIndex")}
 
-COLLECTION BREAKDOWN:
+Genres: ${ctx.topGenres.map(([g, c]) => `${g}:${c}`).join(", ")}
+Styles: ${ctx.topStyles.map(([s, c]) => `${s}:${c}`).join(", ")}
+Decades: ${ctx.decades.map(([d, c]) => `${d}s:${c}`).join(", ")}
+Countries: ${ctx.countries.map(([c, n]) => `${c}:${n}`).join(", ")}
+Labels: ${ctx.topLabels.map(([l, c]) => `${l}:${c}`).join(", ")}
+Top artists: ${ctx.topArtists.map(([a, c]) => `${a}(${c})`).join(", ")}
+Deep artists (3+ records): ${ctx.deepArtists.join(", ") || "none"}
 
-Genres (name: count):
-${ls(ctx.topGenres, (g, c) => `${g}: ${c}`)}
-
-Style tags (name: count):
-${ls(ctx.topStyles, (s, c) => `${s}: ${c}`)}
-
-Decades (decade: count):
-${ls(ctx.decades, (d, c) => `${d}s: ${c}`)}
-
-Pressing countries (country: count):
-${ls(ctx.countries, (c, n) => `${c}: ${n}`)}
-
-Labels (label: count):
-${ls(ctx.topLabels, (l, c) => `${l}: ${c}`)}
-
-Most collected artists (artist: records owned):
-${ctx.topArtists.map(([a, c]) => `  ${a}: ${c}`).join("\n")}
-
-Deeply invested artists (3+ records owned): ${ctx.deepArtists.join(", ") || "none"}
-
-Recently added (newest first):
+Recently added:
 ${ctx.recentAdds.map(r => `  ${r}`).join("\n")}
 
-Known owned albums (for most-collected artists — do not recommend any of these):
-${ctx.ownedAlbums.map(a => `  ${a}`).join("\n")}
+OWNED ALBUMS — DO NOT recommend any album listed here:
+${ownedBlock}
 
 ---
 
-GENERATE ALL 5 MODULES:
+RULES:
+- "why" field: max 10 words, factual, no filler (e.g. "Bridges kosmische and isolationist drone via motorik pulse")
+- Never recommend an album from the owned list above
+- Every artist and title must be real and accurately named
 
-1. MISSING MIDDLE
-Find the two most distinct genre/style clusters this collector inhabits heavily (look at genre + style tag density to identify two separate worlds). Then identify 3–4 specific transitional records that bridge both worlds — connective-tissue albums that sit at the intersection. These are not general recommendations; they are the precise records a serious collector with BOTH clusters would logically own. The bridge description should explain what that connective tissue sounds like.
+GENERATE ALL 5:
 
-2. UNBOUGHT CLASSIC
-Identify the single scene this collector is most deeply invested in (by record count density). List exactly 4 canonical, critically acknowledged touchstones from that scene that they almost certainly do not own. Do not list any album from the "known owned albums" list above. This module should feel like a checklist — deliberate, obvious gaps in otherwise deep territory.
+1. MISSING MIDDLE: Two distinct genre/style clusters the collector inhabits heavily. 3–4 transitional records bridging both worlds. Bridge = 1 short sentence about what the connective tissue sounds like.
 
-3. SCENE PORTALS
-Identify exactly 2 micro-scenes or labels that are adjacent to this collection but completely absent from it. One should feel like a natural next door (the logical extension); the other should feel like a left-turn (adjacent but surprising). For each, name one precise gateway album that is the best single entry point. Do not pick scenes that overlap with the collector's existing genres.
+2. UNBOUGHT CLASSIC: The scene with the most density. 4 canonical touchstones they don't own. Intro = 1 short sentence.
 
-4. TASTE FORKS
-Analyse where this collector's trajectory diverges from the expected path for their primary archetype (${archetype.primary}). What does a typical ${archetype.primary} collector usually move toward? Where has this collector clearly gone a different direction? Name exactly 2 albums that represent the road not taken — real records that collectors of this archetype commonly own but this collection is missing.
+3. SCENE PORTALS: 2 adjacent micro-scenes/labels completely absent from collection. One natural next-step, one slight left-turn. One gateway album each.
 
-5. NEXT OBSESSION
-Synthesise archetype + recent trajectory + style/genre momentum to name the single scene, subgenre, or artist cluster this collector is about to fall into — whether they know it yet or not. This module is the only one allowed to feel slightly uncanny or foreseen rather than analytical. Provide one precise entry-point album.
+4. TASTE FORKS: Where this collector's path diverges from a typical ${archetype.primary}. 2 albums = roads not taken. archetypePattern + yourDivergence = 1 sentence each.
 
-Return ONLY valid JSON, no markdown, no backticks, no explanation before or after:
+5. NEXT OBSESSION: Single scene they're about to fall into. One entry-point album. reasoning = 2 sentences, slightly uncanny.
+
+Return ONLY valid JSON, no markdown, no backticks:
 {
   "missingMiddle": {
-    "clusterA": "First cluster (2–5 words)",
-    "clusterB": "Second cluster (2–5 words)",
-    "bridge": "1–2 sentences describing what the connective tissue sounds like",
-    "albums": [
-      { "title": "Album Title", "artist": "Artist Name", "year": 1979, "why": "1 sentence grounded in their specific collection" }
-    ]
+    "clusterA": "2–5 words",
+    "clusterB": "2–5 words",
+    "bridge": "1 sentence",
+    "albums": [{ "title": "", "artist": "", "year": 0, "why": "max 10 words" }]
   },
   "unboughtClassic": {
-    "scene": "Scene name (3–6 words)",
-    "intro": "1 sentence: why this is clearly already their territory",
-    "albums": [
-      { "title": "Album Title", "artist": "Artist Name", "year": 1979, "why": "1 sentence on why this is the gap" }
-    ]
+    "scene": "3–6 words",
+    "intro": "1 sentence",
+    "albums": [{ "title": "", "artist": "", "year": 0, "why": "max 10 words" }]
   },
   "scenePortals": [
     {
-      "scene": "Micro-scene or label name",
-      "adjacentTo": "The specific thing in their collection it connects to (3–5 words)",
-      "why": "1–2 sentences on why this door opens here for this collector",
-      "gatewayAlbum": { "title": "Album Title", "artist": "Artist Name", "year": 1979, "why": "1 sentence on why this is the best entry point" }
+      "scene": "",
+      "adjacentTo": "3–5 words",
+      "why": "1–2 sentences",
+      "gatewayAlbum": { "title": "", "artist": "", "year": 0, "why": "max 10 words" }
     }
   ],
   "tasteForks": {
-    "archetypePattern": "1 sentence: what a typical ${archetype.primary} collector usually moves toward",
-    "yourDivergence": "1–2 sentences: how this specific collection diverged from that pattern",
-    "albums": [
-      { "title": "Album Title", "artist": "Artist Name", "year": 1979, "why": "1 sentence on why this represents the road not taken" }
-    ]
+    "archetypePattern": "1 sentence",
+    "yourDivergence": "1 sentence",
+    "albums": [{ "title": "", "artist": "", "year": 0, "why": "max 10 words" }]
   },
   "nextObsession": {
-    "prediction": "The scene or cluster (4–8 words)",
-    "reasoning": "2–3 sentences — make it feel foreseen, not mechanical",
-    "entryPoint": { "title": "Album Title", "artist": "Artist Name", "year": 1979, "why": "1 sentence" }
+    "prediction": "4–8 words",
+    "reasoning": "2 sentences",
+    "entryPoint": { "title": "", "artist": "", "year": 0, "why": "max 10 words" }
   }
 }`;
 }
 
-// ── Route handlers ────────────────────────────────────────────────────────────
+// ── Core generate ─────────────────────────────────────────────────────────────
 
 async function generate(userId: string, supabase: Awaited<ReturnType<typeof createClient>>, cacheDb: ReturnType<typeof getServiceDb>) {
-  // Require archetype data to exist (used for signals + archetype context)
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data: archetypeCache } = await (cacheDb as any)
     .from("archetype_cache")
@@ -272,11 +276,9 @@ async function generate(userId: string, supabase: Awaited<ReturnType<typeof crea
   }
 
   const rows = await fetchCollection(userId, supabase);
-  if (rows.length < 20) {
-    return { error: "insufficient_collection" as const };
-  }
+  if (rows.length < 20) return { error: "insufficient_collection" as const };
 
-  const ctx = buildContext(rows);
+  const ctx    = buildContext(rows);
   const prompt = buildPrompt(ctx, {
     primary:      archetypeCache.primary_archetype,
     primaryScore: archetypeCache.primary_score ?? 0,
@@ -288,49 +290,59 @@ async function generate(userId: string, supabase: Awaited<ReturnType<typeof crea
   const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey) return { error: "api_unavailable" as const };
 
-  const res = await fetch("https://api.anthropic.com/v1/messages", {
+  const claudeRes = await fetch("https://api.anthropic.com/v1/messages", {
     method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "x-api-key": apiKey,
-      "anthropic-version": "2023-06-01",
-    },
+    headers: { "Content-Type": "application/json", "x-api-key": apiKey, "anthropic-version": "2023-06-01" },
     body: JSON.stringify({
       model: "claude-sonnet-4-6",
       max_tokens: 4096,
-      system: "You are the Echoes engine for rekōdo. You generate vinyl collection discovery modules. Always return valid JSON exactly matching the schema requested. Names of artists, albums, and years must be real and accurate.",
+      system: "You are the Echoes engine for rekōdo. Return valid JSON exactly matching the requested schema. Artist names, album titles, and years must be real and accurate.",
       messages: [{ role: "user", content: prompt }],
     }),
     signal: AbortSignal.timeout(90000),
   });
 
-  if (!res.ok) return { error: "api_unavailable" as const };
+  if (!claudeRes.ok) return { error: "api_unavailable" as const };
 
-  const resData = await res.json() as { content?: Array<{ type: string; text: string }> };
-  const raw = resData.content?.[0]?.text ?? "";
+  const claudeData = await claudeRes.json() as { content?: Array<{ type: string; text: string }> };
+  const raw = claudeData.content?.[0]?.text ?? "";
 
-  let echoes: unknown;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  let echoes: any;
   try {
     echoes = JSON.parse(raw);
   } catch {
-    // Try to extract JSON if there's surrounding text
     const match = raw.match(/\{[\s\S]*\}/);
     if (!match) return { error: "parse_error" as const };
     try { echoes = JSON.parse(match[0]); } catch { return { error: "parse_error" as const }; }
   }
 
+  // Fetch Discogs artwork for all recommended albums
+  const discKey    = process.env.DISCOGS_CONSUMER_KEY;
+  const discSecret = process.env.DISCOGS_CONSUMER_SECRET;
+  const discHeaders: Record<string, string> = { "User-Agent": "rekodo/1.0 (shimocatzawa@gmail.com)" };
+  if (discKey && discSecret) discHeaders["Authorization"] = `Discogs key=${discKey}, secret=${discSecret}`;
+
+  const allAlbums: EchoAlbum[] = [
+    ...(echoes.missingMiddle?.albums ?? []),
+    ...(echoes.unboughtClassic?.albums ?? []),
+    ...(echoes.scenePortals?.map((p: { gatewayAlbum: EchoAlbum }) => p.gatewayAlbum) ?? []),
+    ...(echoes.tasteForks?.albums ?? []),
+    ...(echoes.nextObsession?.entryPoint ? [echoes.nextObsession.entryPoint] : []),
+  ];
+  await fetchArtwork(allAlbums, discHeaders);
+
   // Cache result
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   await (cacheDb as any)
     .from("archetype_cache")
-    .update({
-      echoes_data: echoes,
-      echoes_generated_at: new Date().toISOString(),
-    })
+    .update({ echoes_data: echoes, echoes_generated_at: new Date().toISOString() })
     .eq("user_id", userId);
 
   return { data: echoes };
 }
+
+// ── Route handlers ────────────────────────────────────────────────────────────
 
 export async function GET() {
   const supabase = await createClient();
@@ -341,8 +353,6 @@ export async function GET() {
   }
 
   const cacheDb = getServiceDb();
-
-  // Check cache (30-day TTL)
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data: cache } = await (cacheDb as any)
     .from("archetype_cache")
@@ -376,7 +386,7 @@ export async function POST() {
   }
 
   const cacheDb = getServiceDb();
-  const result = await generate(user.id, supabase, cacheDb);
+  const result  = await generate(user.id, supabase, cacheDb);
   if ("error" in result) {
     const status = result.error === "api_unavailable" ? 503 : result.error === "archetypes_required" ? 412 : 500;
     return Response.json({ error: result.error }, { status });
