@@ -754,6 +754,8 @@ type PressingVariant = {
   inCollection: number;
   inWantlist: number;
   wantHaveRatio: number;
+  lowestPrice: number | null;
+  numForSale: number;
 };
 
 type PressingsAlbum = {
@@ -793,31 +795,6 @@ function formatPrice(value: number, currency: string): string {
 
 function PressingsContent({ data }: { data: { pressings?: PressingsAlbum[] } }) {
   const albums = (data.pressings ?? []).filter(a => a.variants.length > 0);
-  const [priceMap, setPriceMap] = useState<Record<number, PriceEntry>>({});
-  const [pricesLoading, setPricesLoading] = useState(false);
-
-  // Collect all releaseIds across all albums' variants
-  const allReleaseIds = albums.flatMap(a => a.variants.map(v => v.releaseId));
-  const releaseKey = allReleaseIds.join(",");
-
-  useEffect(() => {
-    if (allReleaseIds.length === 0) return;
-    const currency = detectCurrency();
-    setPricesLoading(true);
-    fetch("/api/deep-dive/pressing-prices", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ releaseIds: allReleaseIds, currency }),
-    })
-      .then(r => r.ok ? r.json() : null)
-      .then((d: { prices?: Record<number, PriceEntry> } | null) => {
-        if (d?.prices) setPriceMap(d.prices);
-      })
-      .catch(() => {})
-      .finally(() => setPricesLoading(false));
-  // releaseKey is stable once data loads — re-fetch only when a new artist is selected
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [releaseKey]);
 
   if (albums.length === 0) {
     return (
@@ -888,11 +865,8 @@ function PressingsContent({ data }: { data: { pressings?: PressingsAlbum[] } }) 
                   </thead>
                   <tbody>
                     {a.variants.map((v, vi) => {
-                      const entry = priceMap[v.releaseId];
-                      const priceStr = pricesLoading
-                        ? "…"
-                        : entry?.lowestPrice != null
-                        ? formatPrice(entry.lowestPrice, entry.currency)
+                      const priceStr = v.lowestPrice != null
+                        ? formatPrice(v.lowestPrice, detectCurrency())
                         : "—";
                       const discogsUrl = `https://www.discogs.com/release/${v.releaseId}`;
                       const tdBase: React.CSSProperties = {

@@ -19,7 +19,7 @@ const CACHE_TTL_DAYS: Record<string, number> = {
   books:      180,
   interviews: 60,
   related:    0,
-  pressings:  180,
+  pressings:  1,
 };
 
 // The JSON field holding each section's primary result array.
@@ -245,7 +245,7 @@ async function fetchPressingsData(artistName: string): Promise<{ pressings: Pres
 
     // Artist releases — studio albums (Main role, master type)
     const relRes = await fetch(
-      `https://api.discogs.com/artists/${artistId}/releases?per_page=100&sort=year&sort_order=asc`,
+      `https://api.discogs.com/artists/${artistId}/releases?per_page=500&sort=year&sort_order=asc`,
       { headers, signal: AbortSignal.timeout(5000) }
     );
     if (!relRes.ok) return { pressings: [] };
@@ -352,7 +352,46 @@ async function fetchPressingsData(artistName: string): Promise<{ pressings: Pres
       return { album: title, year, masterId, variants: vinyl };
     });
 
-    return { pressings: processedAlbums };
+    // Fetch prices for all variants server-side so they're bundled in the cache.
+    // Batched at 8 per 2s to stay within the Discogs 25 req/min consumer key limit.
+    const allReleaseIds = processedAlbums.flatMap(a => a.variants.map(v => v.releaseId));
+    const priceMap = new Map<number, { lowestPrice: number | null; numForSale: number }>();
+    const PRICE_BATCH = 8;
+    const PRICE_DELAY_MS = 2000;
+    for (let i = 0; i < allReleaseIds.length; i += PRICE_BATCH) {
+      if (i > 0) await new Promise(r => setTimeout(r, PRICE_DELAY_MS));
+      await Promise.all(allReleaseIds.slice(i, i + PRICE_BATCH).map(async (releaseId) => {
+        try {
+          const res = await fetch(
+            `https://api.discogs.com/marketplace/stats/${releaseId}?curr_abbr=USD`,
+            { headers, signal: AbortSignal.timeout(5000) }
+          );
+          if (!res.ok) return;
+          const json = await res.json() as {
+            lowest_price?: { value: number } | null;
+            num_for_sale?: number;
+            blocked_from_sale?: boolean;
+          };
+          if (!json.blocked_from_sale) {
+            priceMap.set(releaseId, {
+              lowestPrice: json.lowest_price?.value ?? null,
+              numForSale:  json.num_for_sale ?? 0,
+            });
+          }
+        } catch { /* price is best-effort */ }
+      }));
+    }
+
+    const pressings = processedAlbums.map(a => ({
+      ...a,
+      variants: a.variants.map(v => ({
+        ...v,
+        lowestPrice: priceMap.get(v.releaseId)?.lowestPrice ?? null,
+        numForSale:  priceMap.get(v.releaseId)?.numForSale  ?? 0,
+      })),
+    }));
+
+    return { pressings };
   } catch {
     return { pressings: [] };
   }
