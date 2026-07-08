@@ -93,7 +93,7 @@ export default async function PublicProfilePage({ params }: { params: Params }) 
   // Parallel: user records + follow counts + collection photo
   const [userRecordsResult, followerRes, followingRes, collectionPhotoRes, photoLikeCountRes, viewerLikedRes] = await Promise.all([
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (supabase as any).from("public_collection_summary").select("record_id, copies").eq("user_id", profile.id),
+    (supabase as any).from("public_collection_summary").select("record_id, copies").eq("user_id", profile.id).limit(10000),
     supabase.from("follows").select("id", { count: "exact", head: true }).eq("following_id", profile.id),
     supabase.from("follows").select("id", { count: "exact", head: true }).eq("follower_id",  profile.id),
     supabase.from("collection_photos").select("storage_path").eq("user_id", profile.id).eq("display_order", 1).maybeSingle(),
@@ -122,12 +122,12 @@ export default async function PublicProfilePage({ params }: { params: Params }) 
   const detailBatches = recordIds.length > 0
     ? await Promise.all(
         Array.from({ length: Math.ceil(recordIds.length / BATCH) }, (_, i) =>
-          supabase.from("records").select("id, genre, country, label, artist, year")
+          supabase.from("records").select("id, genre, country, label, artist, year, format")
             .in("id", recordIds.slice(i * BATCH, (i + 1) * BATCH))
         )
       )
     : [];
-  const details = detailBatches.flatMap(b => b.data ?? []) as { id: string; genre: string | null; country: string | null; label: string | null; artist: string | null; year: number | null }[];
+  const details = detailBatches.flatMap(b => b.data ?? []) as { id: string; genre: string | null; country: string | null; label: string | null; artist: string | null; year: number | null; format: string | null }[];
 
   // Build a copies map so stats are copies-weighted (matching Insights page)
   const copiesMap = new Map((userRecords as { record_id: string; copies: number }[]).map(r => [r.record_id, r.copies ?? 1]));
@@ -154,9 +154,12 @@ export default async function PublicProfilePage({ params }: { params: Params }) 
     ? Math.round((topGenreEntry![1] / totalCopiesForGenre) * 100)
     : null;
 
-  // Copies-weighted most collected artist
+  // Copies-weighted most collected artist — vinyl only, matching Insights topVinylArtist
+  const VINYL_FMTS = new Set(["LP", "VINYL", "7\"", "10\"", "12\"", "EP"]);
   const artistCopies = new Map<string, number>();
   for (const r of details) {
+    const fmt = r.format?.toUpperCase().trim() ?? "";
+    if (!VINYL_FMTS.has(fmt)) continue;
     const copies = copiesMap.get(r.id) ?? 1;
     const artist = r.artist?.trim();
     if (!artist || artist === "Unknown" || artist === "Various") continue;
