@@ -400,8 +400,8 @@ export default function BandcampListTab() {
             <div style={{ display: "flex", alignItems: "baseline", gap: "14px", marginBottom: "20px", flexWrap: "wrap" }}>
               <p style={{ fontFamily: SERIF, fontSize: "1.5rem", fontWeight: 600, color: INK, margin: 0 }}>
                 {activeTag || activeLabel
-                  ? `${filtered.length} of ${items.length.toLocaleString()}`
-                  : `${items.length.toLocaleString()} albums`}
+                  ? `${filtered.length} of ${items.length.toLocaleString()} items in your digital collection`
+                  : `${items.length.toLocaleString()} items in your digital collection`}
               </p>
               {syncDate && (
                 <p style={{ fontFamily: MONO, fontSize: "0.6rem", letterSpacing: "0.06em", color: "#aaaaaa", margin: 0 }}>
