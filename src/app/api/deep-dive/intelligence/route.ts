@@ -266,8 +266,7 @@ async function fetchPressingsData(artistName: string): Promise<{ pressings: Pres
       albums.push({ title: r.title, year: r.year, masterId: r.id });
     }
 
-    const topAlbums = albums.slice(0, 6);
-    if (topAlbums.length === 0) return { pressings: [] };
+    if (albums.length === 0) return { pressings: [] };
 
     // Discogs versions endpoint returns label as a string (not array), and
     // year as a number that may be 0 when unknown — released has the full date.
@@ -284,7 +283,7 @@ async function fetchPressingsData(artistName: string): Promise<{ pressings: Pres
 
     // Fetch vinyl versions for each album in parallel
     const versionsResults = await Promise.all(
-      topAlbums.map(async (album) => {
+      albums.map(async (album) => {
         try {
           const res = await fetch(
             `https://api.discogs.com/masters/${album.masterId}/versions?format=Vinyl&per_page=100`,
@@ -315,10 +314,15 @@ async function fetchPressingsData(artistName: string): Promise<{ pressings: Pres
       return (v.label as string | undefined) ?? "Unknown";
     }
 
-    // Sort each album's pressings by wantlist count, take top 5
+    // Sort each album's LP Album pressings by wantlist count, take top 5
+    const LP_PAT = /\bLP\b/i;
     const processedAlbums = versionsResults.map(({ title, year, masterId, versions }) => {
       const vinyl = versions
-        .filter(v => v.country && v.stats?.community)
+        .filter(v =>
+          v.country &&
+          v.stats?.community &&
+          v.format && LP_PAT.test(v.format) && /\balbum\b/i.test(v.format)
+        )
         .map(v => {
           const inCollection = v.stats?.community?.in_collection ?? 0;
           const inWantlist   = v.stats?.community?.in_wantlist   ?? 0;
