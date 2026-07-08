@@ -467,7 +467,7 @@ export default function EchoesClient({ userId: _userId }: { userId: string }) {
       {/* Header row */}
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 36 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-          <span style={{ fontFamily: SERIF, fontSize: "1.4rem", fontWeight: 400, color: INK, letterSpacing: "-0.02em" }}>
+          <span style={{ fontFamily: SERIF, fontSize: "1.8rem", fontWeight: 400, color: INK, letterSpacing: "-0.02em" }}>
             Echoes
           </span>
           {data?.cached && (
