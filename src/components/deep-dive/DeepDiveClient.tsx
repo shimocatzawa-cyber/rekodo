@@ -38,7 +38,7 @@ function BandcampIcon({ size = 13 }: { size?: number }) {
   );
 }
 
-const TAB_IDS: Section[] = ["rankings", "podcasts", "books", "interviews", "related", "blindspot", "pressings"];
+const TAB_IDS: Section[] = ["rankings", "pressings", "blindspot", "podcasts", "books", "interviews", "related"];
 
 // ── Shared primitives ──────────────────────────────────────────────────────────
 
@@ -1031,12 +1031,12 @@ export default function DeepDiveClient({
   const t = useTranslations("deepDive");
   const TABS: { id: Section; label: string }[] = [
     { id: "rankings",   label: t("essentialAlbums") },
+    { id: "pressings",  label: t("pressings") },
+    { id: "blindspot",  label: t("blindSpot") },
     { id: "podcasts",   label: t("podcasts") },
     { id: "books",      label: t("books") },
     { id: "interviews", label: t("interviews") },
     { id: "related",    label: t("relatedArtists") },
-    { id: "blindspot",  label: t("blindSpot") },
-    { id: "pressings",  label: t("pressings") },
   ];
   const [query, setQuery] = useState("");
   const [selectedArtist, setSelectedArtist] = useState<string | null>(null);
