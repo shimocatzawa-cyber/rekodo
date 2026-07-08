@@ -242,7 +242,8 @@ function NewReleasesSection() {
   useEffect(() => {
     const supabase = createClient();
     const now = new Date();
-    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
+    // Local midnight on the 1st avoids UTC-offset gaps at month boundaries
+    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1, 0, 0, 0, 0).toISOString();
     supabase
       .from("label_feed")
       .select("*")
@@ -260,19 +261,29 @@ function NewReleasesSection() {
       });
   }, []);
 
+  // Convert a UTC ISO string to a local YYYY-MM-DD key so grouping follows
+  // the user's clock, not UTC (avoids late-night emails appearing a day ahead).
+  function toLocalDateKey(iso: string): string {
+    const d = new Date(iso);
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, "0");
+    const day = String(d.getDate()).padStart(2, "0");
+    return `${y}-${m}-${day}`;
+  }
+
   const availableDates = useMemo(() => {
     const seen = new Set<string>();
     const result: string[] = [];
     for (const item of items) {
       if (!item.received_at) continue;
-      const d = item.received_at.slice(0, 10);
+      const d = toLocalDateKey(item.received_at);
       if (!seen.has(d)) { seen.add(d); result.push(d); }
     }
     return result;
   }, [items]);
 
   const filteredItems = selectedDate
-    ? items.filter(item => item.received_at?.startsWith(selectedDate))
+    ? items.filter(item => item.received_at && toLocalDateKey(item.received_at) === selectedDate)
     : items;
 
   if (loading) {
