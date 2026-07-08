@@ -321,7 +321,7 @@ async function fetchPressingsData(artistName: string): Promise<{ pressings: Pres
         .filter(v =>
           v.country &&
           v.stats?.community &&
-          v.format && LP_PAT.test(v.format) && /\balbum\b/i.test(v.format)
+          v.format && LP_PAT.test(v.format)
         )
         .map(v => {
           const inCollection = v.stats?.community?.in_collection ?? 0;
