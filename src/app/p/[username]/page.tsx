@@ -119,9 +119,29 @@ export default async function PublicProfilePage({ params }: { params: Params }) 
     }
   }
 
-  const [userRecordsResult, followerRes, followingRes, collectionPhotoRes, photoLikeCountRes, viewerLikedRes, essLikeCountRes, viewerEssLikedRes] = await Promise.all([
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (supabase as any).from("public_collection_summary").select("record_id, copies").eq("user_id", profile.id).limit(10000),
+  // Get exact collection count first, then paginate to fetch all IDs
+  // (PostgREST's server-side max_rows cap of 1000 can't be overridden by .limit())
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { count: collectionCount } = await (supabase as any)
+    .from("public_collection_summary")
+    .select("record_id", { count: "exact", head: true })
+    .eq("user_id", profile.id);
+
+  const PAGE = 1000;
+  const pageCount = Math.ceil((collectionCount ?? 0) / PAGE);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const [userRecordsPages, followerRes, followingRes, collectionPhotoRes, photoLikeCountRes, viewerLikedRes, essLikeCountRes, viewerEssLikedRes] = await Promise.all([
+    pageCount > 0
+      ? Promise.all(
+          Array.from({ length: pageCount }, (_, i) =>
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            (supabase as any).from("public_collection_summary")
+              .select("record_id, copies")
+              .eq("user_id", profile.id)
+              .range(i * PAGE, (i + 1) * PAGE - 1)
+          )
+        )
+      : Promise.resolve([]),
     supabase.from("follows").select("id", { count: "exact", head: true }).eq("following_id", profile.id),
     supabase.from("follows").select("id", { count: "exact", head: true }).eq("follower_id",  profile.id),
     supabase.from("collection_photos").select("storage_path").eq("user_id", profile.id).eq("display_order", 1).maybeSingle(),
@@ -135,7 +155,7 @@ export default async function PublicProfilePage({ params }: { params: Params }) 
       : Promise.resolve({ count: 0 }),
   ]);
 
-  const userRecords    = userRecordsResult.data ?? [];
+  const userRecords = (userRecordsPages as { data: { record_id: string; copies: number }[] | null }[]).flatMap(p => p.data ?? []);
   const followerCount  = followerRes.count  ?? 0;
   const followingCount = followingRes.count ?? 0;
 
@@ -145,7 +165,7 @@ export default async function PublicProfilePage({ params }: { params: Params }) 
     const { data: { publicUrl } } = supabase.storage.from("collection-photos").getPublicUrl(collectionPhotoPath);
     collectionPhoto = publicUrl;
   }
-  const totalRecords   = (userRecords as { record_id: string }[]).length;
+  const totalRecords   = collectionCount ?? 0;
   const recordIds      = (userRecords as { record_id: string }[]).map((r) => r.record_id).filter(Boolean) as string[];
 
   // Batch into groups of 400 to stay under PostgREST URL length limits
