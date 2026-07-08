@@ -14,30 +14,17 @@ type Import = {
   id: string;
   artist: string;
   album: string;
-  is_duplicate: boolean;
   imported_at: string;
 };
 
-type Filter = "all" | "digital_only" | "also_vinyl";
-type Sort   = "artist" | "album" | "imported";
+type Sort = "artist" | "album" | "imported";
 
 function bcSearchUrl(artist: string, album: string) {
   return `https://bandcamp.com/search?q=${encodeURIComponent(`${artist} ${album}`)}&item_type=a`;
 }
 
-function Row({ item, onToggleCollection }: { item: Import; onToggleCollection: (id: string, next: boolean) => void }) {
-  const [hovered,   setHovered]   = useState(false);
-  const [saving,    setSaving]    = useState(false);
-
-  async function handleToggle() {
-    setSaving(true);
-    const next = !item.is_duplicate;
-    const supabase = createClient();
-    await supabase.from("digital_imports").update({ is_duplicate: next }).eq("id", item.id);
-    onToggleCollection(item.id, next);
-    setSaving(false);
-  }
-
+function Row({ item }: { item: Import }) {
+  const [hovered, setHovered] = useState(false);
   return (
     <div
       onMouseEnter={() => setHovered(true)}
@@ -57,59 +44,34 @@ function Row({ item, onToggleCollection }: { item: Import; onToggleCollection: (
           {item.album}
         </p>
       </div>
-
-      <div style={{ display: "flex", alignItems: "center", gap: "10px", flexShrink: 0 }}>
-        {/* Toggle: always visible, shows current state, click to flip */}
-        <button
-          onClick={handleToggle}
-          disabled={saving}
-          title={item.is_duplicate ? "Mark as digital only" : "Mark as in collection"}
-          style={{
-            fontFamily: MONO, fontSize: "0.55rem", letterSpacing: "0.1em", textTransform: "uppercase",
-            color: item.is_duplicate ? "#aaaaaa" : (hovered ? "#aaaaaa" : "transparent"),
-            border: `1px solid ${item.is_duplicate ? RULE : (hovered ? RULE : "transparent")}`,
-            background: "none", cursor: saving ? "wait" : "pointer",
-            padding: "1px 5px", whiteSpace: "nowrap", transition: "color 0.15s, border-color 0.15s",
-          }}
-        >
-          {item.is_duplicate ? "In collection" : "+ In collection"}
-        </button>
-
-        <a
-          href={bcSearchUrl(item.artist, item.album)}
-          target="_blank"
-          rel="noopener noreferrer"
-          style={{ fontFamily: MONO, fontSize: "0.65rem", letterSpacing: "0.1em", textTransform: "uppercase", color: INK, textDecoration: "none" }}
-          onMouseEnter={e => { (e.currentTarget as HTMLAnchorElement).style.color = ORANGE; }}
-          onMouseLeave={e => { (e.currentTarget as HTMLAnchorElement).style.color = INK; }}
-        >
-          BC →
-        </a>
-      </div>
+      <a
+        href={bcSearchUrl(item.artist, item.album)}
+        target="_blank"
+        rel="noopener noreferrer"
+        style={{ fontFamily: MONO, fontSize: "0.65rem", letterSpacing: "0.1em", textTransform: "uppercase", color: INK, textDecoration: "none", flexShrink: 0 }}
+        onMouseEnter={e => { (e.currentTarget as HTMLAnchorElement).style.color = ORANGE; }}
+        onMouseLeave={e => { (e.currentTarget as HTMLAnchorElement).style.color = INK; }}
+      >
+        BC →
+      </a>
     </div>
   );
 }
 
 export default function BandcampListTab() {
-  const [items,    setItems]    = useState<Import[]>([]);
-  const [loading,  setLoading]  = useState(true);
-  const [error,    setError]    = useState<string | null>(null);
-  const [hasBc,    setHasBc]    = useState<boolean | null>(null);
+  const [items,   setItems]   = useState<Import[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error,   setError]   = useState<string | null>(null);
+  const [hasBc,   setHasBc]   = useState<boolean | null>(null);
 
-  const [search,   setSearch]   = useState("");
-  const [filter,   setFilter]   = useState<Filter>("all");
-  const [sort,     setSort]     = useState<Sort>("artist");
-
-  function handleToggleCollection(id: string, next: boolean) {
-    setItems(prev => prev.map(i => i.id === id ? { ...i, is_duplicate: next } : i));
-  }
+  const [search, setSearch] = useState("");
+  const [sort,   setSort]   = useState<Sort>("artist");
 
   useEffect(() => {
     const supabase = createClient();
     supabase.auth.getUser().then(async ({ data: { user } }) => {
       if (!user) { setLoading(false); return; }
 
-      // Check if Bandcamp is connected
       const { data: profile } = await supabase
         .from("profiles")
         .select("bandcamp_username")
@@ -119,7 +81,7 @@ export default function BandcampListTab() {
 
       const { data, error: fetchError } = await supabase
         .from("digital_imports")
-        .select("id, artist, album, is_duplicate, imported_at")
+        .select("id, artist, album, imported_at")
         .eq("user_id", user.id)
         .eq("source", "bandcamp")
         .order("artist", { ascending: true });
@@ -133,9 +95,6 @@ export default function BandcampListTab() {
   const filtered = useMemo(() => {
     let result = items;
 
-    if (filter === "digital_only") result = result.filter(i => !i.is_duplicate);
-    if (filter === "also_vinyl")   result = result.filter(i => i.is_duplicate);
-
     if (search.trim()) {
       const q = search.trim().toLowerCase();
       result = result.filter(i =>
@@ -148,17 +107,7 @@ export default function BandcampListTab() {
     if (sort === "imported") result = [...result].sort((a, b) => b.imported_at.localeCompare(a.imported_at));
 
     return result;
-  }, [items, filter, search, sort]);
-
-  const totalCount   = items.length;
-  const vinylCount   = items.filter(i => i.is_duplicate).length;
-  const digitalOnly  = totalCount - vinylCount;
-
-  const FILTERS: { key: Filter; label: string; count: number }[] = [
-    { key: "all",          label: "All",           count: totalCount },
-    { key: "digital_only", label: "Digital only",  count: digitalOnly },
-    { key: "also_vinyl",   label: "In collection", count: vinylCount },
-  ];
+  }, [items, search, sort]);
 
   const importedDate = items.length > 0
     ? new Date(items.reduce((l, i) => i.imported_at > l ? i.imported_at : l, items[0].imported_at))
@@ -209,36 +158,13 @@ export default function BandcampListTab() {
           {/* Stats row */}
           <div style={{ display: "flex", alignItems: "baseline", gap: "16px", marginBottom: "20px", flexWrap: "wrap" }}>
             <p style={{ fontFamily: SERIF, fontSize: "1.5rem", fontWeight: 600, color: INK, margin: 0 }}>
-              {totalCount.toLocaleString()} albums
+              {items.length.toLocaleString()} albums
             </p>
             {importedDate && (
               <p style={{ fontFamily: MONO, fontSize: "0.6rem", letterSpacing: "0.06em", color: "#aaaaaa", margin: 0 }}>
                 Last synced {importedDate}
               </p>
             )}
-          </div>
-
-          {/* Filter pills */}
-          <div style={{ display: "flex", gap: "8px", marginBottom: "14px", flexWrap: "wrap" }}>
-            {FILTERS.map(({ key, label, count }) => {
-              const active = filter === key;
-              return (
-                <button
-                  key={key}
-                  onClick={() => setFilter(key)}
-                  style={{
-                    fontFamily: MONO, fontSize: "10px", letterSpacing: "0.07em",
-                    color: active ? "#ffffff" : "#888888",
-                    background: active ? INK : "none",
-                    border: `1px solid ${active ? INK : RULE}`,
-                    borderRadius: "2px", cursor: "pointer",
-                    padding: "4px 10px", transition: "all 0.15s",
-                  }}
-                >
-                  {label} · {count}
-                </button>
-              );
-            })}
           </div>
 
           {/* Search */}
@@ -251,7 +177,7 @@ export default function BandcampListTab() {
               width: "100%", boxSizing: "border-box", marginBottom: "12px",
               fontFamily: MONO, fontSize: "10px", letterSpacing: "0.04em",
               color: "#333", background: "transparent",
-              border: "none", borderBottom: `1px solid rgba(0,0,0,0.12)`,
+              border: "none", borderBottom: "1px solid rgba(0,0,0,0.12)",
               outline: "none", padding: "0 0 6px",
             }}
           />
@@ -260,8 +186,8 @@ export default function BandcampListTab() {
           <div style={{ display: "flex", alignItems: "center", gap: "10px", marginBottom: "16px" }}>
             <span style={{ fontFamily: MONO, fontSize: "0.7rem", letterSpacing: "0.1em", textTransform: "uppercase", color: "#cccccc", flexShrink: 0 }}>Sort</span>
             {([
-              { key: "artist" as Sort,   label: "Artist A–Z" },
-              { key: "album" as Sort,    label: "Album A–Z" },
+              { key: "artist"   as Sort, label: "Artist A–Z" },
+              { key: "album"    as Sort, label: "Album A–Z" },
               { key: "imported" as Sort, label: "Date imported" },
             ]).map(({ key, label }) => (
               <button
@@ -286,7 +212,7 @@ export default function BandcampListTab() {
             </p>
           ) : (
             <div style={{ borderTop: `1px solid ${RULE}` }}>
-              {filtered.map(item => <Row key={item.id} item={item} onToggleCollection={handleToggleCollection} />)}
+              {filtered.map(item => <Row key={item.id} item={item} />)}
             </div>
           )}
         </>
