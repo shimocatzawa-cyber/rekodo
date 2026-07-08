@@ -413,6 +413,82 @@ function LiveSection() {
   );
 }
 
+// ─── Shared spotlight section (handles mobile select + desktop picker) ────────
+
+function formatMonth(month: string): string {
+  const [y, m] = month.split("-");
+  return new Date(Number(y), Number(m) - 1, 1).toLocaleDateString("en-GB", { month: "short", year: "numeric" });
+}
+
+function SpotlightSection({
+  state,
+  onSelect,
+}: {
+  state: SpotlightState;
+  onSelect: (s: Spotlight) => void;
+}) {
+  async function handleEditionChange(id: string) {
+    if (id === state.selected?.id) return;
+    const res = await fetch(`/api/spotlights/${id}`);
+    if (!res.ok) return;
+    const data = await res.json() as Spotlight;
+    onSelect(data);
+    const url = new URL(window.location.href);
+    if (id === state.current?.id) url.searchParams.delete("spotlight");
+    else url.searchParams.set("spotlight", id);
+    window.history.replaceState(null, "", url.toString());
+  }
+
+  if (state.loading) return <p style={{ fontFamily: MONO, fontSize: "11px", color: "#aaaaaa" }}>Loading…</p>;
+  if (!state.selected) return <p style={{ fontFamily: MONO, fontSize: "11px", color: "#aaaaaa" }}>No spotlight available.</p>;
+
+  const allOptions = [
+    ...(state.current ? [{ id: state.current.id, label: formatMonth(state.current.month) }] : []),
+    ...state.archive.map(a => ({ id: a.id, label: formatMonth(a.month) })),
+  ];
+
+  return (
+    <>
+      {/* Mobile edition selector — hidden on desktop via CSS */}
+      <div className="spotlight-mobile-select" style={{ display: "none", marginBottom: 24 }}>
+        <label style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.14em", textTransform: "uppercase", color: "#aaaaaa", display: "block", marginBottom: 8 }}>
+          Edition
+        </label>
+        <select
+          value={state.selected.id}
+          onChange={e => handleEditionChange(e.target.value)}
+          style={{
+            fontFamily: MONO, fontSize: "11px", letterSpacing: "0.06em",
+            color: INK, background: "#ffffff",
+            border: `1px solid ${RULE}`, padding: "6px 10px",
+            cursor: "pointer", appearance: "auto", width: "100%",
+          }}
+        >
+          {allOptions.map(opt => (
+            <option key={opt.id} value={opt.id}>{opt.label}</option>
+          ))}
+        </select>
+      </div>
+
+      {/* Desktop + mobile content */}
+      <div style={{ display: "flex", gap: 40, alignItems: "flex-start" }}>
+        <div className="archive-picker-desktop">
+          <SpotlightArchivePicker
+            current={state.current}
+            currentId={state.current?.id ?? null}
+            selectedId={state.selected.id}
+            archive={state.archive}
+            onSelect={onSelect}
+          />
+        </div>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <SpotlightView spotlight={state.selected} />
+        </div>
+      </div>
+    </>
+  );
+}
+
 // ─── Props ────────────────────────────────────────────────────────────────────
 
 interface Props {
@@ -501,6 +577,8 @@ export default function SelectsClient({ username, displayLabel, avatarUrl }: Pro
           .selects-text {
             padding: 24px 20px !important;
           }
+          .archive-picker-desktop { display: none !important; }
+          .spotlight-mobile-select { display: block !important; }
         }
       `}</style>
 
@@ -537,51 +615,9 @@ export default function SelectsClient({ username, displayLabel, avatarUrl }: Pro
         ) : activeTab === "live" ? (
           <LiveSection />
         ) : activeTab === "artist" ? (
-          <>
-            {artistState.loading && (
-              <p style={{ fontFamily: MONO, fontSize: "11px", color: "#aaaaaa" }}>Loading…</p>
-            )}
-            {!artistState.loading && artistState.selected && (
-              <div style={{ display: "flex", gap: 40, alignItems: "flex-start" }}>
-                <SpotlightArchivePicker
-                  current={artistState.current}
-                  currentId={artistState.current?.id ?? null}
-                  selectedId={artistState.selected.id}
-                  archive={artistState.archive}
-                  onSelect={setArtistSelected}
-                />
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <SpotlightView spotlight={artistState.selected} />
-                </div>
-              </div>
-            )}
-            {!artistState.loading && !artistState.selected && (
-              <p style={{ fontFamily: MONO, fontSize: "11px", color: "#aaaaaa" }}>No spotlight available.</p>
-            )}
-          </>
+          <SpotlightSection state={artistState} onSelect={setArtistSelected} />
         ) : (
-          <>
-            {labelState.loading && (
-              <p style={{ fontFamily: MONO, fontSize: "11px", color: "#aaaaaa" }}>Loading…</p>
-            )}
-            {!labelState.loading && labelState.selected && (
-              <div style={{ display: "flex", gap: 40, alignItems: "flex-start" }}>
-                <SpotlightArchivePicker
-                  current={labelState.current}
-                  currentId={labelState.current?.id ?? null}
-                  selectedId={labelState.selected.id}
-                  archive={labelState.archive}
-                  onSelect={setLabelSelected}
-                />
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <SpotlightView spotlight={labelState.selected} />
-                </div>
-              </div>
-            )}
-            {!labelState.loading && !labelState.selected && (
-              <p style={{ fontFamily: MONO, fontSize: "11px", color: "#aaaaaa" }}>No spotlight available.</p>
-            )}
-          </>
+          <SpotlightSection state={labelState} onSelect={setLabelSelected} />
         )}
       </main>
     </div>
