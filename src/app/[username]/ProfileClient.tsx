@@ -541,7 +541,7 @@ export default function ProfileClient({
 
                 {/* ── Top 5 All Time ── */}
                 {top5AllTime && top5AllTime.length > 0 && (
-                  <div style={{ margin: "20px 0 0" }}>
+                  <div style={{ margin: "28px 0 0" }}>
                     <p style={{ fontFamily: MONO, fontSize: "0.7rem", letterSpacing: "0.14em", textTransform: "uppercase", color: ORANGE, margin: "0 0 10px" }}>
                       Top 5 All Time
                     </p>
@@ -578,7 +578,7 @@ export default function ProfileClient({
 
                 {/* ── Collection photo ── */}
                 {/* CollectionPhotos self-guards (returns null for non-owners with no photo set) */}
-                <div style={{ marginTop: "16px", marginBottom: "16px" }}>
+                <div style={{ marginTop: "28px", marginBottom: "16px" }}>
                   <CollectionPhotos
                     initialPhoto={collectionPhoto}
                     isOwner={isOwner}

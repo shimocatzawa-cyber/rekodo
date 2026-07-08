@@ -114,14 +114,20 @@ export default async function PublicProfilePage({ params }: { params: Params }) 
     const { data: { publicUrl } } = supabase.storage.from("collection-photos").getPublicUrl(collectionPhotoPath);
     collectionPhoto = publicUrl;
   }
-  const totalRecords   = (userRecords as { record_id: string; copies: number }[]).reduce((s, r) => s + (r.copies ?? 1), 0);
+  const totalRecords   = (userRecords as { record_id: string }[]).length;
   const recordIds      = (userRecords as { record_id: string }[]).map((r) => r.record_id).filter(Boolean) as string[];
 
-  const recordDetailsResult = recordIds.length
-    ? await supabase.from("records").select("id, genre, country, label, artist, year").in("id", recordIds)
-    : { data: [] as { id: string; genre: string | null; country: string | null; label: string | null; artist: string | null; year: number | null }[] };
-
-  const details = recordDetailsResult.data ?? [];
+  // Batch into groups of 400 to stay under PostgREST URL length limits
+  const BATCH = 400;
+  const detailBatches = recordIds.length > 0
+    ? await Promise.all(
+        Array.from({ length: Math.ceil(recordIds.length / BATCH) }, (_, i) =>
+          supabase.from("records").select("id, genre, country, label, artist, year")
+            .in("id", recordIds.slice(i * BATCH, (i + 1) * BATCH))
+        )
+      )
+    : [];
+  const details = detailBatches.flatMap(b => b.data ?? []) as { id: string; genre: string | null; country: string | null; label: string | null; artist: string | null; year: number | null }[];
 
   // Build a copies map so stats are copies-weighted (matching Insights page)
   const copiesMap = new Map((userRecords as { record_id: string; copies: number }[]).map(r => [r.record_id, r.copies ?? 1]));
