@@ -624,8 +624,10 @@ ${discogsAlbums.length > 0
 - Be selective: flag only albums a serious collector would consider essential gaps, not completionist picks.
 - If the collection already covers the essential catalogue, return {"albums":[]}.
 
+For the "why" field: write 1–2 sentences of FACTUAL description only — what the record actually sounds like, who produced it, what instrumentation or approach it uses, how it differs from their other work. No assertions like "essential", "crucial", "pivotal", "defines", "bridges" or other critical boilerplate. Describe the music, not its importance.
+
 Return ONLY valid JSON, no markdown, no backticks, no preamble:
-{"albums":[{"title":"Album Title","year":1975,"why":"Why this album is essential and what the collector is missing"}]}
+{"albums":[{"title":"Album Title","year":1975,"why":"Factual 1-2 sentence description of the record."}]}
 List at most 6 albums.`;
   },
 };
