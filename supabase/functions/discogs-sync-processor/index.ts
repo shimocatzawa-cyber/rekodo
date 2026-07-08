@@ -668,22 +668,36 @@ async function processSync(supabase: SB, jobId: string, userId: string) {
         const body = await cvRes.text().catch(() => "");
         console.error(`[sync] collection/value API failed: ${cvRes.status} ${cvRes.statusText} — ${body.slice(0, 200)}`);
       } else {
-        type ColVal = {
-          minimum?: { value?: number; currency?: string };
-          median?:  { value?: number };
-          maximum?: { value?: number };
+        // Discogs returns flat formatted strings e.g. {"minimum":"A$39,995.27","median":"A$74,193.56","maximum":"A$138,240.02"}
+        type ColVal = { minimum?: string; median?: string; maximum?: string };
+        const colVal = await cvRes.json() as ColVal;
+
+        // Parse "A$74,193.56" → { value: 74193.56, currency: "AUD" }
+        const SYMBOL_TO_ISO: Record<string, string> = {
+          "NZ$": "NZD", "HK$": "HKD", "S$": "SGD", "A$": "AUD", "C$": "CAD",
+          "MX$": "MXN", "R$": "BRL", "£": "GBP", "€": "EUR", "¥": "JPY",
+          "₩": "KRW", "CHF": "CHF", "SEK": "SEK", "NOK": "NOK", "DKK": "DKK",
+          "$": "USD",
         };
-        const colVal  = await cvRes.json() as ColVal;
-        // Same rule as Phase 4/5 above: only patch a field when this response
-        // actually has a value for it. A response missing e.g. median (API
-        // hiccup, partial data) must not null out an already-correct low/high/
-        // currency, and a missing currency must not silently downgrade a
-        // collector's real currency to the "USD" default.
+        function parseColVal(s: string | undefined): { value: number; currency: string } | null {
+          if (!s) return null;
+          for (const [sym, iso] of Object.entries(SYMBOL_TO_ISO)) {
+            if (s.startsWith(sym)) {
+              const num = parseFloat(s.slice(sym.length).replace(/,/g, ""));
+              if (!isNaN(num)) return { value: num, currency: iso };
+            }
+          }
+          return null;
+        }
+
+        const parsedLow  = parseColVal(colVal.minimum);
+        const parsedMed  = parseColVal(colVal.median);
+        const parsedHigh = parseColVal(colVal.maximum);
+
         const valuePatch: Record<string, unknown> = {};
-        if (colVal.minimum?.value != null) valuePatch.collection_value_low  = colVal.minimum.value;
-        if (colVal.median?.value  != null) valuePatch.collection_value_med  = colVal.median.value;
-        if (colVal.maximum?.value != null) valuePatch.collection_value_high = colVal.maximum.value;
-        if (colVal.minimum?.currency)      valuePatch.collection_value_currency = colVal.minimum.currency;
+        if (parsedLow  != null) { valuePatch.collection_value_low  = parsedLow.value; valuePatch.collection_value_currency = parsedLow.currency; }
+        if (parsedMed  != null)   valuePatch.collection_value_med  = parsedMed.value;
+        if (parsedHigh != null)   valuePatch.collection_value_high = parsedHigh.value;
 
         if (Object.keys(valuePatch).length > 0) {
           await supabase.from("profiles").update(valuePatch).eq("id", userId);
