@@ -328,7 +328,7 @@ export default function InsightsClient({
     ...(yearRange ? [{ hero: yearRange.oldest !== yearRange.newest ? `${yearRange.oldest} → ${yearRange.newest}` : String(yearRange.oldest), label: "Collection span" }] : []),
     ...(mostPopularYear ? [{ hero: String(mostPopularYear), label: "Most collected year" }] : []),
     ...(rareCount > 0 ? [{ hero: rareCount.toLocaleString(), label: "Rare" }] : []),
-    { hero: totalMed > 0 ? fmtValueShort(totalMed, currency) : "—", label: "Median collection value" },
+    { hero: totalMed > 0 ? fmtValueShort(totalMed, currency) : "—", label: "Market value" },
   ];
 
   return (

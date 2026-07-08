@@ -235,7 +235,8 @@ export default async function InsightsPage() {
   const profileLow  = profile?.collection_value_low  ?? null;
   const profileMed  = profile?.collection_value_med  ?? null;
   const profileHigh = profile?.collection_value_high ?? null;
-  const hasProfileValues = profileLow != null && profileLow > 0;
+  const hasProfileMed = profileMed != null && profileMed > 0;
+  const hasProfileValues = (profileLow != null && profileLow > 0) || hasProfileMed;
 
   let totalLow: number, totalMed: number, totalHigh: number;
 
