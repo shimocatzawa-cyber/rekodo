@@ -25,7 +25,6 @@ export default async function ListsPage() {
       displayLabel={profile.display_name ?? undefined}
       avatarUrl={profile.avatar_url}
       isSupporter={!!(profile.is_supporter || profile.is_donor || profile.role === "admin")}
-      isAdmin={profile.role === "admin"}
     />
   );
 }

@@ -20,26 +20,17 @@ interface Props {
   displayLabel?: string;
   avatarUrl?:   string | null;
   isSupporter:  boolean;
-  isAdmin?:     boolean;
 }
 
-export default function ListsHub({ profileId, username, displayLabel, avatarUrl, isSupporter, isAdmin }: Props) {
+export default function ListsHub({ profileId, username, displayLabel, avatarUrl, isSupporter }: Props) {
   const t = useTranslations("lists");
-  const baseTabs: Array<{ key: SubTab; label: string }> = [
+  const TABS: Array<{ key: SubTab; label: string }> = [
     { key: "top5",      label: t("myLists") },
+    { key: "bandcamp",  label: "Bandcamp" },
     { key: "wantlist",  label: t("wantList") },
     { key: "selllist",  label: t("sellList") },
     { key: "playlist",  label: t("playlist") },
   ];
-  const TABS = isAdmin
-    ? [
-        { key: "top5" as SubTab,      label: t("myLists") },
-        { key: "bandcamp" as SubTab,  label: "Bandcamp" },
-        { key: "wantlist" as SubTab,  label: t("wantList") },
-        { key: "selllist" as SubTab,  label: t("sellList") },
-        { key: "playlist" as SubTab,  label: t("playlist") },
-      ]
-    : baseTabs;
   const [activeTab, setActiveTab] = useUrlTab<SubTab>("tab", TABS.map(t => t.key), "top5");
 
   // isSupporter kept in Props for potential future use
@@ -95,7 +86,7 @@ export default function ListsHub({ profileId, username, displayLabel, avatarUrl,
         <div style={{ display: activeTab === "playlist" ? "block" : "none" }}>
           <PlaylistTab username={username} />
         </div>
-        {isAdmin && activeTab === "bandcamp" && (
+        {activeTab === "bandcamp" && (
           <BandcampListTab />
         )}
       </div>
