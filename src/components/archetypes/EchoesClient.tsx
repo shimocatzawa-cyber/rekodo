@@ -28,6 +28,7 @@ interface EchoesData {
   scenePortals: Array<{ scene: string; adjacentTo: string; why: string; gatewayAlbum: EchoAlbum }>;
   tasteForks: { archetypePattern: string; yourDivergence: string; albums: EchoAlbum[] };
   nextObsession: { prediction: string; reasoning: string; entryPoint: EchoAlbum | null };
+  _artworkCached?: boolean;
   _context?: {
     sonicCoherence?:      SignalCtx | null;
     canonObscurity?:      SignalCtx | null;
@@ -456,6 +457,7 @@ export default function EchoesClient({ userId: _userId }: { userId: string }) {
   const [regenerating, setRegen]  = useState(false);
 
   async function fetchArtwork(d: EchoesData) {
+    if (d._artworkCached) return;
     const albums = extractAlbums(d);
     if (albums.length === 0) return;
     try {
@@ -470,7 +472,17 @@ export default function EchoesClient({ userId: _userId }: { userId: string }) {
       }
       const { images, notFound } = await res.json() as { images: Record<string, string>; notFound: string[] };
       if (notFound.length > 0) console.log("[Echoes] not found on Discogs:", notFound);
-      setData(prev => prev ? applyArtworkAndValidation(prev, images, notFound) : prev);
+      setData(prev => {
+        if (!prev) return prev;
+        const enriched: EchoesData = { ...applyArtworkAndValidation(prev, images, notFound), _artworkCached: true };
+        // Write back to cache so subsequent loads skip Discogs entirely
+        fetch("/api/echoes", {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(enriched),
+        }).catch(() => {});
+        return enriched;
+      });
     } catch (e) {
       console.error("[Echoes] artwork error:", e);
     }

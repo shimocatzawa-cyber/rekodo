@@ -515,3 +515,24 @@ export async function POST() {
   }
   return Response.json({ ...(result.data as object), cached: false });
 }
+
+// PATCH — write artwork-enriched echoes data back to cache (fire-and-forget from client)
+export async function PATCH(req: Request) {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return Response.json({ error: "Not authenticated" }, { status: 401 });
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  let body: any;
+  try { body = await req.json(); } catch { return Response.json({ error: "Invalid JSON" }, { status: 400 }); }
+
+  const cacheDb = getServiceDb();
+  // Update echoes_data only — do NOT touch echoes_generated_at so cache invalidation still works
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  await (cacheDb as any)
+    .from("archetype_cache")
+    .update({ echoes_data: body })
+    .eq("user_id", user.id);
+
+  return Response.json({ ok: true });
+}
