@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import Link from "next/link";
 import { useTranslations } from "next-intl";
 import AppNav from "@/components/AppNav";
@@ -170,16 +170,79 @@ function SkeletonRow() {
   );
 }
 
+// ─── New Releases date helpers & picker ──────────────────────────────────────
+
+function formatDateLabel(dateStr: string): string {
+  const [y, m, d] = dateStr.split("-").map(Number);
+  return new Date(y, m - 1, d).toLocaleDateString("en-GB", { day: "numeric", month: "short" });
+}
+
+function NewReleasesDatePicker({
+  dates,
+  selectedDate,
+  onSelect,
+}: {
+  dates: string[];
+  selectedDate: string | null;
+  onSelect: (date: string | null) => void;
+}) {
+  const monthLabel = new Date().toLocaleDateString("en-GB", { month: "long", year: "numeric" });
+
+  return (
+    <div style={{ width: 110, flexShrink: 0, paddingTop: 4 }}>
+      <p style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.14em", textTransform: "uppercase", color: "#aaaaaa", margin: "0 0 12px" }}>
+        {monthLabel}
+      </p>
+      <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+        <button
+          onClick={() => onSelect(null)}
+          style={{
+            fontFamily: MONO, fontSize: "10px", letterSpacing: "0.06em",
+            background: "none", border: "none", padding: "2px 0",
+            textAlign: "left", cursor: selectedDate === null ? "default" : "pointer",
+            color: selectedDate === null ? ORANGE : INK,
+            borderBottom: selectedDate === null ? `1px solid ${ORANGE}` : "1px solid transparent",
+            width: "fit-content",
+          }}
+        >
+          All
+        </button>
+        {dates.map(d => {
+          const active = d === selectedDate;
+          return (
+            <button
+              key={d}
+              onClick={() => onSelect(active ? null : d)}
+              style={{
+                fontFamily: MONO, fontSize: "10px", letterSpacing: "0.06em",
+                background: "none", border: "none", padding: "2px 0",
+                textAlign: "left", cursor: active ? "default" : "pointer",
+                color: active ? ORANGE : "#888888",
+                borderBottom: active ? `1px solid ${ORANGE}` : "1px solid transparent",
+                width: "fit-content",
+              }}
+            >
+              {formatDateLabel(d)}
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 // ─── New Releases section ─────────────────────────────────────────────────────
 
 function NewReleasesSection() {
-  const [items, setItems]         = useState<LabelFeedItem[]>([]);
-  const [loading, setLoading]     = useState(true);
+  const [items, setItems]           = useState<LabelFeedItem[]>([]);
+  const [loading, setLoading]       = useState(true);
   const [fetchError, setFetchError] = useState<string | null>(null);
+  const [selectedDate, setSelectedDate] = useState<string | null>(null);
 
   useEffect(() => {
     const supabase = createClient();
-    const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
+    const now = new Date();
+    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
     supabase
       .from("label_feed")
       .select("*")
@@ -187,15 +250,30 @@ function NewReleasesSection() {
       .neq("artist", "")
       .not("album", "is", null)
       .neq("album", "")
-      .gte("received_at", thirtyDaysAgo)
+      .gte("received_at", monthStart)
       .order("received_at", { ascending: false })
-      .limit(100)
+      .limit(200)
       .then(({ data, error }) => {
         if (error) setFetchError(error.message);
         else setItems((data as unknown as LabelFeedItem[]) ?? []);
         setLoading(false);
       });
   }, []);
+
+  const availableDates = useMemo(() => {
+    const seen = new Set<string>();
+    const result: string[] = [];
+    for (const item of items) {
+      if (!item.received_at) continue;
+      const d = item.received_at.slice(0, 10);
+      if (!seen.has(d)) { seen.add(d); result.push(d); }
+    }
+    return result;
+  }, [items]);
+
+  const filteredItems = selectedDate
+    ? items.filter(item => item.received_at?.startsWith(selectedDate))
+    : items;
 
   if (loading) {
     return (
@@ -228,8 +306,50 @@ function NewReleasesSection() {
 
   return (
     <section>
-      <div style={{ borderTop: `1px solid ${RULE}` }}>
-        {items.map(item => <ReleaseRow key={item.id} item={item} />)}
+      {/* Mobile date selector */}
+      <div className="nr-mobile-date-select" style={{ display: "none", marginBottom: 24 }}>
+        <label style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.14em", textTransform: "uppercase", color: "#aaaaaa", display: "block", marginBottom: 8 }}>
+          Filter by date
+        </label>
+        <select
+          value={selectedDate ?? ""}
+          onChange={e => setSelectedDate(e.target.value || null)}
+          style={{
+            fontFamily: MONO, fontSize: "11px", letterSpacing: "0.06em",
+            color: INK, background: "#ffffff",
+            border: `1px solid ${RULE}`, padding: "6px 10px",
+            cursor: "pointer", appearance: "auto", width: "100%",
+          }}
+        >
+          <option value="">All dates</option>
+          {availableDates.map(d => (
+            <option key={d} value={d}>{formatDateLabel(d)}</option>
+          ))}
+        </select>
+      </div>
+
+      <div style={{ display: "flex", gap: 40, alignItems: "flex-start" }}>
+        {/* Desktop date picker */}
+        {availableDates.length > 0 && (
+          <div className="nr-date-picker-desktop">
+            <NewReleasesDatePicker
+              dates={availableDates}
+              selectedDate={selectedDate}
+              onSelect={setSelectedDate}
+            />
+          </div>
+        )}
+
+        {/* Release list */}
+        <div style={{ flex: 1, minWidth: 0, borderTop: `1px solid ${RULE}` }}>
+          {filteredItems.length === 0 ? (
+            <p style={{ fontFamily: MONO, fontSize: "0.7rem", color: "#aaaaaa", padding: "2rem 0", margin: 0 }}>
+              No releases on this date.
+            </p>
+          ) : (
+            filteredItems.map(item => <ReleaseRow key={item.id} item={item} />)
+          )}
+        </div>
       </div>
     </section>
   );
@@ -579,6 +699,8 @@ export default function SelectsClient({ username, displayLabel, avatarUrl }: Pro
           }
           .archive-picker-desktop { display: none !important; }
           .spotlight-mobile-select { display: block !important; }
+          .nr-date-picker-desktop { display: none !important; }
+          .nr-mobile-date-select { display: block !important; }
         }
       `}</style>
 
@@ -611,7 +733,7 @@ export default function SelectsClient({ username, displayLabel, avatarUrl }: Pro
 
       <main className="rk-selects-main" style={{ padding: "36px 40px 80px", maxWidth: 1200, margin: "0 auto" }}>
         {activeTab === "new_releases" ? (
-          <div style={{ maxWidth: 600, margin: "0 auto" }}><NewReleasesSection /></div>
+          <div style={{ maxWidth: 780, margin: "0 auto" }}><NewReleasesSection /></div>
         ) : activeTab === "live" ? (
           <LiveSection />
         ) : activeTab === "artist" ? (
