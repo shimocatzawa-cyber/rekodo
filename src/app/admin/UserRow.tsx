@@ -34,6 +34,7 @@ export interface AdminUser {
   donation_total: { cents: number; currency: string } | null;
   lists_created: number;
   playlists_generated: number;
+  deep_dive_count: number;
   digs_count: number;
   top_sections: { section: string; count: number }[];
   referral_source: string | null;
@@ -447,6 +448,10 @@ export default function UserRow({ user, showFinancial, columnCount }: { user: Ad
 
         <td style={{ ...cellSt, color: user.playlists_generated > 0 ? INK : MUTED, textAlign: "right" as const }}>
           {user.playlists_generated > 0 ? user.playlists_generated.toLocaleString() : "—"}
+        </td>
+
+        <td style={{ ...cellSt, color: user.deep_dive_count > 0 ? INK : MUTED, textAlign: "right" as const }}>
+          {user.deep_dive_count > 0 ? user.deep_dive_count.toLocaleString() : "—"}
         </td>
 
         <td style={{ ...cellSt, color: user.digs_count > 0 ? INK : MUTED, textAlign: "right" as const }}>

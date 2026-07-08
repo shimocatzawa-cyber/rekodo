@@ -54,6 +54,7 @@ export async function enrichProfiles(
     archetypeResult,
     paymentResult,
     pageViewResult,
+    deepDiveViewResult,
     digResult,
     recordCounts,
   ] = await Promise.all([
@@ -65,6 +66,7 @@ export async function enrichProfiles(
     adminDb.from("payments").select("user_id, type, amount_cents, currency").in("user_id", userIds),
     // page_views: limit per-user subset to a reasonable bound for top-sections display
     adminDb.from("page_views").select("user_id, section").in("user_id", userIds).limit(2000),
+    adminDb.from("page_views").select("user_id").in("user_id", userIds).eq("section", "Deep Dive"),
     adminDb.from("dig_daily_count").select("user_id, count").in("user_id", userIds),
     // Sum copies per user — paginate with .range() to bypass the PostgREST
     // max_rows cap (1000). .limit(N > 1000) is silently capped server-side.
@@ -93,12 +95,13 @@ export async function enrichProfiles(
       .map(r => [r.data!.user!.id, r.data!.user!])
   );
 
-  const listRows      = listResult.data      ?? [];
-  const discogsRows   = discogsResult.data   ?? [];
-  const archetypeRows = archetypeResult.data ?? [];
-  const paymentRows   = paymentResult.data   ?? [];
-  const pageViewRows  = pageViewResult.data  ?? [];
-  const digRows       = digResult.data       ?? [];
+  const listRows        = listResult.data          ?? [];
+  const discogsRows     = discogsResult.data       ?? [];
+  const archetypeRows   = archetypeResult.data     ?? [];
+  const paymentRows     = paymentResult.data       ?? [];
+  const pageViewRows    = pageViewResult.data      ?? [];
+  const deepDiveRows    = deepDiveViewResult.data  ?? [];
+  const digRows         = digResult.data           ?? [];
 
   const wantlistIds        = new Set(listRows.filter(r => isWantlistSlug(r.slug as string)).map(r => r.user_id as string));
   const discogsIds         = new Set(discogsRows.map(r => r.user_id as string));
@@ -117,6 +120,12 @@ export async function enrichProfiles(
     } else if (listType === "personal" && !isWantlistSlug(slug)) {
       playlistsGeneratedMap.set(uid, (playlistsGeneratedMap.get(uid) ?? 0) + 1);
     }
+  }
+
+  const deepDiveCountMap = new Map<string, number>();
+  for (const row of deepDiveRows) {
+    const uid = row.user_id as string;
+    deepDiveCountMap.set(uid, (deepDiveCountMap.get(uid) ?? 0) + 1);
   }
 
   const digCountMap = new Map<string, number>();
@@ -177,6 +186,7 @@ export async function enrichProfiles(
       donation_total:       donationMap.get(p.id) ?? null,
       lists_created:        listsCreatedMap.get(p.id) ?? 0,
       playlists_generated:  playlistsGeneratedMap.get(p.id) ?? 0,
+      deep_dive_count:      deepDiveCountMap.get(p.id) ?? 0,
       digs_count:           digCountMap.get(p.id) ?? 0,
       top_sections:         [...(userSectionCounts.get(p.id) ?? new Map<string, number>()).entries()]
         .sort((a, b) => b[1] - a[1])
