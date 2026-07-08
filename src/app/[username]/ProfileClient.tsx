@@ -49,6 +49,9 @@ interface Props {
   topGenre: string | null;
   topCountry: string | null;
   topLabel: string | null;
+  topArtist: string | null;
+  topGenrePct: number | null;
+  collectionSpan: string | null;
   followerCount: number;
   followingCount: number;
   viewer?: { username: string; displayName: string | null; avatarUrl: string | null } | null;
@@ -57,6 +60,7 @@ interface Props {
   photoLiked?: boolean;
   viewerId?: string | null;
   compatibility?: { score: number; styleScore: number | null; label: string } | null;
+  top5AllTime?: { position: number; artist: string; album: string; coverUrl: string | null }[] | null;
   essentials?: { total: number; primaryGenre: string | null; primaryGenrePct: number; covers: { artist: string; album: string; coverUrl: string | null }[] } | null;
   essentialsLikeCount?: number;
   essentialsLiked?: boolean;
@@ -70,6 +74,9 @@ interface Props {
 
 export default function ProfileClient({
   profile, isOwner, isSupporter,
+  totalRecords,
+  topGenre, topGenrePct, collectionSpan, topArtist,
+  top5AllTime = null,
   followerCount, followingCount, viewer,
   collectionPhoto = null,
   photoLikeCount = 0,
@@ -513,6 +520,49 @@ export default function ProfileClient({
                   <p style={{ fontFamily: MONO, fontSize: "12px", letterSpacing: "0.04em", color: MUTED, margin: 0, overflowWrap: "anywhere" }}>
                     bandcamp.com/{bandcampValue || profile.bandcamp_username}
                   </p>
+                )}
+
+                {/* ── Collection stats ── */}
+                {totalRecords > 0 && (
+                  <div className="rk-collection-stats" style={{ display: "flex", gap: 0, margin: "20px 0 0", borderTop: `1px solid ${RULE}`, borderBottom: `1px solid ${RULE}`, padding: "14px 0" }}>
+                    {[
+                      { label: "Collection",      value: totalRecords.toLocaleString() },
+                      { label: "Top Genre",        value: topGenre ? (topGenrePct !== null ? `${topGenre} · ${topGenrePct}%` : topGenre) : "—" },
+                      { label: "Span",             value: collectionSpan ?? "—" },
+                      { label: "Most Collected",   value: topArtist ?? "—" },
+                    ].map((stat, i, arr) => (
+                      <div key={stat.label} style={{ flex: 1, minWidth: 0, paddingRight: i < arr.length - 1 ? "12px" : 0, borderRight: i < arr.length - 1 ? `1px solid ${RULE}` : "none", marginRight: i < arr.length - 1 ? "12px" : 0 }}>
+                        <p style={{ fontFamily: MONO, fontSize: "8px", letterSpacing: "0.14em", textTransform: "uppercase", color: ORANGE, margin: "0 0 4px" }}>{stat.label}</p>
+                        <p style={{ fontFamily: MONO, fontSize: "12px", letterSpacing: "0.02em", color: INK, margin: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{stat.value}</p>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {/* ── Top 5 All Time ── */}
+                {top5AllTime && top5AllTime.length > 0 && (
+                  <div style={{ margin: "20px 0 0" }}>
+                    <p style={{ fontFamily: MONO, fontSize: "0.7rem", letterSpacing: "0.14em", textTransform: "uppercase", color: ORANGE, margin: "0 0 10px" }}>
+                      Top 5 All Time
+                    </p>
+                    <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
+                      {top5AllTime.map(item => (
+                        <div key={item.position} style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+                          <span style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.06em", color: MUTED, width: "12px", flexShrink: 0, textAlign: "right" }}>{item.position}</span>
+                          <div style={{ width: 32, height: 32, flexShrink: 0, background: "#f0ede8", overflow: "hidden" }}>
+                            {item.coverUrl && (
+                              // eslint-disable-next-line @next/next/no-img-element
+                              <img src={item.coverUrl} alt="" style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
+                            )}
+                          </div>
+                          <div style={{ minWidth: 0 }}>
+                            <p style={{ fontFamily: MONO, fontSize: "11px", letterSpacing: "0.02em", color: INK, margin: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{item.album}</p>
+                            <p style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.04em", color: MUTED, margin: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{item.artist}</p>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
                 )}
 
                 {/* ── Collection photo ── */}

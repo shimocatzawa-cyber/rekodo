@@ -140,6 +140,18 @@ h1, h2, h3, h4, h5, h6 {
   .rk-profile-main {
     padding: 1.25rem 1rem !important;
   }
+  /* Collection stats: 4-col → 2×2 wrap                                   */
+  .rk-collection-stats {
+    flex-wrap: wrap !important;
+  }
+  .rk-collection-stats > div {
+    min-width: calc(50% - 12px) !important;
+    flex: none !important;
+    border-right: none !important;
+    margin-right: 0 !important;
+    padding-right: 0 !important;
+    margin-bottom: 12px !important;
+  }
   /* Lists grid: 5-col → 3-col (covers still readable at ~100px)          */
   .rk-profile-lists-grid {
     grid-template-columns: repeat(3, 1fr) !important;

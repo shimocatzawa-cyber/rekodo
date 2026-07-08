@@ -149,8 +149,8 @@ export default async function PublicProfilePage({ params }: { params: Params }) 
   const recordIds      = (userRecords as { record_id: string }[]).map((r) => r.record_id).filter(Boolean) as string[];
 
   const recordDetailsResult = recordIds.length
-    ? await supabase.from("records").select("genre, country, label").in("id", recordIds)
-    : { data: [] as { genre: string | null; country: string | null; label: string | null }[] };
+    ? await supabase.from("records").select("genre, country, label, artist, year").in("id", recordIds)
+    : { data: [] as { genre: string | null; country: string | null; label: string | null; artist: string | null; year: number | null }[] };
 
   const details = recordDetailsResult.data ?? [];
 
@@ -162,6 +162,46 @@ export default async function PublicProfilePage({ params }: { params: Params }) 
   const topGenre   = topOf(details.map(r => r.genre));
   const topCountry = topOf(details.map(r => r.country));
   const topLabel   = topOf(details.map(r => r.label));
+  const topArtist  = topOf(details.map(r => r.artist));
+
+  const genreCount = topGenre
+    ? details.filter(r => r.genre === topGenre).length
+    : 0;
+  const topGenrePct = topGenre && details.length > 0
+    ? Math.round((genreCount / details.length) * 100)
+    : null;
+
+  const validYears = details.map(r => r.year).filter((y): y is number => !!y && y > 1900 && y <= 2030);
+  const collectionSpan = validYears.length > 0
+    ? (Math.min(...validYears) === Math.max(...validYears)
+      ? String(Math.min(...validYears))
+      : `${Math.min(...validYears)}–${Math.max(...validYears)}`)
+    : null;
+
+  // ── Top 5 All Time ────────────────────────────────────────────────────────────
+  const top5AllTime = await (async () => {
+    const { data: list } = await supabase.from("lists").select("id").eq("user_id", profile.id).eq("slug", "top-5-all-time").maybeSingle();
+    if (!list) return null;
+    const { data: items } = await supabase
+      .from("list_items")
+      .select("position, record_id, item_type, song_artist, song_album, song_cover_url")
+      .eq("list_id", list.id)
+      .order("position")
+      .limit(5);
+    if (!items?.length) return null;
+    const recIds = items.map(i => i.record_id).filter(Boolean) as string[];
+    const { data: recs } = recIds.length
+      ? await supabase.from("records").select("id, artist, album, cover_url").in("id", recIds)
+      : { data: [] as { id: string; artist: string; album: string; cover_url: string | null }[] };
+    const recById = new Map((recs ?? []).map(r => [r.id, r]));
+    return items.map(item => {
+      if (item.record_id) {
+        const r = recById.get(item.record_id);
+        return { position: item.position, artist: r?.artist ?? "", album: r?.album ?? "", coverUrl: r?.cover_url ?? null };
+      }
+      return { position: item.position, artist: item.song_artist ?? "", album: item.song_album ?? "", coverUrl: item.song_cover_url ?? null };
+    });
+  })();
 
   const [compatibility, essentials] = await Promise.all([
     viewer && !isOwner ? getOrComputeCompatibility(supabase, viewer.id, profile.id) : Promise.resolve(null),
@@ -195,6 +235,9 @@ export default async function PublicProfilePage({ params }: { params: Params }) 
       topGenre={topGenre}
       topCountry={topCountry}
       topLabel={topLabel}
+      topArtist={topArtist}
+      topGenrePct={topGenrePct}
+      collectionSpan={collectionSpan}
       followerCount={followerCount}
       followingCount={followingCount}
       viewer={viewerInfo}
@@ -203,6 +246,7 @@ export default async function PublicProfilePage({ params }: { params: Params }) 
       photoLiked={(viewerLikedRes.count ?? 0) > 0}
       viewerId={viewer?.id ?? null}
       compatibility={compatibility ? { score: compatibility.score, styleScore: compatibility.styleScore ?? null, label: compatibility.label } : null}
+      top5AllTime={top5AllTime}
       essentials={essentials}
       essentialsLikeCount={essLikeCountRes.count ?? 0}
       essentialsLiked={(viewerEssLikedRes.count ?? 0) > 0}
