@@ -66,7 +66,7 @@ export async function enrichProfiles(
     adminDb.from("payments").select("user_id, type, amount_cents, currency").in("user_id", userIds),
     // page_views: limit per-user subset to a reasonable bound for top-sections display
     adminDb.from("page_views").select("user_id, section").in("user_id", userIds).limit(2000),
-    adminDb.from("page_views").select("user_id").in("user_id", userIds).eq("section", "Deep Dive"),
+    adminDb.from("api_daily_usage").select("user_id, count").in("user_id", userIds).eq("route", "deep_dive"),
     adminDb.from("dig_daily_count").select("user_id, count").in("user_id", userIds),
     // Sum copies per user — paginate with .range() to bypass the PostgREST
     // max_rows cap (1000). .limit(N > 1000) is silently capped server-side.
@@ -125,7 +125,7 @@ export async function enrichProfiles(
   const deepDiveCountMap = new Map<string, number>();
   for (const row of deepDiveRows) {
     const uid = row.user_id as string;
-    deepDiveCountMap.set(uid, (deepDiveCountMap.get(uid) ?? 0) + 1);
+    deepDiveCountMap.set(uid, (deepDiveCountMap.get(uid) ?? 0) + (row.count as number));
   }
 
   const digCountMap = new Map<string, number>();
