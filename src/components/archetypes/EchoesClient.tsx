@@ -48,7 +48,7 @@ interface EchoesData {
 function ModuleHeader({ number, title }: { number: string; title: string }) {
   return (
     <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 20 }}>
-      <span style={{ fontFamily: MONO, fontSize: 11, letterSpacing: "0.18em", color: "rgba(10,10,10,0.28)" }}>{number}</span>
+      <span style={{ fontFamily: MONO, fontSize: 11, letterSpacing: "0.18em", color: INK }}>{number}</span>
       <span style={{ fontFamily: MONO, fontSize: 12, letterSpacing: "0.14em", textTransform: "uppercase", color: INK, fontWeight: 500 }}>{title}</span>
       <div style={{ flex: 1, height: 1, background: RULE }} />
     </div>
