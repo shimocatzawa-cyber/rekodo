@@ -194,7 +194,7 @@ async function validateAndEnrich(echoes: any, userId: string, db: ReturnType<typ
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data, error } = await (db as any).rpc("echoes_validate_albums", {
     p_user_id: userId,
-    p_picks:   allPicks,
+    p_picks:   JSON.stringify(allPicks),
   });
 
   if (error) {
@@ -268,7 +268,7 @@ function buildPrompt(
                                    "Mixed balance — surface gaps that feel unresolved, not obviously avoided.";
 
   const portalFrame =
-    sval("labelLoyalty") > 55 ? "Collector navigates by label — Portal 1 should be an adjacent label family." :
+    sval("labelLoyalty") > 55 ? "Collector navigates by label — the portal should be an adjacent label family." :
                                  "Labels don't organise this world — use scene/genre portals instead.";
 
   return `Generate 5 Echoes discovery modules for this record collector. Output artist names and album titles as accurately as possible — recommendations will be validated against a music database and dropped if not found, so precision matters.
@@ -303,7 +303,7 @@ Find the collector's densest scene. Give 4 canonical touchstones they don't alre
 
 MODULE 03 — SCENE PORTALS
 ${portalFrame}${digitalOnly ? ` Consider connecting to digital-only artists: ${digitalOnly}.` : ""}
-Give 2 adjacent micro-scenes: one natural next-step, one slight left-turn. One gateway album each.
+Give 1 adjacent micro-scene: the most natural next-step from this collection. One gateway album.
 
 MODULE 04 — TASTE FORKS
 Shadow archetype: ${archetype.shadow} — ${shadowTrait}

@@ -195,19 +195,7 @@ function UnboughtClassic({ data, ctx }: { data: EchoesData["unboughtClassic"]; c
       <div className="echoes-grid-4" style={{ display: "grid", gap: 16 }}>
         {data.albums?.map((album, i) => (
           <div key={i}>
-            <div style={{ position: "relative" }}>
-              <ArtSquare album={album} />
-              {/* Checkbox overlay */}
-              <div style={{
-                position: "absolute", top: 6, right: 6,
-                width: 16, height: 16,
-                background: "rgba(255,255,255,0.88)",
-                border: `1.5px solid ${INK}`,
-                display: "flex", alignItems: "center", justifyContent: "center",
-              }}>
-                <span style={{ fontFamily: MONO, fontSize: 9, color: "rgba(10,10,10,0.18)" }}>□</span>
-              </div>
-            </div>
+            <ArtSquare album={album} />
             <div style={{ marginTop: 8 }}>
               <AlbumMeta album={album} />
             </div>
@@ -225,39 +213,37 @@ function ScenePortals({ data, ctx }: { data: EchoesData["scenePortals"]; ctx?: E
   const dd = ctx?.digitalDivergence;
   const parts = [ll?.label && `Label Loyalty: ${ll.label}`, dd?.label && `Digital Divergence: ${dd.label}`].filter(Boolean);
   const tag = parts.length ? parts.join(" · ") : undefined;
+  const portal = data?.[0];
+  if (!portal) return null;
   return (
     <div style={{ marginBottom: 48 }}>
       <ModuleHeader number="03" title="Scene Portals" />
       {tag && <SignalTag label={tag} />}
 
-      <div className="echoes-portals" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 1, background: RULE }}>
-        {data?.map((portal, i) => (
-          <div key={i} style={{ background: "#fff", padding: "18px 18px 20px" }}>
-            <div style={{ fontFamily: MONO, fontSize: 7, letterSpacing: "0.2em", textTransform: "uppercase", color: ORANGE, marginBottom: 10 }}>
-              {i === 0 ? "Next door" : "Left turn"}
+      <div style={{ background: "#fff", border: `1px solid ${RULE}`, padding: "18px 18px 20px" }}>
+        <div style={{ fontFamily: MONO, fontSize: 7, letterSpacing: "0.2em", textTransform: "uppercase", color: ORANGE, marginBottom: 10 }}>
+          Next door
+        </div>
+        <div style={{ display: "flex", gap: 12, alignItems: "flex-start", marginBottom: 12 }}>
+          <ArtSquare album={portal.gatewayAlbum} size={72} />
+          <div>
+            <div style={{ fontFamily: SERIF, fontSize: "0.95rem", color: INK, letterSpacing: "-0.01em", lineHeight: 1.2, marginBottom: 4 }}>
+              {portal.scene}
             </div>
-            <div style={{ display: "flex", gap: 12, alignItems: "flex-start", marginBottom: 12 }}>
-              <ArtSquare album={portal.gatewayAlbum} size={72} />
-              <div>
-                <div style={{ fontFamily: SERIF, fontSize: "0.95rem", color: INK, letterSpacing: "-0.01em", lineHeight: 1.2, marginBottom: 4 }}>
-                  {portal.scene}
-                </div>
-                <div style={{ fontFamily: MONO, fontSize: "0.58rem", color: MUTED, letterSpacing: "0.06em", marginBottom: 8 }}>
-                  Adjacent to: {portal.adjacentTo}
-                </div>
-                <div style={{ fontFamily: MONO, fontSize: "0.63rem", color: MUTED, letterSpacing: "0.03em", lineHeight: 1.6 }}>
-                  {portal.why}
-                </div>
-              </div>
+            <div style={{ fontFamily: MONO, fontSize: "0.58rem", color: MUTED, letterSpacing: "0.06em", marginBottom: 8 }}>
+              Adjacent to: {portal.adjacentTo}
             </div>
-            <div style={{ borderTop: `1px solid ${RULE}`, paddingTop: 10 }}>
-              <div style={{ fontFamily: MONO, fontSize: 7, letterSpacing: "0.16em", textTransform: "uppercase", color: "rgba(10,10,10,0.28)", marginBottom: 4 }}>
-                Gateway
-              </div>
-              <AlbumMeta album={portal.gatewayAlbum} />
+            <div style={{ fontFamily: MONO, fontSize: "0.63rem", color: MUTED, letterSpacing: "0.03em", lineHeight: 1.6 }}>
+              {portal.why}
             </div>
           </div>
-        ))}
+        </div>
+        <div style={{ borderTop: `1px solid ${RULE}`, paddingTop: 10 }}>
+          <div style={{ fontFamily: MONO, fontSize: 7, letterSpacing: "0.16em", textTransform: "uppercase", color: "rgba(10,10,10,0.28)", marginBottom: 4 }}>
+            Gateway
+          </div>
+          <AlbumMeta album={portal.gatewayAlbum} />
+        </div>
       </div>
     </div>
   );
@@ -473,8 +459,7 @@ export default function EchoesClient({ userId: _userId }: { userId: string }) {
         @keyframes echoes-pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
         .echoes-grid-4 { grid-template-columns: repeat(4, 1fr); }
         @media (max-width: 600px) {
-          .echoes-grid-4    { grid-template-columns: repeat(2, 1fr) !important; }
-          .echoes-portals   { grid-template-columns: 1fr !important; }
+          .echoes-grid-4      { grid-template-columns: repeat(2, 1fr) !important; }
           .echoes-fork-header { grid-template-columns: 1fr !important; }
         }
       `}</style>
