@@ -15,7 +15,7 @@ const WARM   = "#FDF6F0";
 interface EchoAlbum {
   title: string;
   artist: string;
-  year: number;
+  year?: number | null;
   why: string;
   imageUrl?: string;
 }
@@ -80,7 +80,7 @@ function AlbumMeta({ album, muted = false }: { album: EchoAlbum; muted?: boolean
         {album.title}
       </div>
       <div style={{ fontFamily: MONO, fontSize: "0.6rem", color: MUTED, letterSpacing: "0.06em", marginBottom: album.why ? 5 : 0 }}>
-        {album.artist} · {album.year}
+        {album.artist}{album.year ? ` · ${album.year}` : ""}
       </div>
       {album.why && (
         <div style={{ fontFamily: MONO, fontSize: "0.62rem", color: MUTED, letterSpacing: "0.03em", lineHeight: 1.55 }}>
@@ -355,7 +355,7 @@ function NextObsession({ data, ctx }: { data: EchoesData["nextObsession"]; ctx?:
                   {data.entryPoint.title}
                 </div>
                 <div style={{ fontFamily: MONO, fontSize: "0.6rem", color: "rgba(255,255,255,0.4)", letterSpacing: "0.06em" }}>
-                  {data.entryPoint.artist} · {data.entryPoint.year}
+                  {data.entryPoint.artist}{data.entryPoint.year ? ` · ${data.entryPoint.year}` : ""}
                 </div>
               </div>
             )}
