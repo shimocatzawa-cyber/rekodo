@@ -25,8 +25,19 @@ function bcSearchUrl(artist: string, album: string) {
   return `https://bandcamp.com/search?q=${encodeURIComponent(`${artist} ${album}`)}&item_type=a`;
 }
 
-function Row({ item }: { item: Import }) {
-  const [hovered, setHovered] = useState(false);
+function Row({ item, onToggleCollection }: { item: Import; onToggleCollection: (id: string, next: boolean) => void }) {
+  const [hovered,   setHovered]   = useState(false);
+  const [saving,    setSaving]    = useState(false);
+
+  async function handleToggle() {
+    setSaving(true);
+    const next = !item.is_duplicate;
+    const supabase = createClient();
+    await supabase.from("digital_imports").update({ is_duplicate: next }).eq("id", item.id);
+    onToggleCollection(item.id, next);
+    setSaving(false);
+  }
+
   return (
     <div
       onMouseEnter={() => setHovered(true)}
@@ -48,11 +59,22 @@ function Row({ item }: { item: Import }) {
       </div>
 
       <div style={{ display: "flex", alignItems: "center", gap: "10px", flexShrink: 0 }}>
-        {item.is_duplicate && (
-          <span style={{ fontFamily: MONO, fontSize: "0.55rem", letterSpacing: "0.1em", textTransform: "uppercase", color: "#aaaaaa", border: `1px solid ${RULE}`, padding: "1px 5px", whiteSpace: "nowrap" }}>
-            In collection
-          </span>
-        )}
+        {/* Toggle: always visible, shows current state, click to flip */}
+        <button
+          onClick={handleToggle}
+          disabled={saving}
+          title={item.is_duplicate ? "Mark as digital only" : "Mark as in collection"}
+          style={{
+            fontFamily: MONO, fontSize: "0.55rem", letterSpacing: "0.1em", textTransform: "uppercase",
+            color: item.is_duplicate ? "#aaaaaa" : (hovered ? "#aaaaaa" : "transparent"),
+            border: `1px solid ${item.is_duplicate ? RULE : (hovered ? RULE : "transparent")}`,
+            background: "none", cursor: saving ? "wait" : "pointer",
+            padding: "1px 5px", whiteSpace: "nowrap", transition: "color 0.15s, border-color 0.15s",
+          }}
+        >
+          {item.is_duplicate ? "In collection" : "+ In collection"}
+        </button>
+
         <a
           href={bcSearchUrl(item.artist, item.album)}
           target="_blank"
@@ -77,6 +99,10 @@ export default function BandcampListTab() {
   const [search,   setSearch]   = useState("");
   const [filter,   setFilter]   = useState<Filter>("all");
   const [sort,     setSort]     = useState<Sort>("artist");
+
+  function handleToggleCollection(id: string, next: boolean) {
+    setItems(prev => prev.map(i => i.id === id ? { ...i, is_duplicate: next } : i));
+  }
 
   useEffect(() => {
     const supabase = createClient();
@@ -260,7 +286,7 @@ export default function BandcampListTab() {
             </p>
           ) : (
             <div style={{ borderTop: `1px solid ${RULE}` }}>
-              {filtered.map(item => <Row key={item.id} item={item} />)}
+              {filtered.map(item => <Row key={item.id} item={item} onToggleCollection={handleToggleCollection} />)}
             </div>
           )}
         </>
