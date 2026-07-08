@@ -11,7 +11,8 @@ import SignalGrid from "./SignalGrid";
 import EssayBlock from "./EssayBlock";
 import ArchetypeShareModal from "./ArchetypeShareModal";
 
-const CardsTab = dynamic(() => import("@/components/cards/CardsClient"), { ssr: false });
+const CardsTab   = dynamic(() => import("@/components/cards/CardsClient"),        { ssr: false });
+const EchoesTab  = dynamic(() => import("@/components/archetypes/EchoesClient"),  { ssr: false });
 import type { ComputedSignals } from "@/lib/archetypes/computeArchetypes";
 
 const SERIF  = "var(--font-editorial)";
@@ -84,7 +85,7 @@ function LoadingSkeleton() {
 
 export default function ArchetypesClient({ userId, username, displayLabel, avatarUrl, isAdmin }: Props) {
   const t = useTranslations("archetypes");
-  const [tab, setTab] = useUrlTab<"archetypes" | "cards">("tab", ["archetypes", "cards"], "archetypes");
+  const [tab, setTab] = useUrlTab<"archetypes" | "cards" | "echoes">("tab", ["archetypes", "cards", "echoes"], "archetypes");
   const [data, setData] = useState<ArchetypeData | null>(null);
   const [loading, setLoading] = useState(true);
   const [regenerating, setRegenerating] = useState(false);
@@ -127,7 +128,7 @@ export default function ArchetypesClient({ userId, username, displayLabel, avata
       {/* Sub-tab bar — admin only */}
       {isAdmin && (
         <div className="rk-profile-tabs" style={{ display: "flex", justifyContent: "center", gap: "24px", paddingTop: "14px", paddingBottom: "2px", background: "#ffffff" }}>
-          {(["archetypes", "cards"] as const).map((id) => (
+          {(["archetypes", "echoes", "cards"] as const).map((id) => (
             <button
               key={id}
               onClick={() => setTab(id)}
@@ -140,7 +141,7 @@ export default function ArchetypesClient({ userId, username, displayLabel, avata
                 cursor: "pointer", display: "inline-block",
               }}
             >
-              {id === "archetypes" ? "Archetypes" : "Cards"}
+              {id === "archetypes" ? "Archetypes" : id === "echoes" ? "Echoes" : "Cards"}
             </button>
           ))}
         </div>
@@ -191,7 +192,11 @@ export default function ArchetypesClient({ userId, username, displayLabel, avata
           <div style={{ borderTop: `1px solid ${RULE}`, marginTop: 20 }} />
         </div>
 
-{tab === "cards" && isAdmin && (
+        {tab === "echoes" && isAdmin && (
+          <EchoesTab userId={userId} />
+        )}
+
+        {tab === "cards" && isAdmin && (
           <CardsTab userId={userId} />
         )}
 
