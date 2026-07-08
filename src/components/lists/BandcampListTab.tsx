@@ -50,7 +50,7 @@ function Row({ item }: { item: Import }) {
       <div style={{ display: "flex", alignItems: "center", gap: "10px", flexShrink: 0 }}>
         {item.is_duplicate && (
           <span style={{ fontFamily: MONO, fontSize: "0.55rem", letterSpacing: "0.1em", textTransform: "uppercase", color: "#aaaaaa", border: `1px solid ${RULE}`, padding: "1px 5px", whiteSpace: "nowrap" }}>
-            On vinyl
+            In collection
           </span>
         )}
         <a
@@ -131,7 +131,7 @@ export default function BandcampListTab() {
   const FILTERS: { key: Filter; label: string; count: number }[] = [
     { key: "all",          label: "All",           count: totalCount },
     { key: "digital_only", label: "Digital only",  count: digitalOnly },
-    { key: "also_vinyl",   label: "Also on vinyl", count: vinylCount },
+    { key: "also_vinyl",   label: "In collection", count: vinylCount },
   ];
 
   const importedDate = items.length > 0
