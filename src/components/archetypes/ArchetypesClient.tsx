@@ -1,13 +1,17 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
+import dynamic from "next/dynamic";
 import Link from "next/link";
 import { useTranslations } from "next-intl";
+import { useUrlTab } from "@/lib/useUrlTab";
 import AppNav from "@/components/AppNav";
 import ArchetypeHero from "./ArchetypeHero";
 import SignalGrid from "./SignalGrid";
 import EssayBlock from "./EssayBlock";
 import ArchetypeShareModal from "./ArchetypeShareModal";
+
+const CardsTab = dynamic(() => import("@/components/cards/CardsClient"), { ssr: false });
 import type { ComputedSignals } from "@/lib/archetypes/computeArchetypes";
 
 const SERIF  = "var(--font-editorial)";
@@ -36,6 +40,7 @@ interface Props {
   username: string;
   displayLabel?: string;
   avatarUrl?: string | null;
+  isAdmin?: boolean;
 }
 
 function SkeletonBlock({ height }: { height: number }) {
@@ -77,8 +82,9 @@ function LoadingSkeleton() {
   );
 }
 
-export default function ArchetypesClient({ username, displayLabel, avatarUrl }: Props) {
+export default function ArchetypesClient({ userId, username, displayLabel, avatarUrl, isAdmin }: Props) {
   const t = useTranslations("archetypes");
+  const [tab, setTab] = useUrlTab<"archetypes" | "cards">("tab", ["archetypes", "cards"], "archetypes");
   const [data, setData] = useState<ArchetypeData | null>(null);
   const [loading, setLoading] = useState(true);
   const [regenerating, setRegenerating] = useState(false);
@@ -163,16 +169,46 @@ export default function ArchetypesClient({ username, displayLabel, avatarUrl }: 
           <div style={{ borderTop: `1px solid ${RULE}`, marginTop: 20 }} />
         </div>
 
-        {/* States */}
-        {loading && <LoadingSkeleton />}
+        {/* Admin tab bar */}
+        {isAdmin && (
+          <div style={{ display: "flex", gap: 24, marginBottom: 32 }}>
+            {(["archetypes", "cards"] as const).map((t) => (
+              <button
+                key={t}
+                onClick={() => setTab(t)}
+                style={{
+                  fontFamily: MONO,
+                  fontSize: "0.7rem",
+                  letterSpacing: "0.08em",
+                  textTransform: "uppercase",
+                  background: "none",
+                  border: "none",
+                  padding: "4px 0",
+                  cursor: "pointer",
+                  color: tab === t ? INK : "#bbbbbb",
+                  borderBottom: `1.5px solid ${tab === t ? ORANGE : "transparent"}`,
+                }}
+              >
+                {t === "archetypes" ? "Archetypes" : "Cards"}
+              </button>
+            ))}
+          </div>
+        )}
 
-        {!loading && error && (
+        {tab === "cards" && isAdmin && (
+          <CardsTab userId={userId} />
+        )}
+
+        {/* States */}
+        {tab === "archetypes" && loading && <LoadingSkeleton />}
+
+        {tab === "archetypes" && !loading && error && (
           <div style={{ fontFamily: MONO, fontSize: 12, color: MUTED, textAlign: "center", padding: "80px 0" }}>
             {error}
           </div>
         )}
 
-        {!loading && data && data.recordCount < MIN_RECORDS && (
+        {tab === "archetypes" && !loading && data && data.recordCount < MIN_RECORDS && (
           <div style={{ textAlign: "center", padding: "80px 0" }}>
             <p style={{ fontFamily: MONO, fontSize: 12, color: MUTED }}>
               Import at least {MIN_RECORDS} records to generate your Archetype profile.{" "}
@@ -194,7 +230,7 @@ export default function ArchetypesClient({ username, displayLabel, avatarUrl }: 
           />
         )}
 
-        {!loading && data && data.recordCount >= MIN_RECORDS && (
+        {tab === "archetypes" && !loading && data && data.recordCount >= MIN_RECORDS && (
           <>
             <ArchetypeHero
               primary={data.primary}

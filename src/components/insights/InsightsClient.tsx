@@ -25,7 +25,6 @@ const RecordShelfModal       = dynamic(() => import("@/components/insights/Recor
 const SpectrumShareModal     = dynamic(() => import("@/components/insights/SpectrumShareModal"),     { ssr: false });
 const ArchetypeShareModal    = dynamic(() => import("@/components/archetypes/ArchetypeShareModal"),  { ssr: false });
 const TasteProfile           = dynamic(() => import("@/components/insights/TasteProfile"),           { ssr: false });
-const CardsTab               = dynamic(() => import("@/components/cards/CardsClient"),                { ssr: false });
 
 const SERIF  = "var(--font-editorial)";
 const MONO   = "var(--font-mono)";
@@ -87,7 +86,6 @@ export interface InsightsProps {
   collectorArchetypeScore:   number | null;
   collectorArchetypeScores:  Record<string, number> | null;
   isSupporter:  boolean;
-  isAdmin:      boolean;
   eraPhases:    import("@/components/insights/CollectionStoryV2Modal").EraPhase[];
   biggestCollectingYear: number | null;
   anomalyRecord: { artist: string; album: string; coverUrl: string | null; style: string | null } | null;
@@ -278,7 +276,6 @@ export default function InsightsClient({
   dailyPick, onThisDay, usageStats,
   avgReleaseYear, topDecade, collectorArchetype, collectorArchetypeId, collectorArchetypeShadow, collectorArchetypeScore, collectorArchetypeScores, collectorSinceYear, collectionPhotoUrl, oldestAlbum, newestAlbum, topVinylArtist, topVinylArtistCount,
   isSupporter,
-  isAdmin,
   eraPhases,
   biggestCollectingYear,
   anomalyRecord,
@@ -286,7 +283,7 @@ export default function InsightsClient({
 
   const [oneLiner, setOneLiner] = useState<string | null>(null);
   const defaultTab = "taste-profile";
-  const [insightsTab, setInsightsTab] = useUrlTab<"collection" | "taste-profile" | "cards">("tab", ["collection", "taste-profile", "cards"], defaultTab);
+  const [insightsTab, setInsightsTab] = useUrlTab<"collection" | "taste-profile">("tab", ["collection", "taste-profile"], defaultTab);
   const [showShare, setShowShare] = useState(false);
   const [showEssentialsShare, setShowEssentialsShare] = useState(false);
   const [showDNAModal, setShowDNAModal]       = useState(false);
@@ -337,8 +334,8 @@ export default function InsightsClient({
 
       {/* ── Tab bar ── */}
       <div className="rk-profile-tabs" style={{ display: "flex", justifyContent: "center", gap: "24px", paddingTop: "14px", paddingBottom: "2px", background: "#ffffff" }}>
-        {(["taste-profile", "collection", ...(isAdmin ? ["cards" as const] : [])] as const).map((tab) => {
-          const label = tab === "collection" ? "Collection" : tab === "cards" ? "Cards" : "Taste Profile";
+        {(["taste-profile", "collection"] as const).map((tab) => {
+          const label = tab === "collection" ? "Collection" : "Taste Profile";
           return (
             <button
               key={tab}
@@ -1081,11 +1078,6 @@ export default function InsightsClient({
         </main>
       )}
 
-      {insightsTab === "cards" && isAdmin && (
-        <main style={{ maxWidth: 960, margin: "0 auto", padding: "0 24px" }}>
-          <CardsTab userId={userId} />
-        </main>
-      )}
     </div>
   );
 }

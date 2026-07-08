@@ -33,12 +33,15 @@ export default async function ArchetypesPage() {
     return <SupporterGate username={username} displayLabel={displayLabel} avatarUrl={avatarUrl} feature="Archetypes" />;
   }
 
+  const isAdmin = profile?.role === "admin";
+
   return (
     <ArchetypesClient
       userId={user.id}
       username={username}
       displayLabel={displayLabel}
       avatarUrl={avatarUrl}
+      isAdmin={isAdmin}
     />
   );
 }
