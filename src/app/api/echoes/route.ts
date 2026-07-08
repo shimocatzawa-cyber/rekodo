@@ -171,11 +171,67 @@ function buildContext(rows: RecordRow[]) {
 
 type CollectionContext = ReturnType<typeof buildContext>;
 
-// ── DB validation + owned-album check ─────────────────────────────────────────
-// Single RPC call validates every pick against the 467k records table:
-//   - not found on Discogs → removed (hallucination)
-//   - found but owned    → removed
-//   - found and unowned  → enriched with real metadata (year, genre, etc.)
+// ── JS owned-album filter (layer 1 — always runs) ────────────────────────────
+// Token-overlap match handles minor name variations between Claude output and
+// what Discogs stores (e.g. "The " prefix, punctuation, subtitle differences).
+
+function tokenize(s: string): string[] {
+  return s
+    .toLowerCase()
+    .replace(/[^a-z0-9\s]/g, " ")
+    .replace(/\b(the|a|an|and|of|in|on)\b/g, " ")
+    .split(/\s+/)
+    .filter(t => t.length > 1);
+}
+
+function tokenOverlap(a: string[], b: string[]): number {
+  if (a.length === 0 || b.length === 0) return 0;
+  const setB = new Set(b);
+  const hits = a.filter(t => setB.has(t)).length;
+  return hits / Math.max(a.length, b.length);
+}
+
+function buildOwnedSet(rows: RecordRow[]): Array<{ artist: string[]; album: string[] }> {
+  return rows.flatMap(row => {
+    const r = getRecord(row);
+    if (!r?.artist || !r?.album) return [];
+    return [{ artist: tokenize(r.artist), album: tokenize(r.album) }];
+  });
+}
+
+function isOwnedJS(
+  artist: string,
+  title: string,
+  owned: Array<{ artist: string[]; album: string[] }>
+): boolean {
+  const aToks = tokenize(artist);
+  const tToks = tokenize(title);
+  return owned.some(o => tokenOverlap(aToks, o.artist) >= 0.7 && tokenOverlap(tToks, o.album) >= 0.7);
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function filterOwnedJS(echoes: any, owned: Array<{ artist: string[]; album: string[] }>) {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const drop = (a: any) => isOwnedJS(a.artist, a.title, owned);
+  if (echoes.missingMiddle?.albums)
+    echoes.missingMiddle.albums = echoes.missingMiddle.albums.filter((a: EchoAlbum) => !drop(a));
+  if (echoes.unboughtClassic?.albums)
+    echoes.unboughtClassic.albums = echoes.unboughtClassic.albums.filter((a: EchoAlbum) => !drop(a));
+  if (echoes.tasteForks?.albums)
+    echoes.tasteForks.albums = echoes.tasteForks.albums.filter((a: EchoAlbum) => !drop(a));
+  if (Array.isArray(echoes.scenePortals))
+    echoes.scenePortals = echoes.scenePortals.filter(
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (p: any) => !p.gatewayAlbum || !drop(p.gatewayAlbum)
+    );
+  if (echoes.nextObsession?.entryPoint && drop(echoes.nextObsession.entryPoint))
+    echoes.nextObsession.entryPoint = null;
+}
+
+// ── DB validation + enrichment (layer 2 — enriches with real metadata) ────────
+// Validates against the 467k global records table and enriches with canonical
+// year/genre/label. If the RPC fails for any reason, JS filter above already
+// caught owned albums so the output is still safe to render.
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 async function validateAndEnrich(echoes: any, userId: string, db: ReturnType<typeof getServiceDb>) {
@@ -191,16 +247,16 @@ async function validateAndEnrich(echoes: any, userId: string, db: ReturnType<typ
 
   if (allPicks.length === 0) return;
 
+  // Pass the array directly — do NOT JSON.stringify; PostgREST handles jsonb serialisation
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data, error } = await (db as any).rpc("echoes_validate_albums", {
     p_user_id: userId,
-    p_picks:   JSON.stringify(allPicks),
+    p_picks:   allPicks,
   });
 
   if (error) {
-    // Function might not exist yet — fail open so Claude's output still renders
-    console.error("[Echoes] DB validation error (run the migration SQL):", error.message);
-    return;
+    console.error("[Echoes] DB validation RPC error:", error.message);
+    return; // JS filter already ran — safe to continue without enrichment
   }
 
   const results = (data ?? []) as ValidatedAlbum[];
@@ -209,13 +265,9 @@ async function validateAndEnrich(echoes: any, userId: string, db: ReturnType<typ
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   function process(album: any): EchoAlbum | null {
     const r = lookup.get(`${album.artist}|||${album.title}`);
-    if (!r || !r.found || r.owned) return null;
-    return {
-      title:  r.title   ?? album.title,
-      artist: r.artist  ?? album.artist,
-      year:   r.year    ?? undefined,
-      why:    album.why,
-    };
+    if (!r) return album; // not in lookup — JS filter passed it, keep as-is
+    if (!r.found || r.owned) return null;
+    return { title: r.title ?? album.title, artist: r.artist ?? album.artist, year: r.year ?? undefined, why: album.why };
   }
 
   if (echoes.missingMiddle?.albums)
@@ -234,9 +286,8 @@ async function validateAndEnrich(echoes: any, userId: string, db: ReturnType<typ
       })
       .filter(Boolean);
   }
-  if (echoes.nextObsession?.entryPoint) {
+  if (echoes.nextObsession?.entryPoint)
     echoes.nextObsession.entryPoint = process(echoes.nextObsession.entryPoint);
-  }
 }
 
 // ── Prompt builder ────────────────────────────────────────────────────────────
@@ -424,10 +475,11 @@ async function generate(
   };
   echoes = stripEmDash(echoes);
 
-  // Validate every pick against the global records table:
-  //   - album not in 467k DB → dropped (hallucination)
-  //   - album in DB but owned → dropped
-  //   - album in DB and unowned → enriched with real year/genre/label
+  // Layer 1: JS token-overlap filter — always runs, uses collection already in memory
+  filterOwnedJS(echoes, buildOwnedSet(rows));
+
+  // Layer 2: DB validation — enriches surviving picks with canonical metadata and
+  // catches any stragglers the JS filter missed (different name normalisation)
   await validateAndEnrich(echoes, userId, cacheDb);
 
   // Signal context for the UI
