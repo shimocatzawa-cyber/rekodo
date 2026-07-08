@@ -519,7 +519,7 @@ const PROMPTS: Record<string, (artist: string, ownedAlbums?: string[], discogsAl
     const ownedBlock = ownedAlbums.length > 0
       ? `\nALBUMS THIS COLLECTOR OWNS — include as many of these as possible in the ranking:\n${ownedAlbums.map(a => `- ${a}`).join("\n")}\n`
       : "";
-    return `You are a music critic writing for serious vinyl collectors. Rank ${artist}'s most essential studio albums from best to worst.
+    return `You are a music guide for serious vinyl collectors. Rank ${artist}'s most essential studio albums from best to worst by critical consensus and collector reputation.
 ${verifiedBlock}
 CRITICAL ACCURACY RULES:
 ${discogsAlbums.length > 0
@@ -529,10 +529,12 @@ ${discogsAlbums.length > 0
 - Do not confuse ${artist} with any other artist.
 - Studio albums only — no compilations, live records, or EPs unless universally regarded as a major work.
 - Return EXACTLY 6 albums maximum — choose the most essential, even for prolific artists. Do not exceed 6.
+- Rank by genuine artistic significance and critical standing — do NOT include weaker early albums just because they came first. A debut with limited reputation belongs below later acclaimed records.
 - Keep each review to 2 sentences.
+- DESCRIPTION STYLE: Factual only — describe what the record sounds like, its instrumentation, production approach, or how it differs from the artist's other work. No vague assertions like "essential", "landmark", "apex", "grail", "masterclass", "rewarding", "vindicating" or similar critical boilerplate. State facts, not importance.
 ${ownedBlock}
 Return ONLY valid JSON, no markdown, no backticks, no preamble:
-{"albums":[{"rank":1,"title":"Album Title","year":1975,"review":"2 sentence critical review."}]}`;
+{"albums":[{"rank":1,"title":"Album Title","year":1975,"review":"2 sentence factual description."}]}`;
   },
 
   podcasts: (artist) =>
