@@ -272,11 +272,14 @@ async function fetchPressingsData(artistName: string): Promise<{ pressings: Pres
     const topAlbums = albums.slice(0, 6);
     if (topAlbums.length === 0) return { pressings: [] };
 
+    // Discogs versions endpoint returns label as a string (not array), and
+    // year as a number that may be 0 when unknown — released has the full date.
     type DiscogsVersion = {
       id: number;
       country?: string;
-      year?: string;
-      label?: string[];
+      year?: number | string;
+      released?: string;
+      label?: string | string[];
       catno?: string;
       format?: string;
       stats?: { community?: { in_collection: number; in_wantlist: number } };
@@ -299,6 +302,22 @@ async function fetchPressingsData(artistName: string): Promise<{ pressings: Pres
       })
     );
 
+    function extractYear(v: DiscogsVersion): string {
+      const y = Number(v.year);
+      if (y && y > 1900) return String(y);
+      // Fall back to the released date string (e.g. "2013-05-21" → "2013")
+      if (v.released) {
+        const fromReleased = parseInt(v.released.slice(0, 4));
+        if (fromReleased > 1900) return String(fromReleased);
+      }
+      return "";
+    }
+
+    function extractLabel(v: DiscogsVersion): string {
+      if (Array.isArray(v.label)) return v.label[0] ?? "Unknown";
+      return (v.label as string | undefined) ?? "Unknown";
+    }
+
     // Sort each album's pressings by wantlist count, take top 5
     type RawVariant = Omit<PressingVariant, "lowestPrice" | "currency" | "numForSale">;
     const processedAlbums = versionsResults.map(({ title, year, masterId, versions }) => {
@@ -310,8 +329,8 @@ async function fetchPressingsData(artistName: string): Promise<{ pressings: Pres
           return {
             releaseId: v.id,
             country:   v.country ?? "Unknown",
-            year:      v.year    ?? "",
-            label:     (v.label ?? [])[0] ?? "Unknown",
+            year:      extractYear(v),
+            label:     extractLabel(v),
             catno:     v.catno   ?? "",
             format:    v.format  ?? "Vinyl",
             inCollection,

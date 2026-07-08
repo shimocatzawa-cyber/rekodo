@@ -800,14 +800,14 @@ function PressingsContent({ data }: { data: { pressings?: PressingsAlbum[] } }) 
 
             {hasVariants && (
               <div style={{ overflowX: "auto", WebkitOverflowScrolling: "touch" }}>
-                <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 460 }}>
+                <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 520 }}>
                   <thead>
                     <tr>
-                      {(["Country", "Year", "Label", "Cat#", "Wants", "Have", "Ratio", "Price"] as const).map(col => (
+                      {(["Format", "Country", "Year", "Label", "Cat#", "Wants", "Have", "Ratio", "Price"] as const).map(col => (
                         <th key={col} style={{
                           fontFamily: MONO, fontSize: "0.52rem", letterSpacing: "0.12em",
                           textTransform: "uppercase", color: ORANGE,
-                          textAlign: col === "Country" || col === "Label" || col === "Cat#" ? "left" : "right",
+                          textAlign: ["Format", "Country", "Label", "Cat#"].includes(col) ? "left" : "right",
                           padding: "0 10px 6px 0",
                           borderBottom: `1px solid ${RULE}`,
                           whiteSpace: "nowrap",
@@ -822,36 +822,36 @@ function PressingsContent({ data }: { data: { pressings?: PressingsAlbum[] } }) 
                     {a.variants.map((v, vi) => {
                       const isTop = vi === 0;
                       const discogsUrl = `https://www.discogs.com/release/${v.releaseId}`;
-                      const priceStr = v.lowestPrice != null
-                        ? `$${v.lowestPrice.toFixed(2)}`
-                        : v.numForSale != null && v.numForSale > 0
-                        ? "—"
-                        : "—";
+                      const priceStr = v.lowestPrice != null ? `$${v.lowestPrice.toFixed(2)}` : "—";
+                      const tdBase: React.CSSProperties = { fontFamily: MONO, fontSize: "0.68rem", letterSpacing: "0.03em", color: INK, padding: "7px 10px 7px 0", borderBottom: `1px solid ${RULE}`, whiteSpace: "nowrap" };
                       return (
                         <tr key={vi} style={{ background: isTop ? WARM : "transparent" }}>
-                          <td style={{ fontFamily: MONO, fontSize: "0.68rem", letterSpacing: "0.03em", color: INK, padding: "7px 10px 7px 0", borderBottom: `1px solid ${RULE}`, whiteSpace: "nowrap" }}>
+                          <td style={{ ...tdBase, fontSize: "0.62rem", maxWidth: 120, overflow: "hidden", textOverflow: "ellipsis" }}>
+                            {v.format || "Vinyl"}
+                          </td>
+                          <td style={tdBase}>
                             {isTop && <span style={{ color: ORANGE, marginRight: 5, fontSize: "0.55rem" }}>★</span>}
                             {v.country}
                           </td>
-                          <td style={{ fontFamily: MONO, fontSize: "0.68rem", letterSpacing: "0.03em", color: INK, padding: "7px 10px 7px 0", borderBottom: `1px solid ${RULE}`, textAlign: "right", whiteSpace: "nowrap" }}>
+                          <td style={{ ...tdBase, textAlign: "right" }}>
                             {v.year || "—"}
                           </td>
-                          <td style={{ fontFamily: MONO, fontSize: "0.65rem", letterSpacing: "0.02em", color: INK, padding: "7px 10px 7px 0", borderBottom: `1px solid ${RULE}`, maxWidth: 140, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                          <td style={{ ...tdBase, fontSize: "0.65rem", letterSpacing: "0.02em", maxWidth: 140, overflow: "hidden", textOverflow: "ellipsis" }}>
                             {v.label}
                           </td>
-                          <td style={{ fontFamily: MONO, fontSize: "0.62rem", letterSpacing: "0.02em", color: "#777", padding: "7px 10px 7px 0", borderBottom: `1px solid ${RULE}`, maxWidth: 100, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                          <td style={{ ...tdBase, fontSize: "0.62rem", letterSpacing: "0.02em", color: "#777", maxWidth: 100, overflow: "hidden", textOverflow: "ellipsis" }}>
                             {v.catno || "—"}
                           </td>
-                          <td style={{ fontFamily: MONO, fontSize: "0.68rem", letterSpacing: "0.03em", color: INK, padding: "7px 10px 7px 0", borderBottom: `1px solid ${RULE}`, textAlign: "right", whiteSpace: "nowrap" }}>
+                          <td style={{ ...tdBase, textAlign: "right" }}>
                             {v.inWantlist.toLocaleString()}
                           </td>
-                          <td style={{ fontFamily: MONO, fontSize: "0.68rem", letterSpacing: "0.03em", color: INK, padding: "7px 10px 7px 0", borderBottom: `1px solid ${RULE}`, textAlign: "right", whiteSpace: "nowrap" }}>
+                          <td style={{ ...tdBase, textAlign: "right" }}>
                             {v.inCollection.toLocaleString()}
                           </td>
-                          <td style={{ fontFamily: MONO, fontSize: "0.68rem", letterSpacing: "0.03em", color: v.wantHaveRatio >= 2 ? ORANGE : INK, padding: "7px 10px 7px 0", borderBottom: `1px solid ${RULE}`, textAlign: "right", whiteSpace: "nowrap" }}>
+                          <td style={{ ...tdBase, textAlign: "right", color: v.wantHaveRatio >= 2 ? ORANGE : INK }}>
                             {v.wantHaveRatio.toFixed(2)}×
                           </td>
-                          <td style={{ fontFamily: MONO, fontSize: "0.68rem", letterSpacing: "0.03em", color: INK, padding: "7px 10px 7px 0", borderBottom: `1px solid ${RULE}`, textAlign: "right", whiteSpace: "nowrap" }}>
+                          <td style={{ ...tdBase, textAlign: "right" }}>
                             {priceStr}
                           </td>
                           <td style={{ padding: "7px 0 7px 4px", borderBottom: `1px solid ${RULE}` }}>
