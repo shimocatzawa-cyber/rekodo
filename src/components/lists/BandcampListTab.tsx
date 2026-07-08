@@ -455,14 +455,12 @@ export default function BandcampListTab() {
                   onClick={runSync}
                   disabled={syncing}
                   style={{
-                    fontFamily: MONO, fontSize: "0.65rem", letterSpacing: "0.1em", textTransform: "uppercase",
-                    color: syncing ? "#aaaaaa" : INK, background: "transparent",
-                    border: `1px solid ${syncing ? "#dddddd" : RULE}`,
-                    padding: "5px 12px", cursor: syncing ? "default" : "pointer",
-                    transition: "color 0.15s, border-color 0.15s",
+                    fontFamily: MONO, fontSize: "10px", letterSpacing: "0.06em",
+                    color: syncing ? "#aaaaaa" : ORANGE,
+                    background: "none", border: "none",
+                    cursor: syncing ? "default" : "pointer",
+                    padding: 0,
                   }}
-                  onMouseEnter={e => { if (!syncing) { (e.currentTarget as HTMLButtonElement).style.color = ORANGE; (e.currentTarget as HTMLButtonElement).style.borderColor = ORANGE; }}}
-                  onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.color = syncing ? "#aaaaaa" : INK; (e.currentTarget as HTMLButtonElement).style.borderColor = syncing ? "#dddddd" : RULE; }}
                 >
                   {syncing ? "Syncing…" : "Sync with Bandcamp →"}
                 </button>
