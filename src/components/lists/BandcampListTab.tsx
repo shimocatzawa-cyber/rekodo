@@ -351,7 +351,7 @@ export default function BandcampListTab() {
 
           {/* Insights panel — desktop only */}
           {hasInsights && (
-            <div className="bc-insights-panel">
+            <div className="bc-insights-panel" style={{ position: "sticky", top: "80px", maxHeight: "calc(100vh - 100px)", overflowY: "auto" }}>
               <InsightsPanel
                 items={items}
                 activeTag={activeTag}
