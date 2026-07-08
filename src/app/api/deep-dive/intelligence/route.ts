@@ -281,22 +281,31 @@ async function fetchPressingsData(artistName: string): Promise<{ pressings: Pres
       stats?: { community?: { in_collection: number; in_wantlist: number } };
     };
 
-    // Fetch vinyl versions for each album in parallel
-    const versionsResults = await Promise.all(
-      albums.map(async (album) => {
-        try {
-          const res = await fetch(
-            `https://api.discogs.com/masters/${album.masterId}/versions?format=Vinyl&per_page=100`,
-            { headers, signal: AbortSignal.timeout(8000) }
-          );
-          if (!res.ok) return { ...album, versions: [] as DiscogsVersion[] };
-          const json = await res.json() as { versions?: DiscogsVersion[] };
-          return { ...album, versions: json.versions ?? [] };
-        } catch {
-          return { ...album, versions: [] as DiscogsVersion[] };
-        }
-      })
-    );
+    // Fetch vinyl versions in batches to avoid hitting the Discogs rate limit.
+    // Firing all albums in parallel causes 429s for artists with many releases
+    // (e.g. Nina Simone), silently dropping everything after the first ~15 albums.
+    const BATCH = 5;
+    const BATCH_DELAY_MS = 1200;
+    const versionsResults: ({ title: string; year: number; masterId: number; versions: DiscogsVersion[] })[] = [];
+    for (let i = 0; i < albums.length; i += BATCH) {
+      if (i > 0) await new Promise(r => setTimeout(r, BATCH_DELAY_MS));
+      const batchResults = await Promise.all(
+        albums.slice(i, i + BATCH).map(async (album) => {
+          try {
+            const res = await fetch(
+              `https://api.discogs.com/masters/${album.masterId}/versions?format=Vinyl&per_page=100`,
+              { headers, signal: AbortSignal.timeout(8000) }
+            );
+            if (!res.ok) return { ...album, versions: [] as DiscogsVersion[] };
+            const json = await res.json() as { versions?: DiscogsVersion[] };
+            return { ...album, versions: json.versions ?? [] };
+          } catch {
+            return { ...album, versions: [] as DiscogsVersion[] };
+          }
+        })
+      );
+      versionsResults.push(...batchResults);
+    }
 
     function extractYear(v: DiscogsVersion): string {
       const y = Number(v.year);
