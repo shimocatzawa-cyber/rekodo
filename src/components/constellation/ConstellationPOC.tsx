@@ -875,6 +875,25 @@ export default function ConstellationPOC({ username }: Props) {
       ctx.scale(dpr, dpr);
     }
     resize();
+    // Fit constellation into the left (canvas) portion on initial load
+    {
+      const W = canvas.parentElement!.clientWidth;
+      const H = canvas.parentElement!.clientHeight;
+      const AVAIL_W = W - PANEL_W;
+      const cx1 = 0.08 * W, cx2 = 0.92 * W;
+      const cy1 = 0.12 * H, cy2 = 0.94 * H;
+      const scale = clamp(
+        Math.min((AVAIL_W - 80) / (cx2 - cx1), (H - 80) / (cy2 - cy1)),
+        0.3, 1.0,
+      );
+      const initCam = {
+        x: AVAIL_W / 2 - ((cx1 + cx2) / 2) * scale,
+        y: H / 2 - ((cy1 + cy2) / 2) * scale,
+        scale,
+      };
+      cameraRef.current = { ...initCam };
+      targetCamRef.current = { ...initCam };
+    }
     window.addEventListener("resize", resize);
 
     function cssSize() { return { W: canvas.width / dpr, H: canvas.height / dpr }; }
@@ -1293,9 +1312,57 @@ export default function ConstellationPOC({ username }: Props) {
       if (hit) { draggingNodeRef.current = hit.id; canvas.style.cursor = "grabbing"; }
       else { isPanningRef.current = true; panLastRef.current = { x: sx, y: sy }; canvas.style.cursor = "grabbing"; }
     }
+    function doReset() {
+      const W = canvas.clientWidth, H = canvas.clientHeight;
+      const AVAIL_W = W - PANEL_W;
+      const cx1 = 0.08 * W, cx2 = 0.92 * W;
+      const cy1 = 0.12 * H, cy2 = 0.94 * H;
+      const scale = clamp(
+        Math.min((AVAIL_W - 80) / (cx2 - cx1), (H - 80) / (cy2 - cy1)),
+        0.3, 1.0,
+      );
+      targetCamRef.current = {
+        x: AVAIL_W / 2 - ((cx1 + cx2) / 2) * scale,
+        y: H / 2 - ((cy1 + cy2) / 2) * scale,
+        scale,
+      };
+      autoZoomRef.current = true;
+    }
+
+    function zoomToNeighborhood(hit: ArtistNode) {
+      const { W, H } = cssSize();
+      const AVAIL_W = W - PANEL_W;
+      const allEdges = [...edgesRef.current, ...mbEdgesRef.current, ...discogsEdgesRef.current]
+        .filter(e => enabledTypesRef.current.has(e.type));
+      const neighborIds = new Set<string>();
+      for (const e of allEdges) {
+        if (e.source === hit.id) neighborIds.add(e.target);
+        if (e.target === hit.id) neighborIds.add(e.source);
+      }
+      const hood = [hit, ...nodesRef.current.filter(n => neighborIds.has(n.id) && !isFiltered(n))];
+      const PAD = 110;
+      if (hood.length <= 1) {
+        const ts = 2.5;
+        targetCamRef.current = { x: AVAIL_W / 2 - hit.x * ts, y: H / 2 - hit.y * ts, scale: ts };
+      } else {
+        const xs = hood.map(n => n.x), ys = hood.map(n => n.y);
+        const minX = Math.min(...xs), maxX = Math.max(...xs);
+        const minY = Math.min(...ys), maxY = Math.max(...ys);
+        const ts = clamp(
+          Math.min((AVAIL_W - PAD * 2) / Math.max(maxX - minX, 1), (H - PAD * 2) / Math.max(maxY - minY, 1)),
+          0.7, 3.5,
+        );
+        targetCamRef.current = {
+          x: AVAIL_W / 2 - ((minX + maxX) / 2) * ts,
+          y: H / 2 - ((minY + maxY) / 2) * ts,
+          scale: ts,
+        };
+      }
+      autoZoomRef.current = true;
+    }
+
     function onUp(e: MouseEvent) {
       const { x: sx, y: sy } = cvPos(e);
-      const { W, H } = cssSize();
       const dx = sx - mouseDownPosRef.current.x, dy = sy - mouseDownPosRef.current.y;
       const isClick = Math.sqrt(dx*dx + dy*dy) < 6;
       if (isClick) {
@@ -1305,13 +1372,11 @@ export default function ConstellationPOC({ username }: Props) {
             if (selectedRef.current === hit.id) {
               selectedRef.current = null; setSelectedArtist(null);
               selectedEdgeKeyRef.current = null; setSelectedEdge(null);
-              targetCamRef.current = { x: 0, y: 0, scale: 1 }; autoZoomRef.current = true;
+              doReset();
             } else {
               selectedRef.current = hit.id; setSelectedArtist({ ...hit });
               selectedEdgeKeyRef.current = null; setSelectedEdge(null);
-              const ts = clamp(cameraRef.current.scale < 1.6 ? 1.8 : cameraRef.current.scale, 1.2, 2.6);
-              targetCamRef.current = { x: W/2 - hit.x * ts, y: H/2 - hit.y * ts, scale: ts };
-              autoZoomRef.current = true;
+              zoomToNeighborhood(hit);
             }
           }
         } else {
@@ -1323,16 +1388,17 @@ export default function ConstellationPOC({ username }: Props) {
             const src = nodesRef.current.find(n => n.id === edgeHit.source);
             const tgt = nodesRef.current.find(n => n.id === edgeHit.target);
             if (src && tgt) {
-              const midX = (src.x + tgt.x) / 2;
-              const midY = (src.y + tgt.y) / 2;
+              const { W, H } = cssSize();
+              const AVAIL_W = W - PANEL_W;
+              const midX = (src.x + tgt.x) / 2, midY = (src.y + tgt.y) / 2;
               const ts = clamp(cameraRef.current.scale < 1.6 ? 1.8 : cameraRef.current.scale, 1.2, 2.4);
-              targetCamRef.current = { x: W/2 - midX * ts, y: H/2 - midY * ts, scale: ts };
+              targetCamRef.current = { x: AVAIL_W / 2 - midX * ts, y: H / 2 - midY * ts, scale: ts };
               autoZoomRef.current = true;
             }
           } else {
             selectedRef.current = null; setSelectedArtist(null);
             selectedEdgeKeyRef.current = null; setSelectedEdge(null);
-            targetCamRef.current = { x: 0, y: 0, scale: 1 }; autoZoomRef.current = true;
+            doReset();
           }
         }
       }
@@ -1356,6 +1422,8 @@ export default function ConstellationPOC({ username }: Props) {
     };
   }, [isReady]);
 
+  const PANEL_W = 340;
+
   const getConnections = useCallback((nodeId: string) => {
     return [...edgesRef.current, ...mbEdgesRef.current, ...discogsEdgesRef.current].filter(e => enabledTypesRef.current.has(e.type))
       .filter(e => e.source === nodeId || e.target === nodeId)
@@ -1369,26 +1437,47 @@ export default function ConstellationPOC({ username }: Props) {
       .sort((a, b) => b.weight - a.weight);
   }, []);
 
+  const resetView = useCallback(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const W = canvas.clientWidth, H = canvas.clientHeight;
+    const AVAIL_W = W - PANEL_W;
+    // Content spans ~0.08–0.92 in x (POSITIONS + X_SHIFT 0.04), ~0.12–0.94 in y
+    const cx1 = 0.08 * W, cx2 = 0.92 * W;
+    const cy1 = 0.12 * H, cy2 = 0.94 * H;
+    const scale = clamp(
+      Math.min((AVAIL_W - 80) / (cx2 - cx1), (H - 80) / (cy2 - cy1)),
+      0.3, 1.0,
+    );
+    targetCamRef.current = {
+      x: AVAIL_W / 2 - ((cx1 + cx2) / 2) * scale,
+      y: H / 2 - ((cy1 + cy2) / 2) * scale,
+      scale,
+    };
+    autoZoomRef.current = true;
+  }, [PANEL_W]);
+
   const dismiss = () => {
     selectedRef.current = null; setSelectedArtist(null);
     selectedEdgeKeyRef.current = null; setSelectedEdge(null);
-    targetCamRef.current = { x: 0, y: 0, scale: 1 }; autoZoomRef.current = true;
+    resetView();
   };
 
   const zoom = useCallback((factor: number) => {
     const canvas = canvasRef.current;
     if (!canvas) return;
     const W = canvas.clientWidth, H = canvas.clientHeight;
+    const AVAIL_W = W - PANEL_W;
     const t = targetCamRef.current;
     const ns = Math.max(0.15, Math.min(6, t.scale * factor));
     const sf = ns / t.scale;
     targetCamRef.current = {
-      x: W / 2 + (t.x - W / 2) * sf,
+      x: AVAIL_W / 2 + (t.x - AVAIL_W / 2) * sf,
       y: H / 2 + (t.y - H / 2) * sf,
       scale: ns,
     };
     autoZoomRef.current = true;
-  }, []);
+  }, [PANEL_W]);
 
   const inf     = selectedArtist ? (influenceRef.current.get(selectedArtist.id) ?? 0) : 0;
   const edgeSrc = selectedEdge ? (nodesRef.current.find(n => n.id === selectedEdge.source) ?? null) : null;
@@ -1409,35 +1498,33 @@ export default function ConstellationPOC({ username }: Props) {
         </div>
       )}
 
-      {/* Full-screen canvas — elements extend freely beyond the ring */}
+      {/* Full-screen canvas */}
       <canvas ref={canvasRef} className="absolute inset-0 w-full h-full"
         style={{ cursor: "grab", opacity: isReady ? 1 : 0, transition: "opacity 0.8s" }} />
 
-      {/* Decorative ring — centring reference only, no clip */}
+      {/* Decorative rings — centred in the canvas portion left of the panel */}
       <div style={{
-        position: "absolute", top: "50%", left: "50%",
+        position: "absolute", top: "50%", left: `calc(50% - ${PANEL_W / 2}px)`,
         transform: "translate(-50%, -50%)",
-        width: "min(84vh, 84vw)",
-        height: "min(84vh, 84vw)",
+        width: "min(84vh, calc(84vw - 170px))",
+        height: "min(84vh, calc(84vw - 170px))",
         borderRadius: "50%",
         border: "1px solid rgba(220,213,195,0.28)",
         pointerEvents: "none",
         zIndex: 2,
       }} />
-
-      {/* Outer decorative ring */}
       <div style={{
-        position: "absolute", top: "50%", left: "50%",
+        position: "absolute", top: "50%", left: `calc(50% - ${PANEL_W / 2}px)`,
         transform: "translate(-50%, -50%)",
-        width: "calc(min(84vh, 84vw) + 30px)",
-        height: "calc(min(84vh, 84vw) + 30px)",
+        width: "calc(min(84vh, calc(84vw - 170px)) + 30px)",
+        height: "calc(min(84vh, calc(84vw - 170px)) + 30px)",
         borderRadius: "50%",
         border: "1px solid rgba(220,213,195,0.10)",
         pointerEvents: "none",
         zIndex: 2,
       }} />
 
-      {/* Header */}
+      {/* Header — top-left of canvas area */}
       {isReady && (
         <div className="absolute top-6 left-7 z-10 pointer-events-none">
           <p style={{ fontFamily: MONO, fontSize: "10px", color: DIM3, letterSpacing: "0.25em", textTransform: "uppercase", marginBottom: "3px" }}>
@@ -1454,151 +1541,41 @@ export default function ConstellationPOC({ username }: Props) {
         </div>
       )}
 
-      {/* Legend */}
-      {isReady && (
-        <div className="absolute top-6 right-6 z-10" style={{ minWidth: 156 }}>
-          <div style={{ background: SURFACE, border: `1px solid ${BORD}`, padding: "14px 16px" }}>
-            <p style={{ fontFamily: MONO, fontSize: "9px", color: DIM3, letterSpacing: "0.22em", textTransform: "uppercase", marginBottom: "10px" }}>
-              Connection type
-            </p>
-            {(["splinter", "collaboration", "influence", "scene", "label", "production"] as RelType[]).map(t => (
-              <div
-                key={t}
-                onClick={() => setEnabledTypes(prev => { const next = new Set(prev); next.has(t) ? next.delete(t) : next.add(t); return next; })}
-                style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "7px", cursor: "pointer", opacity: enabledTypes.has(t) ? 1 : 0.32 }}
-              >
-                <svg width="22" height="8" style={{ flexShrink: 0 }}>
-                  <line x1="0" y1="4" x2="22" y2="4" stroke={INK}
-                    strokeWidth={t === "splinter" ? 2.2 : t === "collaboration" || t === "production" ? 1.4 : t === "influence" || t === "label" ? 1 : 0.6}
-                    strokeDasharray={t === "influence" ? "5,3" : t === "scene" ? "2,3" : t === "label" ? "8,4" : t === "production" ? "3,2,8,2" : undefined}
-                    strokeOpacity={t === "scene" ? 0.35 : 0.75}
-                  />
-                  {(t === "influence" || t === "splinter") && (
-                    <polygon points="17,1 22,4 17,7" fill={INK} fillOpacity={0.65} />
-                  )}
-                </svg>
-                <span style={{ fontFamily: MONO, fontSize: "10px", color: DIM2, flex: 1 }}>{REL_LABEL[t]}</span>
-                <span style={{
-                  width: "9px", height: "9px", flexShrink: 0,
-                  border: `1px solid ${DIM3}`,
-                  background: enabledTypes.has(t) ? DIM2 : "transparent",
-                  display: "inline-block",
-                }} />
-              </div>
-            ))}
-            <div style={{ marginTop: "10px", paddingTop: "10px", borderTop: `1px solid ${BORD}` }}>
-              <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "5px" }}>
-                <svg width="22" height="8" style={{ flexShrink: 0 }}>
-                  <circle cx="11" cy="4" r="3.5" fill="none" stroke="rgba(140,170,240,0.7)" strokeWidth="1" strokeDasharray="3,3" />
-                </svg>
-                <span style={{ fontFamily: MONO, fontSize: "10px", color: DIM2 }}>Not in collection</span>
-              </div>
-              <p style={{ fontFamily: MONO, fontSize: "9px", color: DIM3, lineHeight: 1.6, marginTop: "6px" }}>
-                ♛ Crown = high influence<br />
-                Star size = records owned<br />
-                Glow depth = connections
-              </p>
-            </div>
-          </div>
-          <button
-            onClick={() => { selectedRef.current = null; setSelectedArtist(null); selectedEdgeKeyRef.current = null; setSelectedEdge(null); targetCamRef.current = { x: 0, y: 0, scale: 1 }; autoZoomRef.current = true; }}
-            style={{ marginTop: "6px", width: "100%", fontFamily: MONO, fontSize: "9px", letterSpacing: "0.14em", textTransform: "uppercase", color: DIM2, background: SURFACE, border: `1px solid ${BORD}`, padding: "8px", cursor: "pointer" }}
-          >
-            Reset view
-          </button>
-          <div style={{ display: "flex", gap: "4px", marginTop: "4px" }}>
-            <button onClick={() => zoom(1.35)}
-              style={{ flex: 1, fontFamily: MONO, fontSize: "16px", lineHeight: 1, color: DIM2, background: SURFACE, border: `1px solid ${BORD}`, padding: "6px", cursor: "pointer" }}
-              title="Zoom in"
-            >+</button>
-            <button onClick={() => zoom(1 / 1.35)}
-              style={{ flex: 1, fontFamily: MONO, fontSize: "16px", lineHeight: 1, color: DIM2, background: SURFACE, border: `1px solid ${BORD}`, padding: "6px", cursor: "pointer" }}
-              title="Zoom out"
-            >−</button>
-          </div>
-          {username && (
-            <div style={{ marginTop: "10px", paddingTop: "10px", borderTop: `1px solid ${BORD}` }}>
-              <p style={{ fontFamily: MONO, fontSize: "9px", color: DIM3, letterSpacing: "0.18em", textTransform: "uppercase", marginBottom: "6px" }}>
-                Min. records
-              </p>
-              <div style={{ display: "flex", gap: "4px" }}>
-                {[1, 2, 5, 10].map(n => (
-                  <button key={n} onClick={() => setMinAlbums(n)}
-                    style={{
-                      flex: 1, fontFamily: MONO, fontSize: "9px", padding: "5px 2px", cursor: "pointer",
-                      border: `1px solid ${minAlbums === n ? INK : BORD}`,
-                      background: minAlbums === n ? "rgba(221,216,204,0.12)" : SURFACE,
-                      color: minAlbums === n ? INK : DIM3,
-                      letterSpacing: "0.06em",
-                    }}
-                  >{n}+</button>
-                ))}
-              </div>
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* Insight panel */}
+      {/* Bottom-left hint */}
       {isReady && !selectedArtist && !selectedEdge && (
-        <div className="absolute bottom-6 left-7 z-10" style={{ maxWidth: 260 }}>
-          <div style={{ borderLeft: `2px solid rgba(220,213,195,0.25)`, paddingLeft: "14px" }}>
-            <p style={{ fontFamily: MONO, fontSize: "9px", color: DIM3, letterSpacing: "0.22em", textTransform: "uppercase", marginBottom: "6px" }}>
-              Observation {insightIdx + 1} / {INSIGHTS.length}
-            </p>
-            <p style={{ fontFamily: SERIF, fontSize: "16px", fontWeight: 600, color: INK, lineHeight: 1.3, marginBottom: "6px" }}>
-              {INSIGHTS[insightIdx].heading}
-            </p>
-            <p style={{ fontFamily: MONO, fontSize: "11px", color: DIM2, lineHeight: 1.65 }}>
-              {INSIGHTS[insightIdx].body}
-            </p>
-          </div>
-          <div style={{ display: "flex", gap: "5px", marginTop: "8px" }}>
-            {INSIGHTS.map((_, i) => (
-              <button key={i} onClick={() => setInsightIdx(i)}
-                style={{ width: 18, height: 2, background: i === insightIdx ? INK : "rgba(220,213,195,0.2)", border: "none", cursor: "pointer", padding: 0 }} />
-            ))}
-          </div>
+        <div className="absolute bottom-6 left-7 z-10 pointer-events-none">
+          <p style={{ fontFamily: MONO, fontSize: "7px", color: DIM3, letterSpacing: "0.2em", textTransform: "uppercase" }}>
+            Scroll · Drag · Click
+          </p>
         </div>
       )}
 
-      {/* Edge panel */}
-      {isReady && selectedEdge && !selectedArtist && edgeSrc && edgeTgt && (
-        <div className="absolute bottom-6 left-7 z-10" style={{ width: 265, background: SURFACE, border: `1px solid ${BORD}` }}>
-          <div style={{ padding: "18px" }}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "14px" }}>
-              <div>
-                <p style={{ fontFamily: MONO, fontSize: "7px", color: DIM3, letterSpacing: "0.22em", textTransform: "uppercase" }}>
-                  {REL_LABEL[selectedEdge.type]}
-                </p>
-                {selectedEdge.via && (
-                  <p style={{ fontFamily: MONO, fontSize: "7px", color: ORANGE, letterSpacing: "0.12em", marginTop: "2px" }}>
-                    via {selectedEdge.via}
-                  </p>
-                )}
-              </div>
-              <button onClick={() => { selectedEdgeKeyRef.current = null; setSelectedEdge(null); }} style={{ fontFamily: MONO, fontSize: "10px", color: DIM3, background: "none", border: "none", cursor: "pointer" }}>✕</button>
-            </div>
-            <div style={{ marginBottom: "14px" }}>
-              <p style={{ fontFamily: SERIF, fontSize: "15px", fontWeight: 700, color: INK, margin: 0 }}>{edgeSrc.name}</p>
-              <p style={{ fontFamily: MONO, fontSize: "8px", color: ORANGE, margin: "5px 0" }}>{REL_VERB[selectedEdge.type]}</p>
-              <p style={{ fontFamily: SERIF, fontSize: "15px", fontWeight: 700, color: INK, margin: 0 }}>{edgeTgt.name}</p>
-            </div>
-            <p style={{ fontFamily: MONO, fontSize: "9px", color: DIM2, lineHeight: 1.65, margin: 0 }}>
-              {selectedEdge.note}
-            </p>
-          </div>
-        </div>
-      )}
+      {/* ── Right panel (always visible) ─────────────────────────────────────── */}
+      {isReady && (
+        <div style={{
+          position: "absolute", right: 0, top: 0, bottom: 0,
+          width: PANEL_W,
+          background: SURFACE,
+          borderLeft: `1px solid ${BORD}`,
+          zIndex: 10,
+          display: "flex",
+          flexDirection: "column",
+          overflow: "hidden",
+        }}>
 
-      {/* Artist panel */}
-      {selectedArtist && (
-        <div className="absolute bottom-6 left-7 z-10" style={{ width: 265, background: SURFACE, border: `1px solid ${BORD}` }}>
-          <div style={{ padding: "18px" }}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
-              <div>
+          {selectedArtist ? (
+            /* ── Artist detail ───────────────────────────────────────────────── */
+            <>
+              <div style={{ padding: "22px 22px 0", flexShrink: 0 }}>
+                <button
+                  onClick={dismiss}
+                  style={{ fontFamily: MONO, fontSize: "9px", color: DIM3, background: "none", border: "none", cursor: "pointer", padding: 0, letterSpacing: "0.16em", textTransform: "uppercase", marginBottom: "22px", display: "block" }}
+                >
+                  ← Back
+                </button>
+
                 {inf >= 0.68 && (
-                  <p style={{ fontFamily: MONO, fontSize: "7px", color: ORANGE, letterSpacing: "0.2em", textTransform: "uppercase", marginBottom: "3px" }}>
+                  <p style={{ fontFamily: MONO, fontSize: "7px", color: ORANGE, letterSpacing: "0.22em", textTransform: "uppercase", marginBottom: "3px" }}>
                     ♛ Influential
                   </p>
                 )}
@@ -1607,49 +1584,206 @@ export default function ConstellationPOC({ username }: Props) {
                     ◌ Discovery
                   </p>
                 )}
-              </div>
-              <button onClick={dismiss} style={{ fontFamily: MONO, fontSize: "10px", color: DIM3, background: "none", border: "none", cursor: "pointer" }}>✕</button>
-            </div>
-            <h2 style={{ fontFamily: SERIF, fontSize: "18px", fontWeight: 700, color: INK, lineHeight: 1.2, margin: "4px 0 10px" }}>
-              {selectedArtist.name}
-            </h2>
-            <p style={{ fontFamily: MONO, fontSize: "8px", color: DIM3, marginBottom: "14px" }}>
-              {selectedArtist.owned ? `${selectedArtist.albums} records in collection` : "Not in your collection"}
-            </p>
 
-            {getConnections(selectedArtist.id).length > 0 && (
-              <div style={{ borderTop: `1px solid ${BORD}`, paddingTop: "12px" }}>
-                <p style={{ fontFamily: MONO, fontSize: "7px", color: DIM3, letterSpacing: "0.2em", textTransform: "uppercase", marginBottom: "10px" }}>
-                  Connections · {getConnections(selectedArtist.id).length}
+                <h2 style={{ fontFamily: SERIF, fontSize: "24px", fontWeight: 700, color: INK, lineHeight: 1.2, margin: "4px 0 6px" }}>
+                  {selectedArtist.name}
+                </h2>
+                <p style={{ fontFamily: MONO, fontSize: "9px", color: selectedArtist.owned ? ORANGE : DIM3, marginBottom: "18px" }}>
+                  {selectedArtist.owned ? `${selectedArtist.albums} records in your collection` : "Not in your collection"}
                 </p>
-                <div style={{ maxHeight: "260px", overflowY: "auto", paddingRight: "4px" }}>
-                  {getConnections(selectedArtist.id).map(({ node, type, note, via, isSource }) => (
-                    <div key={node.id} style={{ marginBottom: "12px" }}>
-                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
-                        <p style={{ fontFamily: SERIF, fontSize: "13px", fontWeight: 600, color: INK, margin: 0 }}>{node.name}</p>
-                        <span style={{ fontFamily: MONO, fontSize: "7px", color: DIM3, flexShrink: 0, marginLeft: "8px" }}>
-                          {isSource ? "→" : "←"} {REL_LABEL[type].toLowerCase()}
-                        </span>
+
+                {/* External links */}
+                <div style={{ display: "flex", gap: "6px", marginBottom: "20px", flexWrap: "wrap" }}>
+                  {artistDiscogsIdsRef.current.get(selectedArtist.id) && (
+                    <a
+                      href={`https://www.discogs.com/artist/${artistDiscogsIdsRef.current.get(selectedArtist.id)}`}
+                      target="_blank" rel="noopener noreferrer"
+                      style={{ fontFamily: MONO, fontSize: "8px", color: DIM2, textDecoration: "none", border: `1px solid ${BORD}`, padding: "4px 8px", letterSpacing: "0.1em", whiteSpace: "nowrap" }}
+                    >
+                      Discogs ↗
+                    </a>
+                  )}
+                  <a
+                    href={`https://open.spotify.com/search/${encodeURIComponent(selectedArtist.name)}`}
+                    target="_blank" rel="noopener noreferrer"
+                    style={{ fontFamily: MONO, fontSize: "8px", color: DIM2, textDecoration: "none", border: `1px solid ${BORD}`, padding: "4px 8px", letterSpacing: "0.1em", whiteSpace: "nowrap" }}
+                  >
+                    Spotify ↗
+                  </a>
+                  <a
+                    href={`https://www.last.fm/music/${encodeURIComponent(selectedArtist.name)}`}
+                    target="_blank" rel="noopener noreferrer"
+                    style={{ fontFamily: MONO, fontSize: "8px", color: DIM2, textDecoration: "none", border: `1px solid ${BORD}`, padding: "4px 8px", letterSpacing: "0.1em", whiteSpace: "nowrap" }}
+                  >
+                    Last.fm ↗
+                  </a>
+                </div>
+              </div>
+
+              {/* Connections — scrollable, fills remaining height */}
+              {getConnections(selectedArtist.id).length > 0 && (
+                <div style={{ borderTop: `1px solid ${BORD}`, flex: 1, overflow: "hidden", display: "flex", flexDirection: "column" }}>
+                  <p style={{ fontFamily: MONO, fontSize: "7px", color: DIM3, letterSpacing: "0.22em", textTransform: "uppercase", padding: "14px 22px 10px", flexShrink: 0 }}>
+                    Connections · {getConnections(selectedArtist.id).length}
+                  </p>
+                  <div style={{ overflowY: "auto", flex: 1, padding: "0 22px 22px" }}>
+                    {getConnections(selectedArtist.id).map(({ node, type, note, via, isSource }) => (
+                      <div key={node.id} style={{ marginBottom: "18px", paddingBottom: "18px", borderBottom: `1px solid ${BORD}` }}>
+                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: "2px" }}>
+                          <p style={{ fontFamily: SERIF, fontSize: "14px", fontWeight: 600, color: INK, margin: 0 }}>{node.name}</p>
+                          <span style={{ fontFamily: MONO, fontSize: "7px", color: DIM3, flexShrink: 0, marginLeft: "8px" }}>
+                            {isSource ? "→" : "←"}
+                          </span>
+                        </div>
+                        <p style={{ fontFamily: MONO, fontSize: "8px", color: ORANGE, margin: "0 0 5px" }}>
+                          {REL_LABEL[type]}{via ? ` · ${via}` : ""}
+                        </p>
+                        <p style={{ fontFamily: MONO, fontSize: "9px", color: DIM2, lineHeight: 1.65, margin: 0 }}>{note}</p>
                       </div>
-                      {via && (
-                        <p style={{ fontFamily: MONO, fontSize: "7px", color: ORANGE, margin: "2px 0 0" }}>via {via}</p>
-                      )}
-                      <p style={{ fontFamily: MONO, fontSize: "8px", color: DIM2, lineHeight: 1.5, margin: "3px 0 0" }}>{note}</p>
-                    </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </>
+
+          ) : selectedEdge && edgeSrc && edgeTgt ? (
+            /* ── Edge detail ─────────────────────────────────────────────────── */
+            <div style={{ padding: "22px", display: "flex", flexDirection: "column" }}>
+              <button
+                onClick={() => { selectedEdgeKeyRef.current = null; setSelectedEdge(null); dismiss(); }}
+                style={{ fontFamily: MONO, fontSize: "9px", color: DIM3, background: "none", border: "none", cursor: "pointer", padding: 0, letterSpacing: "0.16em", textTransform: "uppercase", marginBottom: "28px", display: "block" }}
+              >
+                ← Back
+              </button>
+
+              <p style={{ fontFamily: MONO, fontSize: "7px", color: DIM3, letterSpacing: "0.22em", textTransform: "uppercase", marginBottom: "4px" }}>
+                {REL_LABEL[selectedEdge.type]}
+              </p>
+              {selectedEdge.via && (
+                <p style={{ fontFamily: MONO, fontSize: "9px", color: ORANGE, letterSpacing: "0.12em", marginBottom: "22px" }}>
+                  via {selectedEdge.via}
+                </p>
+              )}
+
+              <div style={{ marginBottom: "24px" }}>
+                <p style={{ fontFamily: SERIF, fontSize: "20px", fontWeight: 700, color: INK, margin: "0 0 8px" }}>{edgeSrc.name}</p>
+                <p style={{ fontFamily: MONO, fontSize: "8px", color: ORANGE, margin: "0 0 8px", letterSpacing: "0.08em" }}>{REL_VERB[selectedEdge.type]}</p>
+                <p style={{ fontFamily: SERIF, fontSize: "20px", fontWeight: 700, color: INK, margin: 0 }}>{edgeTgt.name}</p>
+              </div>
+
+              <p style={{ fontFamily: MONO, fontSize: "10px", color: DIM2, lineHeight: 1.75, margin: 0 }}>
+                {selectedEdge.note}
+              </p>
+            </div>
+
+          ) : (
+            /* ── Idle: legend + controls + insights ──────────────────────────── */
+            <div style={{ overflowY: "auto", height: "100%", padding: "22px" }}>
+
+              <p style={{ fontFamily: MONO, fontSize: "9px", color: DIM3, letterSpacing: "0.22em", textTransform: "uppercase", marginBottom: "14px" }}>
+                Connection type
+              </p>
+              {(["splinter", "collaboration", "influence", "scene", "label", "production"] as RelType[]).map(t => (
+                <div
+                  key={t}
+                  onClick={() => setEnabledTypes(prev => { const next = new Set(prev); next.has(t) ? next.delete(t) : next.add(t); return next; })}
+                  style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "8px", cursor: "pointer", opacity: enabledTypes.has(t) ? 1 : 0.32 }}
+                >
+                  <svg width="22" height="8" style={{ flexShrink: 0 }}>
+                    <line x1="0" y1="4" x2="22" y2="4" stroke={INK}
+                      strokeWidth={t === "splinter" ? 2.2 : t === "collaboration" || t === "production" ? 1.4 : t === "influence" || t === "label" ? 1 : 0.6}
+                      strokeDasharray={t === "influence" ? "5,3" : t === "scene" ? "2,3" : t === "label" ? "8,4" : t === "production" ? "3,2,8,2" : undefined}
+                      strokeOpacity={t === "scene" ? 0.35 : 0.75}
+                    />
+                    {(t === "influence" || t === "splinter") && (
+                      <polygon points="17,1 22,4 17,7" fill={INK} fillOpacity={0.65} />
+                    )}
+                  </svg>
+                  <span style={{ fontFamily: MONO, fontSize: "10px", color: DIM2, flex: 1 }}>{REL_LABEL[t]}</span>
+                  <span style={{
+                    width: "9px", height: "9px", flexShrink: 0,
+                    border: `1px solid ${DIM3}`,
+                    background: enabledTypes.has(t) ? DIM2 : "transparent",
+                    display: "inline-block",
+                  }} />
+                </div>
+              ))}
+
+              <div style={{ marginTop: "16px", paddingTop: "16px", borderTop: `1px solid ${BORD}` }}>
+                <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "6px" }}>
+                  <svg width="22" height="8" style={{ flexShrink: 0 }}>
+                    <circle cx="11" cy="4" r="3.5" fill="none" stroke="rgba(140,170,240,0.7)" strokeWidth="1" strokeDasharray="3,3" />
+                  </svg>
+                  <span style={{ fontFamily: MONO, fontSize: "10px", color: DIM2 }}>Not in collection</span>
+                </div>
+                <p style={{ fontFamily: MONO, fontSize: "9px", color: DIM3, lineHeight: 1.65, marginTop: "8px" }}>
+                  ♛ Crown = high influence<br />
+                  Star size = records owned<br />
+                  Glow depth = connections
+                </p>
+              </div>
+
+              {username && (
+                <div style={{ marginTop: "16px", paddingTop: "16px", borderTop: `1px solid ${BORD}` }}>
+                  <p style={{ fontFamily: MONO, fontSize: "9px", color: DIM3, letterSpacing: "0.18em", textTransform: "uppercase", marginBottom: "8px" }}>
+                    Min. records
+                  </p>
+                  <div style={{ display: "flex", gap: "4px" }}>
+                    {[1, 2, 5, 10].map(n => (
+                      <button key={n} onClick={() => setMinAlbums(n)}
+                        style={{
+                          flex: 1, fontFamily: MONO, fontSize: "9px", padding: "6px 2px", cursor: "pointer",
+                          border: `1px solid ${minAlbums === n ? INK : BORD}`,
+                          background: minAlbums === n ? "rgba(221,216,204,0.12)" : "transparent",
+                          color: minAlbums === n ? INK : DIM3,
+                          letterSpacing: "0.06em",
+                        }}
+                      >{n}+</button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              <div style={{ marginTop: "16px", paddingTop: "16px", borderTop: `1px solid ${BORD}` }}>
+                <button
+                  onClick={resetView}
+                  style={{ width: "100%", fontFamily: MONO, fontSize: "9px", letterSpacing: "0.14em", textTransform: "uppercase", color: DIM2, background: "transparent", border: `1px solid ${BORD}`, padding: "8px", cursor: "pointer", marginBottom: "6px" }}
+                >
+                  Reset view
+                </button>
+                <div style={{ display: "flex", gap: "4px" }}>
+                  <button onClick={() => zoom(1.35)}
+                    style={{ flex: 1, fontFamily: MONO, fontSize: "16px", lineHeight: 1, color: DIM2, background: "transparent", border: `1px solid ${BORD}`, padding: "6px", cursor: "pointer" }}
+                    title="Zoom in"
+                  >+</button>
+                  <button onClick={() => zoom(1 / 1.35)}
+                    style={{ flex: 1, fontFamily: MONO, fontSize: "16px", lineHeight: 1, color: DIM2, background: "transparent", border: `1px solid ${BORD}`, padding: "6px", cursor: "pointer" }}
+                    title="Zoom out"
+                  >−</button>
+                </div>
+              </div>
+
+              {/* Insights */}
+              <div style={{ marginTop: "16px", paddingTop: "16px", borderTop: `1px solid ${BORD}` }}>
+                <p style={{ fontFamily: MONO, fontSize: "7px", color: DIM3, letterSpacing: "0.22em", textTransform: "uppercase", marginBottom: "8px" }}>
+                  Observation {insightIdx + 1} / {INSIGHTS.length}
+                </p>
+                <p style={{ fontFamily: SERIF, fontSize: "15px", fontWeight: 600, color: INK, lineHeight: 1.35, marginBottom: "8px" }}>
+                  {INSIGHTS[insightIdx].heading}
+                </p>
+                <p style={{ fontFamily: MONO, fontSize: "10px", color: DIM2, lineHeight: 1.65 }}>
+                  {INSIGHTS[insightIdx].body}
+                </p>
+                <div style={{ display: "flex", gap: "5px", marginTop: "12px" }}>
+                  {INSIGHTS.map((_, i) => (
+                    <button key={i} onClick={() => setInsightIdx(i)}
+                      style={{ width: 18, height: 2, background: i === insightIdx ? INK : "rgba(220,213,195,0.2)", border: "none", cursor: "pointer", padding: 0 }} />
                   ))}
                 </div>
               </div>
-            )}
-          </div>
-        </div>
-      )}
 
-      {/* Bottom hint */}
-      {isReady && !selectedArtist && !selectedEdge && (
-        <div className="absolute bottom-6 right-6 z-10 pointer-events-none">
-          <p style={{ fontFamily: MONO, fontSize: "7px", color: DIM3, letterSpacing: "0.2em", textTransform: "uppercase" }}>
-            Scroll · Drag · Click
-          </p>
+            </div>
+          )}
         </div>
       )}
     </div>
