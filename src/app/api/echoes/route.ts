@@ -350,7 +350,7 @@ Find the 2 most distinct genre/style clusters in this collection. Give 3–4 bri
 
 MODULE 02 — UNBOUGHT CLASSIC
 ${canonFrame}
-Find the collector's densest scene. Give 4 canonical touchstones they don't already own.
+Do NOT pick the collector's single largest genre. Pick a well-represented but non-dominant scene from their collection — a style or era they clearly care about but haven't gone deep on. Give 4 canonical touchstones from that scene they don't already own.
 
 MODULE 03 — SCENE PORTALS
 ${portalFrame}${digitalOnly ? ` Consider connecting to digital-only artists: ${digitalOnly}.` : ""}
