@@ -124,6 +124,28 @@ export default function ArchetypesClient({ userId, username, displayLabel, avata
     <div style={{ minHeight: "100vh", background: "#ffffff" }}>
       <AppNav username={username} displayLabel={displayLabel} avatarUrl={avatarUrl} />
 
+      {/* Sub-tab bar — admin only */}
+      {isAdmin && (
+        <div className="rk-profile-tabs" style={{ display: "flex", justifyContent: "center", gap: "24px", paddingTop: "14px", paddingBottom: "2px", background: "#ffffff" }}>
+          {(["archetypes", "cards"] as const).map((id) => (
+            <button
+              key={id}
+              onClick={() => setTab(id)}
+              style={{
+                fontFamily: MONO, fontSize: "10px", letterSpacing: "0.1em",
+                textTransform: "uppercase", background: "none", border: "none",
+                borderBottom: `1.5px solid ${tab === id ? ORANGE : "transparent"}`,
+                padding: "6px 0",
+                color: tab === id ? INK : "#bbbbbb",
+                cursor: "pointer", display: "inline-block",
+              }}
+            >
+              {id === "archetypes" ? "Archetypes" : "Cards"}
+            </button>
+          ))}
+        </div>
+      )}
+
       <main className="rk-arch-main" style={{ padding: "48px 32px 80px", maxWidth: "960px", margin: "0 auto" }}>
 
         {/* Page header */}
@@ -169,33 +191,7 @@ export default function ArchetypesClient({ userId, username, displayLabel, avata
           <div style={{ borderTop: `1px solid ${RULE}`, marginTop: 20 }} />
         </div>
 
-        {/* Admin tab bar */}
-        {isAdmin && (
-          <div style={{ display: "flex", gap: 24, marginBottom: 32 }}>
-            {(["archetypes", "cards"] as const).map((t) => (
-              <button
-                key={t}
-                onClick={() => setTab(t)}
-                style={{
-                  fontFamily: MONO,
-                  fontSize: "0.7rem",
-                  letterSpacing: "0.08em",
-                  textTransform: "uppercase",
-                  background: "none",
-                  border: "none",
-                  padding: "4px 0",
-                  cursor: "pointer",
-                  color: tab === t ? INK : "#bbbbbb",
-                  borderBottom: `1.5px solid ${tab === t ? ORANGE : "transparent"}`,
-                }}
-              >
-                {t === "archetypes" ? "Archetypes" : "Cards"}
-              </button>
-            ))}
-          </div>
-        )}
-
-        {tab === "cards" && isAdmin && (
+{tab === "cards" && isAdmin && (
           <CardsTab userId={userId} />
         )}
 
