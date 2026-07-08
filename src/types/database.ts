@@ -22,9 +22,9 @@ export type Database = {
         Relationships: [];
       };
       digital_imports: {
-        Row: { id: string; user_id: string; source: string; artist: string; album: string; is_duplicate: boolean; matched_record_id: string | null; imported_at: string };
-        Insert: { id?: string; user_id: string; source?: string; artist: string; album: string; is_duplicate?: boolean; matched_record_id?: string | null; imported_at?: string };
-        Update: { source?: string; artist?: string; album?: string; is_duplicate?: boolean; matched_record_id?: string | null; imported_at?: string };
+        Row: { id: string; user_id: string; source: string; artist: string; album: string; is_duplicate: boolean; matched_record_id: string | null; imported_at: string; purchased_at: string | null; item_url: string | null; release_date: string | null; label: string | null; tags: string[] | null };
+        Insert: { id?: string; user_id: string; source?: string; artist: string; album: string; is_duplicate?: boolean; matched_record_id?: string | null; imported_at?: string; purchased_at?: string | null; item_url?: string | null; release_date?: string | null; label?: string | null; tags?: string[] | null };
+        Update: { source?: string; artist?: string; album?: string; is_duplicate?: boolean; matched_record_id?: string | null; imported_at?: string; purchased_at?: string | null; item_url?: string | null; release_date?: string | null; label?: string | null; tags?: string[] | null };
         Relationships: [];
       };
       collection_photos: {

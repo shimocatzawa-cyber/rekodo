@@ -47,7 +47,6 @@ function normalize(s: string): string {
 const UA = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36";
 
 function extractFanIdFromText(text: string): number | null {
-  // Try all known patterns — ordered by reliability
   const patterns = [
     /"fan_id"\s*:\s*(\d+)/,
     /[?&]fan_id=(\d+)/,
@@ -72,31 +71,19 @@ async function getFanId(username: string): Promise<{ fanId: number | null; error
   let html = "";
   try {
     const htmlRes = await fetch(`https://bandcamp.com/${username}`, {
-      headers: {
-        "User-Agent": UA,
-        "Accept": "text/html,application/xhtml+xml",
-        "Accept-Language": "en-US,en;q=0.9",
-      },
+      headers: { "User-Agent": UA, "Accept": "text/html,application/xhtml+xml", "Accept-Language": "en-US,en;q=0.9" },
       signal: AbortSignal.timeout(timeout),
     });
-
-    if (htmlRes.status === 404) {
-      return { fanId: null, error: "Bandcamp user not found. Check the username in your profile settings." };
-    }
-    if (!htmlRes.ok) {
-      return { fanId: null, error: `Could not reach Bandcamp (HTTP ${htmlRes.status}). Try again in a moment.` };
-    }
+    if (htmlRes.status === 404) return { fanId: null, error: "Bandcamp user not found. Check the username in your profile settings." };
+    if (!htmlRes.ok) return { fanId: null, error: `Could not reach Bandcamp (HTTP ${htmlRes.status}). Try again in a moment.` };
     html = await htmlRes.text();
   } catch (err) {
-    const msg = err instanceof Error ? err.message : String(err);
-    return { fanId: null, error: `Could not connect to Bandcamp: ${msg}` };
+    return { fanId: null, error: `Could not connect to Bandcamp: ${err instanceof Error ? err.message : String(err)}` };
   }
 
-  // Strategy 1: search all inline text for fan_id patterns
   const fromInline = extractFanIdFromText(html);
   if (fromInline) return { fanId: fromInline };
 
-  // Strategy 2: data-blob JSON blobs (older Bandcamp page structure)
   for (const match of html.matchAll(/data-blob="([^"]+)"/g)) {
     try {
       const raw = match[1].replace(/&quot;/g, '"').replace(/&amp;/g, '&').replace(/&#39;/g, "'");
@@ -104,13 +91,11 @@ async function getFanId(username: string): Promise<{ fanId: number | null; error
       type FanData = { id?: number };
       const fanData = (blob?.fan_data ?? blob?.CurrentFan ?? blob?.FanData ?? blob?.current_fan) as FanData | undefined;
       if (fanData?.id && typeof fanData.id === "number") return { fanId: fanData.id };
-      // Also scan the whole blob text
       const blobFanId = extractFanIdFromText(JSON.stringify(blob));
       if (blobFanId) return { fanId: blobFanId };
     } catch { continue; }
   }
 
-  // Strategy 3: any JSON in <script> tags
   for (const scriptMatch of html.matchAll(/<script[^>]*>([\s\S]*?)<\/script>/gi)) {
     const content = scriptMatch[1];
     if (!content.includes("fan")) continue;
@@ -118,44 +103,90 @@ async function getFanId(username: string): Promise<{ fanId: number | null; error
     if (id) return { fanId: id };
   }
 
-  // Strategy 4: wishlist RSS feed — embeds fan_id in gift-link query params
   try {
-    const rssRes = await fetch(`https://bandcamp.com/${username}/wishlist?format=rss`, {
-      headers: { "User-Agent": UA },
-      signal: AbortSignal.timeout(timeout),
-    });
-    if (rssRes.ok) {
-      const rssText = await rssRes.text();
-      const id = extractFanIdFromText(rssText);
-      if (id) return { fanId: id };
-    }
+    const rssRes = await fetch(`https://bandcamp.com/${username}/wishlist?format=rss`, { headers: { "User-Agent": UA }, signal: AbortSignal.timeout(timeout) });
+    if (rssRes.ok) { const id = extractFanIdFromText(await rssRes.text()); if (id) return { fanId: id }; }
   } catch { /* continue */ }
 
-  // Strategy 5: collection RSS feed
   try {
-    const collRssRes = await fetch(`https://bandcamp.com/${username}/collection?format=rss`, {
-      headers: { "User-Agent": UA },
-      signal: AbortSignal.timeout(timeout),
-    });
-    if (collRssRes.ok) {
-      const rssText = await collRssRes.text();
-      const id = extractFanIdFromText(rssText);
-      if (id) return { fanId: id };
-    }
+    const collRssRes = await fetch(`https://bandcamp.com/${username}/collection?format=rss`, { headers: { "User-Agent": UA }, signal: AbortSignal.timeout(timeout) });
+    if (collRssRes.ok) { const id = extractFanIdFromText(await collRssRes.text()); if (id) return { fanId: id }; }
   } catch { /* continue */ }
 
-  return {
-    fanId: null,
-    error: "Could not find your Bandcamp fan ID. Make sure your Bandcamp collection is set to Public in your account settings, then try again.",
-  };
+  return { fanId: null, error: "Could not find your Bandcamp fan ID. Make sure your Bandcamp collection is set to Public in your account settings, then try again." };
 }
 
-type CollectionItem = { band_name: string; album_title: string };
+// ── Tag extraction from album page HTML ───────────────────────────────────────
+
+function extractTagsFromHtml(html: string): string[] {
+  const tags: string[] = [];
+  const seen = new Set<string>();
+
+  // Primary: <a class="tag"> links
+  for (const m of html.matchAll(/<a[^>]+class="tag"[^>]*>([^<]+)<\/a>/gi)) {
+    const t = m[1].trim().toLowerCase();
+    if (t && !seen.has(t)) { seen.add(t); tags.push(t); }
+  }
+  if (tags.length > 0) return tags;
+
+  // Fallback: TralbumData.tags JSON array
+  const tagsMatch = html.match(/"tags"\s*:\s*(\[[^\]]*\])/);
+  if (tagsMatch) {
+    try {
+      const parsed = JSON.parse(tagsMatch[1]) as unknown[];
+      for (const t of parsed) {
+        if (typeof t === "string") { const tag = t.toLowerCase(); if (!seen.has(tag)) { seen.add(tag); tags.push(tag); } }
+        else if (t && typeof t === "object" && "name" in t && typeof (t as Record<string,unknown>).name === "string") {
+          const tag = ((t as Record<string,unknown>).name as string).toLowerCase();
+          if (!seen.has(tag)) { seen.add(tag); tags.push(tag); }
+        }
+      }
+    } catch { /* ignore */ }
+  }
+
+  return tags;
+}
+
+async function fetchTagsForUrl(url: string): Promise<string[]> {
+  try {
+    const res = await fetch(url, { headers: { "User-Agent": UA, "Accept": "text/html" }, signal: AbortSignal.timeout(10_000) });
+    if (!res.ok) return [];
+    return extractTagsFromHtml(await res.text());
+  } catch { return []; }
+}
+
+// Fetch tags for a batch of items concurrently, capped at `concurrency` at once
+async function fetchTagsBatch(urls: string[], concurrency = 6): Promise<Map<string, string[]>> {
+  const result = new Map<string, string[]>();
+  const queue = [...urls];
+
+  async function worker() {
+    while (queue.length > 0) {
+      const url = queue.shift()!;
+      result.set(url, await fetchTagsForUrl(url));
+      if (queue.length > 0) await new Promise(r => setTimeout(r, 150));
+    }
+  }
+
+  await Promise.all(Array.from({ length: Math.min(concurrency, urls.length) }, worker));
+  return result;
+}
+
+// ── Collection fetch ──────────────────────────────────────────────────────────
+
+type CollectionItem = {
+  band_name:    string;
+  album_title:  string;
+  item_url:     string | null;
+  purchased_at: string | null;
+  release_date: string | null;
+  label:        string | null;
+};
 
 async function fetchCollection(fanId: number): Promise<CollectionItem[]> {
   const items: CollectionItem[] = [];
   let olderThanToken = "9999999999:9999999999:a::";
-  const MAX_PAGES = 500; // safety cap — ~10,000 albums
+  const MAX_PAGES = 500;
 
   for (let page = 0; page < MAX_PAGES; page++) {
     let res: Response;
@@ -166,28 +197,40 @@ async function fetchCollection(fanId: number): Promise<CollectionItem[]> {
         body: JSON.stringify({ fan_id: fanId, older_than_token: olderThanToken, count: 20 }),
         signal: AbortSignal.timeout(15_000),
       });
-    } catch {
-      break; // network error — return what we have
-    }
+    } catch { break; }
 
     if (!res.ok) break;
 
-    let data: { items?: { band_name?: string; album_title?: string }[]; more_available?: boolean; last_token?: string };
-    try {
-      data = (await res.json()) as typeof data;
-    } catch {
-      break; // non-JSON response (rate limit page etc.) — return what we have
-    }
+    type ApiItem = {
+      band_name?: string; album_title?: string; item_url?: string;
+      purchased?: string; release_date?: string; label_name?: string;
+    };
+    let data: { items?: ApiItem[]; more_available?: boolean; last_token?: string };
+    try { data = (await res.json()) as typeof data; }
+    catch { break; }
 
     for (const item of data.items ?? []) {
-      if (item.band_name && item.album_title) {
-        items.push({ band_name: item.band_name, album_title: item.album_title });
+      if (!item.band_name || !item.album_title) continue;
+      // Parse purchased timestamp — Bandcamp returns either ISO string or Unix seconds
+      let purchasedAt: string | null = null;
+      if (item.purchased) {
+        const asNum = Number(item.purchased);
+        purchasedAt = isNaN(asNum)
+          ? item.purchased
+          : new Date(asNum * 1000).toISOString();
       }
+      items.push({
+        band_name:    item.band_name,
+        album_title:  item.album_title,
+        item_url:     item.item_url ?? null,
+        purchased_at: purchasedAt,
+        release_date: item.release_date ?? null,
+        label:        item.label_name ?? null,
+      });
     }
 
     if (!data.more_available || !data.last_token || data.last_token === olderThanToken) break;
     olderThanToken = data.last_token;
-
     await new Promise(r => setTimeout(r, 300));
   }
 
@@ -201,92 +244,60 @@ export async function POST(request: NextRequest) {
     const { userId } = (await request.json()) as { userId?: string };
     if (!userId) return NextResponse.json({ error: "Missing userId" }, { status: 400 });
 
-    // Verify the caller's session using the cookie-based client
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
-    if (!user || user.id !== userId) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
+    if (!user || user.id !== userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
     const { data: profile } = await supabase
-      .from("profiles")
-      .select("bandcamp_username")
-      .eq("id", userId)
-      .single();
+      .from("profiles").select("bandcamp_username").eq("id", userId).single();
 
     if (!profile?.bandcamp_username) {
-      return NextResponse.json(
-        { error: "No Bandcamp username set. Add it in your profile settings." },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: "No Bandcamp username set. Add it in your profile settings." }, { status: 400 });
     }
 
     const username = profile.bandcamp_username.trim().toLowerCase();
-
     const { fanId, error: fanError } = await getFanId(username);
     if (!fanId) return NextResponse.json({ error: fanError }, { status: 400 });
 
     const collection = await fetchCollection(fanId);
-
     if (collection.length === 0) {
-      return NextResponse.json({
-        success: true,
-        total: 0,
-        duplicates: 0,
-        new: 0,
-        message: "No albums found in your Bandcamp collection.",
-      });
+      return NextResponse.json({ success: true, total: 0, duplicates: 0, new: 0, message: "No albums found in your Bandcamp collection." });
     }
 
+    // Scrape tags from album pages in parallel
+    const urlsToScrape = collection.map(i => i.item_url).filter(Boolean) as string[];
+    const tagMap = urlsToScrape.length > 0 ? await fetchTagsBatch(urlsToScrape) : new Map<string, string[]>();
+
     // Fetch user's physical collection for deduplication
-    const { data: userRecordsData } = await supabase
-      .from("user_records")
-      .select("record_id")
-      .eq("user_id", userId);
-
+    const { data: userRecordsData } = await supabase.from("user_records").select("record_id").eq("user_id", userId);
     const recordIds = (userRecordsData ?? []).map(r => r.record_id as string);
-
     type RecordRow = { id: string; artist: string; album: string };
     const physicalCollection: RecordRow[] = [];
 
     if (recordIds.length > 0) {
       const BATCH = 400;
       for (let i = 0; i < recordIds.length; i += BATCH) {
-        const { data } = await supabase
-          .from("records")
-          .select("id, artist, album")
-          .in("id", recordIds.slice(i, i + BATCH));
+        const { data } = await supabase.from("records").select("id, artist, album").in("id", recordIds.slice(i, i + BATCH));
         for (const r of data ?? []) physicalCollection.push(r as RecordRow);
       }
     }
 
-    const normalizedPhysical = physicalCollection.map(r => ({
-      id:     r.id,
-      artist: normalize(r.artist),
-      album:  normalize(r.album),
-    }));
-
+    const normalizedPhysical = physicalCollection.map(r => ({ id: r.id, artist: normalize(r.artist), album: normalize(r.album) }));
     let duplicateCount = 0;
 
     const upsertRows = collection.map(item => {
       const normArtist = normalize(item.band_name);
       const normAlbum  = normalize(item.album_title);
-
-      let isDuplicate    = false;
-      let matchedId: string | null = null;
+      let isDuplicate = false, matchedId: string | null = null;
 
       for (const physical of normalizedPhysical) {
-        if (
-          similarity(normArtist, physical.artist) >= 0.85 &&
-          similarity(normAlbum,  physical.album)  >= 0.85
-        ) {
-          isDuplicate = true;
-          matchedId   = physical.id;
-          break;
+        if (similarity(normArtist, physical.artist) >= 0.85 && similarity(normAlbum, physical.album) >= 0.85) {
+          isDuplicate = true; matchedId = physical.id; break;
         }
       }
-
       if (isDuplicate) duplicateCount++;
+
+      const tags = item.item_url ? (tagMap.get(item.item_url) ?? null) : null;
 
       return {
         user_id:           userId,
@@ -296,49 +307,39 @@ export async function POST(request: NextRequest) {
         is_duplicate:      isDuplicate,
         matched_record_id: matchedId,
         imported_at:       new Date().toISOString(),
+        purchased_at:      item.purchased_at,
+        item_url:          item.item_url,
+        release_date:      item.release_date,
+        label:             item.label,
+        tags:              tags && tags.length > 0 ? tags : null,
       };
     });
 
-    // Deduplicate by artist+album — Bandcamp sometimes returns the same item twice
+    // Deduplicate by artist+album
     const seen = new Set<string>();
     const dedupedRows = upsertRows.filter(r => {
       const key = `${r.artist.toLowerCase()}||${r.album.toLowerCase()}`;
       if (seen.has(key)) return false;
-      seen.add(key);
-      return true;
+      seen.add(key); return true;
     });
 
-    // Replace previous sync data — user is authenticated above, RLS scopes to their rows.
-    const { error: delError } = await supabase
-      .from("digital_imports")
-      .delete()
-      .eq("user_id", userId)
-      .eq("source", "bandcamp");
-    if (delError) {
-      console.error("digital_imports delete error:", delError);
-      return NextResponse.json({ error: `DB delete failed: ${delError.message}` }, { status: 500 });
-    }
+    // Replace previous sync data
+    const { error: delError } = await supabase.from("digital_imports").delete().eq("user_id", userId).eq("source", "bandcamp");
+    if (delError) return NextResponse.json({ error: `DB delete failed: ${delError.message}` }, { status: 500 });
 
     const INSERT_BATCH = 100;
     for (let i = 0; i < dedupedRows.length; i += INSERT_BATCH) {
-      const { error: insError } = await supabase
-        .from("digital_imports")
-        .insert(dedupedRows.slice(i, i + INSERT_BATCH));
-      if (insError) {
-        console.error("digital_imports insert error:", insError);
-        return NextResponse.json({ error: `DB insert failed: ${insError.message}` }, { status: 500 });
-      }
+      const { error: insError } = await supabase.from("digital_imports").insert(dedupedRows.slice(i, i + INSERT_BATCH));
+      if (insError) return NextResponse.json({ error: `DB insert failed: ${insError.message}` }, { status: 500 });
     }
 
     const total    = dedupedRows.length;
     const newCount = total - duplicateCount;
+    const taggedCount = dedupedRows.filter(r => r.tags && r.tags.length > 0).length;
 
     return NextResponse.json({
-      success:    true,
-      total,
-      duplicates: duplicateCount,
-      new:        newCount,
-      message:    `${total} albums imported from Bandcamp. ${duplicateCount} already in your physical collection.`,
+      success: true, total, duplicates: duplicateCount, new: newCount,
+      message: `${total} albums imported from Bandcamp. ${taggedCount} with genre tags.`,
     });
   } catch (error) {
     const msg = error instanceof Error ? error.message : String(error);
