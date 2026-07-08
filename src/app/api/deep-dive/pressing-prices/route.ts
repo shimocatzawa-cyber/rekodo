@@ -13,7 +13,7 @@ export async function POST(request: NextRequest) {
 
   const body = await request.json() as { releaseIds?: number[]; currency?: string };
   const currency = SUPPORTED_CURRENCIES.has(body.currency ?? "") ? body.currency! : "USD";
-  const releaseIds = Array.isArray(body.releaseIds) ? body.releaseIds.slice(0, 30) : [];
+  const releaseIds = Array.isArray(body.releaseIds) ? body.releaseIds.slice(0, 200) : [];
 
   if (releaseIds.length === 0) return NextResponse.json({ prices: {} });
 
@@ -24,29 +24,35 @@ export async function POST(request: NextRequest) {
 
   const prices: Record<number, { lowestPrice: number | null; currency: string; numForSale: number }> = {};
 
-  await Promise.all(
-    releaseIds.map(async (releaseId) => {
-      try {
-        const res = await fetch(
-          `https://api.discogs.com/marketplace/stats/${releaseId}?curr_abbr=${currency}`,
-          { headers, signal: AbortSignal.timeout(5000) }
-        );
-        if (!res.ok) return;
-        const json = await res.json() as {
-          lowest_price?: { value: number; currency: string } | null;
-          num_for_sale?: number;
-          blocked_from_sale?: boolean;
-        };
-        if (!json.blocked_from_sale) {
-          prices[releaseId] = {
-            lowestPrice: json.lowest_price?.value ?? null,
-            currency:    json.lowest_price?.currency ?? currency,
-            numForSale:  json.num_for_sale ?? 0,
+  // Batch to avoid hitting Discogs consumer key rate limit (25 req/min)
+  const BATCH = 8;
+  const BATCH_DELAY_MS = 2000;
+  for (let i = 0; i < releaseIds.length; i += BATCH) {
+    if (i > 0) await new Promise(r => setTimeout(r, BATCH_DELAY_MS));
+    await Promise.all(
+      releaseIds.slice(i, i + BATCH).map(async (releaseId) => {
+        try {
+          const res = await fetch(
+            `https://api.discogs.com/marketplace/stats/${releaseId}?curr_abbr=${currency}`,
+            { headers, signal: AbortSignal.timeout(5000) }
+          );
+          if (!res.ok) return;
+          const json = await res.json() as {
+            lowest_price?: { value: number; currency: string } | null;
+            num_for_sale?: number;
+            blocked_from_sale?: boolean;
           };
-        }
-      } catch { /* skip — price is optional */ }
-    })
-  );
+          if (!json.blocked_from_sale) {
+            prices[releaseId] = {
+              lowestPrice: json.lowest_price?.value ?? null,
+              currency:    json.lowest_price?.currency ?? currency,
+              numForSale:  json.num_for_sale ?? 0,
+            };
+          }
+        } catch { /* skip — price is optional */ }
+      })
+    );
+  }
 
   return NextResponse.json({ prices });
 }
