@@ -91,6 +91,53 @@ function AlbumMeta({ album, muted = false }: { album: EchoAlbum; muted?: boolean
   );
 }
 
+function WantlistButton({ album, dark = false }: { album: EchoAlbum; dark?: boolean }) {
+  const [state, setState] = useState<"idle" | "adding" | "added" | "error">("idle");
+
+  async function handleAdd() {
+    if (state !== "idle") return;
+    setState("adding");
+    try {
+      const res = await fetch("/api/wantlist/dig", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ artist: album.artist, album: album.title, year: album.year ?? null }),
+      });
+      setState(res.ok ? "added" : "error");
+    } catch {
+      setState("error");
+    }
+  }
+
+  const label = state === "adding" ? "adding…" : state === "added" ? "✓ added" : state === "error" ? "retry" : "+ wantlist";
+  const done  = state === "added";
+  const base  = dark ? "rgba(255,255,255,0.55)" : MUTED;
+  const active = dark ? "rgba(255,255,255,0.85)" : ORANGE;
+
+  return (
+    <button
+      onClick={handleAdd}
+      disabled={state === "adding" || state === "added"}
+      style={{
+        marginTop: 7,
+        fontFamily: MONO,
+        fontSize: "0.6rem",
+        letterSpacing: "0.1em",
+        textTransform: "uppercase",
+        color: done ? base : active,
+        background: "none",
+        border: `1px ${done ? "solid" : "dashed"} ${done ? base : active}`,
+        padding: "3px 7px",
+        cursor: done ? "default" : "pointer",
+        opacity: state === "adding" ? 0.5 : 1,
+        display: "inline-block",
+      }}
+    >
+      {label}
+    </button>
+  );
+}
+
 // Small archetype signal tag shown under each module header
 function SignalTag({ label }: { label: string }) {
   return (
@@ -165,6 +212,7 @@ function MissingMiddle({ data, ctx }: { data: EchoesData["missingMiddle"]; ctx?:
             <ArtSquare album={album} />
             <div style={{ marginTop: 8 }}>
               <AlbumMeta album={album} />
+              <WantlistButton album={album} />
             </div>
           </div>
         ))}
@@ -198,6 +246,7 @@ function UnboughtClassic({ data, ctx }: { data: EchoesData["unboughtClassic"]; c
             <ArtSquare album={album} />
             <div style={{ marginTop: 8 }}>
               <AlbumMeta album={album} />
+              <WantlistButton album={album} />
             </div>
           </div>
         ))}
@@ -243,6 +292,7 @@ function ScenePortals({ data, ctx }: { data: EchoesData["scenePortals"]; ctx?: E
             Gateway
           </div>
           <AlbumMeta album={portal.gatewayAlbum} />
+          <WantlistButton album={portal.gatewayAlbum} />
         </div>
       </div>
     </div>
@@ -281,6 +331,7 @@ function TasteForks({ data, ctx }: { data: EchoesData["tasteForks"]; ctx?: Echoe
                 Road not taken
               </div>
               <AlbumMeta album={album} />
+              <WantlistButton album={album} />
             </div>
           </div>
         ))}
@@ -343,6 +394,7 @@ function NextObsession({ data, ctx }: { data: EchoesData["nextObsession"]; ctx?:
                 <div style={{ fontFamily: MONO, fontSize: "0.68rem", color: "rgba(255,255,255,0.4)", letterSpacing: "0.04em" }}>
                   {data.entryPoint.artist}{data.entryPoint.year ? ` · ${data.entryPoint.year}` : ""}
                 </div>
+                <WantlistButton album={data.entryPoint} dark />
               </div>
             )}
           </div>
