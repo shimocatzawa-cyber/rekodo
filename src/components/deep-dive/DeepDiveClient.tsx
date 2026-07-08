@@ -14,7 +14,7 @@ const RULE   = "#e0e0da";
 const WARM   = "#FDF6F0";
 const SUBTLE = "#f0efea";
 
-type Section = "rankings" | "podcasts" | "books" | "interviews" | "related" | "blindspot";
+type Section = "rankings" | "podcasts" | "books" | "interviews" | "related" | "blindspot" | "pressings";
 
 export type ArtistData = {
   name: string;
@@ -38,7 +38,7 @@ function BandcampIcon({ size = 13 }: { size?: number }) {
   );
 }
 
-const TAB_IDS: Section[] = ["rankings", "podcasts", "books", "interviews", "related", "blindspot"];
+const TAB_IDS: Section[] = ["rankings", "podcasts", "books", "interviews", "related", "blindspot", "pressings"];
 
 // ── Shared primitives ──────────────────────────────────────────────────────────
 
@@ -112,7 +112,7 @@ function SkeletonRows() {
 
 // ── Tab content renderers ──────────────────────────────────────────────────────
 
-type Album = { rank: number; title: string; year: number; review: string; collectorNote: string };
+type Album = { rank: number; title: string; year: number; review: string };
 
 function RankingsContent({
   data,
@@ -182,12 +182,8 @@ function RankingsContent({
                   {statusTag}
                 </div>
                 <div style={{ borderTop: `1px solid ${RULE}`, margin: "0 0 10px" }} />
-                <p style={{ fontFamily: MONO, fontSize: "0.72rem", letterSpacing: "0.04em", color: INK, lineHeight: 1.7, margin: "0 0 10px" }}>
+                <p style={{ fontFamily: MONO, fontSize: "0.72rem", letterSpacing: "0.04em", color: INK, lineHeight: 1.7, margin: 0 }}>
                   {a.review}
-                </p>
-                <div style={{ borderTop: `1px solid ${RULE}`, margin: "0 0 10px" }} />
-                <p style={{ fontFamily: MONO, fontSize: "0.68rem", letterSpacing: "0.04em", color: INK, fontStyle: "italic", lineHeight: 1.6, margin: 0 }}>
-                  {a.collectorNote}
                 </p>
               </div>
             </div>
@@ -746,6 +742,147 @@ function BlindSpotContent({ data, artist }: { data: { albums?: BlindSpotAlbum[] 
   );
 }
 
+// ── Pressing Explorer ──────────────────────────────────────────────────────────
+
+type PressingVariant = {
+  releaseId: number;
+  country: string;
+  year: string;
+  label: string;
+  catno: string;
+  format: string;
+  inCollection: number;
+  inWantlist: number;
+  wantHaveRatio: number;
+  lowestPrice?: number;
+  currency?: string;
+  numForSale?: number;
+};
+
+type PressingsAlbum = {
+  album: string;
+  year: number;
+  masterId: number;
+  variants: PressingVariant[];
+};
+
+function PressingsContent({ data }: { data: { pressings?: PressingsAlbum[] } }) {
+  const albums = data.pressings ?? [];
+
+  if (albums.length === 0) {
+    return (
+      <p style={{ fontFamily: MONO, fontSize: "0.72rem", letterSpacing: "0.04em", color: INK, padding: "2rem 0" }}>
+        No vinyl pressing data available for this artist on Discogs.
+      </p>
+    );
+  }
+
+  return (
+    <div>
+      {albums.map((a, ai) => {
+        const hasVariants = a.variants.length > 0;
+        return (
+          <div key={ai} style={{ padding: "1.5rem 0", borderBottom: `1px solid ${RULE}` }}>
+            <div style={{ display: "flex", gap: 12, alignItems: "baseline", flexWrap: "wrap", marginBottom: hasVariants ? 16 : 0 }}>
+              <span style={{ fontFamily: SERIF, fontSize: "1rem", fontWeight: 600, color: INK, letterSpacing: "-0.01em" }}>
+                {a.album}
+              </span>
+              <span style={{ fontFamily: MONO, fontSize: "0.7rem", letterSpacing: "0.04em", color: INK }}>
+                · {a.year}
+              </span>
+            </div>
+
+            {!hasVariants && (
+              <p style={{ fontFamily: MONO, fontSize: "0.7rem", letterSpacing: "0.04em", color: "#aaa", margin: "8px 0 0" }}>
+                No vinyl pressings found on Discogs.
+              </p>
+            )}
+
+            {hasVariants && (
+              <div style={{ overflowX: "auto", WebkitOverflowScrolling: "touch" }}>
+                <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 460 }}>
+                  <thead>
+                    <tr>
+                      {(["Country", "Year", "Label", "Cat#", "Wants", "Have", "Ratio", "Price"] as const).map(col => (
+                        <th key={col} style={{
+                          fontFamily: MONO, fontSize: "0.52rem", letterSpacing: "0.12em",
+                          textTransform: "uppercase", color: ORANGE,
+                          textAlign: col === "Country" || col === "Label" || col === "Cat#" ? "left" : "right",
+                          padding: "0 10px 6px 0",
+                          borderBottom: `1px solid ${RULE}`,
+                          whiteSpace: "nowrap",
+                        }}>
+                          {col}
+                        </th>
+                      ))}
+                      <th style={{ width: 16 }} />
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {a.variants.map((v, vi) => {
+                      const isTop = vi === 0;
+                      const discogsUrl = `https://www.discogs.com/release/${v.releaseId}`;
+                      const priceStr = v.lowestPrice != null
+                        ? `$${v.lowestPrice.toFixed(2)}`
+                        : v.numForSale != null && v.numForSale > 0
+                        ? "—"
+                        : "—";
+                      return (
+                        <tr key={vi} style={{ background: isTop ? WARM : "transparent" }}>
+                          <td style={{ fontFamily: MONO, fontSize: "0.68rem", letterSpacing: "0.03em", color: INK, padding: "7px 10px 7px 0", borderBottom: `1px solid ${RULE}`, whiteSpace: "nowrap" }}>
+                            {isTop && <span style={{ color: ORANGE, marginRight: 5, fontSize: "0.55rem" }}>★</span>}
+                            {v.country}
+                          </td>
+                          <td style={{ fontFamily: MONO, fontSize: "0.68rem", letterSpacing: "0.03em", color: INK, padding: "7px 10px 7px 0", borderBottom: `1px solid ${RULE}`, textAlign: "right", whiteSpace: "nowrap" }}>
+                            {v.year || "—"}
+                          </td>
+                          <td style={{ fontFamily: MONO, fontSize: "0.65rem", letterSpacing: "0.02em", color: INK, padding: "7px 10px 7px 0", borderBottom: `1px solid ${RULE}`, maxWidth: 140, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                            {v.label}
+                          </td>
+                          <td style={{ fontFamily: MONO, fontSize: "0.62rem", letterSpacing: "0.02em", color: "#777", padding: "7px 10px 7px 0", borderBottom: `1px solid ${RULE}`, maxWidth: 100, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                            {v.catno || "—"}
+                          </td>
+                          <td style={{ fontFamily: MONO, fontSize: "0.68rem", letterSpacing: "0.03em", color: INK, padding: "7px 10px 7px 0", borderBottom: `1px solid ${RULE}`, textAlign: "right", whiteSpace: "nowrap" }}>
+                            {v.inWantlist.toLocaleString()}
+                          </td>
+                          <td style={{ fontFamily: MONO, fontSize: "0.68rem", letterSpacing: "0.03em", color: INK, padding: "7px 10px 7px 0", borderBottom: `1px solid ${RULE}`, textAlign: "right", whiteSpace: "nowrap" }}>
+                            {v.inCollection.toLocaleString()}
+                          </td>
+                          <td style={{ fontFamily: MONO, fontSize: "0.68rem", letterSpacing: "0.03em", color: v.wantHaveRatio >= 2 ? ORANGE : INK, padding: "7px 10px 7px 0", borderBottom: `1px solid ${RULE}`, textAlign: "right", whiteSpace: "nowrap" }}>
+                            {v.wantHaveRatio.toFixed(2)}×
+                          </td>
+                          <td style={{ fontFamily: MONO, fontSize: "0.68rem", letterSpacing: "0.03em", color: INK, padding: "7px 10px 7px 0", borderBottom: `1px solid ${RULE}`, textAlign: "right", whiteSpace: "nowrap" }}>
+                            {priceStr}
+                          </td>
+                          <td style={{ padding: "7px 0 7px 4px", borderBottom: `1px solid ${RULE}` }}>
+                            <a
+                              href={discogsUrl}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              style={{ fontFamily: MONO, fontSize: "0.6rem", letterSpacing: "0.06em", color: ORANGE, textDecoration: "none", whiteSpace: "nowrap" }}
+                              onMouseEnter={e => { (e.currentTarget as HTMLAnchorElement).style.textDecoration = "underline"; }}
+                              onMouseLeave={e => { (e.currentTarget as HTMLAnchorElement).style.textDecoration = "none"; }}
+                            >
+                              Discogs →
+                            </a>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        );
+      })}
+      <p style={{ fontFamily: MONO, fontSize: "0.6rem", letterSpacing: "0.06em", color: "#aaa", marginTop: 16 }}>
+        ★ Most wanted pressing. Ratio = wants ÷ haves. Price = current lowest Discogs listing in USD. Data via Discogs.
+      </p>
+    </div>
+  );
+}
+
 // ── Artist row (sidebar) ───────────────────────────────────────────────────────
 
 function ArtistRow({
@@ -858,6 +995,7 @@ export default function DeepDiveClient({
     { id: "interviews", label: t("interviews") },
     { id: "related",    label: t("relatedArtists") },
     { id: "blindspot",  label: t("blindSpot") },
+    { id: "pressings",  label: t("pressings") },
   ];
   const [query, setQuery] = useState("");
   const [selectedArtist, setSelectedArtist] = useState<string | null>(null);
@@ -1259,6 +1397,7 @@ export default function DeepDiveClient({
     if (tab === "interviews") return <InterviewsContent data={data as { interviews?: InterviewItem[] }} artist={selectedArtist} />;
     if (tab === "related")    return <RelatedArtistsContent data={data as { artists?: RelatedArtist[] }} />;
     if (tab === "blindspot")  return <BlindSpotContent  data={data as { albums?: BlindSpotAlbum[] }} artist={selectedArtist} />;
+    if (tab === "pressings")  return <PressingsContent  data={data as { pressings?: PressingsAlbum[] }} />;
     return null;
   }
 

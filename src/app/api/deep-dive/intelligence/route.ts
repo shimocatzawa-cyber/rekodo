@@ -19,6 +19,7 @@ const CACHE_TTL_DAYS: Record<string, number> = {
   books:      180,
   interviews: 60,
   related:    0,
+  pressings:  180,
 };
 
 // The JSON field holding each section's primary result array.
@@ -28,6 +29,7 @@ const RESULT_ARRAY_KEY: Record<string, string> = {
   books:      "items",
   interviews: "interviews",
   related:    "artists",
+  pressings:  "pressings",
 };
 
 // Don't cache a bad result — a transient parse/verification failure returning
@@ -46,7 +48,7 @@ function isEmptyResult(section: string, data: unknown): boolean {
 // before Claude is ever called.
 const DB_TIMEOUT_MS = 3000;
 
-const CACHED_SECTIONS = new Set(["rankings", "podcasts", "books", "interviews", "related"]);
+const CACHED_SECTIONS = new Set(["rankings", "podcasts", "books", "interviews", "related", "pressings"]);
 
 const SONNET_SECTIONS = new Set(["rankings", "podcasts", "books", "interviews"]);
 
@@ -57,6 +59,7 @@ const MAX_TOKENS: Record<string, number> = {
   interviews: 2000,
   blindspot:  2048,
   related:    1500,
+  pressings:  0,
 };
 
 // Sections where Claude verifies results via Anthropic's server-side web search
@@ -199,6 +202,170 @@ async function fetchDiscogsDiscography(artistName: string): Promise<DiscogsAlbum
   }
 }
 
+// ── Discogs pressing data ─────────────────────────────────────────────────────
+// Fetches real pressing variants from Discogs masters + marketplace stats.
+// Returns structured data: per album, vinyl pressing variants sorted by
+// wantlist count (popularity proxy for desirability).
+
+type PressingVariant = {
+  releaseId: number;
+  country: string;
+  year: string;
+  label: string;
+  catno: string;
+  format: string;
+  inCollection: number;
+  inWantlist: number;
+  wantHaveRatio: number;
+  lowestPrice?: number;
+  currency?: string;
+  numForSale?: number;
+};
+
+type PressingsAlbum = {
+  album: string;
+  year: number;
+  masterId: number;
+  variants: PressingVariant[];
+};
+
+async function fetchPressingsData(artistName: string): Promise<{ pressings: PressingsAlbum[] }> {
+  try {
+    const key    = process.env.DISCOGS_CONSUMER_KEY;
+    const secret = process.env.DISCOGS_CONSUMER_SECRET;
+    const headers: Record<string, string> = { "User-Agent": "rekodo/1.0 (shimocatzawa@gmail.com)" };
+    if (key && secret) headers["Authorization"] = `Discogs key=${key}, secret=${secret}`;
+
+    // Artist search
+    const searchRes = await fetch(
+      `https://api.discogs.com/database/search?q=${encodeURIComponent(artistName)}&type=artist&per_page=5`,
+      { headers, signal: AbortSignal.timeout(5000) }
+    );
+    if (!searchRes.ok) return { pressings: [] };
+    const { results = [] } = await searchRes.json() as { results?: { id: number; type: string }[] };
+    const artistId = results.find(r => r.type === "artist")?.id;
+    if (!artistId) return { pressings: [] };
+
+    // Artist releases — studio albums (Main role, master type)
+    const relRes = await fetch(
+      `https://api.discogs.com/artists/${artistId}/releases?per_page=100&sort=year&sort_order=asc`,
+      { headers, signal: AbortSignal.timeout(5000) }
+    );
+    if (!relRes.ok) return { pressings: [] };
+    const { releases = [] } = await relRes.json() as {
+      releases?: { type: string; role: string; title: string; year: number; id: number }[];
+    };
+
+    const LIVE_PAT   = /\blive\b|\blive at\b|\bconcert\b/i;
+    const SINGLE_PAT = /\bb\/w\b/i;
+    const seen = new Set<string>();
+    const albums: { title: string; year: number; masterId: number }[] = [];
+    for (const r of releases) {
+      if (r.role !== "Main" || r.type !== "master" || !r.year || r.year < 1900) continue;
+      if (LIVE_PAT.test(r.title) || SINGLE_PAT.test(r.title)) continue;
+      const norm = r.title.toLowerCase().trim();
+      if (seen.has(norm)) continue;
+      seen.add(norm);
+      albums.push({ title: r.title, year: r.year, masterId: r.id });
+    }
+
+    const topAlbums = albums.slice(0, 6);
+    if (topAlbums.length === 0) return { pressings: [] };
+
+    type DiscogsVersion = {
+      id: number;
+      country?: string;
+      year?: string;
+      label?: string[];
+      catno?: string;
+      format?: string;
+      stats?: { community?: { in_collection: number; in_wantlist: number } };
+    };
+
+    // Fetch vinyl versions for each album in parallel
+    const versionsResults = await Promise.all(
+      topAlbums.map(async (album) => {
+        try {
+          const res = await fetch(
+            `https://api.discogs.com/masters/${album.masterId}/versions?format=Vinyl&per_page=100`,
+            { headers, signal: AbortSignal.timeout(8000) }
+          );
+          if (!res.ok) return { ...album, versions: [] as DiscogsVersion[] };
+          const json = await res.json() as { versions?: DiscogsVersion[] };
+          return { ...album, versions: json.versions ?? [] };
+        } catch {
+          return { ...album, versions: [] as DiscogsVersion[] };
+        }
+      })
+    );
+
+    // Sort each album's pressings by wantlist count, take top 5
+    type RawVariant = Omit<PressingVariant, "lowestPrice" | "currency" | "numForSale">;
+    const processedAlbums = versionsResults.map(({ title, year, masterId, versions }) => {
+      const vinyl = versions
+        .filter(v => v.country && v.stats?.community)
+        .map(v => {
+          const inCollection = v.stats?.community?.in_collection ?? 0;
+          const inWantlist   = v.stats?.community?.in_wantlist   ?? 0;
+          return {
+            releaseId: v.id,
+            country:   v.country ?? "Unknown",
+            year:      v.year    ?? "",
+            label:     (v.label ?? [])[0] ?? "Unknown",
+            catno:     v.catno   ?? "",
+            format:    v.format  ?? "Vinyl",
+            inCollection,
+            inWantlist,
+            wantHaveRatio: Math.round((inWantlist / Math.max(inCollection, 1)) * 100) / 100,
+          } satisfies RawVariant;
+        })
+        .sort((a, b) => b.inWantlist - a.inWantlist)
+        .slice(0, 5);
+      return { album: title, year, masterId, variants: vinyl };
+    });
+
+    // Fetch marketplace stats for top 2 variants per album (price data)
+    const releaseIds = processedAlbums.flatMap(a => a.variants.slice(0, 2).map(v => v.releaseId));
+    const statsMap = new Map<number, { lowestPrice?: number; currency?: string; numForSale?: number }>();
+
+    await Promise.all(
+      releaseIds.map(async (releaseId) => {
+        try {
+          const res = await fetch(
+            `https://api.discogs.com/marketplace/stats/${releaseId}?curr_abbr=USD`,
+            { headers, signal: AbortSignal.timeout(5000) }
+          );
+          if (!res.ok) return;
+          const json = await res.json() as {
+            lowest_price?: { value: number; currency: string } | null;
+            num_for_sale?: number;
+            blocked_from_sale?: boolean;
+          };
+          if (!json.blocked_from_sale) {
+            statsMap.set(releaseId, {
+              lowestPrice: json.lowest_price?.value,
+              currency:    json.lowest_price?.currency,
+              numForSale:  json.num_for_sale,
+            });
+          }
+        } catch { /* skip — price is optional */ }
+      })
+    );
+
+    const pressings = processedAlbums.map(a => ({
+      ...a,
+      variants: a.variants.map(v => ({
+        ...v,
+        ...(statsMap.get(v.releaseId) ?? {}),
+      })),
+    }));
+
+    return { pressings };
+  } catch {
+    return { pressings: [] };
+  }
+}
+
 async function readCache(artist: string, section: string): Promise<unknown | null> {
   try {
     const supabase = getSupabase();
@@ -272,15 +439,10 @@ ${discogsAlbums.length > 0
 - Do not confuse ${artist} with any other artist.
 - Studio albums only — no compilations, live records, or EPs unless universally regarded as a major work.
 - Return EXACTLY 6 albums maximum — choose the most essential, even for prolific artists. Do not exceed 6.
-- Keep each review to 2 sentences. Keep each collectorNote to 1 sentence.
+- Keep each review to 2 sentences.
 ${ownedBlock}
-COLLECTOR NOTE RULES:
-- Never name a specific label or pressing plant unless you are absolutely certain. Fabricated label claims are worse than no information.
-- Focus on: original vs reissue, country of pressing, decade, or known sonic characteristics.
-- If no reliable pressing info is known, note the album's sonic character instead.
-
 Return ONLY valid JSON, no markdown, no backticks, no preamble:
-{"albums":[{"rank":1,"title":"Album Title","year":1975,"review":"2 sentence critical review.","collectorNote":"1 sentence pressing note."}]}`;
+{"albums":[{"rank":1,"title":"Album Title","year":1975,"review":"2 sentence critical review."}]}`;
   },
 
   podcasts: (artist) =>
@@ -388,9 +550,22 @@ export async function getOrGenerateSection(
   ownedAlbums?: string[],
   force?: boolean
 ): Promise<{ data: unknown; cached: boolean }> {
-  if (!artist || !section || !PROMPTS[section]) {
-    throw new Error("Invalid request");
+  if (!artist || !section) throw new Error("Invalid request");
+
+  // ── Pressings: pure Discogs data, no Claude ────────────────────────────────
+  if (section === "pressings") {
+    if (!force) {
+      const cached = await readCache(artist, "pressings");
+      if (cached) return { data: cached, cached: true };
+    }
+    const data = await fetchPressingsData(artist);
+    if (!isEmptyResult("pressings", data)) {
+      after(() => writeCache(artist, "pressings", data));
+    }
+    return { data, cached: false };
   }
+
+  if (!PROMPTS[section]) throw new Error("Invalid request");
 
   // ── Cache read (3 s hard timeout — hangs must not block Claude) ────────────
   // Skip when force=true so a user-initiated Retry always gets a fresh generation
