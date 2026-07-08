@@ -532,7 +532,7 @@ export default function ProfileClient({
                       { hero: topArtist ?? "—",                                                                   label: "Most Collected" },
                     ].map((stat, i) => (
                       <div key={stat.label} style={{ padding: "14px 16px", borderLeft: i > 0 ? `1px solid ${RULE}` : "none", minWidth: 0 }}>
-                        <p style={{ fontFamily: SERIF, fontSize: "1.25rem", fontWeight: 400, color: INK, margin: "0 0 3px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{stat.hero}</p>
+                        <p style={{ fontFamily: SERIF, fontSize: stat.hero.length > 16 ? "0.78rem" : stat.hero.length > 11 ? "1rem" : "1.25rem", fontWeight: 400, color: INK, margin: "0 0 3px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{stat.hero}</p>
                         <p style={{ fontFamily: MONO, fontSize: "0.58rem", letterSpacing: "0.14em", textTransform: "uppercase", color: MUTED, margin: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{stat.label}</p>
                       </div>
                     ))}

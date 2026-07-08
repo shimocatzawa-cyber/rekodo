@@ -792,7 +792,7 @@ function formatPrice(value: number, currency: string): string {
 }
 
 function PressingsContent({ data }: { data: { pressings?: PressingsAlbum[] } }) {
-  const albums = data.pressings ?? [];
+  const albums = (data.pressings ?? []).filter(a => a.variants.length > 0);
   const [priceMap, setPriceMap] = useState<Record<number, PriceEntry>>({});
   const [pricesLoading, setPricesLoading] = useState(false);
 
