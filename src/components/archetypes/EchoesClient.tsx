@@ -188,7 +188,7 @@ function UnboughtClassic({ data, ctx }: { data: EchoesData["unboughtClassic"]; c
           {data.scene}
         </span>
         <span style={{ fontFamily: MONO, fontSize: "0.7rem", color: MUTED, letterSpacing: "0.02em" }}>
-          — {data.intro}
+          {data.intro}
         </span>
       </div>
 

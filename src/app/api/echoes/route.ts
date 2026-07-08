@@ -315,7 +315,7 @@ MODULE 05 — NEXT OBSESSION
 Rhythm: ${rhythmType}. ${rhythmTone}
 Often lives in shadow (${archetype.shadow}) territory. Give 1 entry-point album.
 
-IMPORTANT: Do not include year in your output — it will be sourced from the database.
+IMPORTANT: Do not include year in your output. Do not use em dashes (—) anywhere in your output.
 
 Return ONLY valid JSON, no markdown:
 {
@@ -391,7 +391,7 @@ async function generate(
     body: JSON.stringify({
       model:      "claude-sonnet-4-6",
       max_tokens: 2048,
-      system:     "You are a music discovery engine. Return valid JSON only — no markdown, no code blocks. Output real artist names and album titles accurately; recommendations are validated against a 467,000-record music database and silently dropped if not found.",
+      system:     "You are a music discovery engine. Return valid JSON only, no markdown, no code blocks. Output real artist names and album titles accurately; recommendations are validated against a 467,000-record music database and silently dropped if not found. Never use em dashes (—) in any output text.",
       messages:   [{ role: "user", content: prompt }],
     }),
     signal: AbortSignal.timeout(90000),
@@ -412,6 +412,17 @@ async function generate(
     if (!match) { console.error("[Echoes] No JSON in response:", raw.slice(0, 300)); return { error: "parse_error" as const }; }
     try { echoes = JSON.parse(match[0]); } catch { return { error: "parse_error" as const }; }
   }
+
+  // Strip em dashes from all string values
+  const stripEmDash = (v: unknown): unknown => {
+    if (typeof v === "string") return v.replace(/\s*—\s*/g, " ").trim();
+    if (Array.isArray(v)) return v.map(stripEmDash);
+    if (v && typeof v === "object") {
+      return Object.fromEntries(Object.entries(v as Record<string, unknown>).map(([k, val]) => [k, stripEmDash(val)]));
+    }
+    return v;
+  };
+  echoes = stripEmDash(echoes);
 
   // Validate every pick against the global records table:
   //   - album not in 467k DB → dropped (hallucination)
