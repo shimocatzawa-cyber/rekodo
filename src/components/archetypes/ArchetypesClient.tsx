@@ -149,8 +149,8 @@ export default function ArchetypesClient({ userId, username, displayLabel, avata
 
       <main className="rk-arch-main" style={{ padding: "48px 32px 80px", maxWidth: "960px", margin: "0 auto" }}>
 
-        {/* Page header */}
-        <div style={{ marginBottom: 32 }}>
+        {/* Page header — archetypes tab only */}
+        <div style={{ marginBottom: 32, display: tab === "archetypes" || !isAdmin ? undefined : "none" }}>
           <div className="rk-arch-header" style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
             <div style={{ display: "flex", alignItems: "baseline", gap: 16, flexWrap: "wrap" }}>
               <h1 style={{ fontFamily: SERIF, fontSize: "1.8rem", fontWeight: 400, color: INK, margin: 0 }}>
