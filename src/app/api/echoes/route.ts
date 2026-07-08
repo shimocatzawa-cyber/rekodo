@@ -308,8 +308,8 @@ Give 1 adjacent micro-scene: the most natural next-step from this collection. On
 MODULE 04 — TASTE FORKS
 Shadow archetype: ${archetype.shadow} — ${shadowTrait}
 "Road not taken" albums must come from ${archetype.shadow} territory.
-archetypePattern = what a typical ${archetype.primary} moves toward.
-yourDivergence = how THIS collection veered away from ${archetype.shadow} territory.
+archetypePattern = the territory a typical ${archetype.primary} gravitates toward — compressed to a phrase, no full sentence.
+yourDivergence = the specific way THIS collection diverged from ${archetype.shadow} territory — sharp and named, not explained.
 
 MODULE 05 — NEXT OBSESSION
 Rhythm: ${rhythmType}. ${rhythmTone}
@@ -334,8 +334,8 @@ Return ONLY valid JSON, no markdown:
     { "scene": "", "adjacentTo": "3–5 words", "why": "1–2 sentences", "gatewayAlbum": { "artist": "", "title": "", "why": "max 10 words" } }
   ],
   "tasteForks": {
-    "archetypePattern": "1 sentence",
-    "yourDivergence": "1 sentence",
+    "archetypePattern": "max 12 words, compressed fragment — name the territory, not the journey",
+    "yourDivergence": "max 12 words, compressed fragment — name the specific divergence, not the explanation",
     "albums": [{ "artist": "", "title": "", "why": "max 10 words" }]
   },
   "nextObsession": {

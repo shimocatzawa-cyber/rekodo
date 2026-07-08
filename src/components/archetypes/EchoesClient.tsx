@@ -47,8 +47,8 @@ interface EchoesData {
 function ModuleHeader({ number, title }: { number: string; title: string }) {
   return (
     <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 20 }}>
-      <span style={{ fontFamily: MONO, fontSize: 8, letterSpacing: "0.22em", color: "rgba(10,10,10,0.28)" }}>{number}</span>
-      <span style={{ fontFamily: MONO, fontSize: 9, letterSpacing: "0.18em", textTransform: "uppercase", color: INK }}>{title}</span>
+      <span style={{ fontFamily: MONO, fontSize: 11, letterSpacing: "0.18em", color: "rgba(10,10,10,0.28)" }}>{number}</span>
+      <span style={{ fontFamily: MONO, fontSize: 12, letterSpacing: "0.14em", textTransform: "uppercase", color: INK, fontWeight: 500 }}>{title}</span>
       <div style={{ flex: 1, height: 1, background: RULE }} />
     </div>
   );
@@ -76,14 +76,14 @@ function ArtSquare({ album, size = 88 }: { album: EchoAlbum; size?: number }) {
 function AlbumMeta({ album, muted = false }: { album: EchoAlbum; muted?: boolean }) {
   return (
     <div>
-      <div style={{ fontFamily: SERIF, fontSize: "0.88rem", color: muted ? MUTED : INK, letterSpacing: "-0.01em", lineHeight: 1.2, marginBottom: 3 }}>
+      <div style={{ fontFamily: SERIF, fontSize: "0.95rem", color: muted ? MUTED : INK, letterSpacing: "-0.01em", lineHeight: 1.2, marginBottom: 3 }}>
         {album.title}
       </div>
-      <div style={{ fontFamily: MONO, fontSize: "0.6rem", color: MUTED, letterSpacing: "0.06em", marginBottom: album.why ? 5 : 0 }}>
+      <div style={{ fontFamily: MONO, fontSize: "0.68rem", color: MUTED, letterSpacing: "0.04em", marginBottom: album.why ? 5 : 0 }}>
         {album.artist}{album.year ? ` · ${album.year}` : ""}
       </div>
       {album.why && (
-        <div style={{ fontFamily: MONO, fontSize: "0.62rem", color: MUTED, letterSpacing: "0.03em", lineHeight: 1.55 }}>
+        <div style={{ fontFamily: MONO, fontSize: "0.7rem", color: MUTED, letterSpacing: "0.02em", lineHeight: 1.55 }}>
           {album.why}
         </div>
       )}
@@ -94,7 +94,7 @@ function AlbumMeta({ album, muted = false }: { album: EchoAlbum; muted?: boolean
 // Small archetype signal tag shown under each module header
 function SignalTag({ label }: { label: string }) {
   return (
-    <div style={{ fontFamily: MONO, fontSize: 7, letterSpacing: "0.16em", textTransform: "uppercase", color: ORANGE, marginBottom: 14, marginTop: -8 }}>
+    <div style={{ fontFamily: MONO, fontSize: 9, letterSpacing: "0.12em", textTransform: "uppercase", color: ORANGE, marginBottom: 14, marginTop: -8 }}>
       {label}
     </div>
   );
@@ -187,7 +187,7 @@ function UnboughtClassic({ data, ctx }: { data: EchoesData["unboughtClassic"]; c
         <span style={{ fontFamily: SERIF, fontSize: "1rem", color: INK, letterSpacing: "-0.01em" }}>
           {data.scene}
         </span>
-        <span style={{ fontFamily: MONO, fontSize: "0.63rem", color: MUTED, letterSpacing: "0.03em" }}>
+        <span style={{ fontFamily: MONO, fontSize: "0.7rem", color: MUTED, letterSpacing: "0.02em" }}>
           — {data.intro}
         </span>
       </div>
@@ -221,7 +221,7 @@ function ScenePortals({ data, ctx }: { data: EchoesData["scenePortals"]; ctx?: E
       {tag && <SignalTag label={tag} />}
 
       <div style={{ background: "#fff", border: `1px solid ${RULE}`, padding: "18px 18px 20px" }}>
-        <div style={{ fontFamily: MONO, fontSize: 7, letterSpacing: "0.2em", textTransform: "uppercase", color: ORANGE, marginBottom: 10 }}>
+        <div style={{ fontFamily: MONO, fontSize: 9, letterSpacing: "0.16em", textTransform: "uppercase", color: ORANGE, marginBottom: 10 }}>
           Next door
         </div>
         <div style={{ display: "flex", gap: 12, alignItems: "flex-start", marginBottom: 12 }}>
@@ -230,16 +230,16 @@ function ScenePortals({ data, ctx }: { data: EchoesData["scenePortals"]; ctx?: E
             <div style={{ fontFamily: SERIF, fontSize: "0.95rem", color: INK, letterSpacing: "-0.01em", lineHeight: 1.2, marginBottom: 4 }}>
               {portal.scene}
             </div>
-            <div style={{ fontFamily: MONO, fontSize: "0.58rem", color: MUTED, letterSpacing: "0.06em", marginBottom: 8 }}>
+            <div style={{ fontFamily: MONO, fontSize: "0.66rem", color: MUTED, letterSpacing: "0.04em", marginBottom: 8 }}>
               Adjacent to: {portal.adjacentTo}
             </div>
-            <div style={{ fontFamily: MONO, fontSize: "0.63rem", color: MUTED, letterSpacing: "0.03em", lineHeight: 1.6 }}>
+            <div style={{ fontFamily: MONO, fontSize: "0.7rem", color: MUTED, letterSpacing: "0.02em", lineHeight: 1.6 }}>
               {portal.why}
             </div>
           </div>
         </div>
         <div style={{ borderTop: `1px solid ${RULE}`, paddingTop: 10 }}>
-          <div style={{ fontFamily: MONO, fontSize: 7, letterSpacing: "0.16em", textTransform: "uppercase", color: "rgba(10,10,10,0.28)", marginBottom: 4 }}>
+          <div style={{ fontFamily: MONO, fontSize: 9, letterSpacing: "0.12em", textTransform: "uppercase", color: "rgba(10,10,10,0.28)", marginBottom: 4 }}>
             Gateway
           </div>
           <AlbumMeta album={portal.gatewayAlbum} />
@@ -259,15 +259,15 @@ function TasteForks({ data, ctx }: { data: EchoesData["tasteForks"]; ctx?: Echoe
       <ModuleHeader number="04" title="Taste Forks" />
       {tag && <SignalTag label={tag} />}
 
-      {/* Pattern vs. divergence — one line each */}
+      {/* Pattern vs. divergence */}
       <div className="echoes-fork-header" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 1, background: RULE, marginBottom: 20 }}>
-        <div style={{ background: "#fff", padding: "10px 14px" }}>
-          <div style={{ fontFamily: MONO, fontSize: 7, letterSpacing: "0.18em", textTransform: "uppercase", color: "rgba(10,10,10,0.3)", marginBottom: 5 }}>The pattern</div>
-          <div style={{ fontFamily: MONO, fontSize: "0.65rem", color: MUTED, letterSpacing: "0.03em", lineHeight: 1.6 }}>{data.archetypePattern}</div>
+        <div style={{ background: "#fff", padding: "16px 18px 18px" }}>
+          <div style={{ fontFamily: MONO, fontSize: 8, letterSpacing: "0.18em", textTransform: "uppercase", color: "rgba(10,10,10,0.3)", marginBottom: 10 }}>The pattern</div>
+          <div style={{ fontFamily: SERIF, fontSize: "0.95rem", color: MUTED, letterSpacing: "-0.01em", lineHeight: 1.45 }}>{data.archetypePattern}</div>
         </div>
-        <div style={{ background: WARM, padding: "10px 14px" }}>
-          <div style={{ fontFamily: MONO, fontSize: 7, letterSpacing: "0.18em", textTransform: "uppercase", color: ORANGE, marginBottom: 5 }}>Your path</div>
-          <div style={{ fontFamily: MONO, fontSize: "0.65rem", color: INK, letterSpacing: "0.03em", lineHeight: 1.6 }}>{data.yourDivergence}</div>
+        <div style={{ background: WARM, padding: "16px 18px 18px" }}>
+          <div style={{ fontFamily: MONO, fontSize: 8, letterSpacing: "0.18em", textTransform: "uppercase", color: ORANGE, marginBottom: 10 }}>Your path</div>
+          <div style={{ fontFamily: SERIF, fontSize: "0.95rem", color: INK, letterSpacing: "-0.01em", lineHeight: 1.45 }}>{data.yourDivergence}</div>
         </div>
       </div>
 
@@ -277,7 +277,7 @@ function TasteForks({ data, ctx }: { data: EchoesData["tasteForks"]; ctx?: Echoe
           <div key={i} style={{ display: "flex", gap: 12, alignItems: "flex-start" }}>
             <ArtSquare album={album} size={72} />
             <div style={{ paddingTop: 2 }}>
-              <div style={{ fontFamily: MONO, fontSize: 7, color: ORANGE, letterSpacing: "0.14em", textTransform: "uppercase", marginBottom: 5 }}>
+              <div style={{ fontFamily: MONO, fontSize: 9, color: ORANGE, letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 5 }}>
                 Road not taken
               </div>
               <AlbumMeta album={album} />
@@ -323,24 +323,24 @@ function NextObsession({ data, ctx }: { data: EchoesData["nextObsession"]; ctx?:
 
           {/* Text */}
           <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ fontFamily: MONO, fontSize: 7, letterSpacing: "0.22em", textTransform: "uppercase", color: ORANGE, marginBottom: 10 }}>
+            <div style={{ fontFamily: MONO, fontSize: 9, letterSpacing: "0.16em", textTransform: "uppercase", color: ORANGE, marginBottom: 10 }}>
               Incoming
             </div>
             <h2 style={{ fontFamily: SERIF, fontSize: "1.5rem", fontWeight: 400, color: "#fff", margin: "0 0 12px", letterSpacing: "-0.02em", lineHeight: 1.15 }}>
               {data.prediction}
             </h2>
-            <p style={{ fontFamily: MONO, fontSize: "0.65rem", color: "rgba(255,255,255,0.55)", letterSpacing: "0.03em", lineHeight: 1.75, margin: "0 0 16px" }}>
+            <p style={{ fontFamily: MONO, fontSize: "0.72rem", color: "rgba(255,255,255,0.55)", letterSpacing: "0.02em", lineHeight: 1.75, margin: "0 0 16px" }}>
               {data.reasoning}
             </p>
             {data.entryPoint && (
               <div style={{ borderTop: "1px solid rgba(255,255,255,0.1)", paddingTop: 12 }}>
-                <div style={{ fontFamily: MONO, fontSize: 7, letterSpacing: "0.16em", textTransform: "uppercase", color: "rgba(255,255,255,0.28)", marginBottom: 5 }}>
+                <div style={{ fontFamily: MONO, fontSize: 9, letterSpacing: "0.12em", textTransform: "uppercase", color: "rgba(255,255,255,0.28)", marginBottom: 5 }}>
                   Entry point
                 </div>
-                <div style={{ fontFamily: SERIF, fontSize: "0.88rem", color: "#fff", letterSpacing: "-0.01em", marginBottom: 2 }}>
+                <div style={{ fontFamily: SERIF, fontSize: "0.95rem", color: "#fff", letterSpacing: "-0.01em", marginBottom: 2 }}>
                   {data.entryPoint.title}
                 </div>
-                <div style={{ fontFamily: MONO, fontSize: "0.6rem", color: "rgba(255,255,255,0.4)", letterSpacing: "0.06em" }}>
+                <div style={{ fontFamily: MONO, fontSize: "0.68rem", color: "rgba(255,255,255,0.4)", letterSpacing: "0.04em" }}>
                   {data.entryPoint.artist}{data.entryPoint.year ? ` · ${data.entryPoint.year}` : ""}
                 </div>
               </div>
