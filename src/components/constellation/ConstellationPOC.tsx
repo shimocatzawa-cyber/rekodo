@@ -29,8 +29,9 @@ interface Edge {
 
 interface Camera { x: number; y: number; scale: number; }
 
-interface LabelGroup  { label: string; artists: string[]; }
-interface StyleGroup  { style: string; artists: string[]; }
+interface LabelGroup    { label: string; artists: string[]; }
+interface StyleGroup    { style: string; artists: string[]; }
+interface ProducerGroup { producer: string; artists: string[]; }
 interface LineageEdge { source: string; target: string; note: string; via: "mb" | "discogs"; }
 interface InflEdge    { source: string; target: string; type: RelType; note: string; via?: string; }
 
@@ -455,6 +456,7 @@ export default function ConstellationPOC({ username }: Props) {
   // ── Panel data (accurate collection-derived) ─────────────────────────────────
   const [labelGroups,    setLabelGroups]    = useState<LabelGroup[]>([]);
   const [styleGroups,    setStyleGroups]    = useState<StyleGroup[]>([]);
+  const [producerGroups, setProducerGroups] = useState<ProducerGroup[]>([]);
   const [mbLineage,      setMbLineage]      = useState<LineageEdge[]>([]);
   const [mbInfluence,    setMbInfluence]    = useState<InflEdge[]>([]);
   const [wdInfluence,    setWdInfluence]    = useState<WDInfluenceEdge[]>([]);
@@ -473,7 +475,7 @@ export default function ConstellationPOC({ username }: Props) {
 
   // ── Panel section state ──────────────────────────────────────────────────────
   const [openSections, setOpenSections] = useState<Set<string>>(
-    new Set(["labels", "sonic", "lineage", "influence", "influencedBy", "influenced", "inflOther"])
+    new Set(["labels", "producers", "sonic", "lineage", "influence", "influencedBy", "influenced", "inflOther"])
   );
 
   // ── Helpers ─────────────────────────────────────────────────────────────────
@@ -596,13 +598,18 @@ export default function ConstellationPOC({ username }: Props) {
           "rock","pop","indie","alternative","electronic","folk","acoustic","experimental",
           "jazz","blues","country","classical","soul","funk","punk","metal","dance",
           "alternative rock","indie rock","indie pop","alternative pop","singer-songwriter",
-          "synth-pop","new wave","hardcore","heavy metal","hip hop","rap","r&b","r&b/soul",
-          "lo-fi","lo fi","psychedelic","noise","post-punk","post rock","post-rock",
+          "hip hop","rap","r&b","r&b/soul",
         ]);
         setStyleGroups(
           [...styleArtists.entries()]
             .filter(([style, s]) => s.size >= 2 && s.size <= 12 && !SKIP_STYLES_SET.has(style.toLowerCase()))
             .map(([style, s]) => ({ style, artists: [...s] }))
+            .sort((a, b) => b.artists.length - a.artists.length)
+        );
+        setProducerGroups(
+          [...producerArtists.entries()]
+            .filter(([, s]) => s.size >= 2 && s.size <= 20)
+            .map(([producer, s]) => ({ producer, artists: [...s] }))
             .sort((a, b) => b.artists.length - a.artists.length)
         );
         // Derive top styles and genres per artist (sorted by frequency)
@@ -913,10 +920,15 @@ export default function ConstellationPOC({ username }: Props) {
 
         // members: if this artist is a band, connect members who are also in the collection
         for (const member of data.members) {
-          const memberNode = nodeByName.get(member.name.toLowerCase())
-            ?? nodesRef.current.find(n =>
-                n.name.toLowerCase().includes(member.name.toLowerCase()) ||
-                member.name.toLowerCase().includes(n.name.toLowerCase()));
+          const memberLower = member.name.toLowerCase();
+          const memberNode = nodeByName.get(memberLower)
+            ?? nodesRef.current.find(n => {
+                const nL = n.name.toLowerCase();
+                // Require at least 5 chars on the shorter side to avoid short names (e.g. "Nas")
+                // being found as substrings of longer member names (e.g. "Bob Nastanovich").
+                return nL.includes(memberLower) ||
+                  (nL.length >= 5 && memberLower.length >= 5 && memberLower.includes(nL));
+              });
           if (!memberNode || memberNode.id === nodeId) continue;
 
           const key    = [nodeId, memberNode.id].sort().join("|");
@@ -940,10 +952,13 @@ export default function ConstellationPOC({ username }: Props) {
 
         // groups: if this artist is a person, connect them to groups they belong to
         for (const group of data.groups) {
-          const groupNode = nodeByName.get(group.name.toLowerCase())
-            ?? nodesRef.current.find(n =>
-                n.name.toLowerCase().includes(group.name.toLowerCase()) ||
-                group.name.toLowerCase().includes(n.name.toLowerCase()));
+          const groupLower = group.name.toLowerCase();
+          const groupNode = nodeByName.get(groupLower)
+            ?? nodesRef.current.find(n => {
+                const nL = n.name.toLowerCase();
+                return nL.includes(groupLower) ||
+                  (nL.length >= 5 && groupLower.length >= 5 && groupLower.includes(nL));
+              });
           if (!groupNode || groupNode.id === nodeId) continue;
 
           const key = [nodeId, groupNode.id].sort().join("|");
@@ -2085,6 +2100,14 @@ export default function ConstellationPOC({ username }: Props) {
                       return true;
                     });
 
+                  const visProducers = producerGroups
+                    .map(g => ({ ...g, artists: g.artists.filter(a => !labelScope || labelScope.has(a)) }))
+                    .filter(g => {
+                      if (g.artists.length < 2) return false;
+                      if (afL && !g.artists.some(a => a.toLowerCase() === afL)) return false;
+                      return true;
+                    });
+
                   const visStyles = styleGroups
                     .map(g => ({ ...g, artists: g.artists.filter(a => !labelScope || labelScope.has(a)) }))
                     .filter(g => {
@@ -2348,6 +2371,17 @@ export default function ConstellationPOC({ username }: Props) {
                               </span>
                               <span style={{ fontFamily: MONO, fontSize: "11px", color: DIM3 }}> · {g.artists.length}</span>
                             </button>
+                            <ArtistList artists={g.artists} />
+                          </div>
+                        ))}
+                      </PanelSection>
+
+                      <PanelSection id="producers" title="Shared Producer" count={visProducers.length}>
+                        {visProducers.length === 0 ? empty : visProducers.map(g => (
+                          <div key={g.producer} style={{ marginBottom: 16 }}>
+                            <p style={{ fontFamily: MONO, fontSize: "11px", color: ORANGE, letterSpacing: "0.1em", textTransform: "uppercase", margin: "0 0 5px" }}>
+                              {g.producer} <span style={{ color: DIM3 }}>· {g.artists.length}</span>
+                            </p>
                             <ArtistList artists={g.artists} />
                           </div>
                         ))}

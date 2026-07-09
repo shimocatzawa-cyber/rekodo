@@ -1,7 +1,7 @@
--- Global sonic neighbours RPC
--- Given a set of style tags, returns artists from the full records table
--- (all 467k+ rows) that share those styles, ranked by match count.
--- Used by the Constellation panel to show neighbours beyond the user's own collection.
+-- Lower the sonic neighbours match threshold from 2 to 1.
+-- With the SKIP_STYLES_SET now only filtering generic terms, collections that
+-- have meaningful niche styles (lo-fi, post-punk, noise rock, etc.) in only
+-- one dominant genre cluster would get no results at count >= 2.
 
 CREATE OR REPLACE FUNCTION public.get_sonic_neighbours(
   p_styles         text[],
