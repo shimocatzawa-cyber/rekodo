@@ -32,8 +32,10 @@ export async function POST(request: NextRequest) {
     .upload(storagePath, bytes, { contentType: "image/png" });
 
   if (upErr) {
-    console.error("[shelf/share] storage upload failed:", upErr);
-    return NextResponse.json({ error: upErr.message }, { status: 500 });
+    const { data: buckets } = await sb.storage.listBuckets();
+    const names = (buckets ?? []).map((b: { name: string }) => b.name).join(", ");
+    console.error("[shelf/share] storage upload failed:", upErr, "available buckets:", names);
+    return NextResponse.json({ error: `${upErr.message} — available buckets: ${names || "none"}` }, { status: 500 });
   }
 
   const { data: { publicUrl } } = sb.storage.from("shelf_posts").getPublicUrl(storagePath);
