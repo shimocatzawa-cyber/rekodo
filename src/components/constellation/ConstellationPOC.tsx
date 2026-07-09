@@ -602,7 +602,7 @@ export default function ConstellationPOC({ username }: Props) {
         ]);
         setStyleGroups(
           [...styleArtists.entries()]
-            .filter(([style, s]) => s.size >= 2 && s.size <= 12 && !SKIP_STYLES_SET.has(style.toLowerCase()))
+            .filter(([style, s]) => s.size >= 1 && s.size <= 12 && !SKIP_STYLES_SET.has(style.toLowerCase()))
             .map(([style, s]) => ({ style, artists: [...s] }))
             .sort((a, b) => b.artists.length - a.artists.length)
         );
@@ -2112,9 +2112,12 @@ export default function ConstellationPOC({ username }: Props) {
                   const visStyles = styleGroups
                     .map(g => ({ ...g, artists: g.artists.filter(a => !labelScope || labelScope.has(a)) }))
                     .filter(g => {
-                      if (g.artists.length < 2) return false;
-                      if (afL && !g.artists.some(a => a.toLowerCase() === afL)) return false;
-                      return true;
+                      if (afL) {
+                        // artist selected: show any style the artist has, even if no peers share it
+                        return g.artists.some(a => a.toLowerCase() === afL);
+                      }
+                      // overview: only show styles shared by 2+ collection artists
+                      return g.artists.length >= 2;
                     });
 
                   const seenLin = new Set<string>();
