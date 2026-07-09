@@ -55,21 +55,29 @@ async function sbGet<T>(path: string, params?: Record<string, string>): Promise<
 
 async function sbUpsert(table: string, rows: object[]) {
   if (rows.length === 0) return;
-  const res = await fetch(`${SUPABASE_URL}/rest/v1/${table}`, {
-    method: "POST",
-    headers: {
-      apikey:          SUPABASE_SERVICE_ROLE,
-      Authorization:   `Bearer ${SUPABASE_SERVICE_ROLE}`,
-      "Content-Type":  "application/json",
-      Prefer:          "resolution=ignore-duplicates",
-    },
-    body: JSON.stringify(rows),
-  });
-  if (!res.ok) {
-    const text = await res.text();
-    // 42P01 = table doesn't exist yet — already applied migration, so this is unexpected
-    if (text.includes("42P01")) throw new Error("artist_influences table not found — run migrations first");
-    throw new Error(`sbUpsert ${table}: ${res.status} ${text}`);
+  // Insert one row at a time to avoid PGRST102 "All object keys must match" and
+  // to silently skip 409 duplicate conflicts rather than losing the whole batch.
+  for (const row of rows) {
+    const res = await fetch(
+      `${SUPABASE_URL}/rest/v1/${table}?on_conflict=source_artist,target_artist,type`,
+      {
+        method: "POST",
+        headers: {
+          apikey:         SUPABASE_SERVICE_ROLE,
+          Authorization:  `Bearer ${SUPABASE_SERVICE_ROLE}`,
+          "Content-Type": "application/json",
+          Prefer:         "resolution=ignore-duplicates,return=minimal",
+        },
+        body: JSON.stringify(row),
+      }
+    );
+    if (!res.ok) {
+      const text = await res.text();
+      if (text.includes("42P01")) throw new Error("artist_influences table not found — run migrations first");
+      // 409 duplicate — already have this pair, skip silently
+      if (res.status === 409) continue;
+      throw new Error(`sbUpsert ${table}: ${res.status} ${text}`);
+    }
   }
 }
 

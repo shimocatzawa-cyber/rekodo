@@ -461,6 +461,7 @@ export default function ConstellationPOC({ username }: Props) {
   const [discogsLineage, setDiscogsLineage] = useState<LineageEdge[]>([]);
   const [globalNeighbours, setGlobalNeighbours] = useState<{ artist: string; shared_styles: string[]; match_count: number }[]>([]);
   const [dbInfluence,      setDbInfluence]      = useState<{ source_artist: string; target_artist: string; type: string; note: string | null; via: string | null }[]>([]);
+  const [inflLoading,      setInflLoading]      = useState(false);
 
   // ── Artist / label filter ────────────────────────────────────────────────────
   const [artistQuery,    setArtistQuery]    = useState("");
@@ -1027,27 +1028,50 @@ export default function ConstellationPOC({ username }: Props) {
     return () => { cancelled = true; };
   }, [isReady, styleGroups]);
 
-  // ── DB influences from artist_influences table ────────────────────────────────
-  // Reads Claude-generated influence rows for owned artists via server API
-  // (avoids generated-types mismatch while migration is pending).
+  // ── DB influences: fetch existing + background enrich missing artists ─────────
+  // 1. Immediately load whatever is already in artist_influences for owned artists.
+  // 2. Fire background enrichment for any owned artists not yet in the table.
+  // 3. After enrichment completes, re-fetch to pick up the new rows.
 
   useEffect(() => {
     if (!isReady) return;
     let cancelled = false;
 
+    const fetchDb = async (): Promise<typeof dbInfluence> => {
+      const ownedNames = nodesRef.current.filter(n => n.owned).map(n => n.name);
+      if (ownedNames.length === 0) return [];
+      const res = await fetch("/api/constellation/db-influences", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ artists: ownedNames }),
+      });
+      if (!res.ok) return [];
+      const json = await res.json() as { rows?: typeof dbInfluence };
+      return json.rows ?? [];
+    };
+
     const run = async () => {
       const ownedNames = nodesRef.current.filter(n => n.owned).map(n => n.name);
       if (ownedNames.length === 0) return;
-      try {
-        const res = await fetch("/api/constellation/db-influences", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ artists: ownedNames }),
-        });
+
+      // 1. Load whatever is already cached
+      const initial = await fetchDb();
+      if (!cancelled && initial.length > 0) setDbInfluence(initial);
+
+      // 2. Fire background enrichment (don't block on it)
+      fetch("/api/constellation/enrich-influences", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ artists: ownedNames }),
+      }).then(async res => {
         if (!res.ok || cancelled) return;
-        const json = await res.json() as { rows?: typeof dbInfluence };
-        if (!cancelled && json.rows && json.rows.length > 0) setDbInfluence(json.rows);
-      } catch { /* best-effort */ }
+        const json = await res.json() as { processed?: number };
+        // 3. Re-fetch if new rows were actually added
+        if ((json.processed ?? 0) > 0 && !cancelled) {
+          const fresh = await fetchDb();
+          if (!cancelled && fresh.length > 0) setDbInfluence(fresh);
+        }
+      }).catch(() => {/* best-effort */});
     };
 
     run();
@@ -2096,7 +2120,8 @@ export default function ConstellationPOC({ username }: Props) {
                     }
                   }
 
-                  // Highlight node, freeze map, zoom to show it + all its connections
+                  // Highlight node, freeze map, zoom to show it + all its connections.
+                  // If the artist has no influence data yet, fetch it in real time.
                   function selectArtist(name: string) {
                     setArtistFilter(name);
                     const node = nodesRef.current.find(n => n.name.toLowerCase() === name.toLowerCase());
@@ -2105,6 +2130,29 @@ export default function ConstellationPOC({ username }: Props) {
                       physicsRef.current = false;
                       nodesRef.current.forEach(n => { n.vx = 0; n.vy = 0; });
                       zoomToNeighborhoodRef.current?.(node);
+                    }
+
+                    // Real-time influence fetch if not yet in DB
+                    const hasData = dbInfluence.some(r => r.source_artist.toLowerCase() === name.toLowerCase());
+                    if (!hasData) {
+                      setInflLoading(true);
+                      fetch("/api/constellation/enrich-single", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ artist: name }),
+                      })
+                        .then(r => r.ok ? r.json() : null)
+                        .then((json: { rows?: typeof dbInfluence } | null) => {
+                          if (json?.rows && json.rows.length > 0) {
+                            setDbInfluence(prev => {
+                              const existing = new Set(prev.map(r => `${r.source_artist}|${r.target_artist}|${r.type}`));
+                              const fresh = json.rows!.filter(r => !existing.has(`${r.source_artist}|${r.target_artist}|${r.type}`));
+                              return [...prev, ...fresh];
+                            });
+                          }
+                        })
+                        .catch(() => {/* best-effort */})
+                        .finally(() => setInflLoading(false));
                     }
                   }
 
@@ -2185,7 +2233,11 @@ export default function ConstellationPOC({ username }: Props) {
                       </PanelSection>
 
                       <PanelSection id="influence" title="Influences" count={visInfl.length}>
-                        {visInfl.length === 0 ? empty : visInfl.map((e, i) => (
+                        {inflLoading && visInfl.length === 0 ? (
+                          <p style={{ fontFamily: MONO, fontSize: "12px", color: DIM3, paddingBottom: 12 }}>
+                            Looking up influences…
+                          </p>
+                        ) : visInfl.length === 0 ? empty : visInfl.map((e, i) => (
                           <div key={i} style={{ marginBottom: 14, paddingBottom: 14, borderBottom: `1px solid ${BORD}` }}>
                             <div style={{ display: "flex", alignItems: "baseline", gap: 7, marginBottom: 4, flexWrap: "wrap" }}>
                               <span style={{ fontFamily: MONO, fontSize: "10px", color: ORANGE, letterSpacing: "0.12em", textTransform: "uppercase", flexShrink: 0 }}>{REL_LABEL[e.type]}</span>
