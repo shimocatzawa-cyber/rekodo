@@ -158,8 +158,12 @@ function getHeader(msg: GmailMessage, name: string): string {
 async function listMessageIds(token: string, maxResults = 200): Promise<string[]> {
   const url = new URL("https://gmail.googleapis.com/gmail/v1/users/me/messages");
   url.searchParams.set("maxResults", String(maxResults));
-  // newer_than:3d ensures we always catch overnight emails regardless of inbox size
-  url.searchParams.set("q", "newer_than:3d");
+  // Query from the first of the current month so any scheduling gap doesn't drop
+  // emails — deduplication by gmail_message_id makes re-processing already-seen
+  // messages a safe no-op.
+  const now = new Date();
+  const monthStart = `${now.getFullYear()}/${now.getMonth() + 1}/1`;
+  url.searchParams.set("q", `after:${monthStart}`);
   const res = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
   const data = await res.json();
   return (data.messages ?? []).map((m: { id: string }) => m.id);
@@ -319,7 +323,7 @@ Deno.serve(async (_req) => {
 
     // 1. Get all message IDs from inbox
     const token = await getGmailAccessToken();
-    const allIds = await listMessageIds(token, 50);
+    const allIds = await listMessageIds(token, 200);
 
     if (allIds.length === 0) {
       return new Response(JSON.stringify({ processed: 0, skipped: 0, message: "Inbox empty" }), {
