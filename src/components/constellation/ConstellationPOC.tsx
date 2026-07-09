@@ -475,7 +475,7 @@ export default function ConstellationPOC({ username }: Props) {
 
   // ── Panel section state ──────────────────────────────────────────────────────
   const [openSections, setOpenSections] = useState<Set<string>>(
-    new Set(["labels", "producers", "sonic", "lineage", "influence", "influencedBy", "influenced", "inflOther"])
+    new Set<string>()
   );
 
   // ── Helpers ─────────────────────────────────────────────────────────────────
@@ -1660,6 +1660,7 @@ export default function ConstellationPOC({ username }: Props) {
               selectedEdgeKeyRef.current = null; setSelectedEdge(null);
               setSelectedArtist(null); setArtistFilter(null);
               physicsRef.current = true;
+              setOpenSections(new Set<string>());
               doReset();
             } else {
               // Select — highlight, filter panel, freeze physics
@@ -1669,6 +1670,7 @@ export default function ConstellationPOC({ username }: Props) {
               setArtistFilter(hit.name);
               physicsRef.current = false;
               nodesRef.current.forEach(n => { n.vx = 0; n.vy = 0; });
+              setOpenSections(new Set(["lineage", "influencedBy", "influenced", "sonic", "inflOther"]));
               zoomToNeighborhood(hit);
             }
           }
@@ -1694,6 +1696,7 @@ export default function ConstellationPOC({ username }: Props) {
             selectedEdgeKeyRef.current = null; setSelectedEdge(null);
             setArtistFilter(null);
             physicsRef.current = true;
+            setOpenSections(new Set<string>());
             doReset();
           }
         }
@@ -2003,7 +2006,7 @@ export default function ConstellationPOC({ username }: Props) {
                   {artistFilter ? (
                     <div style={{ display: "flex", alignItems: "center", gap: 6, padding: "6px 10px", border: `1px solid ${ORANGE}`, background: "rgba(204,85,0,0.08)" }}>
                       <span style={{ fontFamily: SERIF, fontSize: "13px", color: ORANGE, flex: 1 }}>{artistFilter}</span>
-                      <button onClick={() => { setArtistFilter(null); setArtistQuery(""); selectedRef.current = null; physicsRef.current = true; }} style={{ fontFamily: MONO, fontSize: 14, color: ORANGE, background: "none", border: "none", cursor: "pointer", padding: 0, lineHeight: 1 }}>×</button>
+                      <button onClick={() => { setArtistFilter(null); setArtistQuery(""); selectedRef.current = null; physicsRef.current = true; setOpenSections(new Set<string>()); resetView(); }} style={{ fontFamily: MONO, fontSize: 14, color: ORANGE, background: "none", border: "none", cursor: "pointer", padding: 0, lineHeight: 1 }}>×</button>
                     </div>
                   ) : (
                     <>
@@ -2051,7 +2054,7 @@ export default function ConstellationPOC({ username }: Props) {
                   {labelFilter ? (
                     <div style={{ display: "flex", alignItems: "center", gap: 6, padding: "6px 10px", border: `1px solid ${ORANGE}`, background: "rgba(204,85,0,0.08)" }}>
                       <span style={{ fontFamily: MONO, fontSize: "11px", color: ORANGE, letterSpacing: "0.06em", flex: 1 }}>{labelFilter}</span>
-                      <button onClick={() => { setLabelFilter(null); setLabelQuery(""); }} style={{ fontFamily: MONO, fontSize: 14, color: ORANGE, background: "none", border: "none", cursor: "pointer", padding: 0, lineHeight: 1 }}>×</button>
+                      <button onClick={() => { setLabelFilter(null); setLabelQuery(""); setOpenSections(new Set<string>()); resetView(); }} style={{ fontFamily: MONO, fontSize: 14, color: ORANGE, background: "none", border: "none", cursor: "pointer", padding: 0, lineHeight: 1 }}>×</button>
                     </div>
                   ) : (
                     <>
@@ -2068,7 +2071,7 @@ export default function ConstellationPOC({ username }: Props) {
                         return suggestions.length > 0 ? (
                           <div style={{ position: "absolute", top: "100%", left: 0, right: 0, zIndex: 30, background: "#0d1229", border: `1px solid rgba(221,216,204,0.18)`, borderTop: "none", maxHeight: 200, overflowY: "auto" }}>
                             {suggestions.map(g => (
-                              <button key={g.label} onMouseDown={() => { setLabelFilter(g.label); setLabelQuery(""); setShowLabelDrop(false); }}
+                              <button key={g.label} onMouseDown={() => { setLabelFilter(g.label); setLabelQuery(""); setShowLabelDrop(false); setOpenSections(new Set(["labels", "sonic"])); }}
                                 style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", width: "100%", padding: "7px 10px", background: "none", border: "none", cursor: "pointer", textAlign: "left", borderBottom: `1px solid ${BORD}` }}
                               >
                                 <span style={{ fontFamily: MONO, fontSize: "11px", color: INK, letterSpacing: "0.06em" }}>{g.label}</span>
@@ -2186,6 +2189,7 @@ export default function ConstellationPOC({ username }: Props) {
                   // Influence enrichment is handled by the artistFilter useEffect.
                   function selectArtist(name: string) {
                     setArtistFilter(name);
+                    setOpenSections(new Set(["lineage", "influencedBy", "influenced", "sonic", "inflOther"]));
                     const node = nodesRef.current.find(n => n.name.toLowerCase() === name.toLowerCase());
                     if (node) {
                       selectedRef.current = node.id;
@@ -2200,6 +2204,7 @@ export default function ConstellationPOC({ username }: Props) {
                     selectedRef.current = null;
                     physicsRef.current = true;
                     labelHighlightRef.current = new Set();
+                    setOpenSections(new Set<string>());
                     resetView();
                   }
 
@@ -2363,7 +2368,7 @@ export default function ConstellationPOC({ username }: Props) {
                         {visLbls.length === 0 ? empty : visLbls.map(g => (
                           <div key={g.label} style={{ marginBottom: 16 }}>
                             <button
-                              onClick={() => setLabelFilter(labelFilter === g.label ? null : g.label)}
+                              onClick={() => { const next = labelFilter === g.label ? null : g.label; setLabelFilter(next); if (next) setOpenSections(new Set(["labels", "sonic"])); else { setOpenSections(new Set<string>()); resetView(); } }}
                               style={{ background: "none", border: "none", padding: 0, cursor: "pointer", marginBottom: 5, textAlign: "left" }}
                             >
                               <span style={{ fontFamily: MONO, fontSize: "11px", color: ORANGE, letterSpacing: "0.1em", textTransform: "uppercase" }}>
