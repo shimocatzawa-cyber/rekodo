@@ -40,8 +40,8 @@ interface InflEdge    { source: string; target: string; type: RelType; note: str
 const BG      = "#06091a";   // star-field canvas/loading background
 const SURFACE = "#0c1128";   // panel background
 const INK     = "#ddd8cc";   // warm star-white — labels, text, UI
-const ORANGE  = "#CC5500";   // rekōdo brand — used in the side panel UI only
-const ACTIVE  = "#89b4ff";   // nebula blue — selection / active state on canvas
+const ACTIVE  = "#89b4ff";   // nebula blue — selection / active state (canvas + panel)
+const ORANGE  = ACTIVE;      // panel accent now matches canvas
 const WHITE   = "#ffffff";   // pure white — star cores
 const EDGE_C  = "rgba(140,170,240,1)"; // pale blue-white constellation lines
 const MONO    = '"DM Mono", "Courier New", monospace';
@@ -432,7 +432,6 @@ export default function ConstellationPOC({ username }: Props) {
   const autoZoomRef        = useRef(false);
   const physicsRef             = useRef(true);
   const labelHighlightRef      = useRef<Set<string>>(new Set());
-  const zoomToNeighborhoodRef  = useRef<((node: ArtistNode) => void) | null>(null);
   const dprRef             = useRef(1);
   const influenceRef       = useRef<Map<string, number>>(new Map());
   const spawnAnimsRef      = useRef<{ id: string; birthMs: number }[]>([]);
@@ -945,7 +944,7 @@ export default function ConstellationPOC({ username }: Props) {
             cpDx: (seededRng(h) - 0.5) * 80,
             cpDy: (seededRng(h + 1) - 0.5) * 60,
           });
-          if (memberNode.owned && currentNode?.owned) {
+          if (currentNode?.owned) {
             const lk = [memberNode.name.toLowerCase(), currentNode.name.toLowerCase()].sort().join("|");
             if (!dgLineageKeys.has(lk)) { dgLineageKeys.add(lk); dgLineage.push({ source: memberNode.name, target: currentNode.name, note: `${member.name} is a member of ${data.name}`, via: "discogs" }); }
           }
@@ -974,7 +973,7 @@ export default function ConstellationPOC({ username }: Props) {
             cpDx: (seededRng(h) - 0.5) * 80,
             cpDy: (seededRng(h + 1) - 0.5) * 60,
           });
-          if (currentNode?.owned && groupNode.owned) {
+          if (currentNode?.owned) {
             const lk = [currentNode.name.toLowerCase(), groupNode.name.toLowerCase()].sort().join("|");
             if (!dgLineageKeys.has(lk)) { dgLineageKeys.add(lk); dgLineage.push({ source: currentNode.name, target: groupNode.name, note: `${data.name} is a member of ${group.name}`, via: "discogs" }); }
           }
@@ -1611,39 +1610,6 @@ export default function ConstellationPOC({ username }: Props) {
       autoZoomRef.current = true;
     }
 
-    function zoomToNeighborhood(hit: ArtistNode) {
-      const { W, H } = cssSize();
-      const AVAIL_W = W - PANEL_W;
-      const allEdges = [...edgesRef.current, ...mbEdgesRef.current, ...discogsEdgesRef.current]
-        .filter(e => enabledTypesRef.current.has(e.type));
-      const neighborIds = new Set<string>();
-      for (const e of allEdges) {
-        if (e.source === hit.id) neighborIds.add(e.target);
-        if (e.target === hit.id) neighborIds.add(e.source);
-      }
-      const hood = [hit, ...nodesRef.current.filter(n => neighborIds.has(n.id) && !isFiltered(n))];
-      const PAD = 110;
-      if (hood.length <= 1) {
-        const ts = 2.8;
-        targetCamRef.current = { x: AVAIL_W / 2 - hit.x * ts, y: H / 2 - hit.y * ts, scale: ts };
-      } else {
-        const xs = hood.map(n => n.x), ys = hood.map(n => n.y);
-        const minX = Math.min(...xs), maxX = Math.max(...xs);
-        const minY = Math.min(...ys), maxY = Math.max(...ys);
-        const ts = clamp(
-          Math.min((AVAIL_W - PAD * 2) / Math.max(maxX - minX, 1), (H - PAD * 2) / Math.max(maxY - minY, 1)),
-          0.9, 4.0,
-        );
-        targetCamRef.current = {
-          x: AVAIL_W / 2 - ((minX + maxX) / 2) * ts,
-          y: H / 2 - ((minY + maxY) / 2) * ts,
-          scale: ts,
-        };
-      }
-      autoZoomRef.current = true;
-    }
-    zoomToNeighborhoodRef.current = zoomToNeighborhood;
-
     function onUp(e: MouseEvent) {
       const { x: sx, y: sy } = cvPos(e);
       const dx = sx - mouseDownPosRef.current.x, dy = sy - mouseDownPosRef.current.y;
@@ -1761,6 +1727,40 @@ export default function ConstellationPOC({ username }: Props) {
     physicsRef.current = true;
     resetView();
   };
+
+  const zoomToNeighborhood = useCallback((hit: ArtistNode) => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const W = canvas.clientWidth, H = canvas.clientHeight;
+    const AVAIL_W = W - PANEL_W;
+    const allEdges = [...edgesRef.current, ...mbEdgesRef.current, ...discogsEdgesRef.current]
+      .filter(e => enabledTypesRef.current.has(e.type));
+    const neighborIds = new Set<string>();
+    for (const e of allEdges) {
+      if (e.source === hit.id) neighborIds.add(e.target);
+      if (e.target === hit.id) neighborIds.add(e.source);
+    }
+    const hood = [hit, ...nodesRef.current.filter(n => neighborIds.has(n.id))];
+    const PAD = 110;
+    if (hood.length <= 1) {
+      const ts = 2.8;
+      targetCamRef.current = { x: AVAIL_W / 2 - hit.x * ts, y: H / 2 - hit.y * ts, scale: ts };
+    } else {
+      const xs = hood.map(n => n.x), ys = hood.map(n => n.y);
+      const minX = Math.min(...xs), maxX = Math.max(...xs);
+      const minY = Math.min(...ys), maxY = Math.max(...ys);
+      const ts = clamp(
+        Math.min((AVAIL_W - PAD * 2) / Math.max(maxX - minX, 1), (H - PAD * 2) / Math.max(maxY - minY, 1)),
+        0.9, 4.0,
+      );
+      targetCamRef.current = {
+        x: AVAIL_W / 2 - ((minX + maxX) / 2) * ts,
+        y: H / 2 - ((minY + maxY) / 2) * ts,
+        scale: ts,
+      };
+    }
+    autoZoomRef.current = true;
+  }, [PANEL_W]);
 
   const zoom = useCallback((factor: number) => {
     const canvas = canvasRef.current;
@@ -2002,7 +2002,7 @@ export default function ConstellationPOC({ username }: Props) {
                 <p style={{ fontFamily: MONO, fontSize: "10px", color: DIM3, letterSpacing: "0.14em", textTransform: "uppercase", margin: "0 0 5px" }}>Artist</p>
                 <div style={{ position: "relative" }}>
                   {artistFilter ? (
-                    <div style={{ display: "flex", alignItems: "center", gap: 6, padding: "6px 10px", border: `1px solid ${ORANGE}`, background: "rgba(204,85,0,0.08)" }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 6, padding: "6px 10px", border: `1px solid ${ORANGE}`, background: "rgba(137,180,255,0.08)" }}>
                       <span style={{ fontFamily: SERIF, fontSize: "13px", color: ORANGE, flex: 1 }}>{artistFilter}</span>
                       <button onClick={() => { setArtistFilter(null); setArtistQuery(""); selectedRef.current = null; physicsRef.current = true; setOpenSections(new Set<string>()); resetView(); }} style={{ fontFamily: MONO, fontSize: 14, color: ORANGE, background: "none", border: "none", cursor: "pointer", padding: 0, lineHeight: 1 }}>×</button>
                     </div>
@@ -2029,7 +2029,7 @@ export default function ConstellationPOC({ username }: Props) {
                                 selectedRef.current = n.id;
                                 physicsRef.current = false;
                                 nodesRef.current.forEach(nd => { nd.vx = 0; nd.vy = 0; });
-                                zoomToNeighborhoodRef.current?.(n);
+                                zoomToNeighborhood(n);
                               }}
                                 style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", width: "100%", padding: "7px 10px", background: "none", border: "none", cursor: "pointer", textAlign: "left", borderBottom: `1px solid ${BORD}` }}
                               >
@@ -2050,7 +2050,7 @@ export default function ConstellationPOC({ username }: Props) {
                 <p style={{ fontFamily: MONO, fontSize: "10px", color: DIM3, letterSpacing: "0.14em", textTransform: "uppercase", margin: "0 0 5px" }}>Label</p>
                 <div style={{ position: "relative" }}>
                   {labelFilter ? (
-                    <div style={{ display: "flex", alignItems: "center", gap: 6, padding: "6px 10px", border: `1px solid ${ORANGE}`, background: "rgba(204,85,0,0.08)" }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 6, padding: "6px 10px", border: `1px solid ${ORANGE}`, background: "rgba(137,180,255,0.08)" }}>
                       <span style={{ fontFamily: MONO, fontSize: "11px", color: ORANGE, letterSpacing: "0.06em", flex: 1 }}>{labelFilter}</span>
                       <button onClick={() => { setLabelFilter(null); setLabelQuery(""); setOpenSections(new Set<string>()); resetView(); }} style={{ fontFamily: MONO, fontSize: 14, color: ORANGE, background: "none", border: "none", cursor: "pointer", padding: 0, lineHeight: 1 }}>×</button>
                     </div>
@@ -2193,7 +2193,7 @@ export default function ConstellationPOC({ username }: Props) {
                       selectedRef.current = node.id;
                       physicsRef.current = false;
                       nodesRef.current.forEach(n => { n.vx = 0; n.vy = 0; });
-                      zoomToNeighborhoodRef.current?.(node);
+                      zoomToNeighborhood(node);
                     }
                   }
 
