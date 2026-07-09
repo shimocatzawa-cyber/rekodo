@@ -246,12 +246,12 @@ function ActivityRow({ item }: { item: ActivityItem }) {
 
 // ── Main component ─────────────────────────────────────────────────────────────
 
-export default function CommunityTab({ profileOwnerId, hideSocialPanel = false, initialTrending, searchQuery: externalSearchQuery }: { profileOwnerId: string; hideSocialPanel?: boolean; initialTrending?: TrendingRecord[]; searchQuery?: string }) {
+export default function CommunityTab({ profileOwnerId, hideSocialPanel = false, initialTrending }: { profileOwnerId: string; hideSocialPanel?: boolean; initialTrending?: TrendingRecord[] }) {
   const [viewerUserId, setViewerUserId] = useState<string | null>(null);
   const viewerUserIdRef  = useRef<string | null>(null);
   const pendingTogglesRef = useRef<Set<string>>(new Set());
   const [subTab,       setSubTab]       = useState<SubTab>("trending");
-  const searchQuery = externalSearchQuery ?? "";
+  const [searchQuery,  setSearchQuery]  = useState("");
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Followers / Following sections
@@ -438,10 +438,6 @@ export default function CommunityTab({ profileOwnerId, hideSocialPanel = false, 
       setCollectorsLoading(false);
     }
   }, []); // stable — reads viewerUserId from ref, not closure
-
-  useEffect(() => {
-    if (searchQuery.trim()) setSubTab("collectors");
-  }, [searchQuery]);
 
   useEffect(() => {
     if (subTab !== "collectors") return;
@@ -740,6 +736,18 @@ export default function CommunityTab({ profileOwnerId, hideSocialPanel = false, 
         {/* ── All Collectors ─────────────────────────────────────────────────── */}
         {subTab === "collectors" && (
           <>
+            <input
+              type="text"
+              className="rk-form-input"
+              placeholder="Filter by name or username…"
+              value={searchQuery}
+              onChange={e => setSearchQuery(e.target.value)}
+              style={{
+                width: "100%", fontFamily: MONO, fontSize: "0.65rem", letterSpacing: "0.04em",
+                color: INK, background: "#fafaf8", border: `1px solid ${RULE}`,
+                padding: "8px 14px", outline: "none", boxSizing: "border-box", marginBottom: "20px",
+              }}
+            />
             {collectorsLoading && (
               <p style={{ fontFamily: MONO, fontSize: "0.55rem", color: MUTED, letterSpacing: "0.08em" }}>Loading…</p>
             )}

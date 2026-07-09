@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 import CommunitySidebar from "./CommunitySidebar";
@@ -224,6 +224,121 @@ function TierPanel({ tier, items, viewerId, onClose }: {
   );
 }
 
+type SearchCollector = {
+  id: string;
+  username: string;
+  display_name: string | null;
+  avatar_url: string | null;
+  city: string | null;
+  country: string | null;
+  is_donor: boolean | null;
+};
+
+function CollectorSearch({ query, viewerId }: { query: string; viewerId: string }) {
+  const [collectors,   setCollectors]   = useState<SearchCollector[]>([]);
+  const [loading,      setLoading]      = useState(false);
+  const [followState,  setFollowState]  = useState<Record<string, boolean>>({});
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const fetchCollectors = useCallback(async (q: string) => {
+    if (!q.trim()) { setCollectors([]); return; }
+    setLoading(true);
+    try {
+      const supabase = createClient();
+      const { data: profileData } = await supabase
+        .from("profiles")
+        .select("id, username, display_name, avatar_url, city, country, is_donor")
+        .eq("is_public", true)
+        .eq("is_test", false)
+        .neq("id", viewerId)
+        .or(`username.ilike.%${q.trim()}%,display_name.ilike.%${q.trim()}%`)
+        .limit(50);
+
+      const profiles = (profileData ?? []) as SearchCollector[];
+      setCollectors(profiles);
+
+      if (profiles.length > 0) {
+        const { data: followRows } = await supabase
+          .from("follows")
+          .select("following_id")
+          .eq("follower_id", viewerId)
+          .in("following_id", profiles.map(p => p.id));
+        const followedSet = new Set((followRows ?? []).map((r: { following_id: string }) => r.following_id));
+        const fs: Record<string, boolean> = {};
+        for (const p of profiles) fs[p.id] = followedSet.has(p.id);
+        setFollowState(fs);
+      }
+    } finally {
+      setLoading(false);
+    }
+  }, [viewerId]);
+
+  useEffect(() => {
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    debounceRef.current = setTimeout(() => fetchCollectors(query), 280);
+    return () => { if (debounceRef.current) clearTimeout(debounceRef.current); };
+  }, [query, fetchCollectors]);
+
+  async function toggleFollow(targetId: string) {
+    const prev = followState[targetId] ?? false;
+    setFollowState(s => ({ ...s, [targetId]: !prev }));
+    const res = await fetch("/api/collectors/follow", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ targetId, follow: !prev }),
+    });
+    if (!res.ok) setFollowState(s => ({ ...s, [targetId]: prev }));
+  }
+
+  return (
+    <div style={{ padding: "24px 1.5rem 4rem" }}>
+      <div style={{ maxWidth: 860, margin: "0 auto" }}>
+        <p style={{ fontFamily: MONO, fontSize: "0.52rem", letterSpacing: "0.12em", textTransform: "uppercase", color: MUTED, margin: "0 0 20px" }}>
+          All collectors
+        </p>
+        {loading && (
+          <p style={{ fontFamily: MONO, fontSize: "0.55rem", color: MUTED, letterSpacing: "0.08em" }}>Searching…</p>
+        )}
+        {!loading && collectors.length === 0 && query.trim() && (
+          <p style={{ fontFamily: MONO, fontSize: "0.65rem", color: MUTED }}>No collectors found for &ldquo;{query}&rdquo;.</p>
+        )}
+        {!loading && collectors.length > 0 && (
+          <div>
+            {collectors.map((c, i) => {
+              const location = [c.city, c.country].filter(Boolean).join(", ");
+              const isFollowing = followState[c.id] ?? false;
+              return (
+                <div key={c.id} style={{ display: "flex", alignItems: "center", gap: "14px", padding: "14px 0", borderBottom: i === collectors.length - 1 ? "none" : `1px solid ${RULE}` }}>
+                  <Link href={`/@${c.username}`} style={{ textDecoration: "none", flexShrink: 0 }}>
+                    <Avatar avatarUrl={c.avatar_url} name={c.display_name} username={c.username} size={40} />
+                  </Link>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <Link href={`/@${c.username}`} style={{ textDecoration: "none" }}>
+                      <p style={{ fontFamily: SERIF, fontSize: "0.9rem", fontWeight: 600, color: INK, margin: "0 0 2px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                        {c.display_name ?? c.username}
+                        {c.is_donor && <span style={{ fontFamily: SERIF, fontSize: "0.75rem", color: GOLD, marginLeft: "5px" }} title="rekōdo supporter">ō</span>}
+                      </p>
+                      <p style={{ fontFamily: MONO, fontSize: "0.55rem", letterSpacing: "0.06em", color: MUTED, margin: 0 }}>
+                        @{c.username}{location ? ` · ${location}` : ""}
+                      </p>
+                    </Link>
+                  </div>
+                  <button
+                    onClick={() => toggleFollow(c.id)}
+                    style={{ fontFamily: MONO, fontSize: "0.5rem", letterSpacing: "0.08em", textTransform: "uppercase", background: "none", border: `1px solid ${isFollowing ? RULE : ORANGE}`, color: isFollowing ? MUTED : ORANGE, cursor: "pointer", padding: "4px 12px", flexShrink: 0 }}
+                  >
+                    {isFollowing ? "Following" : "Follow"}
+                  </button>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 export default function CommunityClient({ profileId, username, displayName, avatarUrl, initialTrending }: {
   profileId: string;
   username: string;
@@ -249,7 +364,9 @@ export default function CommunityClient({ profileId, username, displayName, avat
         onSearchChange={setSearchQuery}
       />
       <div style={{ minWidth: 0 }}>
-        {activeTier ? (
+        {searchQuery.trim() ? (
+          <CollectorSearch query={searchQuery} viewerId={profileId} />
+        ) : activeTier ? (
           <TierPanel
             tier={activeTier}
             items={tierItems.get(activeTier) ?? []}
@@ -257,7 +374,7 @@ export default function CommunityClient({ profileId, username, displayName, avat
             onClose={() => setActiveTier(null)}
           />
         ) : (
-          <CommunityTab profileOwnerId={profileId} hideSocialPanel initialTrending={initialTrending} searchQuery={searchQuery} />
+          <CommunityTab profileOwnerId={profileId} hideSocialPanel initialTrending={initialTrending} />
         )}
       </div>
     </div>
