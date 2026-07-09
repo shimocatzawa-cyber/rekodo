@@ -110,11 +110,13 @@ function Section({ title, people }: { title: string; people: Person[] }) {
 
 type TierItem = { userId: string; score: number; sharedTags: string[] };
 
-export default function CommunitySidebar({ profileOwnerId, onTierClick, onTierData, activeTier }: {
+export default function CommunitySidebar({ profileOwnerId, onTierClick, onTierData, activeTier, searchQuery, onSearchChange }: {
   profileOwnerId: string;
   onTierClick?: (tier: string, items: TierItem[]) => void;
   onTierData?: (map: Map<string, TierItem[]>) => void;
   activeTier?: string | null;
+  searchQuery?: string;
+  onSearchChange?: (q: string) => void;
 }) {
   const [followers,     setFollowers]     = useState<Person[]>([]);
   const [following,     setFollowing]     = useState<Person[]>([]);
@@ -210,6 +212,24 @@ export default function CommunitySidebar({ profileOwnerId, onTierClick, onTierDa
 
   return (
     <aside style={{ padding: "28px 0", minWidth: 0 }}>
+
+      {/* Search collectors */}
+      {onSearchChange && (
+        <div style={{ marginBottom: "20px" }}>
+          <input
+            type="text"
+            className="rk-form-input"
+            placeholder="Search collectors…"
+            value={searchQuery ?? ""}
+            onChange={e => onSearchChange(e.target.value)}
+            style={{
+              width: "100%", fontFamily: MONO, fontSize: "0.65rem", letterSpacing: "0.04em",
+              color: "#0a0a0a", background: "#fafaf8", border: `1px solid ${RULE}`,
+              padding: "8px 12px", outline: "none", boxSizing: "border-box",
+            }}
+          />
+        </div>
+      )}
 
       {/* Collection Similarity */}
       <div style={{ marginBottom: "28px", paddingBottom: "24px", borderBottom: `1px solid ${RULE}` }}>

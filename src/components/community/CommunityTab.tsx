@@ -246,12 +246,12 @@ function ActivityRow({ item }: { item: ActivityItem }) {
 
 // ── Main component ─────────────────────────────────────────────────────────────
 
-export default function CommunityTab({ profileOwnerId, hideSocialPanel = false, initialTrending }: { profileOwnerId: string; hideSocialPanel?: boolean; initialTrending?: TrendingRecord[] }) {
+export default function CommunityTab({ profileOwnerId, hideSocialPanel = false, initialTrending, searchQuery: externalSearchQuery }: { profileOwnerId: string; hideSocialPanel?: boolean; initialTrending?: TrendingRecord[]; searchQuery?: string }) {
   const [viewerUserId, setViewerUserId] = useState<string | null>(null);
   const viewerUserIdRef  = useRef<string | null>(null);
   const pendingTogglesRef = useRef<Set<string>>(new Set());
   const [subTab,       setSubTab]       = useState<SubTab>("trending");
-  const [searchQuery,  setSearchQuery]  = useState("");
+  const searchQuery = externalSearchQuery ?? "";
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Followers / Following sections
@@ -440,6 +440,10 @@ export default function CommunityTab({ profileOwnerId, hideSocialPanel = false, 
   }, []); // stable — reads viewerUserId from ref, not closure
 
   useEffect(() => {
+    if (searchQuery.trim()) setSubTab("collectors");
+  }, [searchQuery]);
+
+  useEffect(() => {
     if (subTab !== "collectors") return;
     if (debounceRef.current) clearTimeout(debounceRef.current);
     debounceRef.current = setTimeout(() => loadCollectors(searchQuery), 280);
@@ -561,11 +565,11 @@ export default function CommunityTab({ profileOwnerId, hideSocialPanel = false, 
   }
 
   const TABS: Array<{ key: SubTab; label: string }> = [
-    { key: "trending",   label: "Top 40" },
+    { key: "trending",   label: "Top 40 Collected" },
     { key: "following",  label: "Collectors I Follow" },
     { key: "offers",     label: "Open to Offers" },
     { key: "collectors", label: "Discover" },
-    { key: "lists",      label: "Lists" },
+    { key: "lists",      label: "Shared Lists" },
     { key: "saved",      label: "Saved Lists" },
   ];
 
@@ -657,24 +661,6 @@ export default function CommunityTab({ profileOwnerId, hideSocialPanel = false, 
             {followError}
           </div>
         )}
-
-        {/* Search bar */}
-        <input
-          type="text"
-          className="rk-form-input"
-          placeholder="Search collectors by name or username…"
-          value={searchQuery}
-          onChange={e => {
-            setSearchQuery(e.target.value);
-            if (e.target.value.trim()) setSubTab("collectors");
-          }}
-          style={{
-            width: "100%", fontFamily: MONO, fontSize: "0.72rem", letterSpacing: "0.04em",
-            color: INK, background: "#fafaf8", border: `1px solid ${RULE}`,
-            padding: "10px 14px", outline: "none", boxSizing: "border-box",
-            marginBottom: "24px",
-          }}
-        />
 
         {/* Sub-tabs — desktop: scrollable tab bar; mobile: dropdown select */}
         <div className="rk-community-tabs" style={{ display: "flex", borderBottom: `1px solid ${RULE}`, marginBottom: "28px" }}>

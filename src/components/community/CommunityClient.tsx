@@ -231,8 +231,9 @@ export default function CommunityClient({ profileId, username, displayName, avat
   avatarUrl?: string;
   initialTrending?: TrendingRecord[];
 }) {
-  const [activeTier, setActiveTier] = useState<string | null>(null);
-  const [tierItems,  setTierItems]  = useState<Map<string, TierItem[]>>(new Map());
+  const [activeTier,   setActiveTier]   = useState<string | null>(null);
+  const [tierItems,    setTierItems]    = useState<Map<string, TierItem[]>>(new Map());
+  const [searchQuery,  setSearchQuery]  = useState("");
 
   return (
     <div className="rk-community-grid" style={{ display: "grid", gridTemplateColumns: "220px 1fr", gap: "24px", maxWidth: 1280, margin: "0 auto", paddingLeft: "0", paddingRight: "32px" }}>
@@ -244,6 +245,8 @@ export default function CommunityClient({ profileId, username, displayName, avat
         }}
         activeTier={activeTier}
         onTierData={setTierItems}
+        searchQuery={searchQuery}
+        onSearchChange={setSearchQuery}
       />
       <div style={{ minWidth: 0 }}>
         {activeTier ? (
@@ -254,7 +257,7 @@ export default function CommunityClient({ profileId, username, displayName, avat
             onClose={() => setActiveTier(null)}
           />
         ) : (
-          <CommunityTab profileOwnerId={profileId} hideSocialPanel initialTrending={initialTrending} />
+          <CommunityTab profileOwnerId={profileId} hideSocialPanel initialTrending={initialTrending} searchQuery={searchQuery} />
         )}
       </div>
     </div>
