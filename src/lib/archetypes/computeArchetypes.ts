@@ -142,13 +142,6 @@ export async function computeArchetypes(
     .eq('user_id', userId)
   const digitalImports = digitalImportsRaw ?? []
 
-  // ── C2: Dig history count — engagement proxy when Spotify play_count is absent ─
-  const { count: digCountRaw } = await supabase
-    .from('dig_history')
-    .select('id', { count: 'exact', head: true })
-    .eq('user_id', userId)
-  const digHistoryCount = digCountRaw ?? 0
-
   // ── D: Lists and list_items ──────────────────────────────────────────────────
   const { data: listsRaw } = await supabase
     .from('lists')
@@ -620,34 +613,26 @@ export async function computeArchetypes(
     subtext: `${completistArtists} of ${totalArtists} artists with 3+ records`,
   }
 
-  // 18. listeningIntensity — Spotify play_count is primary when available; falls back
-  // to dig_history count as an engagement proxy (someone actively digging is actively
-  // listening) since most users haven't connected Spotify yet.
+  // 18. listeningIntensity — based solely on manually logged plays ("Played Today").
   let totalPlays = 0
   let playedCount = 0
   for (const row of userRecords) {
     const plays = row.play_count ?? 0
     if (plays > 0) { playedCount++; totalPlays += plays }
   }
-  const hasSpotifyData = totalPlays > 0
+  const hasPlayData = totalPlays > 0
   const playedRatio = totalRecords > 0 ? (playedCount / totalRecords) * 100 : 0
   const avgPlaysPerRecord = totalRecords > 0 ? totalPlays / totalRecords : 0
-  const spotifyScore = clamp(playedRatio * 0.5 + Math.min(avgPlaysPerRecord * 5, 50))
-  // Dig history proxy: 40 digs ≈ max engagement; sqrt curve so early digs count more.
-  const digProxyScore = clamp(Math.sqrt(digHistoryCount) * 14)
-  const hasListeningData = hasSpotifyData || digHistoryCount > 0
-  const intensityScore = hasSpotifyData ? spotifyScore : digProxyScore
+  const intensityScore = clamp(playedRatio * 0.5 + Math.min(avgPlaysPerRecord * 5, 50))
   const listeningIntensity: ComputedSignals['listeningIntensity'] = {
-    score: hasListeningData ? intensityScore : 0,
-    label: !hasListeningData
-      ? 'No listening data'
+    score: hasPlayData ? intensityScore : 0,
+    label: !hasPlayData
+      ? 'No logged plays'
       : intensityScore > 60 ? 'Deep listener' : intensityScore >= 30 ? 'Regular listener' : 'Collector-first',
-    subtext: hasSpotifyData
+    subtext: hasPlayData
       ? `${totalPlays} total plays across ${playedCount} records`
-      : digHistoryCount > 0
-        ? `${digHistoryCount} dig session${digHistoryCount !== 1 ? 's' : ''} (engagement proxy)`
-        : 'Connect Spotify or use Dig to unlock',
-    unavailable: !hasListeningData,
+      : 'Log plays with "Played Today" to unlock',
+    unavailable: !hasPlayData,
   }
 
   // ── ASSEMBLE SIGNALS ────────────────────────────────────────────────────────
