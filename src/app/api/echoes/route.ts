@@ -338,11 +338,10 @@ function buildPrompt(
     sval("labelLoyalty") > 55 ? "Collector navigates by label — anchor the portal to an adjacent label family." :
                                  "Labels don't organise this world — anchor the portal to a style/scene.";
 
-  // Styles the collector has dipped into (2–8 records) — the most meaningful anchors
-  // for a portal because the collector has shown real but uncommitted interest
+  // Styles the collector has touched but not committed to (2–8 records) — best portal anchors
   const portalCandidates = ctx.thinStyles.length
-    ? `Anchor the portal to one of these styles the collector has touched but not committed to: ${ctx.thinStyles.map(([s, c]) => `${s}(${c} records)`).join(", ")}.`
-    : `Anchor the portal to the collector's second-largest style cluster.`;
+    ? `Portal anchor styles (collector has briefly touched these — pick one): ${ctx.thinStyles.slice(0, 8).map(([s]) => s).join(", ")}.`
+    : `Anchor to the collector's second-largest style cluster.`;
 
   return `Generate 5 Echoes discovery modules for this record collector. Output artist names and album titles as accurately as possible — recommendations will be validated against a music database and dropped if not found, so precision matters.
 
@@ -376,8 +375,8 @@ ${underrepLine} Give 4 canonical touchstones from that genre/scene they don't al
 
 MODULE 03 — SCENE PORTALS
 ${portalCandidates}
-${portalFrame}${digitalOnly ? ` Also consider connecting to digital-only artists: ${digitalOnly}.` : ""}
-The "adjacentTo" field must name the specific style from the candidate list that you anchored to. Give 1 gateway album from the adjacent scene.
+${portalFrame}${digitalOnly ? ` Also consider: ${digitalOnly}.` : ""}
+Set "adjacentTo" to the anchor style you chose. Give 1 gateway album from the neighbouring scene.
 
 MODULE 04 — TASTE FORKS
 Shadow archetype: ${archetype.shadow} — ${shadowTrait}
@@ -463,9 +462,9 @@ async function generate(
     method: "POST",
     headers: { "Content-Type": "application/json", "x-api-key": apiKey, "anthropic-version": "2023-06-01" },
     body: JSON.stringify({
-      model:      "claude-sonnet-4-6",
-      max_tokens: 2048,
-      system:     "You are a music discovery engine. Return valid JSON only, no markdown, no code blocks. Output real artist names and album titles accurately; recommendations are validated against a 467,000-record music database and silently dropped if not found. Never use em dashes (—) in any output text.",
+      model:      "claude-opus-4-8",
+      max_tokens: 4096,
+      system:     "You are a music discovery engine for a serious record collector. Return valid JSON only, no markdown, no code blocks. Output real, precise artist names and album titles — recommendations are validated against a 467,000-record music database and silently dropped if not found. Never use em dashes (—) in any output text. Never put an artist name in the title field.",
       messages:   [{ role: "user", content: prompt }],
     }),
     signal: AbortSignal.timeout(90000),
@@ -497,6 +496,32 @@ async function generate(
     return v;
   };
   echoes = stripEmDash(echoes);
+
+  // Sanitise structurally invalid albums — catches Claude putting artist names
+  // in title fields, internal notes ("wrong omit"), or empty/malformed entries
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  function validAlbum(a: any): boolean {
+    const title  = String(a?.title  ?? "").trim();
+    const artist = String(a?.artist ?? "").trim();
+    const why    = String(a?.why    ?? "").toLowerCase();
+    if (!title || !artist) return false;
+    if (title === artist) return false;
+    if (/\b(omit|wrong|skip|n\/a|error|none)\b/.test(why)) return false;
+    return true;
+  }
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const keepAlbum = (a: any) => validAlbum(a);
+  if (echoes.missingMiddle?.albums)
+    echoes.missingMiddle.albums = echoes.missingMiddle.albums.filter(keepAlbum);
+  if (echoes.unboughtClassic?.albums)
+    echoes.unboughtClassic.albums = echoes.unboughtClassic.albums.filter(keepAlbum);
+  if (echoes.tasteForks?.albums)
+    echoes.tasteForks.albums = echoes.tasteForks.albums.filter(keepAlbum);
+  if (Array.isArray(echoes.scenePortals))
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    echoes.scenePortals = echoes.scenePortals.filter((p: any) => p.gatewayAlbum && validAlbum(p.gatewayAlbum));
+  if (echoes.nextObsession?.entryPoint && !validAlbum(echoes.nextObsession.entryPoint))
+    echoes.nextObsession.entryPoint = null;
 
   // Layer 1: JS token-overlap filter — always runs, uses collection already in memory
   filterOwnedJS(echoes, buildOwnedSet(rows));
