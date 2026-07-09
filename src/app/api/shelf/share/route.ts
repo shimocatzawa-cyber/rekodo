@@ -27,18 +27,28 @@ export async function POST(request: NextRequest) {
   const storagePath = `${user.id}/${Date.now()}.png`;
   const bytes = await file.arrayBuffer();
 
+  // Ensure the bucket exists (creates it on first use)
+  const BUCKET = "shelf_posts";
+  const { data: buckets } = await sb.storage.listBuckets();
+  const exists = (buckets ?? []).some((b: { name: string }) => b.name === BUCKET);
+  if (!exists) {
+    const { error: createErr } = await sb.storage.createBucket(BUCKET, { public: true });
+    if (createErr) {
+      console.error("[shelf/share] bucket create failed:", createErr);
+      return NextResponse.json({ error: `Could not create storage bucket: ${createErr.message}` }, { status: 500 });
+    }
+  }
+
   const { error: upErr } = await sb.storage
-    .from("shelf_posts")
+    .from(BUCKET)
     .upload(storagePath, bytes, { contentType: "image/png" });
 
   if (upErr) {
-    const { data: buckets } = await sb.storage.listBuckets();
-    const names = (buckets ?? []).map((b: { name: string }) => b.name).join(", ");
-    console.error("[shelf/share] storage upload failed:", upErr, "available buckets:", names);
-    return NextResponse.json({ error: `${upErr.message} — available buckets: ${names || "none"}` }, { status: 500 });
+    console.error("[shelf/share] storage upload failed:", upErr);
+    return NextResponse.json({ error: upErr.message }, { status: 500 });
   }
 
-  const { data: { publicUrl } } = sb.storage.from("shelf_posts").getPublicUrl(storagePath);
+  const { data: { publicUrl } } = sb.storage.from(BUCKET).getPublicUrl(storagePath);
 
   const { data, error: dbErr } = await sb
     .from("shelf_posts")
