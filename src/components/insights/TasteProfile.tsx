@@ -31,12 +31,15 @@ interface TasteProfileProps {
   topPlayedRecords:     { artist: string; album: string; coverUrl: string | null; lastPlayedAt: string; playCount: number }[];
   playedStyleBreakdown: { style: string; count: number; pct: number }[];
   usageStats: {
-    digDiscover:   number;
-    digExplore:    number;
-    digStyle:      number;
-    deepDiveCount: number;
-    listsTotal:    number;
-    listLikes:     number;
+    digDiscover:         number;
+    digExplore:          number;
+    digStyle:            number;
+    deepDiveCount:       number;
+    listsTotal:          number;
+    listLikes:           number;
+    playsLast7Days:      number;
+    totalPlays:          number;
+    uniqueRecordsPlayed: number;
   };
 }
 
@@ -214,6 +217,36 @@ export default function TasteProfile({
       {topPlayedRecords.length > 0 && (
         <>
           <TasteSectionHeader eyebrow="Listening History" title="What you've been reaching for." />
+
+          {/* Listening stats strip */}
+          <div style={{
+            display: "grid", gridTemplateColumns: "repeat(3, 1fr)",
+            border: `1px solid ${RULE}`, marginBottom: "32px",
+          }}>
+            {[
+              { hero: usageStats.playsLast7Days.toLocaleString(), label: "Plays · Last 7 days" },
+              { hero: usageStats.totalPlays.toLocaleString(),     label: "Total plays logged" },
+              { hero: usageStats.uniqueRecordsPlayed.toLocaleString(), label: "Records played" },
+            ].map((tile, i) => (
+              <div key={i} style={{
+                padding: "16px 18px",
+                borderRight: i < 2 ? `1px solid ${RULE}` : "none",
+              }}>
+                <p style={{
+                  fontFamily: "var(--font-editorial)", fontSize: "1.4rem", fontWeight: 400,
+                  color: i === 0 ? ORANGE : INK, lineHeight: 1.1, margin: "0 0 5px", letterSpacing: "-0.01em",
+                }}>
+                  {tile.hero}
+                </p>
+                <p style={{
+                  fontFamily: MONO, fontSize: "0.58rem", letterSpacing: "0.1em",
+                  textTransform: "uppercase", color: "#888", margin: 0,
+                }}>
+                  {tile.label}
+                </p>
+              </div>
+            ))}
+          </div>
 
           <div className="rk-grid-2" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "48px" }}>
 

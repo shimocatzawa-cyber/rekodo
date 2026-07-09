@@ -459,6 +459,8 @@ export default function ConstellationPOC({ username }: Props) {
   const [mbInfluence,    setMbInfluence]    = useState<InflEdge[]>([]);
   const [wdInfluence,    setWdInfluence]    = useState<WDInfluenceEdge[]>([]);
   const [discogsLineage, setDiscogsLineage] = useState<LineageEdge[]>([]);
+  const [globalNeighbours, setGlobalNeighbours] = useState<{ artist: string; shared_styles: string[]; match_count: number }[]>([]);
+  const [dbInfluence,      setDbInfluence]      = useState<{ source_artist: string; target_artist: string; type: string; note: string | null; via: string | null }[]>([]);
 
   // ── Artist / label filter ────────────────────────────────────────────────────
   const [artistQuery,    setArtistQuery]    = useState("");
@@ -995,6 +997,62 @@ export default function ConstellationPOC({ username }: Props) {
     run();
     return () => { cancelled = true; };
   }, [isReady, username]);
+
+  // ── Global sonic neighbours from 467k dataset ─────────────────────────────────
+  // Queries the full records table via RPC for artists beyond the user's collection
+  // who share the same style tags. Runs once when styleGroups is populated.
+
+  useEffect(() => {
+    if (!isReady || styleGroups.length === 0) return;
+    let cancelled = false;
+
+    const run = async () => {
+      const styles          = styleGroups.map(g => g.style);
+      const excludeArtists  = nodesRef.current.filter(n => n.owned).map(n => n.name);
+      try {
+        const res = await fetch("/api/constellation/sonic-neighbours", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ styles, excludeArtists, limit: 60 }),
+        });
+        if (!res.ok || cancelled) return;
+        const json = await res.json() as { neighbours?: { artist: string; shared_styles: string[]; match_count: number }[] };
+        if (!cancelled && json.neighbours && json.neighbours.length > 0) {
+          setGlobalNeighbours(json.neighbours);
+        }
+      } catch { /* best-effort */ }
+    };
+
+    run();
+    return () => { cancelled = true; };
+  }, [isReady, styleGroups]);
+
+  // ── DB influences from artist_influences table ────────────────────────────────
+  // Reads Claude-generated influence rows for owned artists via server API
+  // (avoids generated-types mismatch while migration is pending).
+
+  useEffect(() => {
+    if (!isReady) return;
+    let cancelled = false;
+
+    const run = async () => {
+      const ownedNames = nodesRef.current.filter(n => n.owned).map(n => n.name);
+      if (ownedNames.length === 0) return;
+      try {
+        const res = await fetch("/api/constellation/db-influences", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ artists: ownedNames }),
+        });
+        if (!res.ok || cancelled) return;
+        const json = await res.json() as { rows?: typeof dbInfluence };
+        if (!cancelled && json.rows && json.rows.length > 0) setDbInfluence(json.rows);
+      } catch { /* best-effort */ }
+    };
+
+    run();
+    return () => { cancelled = true; };
+  }, [isReady]);
 
   // ── Animation loop ────────────────────────────────────────────────────────────
 
@@ -2021,6 +2079,22 @@ export default function ConstellationPOC({ username }: Props) {
                     if (afL && e.source.toLowerCase() !== afL && e.target.toLowerCase() !== afL) continue;
                     addInfl(visInfl, { source: e.source, target: e.target, type: "influence", note: e.note, via: "Wikidata" });
                   }
+                  // 4. DB (Claude-generated) influences
+                  for (const row of dbInfluence) {
+                    const src = row.source_artist, tgt = row.target_artist;
+                    if (labelScope && (!labelScope.has(src) || !labelScope.has(tgt))) continue;
+                    if (afL && src.toLowerCase() !== afL && tgt.toLowerCase() !== afL) continue;
+                    addInfl(visInfl, { source: src, target: tgt, type: "influence", note: row.note ?? "", via: row.via ?? "Claude" });
+                  }
+
+                  // Build global neighbours lookup: style → external artists
+                  const globalByStyle = new Map<string, string[]>();
+                  for (const n of globalNeighbours) {
+                    for (const s of n.shared_styles) {
+                      if (!globalByStyle.has(s)) globalByStyle.set(s, []);
+                      globalByStyle.get(s)!.push(n.artist);
+                    }
+                  }
 
                   // Highlight node, freeze map, zoom to show it + all its connections
                   function selectArtist(name: string) {
@@ -2125,14 +2199,25 @@ export default function ConstellationPOC({ username }: Props) {
                       </PanelSection>
 
                       <PanelSection id="sonic" title="Sonic Neighbours" count={visStyles.length}>
-                        {visStyles.length === 0 ? empty : visStyles.map(g => (
-                          <div key={g.style} style={{ marginBottom: 16 }}>
-                            <p style={{ fontFamily: MONO, fontSize: "11px", color: ORANGE, letterSpacing: "0.1em", textTransform: "uppercase", margin: "0 0 5px" }}>
-                              {g.style} <span style={{ color: DIM3 }}>· {g.artists.length}</span>
-                            </p>
-                            <ArtistList artists={g.artists} />
-                          </div>
-                        ))}
+                        {visStyles.length === 0 ? empty : visStyles.map(g => {
+                          const globals = (globalByStyle.get(g.style) ?? []).slice(0, 8);
+                          return (
+                            <div key={g.style} style={{ marginBottom: 16 }}>
+                              <p style={{ fontFamily: MONO, fontSize: "11px", color: ORANGE, letterSpacing: "0.1em", textTransform: "uppercase", margin: "0 0 5px" }}>
+                                {g.style} <span style={{ color: DIM3 }}>· {g.artists.length}</span>
+                              </p>
+                              <ArtistList artists={g.artists} />
+                              {globals.length > 0 && (
+                                <>
+                                  <p style={{ fontFamily: MONO, fontSize: "10px", color: DIM3, letterSpacing: "0.08em", textTransform: "uppercase", margin: "6px 0 4px" }}>
+                                    also in global db
+                                  </p>
+                                  <ArtistList artists={globals} />
+                                </>
+                              )}
+                            </div>
+                          );
+                        })}
                       </PanelSection>
 
                       <PanelSection id="labels" title="Shared Labels" count={visLbls.length}>

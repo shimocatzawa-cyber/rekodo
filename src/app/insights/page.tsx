@@ -1127,6 +1127,19 @@ export default async function InsightsPage() {
       pct: playedStyleTotal > 0 ? Math.round((count / playedStyleTotal) * 100) : 0,
     }));
 
+  // ── Listening stats derived from play data ─────────────────────────────────
+  const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
+  const { count: playsLast7DaysRaw } = await (supabase as any)
+    .from("activity_events")
+    .select("*", { count: "exact", head: true })
+    .eq("user_id", user.id)
+    .eq("event_type", "play")
+    .gte("created_at", sevenDaysAgo) as { count: number | null };
+  const playsLast7Days = playsLast7DaysRaw ?? 0;
+
+  const totalPlays = playedLinks.reduce((sum, pl) => sum + pl.play_count, 0);
+  const uniqueRecordsPlayed = playedLinks.length;
+
   // ── Usage stats ────────────────────────────────────────────────────────────
   const { data: digRows } = await (supabase as any)
     .from("dig_daily_count")
@@ -1187,12 +1200,15 @@ export default async function InsightsPage() {
     : null;
 
   const usageStats: InsightsProps["usageStats"] = {
-    digDiscover: digByMode.discover,
-    digExplore:  digByMode.explore,
-    digStyle:    digByMode.style,
+    digDiscover:        digByMode.discover,
+    digExplore:         digByMode.explore,
+    digStyle:           digByMode.style,
     deepDiveCount,
     listsTotal,
     listLikes,
+    playsLast7Days,
+    totalPlays,
+    uniqueRecordsPlayed,
   };
 
   return (
