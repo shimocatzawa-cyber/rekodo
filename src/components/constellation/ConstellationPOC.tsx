@@ -1779,7 +1779,7 @@ export default function ConstellationPOC({ username }: Props) {
 
               {/* Artist filter */}
               <div style={{ padding: "12px 18px 0", flexShrink: 0 }}>
-                <p style={{ fontFamily: MONO, fontSize: "8px", color: DIM3, letterSpacing: "0.14em", textTransform: "uppercase", margin: "0 0 5px" }}>Artist</p>
+                <p style={{ fontFamily: MONO, fontSize: "10px", color: DIM3, letterSpacing: "0.14em", textTransform: "uppercase", margin: "0 0 5px" }}>Artist</p>
                 <div style={{ position: "relative" }}>
                   {artistFilter ? (
                     <div style={{ display: "flex", alignItems: "center", gap: 6, padding: "6px 10px", border: `1px solid ${ORANGE}`, background: "rgba(204,85,0,0.08)" }}>
@@ -1833,7 +1833,7 @@ export default function ConstellationPOC({ username }: Props) {
 
               {/* Label filter */}
               <div style={{ padding: "10px 18px 12px", flexShrink: 0, borderBottom: `1px solid ${BORD}` }}>
-                <p style={{ fontFamily: MONO, fontSize: "8px", color: DIM3, letterSpacing: "0.14em", textTransform: "uppercase", margin: "0 0 5px" }}>Label</p>
+                <p style={{ fontFamily: MONO, fontSize: "10px", color: DIM3, letterSpacing: "0.14em", textTransform: "uppercase", margin: "0 0 5px" }}>Label</p>
                 <div style={{ position: "relative" }}>
                   {labelFilter ? (
                     <div style={{ display: "flex", alignItems: "center", gap: 6, padding: "6px 10px", border: `1px solid ${ORANGE}`, background: "rgba(204,85,0,0.08)" }}>
@@ -1912,47 +1912,84 @@ export default function ConstellationPOC({ username }: Props) {
                     return [{ source: src, target: tgt, type: e.type, note: e.note, via: e.via }];
                   });
 
+                  // Zoom canvas to a named node and set it as the active artist filter
+                  function selectArtist(name: string) {
+                    setArtistFilter(name);
+                    const node = nodesRef.current.find(n => n.name.toLowerCase() === name.toLowerCase());
+                    if (node && canvasRef.current) {
+                      const W = canvasRef.current.parentElement!.clientWidth;
+                      const H = canvasRef.current.parentElement!.clientHeight;
+                      const AVAIL_W = W - PANEL_W;
+                      const sc = 1.8;
+                      targetCamRef.current = { x: AVAIL_W / 2 - node.x * sc, y: H / 2 - node.y * sc, scale: sc };
+                      autoZoomRef.current = true;
+                    }
+                  }
+
                   function PanelSection({ id, title, count, children }: { id: string; title: string; count: number; children: React.ReactNode }) {
                     const open = openSections.has(id);
                     return (
                       <div style={{ borderTop: `1px solid ${BORD}`, marginTop: 0 }}>
                         <button onClick={() => setOpenSections(prev => { const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n; })}
-                          style={{ width: "100%", display: "flex", justifyContent: "space-between", alignItems: "center", padding: "12px 0", background: "none", border: "none", cursor: "pointer" }}
+                          style={{ width: "100%", display: "flex", justifyContent: "space-between", alignItems: "center", padding: "13px 0", background: "none", border: "none", cursor: "pointer" }}
                         >
-                          <span style={{ fontFamily: MONO, fontSize: "9px", color: DIM2, letterSpacing: "0.14em", textTransform: "uppercase" }}>{title}</span>
+                          <span style={{ fontFamily: MONO, fontSize: "11px", color: DIM2, letterSpacing: "0.14em", textTransform: "uppercase" }}>{title}</span>
                           <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                            <span style={{ fontFamily: MONO, fontSize: "9px", color: DIM3 }}>{count}</span>
-                            <span style={{ fontFamily: MONO, fontSize: "11px", color: DIM3, lineHeight: 1 }}>{open ? "−" : "+"}</span>
+                            <span style={{ fontFamily: MONO, fontSize: "11px", color: DIM3 }}>{count}</span>
+                            <span style={{ fontFamily: MONO, fontSize: "14px", color: DIM3, lineHeight: 1 }}>{open ? "−" : "+"}</span>
                           </div>
                         </button>
-                        {open && <div style={{ paddingBottom: 10 }}>{children}</div>}
+                        {open && <div style={{ paddingBottom: 12 }}>{children}</div>}
                       </div>
+                    );
+                  }
+
+                  // Each artist name is a clickable button — sets filter + zooms canvas
+                  function ArtistChip({ name }: { name: string }) {
+                    const active = afL && name.toLowerCase() === afL;
+                    return (
+                      <button
+                        onClick={() => active ? setArtistFilter(null) : selectArtist(name)}
+                        style={{
+                          fontFamily: SERIF, fontSize: "15px", lineHeight: 1.6,
+                          background: "none", border: "none", padding: 0, margin: 0,
+                          cursor: "pointer", color: active ? ORANGE : DIM2,
+                          textDecoration: active ? "underline" : "none",
+                          textUnderlineOffset: "3px",
+                        }}
+                      >{name}</button>
                     );
                   }
 
                   function ArtistList({ artists }: { artists: string[] }) {
                     return (
-                      <p style={{ fontFamily: SERIF, fontSize: "13px", lineHeight: 1.7, margin: "0 0 14px" }}>
+                      <p style={{ margin: "0 0 14px", lineHeight: 1.8 }}>
                         {artists.map((name, i) => (
                           <span key={name}>
-                            {i > 0 && <span style={{ color: DIM3 }}> · </span>}
-                            <span style={{ color: afL && name.toLowerCase() === afL ? ORANGE : DIM2 }}>{name}</span>
+                            {i > 0 && <span style={{ fontFamily: MONO, fontSize: "11px", color: DIM3 }}> · </span>}
+                            <ArtistChip name={name} />
                           </span>
                         ))}
                       </p>
                     );
                   }
 
-                  const empty = <p style={{ fontFamily: MONO, fontSize: "10px", color: DIM3, paddingBottom: 12 }}>None for current filter.</p>;
+                  const empty = <p style={{ fontFamily: MONO, fontSize: "12px", color: DIM3, paddingBottom: 12 }}>None for current filter.</p>;
 
                   return (
                     <>
                       <PanelSection id="labels" title="Shared Labels" count={visLbls.length}>
                         {visLbls.length === 0 ? empty : visLbls.map(g => (
-                          <div key={g.label} style={{ marginBottom: 14 }}>
-                            <p style={{ fontFamily: MONO, fontSize: "9px", color: ORANGE, letterSpacing: "0.1em", textTransform: "uppercase", margin: "0 0 4px" }}>
-                              {g.label} <span style={{ color: DIM3 }}>· {g.artists.length}</span>
-                            </p>
+                          <div key={g.label} style={{ marginBottom: 16 }}>
+                            <button
+                              onClick={() => setLabelFilter(labelFilter === g.label ? null : g.label)}
+                              style={{ background: "none", border: "none", padding: 0, cursor: "pointer", marginBottom: 5, textAlign: "left" }}
+                            >
+                              <span style={{ fontFamily: MONO, fontSize: "11px", color: labelFilter === g.label ? ORANGE : ORANGE, letterSpacing: "0.1em", textTransform: "uppercase" }}>
+                                {g.label}
+                              </span>
+                              <span style={{ fontFamily: MONO, fontSize: "11px", color: DIM3 }}> · {g.artists.length}</span>
+                            </button>
                             <ArtistList artists={g.artists} />
                           </div>
                         ))}
@@ -1960,8 +1997,8 @@ export default function ConstellationPOC({ username }: Props) {
 
                       <PanelSection id="sonic" title="Sonic Neighbours" count={visStyles.length}>
                         {visStyles.length === 0 ? empty : visStyles.slice(0, 40).map(g => (
-                          <div key={g.style} style={{ marginBottom: 14 }}>
-                            <p style={{ fontFamily: MONO, fontSize: "9px", color: ORANGE, letterSpacing: "0.1em", textTransform: "uppercase", margin: "0 0 4px" }}>
+                          <div key={g.style} style={{ marginBottom: 16 }}>
+                            <p style={{ fontFamily: MONO, fontSize: "11px", color: ORANGE, letterSpacing: "0.1em", textTransform: "uppercase", margin: "0 0 5px" }}>
                               {g.style} <span style={{ color: DIM3 }}>· {g.artists.length}</span>
                             </p>
                             <ArtistList artists={g.artists} />
@@ -1971,31 +2008,31 @@ export default function ConstellationPOC({ username }: Props) {
 
                       <PanelSection id="lineage" title="Band Lineage" count={visLin.length}>
                         {visLin.length === 0 ? (
-                          <p style={{ fontFamily: MONO, fontSize: "10px", color: DIM3, paddingBottom: 12 }}>
+                          <p style={{ fontFamily: MONO, fontSize: "12px", color: DIM3, paddingBottom: 12 }}>
                             {mbLineage.length + discogsLineage.length === 0 ? "Loading in background…" : "None for current filter."}
                           </p>
                         ) : visLin.map((e, i) => (
-                          <div key={i} style={{ marginBottom: 12, paddingBottom: 12, borderBottom: `1px solid ${BORD}` }}>
-                            <p style={{ fontFamily: SERIF, fontSize: "13px", margin: "0 0 4px", lineHeight: 1.4 }}>
-                              <span style={{ color: afL && e.source.toLowerCase() === afL ? ORANGE : INK }}>{e.source}</span>
-                              <span style={{ fontFamily: MONO, fontSize: "9px", color: DIM3, margin: "0 7px" }}>→</span>
-                              <span style={{ color: afL && e.target.toLowerCase() === afL ? ORANGE : INK }}>{e.target}</span>
+                          <div key={i} style={{ marginBottom: 14, paddingBottom: 14, borderBottom: `1px solid ${BORD}` }}>
+                            <p style={{ margin: "0 0 4px", lineHeight: 1.5 }}>
+                              <ArtistChip name={e.source} />
+                              <span style={{ fontFamily: MONO, fontSize: "12px", color: DIM3, margin: "0 8px" }}>→</span>
+                              <ArtistChip name={e.target} />
                             </p>
-                            <p style={{ fontFamily: MONO, fontSize: "10px", color: DIM3, margin: 0 }}>{e.via === "mb" ? "MusicBrainz" : "Discogs"}</p>
+                            <p style={{ fontFamily: MONO, fontSize: "11px", color: DIM3, margin: 0 }}>{e.via === "mb" ? "MusicBrainz" : "Discogs"}</p>
                           </div>
                         ))}
                       </PanelSection>
 
                       <PanelSection id="influence" title="Influences" count={visInfl.length}>
                         {visInfl.length === 0 ? empty : visInfl.map((e, i) => (
-                          <div key={i} style={{ marginBottom: 12, paddingBottom: 12, borderBottom: `1px solid ${BORD}` }}>
-                            <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 3, flexWrap: "wrap" }}>
-                              <span style={{ fontFamily: MONO, fontSize: "8px", color: ORANGE, letterSpacing: "0.12em", textTransform: "uppercase", flexShrink: 0 }}>{REL_LABEL[e.type]}</span>
-                              <span style={{ fontFamily: SERIF, fontSize: "13px", color: afL && e.source.toLowerCase() === afL ? ORANGE : INK }}>{e.source}</span>
-                              <span style={{ fontFamily: MONO, fontSize: "9px", color: DIM3 }}>{e.type === "collaboration" ? "↔" : "→"}</span>
-                              <span style={{ fontFamily: SERIF, fontSize: "13px", color: afL && e.target.toLowerCase() === afL ? ORANGE : INK }}>{e.target}</span>
+                          <div key={i} style={{ marginBottom: 14, paddingBottom: 14, borderBottom: `1px solid ${BORD}` }}>
+                            <div style={{ display: "flex", alignItems: "baseline", gap: 7, marginBottom: 4, flexWrap: "wrap" }}>
+                              <span style={{ fontFamily: MONO, fontSize: "10px", color: ORANGE, letterSpacing: "0.12em", textTransform: "uppercase", flexShrink: 0 }}>{REL_LABEL[e.type]}</span>
+                              <ArtistChip name={e.source} />
+                              <span style={{ fontFamily: MONO, fontSize: "12px", color: DIM3 }}>{e.type === "collaboration" ? "↔" : "→"}</span>
+                              <ArtistChip name={e.target} />
                             </div>
-                            <p style={{ fontFamily: MONO, fontSize: "10px", color: DIM3, margin: 0, lineHeight: 1.55 }}>{e.note}</p>
+                            <p style={{ fontFamily: MONO, fontSize: "11px", color: DIM3, margin: 0, lineHeight: 1.6 }}>{e.note}</p>
                           </div>
                         ))}
                       </PanelSection>
