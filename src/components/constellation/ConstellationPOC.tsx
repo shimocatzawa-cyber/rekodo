@@ -1078,6 +1078,41 @@ export default function ConstellationPOC({ username }: Props) {
     return () => { cancelled = true; };
   }, [isReady]);
 
+  // ── Real-time influence enrichment on artist selection ────────────────────────
+  // Fires whenever artistFilter changes (canvas click, panel chip, or search).
+  // If the selected artist has no data in artist_influences yet, fetches from Claude.
+
+  useEffect(() => {
+    if (!artistFilter) { setInflLoading(false); return; }
+    const name = artistFilter;
+    const hasData = dbInfluence.some(r => r.source_artist.toLowerCase() === name.toLowerCase());
+    if (hasData) return;
+
+    let cancelled = false;
+    setInflLoading(true);
+
+    fetch("/api/constellation/enrich-single", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ artist: name }),
+    })
+      .then(r => r.ok ? r.json() : null)
+      .then((json: { rows?: typeof dbInfluence } | null) => {
+        if (cancelled) return;
+        if (json?.rows && json.rows.length > 0) {
+          setDbInfluence(prev => {
+            const existing = new Set(prev.map(r => `${r.source_artist}|${r.target_artist}|${r.type}`));
+            const fresh = json.rows!.filter(r => !existing.has(`${r.source_artist}|${r.target_artist}|${r.type}`));
+            return [...prev, ...fresh];
+          });
+        }
+      })
+      .catch(() => {/* best-effort */})
+      .finally(() => { if (!cancelled) setInflLoading(false); });
+
+    return () => { cancelled = true; };
+  }, [artistFilter]);
+
   // ── Animation loop ────────────────────────────────────────────────────────────
 
   useEffect(() => {
@@ -2121,7 +2156,7 @@ export default function ConstellationPOC({ username }: Props) {
                   }
 
                   // Highlight node, freeze map, zoom to show it + all its connections.
-                  // If the artist has no influence data yet, fetch it in real time.
+                  // Influence enrichment is handled by the artistFilter useEffect.
                   function selectArtist(name: string) {
                     setArtistFilter(name);
                     const node = nodesRef.current.find(n => n.name.toLowerCase() === name.toLowerCase());
@@ -2130,29 +2165,6 @@ export default function ConstellationPOC({ username }: Props) {
                       physicsRef.current = false;
                       nodesRef.current.forEach(n => { n.vx = 0; n.vy = 0; });
                       zoomToNeighborhoodRef.current?.(node);
-                    }
-
-                    // Real-time influence fetch if not yet in DB
-                    const hasData = dbInfluence.some(r => r.source_artist.toLowerCase() === name.toLowerCase());
-                    if (!hasData) {
-                      setInflLoading(true);
-                      fetch("/api/constellation/enrich-single", {
-                        method: "POST",
-                        headers: { "Content-Type": "application/json" },
-                        body: JSON.stringify({ artist: name }),
-                      })
-                        .then(r => r.ok ? r.json() : null)
-                        .then((json: { rows?: typeof dbInfluence } | null) => {
-                          if (json?.rows && json.rows.length > 0) {
-                            setDbInfluence(prev => {
-                              const existing = new Set(prev.map(r => `${r.source_artist}|${r.target_artist}|${r.type}`));
-                              const fresh = json.rows!.filter(r => !existing.has(`${r.source_artist}|${r.target_artist}|${r.type}`));
-                              return [...prev, ...fresh];
-                            });
-                          }
-                        })
-                        .catch(() => {/* best-effort */})
-                        .finally(() => setInflLoading(false));
                     }
                   }
 
