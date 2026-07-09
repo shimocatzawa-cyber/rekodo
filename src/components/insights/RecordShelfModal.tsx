@@ -269,12 +269,13 @@ function ShelfCard({ username, totalRecords, styleBreakdown, genreBreakdown, des
 }
 
 export default function RecordShelfModal({ onClose, ...cardProps }: Props) {
-  const [exporting, setExporting]   = useState(false);
-  const [copyState, setCopyState]   = useState<"idle" | "copied" | "failed">("idle");
-  const [photoSrc, setPhotoSrc]     = useState<string | undefined>(undefined);
-  const [scale, setScale]           = useState(calcScale);
+  const [exporting,   setExporting]   = useState(false);
+  const [copyState,   setCopyState]   = useState<"idle" | "copied" | "failed">("idle");
+  const [shareState,  setShareState]  = useState<"idle" | "sharing" | "shared" | "failed">("idle");
+  const [photoSrc,    setPhotoSrc]    = useState<string | undefined>(undefined);
+  const [scale, setScale]             = useState(calcScale);
   const exportRef = useRef<HTMLDivElement>(null);
-  const [cardH, setCardH]           = useState<number | null>(null);
+  const [cardH, setCardH]             = useState<number | null>(null);
 
   useEffect(() => {
     async function init() {
@@ -374,6 +375,22 @@ export default function RecordShelfModal({ onClose, ...cardProps }: Props) {
     finally { setExporting(false); setTimeout(() => setCopyState("idle"), 2500); }
   }
 
+  async function handleShareCommunity() {
+    setShareState("sharing");
+    try {
+      const canvas = await buildCanvas();
+      if (!canvas) throw new Error("failed");
+      const blob = await new Promise<Blob>((res, rej) => canvas.toBlob(b => b ? res(b) : rej(), "image/png"));
+      const fd = new FormData();
+      fd.append("file", blob, "shelf.png");
+      const res = await fetch("/api/shelf/share", { method: "POST", body: fd });
+      if (!res.ok) throw new Error("upload failed");
+      trackShareCard("Record Shelf", "community");
+      setShareState("shared");
+    } catch { setShareState("failed"); }
+    finally { setTimeout(() => setShareState("idle"), 3000); }
+  }
+
   const PRV_W = Math.round(560 * scale);
   const PRV_H = cardH != null ? Math.round(cardH * scale) : 380;
   const busy  = exporting || cardH == null || photoSrc === undefined;
@@ -406,7 +423,7 @@ export default function RecordShelfModal({ onClose, ...cardProps }: Props) {
         </div>
 
         <div style={{ padding: "12px 16px 16px", borderTop: "1px solid rgba(0,0,0,0.08)", flexShrink: 0 }}>
-          <div style={{ display: "flex", gap: 8 }}>
+          <div style={{ display: "flex", gap: 8, marginBottom: 8 }}>
             <button onClick={handleDownload} disabled={busy}
               style={{ flex: 1, fontFamily: UI_MONO, fontSize: 9, letterSpacing: "0.1em", textTransform: "uppercase", background: INK, color: "#fff", border: "none", cursor: busy ? "wait" : "pointer", padding: "10px 0", opacity: busy ? 0.5 : 1 }}>
               {exporting ? "Exporting…" : busy ? "Loading…" : "Download PNG"}
@@ -416,6 +433,13 @@ export default function RecordShelfModal({ onClose, ...cardProps }: Props) {
               {copyState === "copied" ? "Copied ✓" : copyState === "failed" ? "Failed" : "Copy Image"}
             </button>
           </div>
+          <button
+            onClick={handleShareCommunity}
+            disabled={busy || shareState === "sharing" || shareState === "shared"}
+            style={{ width: "100%", fontFamily: UI_MONO, fontSize: 9, letterSpacing: "0.1em", textTransform: "uppercase", background: "none", border: `1px solid ${shareState === "shared" ? "#22c55e" : shareState === "failed" ? "#ef4444" : "#CC5500"}`, cursor: (busy || shareState === "sharing" || shareState === "shared") ? "default" : "pointer", padding: "10px 0", color: shareState === "shared" ? "#22c55e" : shareState === "failed" ? "#ef4444" : "#CC5500", opacity: busy ? 0.5 : 1 }}
+          >
+            {shareState === "sharing" ? "Sharing…" : shareState === "shared" ? "Shared with the Community ✓" : shareState === "failed" ? "Share Failed" : "Share with Rekōdo's Community"}
+          </button>
         </div>
       </div>
     </div>

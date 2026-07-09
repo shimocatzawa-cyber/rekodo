@@ -5,6 +5,7 @@ import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 import TrendingRecords from "./TrendingRecords";
 import OpenToOffers from "./OpenToOffers";
+import ShelfWall from "./ShelfWall";
 import type { TrendingRecord } from "@/lib/trendingRecords";
 
 const SERIF  = "var(--font-editorial)";
@@ -15,7 +16,7 @@ const INK    = "#0a0a0a";
 const MUTED  = "#aaaaaa";
 const GOLD   = "#C9A84C";
 
-type SubTab = "following" | "collectors" | "trending" | "offers" | "lists" | "saved";
+type SubTab = "following" | "collectors" | "trending" | "shelf" | "offers" | "lists" | "saved";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -562,6 +563,7 @@ export default function CommunityTab({ profileOwnerId, hideSocialPanel = false, 
 
   const TABS: Array<{ key: SubTab; label: string }> = [
     { key: "trending",   label: "Top 40 Collected" },
+    { key: "shelf",      label: "Record Shelf" },
     { key: "following",  label: "Collectors I Follow" },
     { key: "offers",     label: "Open to Offers" },
     { key: "collectors", label: "Discover" },
@@ -694,6 +696,7 @@ export default function CommunityTab({ profileOwnerId, hideSocialPanel = false, 
         </select>
 
         {subTab === "trending" && <TrendingRecords initialRecords={initialTrending} />}
+        {subTab === "shelf"    && <ShelfWall viewerLoggedIn={!!viewerUserId} />}
         {subTab === "offers"   && <OpenToOffers />}
 
         {/* ── Collectors I Follow ────────────────────────────────────────────── */}

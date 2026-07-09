@@ -287,7 +287,7 @@ export function getCardBlob(canvas: HTMLCanvasElement): Promise<Blob | null> {
   return new Promise(resolve => canvas.toBlob(b => resolve(b), "image/png"));
 }
 
-export function trackShareCard(cardType: string, action: "download" | "copy"): void {
+export function trackShareCard(cardType: string, action: "download" | "copy" | "community"): void {
   fetch("/api/track-share-card", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
