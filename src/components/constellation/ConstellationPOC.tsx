@@ -455,6 +455,7 @@ export default function ConstellationPOC({ username }: Props) {
   const [labelGroups,    setLabelGroups]    = useState<LabelGroup[]>([]);
   const [styleGroups,    setStyleGroups]    = useState<StyleGroup[]>([]);
   const [mbLineage,      setMbLineage]      = useState<LineageEdge[]>([]);
+  const [mbInfluence,    setMbInfluence]    = useState<InflEdge[]>([]);
   const [discogsLineage, setDiscogsLineage] = useState<LineageEdge[]>([]);
 
   // ── Artist / label filter ────────────────────────────────────────────────────
@@ -799,7 +800,9 @@ export default function ConstellationPOC({ username }: Props) {
 
       const discovered: Edge[] = [];
       const lineageDiscovered: LineageEdge[] = [];
-      const lineageKeys = new Set<string>();
+      const influenceDiscovered: InflEdge[] = [];
+      const lineageKeys   = new Set<string>();
+      const influenceKeys = new Set<string>();
 
       for (const node of ownedNodes) {
         if (cancelled) return;
@@ -840,6 +843,20 @@ export default function ConstellationPOC({ username }: Props) {
               lineageDiscovered.push({ source: srcNode.name, target: tgtNode.name, note: `${rel.type} (MusicBrainz)`, via: "mb" });
             }
           }
+
+          // Track influence edges for the side panel
+          if (mapped.type === "influence" && srcNode.owned && tgtNode.owned) {
+            const iKey = [srcNode.name.toLowerCase(), tgtNode.name.toLowerCase()].sort().join("|");
+            if (!influenceKeys.has(iKey)) {
+              influenceKeys.add(iKey);
+              influenceDiscovered.push({
+                source: mapped.source, target: mapped.target,
+                type: "influence",
+                note: `${mapped.source} influenced ${mapped.target} — via MusicBrainz`,
+                via: "MusicBrainz",
+              });
+            }
+          }
         }
 
         if (discovered.length > 0) {
@@ -847,6 +864,9 @@ export default function ConstellationPOC({ username }: Props) {
         }
         if (lineageDiscovered.length > 0 && !cancelled) {
           setMbLineage([...lineageDiscovered]);
+        }
+        if (influenceDiscovered.length > 0 && !cancelled) {
+          setMbInfluence([...influenceDiscovered]);
         }
       }
     };
@@ -1940,14 +1960,36 @@ export default function ConstellationPOC({ username }: Props) {
                     if (seenLin.has(k)) return false; seenLin.add(k); return true;
                   });
 
-                  const ID_TO_NAME_MAP = findDisplayNameMap();
-                  const visInfl: InflEdge[] = CURATED_EDGES.flatMap(e => {
+                  // Build name map: hardcoded curated IDs + all current collection nodes
+                  const ID_TO_NAME_MAP = (() => {
+                    const m = findDisplayNameMap();
+                    for (const n of nodesRef.current) m[n.id] = n.name;
+                    return m;
+                  })();
+
+                  const seenInfl = new Set<string>();
+                  function addInfl(arr: InflEdge[], e: InflEdge) {
+                    const k = [e.source.toLowerCase(), e.target.toLowerCase()].sort().join("|");
+                    if (seenInfl.has(k)) return;
+                    seenInfl.add(k);
+                    arr.push(e);
+                  }
+
+                  const visInfl: InflEdge[] = [];
+                  // 1. Curated edges (hand-written notes — shown first)
+                  for (const e of CURATED_EDGES) {
                     const src = ID_TO_NAME_MAP[e.source], tgt = ID_TO_NAME_MAP[e.target];
-                    if (!src || !tgt) return [];
-                    if (labelScope && (!labelScope.has(src) || !labelScope.has(tgt))) return [];
-                    if (afL && src.toLowerCase() !== afL && tgt.toLowerCase() !== afL) return [];
-                    return [{ source: src, target: tgt, type: e.type, note: e.note, via: e.via }];
-                  });
+                    if (!src || !tgt) continue;
+                    if (labelScope && (!labelScope.has(src) || !labelScope.has(tgt))) continue;
+                    if (afL && src.toLowerCase() !== afL && tgt.toLowerCase() !== afL) continue;
+                    addInfl(visInfl, { source: src, target: tgt, type: e.type, note: e.note, via: e.via });
+                  }
+                  // 2. MusicBrainz-discovered influence edges (fills gaps for uncurated artists)
+                  for (const e of mbInfluence) {
+                    if (labelScope && (!labelScope.has(e.source) || !labelScope.has(e.target))) continue;
+                    if (afL && e.source.toLowerCase() !== afL && e.target.toLowerCase() !== afL) continue;
+                    addInfl(visInfl, e);
+                  }
 
                   // Highlight node, freeze map, zoom to show it + all its connections
                   function selectArtist(name: string) {
