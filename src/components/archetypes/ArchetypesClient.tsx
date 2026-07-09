@@ -11,7 +11,6 @@ import SignalGrid from "./SignalGrid";
 import EssayBlock from "./EssayBlock";
 import ArchetypeShareModal from "./ArchetypeShareModal";
 
-const CardsTab   = dynamic(() => import("@/components/cards/CardsClient"),        { ssr: false });
 const EchoesTab  = dynamic(() => import("@/components/archetypes/EchoesClient"),  { ssr: false });
 import type { ComputedSignals } from "@/lib/archetypes/computeArchetypes";
 
@@ -86,7 +85,7 @@ function LoadingSkeleton() {
 
 export default function ArchetypesClient({ userId, username, displayLabel, avatarUrl, isAdmin, isSupporter }: Props) {
   const t = useTranslations("archetypes");
-  const [tab, setTab] = useUrlTab<"archetypes" | "cards" | "echoes">("tab", ["archetypes", "cards", "echoes"], "archetypes");
+  const [tab, setTab] = useUrlTab<"archetypes" | "echoes">("tab", ["archetypes", "echoes"], "archetypes");
   const [data, setData] = useState<ArchetypeData | null>(null);
   const [loading, setLoading] = useState(true);
   const [regenerating, setRegenerating] = useState(false);
@@ -126,13 +125,13 @@ export default function ArchetypesClient({ userId, username, displayLabel, avata
     <div style={{ minHeight: "100vh", background: "#ffffff" }}>
       <AppNav username={username} displayLabel={displayLabel} avatarUrl={avatarUrl} />
 
-      {/* Sub-tab bar — supporters see Archetypes + Echoes; admins also see Cards */}
-      {(isAdmin || isSupporter) && (
+      {/* Sub-tab bar — supporters see Archetypes + Echoes */}
+      {isSupporter && (
         <div className="rk-profile-tabs" style={{ display: "flex", justifyContent: "center", gap: "24px", paddingTop: "14px", paddingBottom: "2px", background: "#ffffff" }}>
-          {(["archetypes", "echoes", ...(isAdmin ? ["cards"] : [])] as const).map((id) => (
+          {(["archetypes", "echoes"] as const).map((id) => (
             <button
               key={id}
-              onClick={() => setTab(id as typeof tab)}
+              onClick={() => setTab(id)}
               style={{
                 fontFamily: MONO, fontSize: "10px", letterSpacing: "0.1em",
                 textTransform: "uppercase", background: "none", border: "none",
@@ -142,7 +141,7 @@ export default function ArchetypesClient({ userId, username, displayLabel, avata
                 cursor: "pointer", display: "inline-block",
               }}
             >
-              {id === "archetypes" ? "Archetypes" : id === "echoes" ? "Echoes" : "Cards"}
+              {id === "archetypes" ? "Archetypes" : "Echoes"}
             </button>
           ))}
         </div>
@@ -151,7 +150,7 @@ export default function ArchetypesClient({ userId, username, displayLabel, avata
       <main className="rk-arch-main" style={{ padding: "48px 32px 80px", maxWidth: "960px", margin: "0 auto" }}>
 
         {/* Page header — archetypes tab only */}
-        <div style={{ marginBottom: 32, display: tab === "archetypes" || (!isAdmin && !isSupporter) ? undefined : "none" }}>
+        <div style={{ marginBottom: 32, display: tab === "archetypes" || !isSupporter ? undefined : "none" }}>
           <div className="rk-arch-header" style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
             <div style={{ display: "flex", alignItems: "baseline", gap: 16, flexWrap: "wrap" }}>
               <h1 style={{ fontFamily: SERIF, fontSize: "1.8rem", fontWeight: 400, color: INK, margin: 0 }}>
@@ -193,12 +192,8 @@ export default function ArchetypesClient({ userId, username, displayLabel, avata
           <div style={{ borderTop: `1px solid ${RULE}`, marginTop: 20 }} />
         </div>
 
-        {tab === "echoes" && (isAdmin || isSupporter) && (
+        {tab === "echoes" && isSupporter && (
           <EchoesTab userId={userId} isAdmin={isAdmin} />
-        )}
-
-        {tab === "cards" && isAdmin && (
-          <CardsTab userId={userId} />
         )}
 
         {/* States */}
