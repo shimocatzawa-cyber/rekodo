@@ -1,13 +1,21 @@
 import { NextResponse } from "next/server";
-import { createClient } from "@/lib/supabase/server";
+import { createClient as createAuthClient } from "@/lib/supabase/server";
+import { createClient } from "@supabase/supabase-js";
 
 export const dynamic = "force-dynamic";
 
+function getServiceClient() {
+  return createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!,
+  );
+}
+
 export async function GET() {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
+  const authClient = await createAuthClient();
+  const { data: { user } } = await authClient.auth.getUser();
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const db = supabase as any;
+  const db = getServiceClient() as any;
 
   // 1. Fetch posts
   const { data: posts, error } = await db
@@ -27,7 +35,7 @@ export async function GET() {
 
   // 2. Fetch profiles + likes in parallel
   const [profilesRes, likesRes] = await Promise.all([
-    supabase
+    db
       .from("profiles")
       .select("id, username, display_name, avatar_url, is_donor")
       .in("id", userIds),
@@ -54,15 +62,17 @@ export async function GET() {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const mapped = posts.map((p: any) => {
     const profile = profileMap.get(p.user_id);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const prof = profile as any;
     return {
       id:          p.id,
       imageUrl:    p.image_url,
       createdAt:   p.created_at,
       userId:      p.user_id,
-      username:    profile?.username    ?? "",
-      displayName: profile?.display_name ?? null,
-      avatarUrl:   profile?.avatar_url   ?? null,
-      isDonor:     profile?.is_donor     ?? false,
+      username:    prof?.username     ?? "",
+      displayName: prof?.display_name ?? null,
+      avatarUrl:   prof?.avatar_url   ?? null,
+      isDonor:     prof?.is_donor     ?? false,
       likeCount:   likeCountMap.get(p.id) ?? 0,
       likedByMe:   likedByMeSet.has(p.id),
     };
