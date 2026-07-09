@@ -586,9 +586,16 @@ export default function ConstellationPOC({ username }: Props) {
             .map(([label, s]) => ({ label, artists: [...s] }))
             .sort((a, b) => b.artists.length - a.artists.length)
         );
+        const SKIP_STYLES_SET = new Set([
+          "rock","pop","indie","alternative","electronic","folk","acoustic","experimental",
+          "jazz","blues","country","classical","soul","funk","punk","metal","dance",
+          "alternative rock","indie rock","indie pop","alternative pop","singer-songwriter",
+          "synth-pop","new wave","hardcore","heavy metal","hip hop","rap","r&b","r&b/soul",
+          "lo-fi","lo fi","psychedelic","noise","post-punk","post rock","post-rock",
+        ]);
         setStyleGroups(
           [...styleArtists.entries()]
-            .filter(([, s]) => s.size >= 2)
+            .filter(([style, s]) => s.size >= 2 && s.size <= 12 && !SKIP_STYLES_SET.has(style.toLowerCase()))
             .map(([style, s]) => ({ style, artists: [...s] }))
             .sort((a, b) => b.artists.length - a.artists.length)
         );
@@ -2013,34 +2020,6 @@ export default function ConstellationPOC({ username }: Props) {
 
                   return (
                     <>
-                      <PanelSection id="labels" title="Shared Labels" count={visLbls.length}>
-                        {visLbls.length === 0 ? empty : visLbls.map(g => (
-                          <div key={g.label} style={{ marginBottom: 16 }}>
-                            <button
-                              onClick={() => setLabelFilter(labelFilter === g.label ? null : g.label)}
-                              style={{ background: "none", border: "none", padding: 0, cursor: "pointer", marginBottom: 5, textAlign: "left" }}
-                            >
-                              <span style={{ fontFamily: MONO, fontSize: "11px", color: labelFilter === g.label ? ORANGE : ORANGE, letterSpacing: "0.1em", textTransform: "uppercase" }}>
-                                {g.label}
-                              </span>
-                              <span style={{ fontFamily: MONO, fontSize: "11px", color: DIM3 }}> · {g.artists.length}</span>
-                            </button>
-                            <ArtistList artists={g.artists} />
-                          </div>
-                        ))}
-                      </PanelSection>
-
-                      <PanelSection id="sonic" title="Sonic Neighbours" count={visStyles.length}>
-                        {visStyles.length === 0 ? empty : visStyles.slice(0, 40).map(g => (
-                          <div key={g.style} style={{ marginBottom: 16 }}>
-                            <p style={{ fontFamily: MONO, fontSize: "11px", color: ORANGE, letterSpacing: "0.1em", textTransform: "uppercase", margin: "0 0 5px" }}>
-                              {g.style} <span style={{ color: DIM3 }}>· {g.artists.length}</span>
-                            </p>
-                            <ArtistList artists={g.artists} />
-                          </div>
-                        ))}
-                      </PanelSection>
-
                       <PanelSection id="lineage" title="Band Lineage" count={visLin.length}>
                         {visLin.length === 0 ? (
                           <p style={{ fontFamily: MONO, fontSize: "12px", color: DIM3, paddingBottom: 12 }}>
@@ -2068,6 +2047,34 @@ export default function ConstellationPOC({ username }: Props) {
                               <ArtistChip name={e.target} />
                             </div>
                             <p style={{ fontFamily: MONO, fontSize: "11px", color: DIM3, margin: 0, lineHeight: 1.6 }}>{e.note}</p>
+                          </div>
+                        ))}
+                      </PanelSection>
+
+                      <PanelSection id="sonic" title="Sonic Neighbours" count={visStyles.length}>
+                        {visStyles.length === 0 ? empty : visStyles.map(g => (
+                          <div key={g.style} style={{ marginBottom: 16 }}>
+                            <p style={{ fontFamily: MONO, fontSize: "11px", color: ORANGE, letterSpacing: "0.1em", textTransform: "uppercase", margin: "0 0 5px" }}>
+                              {g.style} <span style={{ color: DIM3 }}>· {g.artists.length}</span>
+                            </p>
+                            <ArtistList artists={g.artists} />
+                          </div>
+                        ))}
+                      </PanelSection>
+
+                      <PanelSection id="labels" title="Shared Labels" count={visLbls.length}>
+                        {visLbls.length === 0 ? empty : visLbls.map(g => (
+                          <div key={g.label} style={{ marginBottom: 16 }}>
+                            <button
+                              onClick={() => setLabelFilter(labelFilter === g.label ? null : g.label)}
+                              style={{ background: "none", border: "none", padding: 0, cursor: "pointer", marginBottom: 5, textAlign: "left" }}
+                            >
+                              <span style={{ fontFamily: MONO, fontSize: "11px", color: ORANGE, letterSpacing: "0.1em", textTransform: "uppercase" }}>
+                                {g.label}
+                              </span>
+                              <span style={{ fontFamily: MONO, fontSize: "11px", color: DIM3 }}> · {g.artists.length}</span>
+                            </button>
+                            <ArtistList artists={g.artists} />
                           </div>
                         ))}
                       </PanelSection>
