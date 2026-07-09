@@ -473,7 +473,7 @@ export default function ConstellationPOC({ username }: Props) {
 
   // ── Panel section state ──────────────────────────────────────────────────────
   const [openSections, setOpenSections] = useState<Set<string>>(
-    new Set(["labels", "sonic", "lineage", "influence"])
+    new Set(["labels", "sonic", "lineage", "influence", "influencedBy", "influenced", "inflOther"])
   );
 
   // ── Helpers ─────────────────────────────────────────────────────────────────
@@ -2139,11 +2139,15 @@ export default function ConstellationPOC({ username }: Props) {
                     addInfl(visInfl, { source: e.source, target: e.target, type: "influence", note: e.note, via: "Wikidata" });
                   }
                   // 4. DB (Claude-generated) influences
+                  // influenced_by: source_artist was influenced by target_artist → edge: target → source
+                  // influenced:    source_artist influenced target_artist → edge: source → target
                   for (const row of dbInfluence) {
-                    const src = row.source_artist, tgt = row.target_artist;
-                    if (labelScope && (!labelScope.has(src) || !labelScope.has(tgt))) continue;
-                    if (afL && src.toLowerCase() !== afL && tgt.toLowerCase() !== afL) continue;
-                    addInfl(visInfl, { source: src, target: tgt, type: "influence", note: row.note ?? "", via: row.via ?? "Claude" });
+                    const inflEdge = row.type === "influenced_by"
+                      ? { source: row.target_artist, target: row.source_artist, type: "influence" as RelType, note: row.note ?? "", via: row.via ?? "Claude" }
+                      : { source: row.source_artist, target: row.target_artist, type: "influence" as RelType, note: row.note ?? "", via: row.via ?? "Claude" };
+                    if (labelScope && !labelScope.has(inflEdge.target)) continue;
+                    if (afL && inflEdge.source.toLowerCase() !== afL && inflEdge.target.toLowerCase() !== afL) continue;
+                    addInfl(visInfl, inflEdge);
                   }
 
                   // Build global neighbours lookup: style → external artists
@@ -2173,6 +2177,7 @@ export default function ConstellationPOC({ username }: Props) {
                     selectedRef.current = null;
                     physicsRef.current = true;
                     labelHighlightRef.current = new Set();
+                    resetView();
                   }
 
                   function PanelSection({ id, title, count, children }: { id: string; title: string; count: number; children: React.ReactNode }) {
@@ -2244,23 +2249,70 @@ export default function ConstellationPOC({ username }: Props) {
                         ))}
                       </PanelSection>
 
-                      <PanelSection id="influence" title="Influences" count={visInfl.length}>
-                        {inflLoading && visInfl.length === 0 ? (
-                          <p style={{ fontFamily: MONO, fontSize: "12px", color: DIM3, paddingBottom: 12 }}>
-                            Looking up influences…
-                          </p>
-                        ) : visInfl.length === 0 ? empty : visInfl.map((e, i) => (
-                          <div key={i} style={{ marginBottom: 14, paddingBottom: 14, borderBottom: `1px solid ${BORD}` }}>
-                            <div style={{ display: "flex", alignItems: "baseline", gap: 7, marginBottom: 4, flexWrap: "wrap" }}>
-                              <span style={{ fontFamily: MONO, fontSize: "10px", color: ORANGE, letterSpacing: "0.12em", textTransform: "uppercase", flexShrink: 0 }}>{REL_LABEL[e.type]}</span>
-                              <ArtistChip name={e.source} />
-                              <span style={{ fontFamily: MONO, fontSize: "12px", color: DIM3 }}>{e.type === "collaboration" ? "↔" : "→"}</span>
-                              <ArtistChip name={e.target} />
-                            </div>
-                            <p style={{ fontFamily: MONO, fontSize: "11px", color: DIM3, margin: 0, lineHeight: 1.6 }}>{e.note}</p>
-                          </div>
-                        ))}
-                      </PanelSection>
+                      {(() => {
+                        // When an artist is selected, split by direction relative to them.
+                        // When no filter, show all in a combined section.
+                        const loading = inflLoading && visInfl.length === 0;
+                        const loadingEl = <p style={{ fontFamily: MONO, fontSize: "12px", color: DIM3, paddingBottom: 12 }}>Looking up influences…</p>;
+
+                        if (afL) {
+                          const inflBy  = visInfl.filter(e => e.type === "influence" && e.target.toLowerCase() === afL);
+                          const inflced = visInfl.filter(e => e.type === "influence" && e.source.toLowerCase() === afL);
+                          const inflOther = visInfl.filter(e => e.type !== "influence");
+
+                          function InflRow({ e, nameKey }: { e: InflEdge; nameKey: "source" | "target" }) {
+                            return (
+                              <div style={{ marginBottom: 14, paddingBottom: 14, borderBottom: `1px solid ${BORD}` }}>
+                                <p style={{ margin: "0 0 4px" }}><ArtistChip name={e[nameKey]} /></p>
+                                {e.note ? <p style={{ fontFamily: MONO, fontSize: "11px", color: DIM3, margin: 0, lineHeight: 1.6 }}>{e.note}</p> : null}
+                              </div>
+                            );
+                          }
+
+                          return (
+                            <>
+                              <PanelSection id="influencedBy" title="Influenced By" count={inflBy.length}>
+                                {loading ? loadingEl : inflBy.length === 0 ? empty : inflBy.map((e, i) => <InflRow key={i} e={e} nameKey="source" />)}
+                              </PanelSection>
+                              <PanelSection id="influenced" title="Influenced" count={inflced.length}>
+                                {loading ? loadingEl : inflced.length === 0 ? empty : inflced.map((e, i) => <InflRow key={i} e={e} nameKey="target" />)}
+                              </PanelSection>
+                              {inflOther.length > 0 && (
+                                <PanelSection id="inflOther" title="Connections" count={inflOther.length}>
+                                  {inflOther.map((e, i) => (
+                                    <div key={i} style={{ marginBottom: 14, paddingBottom: 14, borderBottom: `1px solid ${BORD}` }}>
+                                      <div style={{ display: "flex", alignItems: "baseline", gap: 7, marginBottom: 4, flexWrap: "wrap" }}>
+                                        <span style={{ fontFamily: MONO, fontSize: "10px", color: ORANGE, letterSpacing: "0.12em", textTransform: "uppercase", flexShrink: 0 }}>{REL_LABEL[e.type]}</span>
+                                        <ArtistChip name={e.source} />
+                                        <span style={{ fontFamily: MONO, fontSize: "12px", color: DIM3 }}>↔</span>
+                                        <ArtistChip name={e.target} />
+                                      </div>
+                                      {e.note ? <p style={{ fontFamily: MONO, fontSize: "11px", color: DIM3, margin: 0, lineHeight: 1.6 }}>{e.note}</p> : null}
+                                    </div>
+                                  ))}
+                                </PanelSection>
+                              )}
+                            </>
+                          );
+                        }
+
+                        // No artist selected — combined list
+                        return (
+                          <PanelSection id="influence" title="Influences" count={visInfl.length}>
+                            {loading ? loadingEl : visInfl.length === 0 ? empty : visInfl.map((e, i) => (
+                              <div key={i} style={{ marginBottom: 14, paddingBottom: 14, borderBottom: `1px solid ${BORD}` }}>
+                                <div style={{ display: "flex", alignItems: "baseline", gap: 7, marginBottom: 4, flexWrap: "wrap" }}>
+                                  <span style={{ fontFamily: MONO, fontSize: "10px", color: ORANGE, letterSpacing: "0.12em", textTransform: "uppercase", flexShrink: 0 }}>{REL_LABEL[e.type]}</span>
+                                  <ArtistChip name={e.source} />
+                                  <span style={{ fontFamily: MONO, fontSize: "12px", color: DIM3 }}>{e.type === "collaboration" ? "↔" : "→"}</span>
+                                  <ArtistChip name={e.target} />
+                                </div>
+                                {e.note ? <p style={{ fontFamily: MONO, fontSize: "11px", color: DIM3, margin: 0, lineHeight: 1.6 }}>{e.note}</p> : null}
+                              </div>
+                            ))}
+                          </PanelSection>
+                        );
+                      })()}
 
                       <PanelSection id="sonic" title="Sonic Neighbours" count={visStyles.length}>
                         {visStyles.length === 0 ? empty : visStyles.map(g => {
