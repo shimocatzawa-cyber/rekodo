@@ -312,19 +312,11 @@ function TasteForks({ data, ctx }: { data: EchoesData["tasteForks"]; ctx?: Echoe
 
       {/* Pattern vs. divergence */}
       <div style={{ marginBottom: 24 }}>
-        <div style={{ marginBottom: 20 }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 10 }}>
-            <span style={{ fontFamily: MONO, fontSize: 9, letterSpacing: "0.16em", textTransform: "uppercase", color: MUTED, flexShrink: 0 }}>The pattern</span>
-            <div style={{ flex: 1, height: 1, background: RULE }} />
-          </div>
-          <div style={{ fontFamily: SERIF, fontSize: "1.05rem", color: MUTED, letterSpacing: "-0.01em", lineHeight: 1.5 }}>{data.archetypePattern}</div>
+        <div style={{ fontFamily: SERIF, fontSize: "0.95rem", color: INK, lineHeight: 1.65, marginBottom: 6 }}>
+          <span style={{ color: MUTED }}>The pattern: </span>{data.archetypePattern}
         </div>
-        <div>
-          <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 10 }}>
-            <span style={{ fontFamily: MONO, fontSize: 9, letterSpacing: "0.16em", textTransform: "uppercase", color: ORANGE, flexShrink: 0 }}>Your path</span>
-            <div style={{ flex: 1, height: 1, background: RULE }} />
-          </div>
-          <div style={{ fontFamily: SERIF, fontSize: "1.05rem", color: INK, letterSpacing: "-0.01em", lineHeight: 1.5 }}>{data.yourDivergence}</div>
+        <div style={{ fontFamily: SERIF, fontSize: "0.95rem", color: INK, lineHeight: 1.65 }}>
+          <span style={{ color: ORANGE }}>Your path: </span>{data.yourDivergence}
         </div>
       </div>
 
