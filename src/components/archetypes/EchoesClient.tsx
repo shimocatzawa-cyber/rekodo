@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { openStreamLink } from "@/lib/openAppleMusic";
 
 const SERIF  = "var(--font-editorial)";
 const MONO   = "var(--font-mono)";
@@ -75,6 +76,9 @@ function ArtSquare({ album, size = 88 }: { album: EchoAlbum; size?: number }) {
 }
 
 function AlbumMeta({ album, muted = false }: { album: EchoAlbum; muted?: boolean }) {
+  const q  = encodeURIComponent(`${album.artist} ${album.title}`);
+  const am = `https://music.apple.com/search?term=${q}`;
+  const sp = `https://open.spotify.com/search/${q}`;
   return (
     <div>
       <div style={{ fontFamily: SERIF, fontSize: "0.95rem", color: muted ? MUTED : INK, letterSpacing: "-0.01em", lineHeight: 1.2, marginBottom: 3 }}>
@@ -88,6 +92,14 @@ function AlbumMeta({ album, muted = false }: { album: EchoAlbum; muted?: boolean
           {album.why}
         </div>
       )}
+      <div style={{ display: "flex", gap: 10, marginTop: 6, flexWrap: "wrap" }}>
+        <button onClick={() => openStreamLink(am)} style={{ fontFamily: MONO, fontSize: "0.58rem", letterSpacing: "0.06em", color: MUTED, background: "none", border: "none", padding: 0, cursor: "pointer", textDecoration: "none" }}>
+          Apple Music ↗
+        </button>
+        <button onClick={() => openStreamLink(sp)} style={{ fontFamily: MONO, fontSize: "0.58rem", letterSpacing: "0.06em", color: MUTED, background: "none", border: "none", padding: 0, cursor: "pointer", textDecoration: "none" }}>
+          Spotify ↗
+        </button>
+      </div>
     </div>
   );
 }
