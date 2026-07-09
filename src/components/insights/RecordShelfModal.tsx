@@ -272,6 +272,7 @@ export default function RecordShelfModal({ onClose, ...cardProps }: Props) {
   const [exporting,   setExporting]   = useState(false);
   const [copyState,   setCopyState]   = useState<"idle" | "copied" | "failed">("idle");
   const [shareState,  setShareState]  = useState<"idle" | "sharing" | "shared" | "failed">("idle");
+  const [shareError,  setShareError]  = useState<string | null>(null);
   const [photoSrc,    setPhotoSrc]    = useState<string | undefined>(undefined);
   const [scale, setScale]             = useState(calcScale);
   const exportRef = useRef<HTMLDivElement>(null);
@@ -377,24 +378,27 @@ export default function RecordShelfModal({ onClose, ...cardProps }: Props) {
 
   async function handleShareCommunity() {
     setShareState("sharing");
+    setShareError(null);
     try {
       const canvas = await buildCanvas();
-      if (!canvas) throw new Error("canvas build failed");
+      if (!canvas) throw new Error("Canvas build failed — try again");
       const blob = await new Promise<Blob>((res, rej) => canvas.toBlob(b => b ? res(b) : rej(), "image/png"));
       const fd = new FormData();
       fd.append("file", blob, "shelf.png");
       const res = await fetch("/api/shelf/share", { method: "POST", body: fd });
       if (!res.ok) {
         const body = await res.json().catch(() => ({}));
-        throw new Error(`API ${res.status}: ${body?.error ?? "unknown"}`);
+        throw new Error(`${res.status}: ${body?.error ?? "unknown error"}`);
       }
       trackShareCard("Record Shelf", "community");
       setShareState("shared");
     } catch (err) {
-      console.error("[shelf/share]", err);
+      const msg = err instanceof Error ? err.message : String(err);
+      console.error("[shelf/share]", msg);
+      setShareError(msg);
       setShareState("failed");
     }
-    finally { setTimeout(() => setShareState("idle"), 3000); }
+    finally { setTimeout(() => { setShareState("idle"); setShareError(null); }, 6000); }
   }
 
   const PRV_W = Math.round(560 * scale);
@@ -446,6 +450,11 @@ export default function RecordShelfModal({ onClose, ...cardProps }: Props) {
           >
             {shareState === "sharing" ? "Sharing…" : shareState === "shared" ? "Shared with the Community ✓" : shareState === "failed" ? "Share Failed" : "Share with Rekōdo's Community"}
           </button>
+          {shareError && (
+            <p style={{ fontFamily: UI_MONO, fontSize: 8, color: "#ef4444", letterSpacing: "0.04em", margin: "8px 0 0", wordBreak: "break-all" }}>
+              {shareError}
+            </p>
+          )}
         </div>
       </div>
     </div>
