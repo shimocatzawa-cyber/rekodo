@@ -847,8 +847,10 @@ export default function ConstellationPOC({ username }: Props) {
             cpDy:   (seededRng(h + 1) - 0.5) * 70,
           });
 
-          // Track lineage (splinter) edges for the side panel
-          if (mapped.type === "splinter" && srcNode.owned && tgtNode.owned) {
+          // Track lineage (splinter) edges for the side panel.
+          // For member-of-band: source=band, target=member. Show when member is owned.
+          // For other splinter types: show when either node is owned.
+          if (mapped.type === "splinter" && (tgtNode.owned || srcNode.owned)) {
             const lKey = [srcNode.name.toLowerCase(), tgtNode.name.toLowerCase()].sort().join("|");
             if (!lineageKeys.has(lKey)) {
               lineageKeys.add(lKey);
@@ -1029,7 +1031,7 @@ export default function ConstellationPOC({ username }: Props) {
         const res = await fetch("/api/constellation/sonic-neighbours", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ styles, excludeArtists, limit: 60 }),
+          body: JSON.stringify({ styles, excludeArtists, limit: 200 }),
         });
         if (!res.ok || cancelled) return;
         const json = await res.json() as { neighbours?: { artist: string; shared_styles: string[]; match_count: number }[] };

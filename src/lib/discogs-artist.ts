@@ -2,7 +2,7 @@ import type { DiscogsArtistPayload } from "@/app/api/discogs/artist/route";
 
 export type { DiscogsArtistPayload };
 
-const CACHE_KEY = "rekodo_discogs_artist_v1";
+const CACHE_KEY = "rekodo_discogs_artist_v2";
 const CACHE_TTL = 14 * 24 * 60 * 60 * 1000; // 14 days
 const RATE_MS   = 1200; // stay under 60 req/min with buffer
 

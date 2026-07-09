@@ -15,7 +15,7 @@ export async function POST(req: NextRequest) {
 
   const styles  = Array.isArray(body.styles) ? body.styles : [];
   const exclude = Array.isArray(body.excludeArtists) ? body.excludeArtists : [];
-  const limit   = typeof body.limit === "number" ? Math.min(body.limit, 100) : 40;
+  const limit   = typeof body.limit === "number" ? Math.min(body.limit, 200) : 40;
 
   if (styles.length === 0) return NextResponse.json({ neighbours: [] });
 
