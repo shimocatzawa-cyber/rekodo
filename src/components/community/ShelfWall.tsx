@@ -115,7 +115,7 @@ export default function ShelfWall({ viewerLoggedIn }: { viewerLoggedIn: boolean 
   if (loading) {
     return (
       <div style={{ padding: "28px 0" }}>
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(160px, 1fr))", gap: "16px" }}>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(100px, 1fr))", gap: "12px" }}>
           {Array.from({ length: 6 }).map((_, i) => (
             <div key={i} style={{ aspectRatio: "560/660", background: "#f0ede8" }} className="nr-shimmer" />
           ))}
@@ -137,7 +137,7 @@ export default function ShelfWall({ viewerLoggedIn }: { viewerLoggedIn: boolean 
 
   return (
     <div style={{ padding: "28px 0" }}>
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(160px, 1fr))", gap: "16px" }}>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(100px, 1fr))", gap: "12px" }}>
         {posts.map(post => (
           <div key={post.id} style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
             {/* Card thumbnail */}
