@@ -427,7 +427,9 @@ export default function ConstellationPOC({ username }: Props) {
   const cameraRef          = useRef<Camera>({ x: 0, y: 0, scale: 1 });
   const targetCamRef       = useRef<Camera>({ x: 0, y: 0, scale: 1 });
   const autoZoomRef        = useRef(false);
-  const physicsRef         = useRef(true);
+  const physicsRef             = useRef(true);
+  const labelHighlightRef      = useRef<Set<string>>(new Set());
+  const zoomToNeighborhoodRef  = useRef<((node: ArtistNode) => void) | null>(null);
   const dprRef             = useRef(1);
   const influenceRef       = useRef<Map<string, number>>(new Map());
   const spawnAnimsRef      = useRef<{ id: string; birthMs: number }[]>([]);
@@ -760,6 +762,11 @@ export default function ConstellationPOC({ username }: Props) {
   // Keep filter refs in sync so the canvas loop can read them without stale closures
   useEffect(() => { minAlbumsRef.current = minAlbums; }, [minAlbums]);
   useEffect(() => { enabledTypesRef.current = enabledTypes; }, [enabledTypes]);
+  useEffect(() => {
+    if (!labelFilter) { labelHighlightRef.current = new Set(); return; }
+    const g = labelGroups.find(g => g.label === labelFilter);
+    labelHighlightRef.current = new Set(g?.artists ?? []);
+  }, [labelFilter, labelGroups]);
 
   // Rotate insight every 8 seconds
   useEffect(() => {
@@ -1178,12 +1185,15 @@ export default function ConstellationPOC({ username }: Props) {
 
       // ── Layer 2: Nodes ─────────────────────────────────────────────────────
       const sorted = [...nodes].sort((a, b) => b.radius - a.radius);
+      const labelNames = labelHighlightRef.current;
       for (const node of sorted) {
         if (isFiltered(node)) continue;
         const isHov  = hovered  === node.id;
         const isSel  = selected === node.id;
         const isAct  = isHov || isSel;
-        const isDim  = hasSelection && !isAct && !connectedIds.has(node.id);
+        const isLbl  = !hasSelection && labelNames.size > 0 && labelNames.has(node.name);
+        const isDim  = hasSelection ? (!isAct && !connectedIds.has(node.id))
+                     : labelNames.size > 0 && !isLbl;
         const inf    = influence.get(node.id) ?? 0;
         const spawn  = spawns.find(s => s.id === node.id);
         const spawnT = spawn ? (now - spawn.birthMs) / 480 : 1;
@@ -1194,10 +1204,10 @@ export default function ConstellationPOC({ username }: Props) {
 
         if (!node.owned) {
           // Discovery node — faint dashed ring in constellation blue
-          const ghostAlpha = isDim ? 0.06 : isAct ? 0.90 : 0.35;
+          const ghostAlpha = isDim ? 0.06 : isAct ? 0.90 : isLbl ? 0.75 : 0.35;
           ctx.globalAlpha = ghostAlpha;
           ctx.beginPath(); ctx.arc(node.x, node.y, r, 0, Math.PI * 2);
-          ctx.strokeStyle = isAct ? ORANGE : "rgba(140,170,240,0.8)";
+          ctx.strokeStyle = (isAct || isLbl) ? ORANGE : "rgba(140,170,240,0.8)";
           ctx.lineWidth = isAct ? 1.8 : 1;
           ctx.setLineDash([3, 4]);
           ctx.stroke();
@@ -1214,15 +1224,25 @@ export default function ConstellationPOC({ username }: Props) {
 
         ctx.globalAlpha = isDim ? 0.04 : 1;
 
-        // Orange selection ring
+        // Orange selection ring (node selected) or subtle label ring
         if (isSel) {
-          ctx.beginPath(); ctx.arc(node.x, node.y, r + 10, 0, Math.PI * 2);
-          ctx.strokeStyle = ORANGE; ctx.lineWidth = 1.5;
-          ctx.globalAlpha = 0.45; ctx.stroke(); ctx.globalAlpha = 1;
+          ctx.beginPath(); ctx.arc(node.x, node.y, r + 12, 0, Math.PI * 2);
+          ctx.strokeStyle = ORANGE; ctx.lineWidth = 2;
+          ctx.globalAlpha = 0.65; ctx.stroke();
+          // Second outer pulse ring
+          ctx.beginPath(); ctx.arc(node.x, node.y, r + 22, 0, Math.PI * 2);
+          ctx.strokeStyle = ORANGE; ctx.lineWidth = 0.8;
+          ctx.globalAlpha = 0.22; ctx.stroke();
+          ctx.globalAlpha = 1;
+        } else if (isLbl) {
+          ctx.beginPath(); ctx.arc(node.x, node.y, r + 7, 0, Math.PI * 2);
+          ctx.strokeStyle = ORANGE; ctx.lineWidth = 1;
+          ctx.globalAlpha = 0.35; ctx.stroke();
+          ctx.globalAlpha = 1;
         }
 
         // Star glow — radial gradient (warm white → transparent)
-        const blotR = r * (1.0 + inf * 0.5);
+        const blotR = r * (isSel ? 1.5 : 1.0 + inf * 0.5);
         const grad  = ctx.createRadialGradient(node.x, node.y, 0, node.x, node.y, blotR);
         grad.addColorStop(0,    isAct ? ORANGE              : "rgba(232,225,205,1)");
         grad.addColorStop(0.50, isAct ? ORANGE              : "rgba(220,212,190,0.65)");
@@ -1423,7 +1443,7 @@ export default function ConstellationPOC({ username }: Props) {
       const hood = [hit, ...nodesRef.current.filter(n => neighborIds.has(n.id) && !isFiltered(n))];
       const PAD = 110;
       if (hood.length <= 1) {
-        const ts = 2.5;
+        const ts = 2.8;
         targetCamRef.current = { x: AVAIL_W / 2 - hit.x * ts, y: H / 2 - hit.y * ts, scale: ts };
       } else {
         const xs = hood.map(n => n.x), ys = hood.map(n => n.y);
@@ -1431,7 +1451,7 @@ export default function ConstellationPOC({ username }: Props) {
         const minY = Math.min(...ys), maxY = Math.max(...ys);
         const ts = clamp(
           Math.min((AVAIL_W - PAD * 2) / Math.max(maxX - minX, 1), (H - PAD * 2) / Math.max(maxY - minY, 1)),
-          0.7, 3.5,
+          0.9, 4.0,
         );
         targetCamRef.current = {
           x: AVAIL_W / 2 - ((minX + maxX) / 2) * ts,
@@ -1441,6 +1461,7 @@ export default function ConstellationPOC({ username }: Props) {
       }
       autoZoomRef.current = true;
     }
+    zoomToNeighborhoodRef.current = zoomToNeighborhood;
 
     function onUp(e: MouseEvent) {
       const { x: sx, y: sy } = cvPos(e);
@@ -1927,7 +1948,7 @@ export default function ConstellationPOC({ username }: Props) {
                     return [{ source: src, target: tgt, type: e.type, note: e.note, via: e.via }];
                   });
 
-                  // Zoom canvas to a named node, highlight it, and freeze physics
+                  // Highlight node, freeze map, zoom to show it + all its connections
                   function selectArtist(name: string) {
                     setArtistFilter(name);
                     const node = nodesRef.current.find(n => n.name.toLowerCase() === name.toLowerCase());
@@ -1935,14 +1956,7 @@ export default function ConstellationPOC({ username }: Props) {
                       selectedRef.current = node.id;
                       physicsRef.current = false;
                       nodesRef.current.forEach(n => { n.vx = 0; n.vy = 0; });
-                      if (canvasRef.current) {
-                        const W = canvasRef.current.parentElement!.clientWidth;
-                        const H = canvasRef.current.parentElement!.clientHeight;
-                        const AVAIL_W = W - PANEL_W;
-                        const sc = 1.8;
-                        targetCamRef.current = { x: AVAIL_W / 2 - node.x * sc, y: H / 2 - node.y * sc, scale: sc };
-                        autoZoomRef.current = true;
-                      }
+                      zoomToNeighborhoodRef.current?.(node);
                     }
                   }
 
@@ -1950,6 +1964,7 @@ export default function ConstellationPOC({ username }: Props) {
                     setArtistFilter(null);
                     selectedRef.current = null;
                     physicsRef.current = true;
+                    labelHighlightRef.current = new Set();
                   }
 
                   function PanelSection({ id, title, count, children }: { id: string; title: string; count: number; children: React.ReactNode }) {
