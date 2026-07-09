@@ -411,7 +411,7 @@ export async function computeArchetypes(
     const sd = stdDev(yearValues)
     // Coefficient of variation: low = even spread, high = bursty
     const cv = mean > 0 ? sd / mean : 0
-    const rhythmType = activeYears >= 4 && cv < 0.8
+    const rhythmType = activeYears >= 4 && cv < 0.5
       ? 'Ritualist'
       : activeYears >= 2 && cv < 1.5
         ? 'Measured'
@@ -711,11 +711,13 @@ export async function computeArchetypes(
       sig(s.artistConcentration) * 0.10
     ),
     ritualist: clamp(
-      sig(s.conditionStandard) * 0.20 +
-      (100 - sig(s.acquisitionRhythm)) * 0.15 +
-      sig(s.sonicCoherence) * 0.30 +
-      (100 - sig(s.aspirationRatio)) * 0.15 +
-      sig(s.listeningIntensity) * 0.20
+      sig(s.conditionStandard) * 0.25 +
+      (100 - sig(s.acquisitionRhythm)) * 0.20 +
+      sig(s.sonicCoherence) * 0.10 +
+      (100 - sig(s.aspirationRatio)) * 0.10 +
+      // No listening data means no evidence of ritual — contribute 0, not neutral 50.
+      (s.listeningIntensity.unavailable ? 0 : s.listeningIntensity.score) * 0.25 +
+      sig(s.artistConcentration) * 0.10
     ),
     hunter: clamp(
       sig(s.conditionStandard) * 0.30 +
