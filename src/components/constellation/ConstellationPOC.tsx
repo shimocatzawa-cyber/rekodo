@@ -427,6 +427,7 @@ export default function ConstellationPOC({ username }: Props) {
   const cameraRef          = useRef<Camera>({ x: 0, y: 0, scale: 1 });
   const targetCamRef       = useRef<Camera>({ x: 0, y: 0, scale: 1 });
   const autoZoomRef        = useRef(false);
+  const physicsRef         = useRef(true);
   const dprRef             = useRef(1);
   const influenceRef       = useRef<Map<string, number>>(new Map());
   const spawnAnimsRef      = useRef<{ id: string; birthMs: number }[]>([]);
@@ -984,6 +985,7 @@ export default function ConstellationPOC({ username }: Props) {
 
     // Physics
     function tick() {
+      if (!physicsRef.current) return;
       const { W, H } = cssSize();
       const nodes = nodesRef.current;
       const edges = [...edgesRef.current, ...mbEdgesRef.current, ...discogsEdgesRef.current].filter(e => enabledTypesRef.current.has(e.type));
@@ -1449,12 +1451,20 @@ export default function ConstellationPOC({ username }: Props) {
           const hit = nodesRef.current.find(n => n.id === draggingNodeRef.current);
           if (hit) {
             if (selectedRef.current === hit.id) {
-              selectedRef.current = null; setSelectedArtist(null);
+              // Deselect — clear filter and unfreeze
+              selectedRef.current = null;
               selectedEdgeKeyRef.current = null; setSelectedEdge(null);
+              setSelectedArtist(null); setArtistFilter(null);
+              physicsRef.current = true;
               doReset();
             } else {
-              selectedRef.current = hit.id; setSelectedArtist({ ...hit });
+              // Select — highlight, filter panel, freeze physics
+              selectedRef.current = hit.id;
               selectedEdgeKeyRef.current = null; setSelectedEdge(null);
+              setSelectedArtist(null); // use four-section panel, not artist overlay
+              setArtistFilter(hit.name);
+              physicsRef.current = false;
+              nodesRef.current.forEach(n => { n.vx = 0; n.vy = 0; });
               zoomToNeighborhood(hit);
             }
           }
@@ -1475,8 +1485,11 @@ export default function ConstellationPOC({ username }: Props) {
               autoZoomRef.current = true;
             }
           } else {
+            // Click empty space — clear everything and unfreeze
             selectedRef.current = null; setSelectedArtist(null);
             selectedEdgeKeyRef.current = null; setSelectedEdge(null);
+            setArtistFilter(null);
+            physicsRef.current = true;
             doReset();
           }
         }
@@ -1539,6 +1552,8 @@ export default function ConstellationPOC({ username }: Props) {
   const dismiss = () => {
     selectedRef.current = null; setSelectedArtist(null);
     selectedEdgeKeyRef.current = null; setSelectedEdge(null);
+    setArtistFilter(null);
+    physicsRef.current = true;
     resetView();
   };
 
@@ -1784,7 +1799,7 @@ export default function ConstellationPOC({ username }: Props) {
                   {artistFilter ? (
                     <div style={{ display: "flex", alignItems: "center", gap: 6, padding: "6px 10px", border: `1px solid ${ORANGE}`, background: "rgba(204,85,0,0.08)" }}>
                       <span style={{ fontFamily: SERIF, fontSize: "13px", color: ORANGE, flex: 1 }}>{artistFilter}</span>
-                      <button onClick={() => { setArtistFilter(null); setArtistQuery(""); }} style={{ fontFamily: MONO, fontSize: 14, color: ORANGE, background: "none", border: "none", cursor: "pointer", padding: 0, lineHeight: 1 }}>×</button>
+                      <button onClick={() => { setArtistFilter(null); setArtistQuery(""); selectedRef.current = null; physicsRef.current = true; }} style={{ fontFamily: MONO, fontSize: 14, color: ORANGE, background: "none", border: "none", cursor: "pointer", padding: 0, lineHeight: 1 }}>×</button>
                     </div>
                   ) : (
                     <>
@@ -1912,18 +1927,29 @@ export default function ConstellationPOC({ username }: Props) {
                     return [{ source: src, target: tgt, type: e.type, note: e.note, via: e.via }];
                   });
 
-                  // Zoom canvas to a named node and set it as the active artist filter
+                  // Zoom canvas to a named node, highlight it, and freeze physics
                   function selectArtist(name: string) {
                     setArtistFilter(name);
                     const node = nodesRef.current.find(n => n.name.toLowerCase() === name.toLowerCase());
-                    if (node && canvasRef.current) {
-                      const W = canvasRef.current.parentElement!.clientWidth;
-                      const H = canvasRef.current.parentElement!.clientHeight;
-                      const AVAIL_W = W - PANEL_W;
-                      const sc = 1.8;
-                      targetCamRef.current = { x: AVAIL_W / 2 - node.x * sc, y: H / 2 - node.y * sc, scale: sc };
-                      autoZoomRef.current = true;
+                    if (node) {
+                      selectedRef.current = node.id;
+                      physicsRef.current = false;
+                      nodesRef.current.forEach(n => { n.vx = 0; n.vy = 0; });
+                      if (canvasRef.current) {
+                        const W = canvasRef.current.parentElement!.clientWidth;
+                        const H = canvasRef.current.parentElement!.clientHeight;
+                        const AVAIL_W = W - PANEL_W;
+                        const sc = 1.8;
+                        targetCamRef.current = { x: AVAIL_W / 2 - node.x * sc, y: H / 2 - node.y * sc, scale: sc };
+                        autoZoomRef.current = true;
+                      }
                     }
+                  }
+
+                  function clearArtist() {
+                    setArtistFilter(null);
+                    selectedRef.current = null;
+                    physicsRef.current = true;
                   }
 
                   function PanelSection({ id, title, count, children }: { id: string; title: string; count: number; children: React.ReactNode }) {
@@ -1949,7 +1975,7 @@ export default function ConstellationPOC({ username }: Props) {
                     const active = afL && name.toLowerCase() === afL;
                     return (
                       <button
-                        onClick={() => active ? setArtistFilter(null) : selectArtist(name)}
+                        onClick={() => active ? clearArtist() : selectArtist(name)}
                         style={{
                           fontFamily: SERIF, fontSize: "15px", lineHeight: 1.6,
                           background: "none", border: "none", padding: 0, margin: 0,
