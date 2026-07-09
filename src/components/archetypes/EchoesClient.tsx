@@ -311,23 +311,29 @@ function TasteForks({ data, ctx }: { data: EchoesData["tasteForks"]; ctx?: Echoe
       {tag && <SignalTag label={tag} />}
 
       {/* Pattern vs. divergence */}
-      <div className="echoes-fork-header" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 1, background: RULE, marginBottom: 20 }}>
-        <div style={{ background: "#fff", padding: "16px 18px 18px" }}>
-          <div style={{ fontFamily: MONO, fontSize: 8, letterSpacing: "0.18em", textTransform: "uppercase", color: "rgba(10,10,10,0.3)", marginBottom: 10 }}>The pattern</div>
-          <div style={{ fontFamily: SERIF, fontSize: "0.95rem", color: MUTED, letterSpacing: "-0.01em", lineHeight: 1.45 }}>{data.archetypePattern}</div>
+      <div style={{ marginBottom: 24 }}>
+        <div style={{ marginBottom: 20 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 10 }}>
+            <span style={{ fontFamily: MONO, fontSize: 9, letterSpacing: "0.16em", textTransform: "uppercase", color: MUTED, flexShrink: 0 }}>The pattern</span>
+            <div style={{ flex: 1, height: 1, background: RULE }} />
+          </div>
+          <div style={{ fontFamily: SERIF, fontSize: "1.05rem", color: MUTED, letterSpacing: "-0.01em", lineHeight: 1.5 }}>{data.archetypePattern}</div>
         </div>
-        <div style={{ background: WARM, padding: "16px 18px 18px" }}>
-          <div style={{ fontFamily: MONO, fontSize: 8, letterSpacing: "0.18em", textTransform: "uppercase", color: ORANGE, marginBottom: 10 }}>Your path</div>
-          <div style={{ fontFamily: SERIF, fontSize: "0.95rem", color: INK, letterSpacing: "-0.01em", lineHeight: 1.45 }}>{data.yourDivergence}</div>
+        <div>
+          <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 10 }}>
+            <span style={{ fontFamily: MONO, fontSize: 9, letterSpacing: "0.16em", textTransform: "uppercase", color: ORANGE, flexShrink: 0 }}>Your path</span>
+            <div style={{ flex: 1, height: 1, background: RULE }} />
+          </div>
+          <div style={{ fontFamily: SERIF, fontSize: "1.05rem", color: INK, letterSpacing: "-0.01em", lineHeight: 1.5 }}>{data.yourDivergence}</div>
         </div>
       </div>
 
       {/* Road not taken albums */}
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
+      <div className="echoes-grid-4" style={{ display: "grid", gap: 16 }}>
         {data.albums?.map((album, i) => (
-          <div key={i} style={{ display: "flex", gap: 12, alignItems: "flex-start" }}>
-            <ArtSquare album={album} size={72} />
-            <div style={{ paddingTop: 2 }}>
+          <div key={i}>
+            <ArtSquare album={album} />
+            <div style={{ marginTop: 8 }}>
               <div style={{ fontFamily: MONO, fontSize: 9, color: ORANGE, letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 5 }}>
                 Road not taken
               </div>
@@ -523,8 +529,7 @@ export default function EchoesClient({ userId: _userId }: { userId: string }) {
         @keyframes echoes-pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
         .echoes-grid-4 { grid-template-columns: repeat(4, 1fr); }
         @media (max-width: 600px) {
-          .echoes-grid-4      { grid-template-columns: repeat(2, 1fr) !important; }
-          .echoes-fork-header { grid-template-columns: 1fr !important; }
+          .echoes-grid-4 { grid-template-columns: repeat(2, 1fr) !important; }
         }
       `}</style>
 
