@@ -33,7 +33,8 @@ export default async function ArchetypesPage() {
     return <SupporterGate username={username} displayLabel={displayLabel} avatarUrl={avatarUrl} feature="Archetypes" />;
   }
 
-  const isAdmin = profile?.role === "admin";
+  const isAdmin     = profile?.role === "admin";
+  const isSupporter = profile?.is_supporter === true || isAdmin;
 
   return (
     <ArchetypesClient
@@ -42,6 +43,7 @@ export default async function ArchetypesPage() {
       displayLabel={displayLabel}
       avatarUrl={avatarUrl}
       isAdmin={isAdmin}
+      isSupporter={isSupporter}
     />
   );
 }

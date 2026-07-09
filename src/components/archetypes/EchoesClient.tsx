@@ -448,7 +448,7 @@ function applyArtworkAndValidation(
   };
 }
 
-export default function EchoesClient({ userId: _userId }: { userId: string }) {
+export default function EchoesClient({ userId: _userId, isAdmin }: { userId: string; isAdmin?: boolean }) {
   const [data, setData]           = useState<EchoesData | null>(null);
   const [loading, setLoading]     = useState(true);
   const [error, setError]         = useState<string | null>(null);
@@ -535,7 +535,7 @@ export default function EchoesClient({ userId: _userId }: { userId: string }) {
             <span style={{ fontFamily: MONO, fontSize: 7, letterSpacing: "0.14em", color: "rgba(10,10,10,0.28)" }}>CACHED</span>
           )}
         </div>
-        {!loading && data && (
+        {isAdmin && !loading && data && (
           <button
             onClick={handleRegenerate}
             disabled={regenerating}
