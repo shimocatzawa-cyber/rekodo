@@ -1,0 +1,497 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>rekōdo — Instagram Posts</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Shippori+Mincho:wght@400;500;600&family=Instrument+Sans:ital,wght@0,400;0,500;1,400&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background: #555555;
+      padding: 60px;
+      display: flex;
+      flex-direction: column;
+      gap: 60px;
+      font-family: 'Instrument Sans', sans-serif;
+      -webkit-font-smoothing: antialiased;
+    }
+    .post {
+      width: 1080px;
+      height: 1080px;
+      position: relative;
+      overflow: hidden;
+      flex-shrink: 0;
+    }
+
+
+    /* ════════════════════════════════════════════
+       POST 1 — Light / App screenshot
+    ════════════════════════════════════════════ */
+    .post-1 {
+      background: #F5F2EC;
+      display: flex;
+      align-items: stretch;
+    }
+
+    .post-1-left {
+      width: 540px;
+      flex-shrink: 0;
+      padding: 80px 72px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+    }
+
+    .post-1-wordmark {
+      font-family: 'Shippori Mincho', serif;
+      font-size: 32px;
+      font-weight: 500;
+      letter-spacing: 0.04em;
+      color: #111111;
+    }
+
+    .post-1-wordmark .accent { color: #C8642A; }
+
+    .post-1-headline-block {
+      margin-top: auto;
+    }
+
+    .post-1-discover {
+      font-family: 'Shippori Mincho', serif;
+      font-size: 108px;
+      font-weight: 500;
+      line-height: 0.95;
+      color: #111111;
+      letter-spacing: -0.02em;
+      display: block;
+    }
+
+    .post-1-deeper {
+      font-family: 'Shippori Mincho', serif;
+      font-size: 108px;
+      font-weight: 500;
+      line-height: 0.95;
+      color: #C8642A;
+      letter-spacing: -0.02em;
+      display: block;
+    }
+
+    .post-1-dash {
+      font-family: 'Shippori Mincho', serif;
+      font-size: 40px;
+      color: #111111;
+      line-height: 1;
+      display: block;
+      margin-top: 32px;
+      margin-bottom: 24px;
+    }
+
+    .post-1-label {
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: 16px;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      color: #555555;
+      line-height: 1.6;
+    }
+
+    .post-1-right {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      position: relative;
+      padding-right: 40px;
+    }
+
+    /* Phone mockup */
+    .phone {
+      width: 320px;
+      height: 620px;
+      background: #ffffff;
+      border-radius: 44px;
+      overflow: hidden;
+      transform: rotate(4deg);
+      position: relative;
+      border: 1px solid rgba(0,0,0,0.08);
+    }
+
+    .phone-screen {
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .phone-album-art {
+      width: 100%;
+      height: 220px;
+      background: #2A1F0E;
+      flex-shrink: 0;
+      position: relative;
+      overflow: hidden;
+    }
+
+    /* Psychedelic eye album art — CSS only */
+    .phone-album-art-bg {
+      position: absolute;
+      inset: 0;
+      background: radial-gradient(circle at 55% 45%, #E85C2A 0%, #C8642A 25%, #8B1A1A 50%, #2A1F0E 80%);
+    }
+    .phone-album-art-ring {
+      position: absolute;
+      top: 50%; left: 55%;
+      transform: translate(-50%, -50%);
+      width: 120px; height: 120px;
+      border-radius: 50%;
+      border: 3px solid rgba(255,200,80,0.6);
+    }
+    .phone-album-art-ring-2 {
+      position: absolute;
+      top: 50%; left: 55%;
+      transform: translate(-50%, -50%);
+      width: 80px; height: 80px;
+      border-radius: 50%;
+      border: 3px solid rgba(255,200,80,0.4);
+    }
+    .phone-album-art-center {
+      position: absolute;
+      top: 50%; left: 55%;
+      transform: translate(-50%, -50%);
+      width: 36px; height: 20px;
+      background: #111111;
+      border-radius: 50%;
+    }
+
+    .phone-content {
+      flex: 1;
+      padding: 20px 20px 0;
+      background: #ffffff;
+    }
+
+    .phone-title {
+      font-family: 'Shippori Mincho', serif;
+      font-size: 17px;
+      font-weight: 500;
+      line-height: 1.25;
+      color: #111111;
+      margin-bottom: 4px;
+    }
+
+    .phone-artist {
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: 10px;
+      color: #888888;
+      letter-spacing: 0.04em;
+      margin-bottom: 16px;
+    }
+
+    .phone-rule {
+      height: 1px;
+      background: #e8e8e8;
+      margin-bottom: 12px;
+    }
+
+    .phone-meta-row {
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: 8px;
+    }
+
+    .phone-meta-label {
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: 9px;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: #aaaaaa;
+    }
+
+    .phone-meta-value {
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: 9px;
+      letter-spacing: 0.04em;
+      color: #333333;
+    }
+
+    .phone-buttons {
+      display: flex;
+      gap: 8px;
+      margin-top: 20px;
+    }
+
+    .phone-btn-outline {
+      flex: 1;
+      height: 36px;
+      border: 1px solid #cccccc;
+      border-radius: 4px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: 9px;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: #333333;
+    }
+
+    .phone-btn-solid {
+      flex: 1;
+      height: 36px;
+      background: #111111;
+      border-radius: 4px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: 9px;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: #ffffff;
+    }
+
+
+    /* ════════════════════════════════════════════
+       POST 2 — Orange / Editorial
+    ════════════════════════════════════════════ */
+    .post-2 {
+      background: #C8642A;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .post-2-inner {
+      width: 100%;
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+      padding: 72px;
+      position: relative;
+    }
+
+    .post-2-top-bar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 20px;
+    }
+
+    .post-2-tag {
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: 16px;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      color: rgba(255,255,255,0.75);
+    }
+
+    .post-2-arrow {
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: 20px;
+      color: rgba(255,255,255,0.75);
+    }
+
+    .post-2-rule {
+      height: 1px;
+      background: rgba(255,255,255,0.3);
+      margin-bottom: 72px;
+    }
+
+    .post-2-body {
+      flex: 1;
+      display: flex;
+      align-items: flex-start;
+      gap: 0;
+      position: relative;
+    }
+
+    .post-2-text {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      justify-content: flex-start;
+      padding-right: 40px;
+    }
+
+    .post-2-headline {
+      font-family: 'Shippori Mincho', serif;
+      font-size: 104px;
+      font-weight: 500;
+      line-height: 0.95;
+      color: #ffffff;
+      letter-spacing: -0.02em;
+      margin-bottom: 40px;
+    }
+
+    .post-2-dash {
+      font-family: 'Shippori Mincho', serif;
+      font-size: 40px;
+      color: rgba(255,255,255,0.9);
+      display: block;
+      margin-bottom: 28px;
+    }
+
+    .post-2-copy {
+      font-family: 'Instrument Sans', sans-serif;
+      font-size: 22px;
+      line-height: 1.55;
+      color: rgba(255,255,255,0.85);
+      max-width: 340px;
+    }
+
+    /* Album art — right side, cropped */
+    .post-2-art {
+      width: 360px;
+      flex-shrink: 0;
+      align-self: stretch;
+      position: relative;
+      overflow: hidden;
+      margin-right: -72px;
+      margin-top: -40px;
+      margin-bottom: -72px;
+    }
+
+    .post-2-art-inner {
+      position: absolute;
+      inset: 0;
+      background: #8B9B47;
+      overflow: hidden;
+    }
+
+    /* Wavy abstract album art shapes */
+    .post-2-art-inner svg {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+    }
+
+    /* Footer wordmark */
+    .post-2-footer {
+      position: absolute;
+      bottom: 72px;
+      left: 72px;
+    }
+
+    .post-2-wordmark {
+      font-family: 'Shippori Mincho', serif;
+      font-size: 32px;
+      font-weight: 500;
+      letter-spacing: 0.04em;
+      color: #ffffff;
+    }
+
+    .post-2-wordmark .accent {
+      color: rgba(255,255,255,0.65);
+    }
+  </style>
+</head>
+<body>
+
+  <!-- ══════════════════════════════════════
+       POST 1 — Discover deeper
+  ══════════════════════════════════════ -->
+  <div class="post post-1">
+
+    <div class="post-1-left">
+      <div class="post-1-wordmark">rek<span class="accent">ō</span>do</div>
+
+      <div class="post-1-headline-block">
+        <span class="post-1-discover">Discover</span>
+        <span class="post-1-deeper">deeper.</span>
+        <span class="post-1-dash">—</span>
+        <span class="post-1-label">Dig beyond<br>the surface</span>
+      </div>
+    </div>
+
+    <div class="post-1-right">
+      <div class="phone">
+        <div class="phone-screen">
+          <div class="phone-album-art">
+            <div class="phone-album-art-bg"></div>
+            <div class="phone-album-art-ring"></div>
+            <div class="phone-album-art-ring-2"></div>
+            <div class="phone-album-art-center"></div>
+          </div>
+          <div class="phone-content">
+            <div class="phone-title">The Psychedelic Sounds<br>Of The 13th Floor Elevators</div>
+            <div class="phone-artist">13th Floor Elevators</div>
+            <div class="phone-rule"></div>
+            <div class="phone-meta-row">
+              <span class="phone-meta-label">Label</span>
+              <span class="phone-meta-value">International Artists</span>
+            </div>
+            <div class="phone-meta-row">
+              <span class="phone-meta-label">Format</span>
+              <span class="phone-meta-value">LP</span>
+            </div>
+            <div class="phone-meta-row">
+              <span class="phone-meta-label">Year</span>
+              <span class="phone-meta-value">2012</span>
+            </div>
+            <div class="phone-meta-row">
+              <span class="phone-meta-label">Genre</span>
+              <span class="phone-meta-value">Psychedelic Rock</span>
+            </div>
+            <div class="phone-buttons">
+              <div class="phone-btn-outline">+ Wantlist</div>
+              <div class="phone-btn-solid">Play</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+
+  <!-- ══════════════════════════════════════
+       POST 2 — Ambient Change
+  ══════════════════════════════════════ -->
+  <div class="post post-2">
+    <div class="post-2-inner">
+
+      <div class="post-2-top-bar">
+        <span class="post-2-tag">Style Dig</span>
+        <span class="post-2-arrow">→</span>
+      </div>
+      <div class="post-2-rule"></div>
+
+      <div class="post-2-body">
+        <div class="post-2-text">
+          <h2 class="post-2-headline">Ambient<br>Change</h2>
+          <span class="post-2-dash">—</span>
+          <p class="post-2-copy">Slow, evolving, and transportive. Explore ambient masterpieces that shape the mood.</p>
+        </div>
+
+        <!-- Abstract album art (wavy shapes) -->
+        <div class="post-2-art">
+          <div class="post-2-art-inner">
+            <svg viewBox="0 0 360 620" preserveAspectRatio="xMidYMid slice" xmlns="http://www.w3.org/2000/svg">
+              <!-- Background: olive green -->
+              <rect width="360" height="620" fill="#7A8B3A"/>
+              <!-- Cream/warm white wave -->
+              <path d="M-20 200 Q80 140 180 200 Q280 260 380 180 L380 340 Q280 400 180 340 Q80 280 -20 360 Z" fill="#E8DFC8"/>
+              <!-- Dusty rose wave -->
+              <path d="M-20 300 Q90 240 190 310 Q290 380 380 290 L380 460 Q290 530 190 460 Q90 390 -20 460 Z" fill="#C9A08A"/>
+              <!-- Deeper cream wave -->
+              <path d="M-20 440 Q100 370 200 440 Q300 510 380 420 L380 620 L-20 620 Z" fill="#E8DFC8" opacity="0.7"/>
+              <!-- Thin white line wave -->
+              <path d="M-20 250 Q80 190 180 250 Q280 310 380 230" stroke="rgba(255,255,255,0.5)" stroke-width="2" fill="none"/>
+              <!-- Additional olive layer -->
+              <path d="M-20 140 Q80 80 200 130 Q300 170 380 100 L380 220 Q290 290 180 240 Q80 190 -20 250 Z" fill="#6B7A2E" opacity="0.6"/>
+            </svg>
+          </div>
+        </div>
+      </div>
+
+      <div class="post-2-footer">
+        <span class="post-2-wordmark">rek<span class="accent">ō</span>do</span>
+      </div>
+
+    </div>
+  </div>
+
+</body>
+</html>
