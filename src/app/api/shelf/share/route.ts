@@ -28,7 +28,7 @@ export async function POST(request: NextRequest) {
   const bytes = await file.arrayBuffer();
 
   const { error: upErr } = await sb.storage
-    .from("shelf-posts")
+    .from("shelf_posts")
     .upload(storagePath, bytes, { contentType: "image/png" });
 
   if (upErr) {
@@ -36,7 +36,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: upErr.message }, { status: 500 });
   }
 
-  const { data: { publicUrl } } = sb.storage.from("shelf-posts").getPublicUrl(storagePath);
+  const { data: { publicUrl } } = sb.storage.from("shelf_posts").getPublicUrl(storagePath);
 
   const { data, error: dbErr } = await sb
     .from("shelf_posts")
