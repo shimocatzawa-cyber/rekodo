@@ -1842,16 +1842,10 @@ export default function ConstellationPOC({ username }: Props) {
                             {suggestions.map(n => (
                               <button key={n.id} onMouseDown={() => {
                                 setArtistFilter(n.name); setArtistQuery(""); setShowArtistDrop(false);
-                                // Zoom canvas to this node
-                                const canvas = canvasRef.current;
-                                if (canvas) {
-                                  const W = canvas.parentElement!.clientWidth;
-                                  const H = canvas.parentElement!.clientHeight;
-                                  const AVAIL_W = W - PANEL_W;
-                                  const sc = 1.8;
-                                  targetCamRef.current = { x: AVAIL_W / 2 - n.x * sc, y: H / 2 - n.y * sc, scale: sc };
-                                  autoZoomRef.current = true;
-                                }
+                                selectedRef.current = n.id;
+                                physicsRef.current = false;
+                                nodesRef.current.forEach(nd => { nd.vx = 0; nd.vy = 0; });
+                                zoomToNeighborhoodRef.current?.(n);
                               }}
                                 style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", width: "100%", padding: "7px 10px", background: "none", border: "none", cursor: "pointer", textAlign: "left", borderBottom: `1px solid ${BORD}` }}
                               >
