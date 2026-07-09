@@ -40,7 +40,8 @@ interface InflEdge    { source: string; target: string; type: RelType; note: str
 const BG      = "#06091a";   // star-field canvas/loading background
 const SURFACE = "#0c1128";   // panel background
 const INK     = "#ddd8cc";   // warm star-white — labels, text, UI
-const ORANGE  = "#CC5500";   // rekōdo brand — selection / active
+const ORANGE  = "#CC5500";   // rekōdo brand — used in the side panel UI only
+const ACTIVE  = "#89b4ff";   // nebula blue — selection / active state on canvas
 const WHITE   = "#ffffff";   // pure white — star cores
 const EDGE_C  = "rgba(140,170,240,1)"; // pale blue-white constellation lines
 const MONO    = '"DM Mono", "Courier New", monospace';
@@ -1292,7 +1293,7 @@ export default function ConstellationPOC({ username }: Props) {
 
         if (isActive) {
           ctx.globalAlpha = 0.90;
-          ctx.strokeStyle = ORANGE;
+          ctx.strokeStyle = ACTIVE;
           ctx.lineWidth   = e.type === "splinter"     ? 3.0
                           : e.type === "collaboration" ? 2.0
                           : e.type === "production"    ? 1.8
@@ -1359,7 +1360,7 @@ export default function ConstellationPOC({ username }: Props) {
           const tw = ctx.measureText(label).width;
           ctx.fillStyle = BG;
           ctx.fillRect(lx - tw/2 - 5, ly - 7, tw + 10, 14);
-          ctx.fillStyle = ORANGE;
+          ctx.fillStyle = ACTIVE;
           ctx.textAlign = "center"; ctx.textBaseline = "middle";
           ctx.fillText(label, lx, ly);
         }
@@ -1390,7 +1391,7 @@ export default function ConstellationPOC({ username }: Props) {
           const ghostAlpha = isDim ? 0.06 : isAct ? 0.90 : isLbl ? 0.75 : 0.35;
           ctx.globalAlpha = ghostAlpha;
           ctx.beginPath(); ctx.arc(node.x, node.y, r, 0, Math.PI * 2);
-          ctx.strokeStyle = (isAct || isLbl) ? ORANGE : "rgba(140,170,240,0.8)";
+          ctx.strokeStyle = (isAct || isLbl) ? ACTIVE : "rgba(140,170,240,0.8)";
           ctx.lineWidth = isAct ? 1.8 : 1;
           ctx.setLineDash([3, 4]);
           ctx.stroke();
@@ -1398,7 +1399,7 @@ export default function ConstellationPOC({ username }: Props) {
           if (isSel) {
             ctx.globalAlpha = 0.30;
             ctx.beginPath(); ctx.arc(node.x, node.y, r + 9, 0, Math.PI * 2);
-            ctx.strokeStyle = ORANGE; ctx.lineWidth = 1;
+            ctx.strokeStyle = ACTIVE; ctx.lineWidth = 1;
             ctx.stroke();
           }
           ctx.restore();
@@ -1407,19 +1408,19 @@ export default function ConstellationPOC({ username }: Props) {
 
         ctx.globalAlpha = isDim ? 0.04 : 1;
 
-        // Orange selection ring (node selected) or subtle label ring
+        // Blue selection ring (node selected) or subtle label ring
         if (isSel) {
           ctx.beginPath(); ctx.arc(node.x, node.y, r + 12, 0, Math.PI * 2);
-          ctx.strokeStyle = ORANGE; ctx.lineWidth = 2;
+          ctx.strokeStyle = ACTIVE; ctx.lineWidth = 2;
           ctx.globalAlpha = 0.65; ctx.stroke();
           // Second outer pulse ring
           ctx.beginPath(); ctx.arc(node.x, node.y, r + 22, 0, Math.PI * 2);
-          ctx.strokeStyle = ORANGE; ctx.lineWidth = 0.8;
+          ctx.strokeStyle = ACTIVE; ctx.lineWidth = 0.8;
           ctx.globalAlpha = 0.22; ctx.stroke();
           ctx.globalAlpha = 1;
         } else if (isLbl) {
           ctx.beginPath(); ctx.arc(node.x, node.y, r + 7, 0, Math.PI * 2);
-          ctx.strokeStyle = ORANGE; ctx.lineWidth = 1;
+          ctx.strokeStyle = ACTIVE; ctx.lineWidth = 1;
           ctx.globalAlpha = 0.35; ctx.stroke();
           ctx.globalAlpha = 1;
         }
@@ -1427,9 +1428,9 @@ export default function ConstellationPOC({ username }: Props) {
         // Star glow — radial gradient (warm white → transparent)
         const blotR = r * (isSel ? 1.5 : 1.0 + inf * 0.5);
         const grad  = ctx.createRadialGradient(node.x, node.y, 0, node.x, node.y, blotR);
-        grad.addColorStop(0,    isAct ? ORANGE              : "rgba(232,225,205,1)");
-        grad.addColorStop(0.50, isAct ? ORANGE              : "rgba(220,212,190,0.65)");
-        grad.addColorStop(0.78, isAct ? "rgba(204,85,0,0.4)": "rgba(205,198,175,0.18)");
+        grad.addColorStop(0,    isAct ? ACTIVE               : "rgba(232,225,205,1)");
+        grad.addColorStop(0.50, isAct ? ACTIVE               : "rgba(220,212,190,0.65)");
+        grad.addColorStop(0.78, isAct ? "rgba(137,180,255,0.4)": "rgba(205,198,175,0.18)");
         grad.addColorStop(1.0,  "rgba(200,190,165,0.0)");
         ctx.beginPath(); ctx.arc(node.x, node.y, blotR, 0, Math.PI * 2);
         ctx.fillStyle = grad; ctx.fill();
@@ -1438,24 +1439,21 @@ export default function ConstellationPOC({ username }: Props) {
         ctx.beginPath(); ctx.arc(node.x, node.y, r * 0.22, 0, Math.PI * 2);
         ctx.fillStyle = WHITE; ctx.fill();
 
-        // Crown for high-influence artists
+        // Diffraction spikes for high-influence artists — like bright stars in telescope images
         if (inf >= 0.68 && !isDim) {
-          const cs  = 6 + (inf - 0.68) * 16;
-          const cy  = node.y - blotR - 4;
-          const col = isAct ? ORANGE : INK;
-          const h2  = strHash(node.id + "c");
-          const j   = (i: number) => (seededRng(h2 + i * 4.1) - 0.5) * cs * 0.08;
-          ctx.globalAlpha = 0.75 + inf * 0.25;
-          ctx.beginPath();
-          ctx.moveTo(node.x - cs      + j(0),  cy            + j(1));
-          ctx.lineTo(node.x - cs*0.5  + j(2),  cy - cs*0.9   + j(3));
-          ctx.lineTo(node.x - cs*0.18 + j(4),  cy - cs*0.25  + j(5));
-          ctx.lineTo(node.x           + j(6),  cy - cs*1.3   + j(7));
-          ctx.lineTo(node.x + cs*0.18 + j(8),  cy - cs*0.25  + j(9));
-          ctx.lineTo(node.x + cs*0.5  + j(10), cy - cs*0.9   + j(11));
-          ctx.lineTo(node.x + cs      + j(12), cy            + j(13));
-          ctx.strokeStyle = col; ctx.lineWidth = 1.8;
-          ctx.lineJoin = "round"; ctx.lineCap = "round"; ctx.stroke();
+          const spikeLen = blotR * (1.4 + (inf - 0.68) * 2.2);
+          const col = isAct ? ACTIVE : INK;
+          ctx.globalAlpha = isAct ? 0.70 : 0.30 + inf * 0.35;
+          ctx.strokeStyle = col;
+          ctx.lineCap = "round";
+          // 4-point cross (horizontal + vertical spikes)
+          for (const [dx, dy] of [[1,0],[-1,0],[0,1],[0,-1]]) {
+            ctx.lineWidth = isAct ? 1.2 : 0.8;
+            ctx.beginPath();
+            ctx.moveTo(node.x + dx * r * 0.5, node.y + dy * r * 0.5);
+            ctx.lineTo(node.x + dx * spikeLen, node.y + dy * spikeLen);
+            ctx.stroke();
+          }
           ctx.globalAlpha = isDim ? 0.04 : 1;
         }
 
@@ -1500,7 +1498,7 @@ export default function ConstellationPOC({ username }: Props) {
         ctx.font      = isAct ? `600 ${fs}px ${SERIF}`
                       : node.owned ? `400 ${fs}px ${SERIF}`
                       : `300 italic ${fs * 0.88}px ${SERIF}`;
-        ctx.fillStyle = isAct ? ORANGE
+        ctx.fillStyle = isAct ? ACTIVE
                       : node.owned ? INK
                       : "rgba(140,170,240,0.55)";
         ctx.textAlign = "center"; ctx.textBaseline = "top";
