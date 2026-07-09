@@ -26,7 +26,7 @@ export async function POST(req: NextRequest) {
 
   // Not in DB yet — call Claude in real time
   const response = await anthropic.messages.create({
-    model:      "claude-haiku-4-5-20251001",
+    model:      "claude-sonnet-4-6",
     max_tokens: 1024,
     tools: [{
       name: "record_influences",
@@ -49,7 +49,10 @@ export async function POST(req: NextRequest) {
     tool_choice: { type: "any" },
     messages: [{
       role: "user",
-      content: `For the artist "${artist}", list up to 5 artists who directly influenced them (influenced_by) and up to 5 artists they are documented to have directly influenced (influenced). Only well-documented, verifiable relationships — omit rather than guess.`,
+      content: `For the artist "${artist}":
+- influenced_by: list up to 5 artists whose music directly shaped ${artist}'s sound BEFORE they formed. These must predate ${artist} or be from an earlier generation.
+- influenced: list up to 5 artists who came AFTER ${artist} and have explicitly cited ${artist} as an influence, or whose sound is clearly derived from ${artist}'s work.
+Only well-documented, verifiable relationships. Do not guess or reverse directions.`,
     }],
   });
 
