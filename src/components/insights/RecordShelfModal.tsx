@@ -379,15 +379,21 @@ export default function RecordShelfModal({ onClose, ...cardProps }: Props) {
     setShareState("sharing");
     try {
       const canvas = await buildCanvas();
-      if (!canvas) throw new Error("failed");
+      if (!canvas) throw new Error("canvas build failed");
       const blob = await new Promise<Blob>((res, rej) => canvas.toBlob(b => b ? res(b) : rej(), "image/png"));
       const fd = new FormData();
       fd.append("file", blob, "shelf.png");
       const res = await fetch("/api/shelf/share", { method: "POST", body: fd });
-      if (!res.ok) throw new Error("upload failed");
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error(`API ${res.status}: ${body?.error ?? "unknown"}`);
+      }
       trackShareCard("Record Shelf", "community");
       setShareState("shared");
-    } catch { setShareState("failed"); }
+    } catch (err) {
+      console.error("[shelf/share]", err);
+      setShareState("failed");
+    }
     finally { setTimeout(() => setShareState("idle"), 3000); }
   }
 

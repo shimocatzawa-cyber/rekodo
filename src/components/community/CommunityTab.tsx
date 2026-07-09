@@ -661,18 +661,18 @@ export default function CommunityTab({ profileOwnerId, hideSocialPanel = false, 
         )}
 
         {/* Sub-tabs — desktop: scrollable tab bar; mobile: dropdown select */}
-        <div className="rk-community-tabs" style={{ display: "flex", borderBottom: `1px solid ${RULE}`, marginBottom: "28px" }}>
+        <div className="rk-community-tabs" style={{ display: "flex", borderBottom: `1px solid ${RULE}`, marginBottom: "28px", overflowX: "auto", flexWrap: "nowrap", scrollbarWidth: "none" }}>
           {TABS.map(t => (
             <button
               key={t.key}
               onClick={() => setSubTab(t.key)}
               style={{
-                fontFamily: MONO, fontSize: "0.58rem", letterSpacing: "0.12em",
-                textTransform: "uppercase",
+                fontFamily: MONO, fontSize: "0.55rem", letterSpacing: "0.1em",
+                textTransform: "uppercase", whiteSpace: "nowrap",
                 color: subTab === t.key ? ORANGE : MUTED,
                 background: "none", border: "none",
                 borderBottom: subTab === t.key ? `1.5px solid ${ORANGE}` : "1.5px solid transparent",
-                padding: "8px 20px 10px", cursor: "pointer", marginBottom: "-1px",
+                padding: "8px 14px 10px", cursor: "pointer", marginBottom: "-1px", flexShrink: 0,
               }}
             >
               {t.label}
