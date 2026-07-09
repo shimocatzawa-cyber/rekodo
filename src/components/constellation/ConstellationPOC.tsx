@@ -4,6 +4,7 @@ import { useRef, useEffect, useState, useCallback } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { fetchMBArtist, zoneForTags, mbRelToConstellation } from "@/lib/musicbrainz";
 import { fetchDiscogsArtist } from "@/lib/discogs-artist";
+import { fetchWikidataInfluences, type WDInfluenceEdge } from "@/lib/wikidata";
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
@@ -456,6 +457,7 @@ export default function ConstellationPOC({ username }: Props) {
   const [styleGroups,    setStyleGroups]    = useState<StyleGroup[]>([]);
   const [mbLineage,      setMbLineage]      = useState<LineageEdge[]>([]);
   const [mbInfluence,    setMbInfluence]    = useState<InflEdge[]>([]);
+  const [wdInfluence,    setWdInfluence]    = useState<WDInfluenceEdge[]>([]);
   const [discogsLineage, setDiscogsLineage] = useState<LineageEdge[]>([]);
 
   // ── Artist / label filter ────────────────────────────────────────────────────
@@ -965,6 +967,28 @@ export default function ConstellationPOC({ username }: Props) {
         if (dgLineage.length > 0 && !cancelled) {
           setDiscogsLineage([...dgLineage]);
         }
+      }
+    };
+
+    run();
+    return () => { cancelled = true; };
+  }, [isReady, username]);
+
+  // ── Wikidata background enrichment ───────────────────────────────────────────
+  // Resolves owned artist names to Wikidata QIDs then queries P737 "influenced by".
+  // Fills the Influences panel with edges beyond what MB and CURATED_EDGES cover.
+
+  useEffect(() => {
+    if (!isReady || !username) return;
+    let cancelled = false;
+
+    const run = async () => {
+      const ownedNames = nodesRef.current.filter(n => n.owned).map(n => n.name);
+      if (ownedNames.length === 0) return;
+
+      const edges = await fetchWikidataInfluences(ownedNames);
+      if (!cancelled && edges.length > 0) {
+        setWdInfluence(edges);
       }
     };
 
@@ -1984,11 +2008,18 @@ export default function ConstellationPOC({ username }: Props) {
                     if (afL && src.toLowerCase() !== afL && tgt.toLowerCase() !== afL) continue;
                     addInfl(visInfl, { source: src, target: tgt, type: e.type, note: e.note, via: e.via });
                   }
-                  // 2. MusicBrainz-discovered influence edges (fills gaps for uncurated artists)
+                  // 2. MusicBrainz-discovered influence edges
                   for (const e of mbInfluence) {
                     if (labelScope && (!labelScope.has(e.source) || !labelScope.has(e.target))) continue;
                     if (afL && e.source.toLowerCase() !== afL && e.target.toLowerCase() !== afL) continue;
                     addInfl(visInfl, e);
+                  }
+                  // 3. Wikidata P737 "influenced by" — richest source, may include external influencers
+                  for (const e of wdInfluence) {
+                    // target is always in collection; source may be external — only label-filter on target
+                    if (labelScope && !labelScope.has(e.target)) continue;
+                    if (afL && e.source.toLowerCase() !== afL && e.target.toLowerCase() !== afL) continue;
+                    addInfl(visInfl, { source: e.source, target: e.target, type: "influence", note: e.note, via: "Wikidata" });
                   }
 
                   // Highlight node, freeze map, zoom to show it + all its connections
