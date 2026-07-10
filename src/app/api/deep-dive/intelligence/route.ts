@@ -55,7 +55,7 @@ const SONNET_SECTIONS = new Set(["podcasts", "books", "interviews"]);
 const MAX_TOKENS: Record<string, number> = {
   rankings:   1500,
   podcasts:   2048,
-  books:      1500,
+  books:      2048,
   interviews: 1500,
   blindspot:  2048,
   related:    1500,
@@ -65,7 +65,7 @@ const MAX_TOKENS: Record<string, number> = {
 // Sections where Claude verifies results via Anthropic's server-side web search
 // tool (runs within the same API call — no extra request loop needed) rather
 // than relying solely on training-data recall.
-const WEB_SEARCH_SECTIONS = new Set(["interviews", "podcasts"]);
+const WEB_SEARCH_SECTIONS = new Set(["interviews", "podcasts", "books"]);
 
 // Race an async callback against a timeout — returns null on timeout instead of hanging.
 // Accepts a callback (not a raw Promise) so callers can pass Supabase query builders,
