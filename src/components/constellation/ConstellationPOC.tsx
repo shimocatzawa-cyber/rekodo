@@ -1925,14 +1925,9 @@ export default function ConstellationPOC({ username }: Props) {
                   @{username}
                 </p>
               )}
-              <p style={{ fontFamily: MONO, fontSize: "10px", color: DIM3, letterSpacing: "0.08em", marginBottom: "2px" }}>
-                {totalRecords.toLocaleString()} records · {nodesRef.current.filter(n => n.owned).length} artists
+              <p style={{ fontFamily: MONO, fontSize: "10px", color: DIM3, letterSpacing: "0.08em", marginBottom: "6px" }}>
+                {totalRecords.toLocaleString()} records · {nodesRef.current.filter(n => n.owned).length} artists{yearRange ? ` · ${yearRange[0]}–${yearRange[1]}` : ""}
               </p>
-              {yearRange && (
-                <p style={{ fontFamily: MONO, fontSize: "10px", color: DIM3, letterSpacing: "0.08em", marginBottom: "6px" }}>
-                  {yearRange[0]}–{yearRange[1]}
-                </p>
-              )}
             </>
           )}
           {!selectedArtist && !selectedEdge && (
