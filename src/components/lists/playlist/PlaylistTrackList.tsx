@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import type { GeneratedTrack } from "@/components/lists/PlaylistTab";
-import { openAppleMusicLink } from "@/lib/openAppleMusic";
+import { openAppleMusicLink, trackStreaming } from "@/lib/openAppleMusic";
 
 const SERIF  = "var(--font-editorial)";
 const MONO   = "var(--font-mono)";
@@ -147,7 +147,7 @@ export default function PlaylistTrackList({ tracks, onReorder, resequencing }: P
                 rel="noopener noreferrer"
                 draggable={false}
                 onMouseDown={e => e.stopPropagation()}
-                onClick={e => { e.preventDefault(); openAppleMusicLink(appleMusicSearchUrl(t.artist, t.title)); }}
+                onClick={e => { e.preventDefault(); trackStreaming("apple_music", "playlist"); openAppleMusicLink(appleMusicSearchUrl(t.artist, t.title)); }}
                 style={{ fontFamily: MONO, fontSize: "8px", letterSpacing: "0.04em", color: "#bbbbbb", textDecoration: "none", whiteSpace: "nowrap" }}
               >
                 Apple Music ↗

@@ -1,6 +1,7 @@
 "use client";
 
 import { createContext, useContext, useState, useEffect, useRef, useCallback } from "react";
+import { trackStreaming } from "@/lib/openAppleMusic";
 
 // ─── Fresh token helper ───────────────────────────────────────────────────────
 // Module-level cache: avoids a round-trip on every button click while ensuring
@@ -491,7 +492,14 @@ export function SpotifyPlayerProvider({ children }: { children: React.ReactNode 
   }, []);
 
   // ── Play / pause ──────────────────────────────────────────────────────────
+  const hasTrackedSpotifyPlay = useRef(false);
+
   const handlePlayPause = useCallback(async () => {
+    if (!playing && !hasTrackedSpotifyPlay.current) {
+      hasTrackedSpotifyPlay.current = true;
+      const ctx = source?.mode === "collection" ? "collection" : "dig";
+      trackStreaming("spotify", ctx);
+    }
     if (useSDK && playerRef.current) {
       // activateElement must run synchronously in the user-gesture call stack —
       // do it before any await so the browser doesn't suspend the AudioContext.

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { openStreamLink } from "@/lib/openAppleMusic";
+import { openStreamLink, trackStreaming } from "@/lib/openAppleMusic";
 
 const SERIF  = "var(--font-editorial)";
 const MONO   = "var(--font-mono)";
@@ -93,10 +93,10 @@ function AlbumMeta({ album, muted = false }: { album: EchoAlbum; muted?: boolean
         </div>
       )}
       <div style={{ display: "flex", gap: 10, marginTop: 6, flexWrap: "wrap" }}>
-        <button onClick={() => openStreamLink(am)} style={{ fontFamily: MONO, fontSize: "0.58rem", letterSpacing: "0.06em", color: MUTED, background: "none", border: "none", padding: 0, cursor: "pointer", textDecoration: "none" }}>
+        <button onClick={() => { trackStreaming("apple_music", "archetypes"); openStreamLink(am); }} style={{ fontFamily: MONO, fontSize: "0.58rem", letterSpacing: "0.06em", color: MUTED, background: "none", border: "none", padding: 0, cursor: "pointer", textDecoration: "none" }}>
           Apple Music ↗
         </button>
-        <button onClick={() => openStreamLink(sp)} style={{ fontFamily: MONO, fontSize: "0.58rem", letterSpacing: "0.06em", color: MUTED, background: "none", border: "none", padding: 0, cursor: "pointer", textDecoration: "none" }}>
+        <button onClick={() => { trackStreaming("spotify", "archetypes"); openStreamLink(sp); }} style={{ fontFamily: MONO, fontSize: "0.58rem", letterSpacing: "0.06em", color: MUTED, background: "none", border: "none", padding: 0, cursor: "pointer", textDecoration: "none" }}>
           Spotify ↗
         </button>
       </div>

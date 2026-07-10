@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useTranslations } from "next-intl";
 import AppNav from "@/components/AppNav";
 import RecordSpinner from "@/components/RecordSpinner";
-import { openStreamLink } from "@/lib/openAppleMusic";
+import { openStreamLink, serviceFromUrl, trackStreaming } from "@/lib/openAppleMusic";
 import { useSpotifyPlayback } from "@/components/SpotifyPlayerProvider";
 import { createClient } from "@/lib/supabase/client";
 import { useUrlTab } from "@/lib/useUrlTab";
@@ -310,7 +310,7 @@ function SleeveCard({ rec, mode, onAddToWantlist, wantlistAdded, onDismiss, dism
               <span style={sectionLabel}>Stream</span>
               {STREAM.map(l => (
                 <a key={l.label} href={l.href} target="_blank" rel="noopener noreferrer" className="dig-link-item" style={link}
-                  onClick={(e) => { e.preventDefault(); openStreamLink(l.href); }}
+                  onClick={(e) => { e.preventDefault(); const svc = serviceFromUrl(l.href); if (svc) trackStreaming(svc, "dig"); openStreamLink(l.href); }}
                 >{l.label}</a>
               ))}
             </div>
@@ -326,7 +326,7 @@ function SleeveCard({ rec, mode, onAddToWantlist, wantlistAdded, onDismiss, dism
                     rel="noopener noreferrer"
                     className="dig-link-item"
                     style={link}
-                    onClick={(e) => { e.preventDefault(); openStreamLink(l.href); }}
+                    onClick={(e) => { e.preventDefault(); const svc = serviceFromUrl(l.href); if (svc) trackStreaming(svc, "dig"); openStreamLink(l.href); }}
                   >
                     {l.label}
                   </a>

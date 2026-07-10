@@ -10,7 +10,7 @@ import { persistRecordPrice } from "@/app/collection/actions";
 import { createClient } from "@/lib/supabase/client";
 import { getDesirabilityTier, type DesirabilityTier } from "@/lib/desirability";
 import { FEELINGS, feelingLabel } from "@/lib/feelings";
-import { openAppleMusicLink } from "@/lib/openAppleMusic";
+import { openAppleMusicLink, trackStreaming } from "@/lib/openAppleMusic";
 import dynamic from "next/dynamic";
 import { getFreshSpotifyToken } from "@/components/SpotifyPlayer";
 const SpotifyPlayer = dynamic(() => import("@/components/SpotifyPlayer"), { ssr: false });
@@ -2246,7 +2246,7 @@ function TracklistPanel({ tracks, loading, bandcamp, record, username, collectio
                 target="_blank"
                 rel="noopener noreferrer"
                 style={secondaryLinkStyle}
-                onClick={(e) => { e.preventDefault(); openAppleMusicLink(amSearch); }}
+                onClick={(e) => { e.preventDefault(); trackStreaming("apple_music", "collection"); openAppleMusicLink(amSearch); }}
               >
                 Open in Apple Music ↗
               </a>

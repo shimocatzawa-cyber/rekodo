@@ -2,6 +2,25 @@ export function isAppleMusicUrl(url: string): boolean {
   return url.includes("music.apple.com");
 }
 
+type StreamingService = "apple_music" | "spotify" | "tidal" | "deezer";
+type StreamingContext  = "collection" | "dig" | "playlist" | "archetypes";
+
+export function serviceFromUrl(url: string): StreamingService | null {
+  if (url.includes("music.apple.com"))  return "apple_music";
+  if (url.includes("open.spotify.com")) return "spotify";
+  if (url.includes("tidal.com"))        return "tidal";
+  if (url.includes("deezer.com"))       return "deezer";
+  return null;
+}
+
+export function trackStreaming(service: StreamingService, context: StreamingContext): void {
+  fetch("/api/track-streaming", {
+    method:  "POST",
+    headers: { "Content-Type": "application/json" },
+    body:    JSON.stringify({ service, context }),
+  }).catch(() => { /* non-critical */ });
+}
+
 // Returns the app-scheme URL for a streaming service, or null if no scheme is known.
 // Apple Music: https://music.apple.com/... → music://music.apple.com/...
 // Spotify:     https://open.spotify.com/search/QUERY → spotify:search:QUERY
