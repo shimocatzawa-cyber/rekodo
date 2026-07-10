@@ -1114,12 +1114,20 @@ export default function ConstellationPOC({ username }: Props) {
     const name = artistFilter;
 
     const run = async () => {
+      console.log(`[constellation] MB lineage fetch for "${name}"`);
       const mbData = await fetchMBArtist(name);
-      if (!mbData || cancelled) return;
+      if (!mbData || cancelled) {
+        console.log(`[constellation] MB lineage: no data for "${name}" (mbData=${!!mbData} cancelled=${cancelled})`);
+        return;
+      }
+      console.log(`[constellation] MB lineage: got ${mbData.relations.length} relations for "${name}"`);
 
       const nodeByName = new Map(nodesRef.current.map(n => [n.name.toLowerCase(), n]));
       const thisNode   = nodeByName.get(name.toLowerCase());
-      if (!thisNode) return;
+      if (!thisNode) {
+        console.log(`[constellation] MB lineage: thisNode not found for "${name}" in`, [...nodeByName.keys()].slice(0, 20));
+        return;
+      }
 
       const newLineage: LineageEdge[] = [];
       for (const rel of mbData.relations) {
@@ -1127,11 +1135,13 @@ export default function ConstellationPOC({ username }: Props) {
         if (!mapped || mapped.type !== "splinter") continue;
         const srcNode = nodeByName.get(mapped.source.toLowerCase());
         const tgtNode = nodeByName.get(mapped.target.toLowerCase());
+        console.log(`[constellation] MB splinter: ${mapped.source}→${mapped.target} srcNode=${!!srcNode} tgtNode=${!!tgtNode}`);
         if (!srcNode || !tgtNode || srcNode.id === tgtNode.id) continue;
         if (tgtNode.owned || srcNode.owned) {
           newLineage.push({ source: srcNode.name, target: tgtNode.name, note: `${rel.type} (MusicBrainz)`, via: "mb" });
         }
       }
+      console.log(`[constellation] MB lineage: ${newLineage.length} new edges for "${name}"`);
 
       if (!cancelled && newLineage.length > 0) {
         setMbLineage(prev => {
@@ -1158,7 +1168,11 @@ export default function ConstellationPOC({ username }: Props) {
       const artistStylesForRpc = styleGroups
         .filter(g => g.artists.some(a => a.toLowerCase() === name.toLowerCase()))
         .map(g => g.style);
-      if (artistStylesForRpc.length === 0) return;
+      console.log(`[constellation] sonic neighbours for "${name}": styles=${JSON.stringify(artistStylesForRpc)} (styleGroups.length=${styleGroups.length})`);
+      if (artistStylesForRpc.length === 0) {
+        console.log(`[constellation] sonic neighbours: no styles matched for "${name}" in styleGroups`);
+        return;
+      }
 
       const excludeArtists = nodesRef.current.filter(n => n.owned).map(n => n.name);
       try {
@@ -1167,8 +1181,12 @@ export default function ConstellationPOC({ username }: Props) {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ styles: artistStylesForRpc, excludeArtists, limit: 200 }),
         });
-        if (!res.ok || cancelled) return;
+        if (!res.ok || cancelled) {
+          console.log(`[constellation] sonic neighbours: fetch failed res.ok=${res.ok} status=${res.status}`);
+          return;
+        }
         const json = await res.json() as { neighbours?: { artist: string; shared_styles: string[]; match_count: number }[] };
+        console.log(`[constellation] sonic neighbours: got ${json.neighbours?.length ?? 0} results`);
         if (!cancelled && json.neighbours && json.neighbours.length > 0) {
           setGlobalNeighbours(prev => {
             const existing = new Set(prev.map(n => n.artist));
@@ -1176,7 +1194,9 @@ export default function ConstellationPOC({ username }: Props) {
             return fresh.length > 0 ? [...prev, ...fresh] : prev;
           });
         }
-      } catch { /* best-effort */ }
+      } catch (err) {
+        console.log(`[constellation] sonic neighbours: error`, err);
+      }
     };
 
     run();

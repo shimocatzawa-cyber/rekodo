@@ -15,7 +15,9 @@ export interface MBArtistData {
 
 const CACHE_KEY = "rekodo_mb_v4";
 const CACHE_TTL = 30 * 24 * 60 * 60 * 1000; // 30 days
+const RATE_MS   = 1500; // min gap between proxy calls — proxy itself calls MB twice
 
+let _lastCall = 0;
 let _cache: Record<string, MBArtistData> | null = null;
 
 function loadCache(): Record<string, MBArtistData> {
@@ -39,6 +41,10 @@ export async function fetchMBArtist(artistName: string): Promise<MBArtistData | 
   const cacheKey = artistName.toLowerCase();
   const cached   = loadCache()[cacheKey];
   if (cached && Date.now() - cached.fetchedAt < CACHE_TTL) return cached;
+
+  const wait = Math.max(0, RATE_MS - (Date.now() - _lastCall));
+  if (wait > 0) await new Promise(r => setTimeout(r, wait));
+  _lastCall = Date.now();
 
   try {
     const res = await fetch(`/api/musicbrainz/artist?name=${encodeURIComponent(artistName)}`);

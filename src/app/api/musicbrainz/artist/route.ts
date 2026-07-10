@@ -2,7 +2,7 @@ import { type NextRequest } from "next/server";
 
 const MB_API = "https://musicbrainz.org/ws/2";
 const UA     = "rekodo/1.0 (shimocatzawa@gmail.com)";
-const SCORE_THRESHOLD = 85;
+const SCORE_THRESHOLD = 70;
 
 export interface MBArtistRelation {
   type:       string;
@@ -36,13 +36,15 @@ export async function GET(req: NextRequest) {
 
     const searchData = await searchRes.json() as { artists?: { id: string; name: string; score: number }[] };
     const top = searchData.artists?.[0];
+    console.log(`[mb-proxy] "${name}" → top="${top?.name}" score=${top?.score ?? "n/a"}`);
     if (!top || (top.score ?? 0) < SCORE_THRESHOLD) {
+      console.log(`[mb-proxy] 404 for "${name}": score=${top?.score ?? "no match"} (threshold ${SCORE_THRESHOLD})`);
       return Response.json({ error: "No match" }, { status: 404 });
     }
     const mbid = top.id;
 
-    // MB requires ≤1 req/sec — add a small gap between search and detail calls
-    await new Promise(r => setTimeout(r, 1100));
+    // Gap between search and detail calls to respect MB rate limit
+    await new Promise(r => setTimeout(r, 300));
 
     // 2. Fetch tags + artist relations
     const detailRes = await fetch(
@@ -75,6 +77,7 @@ export async function GET(req: NextRequest) {
       }));
 
     const payload: MBArtistPayload = { mbid, name: top.name, tags, relations };
+    console.log(`[mb-proxy] OK "${name}" → ${relations.length} relations: ${relations.map(r => `${r.type}→${r.targetName}`).join(", ") || "none"}`);
 
     return Response.json(payload, {
       headers: { "Cache-Control": "public, max-age=86400, stale-while-revalidate=604800" },
