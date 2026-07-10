@@ -2050,7 +2050,7 @@ export default function ConstellationPOC({ username }: Props) {
             border: `1px solid ${BORD}`, padding: "10px 18px",
           }}
         >
-          ← Back
+          ← rekōdo
         </a>
       </div>
     );
@@ -2096,9 +2096,16 @@ export default function ConstellationPOC({ username }: Props) {
       {/* Header — top-left of canvas area */}
       {isReady && (
         <div className="absolute top-6 left-7 z-10 pointer-events-none">
-          <p style={{ fontFamily: MONO, fontSize: "10px", color: DIM3, letterSpacing: "0.25em", textTransform: "uppercase", marginBottom: "3px" }}>
-            Rekōdo
-          </p>
+          <a
+            href="/"
+            style={{
+              fontFamily: MONO, fontSize: "10px", color: DIM3, letterSpacing: "0.25em",
+              textTransform: "uppercase", textDecoration: "none", display: "inline-block",
+              marginBottom: "3px", pointerEvents: "auto",
+            }}
+          >
+            ← rekōdo
+          </a>
           <h1 style={{ fontFamily: SERIF, fontSize: "22px", fontWeight: 700, lineHeight: 1.25, color: INK, margin: 0 }}>
             Collection<br />Constellation
           </h1>

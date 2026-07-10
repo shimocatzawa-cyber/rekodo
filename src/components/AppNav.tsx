@@ -13,14 +13,14 @@ const JP = "var(--font-noto-jp), sans-serif";
 const ORANGE = "#CC5500";
 
 const NAV_ITEMS = [
-  { href: "/selects",           label: "Rekōdo Selects", jp: "選集" },
-  { href: "/collection",        label: "Collection",     jp: "コレクション" },
-  { href: "/dig",               label: "Dig",            jp: "発掘" },
-  { href: "/deep-dive",         label: "Deep Dive",      jp: "ディープダイブ" },
-  { href: "/lists",             label: "Lists",          jp: "リスト" },
-  { href: "/insights",          label: "Insights",       jp: "インサイト" },
-  { href: "/archetypes",        label: "Archetypes",     jp: "アーキタイプ" },
-  { href: "/constellation",     label: "Constellation",  jp: "星座" },
+  { href: "/selects",       label: "Rekōdo Selects", jp: "選集" },
+  { href: "/collection",    label: "Collection",     jp: "コレクション" },
+  { href: "/dig",           label: "Dig",            jp: "発掘" },
+  { href: "/deep-dive",     label: "Deep Dive",      jp: "ディープダイブ" },
+  { href: "/lists",         label: "Lists",          jp: "リスト" },
+  { href: "/insights",      label: "Insights",       jp: "インサイト" },
+  { href: "/archetypes",    label: "Archetypes",     jp: "アーキタイプ" },
+  { href: "/constellation", label: "Constellation",  jp: "星座", newTab: true },
 ] as const;
 
 export default function AppNav({ username, displayLabel, avatarUrl }: { username: string; displayLabel?: string; avatarUrl?: string | null }) {
@@ -92,12 +92,14 @@ export default function AppNav({ username, displayLabel, avatarUrl }: { username
 
         {/* Centre — desktop nav links */}
         <div className="hidden md:flex items-center gap-6">
-          {NAV_ITEMS.map(({ href, label, jp }) => {
+          {NAV_ITEMS.map(({ href, label, jp, ...rest }) => {
+            const newTab = "newTab" in rest && rest.newTab;
             const active = pathname === href || (pathname?.startsWith(href + "/") ?? false);
             return (
               <Link
                 key={href}
                 href={href}
+                {...(newTab ? { target: "_blank", rel: "noopener noreferrer" } : {})}
                 style={{
                   fontFamily: MONO,
                   fontSize: "10px",
@@ -224,13 +226,15 @@ export default function AppNav({ username, displayLabel, avatarUrl }: { username
             padding: "1.5rem 2rem 2rem",
           }}
         >
-          {NAV_ITEMS.map(({ href, label, jp }) => {
+          {NAV_ITEMS.map(({ href, label, jp, ...rest }) => {
+            const newTab = "newTab" in rest && rest.newTab;
             const active = pathname === href || (pathname?.startsWith(href + "/") ?? false);
             return (
               <Link
                 key={href}
                 href={href}
                 onClick={() => setMenuOpen(false)}
+                {...(newTab ? { target: "_blank", rel: "noopener noreferrer" } : {})}
                 style={{
                   display: "flex",
                   alignItems: "center",
