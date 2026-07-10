@@ -50,11 +50,11 @@ const DB_TIMEOUT_MS = 3000;
 
 const CACHED_SECTIONS = new Set(["rankings", "podcasts", "books", "interviews", "related", "pressings"]);
 
-const SONNET_SECTIONS = new Set(["podcasts", "interviews"]);
+const SONNET_SECTIONS = new Set(["interviews"]);
 
 const MAX_TOKENS: Record<string, number> = {
   rankings:   1500,
-  podcasts:   2048,
+  podcasts:   1000,
   books:      1500,
   interviews: 1500,
   blindspot:  2048,
@@ -65,7 +65,7 @@ const MAX_TOKENS: Record<string, number> = {
 // Sections where Claude verifies results via Anthropic's server-side web search
 // tool (runs within the same API call — no extra request loop needed) rather
 // than relying solely on training-data recall.
-const WEB_SEARCH_SECTIONS = new Set(["interviews", "podcasts"]);
+const WEB_SEARCH_SECTIONS = new Set(["interviews"]);
 
 // Race an async callback against a timeout — returns null on timeout instead of hanging.
 // Accepts a callback (not a raw Promise) so callers can pass Supabase query builders,
@@ -513,25 +513,22 @@ Return ONLY valid JSON, no markdown, no backticks, no preamble:
   },
 
   podcasts: (artist) =>
-    `You are a music research assistant with web search access. Find specific podcast episodes for a fan of ${artist}.
+    `You are a music research assistant. Find podcast episodes a fan of ${artist} should listen to.
 
 Priority order:
-1. Dedicated podcast series about ${artist} or their albums — include the series itself as a named show with its best or most recent episode
-2. Specific episodes where ${artist} is a main guest or interview subject — include the exact episode title
-3. Specific episodes that do a deep review of a named ${artist} album — include the exact episode title and album name
+1. Dedicated podcast series about ${artist} or their albums — include the series name and its best or most representative episode title
+2. Episodes where ${artist} is a guest or interview subject — include the exact episode title
+3. Episodes doing a deep review of a named ${artist} album — include the exact episode title and album name
 
-INSTRUCTIONS:
-- For each candidate episode, use web search to confirm it actually exists and to find its real listen URL — e.g. search "<show> <episode title>" and look for a podcasts.apple.com or open.spotify.com result.
-- "appleUrl" must be the EPISODE's own page — a real Apple Podcasts episode URL always has an "?i=" query parameter (e.g. https://podcasts.apple.com/us/podcast/show-name/id123456789?i=1000098765432). A URL without "?i=" is just the show page, not the episode.
-- "spotifyUrl" must be the EPISODE's own page — a real Spotify episode URL always starts with https://open.spotify.com/episode/ (not /show/, which is the show page, not the episode).
-- If search only turns up the show's page and not an episode-specific URL matching the patterns above, OMIT that URL field entirely — do NOT substitute the show URL. A downstream lookup will try harder to find the exact episode; a wrong-precision link is worse than none.
-- Always provide a specific episode title. Never use "Various episodes" or vague placeholders — if you cannot name and verify a specific episode, omit that show entirely.
-- Include the year of the specific episode, not the show's launch year.
-- Aim for 5–6 results maximum. Quality over quantity — only include episodes you verified via search.
+RULES:
+- Only include episodes you are confident actually exist. Omit anything uncertain.
+- Always provide a specific episode title — never "Various episodes" or vague placeholders.
+- Include the year of the specific episode (not the show's launch year).
+- 5–6 results maximum.
 
 Return ONLY valid JSON, no markdown, no backticks, no preamble:
-{"episodes":[{"show":"Show Name","episode":"Exact episode title","year":2021,"type":"interview","note":"One sentence on why worth listening","appleUrl":"https://podcasts.apple.com/...","spotifyUrl":"https://open.spotify.com/..."}]}
-type must be one of: "interview", "review", "documentary", "discussion". appleUrl and spotifyUrl are optional — omit whichever you could not verify. Return an empty array only if you genuinely cannot verify any. Do not fabricate.`,
+{"episodes":[{"show":"Show Name","episode":"Exact episode title","year":2021,"type":"interview","note":"One sentence on why worth listening"}]}
+type must be one of: "interview", "review", "documentary", "discussion". Do not fabricate.`,
 
   books: (artist) =>
     `You are a music research assistant helping a vinyl collector. List books by or about ${artist}.
