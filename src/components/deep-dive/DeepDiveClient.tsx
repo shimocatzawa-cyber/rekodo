@@ -1215,7 +1215,7 @@ export default function DeepDiveClient({
   function selectExternalArtist(name: string) {
     setIsExternalArtist(true);
     setSelectedArtist(name);
-    setActiveTab("rankings");
+    if (activeTab === "blindspot") setActiveTab("rankings");
     setDiscogsResults([]);
     setQuery("");
     if (!imageMap[name]) {
@@ -1439,9 +1439,10 @@ export default function DeepDiveClient({
   function RightPanelContent() {
     if (!selectedArtist) return <EmptyPanel />;
 
-    // External artist — no collection data, Essential Albums only
+    // External artist — no collection data, full tab bar (minus Blind Spot)
     if (isExternalArtist && !selectedData) {
       const imgUrl = imageMap[selectedArtist];
+      const externalTabs = TABS.filter((tab) => tab.id !== "blindspot");
       return (
         <div>
           <div className="hidden md:block"><ArtistPlayer artist={selectedArtist} /></div>
@@ -1475,14 +1476,89 @@ export default function DeepDiveClient({
                 </p>
               </div>
             </div>
-            <div style={{ borderBottom: `1px solid ${RULE}`, marginBottom: "1.5rem" }} />
-            <p style={{ fontFamily: MONO, fontSize: "0.7rem", letterSpacing: "0.08em", textTransform: "uppercase", color: ORANGE, margin: "0 0 1rem" }}>
-              Essential Albums
-            </p>
+            <div style={{ borderBottom: `1px solid ${RULE}` }} />
+
+            <style>{`
+              .dd-tabbar::-webkit-scrollbar { display: none; }
+              .dd-tab-select { display: none; }
+              @media (max-width: 767px) {
+                .dd-panel-content { padding: 1.25rem 1rem !important; }
+                .dd-artist-name   { font-size: 1.4rem !important; }
+                .dd-tabbar        { display: none !important; }
+                .dd-tab-select    { display: block !important; }
+              }
+            `}</style>
+
             {wantlistError && (
-              <p style={{ fontFamily: MONO, fontSize: "0.7rem", color: "red", margin: "0 0 1rem" }}>{wantlistError}</p>
+              <p style={{ fontFamily: MONO, fontSize: "0.7rem", color: "red", margin: "1rem 0 0" }}>{wantlistError}</p>
             )}
-            {renderTabContent()}
+
+            {/* Desktop tab bar */}
+            <div
+              className="dd-tabbar"
+              style={{
+                display: "flex",
+                borderBottom: `1px solid ${RULE}`,
+                overflowX: "auto",
+                scrollbarWidth: "none" as const,
+                WebkitOverflowScrolling: "touch",
+                gap: 0,
+              }}
+            >
+              {externalTabs.map((tab) => (
+                <button
+                  key={tab.id}
+                  onClick={() => setActiveTab(tab.id)}
+                  style={{
+                    fontFamily: MONO,
+                    fontSize: "0.7rem",
+                    letterSpacing: "0.1em",
+                    textTransform: "uppercase",
+                    color: activeTab === tab.id ? ORANGE : INK,
+                    background: "none",
+                    border: "none",
+                    borderBottom: activeTab === tab.id ? `2px solid ${ORANGE}` : "2px solid transparent",
+                    padding: "1rem 1rem 10px",
+                    cursor: "pointer",
+                    whiteSpace: "nowrap",
+                    marginBottom: -1,
+                  }}
+                >
+                  {tab.label}
+                </button>
+              ))}
+            </div>
+
+            {/* Mobile section picker */}
+            <select
+              className="dd-tab-select"
+              value={activeTab}
+              onChange={(e) => setActiveTab(e.target.value as Section)}
+              style={{
+                width: "100%",
+                fontFamily: MONO,
+                fontSize: "0.75rem",
+                letterSpacing: "0.06em",
+                color: INK,
+                background: "#ffffff",
+                border: "none",
+                borderBottom: `2px solid ${ORANGE}`,
+                padding: "0.75rem 0",
+                outline: "none",
+                cursor: "pointer",
+                appearance: "none",
+                WebkitAppearance: "none",
+                marginBottom: "1rem",
+              }}
+            >
+              {externalTabs.map((tab) => (
+                <option key={tab.id} value={tab.id}>{tab.label}</option>
+              ))}
+            </select>
+
+            <div style={{ marginTop: 24 }}>
+              {renderTabContent()}
+            </div>
           </div>
         </div>
       );
