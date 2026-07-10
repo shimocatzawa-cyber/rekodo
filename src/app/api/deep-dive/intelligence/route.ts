@@ -189,6 +189,86 @@ type PressingsAlbum = {
   variants: PressingVariant[];
 };
 
+// ── Open Library book search ──────────────────────────────────────────────────
+// Free, no API key — used to ground the print prompt with real verified book
+// titles before handing off to Haiku, preventing hallucinated memoirs/bios.
+
+type OpenLibraryBook = {
+  title: string;
+  author_name?: string[];
+  first_publish_year?: number;
+};
+
+async function searchOpenLibraryBooks(artist: string): Promise<OpenLibraryBook[]> {
+  try {
+    const fields = "title,author_name,first_publish_year";
+    const [byAuthor, bySubject] = await Promise.all([
+      fetch(
+        `https://openlibrary.org/search.json?author=${encodeURIComponent(artist)}&fields=${fields}&limit=15`,
+        { signal: AbortSignal.timeout(5000) }
+      ),
+      fetch(
+        `https://openlibrary.org/search.json?subject=${encodeURIComponent(artist)}&fields=${fields}&limit=15`,
+        { signal: AbortSignal.timeout(5000) }
+      ),
+    ]);
+
+    const seen = new Set<string>();
+    const results: OpenLibraryBook[] = [];
+
+    for (const res of [byAuthor, bySubject]) {
+      if (!res.ok) continue;
+      const json = await res.json() as { docs?: OpenLibraryBook[] };
+      for (const doc of (json.docs ?? [])) {
+        const key = doc.title.toLowerCase().trim();
+        if (!seen.has(key)) {
+          seen.add(key);
+          results.push(doc);
+        }
+      }
+    }
+
+    return results;
+  } catch {
+    return [];
+  }
+}
+
+function buildPrintPromptWithOpenLibrary(artist: string, books: OpenLibraryBook[]): string {
+  if (books.length === 0) {
+    return `You are a music research assistant helping a vinyl collector.
+
+No verified books were found for ${artist} in Open Library.
+
+Return ONLY this exact JSON — do not invent or add any books:
+{"books":[],"interviews":[]}`;
+  }
+
+  const list = books
+    .map((b, i) => {
+      const author = b.author_name?.join(", ") ?? "Unknown";
+      const year = b.first_publish_year ?? "unknown year";
+      return `${i + 1}. "${b.title}" by ${author} (${year})`;
+    })
+    .join("\n");
+
+  return `You are a music research assistant helping a vinyl collector.
+
+Below are VERIFIED books from Open Library related to ${artist}. You may ONLY use titles from this list — do not add, invent, or modify any titles.
+
+VERIFIED BOOKS:
+${list}
+
+From the list above, select up to 5 most relevant books for a serious ${artist} fan. Copy each title and author EXACTLY as shown. Add a "type" (biography|memoir|criticism|history|fiction|reference) and a one-sentence note. Set written_by_artist: true only when the artist themselves is listed as the author.
+
+If fewer than the maximum are relevant, return only those. Do not pad with invented titles.
+
+For INTERVIEWS: list up to 5 notable print/text interviews given by ${artist} (Pitchfork, The Wire, The Guardian, NME, MOJO, Rolling Stone, Uncut, The Quietus, Bandcamp Daily, Fact, Stereogum, etc.). Only include interviews you are highly confident actually exist — specific publication, year, and headline. If uncertain, omit entirely. Return [] for interviews if you cannot name any with confidence. Text only — no YouTube, podcasts, or audio/video.
+
+Return ONLY valid JSON, no markdown, no backticks, no preamble:
+{"books":[{"title":"Exact Title from list","author":"Author Name","year":2003,"type":"memoir","written_by_artist":true,"note":"One sentence"}],"interviews":[{"publication":"Pitchfork","domain":"pitchfork.com","title":"Interview title","year":2019,"date":"2019-03","note":"What makes it worth reading"}]}`;
+}
+
 // ── iTunes podcast episode search ─────────────────────────────────────────────
 // Free, no API key — used to ground the podcasts prompt with real verified
 // episode titles and Apple Podcasts URLs before handing off to Haiku.
@@ -692,9 +772,20 @@ export async function getOrGenerateSection(
     console.log(`[deep-dive] itunes — ${artist}: ${itunesEpisodes.length} episodes found`);
   }
 
+  // ── Open Library book search ───────────────────────────────────────────────
+  // Pre-fetch verified book titles (free, no API key) so Haiku can only select
+  // from real entries — prevents hallucinated memoirs and biographies.
+  let openLibraryBooks: OpenLibraryBook[] = [];
+  if (section === "print") {
+    openLibraryBooks = await searchOpenLibraryBooks(artist);
+    console.log(`[deep-dive] openlibrary — ${artist}: ${openLibraryBooks.length} books found`);
+  }
+
   const prompt = (section === "podcasts" && itunesEpisodes.length > 0)
     ? buildPodcastsPromptWithItunes(artist, itunesEpisodes)
-    : PROMPTS[section](artist, promptAlbums, discogsAlbums);
+    : section === "print"
+      ? buildPrintPromptWithOpenLibrary(artist, openLibraryBooks)
+      : PROMPTS[section](artist, promptAlbums, discogsAlbums);
 
   console.log(`[deep-dive] calling ${model} — ${artist}/${section} max_tokens=${maxTokens}`);
 
