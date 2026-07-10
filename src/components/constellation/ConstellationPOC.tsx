@@ -457,6 +457,7 @@ export default function ConstellationPOC({ username }: Props) {
   // ── Panel data (accurate collection-derived) ─────────────────────────────────
   const [labelGroups,    setLabelGroups]    = useState<LabelGroup[]>([]);
   const [styleGroups,    setStyleGroups]    = useState<StyleGroup[]>([]);
+  const [styleArtistsAll, setStyleArtistsAll] = useState<Map<string, string[]>>(new Map());
   const [producerGroups, setProducerGroups] = useState<ProducerGroup[]>([]);
   const [mbLineage,        setMbLineage]        = useState<LineageEdge[]>([]);
   const [selectedLineage,  setSelectedLineage]  = useState<LineageEdge[]>([]);
@@ -623,6 +624,15 @@ export default function ConstellationPOC({ username }: Props) {
             .filter(([style, s]) => s.size >= 1 && s.size <= 12 && !SKIP_STYLES_SET.has(style.toLowerCase()))
             .map(([style, s]) => ({ style, artists: [...s] }))
             .sort((a, b) => b.artists.length - a.artists.length)
+        );
+        // Full unfiltered map (no size cap) — used when an artist is selected so
+        // popular styles like "Art Rock" or "Avantgarde" that exceed the 12-artist
+        // cap aren't silently excluded from that artist's sonic context.
+        setStyleArtistsAll(
+          new Map([...styleArtists.entries()]
+            .filter(([style]) => !SKIP_STYLES_SET.has(style.toLowerCase()))
+            .map(([style, s]) => [style, [...s]])
+          )
         );
         setProducerGroups(
           [...producerArtists.entries()]
@@ -1138,14 +1148,16 @@ export default function ConstellationPOC({ username }: Props) {
   // Runs when styleGroups is ready; separate from MB lineage to avoid cancellation races.
 
   useEffect(() => {
-    if (!artistFilter || !isReady || styleGroups.length === 0) return;
+    if (!artistFilter || !isReady || styleArtistsAll.size === 0) return;
     let cancelled = false;
     const name = artistFilter;
 
     const run = async () => {
-      const artistStylesForRpc = styleGroups
-        .filter(g => g.artists.some(a => a.toLowerCase() === name.toLowerCase()))
-        .map(g => g.style);
+      // Use the full unfiltered map so artists whose styles exceed the 12-artist
+      // cap (e.g. "Art Rock" shared by many owned artists) are still included.
+      const artistStylesForRpc = [...styleArtistsAll.entries()]
+        .filter(([, artists]) => artists.some(a => a.toLowerCase() === name.toLowerCase()))
+        .map(([style]) => style);
       if (artistStylesForRpc.length === 0) return;
 
       const excludeArtists = nodesRef.current.filter(n => n.owned).map(n => n.name);
@@ -1169,7 +1181,7 @@ export default function ConstellationPOC({ username }: Props) {
 
     run();
     return () => { cancelled = true; };
-  }, [artistFilter, isReady, styleGroups]);
+  }, [artistFilter, isReady, styleArtistsAll]);
 
   // ── Real-time influence enrichment on artist selection ────────────────────────
   // Fires whenever artistFilter changes (canvas click, panel chip, or search).
@@ -2113,6 +2125,7 @@ export default function ConstellationPOC({ username }: Props) {
                             {suggestions.map(n => (
                               <button key={n.id} onMouseDown={() => {
                                 setArtistFilter(n.name); setArtistQuery(""); setShowArtistDrop(false);
+                                setOpenSections(new Set(["lineage", "influencedBy", "influenced", "sonic", "inflOther"]));
                                 selectedRef.current = n.id;
                                 physicsRef.current = false;
                                 nodesRef.current.forEach(nd => { nd.vx = 0; nd.vy = 0; });
@@ -2196,17 +2209,16 @@ export default function ConstellationPOC({ username }: Props) {
                       return true;
                     });
 
-                  const visStyles = styleGroups
-                    .map(g => afL
-                      ? g  // artist selected: use original artists so label scope doesn't exclude them
-                      : { ...g, artists: g.artists.filter(a => !labelScope || labelScope.has(a)) }
-                    )
-                    .filter(g => {
-                      if (afL) {
-                        return g.artists.some(a => a.toLowerCase() === afL);
-                      }
-                      return g.artists.length >= 2;
-                    });
+                  // When an artist is selected, use the full unfiltered map so styles
+                  // shared by more than 12 owned artists (the global cap) still show.
+                  const visStyles = afL
+                    ? [...styleArtistsAll.entries()]
+                        .filter(([, artists]) => artists.some(a => a.toLowerCase() === afL))
+                        .map(([style, artists]) => ({ style, artists }))
+                        .sort((a, b) => b.artists.length - a.artists.length)
+                    : styleGroups
+                        .map(g => ({ ...g, artists: g.artists.filter(a => !labelScope || labelScope.has(a)) }))
+                        .filter(g => g.artists.length >= 2);
 
                   // When an artist is selected, show only edges directly involving them.
                   // When no selection, show all lineage filtered by labelScope.
@@ -2439,7 +2451,11 @@ export default function ConstellationPOC({ username }: Props) {
                       })()}
 
                       <PanelSection id="sonic" title="Sonic Neighbours" count={visStyles.length}>
-                        {visStyles.length === 0 ? empty : visStyles.map(g => {
+                        {visStyles.length === 0
+                          ? (afL && styleArtistsAll.size === 0
+                              ? <p style={{ fontFamily: MONO, fontSize: "12px", color: DIM3, paddingBottom: 12 }}>Building graph…</p>
+                              : empty)
+                          : visStyles.map(g => {
                           const collectionArtists = g.artists.filter(a => !/^various/i.test(a));
                           const globalArtists = (globalByStyle.get(g.style) ?? [])
                             .filter(a => !/^various/i.test(a))
