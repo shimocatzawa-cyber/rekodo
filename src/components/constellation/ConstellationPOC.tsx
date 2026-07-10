@@ -2,7 +2,7 @@
 
 import { useRef, useEffect, useState, useCallback } from "react";
 import { createClient } from "@/lib/supabase/client";
-import { fetchMBArtist, zoneForTags, mbRelToConstellation } from "@/lib/musicbrainz";
+import { zoneForTags } from "@/lib/musicbrainz";
 import { fetchDiscogsArtist } from "@/lib/discogs-artist";
 import { fetchWikidataInfluences, type WDInfluenceEdge } from "@/lib/wikidata";
 
@@ -32,7 +32,7 @@ interface Camera { x: number; y: number; scale: number; }
 interface LabelGroup    { label: string; artists: string[]; }
 interface StyleGroup    { style: string; artists: string[]; }
 interface ProducerGroup { producer: string; artists: string[]; }
-interface LineageEdge { source: string; target: string; note: string; via: "mb" | "discogs"; }
+interface LineageEdge { source: string; target: string; note: string; via: "mb" | "discogs" | "claude"; }
 interface InflEdge    { source: string; target: string; type: RelType; note: string; via?: string; }
 
 // ── Design tokens ──────────────────────────────────────────────────────────────
@@ -805,9 +805,9 @@ export default function ConstellationPOC({ username }: Props) {
     return () => clearInterval(t);
   }, [isReady]);
 
-  // ── MusicBrainz background enrichment ────────────────────────────────────────
-  // Runs after constellation is ready. Fetches relationship data for all owned
-  // nodes and adds discovered edges where both endpoints exist in the graph.
+  // ── Claude lineage background enrichment ─────────────────────────────────────
+  // Fetches band membership / lineage for all owned nodes via Claude (stored in
+  // artist_lineage table). Adds canvas edges where both endpoints exist in the graph.
 
   useEffect(() => {
     if (!isReady || !username) return;
@@ -819,79 +819,56 @@ export default function ConstellationPOC({ username }: Props) {
       const existingKeys = new Set(
         [...edgesRef.current, ...discogsEdgesRef.current].map(e => `${e.source}|${e.target}`)
       );
-
       const discovered: Edge[] = [];
       const lineageDiscovered: LineageEdge[] = [];
-      const influenceDiscovered: InflEdge[] = [];
-      const lineageKeys   = new Set<string>();
-      const influenceKeys = new Set<string>();
+      const lineageKeys = new Set<string>();
 
       for (const node of ownedNodes) {
         if (cancelled) return;
-        const data = await fetchMBArtist(node.name);
-        if (!data || cancelled) continue;
+        // Skip compound credits — Claude route rejects them anyway
+        if (node.name.includes(",")) continue;
 
-        for (const rel of data.relations) {
-          const mapped = mbRelToConstellation(rel, node.name);
-          if (!mapped) continue;
-
-          // Resolve source and target names → node IDs
-          const srcNode = nodeByName.get(mapped.source.toLowerCase());
-          const tgtNode = nodeByName.get(mapped.target.toLowerCase());
-          if (!srcNode || !tgtNode || srcNode.id === tgtNode.id) continue;
-
-          // Skip if already covered by a curated or already-discovered edge
-          const key    = `${srcNode.id}|${tgtNode.id}`;
-          const revKey = `${tgtNode.id}|${srcNode.id}`;
-          if (existingKeys.has(key) || existingKeys.has(revKey)) continue;
-          existingKeys.add(key);
-
-          const h = strHash(srcNode.id + tgtNode.id + "mb");
-          discovered.push({
-            source: srcNode.id,
-            target: tgtNode.id,
-            type:   mapped.type,
-            weight: 0.55,
-            note:   `${rel.type} (via MusicBrainz)`,
-            cpDx:   (seededRng(h)     - 0.5) * 100,
-            cpDy:   (seededRng(h + 1) - 0.5) * 70,
+        try {
+          const res = await fetch("/api/constellation/artist-lineage", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ artist: node.name }),
           });
+          if (!res.ok || cancelled) continue;
+          const json = await res.json() as { rows?: { source: string; target: string; note: string }[] };
+          const rows = json.rows ?? [];
 
-          // Track lineage (splinter) edges for the side panel.
-          // For member-of-band: source=band, target=member. Show when member is owned.
-          // For other splinter types: show when either node is owned.
-          if (mapped.type === "splinter" && (tgtNode.owned || srcNode.owned)) {
-            const lKey = [srcNode.name.toLowerCase(), tgtNode.name.toLowerCase()].sort().join("|");
-            if (!lineageKeys.has(lKey)) {
-              lineageKeys.add(lKey);
-              lineageDiscovered.push({ source: srcNode.name, target: tgtNode.name, note: `${rel.type} (MusicBrainz)`, via: "mb" });
-            }
-          }
+          for (const row of rows) {
+            const srcNode = nodeByName.get(row.source.toLowerCase());
+            const tgtNode = nodeByName.get(row.target.toLowerCase());
+            if (!srcNode || !tgtNode || srcNode.id === tgtNode.id) continue;
 
-          // Track influence edges for the side panel
-          if (mapped.type === "influence" && srcNode.owned && tgtNode.owned) {
-            const iKey = [srcNode.name.toLowerCase(), tgtNode.name.toLowerCase()].sort().join("|");
-            if (!influenceKeys.has(iKey)) {
-              influenceKeys.add(iKey);
-              influenceDiscovered.push({
-                source: mapped.source, target: mapped.target,
-                type: "influence",
-                note: `${mapped.source} influenced ${mapped.target} — via MusicBrainz`,
-                via: "MusicBrainz",
+            const key    = `${srcNode.id}|${tgtNode.id}`;
+            const revKey = `${tgtNode.id}|${srcNode.id}`;
+            if (!existingKeys.has(key) && !existingKeys.has(revKey)) {
+              existingKeys.add(key);
+              const h = strHash(srcNode.id + tgtNode.id + "cl");
+              discovered.push({
+                source: srcNode.id, target: tgtNode.id,
+                type: "splinter", weight: 0.55,
+                note: row.note,
+                cpDx: (seededRng(h)     - 0.5) * 100,
+                cpDy: (seededRng(h + 1) - 0.5) * 70,
               });
             }
-          }
-        }
 
-        if (discovered.length > 0) {
-          mbEdgesRef.current = [...discovered]; // picked up on next animation frame
-        }
-        if (lineageDiscovered.length > 0 && !cancelled) {
-          setMbLineage([...lineageDiscovered]);
-        }
-        if (influenceDiscovered.length > 0 && !cancelled) {
-          setMbInfluence([...influenceDiscovered]);
-        }
+            if (tgtNode.owned || srcNode.owned) {
+              const lKey = [srcNode.name.toLowerCase(), tgtNode.name.toLowerCase()].sort().join("|");
+              if (!lineageKeys.has(lKey)) {
+                lineageKeys.add(lKey);
+                lineageDiscovered.push({ source: srcNode.name, target: tgtNode.name, note: row.note, via: "claude" });
+              }
+            }
+          }
+        } catch { /* best-effort */ }
+
+        if (discovered.length > 0) mbEdgesRef.current = [...discovered];
+        if (lineageDiscovered.length > 0 && !cancelled) setMbLineage([...lineageDiscovered]);
       }
     };
 
@@ -1108,48 +1085,44 @@ export default function ConstellationPOC({ username }: Props) {
   // ── Real-time MB lineage on artist selection ─────────────────────────────────
   // Separated from the sonic fetch so styleGroups changes never cancel this.
 
+  // On-select lineage: fetch via Claude route immediately when an artist is clicked
   useEffect(() => {
     if (!artistFilter || !isReady) return;
     let cancelled = false;
     const name = artistFilter;
 
     const run = async () => {
-      console.log(`[constellation] MB lineage fetch for "${name}"`);
-      const mbData = await fetchMBArtist(name);
-      if (!mbData || cancelled) {
-        console.log(`[constellation] MB lineage: no data for "${name}" (mbData=${!!mbData} cancelled=${cancelled})`);
-        return;
-      }
-      console.log(`[constellation] MB lineage: got ${mbData.relations.length} relations for "${name}"`);
-
-      const nodeByName = new Map(nodesRef.current.map(n => [n.name.toLowerCase(), n]));
-      const thisNode   = nodeByName.get(name.toLowerCase());
-      if (!thisNode) {
-        console.log(`[constellation] MB lineage: thisNode not found for "${name}" in`, [...nodeByName.keys()].slice(0, 20));
-        return;
-      }
-
-      const newLineage: LineageEdge[] = [];
-      for (const rel of mbData.relations) {
-        const mapped = mbRelToConstellation(rel, name);
-        if (!mapped || mapped.type !== "splinter") continue;
-        const srcNode = nodeByName.get(mapped.source.toLowerCase());
-        const tgtNode = nodeByName.get(mapped.target.toLowerCase());
-        console.log(`[constellation] MB splinter: ${mapped.source}→${mapped.target} srcNode=${!!srcNode} tgtNode=${!!tgtNode}`);
-        if (!srcNode || !tgtNode || srcNode.id === tgtNode.id) continue;
-        if (tgtNode.owned || srcNode.owned) {
-          newLineage.push({ source: srcNode.name, target: tgtNode.name, note: `${rel.type} (MusicBrainz)`, via: "mb" });
-        }
-      }
-      console.log(`[constellation] MB lineage: ${newLineage.length} new edges for "${name}"`);
-
-      if (!cancelled && newLineage.length > 0) {
-        setMbLineage(prev => {
-          const seen = new Set(prev.map(e => [e.source, e.target].sort().join("|")));
-          const fresh = newLineage.filter(e => !seen.has([e.source, e.target].sort().join("|")));
-          return fresh.length > 0 ? [...prev, ...fresh] : prev;
+      try {
+        const res = await fetch("/api/constellation/artist-lineage", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ artist: name }),
         });
-      }
+        if (!res.ok || cancelled) return;
+        const json = await res.json() as { rows?: { source: string; target: string; note: string }[] };
+        const rows = json.rows ?? [];
+
+        const nodeByName = new Map(nodesRef.current.map(n => [n.name.toLowerCase(), n]));
+        const newLineage: LineageEdge[] = [];
+        for (const row of rows) {
+          const srcNode = nodeByName.get(row.source.toLowerCase());
+          const tgtNode = nodeByName.get(row.target.toLowerCase());
+          // Include the edge even if one side isn't in the graph (show the name)
+          const src = srcNode?.name ?? row.source;
+          const tgt = tgtNode?.name ?? row.target;
+          const lKey = [src.toLowerCase(), tgt.toLowerCase()].sort().join("|");
+          const dup = newLineage.some(e => [e.source.toLowerCase(), e.target.toLowerCase()].sort().join("|") === lKey);
+          if (!dup) newLineage.push({ source: src, target: tgt, note: row.note, via: "claude" });
+        }
+
+        if (!cancelled && newLineage.length > 0) {
+          setMbLineage(prev => {
+            const seen = new Set(prev.map(e => [e.source, e.target].sort().join("|")));
+            const fresh = newLineage.filter(e => !seen.has([e.source, e.target].sort().join("|")));
+            return fresh.length > 0 ? [...prev, ...fresh] : prev;
+          });
+        }
+      } catch { /* best-effort */ }
     };
 
     run();
@@ -2393,7 +2366,7 @@ export default function ConstellationPOC({ username }: Props) {
                               <span style={{ fontFamily: MONO, fontSize: "12px", color: DIM3, margin: "0 8px" }}>→</span>
                               <ArtistChip name={e.target} />
                             </p>
-                            <p style={{ fontFamily: MONO, fontSize: "11px", color: DIM3, margin: 0 }}>{e.via === "mb" ? "MusicBrainz" : "Discogs"}</p>
+                            <p style={{ fontFamily: MONO, fontSize: "11px", color: DIM3, margin: 0 }}>{e.via === "mb" ? "MusicBrainz" : e.via === "claude" ? "Claude" : "Discogs"}</p>
                           </div>
                         ))}
                       </PanelSection>
