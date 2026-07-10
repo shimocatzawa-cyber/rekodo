@@ -1144,6 +1144,16 @@ export default function DeepDiveClient({
     .filter((a) => !favoritesOnly || favorites.has(a.name))
     .filter((a) => !query.trim() || a.name.toLowerCase().includes(query.trim().toLowerCase()));
 
+  // Favorited outside-collection artists (not in mergedArtists at all)
+  const externalFavoriteArtists = useMemo((): ArtistData[] => {
+    if (!favoritesOnly) return [];
+    const collectionNames = new Set(mergedArtists.map((a) => a.name.toLowerCase().trim()));
+    return [...favorites]
+      .filter((name) => !collectionNames.has(name.toLowerCase().trim()))
+      .filter((name) => !query.trim() || name.toLowerCase().includes(query.trim().toLowerCase()))
+      .map((name) => ({ name, count: 0, records: [] as ArtistData["records"], fromBandcamp: false }));
+  }, [favorites, mergedArtists, query, favoritesOnly]);
+
   // Auto-select a random artist on first load
   useEffect(() => {
     if (artists.length > 0) {
@@ -1927,12 +1937,12 @@ export default function DeepDiveClient({
                   onSelect={selectArtist}
                 />
               ))}
-              {filtered.length === 0 && query && (
+              {filtered.length === 0 && query && externalFavoriteArtists.length === 0 && (
                 <p style={{ fontFamily: MONO, fontSize: "0.68rem", letterSpacing: "0.06em", color: INK, padding: "1rem" }}>
                   No artists match &ldquo;{query}&rdquo;
                 </p>
               )}
-              {filtered.length === 0 && !query && favoritesOnly && (
+              {filtered.length === 0 && !query && favoritesOnly && externalFavoriteArtists.length === 0 && (
                 <p style={{ fontFamily: MONO, fontSize: "0.68rem", letterSpacing: "0.06em", color: INK, padding: "1rem" }}>
                   No favourites yet — click ♡ next to an artist&rsquo;s name to add one.
                 </p>
@@ -1943,6 +1953,23 @@ export default function DeepDiveClient({
                     Sync your Discogs collection first to unlock Deep Dive.
                   </p>
                 </div>
+              )}
+              {externalFavoriteArtists.length > 0 && (
+                <>
+                  {filtered.length > 0 && <div style={{ borderTop: `1px solid ${SUBTLE}` }} />}
+                  <p style={{ fontFamily: MONO, fontSize: "0.52rem", letterSpacing: "0.12em", textTransform: "uppercase", color: "#aaa", padding: "0.5rem 1rem 0.25rem", margin: 0 }}>
+                    Outside Collection
+                  </p>
+                  {externalFavoriteArtists.map((a) => (
+                    <ArtistRow
+                      key={`ext-fav-${a.name}`}
+                      artist={a}
+                      isSelected={selectedArtist === a.name && isExternalArtist}
+                      imageUrl={imageMap[a.name]}
+                      onSelect={selectExternalArtist}
+                    />
+                  ))}
+                </>
               )}
             </>
           )}
@@ -2006,7 +2033,7 @@ export default function DeepDiveClient({
           />
 
           {/* Inside Collection: filtered artist list */}
-          {searchMode === "inside" && mergedArtists.length > 0 && (
+          {searchMode === "inside" && (mergedArtists.length > 0 || externalFavoriteArtists.length > 0) && (
             <div style={{ maxHeight: 220, overflowY: "auto" }}>
               {filtered.map((a) => (
                 <ArtistRow
@@ -2017,15 +2044,32 @@ export default function DeepDiveClient({
                   onSelect={selectArtist}
                 />
               ))}
-              {filtered.length === 0 && query && (
+              {filtered.length === 0 && query && externalFavoriteArtists.length === 0 && (
                 <p style={{ fontFamily: MONO, fontSize: "0.68rem", letterSpacing: "0.06em", color: INK, padding: "0.75rem 1rem", margin: 0 }}>
                   No artists match &ldquo;{query}&rdquo;
                 </p>
               )}
-              {filtered.length === 0 && !query && favoritesOnly && (
+              {filtered.length === 0 && !query && favoritesOnly && externalFavoriteArtists.length === 0 && (
                 <p style={{ fontFamily: MONO, fontSize: "0.68rem", letterSpacing: "0.06em", color: INK, padding: "0.75rem 1rem", margin: 0 }}>
                   No favourites yet — click ♡ next to an artist&rsquo;s name to add one.
                 </p>
+              )}
+              {externalFavoriteArtists.length > 0 && (
+                <>
+                  {filtered.length > 0 && <div style={{ borderTop: `1px solid ${SUBTLE}` }} />}
+                  <p style={{ fontFamily: MONO, fontSize: "0.52rem", letterSpacing: "0.12em", textTransform: "uppercase", color: "#aaa", padding: "0.5rem 1rem 0.25rem", margin: 0 }}>
+                    Outside Collection
+                  </p>
+                  {externalFavoriteArtists.map((a) => (
+                    <ArtistRow
+                      key={`ext-fav-${a.name}`}
+                      artist={a}
+                      isSelected={selectedArtist === a.name && isExternalArtist}
+                      imageUrl={imageMap[a.name]}
+                      onSelect={selectExternalArtist}
+                    />
+                  ))}
+                </>
               )}
             </div>
           )}
