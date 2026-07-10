@@ -1106,11 +1106,14 @@ export default function ConstellationPOC({ username }: Props) {
 
     const run = async () => {
       // 1. MB relations for lineage
+      console.log("[constellation] on-select MB fetch for:", name);
       const mbData = await fetchMBArtist(name);
+      console.log("[constellation] MB data:", mbData ? `${mbData.relations.length} relations` : "null");
       if (!mbData || cancelled) return;
 
       const nodeByName = new Map(nodesRef.current.map(n => [n.name.toLowerCase(), n]));
       const thisNode   = nodeByName.get(name.toLowerCase());
+      console.log("[constellation] thisNode found:", !!thisNode, "| graph nodes:", nodesRef.current.length);
       if (!thisNode) return;
 
       const newLineage: LineageEdge[] = [];
@@ -1119,11 +1122,13 @@ export default function ConstellationPOC({ username }: Props) {
         if (!mapped || mapped.type !== "splinter") continue;
         const srcNode = nodeByName.get(mapped.source.toLowerCase());
         const tgtNode = nodeByName.get(mapped.target.toLowerCase());
+        console.log("[constellation] splinter rel:", rel.type, mapped.source, "→", mapped.target, "| src:", !!srcNode, "tgt:", !!tgtNode);
         if (!srcNode || !tgtNode || srcNode.id === tgtNode.id) continue;
         if (tgtNode.owned || srcNode.owned) {
           newLineage.push({ source: srcNode.name, target: tgtNode.name, note: `${rel.type} (MusicBrainz)`, via: "mb" });
         }
       }
+      console.log("[constellation] newLineage entries:", newLineage.length, newLineage);
 
       if (!cancelled && newLineage.length > 0) {
         setMbLineage(prev => {
