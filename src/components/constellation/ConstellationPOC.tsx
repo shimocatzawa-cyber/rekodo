@@ -2242,6 +2242,37 @@ export default function ConstellationPOC({ username }: Props) {
                 <button onClick={() => zoom(1 / 1.35)} style={{ fontFamily: MONO, fontSize: "13px", lineHeight: 1, color: DIM3, background: "transparent", border: `1px solid ${BORD}`, padding: "3px 7px", cursor: "pointer" }}>−</button>
               </div>
 
+              {/* Era filter */}
+              {yearRange && (
+                <div style={{ padding: "10px 18px", borderBottom: `1px solid ${BORD}`, flexShrink: 0 }}>
+                  <p style={{ fontFamily: MONO, fontSize: "10px", color: DIM3, letterSpacing: "0.14em", textTransform: "uppercase", margin: "0 0 7px" }}>Era</p>
+                  <div style={{ display: "flex", flexWrap: "wrap", gap: 5 }}>
+                    {(() => {
+                      const startDecade = Math.floor(yearRange[0] / 10) * 10;
+                      const endDecade   = Math.floor(yearRange[1] / 10) * 10;
+                      const decades: number[] = [];
+                      for (let d = startDecade; d <= endDecade; d += 10) decades.push(d);
+                      return decades.map(d => {
+                        const active = decadeFilter === d;
+                        return (
+                          <button
+                            key={d}
+                            onClick={() => setDecadeFilter(active ? null : d)}
+                            style={{
+                              fontFamily: MONO, fontSize: "10px", padding: "4px 9px",
+                              cursor: "pointer", letterSpacing: "0.06em",
+                              border: `1px solid ${active ? INK : BORD}`,
+                              background: active ? "rgba(221,216,204,0.10)" : "transparent",
+                              color: active ? INK : DIM3,
+                            }}
+                          >{d}s</button>
+                        );
+                      });
+                    })()}
+                  </div>
+                </div>
+              )}
+
               {/* Artist filter */}
               <div style={{ padding: "12px 18px 0", flexShrink: 0 }}>
                 <p style={{ fontFamily: MONO, fontSize: "10px", color: DIM3, letterSpacing: "0.14em", textTransform: "uppercase", margin: "0 0 5px" }}>Artist</p>
@@ -2612,43 +2643,6 @@ export default function ConstellationPOC({ username }: Props) {
                         </PanelSection>
                       )}
 
-                      {yearRange && !afL && (
-                        <PanelSection openSections={openSections} setOpenSections={setOpenSections} id="timeline" title="Era Filter" count={0}>
-                          <p style={{ fontFamily: MONO, fontSize: "11px", color: DIM3, marginBottom: 10, lineHeight: 1.6 }}>
-                            Highlight artists by recording decade.
-                          </p>
-                          <div style={{ display: "flex", flexWrap: "wrap", gap: 5, paddingBottom: 12 }}>
-                            {(() => {
-                              const startDecade = Math.floor(yearRange[0] / 10) * 10;
-                              const endDecade   = Math.floor(yearRange[1] / 10) * 10;
-                              const decades: number[] = [];
-                              for (let d = startDecade; d <= endDecade; d += 10) decades.push(d);
-                              return decades.map(d => {
-                                const active = decadeFilter === d;
-                                return (
-                                  <button
-                                    key={d}
-                                    onClick={() => setDecadeFilter(active ? null : d)}
-                                    style={{
-                                      fontFamily: MONO, fontSize: "10px", padding: "4px 9px",
-                                      cursor: "pointer", letterSpacing: "0.06em",
-                                      border: `1px solid ${active ? INK : BORD}`,
-                                      background: active ? "rgba(221,216,204,0.10)" : "transparent",
-                                      color: active ? INK : DIM3,
-                                    }}
-                                  >{d}s</button>
-                                );
-                              });
-                            })()}
-                          </div>
-                          {decadeFilter && (
-                            <p style={{ fontFamily: MONO, fontSize: "10px", color: DIM3, paddingBottom: 8 }}>
-                              Showing artists with records from the {decadeFilter}s.{" "}
-                              <button onClick={() => setDecadeFilter(null)} style={{ background: "none", border: "none", cursor: "pointer", color: ORANGE, fontFamily: MONO, fontSize: "10px", padding: 0 }}>Clear</button>
-                            </p>
-                          )}
-                        </PanelSection>
-                      )}
                     </>
                     </ArtistSelectionCtx.Provider>
                   );
