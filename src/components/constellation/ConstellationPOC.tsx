@@ -566,11 +566,17 @@ export default function ConstellationPOC({ username }: Props) {
             albumCounts.set(r.artist, (albumCounts.get(r.artist) ?? 0) + 1);
             if (r.styles?.length) {
               const styleMap = artistStyles.get(r.artist) ?? {};
+              // Split compound credits ("Neil Young, Crazy Horse") so each individual
+              // artist inherits the styles of releases they appear on
+              const individuals = r.artist.includes(",")
+                ? r.artist.split(",").map((a: string) => a.trim()).filter(Boolean)
+                : [];
               for (const s of r.styles as string[]) {
                 styleMap[s] = (styleMap[s] ?? 0) + 1;
-                // inverted index for panel
                 const sa = styleArtists.get(s) ?? new Set<string>();
-                sa.add(r.artist); styleArtists.set(s, sa);
+                sa.add(r.artist);
+                for (const ind of individuals) sa.add(ind);
+                styleArtists.set(s, sa);
               }
               artistStyles.set(r.artist, styleMap);
             }
@@ -1140,13 +1146,7 @@ export default function ConstellationPOC({ username }: Props) {
       const artistStylesForRpc = styleGroups
         .filter(g => g.artists.some(a => a.toLowerCase() === name.toLowerCase()))
         .map(g => g.style);
-      console.log(`[sonic] "${name}" matched styles: ${JSON.stringify(artistStylesForRpc)} (styleGroups total: ${styleGroups.length})`);
-      if (artistStylesForRpc.length === 0) {
-        // Log which artists ARE in styleGroups to help diagnose
-        const sample = styleGroups.slice(0, 3).map(g => `${g.style}:[${g.artists.slice(0,3).join(",")}]`).join(" | ");
-        console.log(`[sonic] no styles for "${name}". Sample styleGroups: ${sample}`);
-        return;
-      }
+      if (artistStylesForRpc.length === 0) return;
 
       const excludeArtists = nodesRef.current.filter(n => n.owned).map(n => n.name);
       try {
