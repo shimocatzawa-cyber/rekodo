@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAdminDb } from "@/app/admin/lib";
 import Anthropic from "@anthropic-ai/sdk";
+import { createClient } from "@/lib/supabase/server";
+import { isSupporter } from "@/lib/rateLimit";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
@@ -56,6 +58,13 @@ async function upsertRows(db: ReturnType<typeof getAdminDb>, rows: object[]) {
 }
 
 export async function POST(req: NextRequest) {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
+  if (!(await isSupporter(supabase, user.id))) {
+    return NextResponse.json({ error: "Supporter access required" }, { status: 403 });
+  }
+
   const body = await req.json().catch(() => ({})) as { artists?: string[] };
   const artists = Array.isArray(body.artists) ? body.artists.filter(Boolean).slice(0, 300) : [];
   if (artists.length === 0) return NextResponse.json({ processed: 0, skipped: 0 });

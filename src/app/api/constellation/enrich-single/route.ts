@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAdminDb } from "@/app/admin/lib";
 import Anthropic from "@anthropic-ai/sdk";
+import { createClient } from "@/lib/supabase/server";
+import { isSupporter, checkDailyLimit } from "@/lib/rateLimit";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 30;
@@ -8,6 +10,15 @@ export const maxDuration = 30;
 const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
 export async function POST(req: NextRequest) {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
+  if (!(await isSupporter(supabase, user.id))) {
+    return NextResponse.json({ error: "Supporter access required" }, { status: 403 });
+  }
+  const { allowed } = await checkDailyLimit(supabase, user.id, "constellation_enrich", 60);
+  if (!allowed) return NextResponse.json({ rows: [] }, { status: 429 });
+
   const body = await req.json().catch(() => ({})) as { artist?: string };
   const artist = typeof body.artist === "string" ? body.artist.trim() : "";
   if (!artist) return NextResponse.json({ rows: [] });
@@ -26,7 +37,7 @@ export async function POST(req: NextRequest) {
 
   // Not in DB yet — call Claude in real time
   const response = await anthropic.messages.create({
-    model:      "claude-sonnet-4-6",
+    model:      "claude-haiku-4-5-20251001",
     max_tokens: 1024,
     tools: [{
       name: "record_influences",
