@@ -238,6 +238,7 @@ function NewReleasesSection() {
   const [loading, setLoading]       = useState(true);
   const [fetchError, setFetchError] = useState<string | null>(null);
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
+  const [selectedTags, setSelectedTags] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     const supabase = createClient();
@@ -253,7 +254,7 @@ function NewReleasesSection() {
       .neq("album", "")
       .gte("received_at", monthStart)
       .order("received_at", { ascending: false })
-      .limit(200)
+      .limit(500)
       .then(({ data, error }) => {
         if (error) setFetchError(error.message);
         else setItems((data as unknown as LabelFeedItem[]) ?? []);
@@ -271,20 +272,61 @@ function NewReleasesSection() {
     return `${y}-${m}-${day}`;
   }
 
+  // Deduplicate by (artist, album) — the same release can appear across multiple
+  // newsletters from different senders. Items are sorted newest-first so the first
+  // occurrence of any pair has the most recent data.
+  const dedupedItems = useMemo(() => {
+    const seen = new Set<string>();
+    return items.filter(item => {
+      const key = `${(item.artist ?? "").toLowerCase().trim()}||${(item.album ?? "").toLowerCase().trim()}`;
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+  }, [items]);
+
   const availableDates = useMemo(() => {
     const seen = new Set<string>();
     const result: string[] = [];
-    for (const item of items) {
+    for (const item of dedupedItems) {
       if (!item.received_at) continue;
       const d = toLocalDateKey(item.received_at);
       if (!seen.has(d)) { seen.add(d); result.push(d); }
     }
     return result;
-  }, [items]);
+  }, [dedupedItems]);
 
-  const filteredItems = selectedDate
-    ? items.filter(item => item.received_at && toLocalDateKey(item.received_at) === selectedDate)
-    : items;
+  // Tags sorted by frequency so the most common genre filters appear first.
+  const availableTags = useMemo(() => {
+    const counts = new Map<string, number>();
+    for (const item of dedupedItems) {
+      for (const tag of item.tags ?? []) {
+        const t = tag.toLowerCase().trim();
+        if (t) counts.set(t, (counts.get(t) ?? 0) + 1);
+      }
+    }
+    return [...counts.entries()].sort((a, b) => b[1] - a[1]).map(([tag]) => tag);
+  }, [dedupedItems]);
+
+  function toggleTag(tag: string) {
+    setSelectedTags(prev => {
+      const next = new Set(prev);
+      if (next.has(tag)) next.delete(tag); else next.add(tag);
+      return next;
+    });
+  }
+
+  const filteredItems = useMemo(() => {
+    let result = selectedDate
+      ? dedupedItems.filter(item => item.received_at && toLocalDateKey(item.received_at) === selectedDate)
+      : dedupedItems;
+    if (selectedTags.size > 0) {
+      result = result.filter(item =>
+        item.tags?.some(tag => selectedTags.has(tag.toLowerCase().trim()))
+      );
+    }
+    return result;
+  }, [dedupedItems, selectedDate, selectedTags]);
 
   if (loading) {
     return (
@@ -317,7 +359,7 @@ function NewReleasesSection() {
 
   return (
     <section>
-      {/* Mobile date selector */}
+      {/* Mobile filters */}
       <div className="nr-mobile-date-select" style={{ display: "none", marginBottom: 24 }}>
         <label style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.14em", textTransform: "uppercase", color: "#aaaaaa", display: "block", marginBottom: 8 }}>
           Filter by date
@@ -330,6 +372,7 @@ function NewReleasesSection() {
             color: INK, background: "#ffffff",
             border: `1px solid ${RULE}`, padding: "6px 10px",
             cursor: "pointer", appearance: "auto", width: "100%",
+            marginBottom: availableTags.length > 0 ? 14 : 0,
           }}
         >
           <option value="">All dates</option>
@@ -337,17 +380,75 @@ function NewReleasesSection() {
             <option key={d} value={d}>{formatDateLabel(d)}</option>
           ))}
         </select>
+        {availableTags.length > 0 && (
+          <>
+            <label style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.14em", textTransform: "uppercase", color: "#aaaaaa", display: "block", marginBottom: 8 }}>
+              Genre / Style
+            </label>
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+              {availableTags.slice(0, 20).map(tag => {
+                const active = selectedTags.has(tag);
+                return (
+                  <button key={tag} onClick={() => toggleTag(tag)} style={{
+                    fontFamily: MONO, fontSize: "9px", letterSpacing: "0.06em",
+                    background: active ? INK : "transparent",
+                    color: active ? "#fff" : "#888",
+                    border: `1px solid ${active ? INK : RULE}`,
+                    padding: "3px 8px", cursor: "pointer",
+                  }}>
+                    {tag}
+                  </button>
+                );
+              })}
+            </div>
+          </>
+        )}
       </div>
 
       <div style={{ display: "flex", gap: 40, alignItems: "flex-start" }}>
-        {/* Desktop date picker */}
-        {availableDates.length > 0 && (
-          <div className="nr-date-picker-desktop">
-            <NewReleasesDatePicker
-              dates={availableDates}
-              selectedDate={selectedDate}
-              onSelect={setSelectedDate}
-            />
+        {/* Desktop sidebar: date picker + tag filter */}
+        {(availableDates.length > 0 || availableTags.length > 0) && (
+          <div className="nr-date-picker-desktop" style={{ width: 110, flexShrink: 0 }}>
+            {availableDates.length > 0 && (
+              <NewReleasesDatePicker
+                dates={availableDates}
+                selectedDate={selectedDate}
+                onSelect={setSelectedDate}
+              />
+            )}
+            {availableTags.length > 0 && (
+              <div style={{ marginTop: availableDates.length > 0 ? 28 : 4 }}>
+                <p style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.14em", textTransform: "uppercase", color: "#aaaaaa", margin: "0 0 10px" }}>
+                  Genre / Style
+                </p>
+                <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
+                  {availableTags.slice(0, 25).map(tag => {
+                    const active = selectedTags.has(tag);
+                    return (
+                      <button key={tag} onClick={() => toggleTag(tag)} style={{
+                        fontFamily: MONO, fontSize: "10px", letterSpacing: "0.05em",
+                        background: "none", border: "none", padding: "2px 0",
+                        textAlign: "left", cursor: "pointer",
+                        color: active ? ORANGE : "#888888",
+                        borderBottom: active ? `1px solid ${ORANGE}` : "1px solid transparent",
+                        width: "fit-content",
+                      }}>
+                        {tag}
+                      </button>
+                    );
+                  })}
+                  {selectedTags.size > 0 && (
+                    <button onClick={() => setSelectedTags(new Set())} style={{
+                      fontFamily: MONO, fontSize: "9px", letterSpacing: "0.06em",
+                      background: "none", border: "none", padding: "6px 0 0",
+                      textAlign: "left", cursor: "pointer", color: "#cccccc",
+                    }}>
+                      Clear
+                    </button>
+                  )}
+                </div>
+              </div>
+            )}
           </div>
         )}
 
@@ -355,7 +456,7 @@ function NewReleasesSection() {
         <div style={{ flex: 1, minWidth: 0, borderTop: `1px solid ${RULE}` }}>
           {filteredItems.length === 0 ? (
             <p style={{ fontFamily: MONO, fontSize: "0.7rem", color: "#aaaaaa", padding: "2rem 0", margin: 0 }}>
-              No releases on this date.
+              No releases match these filters.
             </p>
           ) : (
             filteredItems.map(item => <ReleaseRow key={item.id} item={item} />)
