@@ -914,9 +914,9 @@ export default function ConstellationPOC({ username }: Props) {
             return { id: n.id, name: n.name, connections, score: connections.length };
           })
           .filter(d => d.score > 0)
-          .sort((a, b) => b.score - a.score)
-          .slice(0, 8);
-        discoveryIdsRef.current = new Set(discoveryScored.map(d => d.id));
+          .sort((a, b) => b.score - a.score);
+        // Pulse only the top 8 on canvas; panel shows all (or contextual subset)
+        discoveryIdsRef.current = new Set(discoveryScored.slice(0, 8).map(d => d.id));
         setDiscoveryNodes(discoveryScored);
       }
 
@@ -2493,6 +2493,49 @@ export default function ConstellationPOC({ username }: Props) {
                     resetView();
                   }
 
+                  // Dynamic discovery: contextual non-owned nodes
+                  const nonOwnedNodes = nodesRef.current.filter(n => !n.owned);
+                  const allEdges = edgesRef.current;
+
+                  type DiscoveryItem = { id: string; name: string; connections: string[]; note?: string };
+                  const visDiscovery: DiscoveryItem[] = (() => {
+                    if (afL) {
+                      // Artist selected: non-owned nodes with a direct edge to/from this artist
+                      const artistNode = nodesRef.current.find(n => n.name.toLowerCase() === afL);
+                      if (!artistNode) return [];
+                      return nonOwnedNodes.flatMap(n => {
+                        const edge = allEdges.find(e =>
+                          (e.source === artistNode.id && e.target === n.id) ||
+                          (e.target === artistNode.id && e.source === n.id)
+                        );
+                        if (!edge) return [];
+                        return [{ id: n.id, name: n.name, connections: [artistFilter!], note: edge.note || undefined }];
+                      });
+                    }
+                    if (labelFilter) {
+                      // Label selected: non-owned nodes connected to any artist in this label group
+                      const labelArtistIds = new Set(
+                        (labelGroups.find(g => g.label === labelFilter)?.artists ?? [])
+                          .map(name => nodesRef.current.find(nd => nd.name === name)?.id)
+                          .filter((id): id is string => id !== undefined)
+                      );
+                      return nonOwnedNodes.flatMap(n => {
+                        const linkedEdges = allEdges.filter(e => {
+                          const otherId = e.source === n.id ? e.target : e.target === n.id ? e.source : null;
+                          return otherId !== null && labelArtistIds.has(otherId);
+                        });
+                        if (!linkedEdges.length) return [];
+                        const connNames = linkedEdges.map(e => {
+                          const otherId = e.source === n.id ? e.target : e.source;
+                          return nodesRef.current.find(nd => nd.id === otherId)?.name ?? "";
+                        }).filter(Boolean);
+                        return [{ id: n.id, name: n.name, connections: connNames, note: linkedEdges[0]?.note || undefined }];
+                      }).sort((a, b) => b.connections.length - a.connections.length);
+                    }
+                    // Default: pre-scored global list (all, uncapped)
+                    return discoveryNodes;
+                  })();
+
                   const empty = <p style={{ fontFamily: MONO, fontSize: "12px", color: DIM3, paddingBottom: 12 }}>None for current filter.</p>;
 
                   return (
@@ -2625,18 +2668,23 @@ export default function ConstellationPOC({ username }: Props) {
                         ))}
                       </PanelSection>
 
-                      {discoveryNodes.length > 0 && (
-                        <PanelSection openSections={openSections} setOpenSections={setOpenSections} id="discover" title="Missing from Collection" count={discoveryNodes.length}>
-                          <p style={{ fontFamily: MONO, fontSize: "11px", color: DIM3, marginBottom: 14, lineHeight: 1.6 }}>
-                            Artists you don't own who are strongly connected to your collection.
-                          </p>
-                          {discoveryNodes.map(d => (
+                      {visDiscovery.length > 0 && (
+                        <PanelSection
+                          openSections={openSections} setOpenSections={setOpenSections}
+                          id="discover"
+                          title={afL ? "Not in your collection" : labelFilter ? "Not in your collection" : "Missing from Collection"}
+                          count={visDiscovery.length}
+                        >
+                          {visDiscovery.map(d => (
                             <div key={d.id} style={{ marginBottom: 14, paddingBottom: 14, borderBottom: `1px solid ${BORD}` }}>
                               <p style={{ margin: "0 0 4px" }}>
                                 <span style={{ fontFamily: SERIF, fontSize: "15px", color: DIM2 }}>{d.name}</span>
                               </p>
                               <p style={{ fontFamily: MONO, fontSize: "11px", color: DIM3, margin: 0, lineHeight: 1.6 }}>
-                                linked to {d.connections.slice(0, 3).join(", ")}{d.connections.length > 3 ? ` +${d.connections.length - 3} more` : ""}
+                                {d.note
+                                  ? d.note
+                                  : `linked to ${d.connections.slice(0, 3).join(", ")}${d.connections.length > 3 ? ` +${d.connections.length - 3} more` : ""}`
+                                }
                               </p>
                             </div>
                           ))}
