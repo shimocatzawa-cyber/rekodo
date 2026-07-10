@@ -16,7 +16,8 @@ const SUBSCRIPTION_PERKS = [
   { category: "Archetypes",    description: "What your collection says about you" },
   { category: "Discovery",     description: "Dig unlimited regeneration" },
   { category: "Lists",         description: "Unlimited playlist generations" },
-  { category: "Constellation", description: "Collection Constellation — coming soon" },
+  { category: "Echoes",        description: "AI-powered sonic neighbours for any album" },
+  { category: "Constellation", description: "Collection Constellation — interactive artist map" },
 ];
 
 const PRESET_AMOUNTS = [5, 10, 20];

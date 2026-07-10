@@ -476,7 +476,7 @@ const FAQ_SECTIONS: { section: string; items: { q: string; a: React.ReactNode }[
     items: [
       {
         q: "Is rekōdo free?",
-        a: "Most of rekōdo is free: collection sync, Insights (including Taste Profile, Essentials Wall, and Feeling breakdown), Dig (Inside Collection unlimited, 2 Outside Collection & Style digs per day), Lists, Selects, and Wantlist Upload. A rekōdo supporter subscription unlocks Deep Dive, Archetypes, and unlimited Dig — plus the golden ō badge.",
+        a: "Most of rekōdo is free: collection sync, Insights (including Taste Profile, Essentials Wall, and Feeling breakdown), Dig (Inside Collection unlimited, 2 Outside Collection & Style digs per day), Lists, Selects, and Wantlist Upload. A rekōdo supporter subscription unlocks Deep Dive, Archetypes, unlimited Dig, Echoes, and Collection Constellation — plus the golden ō badge.",
       },
       {
         q: "What is the difference between a Supporter and a donor?",
