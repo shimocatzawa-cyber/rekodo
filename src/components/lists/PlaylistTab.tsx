@@ -84,10 +84,19 @@ export default function PlaylistTab({ username }: { username: string }) {
   const excludedIdsRef     = useRef<Set<string>>(new Set());
   const excludedArtistsRef = useRef<Set<string>>(new Set());
 
-  // Mood/scope change — start the "already seen" tracking fresh.
+  // Mood/scope change — reload cross-session history from localStorage so
+  // variety is maintained even across page reloads and new sessions.
   useEffect(() => {
     excludedIdsRef.current = new Set();
     excludedArtistsRef.current = new Set();
+    if (!mood) return;
+    try {
+      const stored = localStorage.getItem(`rekodo:pex:${mood}`);
+      if (stored) {
+        const arr = JSON.parse(stored) as string[];
+        arr.forEach(a => excludedArtistsRef.current.add(a));
+      }
+    } catch { /* ignore — localStorage unavailable or corrupted */ }
   }, [mood, includeOutsideCollection]);
 
   // ── Spotify connection check ──────────────────────────────────────────────
@@ -240,6 +249,14 @@ export default function PlaylistTab({ username }: { username: string }) {
         for (const t of data.tracks) {
           excludedIdsRef.current.add(t.id);
           excludedArtistsRef.current.add(t.artist.toLowerCase().trim());
+        }
+        // Persist the accumulated exclusion list so variety holds across page reloads.
+        // Cap at 200 artists per mood (~20 sessions) — beyond that, old picks can resurface.
+        if (mood) {
+          try {
+            const arr = [...excludedArtistsRef.current].slice(-200);
+            localStorage.setItem(`rekodo:pex:${mood}`, JSON.stringify(arr));
+          } catch { /* ignore — localStorage unavailable or full */ }
         }
         setTracks(data.tracks);
         setTitleDraft(`${mood[0].toUpperCase()}${mood.slice(1)} Mix`);

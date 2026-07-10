@@ -288,7 +288,7 @@ async function discoverOutsideCollection(
 // candidates, so different moods genuinely surface different albums instead
 // of relying on chance from the cap's shuffle alone.
 const MOOD_RELEVANCE_THRESHOLD = 60; // below this, just include everything — not worth filtering a small pool
-const MOOD_RELEVANCE_LIMIT     = 80;
+const MOOD_RELEVANCE_LIMIT     = 150;
 
 type OwnedAlbumMeta = { id: string; artist: string; album: string; year: number | null; genre: string | null; styles: string[] | null; feeling: string | null };
 
@@ -682,27 +682,20 @@ export async function POST(request: NextRequest) {
     if (remainingArtists >= trackCount) ownedMatchedRecords = withoutExcluded;
   }
 
-  const taggedOwned   = ownedMatchedRecords.filter(r => feelingByRecordId.get(r.id) === mood);
-  let untaggedOwned   = ownedMatchedRecords.filter(r => feelingByRecordId.get(r.id) !== mood);
-
-  let candidates: Candidate[] = flattenCandidates(taggedOwned, "collection", "tagged");
-  // Tagged pool too thin to fill the requested track count — widen to the
-  // full matched collection, marking the rest as lower-confidence inferred.
-  if (taggedOwned.length < trackCount) {
-    // A large untagged pool gets a cheap text-only mood-relevance pass first —
-    // otherwise every thin-tagged mood widens to nearly the same "everything
-    // else" superset, and the final picks converge on the same songs
-    // regardless of which mood was actually requested.
-    if (untaggedOwned.length > MOOD_RELEVANCE_THRESHOLD) {
-      const pool: OwnedAlbumMeta[] = untaggedOwned.map(r => ({
-        id: r.id, artist: r.artist, album: r.album, year: r.year, genre: r.genre, styles: r.styles,
-        feeling: feelingByRecordId.get(r.id) ?? null,
-      }));
-      const relevantIds = await shortlistMoodRelevantAlbums(pool, mood, refinement);
-      untaggedOwned = untaggedOwned.filter(r => relevantIds.has(r.id));
-    }
-    candidates = candidates.concat(flattenCandidates(untaggedOwned, "collection", "inferred"));
+  // Run the full matched collection through the mood-relevance filter as one pool.
+  // Mood tagging coverage is too sparse to split on — treating tagged records as a
+  // preferred tier just recycles the same few tagged albums every session.
+  // The feeling tag is still passed as metadata so the filter can use it as a hint.
+  let moodCandidatePool = ownedMatchedRecords;
+  if (moodCandidatePool.length > MOOD_RELEVANCE_THRESHOLD) {
+    const pool: OwnedAlbumMeta[] = moodCandidatePool.map(r => ({
+      id: r.id, artist: r.artist, album: r.album, year: r.year, genre: r.genre, styles: r.styles,
+      feeling: feelingByRecordId.get(r.id) ?? null,
+    }));
+    const relevantIds = await shortlistMoodRelevantAlbums(pool, mood, refinement);
+    moodCandidatePool = moodCandidatePool.filter(r => relevantIds.has(r.id));
   }
+  let candidates: Candidate[] = flattenCandidates(moodCandidatePool, "collection", "inferred");
 
   // ── Wantlist candidates (optional) ───────────────────────────────────────
   let wantlistId: string | null = null;
@@ -931,32 +924,20 @@ export async function POST(request: NextRequest) {
     if (remainingArtists >= trackCount) candidates = withoutExcluded;
   }
 
-  // Cap prompt size — tagged/high-confidence first, then a slice of the rest.
-  const MAX_CANDIDATES = 150;
+  // Cap prompt size — keep discover picks (appended last, would silently drop
+  // without this) and shuffle the collection pool so Claude sees a different
+  // ordering each generation rather than the same deterministic DB-order list.
+  const MAX_CANDIDATES = 250;
   {
-    const tagged   = candidates.filter(c => c.confidence === "tagged");
-    // Discover-sourced candidates were getting silently dropped here: they're
-    // appended to the candidate array near the end of the pipeline, after the
-    // bulk of the owned/untagged collection — but `rest` preserved that same
-    // insertion order and the slice just took the head, so once the untagged
-    // collection alone exceeded the cap, none of the "outside my collection"
-    // picks ever survived to reach Claude. Always keep them.
-    const discover = candidates.filter(c => c.confidence !== "tagged" && c.source === "discover");
-    const rest     = candidates.filter(c => c.confidence !== "tagged" && c.source !== "discover");
-    // Always shuffle the bulk pool's order, even under the cap — Claude sees
-    // the same deterministic DB-order list otherwise, and a fixed presentation
-    // order nudges it toward picking (and sequencing) the same tracks on
-    // repeated generations for the same mood, independent of the explicit
-    // exclude list above. This also gives freshly top-up-matched tracks mixed
-    // into `rest` a fair chance of surviving the cut instead of being
-    // reliably excluded.
-    candidates = tagged.concat(discover, shuffle(rest)).slice(0, MAX_CANDIDATES);
+    const discover = candidates.filter(c => c.source === "discover");
+    const rest     = candidates.filter(c => c.source !== "discover");
+    candidates = discover.concat(shuffle(rest)).slice(0, MAX_CANDIDATES);
   }
 
   const candidateByUri = new Map(candidates.map(c => [c.spotify_uri, c]));
 
   const candidateListText = candidates
-    .map(c => `${c.spotify_uri} :: ${c.artist} — ${c.title} (album: ${c.album}; source: ${c.source}; confidence: ${c.confidence})`)
+    .map(c => `${c.spotify_uri} :: ${c.artist} — ${c.title} (album: ${c.album}; source: ${c.source})`)
     .join("\n");
 
   const minCollectionCount = Math.ceil(trackCount * MIN_COLLECTION_RATIO);
@@ -981,7 +962,7 @@ export async function POST(request: NextRequest) {
       max_tokens: 2000,
       system: [{
         type: "text",
-        text: `You are rekōdo's DJ. Given a candidate pool of tracks (each tagged with its confidence — "tagged" means the collector explicitly marked the album with this mood, "inferred" means it's a guess from genre/era/label context — and its source, "collection", "wantlist", or "discover") and a target mood, select exactly the requested number of tracks and sequence them as a coherent DJ set: an arc with an opening, building section, peak, and resolution. Never select more than one track from the same artist — each artist may appear at most once in the playlist, even if the candidate pool is dominated by a few artists; skip an otherwise-good track rather than repeat an artist. Prefer "tagged" tracks over "inferred" ones when there are enough to choose from. If a minimum "collection" track count is specified, treat it as a hard floor, not a target to undercut. Honor any refinement text as a hard constraint (e.g. "skip anything too upbeat" means exclude upbeat-feeling tracks even if otherwise a good mood fit). For each track, write one short rationale (max 20 words) explaining its place in the sequence (e.g. "opens low and slow", "lifts the energy into the peak", "brings it back down to close"). You must only select spotify_uri values that appear verbatim in the candidate list — never invent a track.`,
+        text: `You are rekōdo's DJ. Given a candidate pool of tracks (each with a source — "collection" means the collector owns it, "wantlist" means they want it, "discover" means a suggestion outside their collection) and a target mood, select exactly the requested number of tracks and sequence them as a coherent DJ set: an arc with an opening, building section, peak, and resolution. Never select more than one track from the same artist — each artist may appear at most once in the playlist, even if the candidate pool is dominated by a few artists; skip an otherwise-good track rather than repeat an artist. If a minimum "collection" track count is specified, treat it as a hard floor, not a target to undercut. Honor any refinement text as a hard constraint (e.g. "skip anything too upbeat" means exclude upbeat-feeling tracks even if otherwise a good mood fit). For each track, write one short rationale (max 20 words) explaining its place in the sequence (e.g. "opens low and slow", "lifts the energy into the peak", "brings it back down to close"). You must only select spotify_uri values that appear verbatim in the candidate list — never invent a track.`,
         cache_control: { type: "ephemeral" },
       }],
       // Forced tool call instead of raw-JSON-in-prose — see shortlistUnmatched
