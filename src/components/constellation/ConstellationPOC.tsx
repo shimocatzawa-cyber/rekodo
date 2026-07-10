@@ -1095,6 +1095,74 @@ export default function ConstellationPOC({ username }: Props) {
     return () => { cancelled = true; };
   }, [isReady]);
 
+  // ── Real-time MB lineage + sonic enrichment on artist selection ──────────────
+  // When an artist is selected, immediately fetch their MB relations and targeted
+  // sonic neighbours rather than waiting for the slow background sweep to reach them.
+
+  useEffect(() => {
+    if (!artistFilter || !isReady) return;
+    let cancelled = false;
+    const name = artistFilter;
+
+    const run = async () => {
+      // 1. MB relations for lineage
+      const mbData = await fetchMBArtist(name);
+      if (!mbData || cancelled) return;
+
+      const nodeByName = new Map(nodesRef.current.map(n => [n.name.toLowerCase(), n]));
+      const thisNode   = nodeByName.get(name.toLowerCase());
+      if (!thisNode) return;
+
+      const newLineage: LineageEdge[] = [];
+      for (const rel of mbData.relations) {
+        const mapped = mbRelToConstellation(rel, name);
+        if (!mapped || mapped.type !== "splinter") continue;
+        const srcNode = nodeByName.get(mapped.source.toLowerCase());
+        const tgtNode = nodeByName.get(mapped.target.toLowerCase());
+        if (!srcNode || !tgtNode || srcNode.id === tgtNode.id) continue;
+        if (tgtNode.owned || srcNode.owned) {
+          newLineage.push({ source: srcNode.name, target: tgtNode.name, note: `${rel.type} (MusicBrainz)`, via: "mb" });
+        }
+      }
+
+      if (!cancelled && newLineage.length > 0) {
+        setMbLineage(prev => {
+          const seen = new Set(prev.map(e => [e.source, e.target].sort().join("|")));
+          const fresh = newLineage.filter(e => !seen.has([e.source, e.target].sort().join("|")));
+          return fresh.length > 0 ? [...prev, ...fresh] : prev;
+        });
+      }
+
+      // 2. Targeted sonic neighbours for this artist's styles
+      if (cancelled) return;
+      const artistStylesForRpc = styleGroups
+        .filter(g => g.artists.some(a => a.toLowerCase() === name.toLowerCase()))
+        .map(g => g.style);
+      if (artistStylesForRpc.length === 0) return;
+
+      const excludeArtists = nodesRef.current.filter(n => n.owned).map(n => n.name);
+      try {
+        const res = await fetch("/api/constellation/sonic-neighbours", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ styles: artistStylesForRpc, excludeArtists, limit: 200 }),
+        });
+        if (!res.ok || cancelled) return;
+        const json = await res.json() as { neighbours?: { artist: string; shared_styles: string[]; match_count: number }[] };
+        if (!cancelled && json.neighbours && json.neighbours.length > 0) {
+          setGlobalNeighbours(prev => {
+            const existing = new Set(prev.map(n => n.artist));
+            const fresh = json.neighbours!.filter(n => !existing.has(n.artist));
+            return fresh.length > 0 ? [...prev, ...fresh] : prev;
+          });
+        }
+      } catch { /* best-effort */ }
+    };
+
+    run();
+    return () => { cancelled = true; };
+  }, [artistFilter, isReady, styleGroups]);
+
   // ── Real-time influence enrichment on artist selection ────────────────────────
   // Fires whenever artistFilter changes (canvas click, panel chip, or search).
   // If the selected artist has no data in artist_influences yet, fetches from Claude.
