@@ -1093,36 +1093,42 @@ export default function ConstellationPOC({ username }: Props) {
 
     const run = async () => {
       try {
+        console.log(`[lineage-select] fetching for "${name}"`);
         const res = await fetch("/api/constellation/artist-lineage", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ artist: name }),
         });
+        console.log(`[lineage-select] response ${res.status} cancelled=${cancelled}`);
         if (!res.ok || cancelled) return;
         const json = await res.json() as { rows?: { source: string; target: string; note: string }[] };
         const rows = json.rows ?? [];
+        console.log(`[lineage-select] "${name}" rows:`, rows);
 
         const nodeByName = new Map(nodesRef.current.map(n => [n.name.toLowerCase(), n]));
         const newLineage: LineageEdge[] = [];
         for (const row of rows) {
           const srcNode = nodeByName.get(row.source.toLowerCase());
           const tgtNode = nodeByName.get(row.target.toLowerCase());
-          // Include the edge even if one side isn't in the graph (show the name)
           const src = srcNode?.name ?? row.source;
           const tgt = tgtNode?.name ?? row.target;
           const lKey = [src.toLowerCase(), tgt.toLowerCase()].sort().join("|");
           const dup = newLineage.some(e => [e.source.toLowerCase(), e.target.toLowerCase()].sort().join("|") === lKey);
           if (!dup) newLineage.push({ source: src, target: tgt, note: row.note, via: "claude" });
         }
+        console.log(`[lineage-select] "${name}" newLineage:`, newLineage, `cancelled=${cancelled}`);
 
         if (!cancelled && newLineage.length > 0) {
           setMbLineage(prev => {
             const seen = new Set(prev.map(e => [e.source, e.target].sort().join("|")));
             const fresh = newLineage.filter(e => !seen.has([e.source, e.target].sort().join("|")));
+            console.log(`[lineage-select] setMbLineage fresh=${fresh.length}`);
             return fresh.length > 0 ? [...prev, ...fresh] : prev;
           });
         }
-      } catch { /* best-effort */ }
+      } catch (err) {
+        console.error(`[lineage-select] error:`, err);
+      }
     };
 
     run();

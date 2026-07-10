@@ -46,6 +46,7 @@ export async function POST(req: NextRequest) {
 
   if (!cacheErr && cached && cached.length > 0) {
     const real = (cached as LineageRow[]).filter(r => r.source !== "__none__");
+    console.log(`[lineage] cache hit "${artist}": ${real.length} rows`);
     return NextResponse.json({ rows: real });
   }
 
@@ -102,6 +103,7 @@ Only well-documented relationships. If you are not certain, omit it. If no relat
 
   const input = tool.input as { edges: { source: string; target: string; note: string }[] };
   const edges = input.edges ?? [];
+  console.log(`[lineage] Claude "${artist}": ${edges.length} edges — ${edges.map(e => `${e.source}→${e.target}`).join(", ") || "none"}`);
 
   if (edges.length === 0) {
     await upsertSentinel(db, artist);
