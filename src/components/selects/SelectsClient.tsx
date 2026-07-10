@@ -406,49 +406,14 @@ function NewReleasesSection() {
       </div>
 
       <div style={{ display: "flex", gap: 40, alignItems: "flex-start" }}>
-        {/* Desktop sidebar: date picker + tag filter */}
-        {(availableDates.length > 0 || availableTags.length > 0) && (
-          <div className="nr-date-picker-desktop" style={{ width: 110, flexShrink: 0 }}>
-            {availableDates.length > 0 && (
-              <NewReleasesDatePicker
-                dates={availableDates}
-                selectedDate={selectedDate}
-                onSelect={setSelectedDate}
-              />
-            )}
-            {availableTags.length > 0 && (
-              <div style={{ marginTop: availableDates.length > 0 ? 28 : 4 }}>
-                <p style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.14em", textTransform: "uppercase", color: "#aaaaaa", margin: "0 0 10px" }}>
-                  Genre / Style
-                </p>
-                <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
-                  {availableTags.slice(0, 25).map(tag => {
-                    const active = selectedTags.has(tag);
-                    return (
-                      <button key={tag} onClick={() => toggleTag(tag)} style={{
-                        fontFamily: MONO, fontSize: "10px", letterSpacing: "0.05em",
-                        background: "none", border: "none", padding: "2px 0",
-                        textAlign: "left", cursor: "pointer",
-                        color: active ? ORANGE : "#888888",
-                        borderBottom: active ? `1px solid ${ORANGE}` : "1px solid transparent",
-                        width: "fit-content",
-                      }}>
-                        {tag}
-                      </button>
-                    );
-                  })}
-                  {selectedTags.size > 0 && (
-                    <button onClick={() => setSelectedTags(new Set())} style={{
-                      fontFamily: MONO, fontSize: "9px", letterSpacing: "0.06em",
-                      background: "none", border: "none", padding: "6px 0 0",
-                      textAlign: "left", cursor: "pointer", color: "#cccccc",
-                    }}>
-                      Clear
-                    </button>
-                  )}
-                </div>
-              </div>
-            )}
+        {/* Desktop date picker (left) */}
+        {availableDates.length > 0 && (
+          <div className="nr-date-picker-desktop">
+            <NewReleasesDatePicker
+              dates={availableDates}
+              selectedDate={selectedDate}
+              onSelect={setSelectedDate}
+            />
           </div>
         )}
 
@@ -462,6 +427,41 @@ function NewReleasesSection() {
             filteredItems.map(item => <ReleaseRow key={item.id} item={item} />)
           )}
         </div>
+
+        {/* Genre / Style filter (right) */}
+        {availableTags.length > 0 && (
+          <div className="nr-date-picker-desktop" style={{ width: 110, flexShrink: 0, paddingTop: 4 }}>
+            <p style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.14em", textTransform: "uppercase", color: "#aaaaaa", margin: "0 0 12px" }}>
+              Genre / Style
+            </p>
+            <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+              {availableTags.slice(0, 25).map(tag => {
+                const active = selectedTags.has(tag);
+                return (
+                  <button key={tag} onClick={() => toggleTag(tag)} style={{
+                    fontFamily: MONO, fontSize: "10px", letterSpacing: "0.05em",
+                    background: "none", border: "none", padding: "2px 0",
+                    textAlign: "left", cursor: "pointer",
+                    color: active ? ORANGE : "#888888",
+                    borderBottom: active ? `1px solid ${ORANGE}` : "1px solid transparent",
+                    width: "fit-content",
+                  }}>
+                    {tag}
+                  </button>
+                );
+              })}
+              {selectedTags.size > 0 && (
+                <button onClick={() => setSelectedTags(new Set())} style={{
+                  fontFamily: MONO, fontSize: "9px", letterSpacing: "0.06em",
+                  background: "none", border: "none", padding: "6px 0 0",
+                  textAlign: "left", cursor: "pointer", color: "#cccccc",
+                }}>
+                  Clear
+                </button>
+              )}
+            </div>
+          </div>
+        )}
       </div>
     </section>
   );
