@@ -1141,11 +1141,7 @@ export default function ConstellationPOC({ username }: Props) {
       const artistStylesForRpc = styleGroups
         .filter(g => g.artists.some(a => a.toLowerCase() === name.toLowerCase()))
         .map(g => g.style);
-      console.log(`[constellation] sonic neighbours for "${name}": styles=${JSON.stringify(artistStylesForRpc)} (styleGroups.length=${styleGroups.length})`);
-      if (artistStylesForRpc.length === 0) {
-        console.log(`[constellation] sonic neighbours: no styles matched for "${name}" in styleGroups`);
-        return;
-      }
+      if (artistStylesForRpc.length === 0) return;
 
       const excludeArtists = nodesRef.current.filter(n => n.owned).map(n => n.name);
       try {
@@ -1154,12 +1150,8 @@ export default function ConstellationPOC({ username }: Props) {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ styles: artistStylesForRpc, excludeArtists, limit: 200 }),
         });
-        if (!res.ok || cancelled) {
-          console.log(`[constellation] sonic neighbours: fetch failed res.ok=${res.ok} status=${res.status}`);
-          return;
-        }
+        if (!res.ok || cancelled) return;
         const json = await res.json() as { neighbours?: { artist: string; shared_styles: string[]; match_count: number }[] };
-        console.log(`[constellation] sonic neighbours: got ${json.neighbours?.length ?? 0} results`);
         if (!cancelled && json.neighbours && json.neighbours.length > 0) {
           setGlobalNeighbours(prev => {
             const existing = new Set(prev.map(n => n.artist));
@@ -1167,9 +1159,7 @@ export default function ConstellationPOC({ username }: Props) {
             return fresh.length > 0 ? [...prev, ...fresh] : prev;
           });
         }
-      } catch (err) {
-        console.log(`[constellation] sonic neighbours: error`, err);
-      }
+      } catch { /* best-effort */ }
     };
 
     run();
@@ -2202,13 +2192,14 @@ export default function ConstellationPOC({ username }: Props) {
                     });
 
                   const visStyles = styleGroups
-                    .map(g => ({ ...g, artists: g.artists.filter(a => !labelScope || labelScope.has(a)) }))
+                    .map(g => afL
+                      ? g  // artist selected: use original artists so label scope doesn't exclude them
+                      : { ...g, artists: g.artists.filter(a => !labelScope || labelScope.has(a)) }
+                    )
                     .filter(g => {
                       if (afL) {
-                        // artist selected: show any style the artist has, even if no peers share it
                         return g.artists.some(a => a.toLowerCase() === afL);
                       }
-                      // overview: only show styles shared by 2+ collection artists
                       return g.artists.length >= 2;
                     });
 
