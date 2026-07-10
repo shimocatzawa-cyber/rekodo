@@ -46,6 +46,9 @@ const WHITE   = "#ffffff";   // pure white — star cores
 const EDGE_C  = "rgba(140,170,240,1)"; // pale blue-white constellation lines
 const MONO    = '"DM Mono", "Courier New", monospace';
 const SERIF   = '"Shippori Mincho", Georgia, serif';
+const DIM2    = "rgba(220,213,195,0.72)"; // secondary text on dark bg
+const DIM3    = "rgba(220,213,195,0.50)"; // tertiary text on dark bg
+const BORD    = "rgba(220,213,195,0.15)"; // panel borders
 
 // ── Curated relationship graph ─────────────────────────────────────────────────
 
@@ -410,6 +413,38 @@ const REL_VERB: Record<RelType, string> = {
   label:         "↔ labelmates",
   production:    "↔ produced by",
 };
+
+// ── Stable panel section — defined at module level so React never sees a type
+//    change between renders (avoids unmount/remount on every state update) ────
+
+function PanelSection({
+  id, title, count, children, openSections, setOpenSections,
+}: {
+  id: string; title: string; count: number; children: React.ReactNode;
+  openSections: Set<string>;
+  setOpenSections: React.Dispatch<React.SetStateAction<Set<string>>>;
+}) {
+  const open = openSections.has(id);
+  return (
+    <div style={{ borderTop: `1px solid ${BORD}`, marginTop: 0 }}>
+      <button
+        onClick={() => setOpenSections(prev => {
+          const n = new Set(prev);
+          n.has(id) ? n.delete(id) : n.add(id);
+          return n;
+        })}
+        style={{ width: "100%", display: "flex", justifyContent: "space-between", alignItems: "center", padding: "13px 0", background: "none", border: "none", cursor: "pointer" }}
+      >
+        <span style={{ fontFamily: MONO, fontSize: "11px", color: DIM2, letterSpacing: "0.14em", textTransform: "uppercase" }}>{title}</span>
+        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          <span style={{ fontFamily: MONO, fontSize: "11px", color: DIM3 }}>{count}</span>
+          <span style={{ fontFamily: MONO, fontSize: "14px", color: DIM3, lineHeight: 1 }}>{open ? "−" : "+"}</span>
+        </div>
+      </button>
+      {open && <div style={{ paddingBottom: 12 }}>{children}</div>}
+    </div>
+  );
+}
 
 // ── Component ──────────────────────────────────────────────────────────────────
 
@@ -1724,7 +1759,7 @@ export default function ConstellationPOC({ username }: Props) {
               setArtistFilter(hit.name);
               physicsRef.current = false;
               nodesRef.current.forEach(n => { n.vx = 0; n.vy = 0; });
-              setOpenSections(new Set(["lineage", "influencedBy", "influenced", "sonic", "inflOther"]));
+              setOpenSections(new Set<string>());
               zoomToNeighborhood(hit);
             }
           }
@@ -1872,9 +1907,7 @@ export default function ConstellationPOC({ username }: Props) {
   const edgeSrc = selectedEdge ? (nodesRef.current.find(n => n.id === selectedEdge.source) ?? null) : null;
   const edgeTgt = selectedEdge ? (nodesRef.current.find(n => n.id === selectedEdge.target) ?? null) : null;
 
-  const DIM2 = "rgba(220,213,195,0.72)"; // secondary text on dark bg
-  const DIM3 = "rgba(220,213,195,0.50)"; // tertiary text on dark bg
-  const BORD = "rgba(220,213,195,0.15)"; // panel borders
+
 
   return (
     <div className="relative w-full h-screen overflow-hidden select-none" style={{ background: BG }}>
@@ -2125,7 +2158,7 @@ export default function ConstellationPOC({ username }: Props) {
                             {suggestions.map(n => (
                               <button key={n.id} onMouseDown={() => {
                                 setArtistFilter(n.name); setArtistQuery(""); setShowArtistDrop(false);
-                                setOpenSections(new Set(["lineage", "influencedBy", "influenced", "sonic", "inflOther"]));
+                                setOpenSections(new Set<string>());
                                 selectedRef.current = n.id;
                                 physicsRef.current = false;
                                 nodesRef.current.forEach(nd => { nd.vx = 0; nd.vy = 0; });
@@ -2297,7 +2330,7 @@ export default function ConstellationPOC({ username }: Props) {
                   // Influence enrichment is handled by the artistFilter useEffect.
                   function selectArtist(name: string) {
                     setArtistFilter(name);
-                    setOpenSections(new Set(["lineage", "influencedBy", "influenced", "sonic", "inflOther"]));
+                    setOpenSections(new Set<string>());
                     const node = nodesRef.current.find(n => n.name.toLowerCase() === name.toLowerCase());
                     if (node) {
                       selectedRef.current = node.id;
@@ -2314,24 +2347,6 @@ export default function ConstellationPOC({ username }: Props) {
                     labelHighlightRef.current = new Set();
                     setOpenSections(new Set<string>());
                     resetView();
-                  }
-
-                  function PanelSection({ id, title, count, children }: { id: string; title: string; count: number; children: React.ReactNode }) {
-                    const open = openSections.has(id);
-                    return (
-                      <div style={{ borderTop: `1px solid ${BORD}`, marginTop: 0 }}>
-                        <button onClick={() => setOpenSections(prev => { const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n; })}
-                          style={{ width: "100%", display: "flex", justifyContent: "space-between", alignItems: "center", padding: "13px 0", background: "none", border: "none", cursor: "pointer" }}
-                        >
-                          <span style={{ fontFamily: MONO, fontSize: "11px", color: DIM2, letterSpacing: "0.14em", textTransform: "uppercase" }}>{title}</span>
-                          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                            <span style={{ fontFamily: MONO, fontSize: "11px", color: DIM3 }}>{count}</span>
-                            <span style={{ fontFamily: MONO, fontSize: "14px", color: DIM3, lineHeight: 1 }}>{open ? "−" : "+"}</span>
-                          </div>
-                        </button>
-                        {open && <div style={{ paddingBottom: 12 }}>{children}</div>}
-                      </div>
-                    );
                   }
 
                   // Each artist name is a clickable button — sets filter + zooms canvas
@@ -2368,7 +2383,7 @@ export default function ConstellationPOC({ username }: Props) {
 
                   return (
                     <>
-                      <PanelSection id="lineage" title="Band Lineage" count={visLin.length}>
+                      <PanelSection openSections={openSections} setOpenSections={setOpenSections} id="lineage" title="Band Lineage" count={visLin.length}>
                         {visLin.length === 0 ? (
                           <p style={{ fontFamily: MONO, fontSize: "12px", color: DIM3, paddingBottom: 12 }}>
                             {lineageLoading ? "Looking up lineage…" : "None found."}
@@ -2407,14 +2422,14 @@ export default function ConstellationPOC({ username }: Props) {
 
                           return (
                             <>
-                              <PanelSection id="influencedBy" title="Influenced By" count={inflBy.length}>
+                              <PanelSection openSections={openSections} setOpenSections={setOpenSections} id="influencedBy" title="Influenced By" count={inflBy.length}>
                                 {loading ? loadingEl : inflBy.length === 0 ? empty : inflBy.map((e, i) => <InflRow key={i} e={e} nameKey="source" />)}
                               </PanelSection>
-                              <PanelSection id="influenced" title="Influenced" count={inflced.length}>
+                              <PanelSection openSections={openSections} setOpenSections={setOpenSections} id="influenced" title="Influenced" count={inflced.length}>
                                 {loading ? loadingEl : inflced.length === 0 ? empty : inflced.map((e, i) => <InflRow key={i} e={e} nameKey="target" />)}
                               </PanelSection>
                               {inflOther.length > 0 && (
-                                <PanelSection id="inflOther" title="Connections" count={inflOther.length}>
+                                <PanelSection openSections={openSections} setOpenSections={setOpenSections} id="inflOther" title="Connections" count={inflOther.length}>
                                   {inflOther.map((e, i) => (
                                     <div key={i} style={{ marginBottom: 14, paddingBottom: 14, borderBottom: `1px solid ${BORD}` }}>
                                       <div style={{ display: "flex", alignItems: "baseline", gap: 7, marginBottom: 4, flexWrap: "wrap" }}>
@@ -2434,7 +2449,7 @@ export default function ConstellationPOC({ username }: Props) {
 
                         // No artist selected — combined list
                         return (
-                          <PanelSection id="influence" title="Influences" count={visInfl.length}>
+                          <PanelSection openSections={openSections} setOpenSections={setOpenSections} id="influence" title="Influences" count={visInfl.length}>
                             {loading ? loadingEl : visInfl.length === 0 ? empty : visInfl.map((e, i) => (
                               <div key={i} style={{ marginBottom: 14, paddingBottom: 14, borderBottom: `1px solid ${BORD}` }}>
                                 <div style={{ display: "flex", alignItems: "baseline", gap: 7, marginBottom: 4, flexWrap: "wrap" }}>
@@ -2450,7 +2465,7 @@ export default function ConstellationPOC({ username }: Props) {
                         );
                       })()}
 
-                      <PanelSection id="sonic" title="Sonic Neighbours" count={visStyles.length}>
+                      <PanelSection openSections={openSections} setOpenSections={setOpenSections} id="sonic" title="Sonic Neighbours" count={visStyles.length}>
                         {visStyles.length === 0
                           ? (afL && styleArtistsAll.size === 0
                               ? <p style={{ fontFamily: MONO, fontSize: "12px", color: DIM3, paddingBottom: 12 }}>Building graph…</p>
@@ -2476,7 +2491,7 @@ export default function ConstellationPOC({ username }: Props) {
                         })}
                       </PanelSection>
 
-                      <PanelSection id="labels" title="Shared Labels" count={visLbls.length}>
+                      <PanelSection openSections={openSections} setOpenSections={setOpenSections} id="labels" title="Shared Labels" count={visLbls.length}>
                         {visLbls.length === 0 ? empty : visLbls.map(g => (
                           <div key={g.label} style={{ marginBottom: 16 }}>
                             <button
@@ -2493,7 +2508,7 @@ export default function ConstellationPOC({ username }: Props) {
                         ))}
                       </PanelSection>
 
-                      <PanelSection id="producers" title="Shared Producer" count={visProducers.length}>
+                      <PanelSection openSections={openSections} setOpenSections={setOpenSections} id="producers" title="Shared Producer" count={visProducers.length}>
                         {visProducers.length === 0 ? empty : visProducers.map(g => (
                           <div key={g.producer} style={{ marginBottom: 16 }}>
                             <p style={{ fontFamily: MONO, fontSize: "11px", color: ORANGE, letterSpacing: "0.1em", textTransform: "uppercase", margin: "0 0 5px" }}>
