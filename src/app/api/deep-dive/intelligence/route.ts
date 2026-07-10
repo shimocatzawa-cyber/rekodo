@@ -202,6 +202,56 @@ type PressingsAlbum = {
   variants: PressingVariant[];
 };
 
+// ── iTunes podcast episode search ─────────────────────────────────────────────
+// Free, no API key — used to ground the podcasts prompt with real verified
+// episode titles and Apple Podcasts URLs before handing off to Haiku.
+
+type iTunesEpisode = {
+  trackName: string;
+  collectionName: string;
+  trackViewUrl: string;
+  releaseDate: string;
+};
+
+async function searchItunesPodcasts(artist: string): Promise<iTunesEpisode[]> {
+  try {
+    const res = await fetch(
+      `https://itunes.apple.com/search?term=${encodeURIComponent(artist)}&media=podcast&entity=podcastEpisode&limit=30`,
+      { signal: AbortSignal.timeout(5000) }
+    );
+    if (!res.ok) return [];
+    const json = await res.json() as { results?: iTunesEpisode[] };
+    // Keep only episode-level URLs (must carry the ?i= episode ID parameter)
+    return (json.results ?? []).filter(
+      (e) => typeof e.trackViewUrl === "string" && e.trackViewUrl.includes("?i=")
+    );
+  } catch {
+    return [];
+  }
+}
+
+function buildPodcastsPromptWithItunes(artist: string, episodes: iTunesEpisode[]): string {
+  const list = episodes
+    .map((e, i) => {
+      const year = new Date(e.releaseDate).getFullYear();
+      return `${i + 1}. Show: "${e.collectionName}" | Episode: "${e.trackName}" | Year: ${year} | Apple URL: ${e.trackViewUrl}`;
+    })
+    .join("\n");
+
+  return `You are a music research assistant. Below are real podcast episodes found for ${artist} via iTunes Search.
+
+VERIFIED EPISODES:
+${list}
+
+Select the 5–6 most relevant for a serious ${artist} fan. Prefer episodes where ${artist} is the main interview subject, deep-dive album reviews, or dedicated documentary episodes.
+
+Copy the show name, episode title, year, and appleUrl EXACTLY as shown above. Add a one-sentence note on why it's worth listening. Only pick from this list — do not invent episodes.
+
+Return ONLY valid JSON, no markdown, no backticks, no preamble:
+{"episodes":[{"show":"Show Name","episode":"Exact episode title","year":2021,"type":"interview","note":"One sentence on why worth listening","appleUrl":"https://podcasts.apple.com/..."}]}
+type must be one of: "interview", "review", "documentary", "discussion".`;
+}
+
 async function fetchPressingsData(artistName: string): Promise<{ pressings: PressingsAlbum[] }> {
   try {
     const key    = process.env.DISCOGS_CONSUMER_KEY;
@@ -664,18 +714,27 @@ export async function getOrGenerateSection(
     console.log(`[deep-dive] discogs — ${artist}: ${discogsAlbums.length > 0 ? `${discogsAlbums.length} albums` : "unavailable, proceeding without"}`);
   }
 
+  // ── iTunes podcast episode search ──────────────────────────────────────────
+  // Pre-fetch real episodes (free, no API key) and inject them into the prompt
+  // as verified ground truth so Haiku only needs to select + annotate — no
+  // hallucination risk, no expensive web search tool needed.
+  let itunesEpisodes: iTunesEpisode[] = [];
+  if (section === "podcasts") {
+    itunesEpisodes = await searchItunesPodcasts(artist);
+    console.log(`[deep-dive] itunes — ${artist}: ${itunesEpisodes.length} episodes found`);
+  }
+
+  const prompt = (section === "podcasts" && itunesEpisodes.length > 0)
+    ? buildPodcastsPromptWithItunes(artist, itunesEpisodes)
+    : PROMPTS[section](artist, promptAlbums, discogsAlbums);
+
   console.log(`[deep-dive] calling ${model} — ${artist}/${section} max_tokens=${maxTokens}`);
 
-  // Interviews, podcasts, and books use Anthropic's built-in web search tool
-  // (server-side, no extra API key) so Claude verifies real URLs instead of
-  // relying on training-data recall, which produces hallucinated episode
-  // titles / ISBNs that never resolve on the actual platform.
-  // The `as any` casts are needed because the SDK typings may not yet include this tool type.
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const message = (await (client.messages.create as any)({
     model,
     max_tokens: maxTokens,
-    messages: [{ role: "user", content: PROMPTS[section](artist, promptAlbums, discogsAlbums) }],
+    messages: [{ role: "user", content: prompt }],
     ...(WEB_SEARCH_SECTIONS.has(section) && {
       tools: [{ type: "web_search_20250305", name: "web_search" }],
     }),
