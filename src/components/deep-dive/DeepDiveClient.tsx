@@ -1182,6 +1182,20 @@ export default function DeepDiveClient({
       ? (artistData?.records.map((r) => r.year ? `${r.album} (${r.year})` : r.album) ?? [])
       : undefined;
 
+    // Blindspot is personalized so it's excluded from the shared server cache.
+    // Use sessionStorage to avoid re-fetching when navigating back within the
+    // same browser session (component remounts reset startedRef but not storage).
+    if (section === "blindspot") {
+      const ssKey = `dd-blindspot:${userId}:${artist}`;
+      try {
+        const hit = sessionStorage.getItem(ssKey);
+        if (hit) {
+          setCache((prev) => ({ ...prev, [artist]: { ...(prev[artist] ?? {}), blindspot: JSON.parse(hit) } }));
+          return;
+        }
+      } catch { /* ignore — SSR or quota */ }
+    }
+
     setLoadingTabs((prev) => ({ ...prev, [key]: true }));
     setErrorTabs((prev) => { const n = { ...prev }; delete n[key]; return n; });
 
@@ -1196,6 +1210,10 @@ export default function DeepDiveClient({
           ...prev,
           [artist]: { ...(prev[artist] ?? {}), [section]: json.data ?? {} },
         }));
+        if (section === "blindspot") {
+          const ssKey = `dd-blindspot:${userId}:${artist}`;
+          try { sessionStorage.setItem(ssKey, JSON.stringify(json.data ?? {})); } catch { /* ignore */ }
+        }
       })
       .catch((err: TabErrorKind | undefined) => {
         startedRef.current.delete(key); // allow retry

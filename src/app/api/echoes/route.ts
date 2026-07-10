@@ -574,23 +574,20 @@ export async function GET() {
   const cacheExpired = !cacheTime || (Date.now() - cacheTime) > thirtyDays;
 
   if (!cacheExpired && cache?.echoes_data) {
-    // Check if the collection has grown since the cache was built
+    // Check if the collection has grown meaningfully since the cache was built.
+    // Regenerate only when 5+ records have been added — avoids expensive Opus
+    // calls for small additions (a single new purchase, a small batch sync).
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: newest } = await (supabase as any)
+    const { count: newRecordCount } = await (supabase as any)
       .from("user_records")
-      .select("date_added")
+      .select("*", { count: "exact", head: true })
       .eq("user_id", user.id)
-      .order("date_added", { ascending: false })
-      .limit(1)
-      .maybeSingle() as { data: { date_added: string } | null };
+      .gt("date_added", new Date(cacheTime).toISOString()) as { count: number | null };
 
-    const newestAdd = newest?.date_added ? new Date(newest.date_added).getTime() : 0;
-
-    if (newestAdd <= cacheTime) {
-      // Cache is fresh and collection hasn't changed
+    if ((newRecordCount ?? 0) < 5) {
       return Response.json({ ...(cache.echoes_data as object), cached: true });
     }
-    // Collection has new records — fall through to regenerate
+    // 5+ new records — fall through to regenerate
   }
 
   const result = await generate(user.id, supabase, cacheDb);
