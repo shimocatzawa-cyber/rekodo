@@ -50,13 +50,13 @@ const DB_TIMEOUT_MS = 3000;
 
 const CACHED_SECTIONS = new Set(["rankings", "podcasts", "books", "interviews", "related", "pressings"]);
 
-const SONNET_SECTIONS = new Set(["interviews"]);
+const SONNET_SECTIONS = new Set<string>();
 
 const MAX_TOKENS: Record<string, number> = {
   rankings:   1500,
   podcasts:   1000,
   books:      1500,
-  interviews: 1500,
+  interviews: 1000,
   blindspot:  2048,
   related:    1500,
   pressings:  0,
@@ -65,7 +65,7 @@ const MAX_TOKENS: Record<string, number> = {
 // Sections where Claude verifies results via Anthropic's server-side web search
 // tool (runs within the same API call — no extra request loop needed) rather
 // than relying solely on training-data recall.
-const WEB_SEARCH_SECTIONS = new Set(["interviews"]);
+const WEB_SEARCH_SECTIONS = new Set<string>();
 
 // Race an async callback against a timeout — returns null on timeout instead of hanging.
 // Accepts a callback (not a raw Promise) so callers can pass Supabase query builders,
@@ -597,26 +597,22 @@ Return ONLY valid JSON, no markdown, no backticks, no preamble:
 {"items":[{"title":"Book Title","author":"Author Name","year":2003,"type":"memoir","written_by_artist":true,"note":"One sentence on why worth reading"}]}`,
 
   interviews: (artist) =>
-    `You are a music research assistant. Use web search to find print interviews given by ${artist} and their direct URLs.
+    `You are a music research assistant helping a vinyl collector. List notable print and online interviews given by ${artist}.
 
 SCOPE — print and text only:
 - Magazine features: Pitchfork, The Wire, The Guardian, NME, MOJO, Rolling Stone, The Face, Uncut, Q, Loud And Quiet, etc.
 - Online publications: Bandcamp Daily, Fact Magazine, Resident Advisor, XLR8R, The Quietus, Stereogum, etc.
-- Substack newsletters
-- Label or artist website features
 DO NOT include: YouTube, podcast appearances, radio, or any audio/video content.
 
-INSTRUCTIONS:
-1. Search for "${artist} interview site:pitchfork.com" and similar queries for other publications.
-2. For each interview found, include the exact URL from the search result.
-3. Only include interviews with a confirmed direct URL — omit any you cannot find a URL for.
-4. The "domain" field is the bare domain (e.g. "pitchfork.com") as a fallback display label.
+RULES:
+- Only include interviews you are confident actually exist.
+- Omit the "url" field unless you are certain of the exact URL — a missing URL is better than a wrong one.
+- The "domain" field is the bare domain (e.g. "pitchfork.com").
+- Return up to 6 results, most recent first.
 
-Return up to 6 results, sorted by publication date descending (most recent first).
 Return ONLY valid JSON, no markdown, no backticks, no preamble:
-{"interviews":[{"publication":"Pitchfork","domain":"pitchfork.com","title":"Interview title or description","year":2019,"date":"2019-03","url":"https://pitchfork.com/features/interview/artist-name/","note":"What makes it worth reading"}]}
-"date" is optional — YYYY-MM or YYYY-MM-DD when known. "year" is always required.
-Do not fabricate URLs. Only include what you find via search.`,
+{"interviews":[{"publication":"Pitchfork","domain":"pitchfork.com","title":"Interview title or description","year":2019,"date":"2019-03","note":"What makes it worth reading"}]}
+"date" (YYYY-MM or YYYY-MM-DD) and "url" are optional. "year" is always required.`,
 
   related: (artist) =>
     `You are a music expert guiding a vinyl collector. Based on ${artist}'s style, sound, and era, suggest 8 related artists worth exploring. Cover both the obvious (close contemporaries, same scene) and the less obvious (stylistic connections, cross-genre links).
@@ -730,15 +726,11 @@ export async function getOrGenerateSection(
 
   console.log(`[deep-dive] calling ${model} — ${artist}/${section} max_tokens=${maxTokens}`);
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const message = (await (client.messages.create as any)({
+  const message = await client.messages.create({
     model,
     max_tokens: maxTokens,
     messages: [{ role: "user", content: prompt }],
-    ...(WEB_SEARCH_SECTIONS.has(section) && {
-      tools: [{ type: "web_search_20250305", name: "web_search" }],
-    }),
-  })) as Anthropic.Message;
+  });
 
   console.log(`[deep-dive] done — ${artist}/${section} stop_reason=${message.stop_reason} tokens=${message.usage.output_tokens}`);
 
