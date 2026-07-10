@@ -13,14 +13,14 @@ const JP = "var(--font-noto-jp), sans-serif";
 const ORANGE = "#CC5500";
 
 const NAV_ITEMS = [
-  { href: "/selects",    label: "Rekōdo Selects", jp: "選集" },
-  { href: "/collection", label: "Collection", jp: "コレクション" },
-  { href: "/dig",        label: "Dig",        jp: "発掘" },
-  { href: "/deep-dive",  label: "Deep Dive",  jp: "ディープダイブ" },
-  { href: "/lists",      label: "Lists",      jp: "リスト" },
-  { href: "/insights",   label: "Insights",   jp: "インサイト" },
-  { href: "/archetypes", label: "Archetypes", jp: "アーキタイプ" },
-  { href: "/about",      label: "Support",    jp: "サポート" },
+  { href: "/selects",           label: "Rekōdo Selects", jp: "選集" },
+  { href: "/collection",        label: "Collection",     jp: "コレクション" },
+  { href: "/dig",               label: "Dig",            jp: "発掘" },
+  { href: "/deep-dive",         label: "Deep Dive",      jp: "ディープダイブ" },
+  { href: "/lists",             label: "Lists",          jp: "リスト" },
+  { href: "/insights",          label: "Insights",       jp: "インサイト" },
+  { href: "/archetypes",        label: "Archetypes",     jp: "アーキタイプ" },
+  { href: "/constellation-poc", label: "Constellation",  jp: "星座" },
 ] as const;
 
 export default function AppNav({ username, displayLabel, avatarUrl }: { username: string; displayLabel?: string; avatarUrl?: string | null }) {
@@ -175,6 +175,7 @@ export default function AppNav({ username, displayLabel, avatarUrl }: { username
                 {[
                   { href: `/@${username}`, label: "Profile",   jp: "プロフィール" },
                   { href: "/community",    label: "Community", jp: "コミュニティ" },
+                  { href: "/about",        label: "Support",   jp: "サポート" },
                 ].map(({ href, label, jp }, i) => (
                   <Link
                     key={href}
@@ -185,7 +186,7 @@ export default function AppNav({ username, displayLabel, avatarUrl }: { username
                       padding: "11px 16px", whiteSpace: "nowrap",
                       fontFamily: MONO, fontSize: "9px", letterSpacing: "0.1em",
                       textTransform: "uppercase", color: "#0a0a0a", textDecoration: "none",
-                      borderBottom: i === 0 ? "1px solid #e0e0da" : "none",
+                      borderBottom: i < 2 ? "1px solid #e0e0da" : "none",
                     }}
                     onMouseEnter={e => (e.currentTarget.style.background = "#f7f5f0")}
                     onMouseLeave={e => (e.currentTarget.style.background = "transparent")}
@@ -262,37 +263,43 @@ export default function AppNav({ username, displayLabel, avatarUrl }: { username
           })}
 
           <div style={{ marginTop: "1.5rem" }}>
-            <Link
-              href="/community"
-              onClick={() => setMenuOpen(false)}
-              style={{
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "space-between",
-                padding: "14px 0",
-                borderBottom: "0.5px solid #f0f0f0",
-                fontFamily: MONO,
-                fontSize: "13px",
-                letterSpacing: "0.08em",
-                textTransform: "uppercase",
-                color: pathname === "/community" ? "#0d0d0d" : "#888888",
-                textDecoration: "none",
-              }}
-            >
-              {isJa ? "コミュニティ" : "Community"}
-              <span
-                aria-hidden="true"
+            {[
+              { href: "/community", label: "Community", jp: "コミュニティ" },
+              { href: "/about",     label: "Support",   jp: "サポート" },
+            ].map(({ href, label, jp }) => (
+              <Link
+                key={href}
+                href={href}
+                onClick={() => setMenuOpen(false)}
                 style={{
-                  fontFamily: isJa ? MONO : JP,
-                  fontSize: "12px",
-                  letterSpacing: isJa ? "0.06em" : 0,
-                  textTransform: isJa ? "uppercase" : "none",
-                  color: pathname === "/community" ? ORANGE : "#c0c0c0",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  padding: "14px 0",
+                  borderBottom: "0.5px solid #f0f0f0",
+                  fontFamily: MONO,
+                  fontSize: "13px",
+                  letterSpacing: "0.08em",
+                  textTransform: "uppercase",
+                  color: pathname === href ? "#0d0d0d" : "#888888",
+                  textDecoration: "none",
                 }}
               >
-                {isJa ? "Community" : "コミュニティ"}
-              </span>
-            </Link>
+                {isJa ? jp : label}
+                <span
+                  aria-hidden="true"
+                  style={{
+                    fontFamily: isJa ? MONO : JP,
+                    fontSize: "12px",
+                    letterSpacing: isJa ? "0.06em" : 0,
+                    textTransform: isJa ? "uppercase" : "none",
+                    color: pathname === href ? ORANGE : "#c0c0c0",
+                  }}
+                >
+                  {isJa ? label : jp}
+                </span>
+              </Link>
+            ))}
             <Link
               href={`/@${username}`}
               onClick={() => setMenuOpen(false)}
