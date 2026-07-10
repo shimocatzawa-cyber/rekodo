@@ -122,6 +122,16 @@ export default async function RootLayout({
             {children}
           </SpotifyPlayerProvider>
         </NextIntlClientProvider>
+        <Script
+          src="https://www.googletagmanager.com/gtag/js?id=G-SNTXSZRKR1"
+          strategy="afterInteractive"
+        />
+        <Script id="google-analytics" strategy="afterInteractive">{`
+          window.dataLayer = window.dataLayer || [];
+          function gtag(){dataLayer.push(arguments);}
+          gtag('js', new Date());
+          gtag('config', 'G-SNTXSZRKR1');
+        `}</Script>
         {process.env.NEXT_PUBLIC_AMAZON_ONELINK_ID && (
           <Script
             src={`//z-na.amazon-adsystem.com/widgets/onejs?MarketPlace=US&adInstanceId=${process.env.NEXT_PUBLIC_AMAZON_ONELINK_ID}`}
