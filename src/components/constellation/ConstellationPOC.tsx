@@ -2043,7 +2043,7 @@ export default function ConstellationPOC({ username }: Props) {
           Best experienced on a larger screen. Open rekōdo on desktop to explore your collection as a living star map.
         </p>
         <a
-          href="/"
+          href="/collection"
           style={{
             fontFamily: MONO, fontSize: "10px", letterSpacing: "0.16em",
             textTransform: "uppercase", color: DIM3, textDecoration: "none",
@@ -2097,7 +2097,7 @@ export default function ConstellationPOC({ username }: Props) {
       {isReady && (
         <div className="absolute top-6 left-7 z-10 pointer-events-none">
           <a
-            href="/"
+            href="/collection"
             style={{
               fontFamily: MONO, fontSize: "10px", color: DIM3, letterSpacing: "0.25em",
               textTransform: "uppercase", textDecoration: "none", display: "inline-block",
