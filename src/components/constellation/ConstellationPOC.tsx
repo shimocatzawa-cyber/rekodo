@@ -2247,9 +2247,10 @@ export default function ConstellationPOC({ username }: Props) {
                     addInfl(visInfl, inflEdge);
                   }
 
-                  // Build global neighbours lookup: style → external artists
+                  // Build global neighbours lookup: style → external artists (exclude Various)
                   const globalByStyle = new Map<string, string[]>();
                   for (const n of globalNeighbours) {
+                    if (/^various/i.test(n.artist)) continue;
                     for (const s of n.shared_styles) {
                       if (!globalByStyle.has(s)) globalByStyle.set(s, []);
                       globalByStyle.get(s)!.push(n.artist);
@@ -2415,21 +2416,21 @@ export default function ConstellationPOC({ username }: Props) {
 
                       <PanelSection id="sonic" title="Sonic Neighbours" count={visStyles.length}>
                         {visStyles.length === 0 ? empty : visStyles.map(g => {
-                          const globals = (globalByStyle.get(g.style) ?? []).slice(0, 8);
+                          const collectionArtists = g.artists.filter(a => !/^various/i.test(a));
+                          const globalArtists = (globalByStyle.get(g.style) ?? [])
+                            .filter(a => !/^various/i.test(a))
+                            .slice(0, 8);
+                          const collectionSet = new Set(collectionArtists.map(a => a.toLowerCase()));
+                          const combined = [
+                            ...collectionArtists,
+                            ...globalArtists.filter(a => !collectionSet.has(a.toLowerCase())),
+                          ];
                           return (
                             <div key={g.style} style={{ marginBottom: 16 }}>
                               <p style={{ fontFamily: MONO, fontSize: "11px", color: ORANGE, letterSpacing: "0.1em", textTransform: "uppercase", margin: "0 0 5px" }}>
-                                {g.style} <span style={{ color: DIM3 }}>· {g.artists.length}</span>
+                                {g.style} <span style={{ color: DIM3 }}>· {combined.length}</span>
                               </p>
-                              <ArtistList artists={g.artists} />
-                              {globals.length > 0 && (
-                                <>
-                                  <p style={{ fontFamily: MONO, fontSize: "10px", color: DIM3, letterSpacing: "0.08em", textTransform: "uppercase", margin: "6px 0 4px" }}>
-                                    also in global db
-                                  </p>
-                                  <ArtistList artists={globals} />
-                                </>
-                              )}
+                              <ArtistList artists={combined} />
                             </div>
                           );
                         })}
