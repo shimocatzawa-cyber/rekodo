@@ -374,7 +374,7 @@ function PodcastsContent({ data, artist }: { data: { episodes?: Episode[] }; art
   );
 }
 
-type BookItem = { title: string; author: string; year: number; type: string; format: string; isbn13?: string; note: string; written_by_artist?: boolean; amazonUrl?: string; audibleUrl?: string };
+type BookItem = { title: string; author: string; year: number; type: string; note: string; written_by_artist?: boolean };
 
 function BooksContent({ data }: { data: { items?: BookItem[] } }) {
   // Sort by year ascending (oldest first), preserving written_by_artist grouping
@@ -392,39 +392,6 @@ function BooksContent({ data }: { data: { items?: BookItem[] } }) {
   }
 
   const firstAboutIndex = byArtist.length > 0 ? byArtist.length : -1;
-
-  const tag = process.env.NEXT_PUBLIC_AMAZON_AFFILIATE_TAG;
-
-  function amazonHref(b: BookItem) {
-    // Prefer the direct product URL Claude found and verified via web search.
-    // OneLink (loaded in layout) rewrites amazon.com links to each visitor's local store.
-    if (b.amazonUrl) {
-      if (!tag) return b.amazonUrl;
-      return `${b.amazonUrl}${b.amazonUrl.includes("?") ? "&" : "?"}tag=${tag}`;
-    }
-    // field-isbn targets Amazon's book ISBN index directly (much more reliable than k=ISBN).
-    if (b.isbn13) {
-      const base = `https://www.amazon.com/s?field-isbn=${encodeURIComponent(b.isbn13)}&search-alias=books`;
-      return tag ? `${base}&tag=${tag}` : base;
-    }
-    const q = encodeURIComponent(`${b.title} ${b.author}`);
-    return tag ? `https://www.amazon.com/s?k=${q}&search-alias=books&tag=${tag}` : `https://www.amazon.com/s?k=${q}&search-alias=books`;
-  }
-
-  function audibleHref(b: BookItem) {
-    // Prefer the direct page Claude found and verified via web search.
-    // OneLink handles regional routing (audible.co.uk, audible.com.au, etc.) via the layout script.
-    if (b.audibleUrl) return b.audibleUrl;
-    // Audible uses its own ASIN system — ISBN lookup doesn't map. Title+author is more reliable.
-    const q = encodeURIComponent(`${b.title} ${b.author}`);
-    return `https://www.audible.com/search?keywords=${q}`;
-  }
-
-  const hasAudiobook = (b: BookItem) => b.format === "audiobook" || b.format === "both";
-
-  const linkStyle = { fontFamily: MONO, fontSize: "0.65rem", letterSpacing: "0.08em", color: ORANGE, textDecoration: "none" };
-  const hoverOn  = (e: React.MouseEvent<HTMLAnchorElement>) => { e.currentTarget.style.textDecoration = "underline"; };
-  const hoverOff = (e: React.MouseEvent<HTMLAnchorElement>) => { e.currentTarget.style.textDecoration = "none"; };
 
   return (
     <div>
@@ -452,23 +419,10 @@ function BooksContent({ data }: { data: { items?: BookItem[] } }) {
             </p>
             <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 8 }}>
               <Badge label={b.type} />
-              <Badge label={b.format} />
             </div>
-            <p style={{ fontFamily: MONO, fontSize: "0.68rem", letterSpacing: "0.04em", color: INK, fontStyle: "italic", lineHeight: 1.5, margin: "0 0 8px" }}>
+            <p style={{ fontFamily: MONO, fontSize: "0.68rem", letterSpacing: "0.04em", color: INK, fontStyle: "italic", lineHeight: 1.5, margin: 0 }}>
               {b.note}
             </p>
-            <div style={{ display: "flex", gap: "16px", flexWrap: "wrap" }}>
-              {b.format !== "audiobook" && (
-                <a href={amazonHref(b)} target="_blank" rel="noopener noreferrer" style={linkStyle} onMouseEnter={hoverOn} onMouseLeave={hoverOff}>
-                  Buy on Amazon →
-                </a>
-              )}
-              {hasAudiobook(b) && (
-                <a href={audibleHref(b)} target="_blank" rel="noopener noreferrer" style={linkStyle} onMouseEnter={hoverOn} onMouseLeave={hoverOff}>
-                  Listen on Audible →
-                </a>
-              )}
-            </div>
           </div>
         </div>
       ))}

@@ -50,12 +50,12 @@ const DB_TIMEOUT_MS = 3000;
 
 const CACHED_SECTIONS = new Set(["rankings", "podcasts", "books", "interviews", "related", "pressings"]);
 
-const SONNET_SECTIONS = new Set(["podcasts", "books", "interviews"]);
+const SONNET_SECTIONS = new Set(["podcasts", "interviews"]);
 
 const MAX_TOKENS: Record<string, number> = {
   rankings:   1500,
   podcasts:   2048,
-  books:      2048,
+  books:      1500,
   interviews: 1500,
   blindspot:  2048,
   related:    1500,
@@ -65,7 +65,7 @@ const MAX_TOKENS: Record<string, number> = {
 // Sections where Claude verifies results via Anthropic's server-side web search
 // tool (runs within the same API call — no extra request loop needed) rather
 // than relying solely on training-data recall.
-const WEB_SEARCH_SECTIONS = new Set(["interviews", "podcasts", "books"]);
+const WEB_SEARCH_SECTIONS = new Set(["interviews", "podcasts"]);
 
 // Race an async callback against a timeout — returns null on timeout instead of hanging.
 // Accepts a callback (not a raw Promise) so callers can pass Supabase query builders,
@@ -109,35 +109,6 @@ function stripUnverifiedPodcastUrls(data: unknown): void {
   }
 }
 
-// Same backstop for the books section: a "verified" link must be the book's own
-// product page, not a search/category page or some other Amazon/Audible URL.
-function isAmazonProductUrl(url: string): boolean {
-  try {
-    const u = new URL(url);
-    if (!/(^|\.)amazon\.com$/.test(u.hostname)) return false;
-    return /\/dp\/[A-Z0-9]{10}(?:[/?]|$)/i.test(u.pathname);
-  } catch {
-    return false;
-  }
-}
-
-function isAudibleProductUrl(url: string): boolean {
-  try {
-    const u = new URL(url);
-    if (!/(^|\.)audible\.com$/.test(u.hostname)) return false;
-    return u.pathname.startsWith("/pd/");
-  } catch {
-    return false;
-  }
-}
-
-function stripUnverifiedBookUrls(data: unknown): void {
-  if (!data || typeof data !== "object" || !Array.isArray((data as { items?: unknown }).items)) return;
-  for (const item of (data as { items: Record<string, unknown>[] }).items) {
-    if (typeof item.amazonUrl === "string" && !isAmazonProductUrl(item.amazonUrl)) delete item.amazonUrl;
-    if (typeof item.audibleUrl === "string" && !isAudibleProductUrl(item.audibleUrl)) delete item.audibleUrl;
-  }
-}
 
 function getSupabase() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -563,25 +534,20 @@ Return ONLY valid JSON, no markdown, no backticks, no preamble:
 type must be one of: "interview", "review", "documentary", "discussion". appleUrl and spotifyUrl are optional — omit whichever you could not verify. Return an empty array only if you genuinely cannot verify any. Do not fabricate.`,
 
   books: (artist) =>
-    `You are a music research assistant with web search access, helping a vinyl collector. List books and audiobooks by or about ${artist}.
+    `You are a music research assistant helping a vinyl collector. List books by or about ${artist}.
 
-ORDER — strictly follow this:
-1. Books or audiobooks WRITTEN OR NARRATED BY ${artist} themselves (memoirs, essays, spoken word) — list these first
+ORDER:
+1. Books WRITTEN BY ${artist} themselves (memoirs, essays, spoken word) — list these first, set written_by_artist to true
 2. Books significantly about ${artist} — biographies, critical studies, authorised accounts
-3. Essential books about the scene, era, or movement ${artist} defined — only include if genuinely illuminating for a fan
+3. Essential books about the scene or movement ${artist} defined — only if genuinely illuminating for a fan
 
-INSTRUCTIONS:
-- Use web search to confirm each title actually exists before including it — a title you can't verify is worse than no title.
-- If the format includes print ("book" or "both"), search for the real Amazon product page (e.g. "<title> <author> site:amazon.com") and set "amazonUrl" to that book's own product page — it must contain "/dp/" followed by the ASIN (e.g. https://www.amazon.com/dp/0571234567). A search-results or category page is not a product page — omit the field instead of guessing.
-- If the format includes audio ("audiobook" or "both"), search for the real Audible page (e.g. "<title> <author> site:audible.com") and set "audibleUrl" to that title's own product page — it must start with "/pd/" (e.g. https://www.audible.com/pd/Title-Audiobook/B0ABCDEFGH). Omit the field if you can't find that exact pattern.
-- For the "format" field: use "audiobook" if only available as audio. Use "both" if it exists as both print and audiobook. Use "book" if no audiobook edition is known. This field controls which store links appear — be accurate.
-- For the "isbn13" field: include the ISBN-13 if you are confident (13 digits, starts with 978 or 979). Omit if uncertain — a wrong ISBN is worse than none.
-- For the "written_by_artist" field: set true if ${artist} is the author or primary narrator. Set false for all other items.
+RULES:
+- Only include titles you are confident actually exist. Omit anything uncertain.
 - Return up to 6 items total, sorted by year ascending within each group.
+- "type" must be one of: "biography", "memoir", "criticism", "history", "fiction", "reference"
 
 Return ONLY valid JSON, no markdown, no backticks, no preamble:
-{"items":[{"title":"Book Title","author":"Author Name","year":2003,"type":"memoir","format":"both","isbn13":"9780571234567","written_by_artist":true,"note":"One sentence on why essential","amazonUrl":"https://www.amazon.com/dp/...","audibleUrl":"https://www.audible.com/pd/..."}]}
-type must be one of: "biography", "memoir", "criticism", "history", "fiction", "reference". amazonUrl and audibleUrl are optional — omit whichever you could not verify. Do not fabricate titles.`,
+{"items":[{"title":"Book Title","author":"Author Name","year":2003,"type":"memoir","written_by_artist":true,"note":"One sentence on why worth reading"}]}`,
 
   interviews: (artist) =>
     `You are a music research assistant. Use web search to find print interviews given by ${artist} and their direct URLs.
@@ -676,7 +642,6 @@ export async function getOrGenerateSection(
       // it on read so the client's fallback lookup gets a real shot, without
       // paying for regeneration.
       if (section === "podcasts") stripUnverifiedPodcastUrls(cached);
-      if (section === "books") stripUnverifiedBookUrls(cached);
       return { data: cached, cached: true };
     }
   }
@@ -746,7 +711,6 @@ export async function getOrGenerateSection(
   }
 
   if (section === "podcasts") stripUnverifiedPodcastUrls(data);
-  if (section === "books") stripUnverifiedBookUrls(data);
 
   // ── Cache write (fire-and-forget via after(), 3 s hard timeout) ────────────
   // Same Vercel mid-flight-kill issue as the deep-dive-session tracking below —
