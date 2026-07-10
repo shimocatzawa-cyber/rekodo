@@ -524,6 +524,14 @@ export default function ConstellationPOC({ username }: Props) {
   const decadeFilterRef        = useRef<number | null>(null);
   const discoveryIdsRef        = useRef<Set<string>>(new Set());
 
+  const [isMobile, setIsMobile] = useState(false);
+  useEffect(() => {
+    const check = () => setIsMobile(window.innerWidth < 768);
+    check();
+    window.addEventListener("resize", check);
+    return () => window.removeEventListener("resize", check);
+  }, []);
+
   const [selectedArtist, setSelectedArtist] = useState<ArtistNode | null>(null);
   const [selectedEdge,   setSelectedEdge]   = useState<Edge | null>(null);
   const [isReady,        setIsReady]        = useState(false);
@@ -2020,7 +2028,33 @@ export default function ConstellationPOC({ username }: Props) {
   const edgeSrc = selectedEdge ? (nodesRef.current.find(n => n.id === selectedEdge.source) ?? null) : null;
   const edgeTgt = selectedEdge ? (nodesRef.current.find(n => n.id === selectedEdge.target) ?? null) : null;
 
-
+  if (isMobile) {
+    return (
+      <div style={{
+        minHeight: "100dvh", background: BG,
+        display: "flex", flexDirection: "column",
+        alignItems: "center", justifyContent: "center",
+        padding: "32px 24px", textAlign: "center",
+      }}>
+        <p style={{ fontFamily: SERIF, fontSize: "28px", color: INK, marginBottom: 16, lineHeight: 1.2 }}>
+          Collection Constellation
+        </p>
+        <p style={{ fontFamily: MONO, fontSize: "12px", color: DIM3, letterSpacing: "0.08em", lineHeight: 1.8, maxWidth: 300, marginBottom: 32 }}>
+          Best experienced on a larger screen. Open rekōdo on desktop to explore your collection as a living star map.
+        </p>
+        <a
+          href="/"
+          style={{
+            fontFamily: MONO, fontSize: "10px", letterSpacing: "0.16em",
+            textTransform: "uppercase", color: DIM3, textDecoration: "none",
+            border: `1px solid ${BORD}`, padding: "10px 18px",
+          }}
+        >
+          ← Back
+        </a>
+      </div>
+    );
+  }
 
   return (
     <div className="relative w-full h-screen overflow-hidden select-none" style={{ background: BG }}>

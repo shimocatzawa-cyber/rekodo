@@ -13,7 +13,7 @@ const SECTION_BY_PREFIX: [prefix: string, label: string][] = [
   ["/insights",           "Insights"],
   ["/archetypes",         "Archetypes"],
   ["/community",          "Community"],
-  ["/constellation-poc",  "Constellation"],
+  ["/constellation",      "Constellation"],
   ["/about",              "Support"],
   ["/settings",           "Settings"],
   ["/library",            "Library"],

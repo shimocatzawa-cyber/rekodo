@@ -20,7 +20,7 @@ const NAV_ITEMS = [
   { href: "/lists",             label: "Lists",          jp: "リスト" },
   { href: "/insights",          label: "Insights",       jp: "インサイト" },
   { href: "/archetypes",        label: "Archetypes",     jp: "アーキタイプ" },
-  { href: "/constellation-poc", label: "Constellation",  jp: "星座" },
+  { href: "/constellation",     label: "Constellation",  jp: "星座" },
 ] as const;
 
 export default function AppNav({ username, displayLabel, avatarUrl }: { username: string; displayLabel?: string; avatarUrl?: string | null }) {
