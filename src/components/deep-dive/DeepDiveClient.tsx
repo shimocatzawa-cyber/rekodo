@@ -14,7 +14,7 @@ const RULE   = "#e0e0da";
 const WARM   = "#FDF6F0";
 const SUBTLE = "#f0efea";
 
-type Section = "rankings" | "podcasts" | "books" | "interviews" | "related" | "blindspot" | "pressings";
+type Section = "rankings" | "podcasts" | "print" | "related" | "blindspot" | "pressings";
 
 export type ArtistData = {
   name: string;
@@ -38,7 +38,7 @@ function BandcampIcon({ size = 13 }: { size?: number }) {
   );
 }
 
-const TAB_IDS: Section[] = ["rankings", "pressings", "blindspot", "podcasts", "books", "interviews", "related"];
+const TAB_IDS: Section[] = ["rankings", "pressings", "blindspot", "podcasts", "print", "related"];
 
 // ── Shared primitives ──────────────────────────────────────────────────────────
 
@@ -375,6 +375,7 @@ function PodcastsContent({ data, artist }: { data: { episodes?: Episode[] }; art
 }
 
 type BookItem = { title: string; author: string; year: number; type: string; note: string; written_by_artist?: boolean };
+type PrintData = { books?: BookItem[]; interviews?: InterviewItem[] };
 
 function BooksContent({ data }: { data: { items?: BookItem[] } }) {
   // Sort by year ascending (oldest first), preserving written_by_artist grouping
@@ -504,6 +505,48 @@ function InterviewsContent({ data, artist }: { data: { interviews?: InterviewIte
 }
 
 // ── Collection strip (artwork tiles above tabs) ────────────────────────────────
+
+function PrintContent({ data, artist }: { data: PrintData; artist: string }) {
+  const hasBooks      = (data.books?.length ?? 0) > 0;
+  const hasInterviews = (data.interviews?.length ?? 0) > 0;
+
+  if (!hasBooks && !hasInterviews) {
+    return (
+      <p style={{ fontFamily: MONO, fontSize: "0.72rem", letterSpacing: "0.04em", color: INK, padding: "2rem 0" }}>
+        No information available for this artist.
+      </p>
+    );
+  }
+
+  const sectionHeader = (label: string) => (
+    <p style={{ fontFamily: MONO, fontSize: "0.52rem", letterSpacing: "0.14em", textTransform: "uppercase", color: INK, margin: "0 0 0.25rem 0" }}>
+      {label}
+    </p>
+  );
+
+  return (
+    <div>
+      {hasBooks && (
+        <>
+          <div style={{ marginBottom: "1.25rem" }}>
+            {sectionHeader("BOOKS")}
+            <div style={{ borderTop: `1px solid ${RULE}` }} />
+          </div>
+          <BooksContent data={{ items: data.books }} />
+        </>
+      )}
+      {hasInterviews && (
+        <>
+          <div style={{ margin: hasBooks ? "2rem 0 1.25rem" : "0 0 1.25rem" }}>
+            {sectionHeader("INTERVIEWS")}
+            <div style={{ borderTop: `1px solid ${RULE}` }} />
+          </div>
+          <InterviewsContent data={{ interviews: data.interviews }} artist={artist} />
+        </>
+      )}
+    </div>
+  );
+}
 
 function VinylFallback({ size = 80 }: { size?: number }) {
   const svgSize = Math.round(size * 0.44);
@@ -976,13 +1019,12 @@ export default function DeepDiveClient({
 }) {
   const t = useTranslations("deepDive");
   const TABS: { id: Section; label: string }[] = [
-    { id: "rankings",   label: t("essentialAlbums") },
-    { id: "pressings",  label: t("pressings") },
-    { id: "blindspot",  label: t("blindSpot") },
-    { id: "podcasts",   label: t("podcasts") },
-    { id: "books",      label: t("books") },
-    { id: "interviews", label: t("interviews") },
-    { id: "related",    label: t("relatedArtists") },
+    { id: "rankings",  label: t("essentialAlbums") },
+    { id: "pressings", label: t("pressings") },
+    { id: "blindspot", label: t("blindSpot") },
+    { id: "podcasts",  label: t("podcasts") },
+    { id: "print",     label: "Print" },
+    { id: "related",   label: t("relatedArtists") },
   ];
   const [query, setQuery] = useState("");
   const [selectedArtist, setSelectedArtist] = useState<string | null>(null);
@@ -1463,10 +1505,9 @@ export default function DeepDiveClient({
         wantlistSet={wantlistSet}
       />;
     }
-    if (tab === "podcasts")   return <PodcastsContent   data={data as { episodes?: Episode[] }} artist={selectedArtist} />;
-    if (tab === "books")      return <BooksContent      data={data as { items?: BookItem[] }} />;
-    if (tab === "interviews") return <InterviewsContent data={data as { interviews?: InterviewItem[] }} artist={selectedArtist} />;
-    if (tab === "related")    return <RelatedArtistsContent data={data as { artists?: RelatedArtist[] }} />;
+    if (tab === "podcasts") return <PodcastsContent data={data as { episodes?: Episode[] }} artist={selectedArtist} />;
+    if (tab === "print")    return <PrintContent    data={data as PrintData} artist={selectedArtist} />;
+    if (tab === "related")  return <RelatedArtistsContent data={data as { artists?: RelatedArtist[] }} />;
     if (tab === "blindspot")  return <BlindSpotContent  data={data as { albums?: BlindSpotAlbum[] }} artist={selectedArtist} />;
     if (tab === "pressings")  return <PressingsContent  data={data as { pressings?: PressingsAlbum[] }} onRetry={() => retryFetch(selectedArtist, "pressings")} />;
     return null;

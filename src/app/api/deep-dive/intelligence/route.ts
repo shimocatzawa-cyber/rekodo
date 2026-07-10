@@ -8,38 +8,31 @@ export const maxDuration = 120;
 
 const client = new Anthropic();
 
-// Per-section cache TTL in days. 0 = never expire. "rankings"/"books" are
-// long-lived — an artist's essential albums and bibliography rarely change.
-// "related" never expires — stylistic neighbors don't change at all.
-// "podcasts"/"interviews" stay on a shorter cycle since new episodes and
-// features genuinely keep appearing.
 const CACHE_TTL_DAYS: Record<string, number> = {
-  rankings:   180,
-  podcasts:   60,
-  books:      180,
-  interviews: 60,
-  related:    0,
-  pressings:  1,
+  rankings:  180,
+  podcasts:  60,
+  print:     90,
+  related:   0,
+  pressings: 1,
 };
 
-// The JSON field holding each section's primary result array.
 const RESULT_ARRAY_KEY: Record<string, string> = {
-  rankings:   "albums",
-  podcasts:   "episodes",
-  books:      "items",
-  interviews: "interviews",
-  related:    "artists",
-  pressings:  "pressings",
+  rankings:  "albums",
+  podcasts:  "episodes",
+  related:   "artists",
+  pressings: "pressings",
 };
 
-// Don't cache a bad result — a transient parse/verification failure returning
-// zero items, a null key, or a missing key would otherwise freeze "No information
-// available" for the full TTL with no way for a client-side Retry to recover.
 function isEmptyResult(section: string, data: unknown): boolean {
+  if (section === "print") {
+    if (!data || typeof data !== "object") return true;
+    const d = data as { books?: unknown[]; interviews?: unknown[] };
+    return (d.books?.length ?? 0) === 0 && (d.interviews?.length ?? 0) === 0;
+  }
   const key = RESULT_ARRAY_KEY[section];
   if (!key || !data || typeof data !== "object") return false;
   const arr = (data as Record<string, unknown>)[key];
-  if (!Array.isArray(arr)) return true; // missing or null key is also a bad result
+  if (!Array.isArray(arr)) return true;
   return arr.length === 0;
 }
 
@@ -48,24 +41,18 @@ function isEmptyResult(section: string, data: unknown): boolean {
 // before Claude is ever called.
 const DB_TIMEOUT_MS = 3000;
 
-const CACHED_SECTIONS = new Set(["rankings", "podcasts", "books", "interviews", "related", "pressings"]);
+const CACHED_SECTIONS = new Set(["rankings", "podcasts", "print", "related", "pressings"]);
 
-const SONNET_SECTIONS = new Set<string>();
 
 const MAX_TOKENS: Record<string, number> = {
-  rankings:   1500,
-  podcasts:   1000,
-  books:      1500,
-  interviews: 1000,
-  blindspot:  2048,
-  related:    1500,
-  pressings:  0,
+  rankings:  1500,
+  podcasts:  1000,
+  print:     2048,
+  blindspot: 2048,
+  related:   1500,
+  pressings: 0,
 };
 
-// Sections where Claude verifies results via Anthropic's server-side web search
-// tool (runs within the same API call — no extra request loop needed) rather
-// than relying solely on training-data recall.
-const WEB_SEARCH_SECTIONS = new Set<string>();
 
 // Race an async callback against a timeout — returns null on timeout instead of hanging.
 // Accepts a callback (not a raw Promise) so callers can pass Supabase query builders,
@@ -580,39 +567,24 @@ Return ONLY valid JSON, no markdown, no backticks, no preamble:
 {"episodes":[{"show":"Show Name","episode":"Exact episode title","year":2021,"type":"interview","note":"One sentence on why worth listening"}]}
 type must be one of: "interview", "review", "documentary", "discussion". Do not fabricate.`,
 
-  books: (artist) =>
-    `You are a music research assistant helping a vinyl collector. List books by or about ${artist}.
+  print: (artist) =>
+    `You are a music research assistant helping a vinyl collector. For ${artist}, return two lists in one JSON response.
 
-ORDER:
-1. Books WRITTEN BY ${artist} themselves (memoirs, essays, spoken word) — list these first, set written_by_artist to true
-2. Books significantly about ${artist} — biographies, critical studies, authorised accounts
-3. Essential books about the scene or movement ${artist} defined — only if genuinely illuminating for a fan
+BOOKS — up to 5 books by or about ${artist}:
+1. Books WRITTEN BY ${artist} (memoirs, essays) — list first, set written_by_artist: true
+2. Biographies or critical studies about ${artist}
+3. Essential books about the scene ${artist} defined — only if genuinely illuminating
+Sort by year ascending within each group. Only include titles you are confident exist.
+"type": "biography"|"memoir"|"criticism"|"history"|"fiction"|"reference"
 
-RULES:
-- Only include titles you are confident actually exist. Omit anything uncertain.
-- Return up to 6 items total, sorted by year ascending within each group.
-- "type" must be one of: "biography", "memoir", "criticism", "history", "fiction", "reference"
-
-Return ONLY valid JSON, no markdown, no backticks, no preamble:
-{"items":[{"title":"Book Title","author":"Author Name","year":2003,"type":"memoir","written_by_artist":true,"note":"One sentence on why worth reading"}]}`,
-
-  interviews: (artist) =>
-    `You are a music research assistant helping a vinyl collector. List notable print and online interviews given by ${artist}.
-
-SCOPE — print and text only:
-- Magazine features: Pitchfork, The Wire, The Guardian, NME, MOJO, Rolling Stone, The Face, Uncut, Q, Loud And Quiet, etc.
-- Online publications: Bandcamp Daily, Fact Magazine, Resident Advisor, XLR8R, The Quietus, Stereogum, etc.
-DO NOT include: YouTube, podcast appearances, radio, or any audio/video content.
-
-RULES:
-- Only include interviews you are confident actually exist.
-- Omit the "url" field unless you are certain of the exact URL — a missing URL is better than a wrong one.
-- The "domain" field is the bare domain (e.g. "pitchfork.com").
-- Return up to 6 results, most recent first.
+INTERVIEWS — up to 5 notable print/text interviews given by ${artist}:
+Sources: Pitchfork, The Wire, The Guardian, NME, MOJO, Rolling Stone, Uncut, The Quietus, Bandcamp Daily, Fact, Resident Advisor, XLR8R, Stereogum, etc.
+Text only — no YouTube, podcasts, or audio/video.
+Most recent first. Omit "url" unless you are certain of the exact URL.
+"domain" is the bare domain (e.g. "pitchfork.com"). "date" is YYYY-MM or YYYY-MM-DD when known.
 
 Return ONLY valid JSON, no markdown, no backticks, no preamble:
-{"interviews":[{"publication":"Pitchfork","domain":"pitchfork.com","title":"Interview title or description","year":2019,"date":"2019-03","note":"What makes it worth reading"}]}
-"date" (YYYY-MM or YYYY-MM-DD) and "url" are optional. "year" is always required.`,
+{"books":[{"title":"Book Title","author":"Author Name","year":2003,"type":"memoir","written_by_artist":true,"note":"One sentence"}],"interviews":[{"publication":"Pitchfork","domain":"pitchfork.com","title":"Interview title","year":2019,"date":"2019-03","note":"What makes it worth reading"}]}`,
 
   related: (artist) =>
     `You are a music expert guiding a vinyl collector. Based on ${artist}'s style, sound, and era, suggest 8 related artists worth exploring. Cover both the obvious (close contemporaries, same scene) and the less obvious (stylistic connections, cross-genre links).
@@ -690,7 +662,7 @@ export async function getOrGenerateSection(
   }
 
   // ── Model + token budget ───────────────────────────────────────────────────
-  const model     = SONNET_SECTIONS.has(section) ? "claude-sonnet-4-6" : "claude-haiku-4-5-20251001";
+  const model     = "claude-haiku-4-5-20251001";
   const maxTokens = MAX_TOKENS[section] ?? 1500;
 
   // Rankings: cap at 5 for prompt conciseness. Blindspot: pass all owned albums
