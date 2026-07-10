@@ -458,8 +458,10 @@ export default function ConstellationPOC({ username }: Props) {
   const [labelGroups,    setLabelGroups]    = useState<LabelGroup[]>([]);
   const [styleGroups,    setStyleGroups]    = useState<StyleGroup[]>([]);
   const [producerGroups, setProducerGroups] = useState<ProducerGroup[]>([]);
-  const [mbLineage,      setMbLineage]      = useState<LineageEdge[]>([]);
-  const [mbInfluence,    setMbInfluence]    = useState<InflEdge[]>([]);
+  const [mbLineage,        setMbLineage]        = useState<LineageEdge[]>([]);
+  const [selectedLineage,  setSelectedLineage]  = useState<LineageEdge[]>([]);
+  const [lineageLoading,   setLineageLoading]   = useState(false);
+  const [mbInfluence,      setMbInfluence]      = useState<InflEdge[]>([]);
   const [wdInfluence,    setWdInfluence]    = useState<WDInfluenceEdge[]>([]);
   const [discogsLineage, setDiscogsLineage] = useState<LineageEdge[]>([]);
   const [globalNeighbours, setGlobalNeighbours] = useState<{ artist: string; shared_styles: string[]; match_count: number }[]>([]);
@@ -1085,53 +1087,44 @@ export default function ConstellationPOC({ username }: Props) {
   // ── Real-time MB lineage on artist selection ─────────────────────────────────
   // Separated from the sonic fetch so styleGroups changes never cancel this.
 
-  // On-select lineage: fetch via Claude route immediately when an artist is clicked
+  // On-select lineage: fetch directly for the clicked artist, stored in dedicated state
   useEffect(() => {
-    if (!artistFilter || !isReady) return;
+    if (!isReady) { setSelectedLineage([]); setLineageLoading(false); return; }
+    if (!artistFilter) { setSelectedLineage([]); setLineageLoading(false); return; }
+
     let cancelled = false;
     const name = artistFilter;
+    setSelectedLineage([]);
+    setLineageLoading(true);
 
-    const run = async () => {
-      try {
-        console.log(`[lineage-select] fetching for "${name}"`);
-        const res = await fetch("/api/constellation/artist-lineage", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ artist: name }),
-        });
-        console.log(`[lineage-select] response ${res.status} cancelled=${cancelled}`);
-        if (!res.ok || cancelled) return;
-        const json = await res.json() as { rows?: { source: string; target: string; note: string }[] };
+    fetch("/api/constellation/artist-lineage", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ artist: name }),
+    })
+      .then(r => r.ok ? r.json() : Promise.reject(r.status))
+      .then((json: { rows?: { source: string; target: string; note: string }[] }) => {
+        if (cancelled) return;
         const rows = json.rows ?? [];
-        console.log(`[lineage-select] "${name}" rows:`, rows);
-
-        const nodeByName = new Map(nodesRef.current.map(n => [n.name.toLowerCase(), n]));
-        const newLineage: LineageEdge[] = [];
+        const seen = new Set<string>();
+        const edges: LineageEdge[] = [];
         for (const row of rows) {
-          const srcNode = nodeByName.get(row.source.toLowerCase());
-          const tgtNode = nodeByName.get(row.target.toLowerCase());
-          const src = srcNode?.name ?? row.source;
-          const tgt = tgtNode?.name ?? row.target;
-          const lKey = [src.toLowerCase(), tgt.toLowerCase()].sort().join("|");
-          const dup = newLineage.some(e => [e.source.toLowerCase(), e.target.toLowerCase()].sort().join("|") === lKey);
-          if (!dup) newLineage.push({ source: src, target: tgt, note: row.note, via: "claude" });
+          const k = [row.source.toLowerCase(), row.target.toLowerCase()].sort().join("|");
+          if (!seen.has(k)) { seen.add(k); edges.push({ source: row.source, target: row.target, note: row.note, via: "claude" }); }
         }
-        console.log(`[lineage-select] "${name}" newLineage:`, newLineage, `cancelled=${cancelled}`);
-
-        if (!cancelled && newLineage.length > 0) {
+        setSelectedLineage(edges);
+        // Also merge into shared mbLineage so canvas edges stay populated
+        if (edges.length > 0) {
           setMbLineage(prev => {
-            const seen = new Set(prev.map(e => [e.source, e.target].sort().join("|")));
-            const fresh = newLineage.filter(e => !seen.has([e.source, e.target].sort().join("|")));
-            console.log(`[lineage-select] setMbLineage fresh=${fresh.length}`);
+            const prevKeys = new Set(prev.map(e => [e.source, e.target].sort().join("|")));
+            const fresh = edges.filter(e => !prevKeys.has([e.source, e.target].sort().join("|")));
             return fresh.length > 0 ? [...prev, ...fresh] : prev;
           });
         }
-      } catch (err) {
-        console.error(`[lineage-select] error:`, err);
-      }
-    };
+      })
+      .catch(() => {})
+      .finally(() => { if (!cancelled) setLineageLoading(false); });
 
-    run();
     return () => { cancelled = true; };
   }, [artistFilter, isReady]);
 
@@ -2209,13 +2202,17 @@ export default function ConstellationPOC({ username }: Props) {
                       return g.artists.length >= 2;
                     });
 
-                  const seenLin = new Set<string>();
-                  const visLin = [...mbLineage, ...discogsLineage].filter(e => {
-                    if (labelScope && (!labelScope.has(e.source) || !labelScope.has(e.target))) return false;
-                    if (afL && e.source.toLowerCase() !== afL && e.target.toLowerCase() !== afL) return false;
-                    const k = [e.source.toLowerCase(), e.target.toLowerCase()].sort().join("|");
-                    if (seenLin.has(k)) return false; seenLin.add(k); return true;
-                  });
+                  // When an artist is selected, show their dedicated lineage directly.
+                  // When no selection, show all lineage filtered by labelScope.
+                  const visLin: LineageEdge[] = (() => {
+                    if (afL) return selectedLineage;
+                    const seen = new Set<string>();
+                    return [...mbLineage, ...discogsLineage].filter(e => {
+                      if (labelScope && (!labelScope.has(e.source) || !labelScope.has(e.target))) return false;
+                      const k = [e.source.toLowerCase(), e.target.toLowerCase()].sort().join("|");
+                      if (seen.has(k)) return false; seen.add(k); return true;
+                    });
+                  })();
 
                   // Build name map: hardcoded curated IDs + all current collection nodes
                   const ID_TO_NAME_MAP = (() => {
@@ -2354,7 +2351,7 @@ export default function ConstellationPOC({ username }: Props) {
                       <PanelSection id="lineage" title="Band Lineage" count={visLin.length}>
                         {visLin.length === 0 ? (
                           <p style={{ fontFamily: MONO, fontSize: "12px", color: DIM3, paddingBottom: 12 }}>
-                            {mbLineage.length + discogsLineage.length === 0 ? "Loading in background…" : "None for current filter."}
+                            {lineageLoading ? "Looking up lineage…" : "None found."}
                           </p>
                         ) : visLin.map((e, i) => (
                           <div key={i} style={{ marginBottom: 14, paddingBottom: 14, borderBottom: `1px solid ${BORD}` }}>
