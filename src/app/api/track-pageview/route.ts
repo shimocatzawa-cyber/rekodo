@@ -5,19 +5,21 @@ import { createClient } from "@/lib/supabase/server";
 // keep labels matching AppNav.tsx so admin reporting lines up with what
 // users actually see in the nav.
 const SECTION_BY_PREFIX: [prefix: string, label: string][] = [
-  ["/selects",    "Rekōdo Selects"],
-  ["/collection", "Collection"],
-  ["/deep-dive",  "Deep Dive"],
-  ["/dig",        "Dig"],
-  ["/lists",      "Lists"],
-  ["/insights",   "Insights"],
-  ["/archetypes", "Archetypes"],
-  ["/about",      "Support"],
-  ["/settings",   "Settings"],
-  ["/library",    "Library"],
-  ["/gigs",       "Gigs"],
-  ["/quiz",       "Quiz"],
-  ["/p",          "Profile"],
+  ["/selects",            "Rekōdo Selects"],
+  ["/collection",         "Collection"],
+  ["/deep-dive",          "Deep Dive"],
+  ["/dig",                "Dig"],
+  ["/lists",              "Lists"],
+  ["/insights",           "Insights"],
+  ["/archetypes",         "Archetypes"],
+  ["/community",          "Community"],
+  ["/constellation-poc",  "Constellation"],
+  ["/about",              "Support"],
+  ["/settings",           "Settings"],
+  ["/library",            "Library"],
+  ["/gigs",               "Gigs"],
+  ["/quiz",               "Quiz"],
+  ["/p",                  "Profile"],
 ];
 
 function sectionForPath(path: string): string | null {
