@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useEffect, useState, useCallback } from "react";
+import { useRef, useEffect, useState, useCallback, createContext, useContext } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { zoneForTags } from "@/lib/musicbrainz";
 import { fetchDiscogsArtist } from "@/lib/discogs-artist";
@@ -446,6 +446,52 @@ function PanelSection({
   );
 }
 
+// ── Artist selection context — avoids prop drilling into panel chips ───────────
+const ArtistSelectionCtx = createContext<{
+  afL: string | null;
+  onSelect: (name: string) => void;
+  onClear: () => void;
+}>({ afL: null, onSelect: () => {}, onClear: () => {} });
+
+function ArtistChip({ name }: { name: string }) {
+  const { afL, onSelect, onClear } = useContext(ArtistSelectionCtx);
+  const active = afL != null && name.toLowerCase() === afL;
+  return (
+    <button
+      onClick={() => active ? onClear() : onSelect(name)}
+      style={{
+        fontFamily: SERIF, fontSize: "15px", lineHeight: 1.6,
+        background: "none", border: "none", padding: 0, margin: 0,
+        cursor: "pointer", color: active ? ORANGE : DIM2,
+        textDecoration: active ? "underline" : "none",
+        textUnderlineOffset: "3px",
+      }}
+    >{name}</button>
+  );
+}
+
+function ArtistList({ artists }: { artists: string[] }) {
+  return (
+    <p style={{ margin: "0 0 14px", lineHeight: 1.8 }}>
+      {artists.map((name, i) => (
+        <span key={name}>
+          {i > 0 && <span style={{ fontFamily: MONO, fontSize: "11px", color: DIM3 }}> · </span>}
+          <ArtistChip name={name} />
+        </span>
+      ))}
+    </p>
+  );
+}
+
+function InflRow({ e, nameKey }: { e: InflEdge; nameKey: "source" | "target" }) {
+  return (
+    <div style={{ marginBottom: 14, paddingBottom: 14, borderBottom: `1px solid ${BORD}` }}>
+      <p style={{ margin: "0 0 4px" }}><ArtistChip name={e[nameKey]} /></p>
+      {e.note ? <p style={{ fontFamily: MONO, fontSize: "11px", color: DIM3, margin: 0, lineHeight: 1.6 }}>{e.note}</p> : null}
+    </div>
+  );
+}
+
 // ── Component ──────────────────────────────────────────────────────────────────
 
 interface Props { username?: string; }
@@ -474,6 +520,9 @@ export default function ConstellationPOC({ username }: Props) {
   const mbEdgesRef             = useRef<Edge[]>([]);
   const discogsEdgesRef        = useRef<Edge[]>([]);
   const artistDiscogsIdsRef    = useRef<Map<string, number>>(new Map());
+  const artistYearsRef         = useRef<Map<string, Set<number>>>(new Map());
+  const decadeFilterRef        = useRef<number | null>(null);
+  const discoveryIdsRef        = useRef<Set<string>>(new Set());
 
   const [selectedArtist, setSelectedArtist] = useState<ArtistNode | null>(null);
   const [selectedEdge,   setSelectedEdge]   = useState<Edge | null>(null);
@@ -503,6 +552,8 @@ export default function ConstellationPOC({ username }: Props) {
   const [globalNeighbours, setGlobalNeighbours] = useState<{ artist: string; shared_styles: string[]; match_count: number }[]>([]);
   const [dbInfluence,      setDbInfluence]      = useState<{ source_artist: string; target_artist: string; type: string; note: string | null; via: string | null }[]>([]);
   const [inflLoading,      setInflLoading]      = useState(false);
+  const [decadeFilter,     setDecadeFilter]     = useState<number | null>(null);
+  const [discoveryNodes,   setDiscoveryNodes]   = useState<{ id: string; name: string; connections: string[] }[]>([]);
 
   // ── Artist / label filter ────────────────────────────────────────────────────
   const [artistQuery,    setArtistQuery]    = useState("");
@@ -551,6 +602,7 @@ export default function ConstellationPOC({ username }: Props) {
       const labelArtists    = new Map<string, Set<string>>();
       const producerArtists = new Map<string, Set<string>>();
       const discogsIdMap    = new Map<string, number>();
+      const yearsByArtistName = new Map<string, Set<number>>();
 
       if (username) {
         const supabase = createClient();
@@ -597,6 +649,11 @@ export default function ConstellationPOC({ username }: Props) {
             if (r.year && typeof r.year === "number" && r.year > 1000) {
               if (r.year < minYear) minYear = r.year;
               if (r.year > maxYear) maxYear = r.year;
+              if (r.artist && r.artist !== "Various") {
+                const ys = yearsByArtistName.get(r.artist) ?? new Set<number>();
+                ys.add(r.year);
+                yearsByArtistName.set(r.artist, ys);
+              }
             }
             if (!r.artist || r.artist === "Various") continue;
             albumCounts.set(r.artist, (albumCounts.get(r.artist) ?? 0) + 1);
@@ -832,6 +889,37 @@ export default function ConstellationPOC({ username }: Props) {
         ...derivedEdges.filter(e => nodeIds.has(e.source) && nodeIds.has(e.target)),
       ].map(buildEdge);
 
+      // Build artist-year lookup by node ID
+      if (username) {
+        const yearsById = new Map<string, Set<number>>();
+        for (const [artistName, years] of yearsByArtistName) {
+          const id = resolveId(artistName);
+          if (id && nodeIds.has(id)) yearsById.set(id, years);
+        }
+        artistYearsRef.current = yearsById;
+
+        // Discovery: score non-owned curated nodes by edges to owned nodes
+        const ownedSet = new Set(nodes.filter(n => n.owned).map(n => n.id));
+        const discoveryScored = nodes
+          .filter(n => !n.owned)
+          .map(n => {
+            const connections = edges
+              .filter(e => e.source === n.id || e.target === n.id)
+              .flatMap(e => {
+                const otherId = e.source === n.id ? e.target : e.source;
+                if (!ownedSet.has(otherId)) return [];
+                const other = nodes.find(nd => nd.id === otherId);
+                return other ? [other.name] : [];
+              });
+            return { id: n.id, name: n.name, connections, score: connections.length };
+          })
+          .filter(d => d.score > 0)
+          .sort((a, b) => b.score - a.score)
+          .slice(0, 8);
+        discoveryIdsRef.current = new Set(discoveryScored.map(d => d.id));
+        setDiscoveryNodes(discoveryScored);
+      }
+
       nodesRef.current = nodes;
       edgesRef.current = edges;
       recomputeInfluence(nodes, edges);
@@ -845,6 +933,8 @@ export default function ConstellationPOC({ username }: Props) {
   // Keep filter refs in sync so the canvas loop can read them without stale closures
   useEffect(() => { minAlbumsRef.current = minAlbums; }, [minAlbums]);
   useEffect(() => { enabledTypesRef.current = enabledTypes; }, [enabledTypes]);
+  useEffect(() => { decadeFilterRef.current = decadeFilter; }, [decadeFilter]);
+  useEffect(() => { discoveryIdsRef.current = new Set(discoveryNodes.map(d => d.id)); }, [discoveryNodes]);
   useEffect(() => {
     if (!labelFilter) { labelHighlightRef.current = new Set(); return; }
     const g = labelGroups.find(g => g.label === labelFilter);
@@ -1494,13 +1584,21 @@ export default function ConstellationPOC({ username }: Props) {
       // ── Layer 2: Nodes ─────────────────────────────────────────────────────
       const sorted = [...nodes].sort((a, b) => b.radius - a.radius);
       const labelNames = labelHighlightRef.current;
+      const activeDecade = decadeFilterRef.current;
+      const discoveryIds = discoveryIdsRef.current;
       for (const node of sorted) {
         if (isFiltered(node)) continue;
         const isHov  = hovered  === node.id;
         const isSel  = selected === node.id;
         const isAct  = isHov || isSel;
         const isLbl  = !hasSelection && labelNames.size > 0 && labelNames.has(node.name);
-        const isDim  = hasSelection ? (!isAct && !connectedIds.has(node.id))
+        const decadeDim = activeDecade !== null && node.owned && (() => {
+          const ys = artistYearsRef.current.get(node.id);
+          if (!ys) return false; // no year data → leave it visible
+          return ![...ys].some(y => y >= activeDecade && y < activeDecade + 10);
+        })();
+        const isDim  = decadeDim ? true
+                     : hasSelection ? (!isAct && !connectedIds.has(node.id))
                      : labelNames.size > 0 && !isLbl;
         const inf    = influence.get(node.id) ?? 0;
         const spawn  = spawns.find(s => s.id === node.id);
@@ -1511,15 +1609,23 @@ export default function ConstellationPOC({ username }: Props) {
         ctx.save();
 
         if (!node.owned) {
-          // Discovery node — faint dashed ring in constellation blue
-          const ghostAlpha = isDim ? 0.06 : isAct ? 0.90 : isLbl ? 0.75 : 0.35;
+          const isDiscover = discoveryIds.has(node.id);
+          const ghostAlpha = isDim ? 0.06 : isAct ? 0.90 : isLbl ? 0.75 : isDiscover ? 0.70 : 0.35;
           ctx.globalAlpha = ghostAlpha;
           ctx.beginPath(); ctx.arc(node.x, node.y, r, 0, Math.PI * 2);
-          ctx.strokeStyle = (isAct || isLbl) ? ACTIVE : "rgba(140,170,240,0.8)";
-          ctx.lineWidth = isAct ? 1.8 : 1;
+          ctx.strokeStyle = (isAct || isLbl) ? ACTIVE : isDiscover ? "#b8d0ff" : "rgba(140,170,240,0.8)";
+          ctx.lineWidth = isAct ? 1.8 : isDiscover ? 1.4 : 1;
           ctx.setLineDash([3, 4]);
           ctx.stroke();
           ctx.setLineDash([]);
+          // Pulsing discover ring
+          if (isDiscover && !isDim) {
+            const pulse = 0.28 + Math.sin(now / 900) * 0.18;
+            ctx.globalAlpha = pulse;
+            ctx.beginPath(); ctx.arc(node.x, node.y, r + 8 + Math.sin(now / 900) * 3, 0, Math.PI * 2);
+            ctx.strokeStyle = ACTIVE; ctx.lineWidth = 0.8;
+            ctx.stroke();
+          }
           if (isSel) {
             ctx.globalAlpha = 0.30;
             ctx.beginPath(); ctx.arc(node.x, node.y, r + 9, 0, Math.PI * 2);
@@ -1641,7 +1747,14 @@ export default function ConstellationPOC({ username }: Props) {
       spawnAnimsRef.current = spawns.filter(s => now - s.birthMs < 3000);
     }
 
-    function loop() { tick(); lerpCamera(); render(); animRef.current = requestAnimationFrame(loop); }
+    const FRAME_MS = 1000 / 30;
+    let lastFrameTs = 0;
+    function loop(ts: number) {
+      animRef.current = requestAnimationFrame(loop);
+      if (ts - lastFrameTs < FRAME_MS) return;
+      lastFrameTs = ts;
+      tick(); lerpCamera(); render();
+    }
     animRef.current = requestAnimationFrame(loop);
 
     // ── Interactions ──────────────────────────────────────────────────────────
@@ -1964,17 +2077,17 @@ export default function ConstellationPOC({ username }: Props) {
           {totalRecords > 0 && (
             <>
               {username && (
-                <p style={{ fontFamily: MONO, fontSize: "10px", color: DIM2, letterSpacing: "0.1em", marginBottom: "3px" }}>
+                <p style={{ fontFamily: MONO, fontSize: "13px", color: DIM2, letterSpacing: "0.1em", marginBottom: "4px" }}>
                   @{username}
                 </p>
               )}
-              <p style={{ fontFamily: MONO, fontSize: "10px", color: DIM3, letterSpacing: "0.08em", marginBottom: "6px" }}>
+              <p style={{ fontFamily: MONO, fontSize: "13px", color: DIM3, letterSpacing: "0.06em", marginBottom: "6px" }}>
                 {totalRecords.toLocaleString()} records · {nodesRef.current.filter(n => n.owned).length} artists{yearRange ? ` · ${yearRange[0]}–${yearRange[1]}` : ""}
               </p>
             </>
           )}
           {!selectedArtist && !selectedEdge && (
-            <p style={{ fontFamily: MONO, fontSize: "7px", color: DIM3, letterSpacing: "0.2em", textTransform: "uppercase", marginTop: totalRecords > 0 ? "4px" : 0 }}>
+            <p style={{ fontFamily: MONO, fontSize: "10px", color: DIM3, letterSpacing: "0.2em", textTransform: "uppercase", marginTop: totalRecords > 0 ? "4px" : 0 }}>
               Scroll · Drag · Click
             </p>
           )}
@@ -2349,39 +2462,10 @@ export default function ConstellationPOC({ username }: Props) {
                     resetView();
                   }
 
-                  // Each artist name is a clickable button — sets filter + zooms canvas
-                  function ArtistChip({ name }: { name: string }) {
-                    const active = afL && name.toLowerCase() === afL;
-                    return (
-                      <button
-                        onClick={() => active ? clearArtist() : selectArtist(name)}
-                        style={{
-                          fontFamily: SERIF, fontSize: "15px", lineHeight: 1.6,
-                          background: "none", border: "none", padding: 0, margin: 0,
-                          cursor: "pointer", color: active ? ORANGE : DIM2,
-                          textDecoration: active ? "underline" : "none",
-                          textUnderlineOffset: "3px",
-                        }}
-                      >{name}</button>
-                    );
-                  }
-
-                  function ArtistList({ artists }: { artists: string[] }) {
-                    return (
-                      <p style={{ margin: "0 0 14px", lineHeight: 1.8 }}>
-                        {artists.map((name, i) => (
-                          <span key={name}>
-                            {i > 0 && <span style={{ fontFamily: MONO, fontSize: "11px", color: DIM3 }}> · </span>}
-                            <ArtistChip name={name} />
-                          </span>
-                        ))}
-                      </p>
-                    );
-                  }
-
                   const empty = <p style={{ fontFamily: MONO, fontSize: "12px", color: DIM3, paddingBottom: 12 }}>None for current filter.</p>;
 
                   return (
+                    <ArtistSelectionCtx.Provider value={{ afL, onSelect: selectArtist, onClear: clearArtist }}>
                     <>
                       <PanelSection openSections={openSections} setOpenSections={setOpenSections} id="lineage" title="Band Lineage" count={visLin.length}>
                         {visLin.length === 0 ? (
@@ -2410,15 +2494,6 @@ export default function ConstellationPOC({ username }: Props) {
                           const inflBy  = visInfl.filter(e => e.type === "influence" && e.target.toLowerCase() === afL);
                           const inflced = visInfl.filter(e => e.type === "influence" && e.source.toLowerCase() === afL);
                           const inflOther = visInfl.filter(e => e.type !== "influence");
-
-                          function InflRow({ e, nameKey }: { e: InflEdge; nameKey: "source" | "target" }) {
-                            return (
-                              <div style={{ marginBottom: 14, paddingBottom: 14, borderBottom: `1px solid ${BORD}` }}>
-                                <p style={{ margin: "0 0 4px" }}><ArtistChip name={e[nameKey]} /></p>
-                                {e.note ? <p style={{ fontFamily: MONO, fontSize: "11px", color: DIM3, margin: 0, lineHeight: 1.6 }}>{e.note}</p> : null}
-                              </div>
-                            );
-                          }
 
                           return (
                             <>
@@ -2518,7 +2593,64 @@ export default function ConstellationPOC({ username }: Props) {
                           </div>
                         ))}
                       </PanelSection>
+
+                      {discoveryNodes.length > 0 && (
+                        <PanelSection openSections={openSections} setOpenSections={setOpenSections} id="discover" title="Missing from Collection" count={discoveryNodes.length}>
+                          <p style={{ fontFamily: MONO, fontSize: "11px", color: DIM3, marginBottom: 14, lineHeight: 1.6 }}>
+                            Artists you don't own who are strongly connected to your collection.
+                          </p>
+                          {discoveryNodes.map(d => (
+                            <div key={d.id} style={{ marginBottom: 14, paddingBottom: 14, borderBottom: `1px solid ${BORD}` }}>
+                              <p style={{ margin: "0 0 4px" }}>
+                                <span style={{ fontFamily: SERIF, fontSize: "15px", color: DIM2 }}>{d.name}</span>
+                              </p>
+                              <p style={{ fontFamily: MONO, fontSize: "11px", color: DIM3, margin: 0, lineHeight: 1.6 }}>
+                                linked to {d.connections.slice(0, 3).join(", ")}{d.connections.length > 3 ? ` +${d.connections.length - 3} more` : ""}
+                              </p>
+                            </div>
+                          ))}
+                        </PanelSection>
+                      )}
+
+                      {yearRange && !afL && (
+                        <PanelSection openSections={openSections} setOpenSections={setOpenSections} id="timeline" title="Era Filter" count={0}>
+                          <p style={{ fontFamily: MONO, fontSize: "11px", color: DIM3, marginBottom: 10, lineHeight: 1.6 }}>
+                            Highlight artists by recording decade.
+                          </p>
+                          <div style={{ display: "flex", flexWrap: "wrap", gap: 5, paddingBottom: 12 }}>
+                            {(() => {
+                              const startDecade = Math.floor(yearRange[0] / 10) * 10;
+                              const endDecade   = Math.floor(yearRange[1] / 10) * 10;
+                              const decades: number[] = [];
+                              for (let d = startDecade; d <= endDecade; d += 10) decades.push(d);
+                              return decades.map(d => {
+                                const active = decadeFilter === d;
+                                return (
+                                  <button
+                                    key={d}
+                                    onClick={() => setDecadeFilter(active ? null : d)}
+                                    style={{
+                                      fontFamily: MONO, fontSize: "10px", padding: "4px 9px",
+                                      cursor: "pointer", letterSpacing: "0.06em",
+                                      border: `1px solid ${active ? INK : BORD}`,
+                                      background: active ? "rgba(221,216,204,0.10)" : "transparent",
+                                      color: active ? INK : DIM3,
+                                    }}
+                                  >{d}s</button>
+                                );
+                              });
+                            })()}
+                          </div>
+                          {decadeFilter && (
+                            <p style={{ fontFamily: MONO, fontSize: "10px", color: DIM3, paddingBottom: 8 }}>
+                              Showing artists with records from the {decadeFilter}s.{" "}
+                              <button onClick={() => setDecadeFilter(null)} style={{ background: "none", border: "none", cursor: "pointer", color: ORANGE, fontFamily: MONO, fontSize: "10px", padding: 0 }}>Clear</button>
+                            </p>
+                          )}
+                        </PanelSection>
+                      )}
                     </>
+                    </ArtistSelectionCtx.Provider>
                   );
                 })()}
               </div>
