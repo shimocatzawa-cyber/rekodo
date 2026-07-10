@@ -1051,6 +1051,9 @@ export default function DeepDiveClient({
   // Wantlist additions from Essential Albums
   const [wantlistAdded, setWantlistAdded] = useState<Set<string>>(new Set());
   const [wantlistError, setWantlistError] = useState<string | null>(null);
+  // Per-artist wantlist album sets (normalized), populated from DB when rankings tab loads
+  const [knownWantlistAlbums, setKnownWantlistAlbums] = useState<Record<string, Set<string>>>({});
+  const wantlistFetchedRef = useRef(new Set<string>());
 
   // Track which artist:section combos have been requested to prevent duplicates
   const startedRef = useRef(new Set<string>());
@@ -1204,6 +1207,44 @@ export default function DeepDiveClient({
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedArtist, activeTab]);
 
+  // Fetch existing wantlist albums for the current artist when rankings tab opens.
+  // Covers external artists and cross-session adds that aren't in wantlistAdded yet.
+  useEffect(() => {
+    if (!selectedArtist || activeTab !== "rankings") return;
+    const artist = selectedArtist;
+    if (wantlistFetchedRef.current.has(artist)) return;
+    wantlistFetchedRef.current.add(artist);
+
+    const norm = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, "");
+    const supabase = createClient();
+
+    void (async () => {
+      try {
+        const [listItemsRes, discogsRes] = await Promise.all([
+          wantlistListId
+            ? supabase.from("list_items").select("song_album").eq("list_id", wantlistListId).eq("song_artist", artist)
+            : Promise.resolve({ data: [] as { song_album: string | null }[] }),
+          supabase.from("wantlist").select("title").eq("user_id", userId).eq("artist", artist),
+        ]);
+
+        const albums = new Set<string>();
+        for (const item of (listItemsRes.data ?? []) as { song_album: string | null }[]) {
+          const n = norm(item.song_album ?? ""); if (n) albums.add(n);
+        }
+        for (const item of (discogsRes.data ?? []) as { title: string | null }[]) {
+          const n = norm(item.title ?? ""); if (n) albums.add(n);
+        }
+        if (albums.size > 0) {
+          setKnownWantlistAlbums((prev) => ({
+            ...prev,
+            [artist]: new Set([...(prev[artist] ?? []), ...albums]),
+          }));
+        }
+      } catch { /* best-effort */ }
+    })();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedArtist, activeTab]);
+
   function selectArtist(name: string) {
     if (selectedArtist !== name) {
       setIsExternalArtist(false);
@@ -1255,6 +1296,16 @@ export default function DeepDiveClient({
 
   async function addAlbumToWantlist(album: Album) {
     if (!selectedArtist) return;
+    const artist = selectedArtist;
+    const normFn = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, "");
+    const normalizedTitle = normFn(album.title);
+
+    // Already in wantlist — reflect in UI without inserting
+    if (knownWantlistAlbums[artist]?.has(normalizedTitle)) {
+      setWantlistAdded((prev) => new Set(prev).add(album.title));
+      return;
+    }
+
     const key = album.title;
     setWantlistAdded((prev) => new Set(prev).add(key));
 
@@ -1297,6 +1348,10 @@ export default function DeepDiveClient({
         song_cover_url: coverUrl, source: "deep-dive",
       });
       if (insertErr) throw new Error(insertErr.message);
+      setKnownWantlistAlbums((prev) => ({
+        ...prev,
+        [artist]: new Set([...(prev[artist] ?? []), normalizedTitle]),
+      }));
     } catch (e) {
       setWantlistAdded((prev) => { const s = new Set(prev); s.delete(key); return s; });
       setWantlistError(e instanceof Error ? e.message : "Failed to add to wantlist");
@@ -1415,6 +1470,7 @@ export default function DeepDiveClient({
       const collectionSet = new Set((artistData?.records ?? []).map((r) => norm(r.album)));
       const wantlistSet   = new Set([
         ...(artistData?.wantlistRecords ?? []).map((r) => norm(r.album)),
+        ...(knownWantlistAlbums[selectedArtist] ?? []),
         ...[...wantlistAdded].map(norm),
       ]);
       return <RankingsContent
