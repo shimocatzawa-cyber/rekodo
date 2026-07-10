@@ -41,6 +41,9 @@ export async function GET(req: NextRequest) {
     }
     const mbid = top.id;
 
+    // MB requires ≤1 req/sec — add a small gap between search and detail calls
+    await new Promise(r => setTimeout(r, 1100));
+
     // 2. Fetch tags + artist relations
     const detailRes = await fetch(
       `${MB_API}/artist/${mbid}?inc=tags+artist-rels&fmt=json`,

@@ -1105,9 +1105,8 @@ export default function ConstellationPOC({ username }: Props) {
     return () => { cancelled = true; };
   }, [isReady]);
 
-  // ── Real-time MB lineage + sonic enrichment on artist selection ──────────────
-  // When an artist is selected, immediately fetch their MB relations and targeted
-  // sonic neighbours rather than waiting for the slow background sweep to reach them.
+  // ── Real-time MB lineage on artist selection ─────────────────────────────────
+  // Separated from the sonic fetch so styleGroups changes never cancel this.
 
   useEffect(() => {
     if (!artistFilter || !isReady) return;
@@ -1115,7 +1114,6 @@ export default function ConstellationPOC({ username }: Props) {
     const name = artistFilter;
 
     const run = async () => {
-      // 1. MB relations for lineage
       const mbData = await fetchMBArtist(name);
       if (!mbData || cancelled) return;
 
@@ -1142,9 +1140,21 @@ export default function ConstellationPOC({ username }: Props) {
           return fresh.length > 0 ? [...prev, ...fresh] : prev;
         });
       }
+    };
 
-      // 2. Targeted sonic neighbours for this artist's styles
-      if (cancelled) return;
+    run();
+    return () => { cancelled = true; };
+  }, [artistFilter, isReady]);
+
+  // ── Targeted sonic neighbours on artist selection ─────────────────────────────
+  // Runs when styleGroups is ready; separate from MB lineage to avoid cancellation races.
+
+  useEffect(() => {
+    if (!artistFilter || !isReady || styleGroups.length === 0) return;
+    let cancelled = false;
+    const name = artistFilter;
+
+    const run = async () => {
       const artistStylesForRpc = styleGroups
         .filter(g => g.artists.some(a => a.toLowerCase() === name.toLowerCase()))
         .map(g => g.style);
