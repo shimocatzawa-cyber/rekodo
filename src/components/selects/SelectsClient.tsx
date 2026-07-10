@@ -254,7 +254,7 @@ function NewReleasesSection() {
       .neq("album", "")
       .gte("received_at", monthStart)
       .order("received_at", { ascending: false })
-      .limit(500)
+      .limit(1000)
       .then(({ data, error }) => {
         if (error) setFetchError(error.message);
         else setItems((data as unknown as LabelFeedItem[]) ?? []);
