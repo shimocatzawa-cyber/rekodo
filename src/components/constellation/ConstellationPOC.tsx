@@ -1140,7 +1140,13 @@ export default function ConstellationPOC({ username }: Props) {
       const artistStylesForRpc = styleGroups
         .filter(g => g.artists.some(a => a.toLowerCase() === name.toLowerCase()))
         .map(g => g.style);
-      if (artistStylesForRpc.length === 0) return;
+      console.log(`[sonic] "${name}" matched styles: ${JSON.stringify(artistStylesForRpc)} (styleGroups total: ${styleGroups.length})`);
+      if (artistStylesForRpc.length === 0) {
+        // Log which artists ARE in styleGroups to help diagnose
+        const sample = styleGroups.slice(0, 3).map(g => `${g.style}:[${g.artists.slice(0,3).join(",")}]`).join(" | ");
+        console.log(`[sonic] no styles for "${name}". Sample styleGroups: ${sample}`);
+        return;
+      }
 
       const excludeArtists = nodesRef.current.filter(n => n.owned).map(n => n.name);
       try {
@@ -2202,10 +2208,12 @@ export default function ConstellationPOC({ username }: Props) {
                       return g.artists.length >= 2;
                     });
 
-                  // When an artist is selected, show their dedicated lineage directly.
+                  // When an artist is selected, show only edges directly involving them.
                   // When no selection, show all lineage filtered by labelScope.
                   const visLin: LineageEdge[] = (() => {
-                    if (afL) return selectedLineage;
+                    if (afL) return selectedLineage.filter(e =>
+                      e.source.toLowerCase() === afL || e.target.toLowerCase() === afL
+                    );
                     const seen = new Set<string>();
                     return [...mbLineage, ...discogsLineage].filter(e => {
                       if (labelScope && (!labelScope.has(e.source) || !labelScope.has(e.target))) return false;
