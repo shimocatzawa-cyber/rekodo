@@ -445,6 +445,7 @@ export default function ConstellationPOC({ username }: Props) {
   const [isReady,        setIsReady]        = useState(false);
   const [loadingMsg,     setLoadingMsg]     = useState<string | null>(username ? "Loading collection…" : null);
   const [totalRecords,   setTotalRecords]   = useState(0);
+  const [yearRange,      setYearRange]      = useState<[number, number] | null>(null);
   const [insightIdx,     setInsightIdx]     = useState(0);
   const [minAlbums,      setMinAlbums]      = useState(1);
   const minAlbumsRef = useRef(1);
@@ -548,12 +549,17 @@ export default function ConstellationPOC({ username }: Props) {
           "elektra", "reprise records", "chrysalis", "sire records", "london records",
         ]);
 
+        let minYear = Infinity, maxYear = -Infinity;
         const BATCH = 400;
         for (let i = 0; i < recordIds.length; i += BATCH) {
           const { data } = await supabase
-            .from("records").select("artist, styles, genre, label, producers, discogs_artist_id")
+            .from("records").select("artist, styles, genre, label, producers, discogs_artist_id, year")
             .in("id", recordIds.slice(i, i + BATCH));
           for (const r of data ?? []) {
+            if (r.year && typeof r.year === "number" && r.year > 1000) {
+              if (r.year < minYear) minYear = r.year;
+              if (r.year > maxYear) maxYear = r.year;
+            }
             if (!r.artist || r.artist === "Various") continue;
             albumCounts.set(r.artist, (albumCounts.get(r.artist) ?? 0) + 1);
             if (r.styles?.length) {
@@ -585,6 +591,10 @@ export default function ConstellationPOC({ username }: Props) {
               discogsIdMap.set(r.artist, r.discogs_artist_id);
             }
           }
+        }
+
+        if (minYear !== Infinity && maxYear !== -Infinity) {
+          setYearRange([minYear, maxYear]);
         }
 
         // Set panel data — accurate label + style groups
@@ -1897,25 +1907,39 @@ export default function ConstellationPOC({ username }: Props) {
       {isReady && (
         <div className="absolute top-6 left-7 z-10 pointer-events-none">
           <p style={{ fontFamily: MONO, fontSize: "10px", color: DIM3, letterSpacing: "0.25em", textTransform: "uppercase", marginBottom: "3px" }}>
-            Rekōdo {username ? `· @${username}` : ""}
+            Rekōdo
           </p>
           <h1 style={{ fontFamily: SERIF, fontSize: "22px", fontWeight: 700, lineHeight: 1.25, color: INK, margin: 0 }}>
             Collection<br />Constellation
           </h1>
-          {totalRecords > 0 && (
-            <p style={{ fontFamily: MONO, fontSize: "10px", color: DIM3, marginTop: "6px", letterSpacing: "0.08em" }}>
-              {totalRecords.toLocaleString()} records · {nodesRef.current.filter(n => n.owned).length} artists
-            </p>
-          )}
         </div>
       )}
 
-      {/* Bottom-left hint */}
-      {isReady && !selectedArtist && !selectedEdge && (
+      {/* Bottom-left — collection stats + hint */}
+      {isReady && (
         <div className="absolute bottom-6 left-7 z-10 pointer-events-none">
-          <p style={{ fontFamily: MONO, fontSize: "7px", color: DIM3, letterSpacing: "0.2em", textTransform: "uppercase" }}>
-            Scroll · Drag · Click
-          </p>
+          {totalRecords > 0 && (
+            <>
+              {username && (
+                <p style={{ fontFamily: MONO, fontSize: "10px", color: DIM2, letterSpacing: "0.1em", marginBottom: "3px" }}>
+                  @{username}
+                </p>
+              )}
+              <p style={{ fontFamily: MONO, fontSize: "10px", color: DIM3, letterSpacing: "0.08em", marginBottom: "2px" }}>
+                {totalRecords.toLocaleString()} records · {nodesRef.current.filter(n => n.owned).length} artists
+              </p>
+              {yearRange && (
+                <p style={{ fontFamily: MONO, fontSize: "10px", color: DIM3, letterSpacing: "0.08em", marginBottom: "6px" }}>
+                  {yearRange[0]}–{yearRange[1]}
+                </p>
+              )}
+            </>
+          )}
+          {!selectedArtist && !selectedEdge && (
+            <p style={{ fontFamily: MONO, fontSize: "7px", color: DIM3, letterSpacing: "0.2em", textTransform: "uppercase", marginTop: totalRecords > 0 ? "4px" : 0 }}>
+              Scroll · Drag · Click
+            </p>
+          )}
         </div>
       )}
 
