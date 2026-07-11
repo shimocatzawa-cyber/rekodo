@@ -56,6 +56,7 @@ export type CollectionRecord = {
   album: string;
   year: number | null;
   genre: string | null;
+  styles: string[] | null;
   cover_url: string | null;
   label: string | null;
   format: string | null;
@@ -124,6 +125,7 @@ export type RecordRow = {
   album: string;
   year: number | null;
   genre: string | null;
+  styles: string[] | null;
   cover_url: string | null;
   label: string | null;
   format: string | null;
@@ -166,7 +168,7 @@ function fetchCollectionRaw(userId: string) {
         batches.map((ids) =>
           admin
             .from("records")
-            .select("id, discogs_id, artist, album, year, genre, cover_url, label, format, country, community_have, community_want, community_num_for_sale, barcode, matrix, edition_size")
+            .select("id, discogs_id, artist, album, year, genre, styles, cover_url, label, format, country, community_have, community_want, community_num_for_sale, barcode, matrix, edition_size")
             .in("id", ids)
         )
       );

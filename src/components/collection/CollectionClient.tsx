@@ -310,9 +310,9 @@ export default function CollectionClient({
 
   const [searchQuery,        setSearchQuery]        = useState("");
   const [filterGenre,        setFilterGenre]        = useState("");
+  const [filterStyle,        setFilterStyle]        = useState("");
   const [filterYear,         setFilterYear]         = useState("");
-
-const [filterFormat,       setFilterFormat]       = useState("");
+  const [filterFormat,       setFilterFormat]       = useState("");
   const [filterDesirability, setFilterDesirability] = useState("");
   const [filterFeeling,      setFilterFeeling]      = useState("");
   const [sortBy,             setSortBy]             = useState("artist-az");
@@ -322,6 +322,7 @@ const [filterFormat,       setFilterFormat]       = useState("");
   // Directly reduces INP on mobile where 500-record sorts are slow.
   const deferredSearch        = useDeferredValue(searchQuery);
   const deferredGenre         = useDeferredValue(filterGenre);
+  const deferredStyle         = useDeferredValue(filterStyle);
   const deferredYear          = useDeferredValue(filterYear);
   const deferredFormat        = useDeferredValue(filterFormat);
   const deferredDesirability  = useDeferredValue(filterDesirability);
@@ -392,7 +393,7 @@ const [filterFormat,       setFilterFormat]       = useState("");
       for (let i = 0; i < recordIds.length; i += BATCH) {
         const { data, error } = await supabase
           .from("records")
-          .select("id, discogs_id, artist, album, year, genre, cover_url, label, format, country, community_have, community_want, community_num_for_sale, edition_size")
+          .select("id, discogs_id, artist, album, year, genre, styles, cover_url, label, format, country, community_have, community_want, community_num_for_sale, edition_size")
           .in("id", recordIds.slice(i, i + BATCH));
         for (const r of data ?? []) recordsMap.set(r.id, r as Omit<CollectionRecord, "value" | "price_low" | "price_low_usd" | "price_median" | "price_currency" | "media_condition" | "sleeve_condition" | "copies">);
       }
@@ -702,6 +703,7 @@ const [filterFormat,       setFilterFormat]       = useState("");
       );
     }
     if (deferredGenre)        result = result.filter(r => r.genre === deferredGenre);
+    if (deferredStyle)        result = result.filter(r => r.styles?.includes(deferredStyle));
     if (deferredYear)         result = result.filter(r => matchesDecade(r.year, deferredYear));
     if (deferredFormat)       result = result.filter(r => r.format === deferredFormat);
     if (deferredDesirability) result = result.filter(r =>
@@ -709,7 +711,7 @@ const [filterFormat,       setFilterFormat]       = useState("");
     );
     if (deferredFeeling)      result = result.filter(r => r.feeling === deferredFeeling);
     return result;
-  }, [collection, deferredSearch, deferredGenre, deferredYear, deferredFormat, deferredDesirability, deferredFeeling]);
+  }, [collection, deferredSearch, deferredGenre, deferredStyle, deferredYear, deferredFormat, deferredDesirability, deferredFeeling]);
 
   const sortedCollection = useMemo(() => {
     const arr = [...filteredCollection];
@@ -766,6 +768,12 @@ const [filterFormat,       setFilterFormat]       = useState("");
     return [...gs].sort();
   }, [collection]);
 
+  const styles = useMemo(() => {
+    const ss = new Set<string>();
+    for (const r of collection) for (const s of r.styles ?? []) ss.add(s);
+    return [...ss].sort();
+  }, [collection]);
+
   const decades = useMemo(() => {
     const ds = new Set<string>();
     for (const r of collection) {
@@ -785,11 +793,12 @@ const [filterFormat,       setFilterFormat]       = useState("");
   // and 0-result selections are explained by the "N of M items" counter.
   const desirabilityOptions = DESIRABILITY_FILTER_OPTIONS;
 
-  const hasFilters = !!searchQuery.trim() || !!filterGenre || !!filterYear || !!filterFormat || !!filterDesirability || !!filterFeeling;
+  const hasFilters = !!searchQuery.trim() || !!filterGenre || !!filterStyle || !!filterYear || !!filterFormat || !!filterDesirability || !!filterFeeling;
 
   function clearAllFilters() {
     setSearchQuery("");
     setFilterGenre("");
+    setFilterStyle("");
     setFilterYear("");
     setFilterFormat("");
     setFilterDesirability("");
@@ -1063,12 +1072,12 @@ const [filterFormat,       setFilterFormat]       = useState("");
                   {genres.map(g => <option key={g} value={g}>{g}</option>)}
                 </select>
                 <select
-                  value={filterYear}
-                  onChange={e => setFilterYear(e.target.value)}
-                  style={{ fontFamily: MONO, fontSize: "12px", padding: "8px", border: "0.5px solid #e8e8e8", borderRadius: "4px", background: "#fafafa", outline: "none", color: filterYear ? ORANGE : "#888888" }}
+                  value={filterStyle}
+                  onChange={e => setFilterStyle(e.target.value)}
+                  style={{ fontFamily: MONO, fontSize: "12px", padding: "8px", border: "0.5px solid #e8e8e8", borderRadius: "4px", background: "#fafafa", outline: "none", color: filterStyle ? ORANGE : "#888888" }}
                 >
-                  <option value="">Year</option>
-                  {decades.map(d => <option key={d} value={d}>{d}</option>)}
+                  <option value="">Styles</option>
+                  {styles.map(s => <option key={s} value={s}>{s}</option>)}
                 </select>
                 <select
                   value={filterFormat}
@@ -1079,11 +1088,19 @@ const [filterFormat,       setFilterFormat]       = useState("");
                   {formats.map(f => <option key={f} value={f}>{f}</option>)}
                 </select>
                 <select
+                  value={filterYear}
+                  onChange={e => setFilterYear(e.target.value)}
+                  style={{ fontFamily: MONO, fontSize: "12px", padding: "8px", border: "0.5px solid #e8e8e8", borderRadius: "4px", background: "#fafafa", outline: "none", color: filterYear ? ORANGE : "#888888" }}
+                >
+                  <option value="">Year</option>
+                  {decades.map(d => <option key={d} value={d}>{d}</option>)}
+                </select>
+                <select
                   value={filterDesirability}
                   onChange={e => setFilterDesirability(e.target.value)}
                   style={{ fontFamily: MONO, fontSize: "12px", padding: "8px", border: "0.5px solid #e8e8e8", borderRadius: "4px", background: "#fafafa", outline: "none", color: filterDesirability ? ORANGE : "#888888" }}
                 >
-                  <option value="">All</option>
+                  <option value="">Desirability</option>
                   {desirabilityOptions.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
                 </select>
                 <select
@@ -1173,7 +1190,7 @@ const [filterFormat,       setFilterFormat]       = useState("");
             {/* Desktop — filter dropdowns + sort */}
             <div className="hidden md:block">
 
-            {/* Filter dropdowns — row 1: Genre + Year */}
+            {/* Filter dropdowns — row 1: Genre + Styles */}
             <div style={{ padding: "0 10px 4px", display: "flex", gap: "6px" }}>
               <select
                 value={filterGenre}
@@ -1189,6 +1206,40 @@ const [filterFormat,       setFilterFormat]       = useState("");
               >
                 <option value="">Genre</option>
                 {genres.map(g => <option key={g} value={g}>{g}</option>)}
+              </select>
+              <select
+                value={filterStyle}
+                onChange={e => setFilterStyle(e.target.value)}
+                style={{
+                  flex: 1, fontFamily: MONO, fontSize: "10px", letterSpacing: "0.04em",
+                  color: filterStyle ? ORANGE : "#888888",
+                  background: "#ffffff",
+                  border: `1px solid ${filterStyle ? ORANGE : "rgba(0,0,0,0.13)"}`,
+                  cursor: "pointer", padding: "4px 6px", outline: "none",
+                  transition: "border-color 0.15s, color 0.15s",
+                }}
+              >
+                <option value="">Styles</option>
+                {styles.map(s => <option key={s} value={s}>{s}</option>)}
+              </select>
+            </div>
+
+            {/* Filter dropdowns — row 2: Format + Year */}
+            <div style={{ padding: "0 10px 4px", display: "flex", gap: "6px" }}>
+              <select
+                value={filterFormat}
+                onChange={e => setFilterFormat(e.target.value)}
+                style={{
+                  flex: 1, fontFamily: MONO, fontSize: "10px", letterSpacing: "0.04em",
+                  color: filterFormat ? ORANGE : "#888888",
+                  background: "#ffffff",
+                  border: `1px solid ${filterFormat ? ORANGE : "rgba(0,0,0,0.13)"}`,
+                  cursor: "pointer", padding: "4px 6px", outline: "none",
+                  transition: "border-color 0.15s, color 0.15s",
+                }}
+              >
+                <option value="">Format</option>
+                {formats.map(f => <option key={f} value={f}>{f}</option>)}
               </select>
               <select
                 value={filterYear}
@@ -1207,23 +1258,8 @@ const [filterFormat,       setFilterFormat]       = useState("");
               </select>
             </div>
 
-            {/* Filter dropdowns — row 2: Format + Country */}
+            {/* Filter dropdowns — row 3: Desirability + Feeling */}
             <div style={{ padding: "0 10px 6px", display: "flex", gap: "6px" }}>
-              <select
-                value={filterFormat}
-                onChange={e => setFilterFormat(e.target.value)}
-                style={{
-                  flex: 1, fontFamily: MONO, fontSize: "10px", letterSpacing: "0.04em",
-                  color: filterFormat ? ORANGE : "#888888",
-                  background: "#ffffff",
-                  border: `1px solid ${filterFormat ? ORANGE : "rgba(0,0,0,0.13)"}`,
-                  cursor: "pointer", padding: "4px 6px", outline: "none",
-                  transition: "border-color 0.15s, color 0.15s",
-                }}
-              >
-                <option value="">Format</option>
-                {formats.map(f => <option key={f} value={f}>{f}</option>)}
-              </select>
               <select
                 value={filterDesirability}
                 onChange={e => setFilterDesirability(e.target.value)}
@@ -1239,10 +1275,6 @@ const [filterFormat,       setFilterFormat]       = useState("");
                 <option value="">Desirability</option>
                 {desirabilityOptions.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
               </select>
-            </div>
-
-            {/* Filter dropdowns — row 3: Feeling */}
-            <div style={{ padding: "0 10px 6px", display: "flex", gap: "6px" }}>
               <select
                 value={filterFeeling}
                 onChange={e => setFilterFeeling(e.target.value)}
@@ -1310,9 +1342,10 @@ const [filterFormat,       setFilterFormat]       = useState("");
             </div>
 
             {/* Active filter tags */}
-            {(filterGenre || filterYear || filterFormat || filterDesirability || filterFeeling) && (
+            {(filterGenre || filterStyle || filterYear || filterFormat || filterDesirability || filterFeeling) && (
               <div style={{ padding: "0 10px 6px", display: "flex", flexWrap: "wrap", gap: "4px" }}>
                 {filterGenre        && <FilterTag label={`Genre: ${filterGenre}`}       onRemove={() => setFilterGenre("")} />}
+                {filterStyle        && <FilterTag label={`Style: ${filterStyle}`}       onRemove={() => setFilterStyle("")} />}
                 {filterYear         && <FilterTag label={`Year: ${filterYear}`}         onRemove={() => setFilterYear("")} />}
                 {filterFormat       && <FilterTag label={`Format: ${filterFormat}`}     onRemove={() => setFilterFormat("")} />}
                 {filterDesirability && <FilterTag label={`Desirability: ${DESIRABILITY_FILTER_OPTIONS.find(o => o.value === filterDesirability)?.label ?? filterDesirability}`} onRemove={() => setFilterDesirability("")} />}
@@ -2279,14 +2312,14 @@ function TracklistPanel({ tracks, loading, bandcamp, record, username, collectio
 
 function MemorySection({ record }: { record: CollectionRecord | null }) {
   const [memoryText, setMemoryText] = useState<string | null>(record?.memory_text ?? null);
-  const [open,    setOpen]    = useState(false);
+  const [open,    setOpen]    = useState(true);
   const [editing, setEditing] = useState(false);
   const [draft,   setDraft]   = useState("");
   const [saving,  setSaving]  = useState(false);
 
   useEffect(() => {
     setMemoryText(record?.memory_text ?? null);
-    setOpen(false);
+    setOpen(true);
     setEditing(false);
     setDraft("");
   }, [record?.id]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -2354,7 +2387,7 @@ function MemorySection({ record }: { record: CollectionRecord | null }) {
               <textarea
                 value={draft}
                 onChange={(e) => setDraft(e.target.value)}
-                placeholder="Found this at... / Given to me by... / The week this became mine..."
+                placeholder="Note a memory about this record"
                 style={{
                   display: "block", width: "100%", minHeight: "60px", resize: "vertical",
                   fontFamily: SERIF, fontSize: "13.5px", lineHeight: 1.6,
