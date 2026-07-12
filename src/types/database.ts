@@ -143,6 +143,7 @@ export type Database = {
           memory_text:       string | null;
           memory_shared:     boolean;
           copies:            number;
+          tags:              string[];
         };
         Insert: {
           id?: string;
@@ -168,6 +169,7 @@ export type Database = {
           memory_text?:       string | null;
           memory_shared?:     boolean;
           copies?:            number;
+          tags?:              string[];
         };
         Update: {
           value?: number | null;
@@ -189,6 +191,7 @@ export type Database = {
           memory_text?:       string | null;
           memory_shared?:     boolean;
           copies?:            number;
+          tags?:              string[];
         };
         Relationships: [];
       };

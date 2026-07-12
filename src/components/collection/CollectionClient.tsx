@@ -315,6 +315,7 @@ export default function CollectionClient({
   const [filterFormat,       setFilterFormat]       = useState("");
   const [filterDesirability, setFilterDesirability] = useState("");
   const [filterFeeling,      setFilterFeeling]      = useState("");
+  const [filterTag,          setFilterTag]          = useState("");
   const [sortBy,             setSortBy]             = useState("artist-az");
 
   // Deferred values: filter/sort re-renders are treated as non-urgent so the
@@ -327,6 +328,7 @@ export default function CollectionClient({
   const deferredFormat        = useDeferredValue(filterFormat);
   const deferredDesirability  = useDeferredValue(filterDesirability);
   const deferredFeeling       = useDeferredValue(filterFeeling);
+  const deferredTag           = useDeferredValue(filterTag);
   const deferredSortBy        = useDeferredValue(sortBy);
 
   const [mobileDetailOpen, setMobileDetailOpen] = useState(false);
@@ -361,6 +363,7 @@ export default function CollectionClient({
         feeling:          string | null;
         memory_text:      string | null;
         copies:           number | null;
+        tags:             string[] | null;
       };
       const allLinks: LinkRow[] = [];
       const PAGE = 1000;
@@ -368,7 +371,7 @@ export default function CollectionClient({
         const { data, error } = await supabase
           .from("user_records")
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          .select("record_id, value, price_low, price_median, price_currency, media_condition, sleeve_condition, open_to_offers, is_essential, feeling, memory_text, copies" as any)
+          .select("record_id, value, price_low, price_median, price_currency, media_condition, sleeve_condition, open_to_offers, is_essential, feeling, memory_text, copies, tags" as any)
           .eq("user_id", user.id)
           .range(from, from + PAGE - 1);
         if (!data || data.length === 0) break;
@@ -387,9 +390,10 @@ export default function CollectionClient({
       const isEssentialMap     = new Map<string, boolean | null>(allLinks.map((l) => [l.record_id, l.is_essential ?? null]));
       const feelingMap         = new Map<string, string | null>(allLinks.map((l) => [l.record_id, l.feeling ?? null]));
       const memoryTextMap      = new Map<string, string | null>(allLinks.map((l) => [l.record_id, l.memory_text ?? null]));
+      const clientTagsMap      = new Map<string, string[]>(allLinks.map((l) => [l.record_id, l.tags ?? []]));
       const clientCopiesMap    = new Map<string, number>(allLinks.map((l) => [l.record_id, l.copies ?? 1]));
       const BATCH        = 400;
-      const recordsMap   = new Map<string, Omit<CollectionRecord, "value" | "price_low" | "price_low_usd" | "price_median" | "price_currency" | "media_condition" | "sleeve_condition" | "open_to_offers" | "is_essential" | "feeling" | "memory_text" | "copies">>();
+      const recordsMap   = new Map<string, Omit<CollectionRecord, "value" | "price_low" | "price_low_usd" | "price_median" | "price_currency" | "media_condition" | "sleeve_condition" | "open_to_offers" | "is_essential" | "feeling" | "memory_text" | "tags" | "copies">>();
       for (let i = 0; i < recordIds.length; i += BATCH) {
         const { data, error } = await supabase
           .from("records")
@@ -415,6 +419,7 @@ export default function CollectionClient({
             is_essential:     isEssentialMap.get(id)     ?? null,
             feeling:          feelingMap.get(id)         ?? null,
             memory_text:      memoryTextMap.get(id)      ?? null,
+            tags:             clientTagsMap.get(id)      ?? [],
             copies:           clientCopiesMap.get(id)    ?? 1,
           };
         })
@@ -710,8 +715,9 @@ export default function CollectionClient({
       getDesirabilityTier(r.community_have, r.community_want, r.price_low_usd, r.community_num_for_sale, r.edition_size) === deferredDesirability
     );
     if (deferredFeeling)      result = result.filter(r => r.feeling === deferredFeeling);
+    if (deferredTag)          result = result.filter(r => r.tags?.includes(deferredTag));
     return result;
-  }, [collection, deferredSearch, deferredGenre, deferredStyle, deferredYear, deferredFormat, deferredDesirability, deferredFeeling]);
+  }, [collection, deferredSearch, deferredGenre, deferredStyle, deferredYear, deferredFormat, deferredDesirability, deferredFeeling, deferredTag]);
 
   const sortedCollection = useMemo(() => {
     const arr = [...filteredCollection];
@@ -774,6 +780,12 @@ export default function CollectionClient({
     return [...ss].sort();
   }, [collection]);
 
+  const allTags = useMemo(() => {
+    const ts = new Set<string>();
+    for (const r of collection) for (const t of r.tags ?? []) ts.add(t);
+    return [...ts].sort();
+  }, [collection]);
+
   const decades = useMemo(() => {
     const ds = new Set<string>();
     for (const r of collection) {
@@ -793,7 +805,7 @@ export default function CollectionClient({
   // and 0-result selections are explained by the "N of M items" counter.
   const desirabilityOptions = DESIRABILITY_FILTER_OPTIONS;
 
-  const hasFilters = !!searchQuery.trim() || !!filterGenre || !!filterStyle || !!filterYear || !!filterFormat || !!filterDesirability || !!filterFeeling;
+  const hasFilters = !!searchQuery.trim() || !!filterGenre || !!filterStyle || !!filterYear || !!filterFormat || !!filterDesirability || !!filterFeeling || !!filterTag;
 
   function clearAllFilters() {
     setSearchQuery("");
@@ -803,6 +815,7 @@ export default function CollectionClient({
     setFilterFormat("");
     setFilterDesirability("");
     setFilterFeeling("");
+    setFilterTag("");
   }
 
   const NAME_SORT_OPTIONS = [
@@ -1111,6 +1124,16 @@ export default function CollectionClient({
                   <option value="">Feeling</option>
                   {FEELINGS.map(f => <option key={f} value={f}>{feelingLabel(f)}</option>)}
                 </select>
+                {allTags.length > 0 && (
+                  <select
+                    value={filterTag}
+                    onChange={e => setFilterTag(e.target.value)}
+                    style={{ fontFamily: MONO, fontSize: "12px", padding: "8px", border: "0.5px solid #e8e8e8", borderRadius: "4px", background: "#fafafa", outline: "none", color: filterTag ? ORANGE : "#888888" }}
+                  >
+                    <option value="">Tag</option>
+                    {allTags.map(t => <option key={t} value={t}>{t}</option>)}
+                  </select>
+                )}
               </div>
 
               {/* Sort bar — name sorts as inline buttons, value/year as dropdown */}
@@ -1341,8 +1364,29 @@ export default function CollectionClient({
               </select>
             </div>
 
+            {/* Filter dropdown — row 4: Tag (full width, only shown when tags exist) */}
+            {allTags.length > 0 && (
+              <div style={{ padding: "0 10px 6px", display: "flex", gap: "6px" }}>
+                <select
+                  value={filterTag}
+                  onChange={e => setFilterTag(e.target.value)}
+                  style={{
+                    flex: 1, fontFamily: MONO, fontSize: "10px", letterSpacing: "0.04em",
+                    color: filterTag ? ORANGE : "#888888",
+                    background: "#ffffff",
+                    border: `1px solid ${filterTag ? ORANGE : "rgba(0,0,0,0.13)"}`,
+                    cursor: "pointer", padding: "4px 6px", outline: "none",
+                    transition: "border-color 0.15s, color 0.15s",
+                  }}
+                >
+                  <option value="">Tag</option>
+                  {allTags.map(t => <option key={t} value={t}>{t}</option>)}
+                </select>
+              </div>
+            )}
+
             {/* Active filter tags */}
-            {(filterGenre || filterStyle || filterYear || filterFormat || filterDesirability || filterFeeling) && (
+            {(filterGenre || filterStyle || filterYear || filterFormat || filterDesirability || filterFeeling || filterTag) && (
               <div style={{ padding: "0 10px 6px", display: "flex", flexWrap: "wrap", gap: "4px" }}>
                 {filterGenre        && <FilterTag label={`Genre: ${filterGenre}`}       onRemove={() => setFilterGenre("")} />}
                 {filterStyle        && <FilterTag label={`Style: ${filterStyle}`}       onRemove={() => setFilterStyle("")} />}
@@ -1350,6 +1394,7 @@ export default function CollectionClient({
                 {filterFormat       && <FilterTag label={`Format: ${filterFormat}`}     onRemove={() => setFilterFormat("")} />}
                 {filterDesirability && <FilterTag label={`Desirability: ${DESIRABILITY_FILTER_OPTIONS.find(o => o.value === filterDesirability)?.label ?? filterDesirability}`} onRemove={() => setFilterDesirability("")} />}
                 {filterFeeling      && <FilterTag label={`Feeling: ${feelingLabel(filterFeeling)}`} onRemove={() => setFilterFeeling("")} />}
+                {filterTag          && <FilterTag label={`Tag: ${filterTag}`}           onRemove={() => setFilterTag("")} />}
               </div>
             )}
 
@@ -2209,6 +2254,9 @@ function TracklistPanel({ tracks, loading, bandcamp, record, username, collectio
         </div>
       )}
 
+      {/* ── Custom Tags ── */}
+      <TagsSection record={record} />
+
       {/* ── Memory ── */}
       <MemorySection record={record} />
 
@@ -2303,6 +2351,136 @@ function TracklistPanel({ tracks, loading, bandcamp, record, username, collectio
             </div>
           </div>
         </>
+      )}
+    </div>
+  );
+}
+
+// ─── TagsSection ─────────────────────────────────────────────────────────────
+
+function TagsSection({ record }: { record: CollectionRecord | null }) {
+  const [tags, setTags]       = useState<string[]>(record?.tags ?? []);
+  const [input, setInput]     = useState("");
+  const [adding, setAdding]   = useState(false);
+  const [saving, setSaving]   = useState(false);
+  const inputRef              = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    setTags(record?.tags ?? []);
+    setInput("");
+    setAdding(false);
+  }, [record?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  if (!record) return null;
+
+  async function saveTags(next: string[]) {
+    if (!record?.id || saving) return;
+    setSaving(true);
+    try {
+      const res = await fetch("/api/collection/tag", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ recordId: record.id, tags: next }),
+      });
+      if (res.ok) {
+        setTags(next);
+      }
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  function commitInput() {
+    const val = input.trim().toLowerCase();
+    if (!val || tags.includes(val) || tags.length >= 20) {
+      setInput("");
+      setAdding(false);
+      return;
+    }
+    const next = [...tags, val];
+    setInput("");
+    setAdding(false);
+    saveTags(next);
+  }
+
+  function removeTag(tag: string) {
+    saveTags(tags.filter(t => t !== tag));
+  }
+
+  return (
+    <div style={{ padding: "0 28px", marginTop: "12px", borderTop: "1px solid #e0e0da" }}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "12px 0 8px" }}>
+        <span style={{ fontFamily: MONO, fontSize: "10.5px", letterSpacing: "0.12em", textTransform: "uppercase", color: tags.length > 0 ? "#0a0a0a" : "#888888" }}>
+          {tags.length > 0 ? "Tags" : "+ Tags"}
+        </span>
+        {!adding && tags.length < 20 && (
+          <button
+            onClick={() => { setAdding(true); setTimeout(() => inputRef.current?.focus(), 0); }}
+            style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.1em", textTransform: "uppercase", color: ORANGE, background: "none", border: "none", cursor: "pointer", padding: 0 }}
+          >
+            + Add
+          </button>
+        )}
+      </div>
+
+      {(tags.length > 0 || adding) && (
+        <div style={{ paddingBottom: "14px" }}>
+          <div style={{ display: "flex", flexWrap: "wrap", gap: "5px", marginBottom: adding ? "8px" : 0 }}>
+            {tags.map(tag => (
+              <span
+                key={tag}
+                style={{
+                  display: "inline-flex", alignItems: "center", gap: "3px",
+                  fontFamily: MONO, fontSize: "9px", letterSpacing: "0.06em",
+                  color: "#0a0a0a", background: "rgba(0,0,0,0.05)",
+                  padding: "3px 6px 3px 7px",
+                }}
+              >
+                {tag}
+                <button
+                  onClick={() => removeTag(tag)}
+                  disabled={saving}
+                  style={{ fontFamily: MONO, fontSize: "12px", lineHeight: 1, color: "#aaaaaa", background: "none", border: "none", cursor: "pointer", padding: "0 1px" }}
+                >
+                  ×
+                </button>
+              </span>
+            ))}
+          </div>
+
+          {adding && (
+            <div style={{ display: "flex", gap: "6px", alignItems: "center" }}>
+              <input
+                ref={inputRef}
+                value={input}
+                onChange={e => setInput(e.target.value.slice(0, 50))}
+                onKeyDown={e => {
+                  if (e.key === "Enter") { e.preventDefault(); commitInput(); }
+                  if (e.key === "Escape") { setInput(""); setAdding(false); }
+                }}
+                placeholder="e.g. road trip, late night���"
+                style={{
+                  flex: 1, fontFamily: MONO, fontSize: "11px", letterSpacing: "0.02em",
+                  color: "#0a0a0a", background: "#fafafa",
+                  border: "1px solid #e8e8e8", padding: "6px 8px", outline: "none",
+                  boxSizing: "border-box" as const,
+                }}
+              />
+              <button
+                onClick={commitInput}
+                disabled={saving || !input.trim()}
+                style={{
+                  fontFamily: MONO, fontSize: "9px", letterSpacing: "0.1em", textTransform: "uppercase",
+                  color: saving || !input.trim() ? "#aaaaaa" : ORANGE, background: "transparent",
+                  border: `1px solid ${saving || !input.trim() ? "#dddddd" : ORANGE}`,
+                  padding: "5px 12px", cursor: saving || !input.trim() ? "default" : "pointer", flexShrink: 0,
+                }}
+              >
+                {saving ? "…" : "Add"}
+              </button>
+            </div>
+          )}
+        </div>
       )}
     </div>
   );

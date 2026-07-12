@@ -7,14 +7,14 @@ export async function PATCH(request: NextRequest) {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  let body: { recordId?: unknown; is_essential?: unknown; feeling?: unknown; memory_text?: unknown };
+  let body: { recordId?: unknown; is_essential?: unknown; feeling?: unknown; memory_text?: unknown; tags?: unknown };
   try {
     body = await request.json();
   } catch {
     return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
   }
 
-  const { recordId, is_essential, feeling, memory_text } = body;
+  const { recordId, is_essential, feeling, memory_text, tags } = body;
   if (typeof recordId !== "string" || !recordId) {
     return NextResponse.json({ error: "Missing recordId" }, { status: 400 });
   }
@@ -44,6 +44,16 @@ export async function PATCH(request: NextRequest) {
       return NextResponse.json({ error: "memory_text is too long" }, { status: 400 });
     }
     update.memory_text = memory_text;
+  }
+
+  if (tags !== undefined) {
+    if (!Array.isArray(tags) || tags.some(t => typeof t !== "string" || t.length > 50)) {
+      return NextResponse.json({ error: "tags must be an array of strings (max 50 chars each)" }, { status: 400 });
+    }
+    if (tags.length > 20) {
+      return NextResponse.json({ error: "Maximum 20 tags per record" }, { status: 400 });
+    }
+    update.tags = tags;
   }
 
   if (Object.keys(update).length === 0) {
