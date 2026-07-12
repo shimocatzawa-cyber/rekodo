@@ -5,12 +5,13 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { COUNTRIES } from "@/lib/countries";
 import { STAR_SIGNS } from "@/lib/starSigns";
-import { saveAvatarUrl, saveDisplayName, saveProfileSettings } from "@/app/settings/profile/actions";
+import { saveAvatarUrl, saveDisplayName, saveProfileSettings, saveVisibilitySettings } from "@/app/settings/profile/actions";
 import AppNav from "@/components/AppNav";
 import CollectionPhotos from "@/app/p/[username]/CollectionPhotos";
 import WantlistClient from "@/components/wantlist/WantlistClient";
 import CollectionCsvUpload from "@/components/collection/CollectionCsvUpload";
 import EssentialsWallModal from "@/components/insights/EssentialsWallModal";
+import ProfileRecordsTabs from "@/components/profile/ProfileRecordsTabs";
 
 const SERIF  = "var(--font-editorial)";
 const MONO   = "var(--font-mono)";
@@ -39,6 +40,8 @@ export interface ProfileData {
   spotify_connected: boolean;
   spotify_display_name: string | null;
   spotify_product: string | null;
+  collection_public: boolean;
+  wantlist_public:   boolean;
 }
 
 interface Props {
@@ -149,6 +152,13 @@ export default function ProfileClient({
   const [bioValue,      setBioValue]      = useState(profile.bio               ?? "");
   const [starSignValue, setStarSignValue] = useState(profile.star_sign         ?? "");
   const [bandcampValue, setBandcampValue] = useState(profile.bandcamp_username ?? "");
+
+  // ── Visibility settings ───────────────────────────────────────────────────
+  const [collectionPublic, setCollectionPublic] = useState(profile.collection_public);
+  const [wantlistPublic,   setWantlistPublic]   = useState(profile.wantlist_public);
+  const [visSaving,  setVisSaving]  = useState(false);
+  const [visSaved,   setVisSaved]   = useState(false);
+  const [visError,   setVisError]   = useState<string | null>(null);
 
   // ── Bandcamp sync ─────────────────────────────────────────────────────────
   const [bcSyncing,    setBcSyncing]    = useState(false);
@@ -275,7 +285,11 @@ export default function ProfileClient({
     setBioValue(profile.bio               ?? "");
     setStarSignValue(profile.star_sign    ?? "");
     setBandcampValue(profile.bandcamp_username ?? "");
+    setCollectionPublic(profile.collection_public);
+    setWantlistPublic(profile.wantlist_public);
     setSaveError(null);
+    setVisError(null);
+    setVisSaved(false);
     setEditing(false);
   }
 
@@ -292,6 +306,16 @@ export default function ProfileClient({
       setEditing(false);
       router.refresh();
     });
+  }
+
+  async function handleVisibilitySave() {
+    setVisSaving(true);
+    setVisError(null);
+    setVisSaved(false);
+    const result = await saveVisibilitySettings(collectionPublic, wantlistPublic);
+    setVisSaving(false);
+    if ("error" in result) { setVisError(result.error); return; }
+    setVisSaved(true);
   }
 
   async function handleAvatarFile(e: React.ChangeEvent<HTMLInputElement>) {
@@ -659,6 +683,15 @@ export default function ProfileClient({
                   </div>
                 )}
 
+                {/* ── Collection / Wantlist tabs ── */}
+                <ProfileRecordsTabs
+                  userId={profile.id}
+                  isOwner={isOwner}
+                  collectionPublic={collectionPublic}
+                  wantlistPublic={wantlistPublic}
+                  totalCollectionCount={totalRecords}
+                />
+
                 {/* ── SPOTIFY + BANDCAMP + WANTLIST ── */}
                 {isOwner && (
                   <div style={{ marginTop: "0", paddingTop: "16px", borderTop: `1px solid ${RULE}`, display: "flex", gap: "0", alignItems: "flex-start" }}>
@@ -910,6 +943,39 @@ export default function ProfileClient({
                   </button>
                   <button onClick={cancelEdit} style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.12em", textTransform: "uppercase", color: MUTED, background: "none", border: "none", cursor: "pointer", padding: "10px 0" }}>
                     Cancel
+                  </button>
+                </div>
+
+                {/* ── Visibility ── */}
+                <div style={{ marginTop: "32px", paddingTop: "24px", borderTop: `1px solid ${RULE}` }}>
+                  <p style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.12em", textTransform: "uppercase", color: MUTED, margin: "0 0 16px" }}>
+                    Visibility
+                  </p>
+                  {(["collection", "wantlist"] as const).map(key => {
+                    const checked = key === "collection" ? collectionPublic : wantlistPublic;
+                    const setter  = key === "collection" ? setCollectionPublic : setWantlistPublic;
+                    return (
+                      <label key={key} style={{ display: "flex", alignItems: "center", gap: "10px", cursor: "pointer", marginBottom: "12px" }}>
+                        <input
+                          type="checkbox"
+                          checked={checked}
+                          onChange={e => setter(e.target.checked)}
+                          style={{ accentColor: ORANGE, width: 14, height: 14, cursor: "pointer" }}
+                        />
+                        <span style={{ fontFamily: MONO, fontSize: "0.68rem", letterSpacing: "0.04em", color: INK }}>
+                          {key === "collection" ? "Collection" : "Wantlist"} visible on profile
+                        </span>
+                      </label>
+                    );
+                  })}
+                  {visError && <p style={{ fontFamily: MONO, fontSize: "10px", color: "#cc3300", margin: "0 0 8px" }}>{visError}</p>}
+                  {visSaved && <p style={{ fontFamily: MONO, fontSize: "10px", color: "#226622", letterSpacing: "0.04em", margin: "0 0 8px" }}>Saved.</p>}
+                  <button
+                    onClick={handleVisibilitySave}
+                    disabled={visSaving}
+                    style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.12em", textTransform: "uppercase", color: visSaving ? MUTED : INK, background: "none", border: `1px solid ${RULE}`, cursor: visSaving ? "default" : "pointer", padding: "8px 14px" }}
+                  >
+                    {visSaving ? "Saving…" : "Save visibility"}
                   </button>
                 </div>
 

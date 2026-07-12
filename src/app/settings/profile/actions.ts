@@ -77,3 +77,20 @@ export async function saveProfileSettings(
   revalidatePath("/settings/profile");
   return { ok: true };
 }
+
+export async function saveVisibilitySettings(
+  collectionPublic: boolean,
+  wantlistPublic:   boolean,
+): Promise<{ error: string } | { ok: true }> {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { error: "Not authenticated." };
+
+  const { error } = await supabase
+    .from("profiles")
+    .update({ collection_public: collectionPublic, wantlist_public: wantlistPublic })
+    .eq("id", user.id);
+
+  if (error) return { error: error.message };
+  return { ok: true };
+}

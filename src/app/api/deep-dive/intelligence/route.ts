@@ -142,18 +142,30 @@ async function fetchDiscogsDiscography(artistName: string): Promise<DiscogsAlbum
     };
 
     // Masters where the artist is the primary act — exclude obvious non-album entries.
-    // Note: Discogs master records have no format field, so singles (e.g. "Karma Police")
-    // appear alongside albums. The prompt instructs Claude to filter them out.
+    // Discogs master records often lack a format field, so singles (e.g. "Don't Be Sad"
+    // by Whiskeytown — a 7" single, not an album) can slip through. We apply both
+    // title-pattern and format-field exclusions; the prompt adds a final Claude-side guard.
     const LIVE_PAT   = /\blive\b|\blive at\b|\bconcert\b/i;
     const SINGLE_PAT = /\bb\/w\b/i;
     const REMIX_PAT  = /\bremix(es)?\b|\bdub\b|\bedit\b|\breworked?\b/i;
+    // When Discogs does populate the format field for a master, use it as a positive
+    // gate: only pass through entries that look like albums (contain "lp" or "album"),
+    // and hard-exclude anything that reveals itself to be a single or EP.
+    const FORMAT_SINGLE_PAT = /\b(7"|ep|45\s*rpm|single)\b/i;
     const seen = new Set<string>();
     const out: DiscogsAlbum[] = [];
     for (const r of releases) {
       if (r.role !== "Main" || r.type !== "master" || !r.year || r.year < 1900) continue;
       if (LIVE_PAT.test(r.title) || SINGLE_PAT.test(r.title) || REMIX_PAT.test(r.title)) continue;
       const fmt = (r.format ?? "").toLowerCase();
-      if (fmt && (fmt.includes("live") || fmt.includes("single"))) continue;
+      if (fmt) {
+        // If the format field is present and reveals a non-album, always exclude.
+        if (fmt.includes("live") || fmt.includes("single") || FORMAT_SINGLE_PAT.test(fmt)) continue;
+        // If the format field is present but doesn't indicate LP/Album, also exclude —
+        // albums in Discogs always say "lp" or "album" when the field is populated.
+        const looksLikeAlbum = fmt.includes("lp") || fmt.includes("album");
+        if (!looksLikeAlbum) continue;
+      }
       const norm = r.title.toLowerCase().trim();
       if (seen.has(norm)) continue;
       seen.add(norm);
@@ -398,17 +410,24 @@ async function fetchPressingsData(artistName: string): Promise<{ pressings: Pres
       );
       if (!relRes.ok) return { pressings: [] };
       const { releases = [] } = await relRes.json() as {
-        releases?: { type: string; role: string; title: string; year: number; id: number }[];
+        releases?: { type: string; role: string; title: string; year: number; id: number; format?: string }[];
       };
 
-      const LIVE_PAT   = /\blive\b|\blive at\b|\bconcert\b/i;
-      const SINGLE_PAT = /\bb\/w\b/i;
-      const REMIX_PAT  = /\bremix(es)?\b|\bdub\b|\bedit\b|\breworked?\b/i;
+      const LIVE_PAT          = /\blive\b|\blive at\b|\bconcert\b/i;
+      const SINGLE_PAT        = /\bb\/w\b/i;
+      const REMIX_PAT         = /\bremix(es)?\b|\bdub\b|\bedit\b|\breworked?\b/i;
+      const FORMAT_SINGLE_PAT = /\b(7"|ep|45\s*rpm|single)\b/i;
       const seen = new Set<string>();
       for (const r of releases) {
         if (albums.length >= 30) break;
         if (r.role !== "Main" || r.type !== "master" || !r.year || r.year < 1900) continue;
         if (LIVE_PAT.test(r.title) || SINGLE_PAT.test(r.title) || REMIX_PAT.test(r.title)) continue;
+        const fmt = (r.format ?? "").toLowerCase();
+        if (fmt) {
+          if (fmt.includes("live") || fmt.includes("single") || FORMAT_SINGLE_PAT.test(fmt)) continue;
+          const looksLikeAlbum = fmt.includes("lp") || fmt.includes("album");
+          if (!looksLikeAlbum) continue;
+        }
         const norm = r.title.toLowerCase().trim();
         if (seen.has(norm)) continue;
         seen.add(norm);
@@ -616,7 +635,8 @@ const PROMPTS: Record<string, (artist: string, ownedAlbums?: string[], discogsAl
 ${verifiedBlock}
 CRITICAL ACCURACY RULES:
 ${discogsAlbums.length > 0
-  ? `- The VERIFIED CATALOGUE above contains ALL release types including singles, EPs, and individual song titles alongside full albums. You MUST only rank full-length studio albums (typically 8+ tracks, released as LP). Discard any entry that is a single (an individual song title), an EP, a compilation, a live record, or a remix album — even if it appears in the catalogue list.`
+  ? `- The VERIFIED CATALOGUE above may contain singles, EPs, and individual song titles alongside full-length albums. You MUST only rank full-length studio albums (typically 8+ tracks, released as LP). Discard any entry that is a single track title, a 7" or 12" single, an EP, a compilation, a live record, or a remix album — even if it appears in the catalogue list.
+- SONG TITLE TRAP: If a catalogue entry title matches (or closely resembles) a well-known song by ${artist}, it is almost certainly a single release — not a standalone album. Exclude it. Do not write a description for it.`
   : `- Only include full-length studio albums you are certain exist. If unsure, omit it.`}
 - Use the year from the VERIFIED CATALOGUE exactly — do not guess or alter release years.
 - Do not confuse ${artist} with any other artist.
@@ -685,7 +705,8 @@ ${verifiedBlock}
 CRITICAL RULES:
 - NEVER recommend an album that appears in the ALREADY OWNED list above. If you are unsure whether an album matches one already owned, do not recommend it.
 ${discogsAlbums.length > 0
-  ? `- Only recommend albums from the COMPLETE CATALOGUE list above. Do not fabricate or suggest albums not on that list.`
+  ? `- Only recommend albums from the COMPLETE CATALOGUE list above. Do not fabricate or suggest albums not on that list.
+- SONG TITLE TRAP: The catalogue may include 7" or 12" singles listed as masters. If a title looks like an individual song name rather than an album title, skip it — do not recommend it as a gap.`
   : `- Only recommend albums you are certain ${artist} actually released. Do not fabricate or guess titles.`}
 - Studio albums only — no live albums, compilations, or EPs unless they are genuinely essential to the artist's legacy.
 - Be selective: flag only albums a serious collector would consider essential gaps, not completionist picks.
