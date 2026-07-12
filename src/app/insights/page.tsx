@@ -765,13 +765,16 @@ export default async function InsightsPage() {
     .slice(0, 10)
     .map(([artist, { count, valueSum }]) => ({ artist, count, valueSum }));
 
-  const VINYL_FMTS = new Set(["LP", "VINYL", "7\"", "10\"", "12\"", "EP", "LP, ALBUM", "ALBUM"]);
+  function isVinylFormat(fmt: string): boolean {
+    const primary = fmt.toUpperCase().trim().split(",")[0].trim();
+    return primary === "VINYL" || primary === "EP" || primary.endsWith("LP") || primary.endsWith("\"");
+  }
   const vinylArtistCounts = new Map<string, number>();
   for (const link of allLinks) {
     const rec = recordsMap.get(link.record_id);
     if (!rec) continue;
-    const fmt = rec.format?.toUpperCase().trim() ?? "";
-    if (!VINYL_FMTS.has(fmt)) continue;
+    const fmt = rec.format?.trim() ?? "";
+    if (!isVinylFormat(fmt)) continue;
     const artist = rec.artist?.trim();
     if (!artist || artist === "Unknown" || artist === "Various") continue;
     vinylArtistCounts.set(artist, (vinylArtistCounts.get(artist) ?? 0) + (link.copies ?? 1));
@@ -1053,11 +1056,10 @@ export default async function InsightsPage() {
     : null;
 
   // 7. Vinyl pure ↔ Format agnostic — vinyl share of (vinyl + digital imports).
-  const VINYL_FORMATS = new Set(["LP", "VINYL", "7\"", "10\"", "12\"", "EP", "LP, ALBUM", "ALBUM"]);
   let vinylCount = 0;
   for (const link of allLinks) {
-    const fmt = recordsMap.get(link.record_id)?.format?.toUpperCase().trim();
-    if (!fmt || VINYL_FORMATS.has(fmt)) vinylCount++;
+    const fmt = recordsMap.get(link.record_id)?.format ?? "";
+    if (!fmt || isVinylFormat(fmt)) vinylCount++;
   }
   const { count: digitalImportsCountRaw } = await supabase
     .from("digital_imports")

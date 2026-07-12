@@ -108,17 +108,18 @@ const TIER_META: Record<string, { label: string; color: string }> = {
 };
 
 function ShelfCard({ username, totalRecords, styleBreakdown, genreBreakdown, desirabilityBreakdown, topArtist, topArtistCount, oldestAlbum, newestAlbum, collectionPhotoUrl, formatBreakdown, resolvedPhotoUrl, forExport }: CardProps & { resolvedPhotoUrl?: string; forExport?: boolean }) {
-  const VINYL_FMTS = new Set(["LP", "VINYL", "7\"", "10\"", "12\"", "EP", "LP, ALBUM", "ALBUM"]);
-  const CD_FMTS    = new Set(["CD", "CDR", "CD, ALBUM"]);
-  const CASS_FMTS  = new Set(["CASSETTE", "CASS"]);
+  const CD_PRIMARY   = new Set(["CD", "CDR", "SACD"]);
+  const CASS_PRIMARY = new Set(["CASSETTE", "CASS"]);
 
   let records = 0, cds = 0, cassettes = 0, others = 0;
   for (const { format, count } of formatBreakdown) {
-    const f = format.toUpperCase().trim();
-    if (VINYL_FMTS.has(f))     records    += count;
-    else if (CD_FMTS.has(f))   cds        += count;
-    else if (CASS_FMTS.has(f)) cassettes  += count;
-    else                       others     += count;
+    // Discogs formats are compound: "LP, Album, RE" — match on primary token only
+    const primary = format.toUpperCase().trim().split(",")[0].trim();
+    const isVinyl = primary === "VINYL" || primary === "EP" || primary.endsWith("LP") || primary.endsWith("\"");
+    if (isVinyl)                        records    += count;
+    else if (CD_PRIMARY.has(primary))   cds        += count;
+    else if (CASS_PRIMARY.has(primary)) cassettes  += count;
+    else                                others     += count;
   }
   const formatPills = [
     ...(records   > 0 ? [{ label: "Records",   count: records,   icon: <VinylIcon size={22} color={INK} /> }]   : []),
