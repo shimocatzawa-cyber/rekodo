@@ -364,6 +364,7 @@ export default function CollectionClient({
         memory_text:      string | null;
         copies:           number | null;
         tags:             string[] | null;
+        date_added:       string | null;
       };
       const allLinks: LinkRow[] = [];
       const PAGE = 1000;
@@ -371,7 +372,7 @@ export default function CollectionClient({
         const { data, error } = await supabase
           .from("user_records")
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          .select("record_id, value, price_low, price_median, price_currency, media_condition, sleeve_condition, open_to_offers, is_essential, feeling, memory_text, copies, tags" as any)
+          .select("record_id, value, price_low, price_median, price_currency, media_condition, sleeve_condition, open_to_offers, is_essential, feeling, memory_text, copies, tags, date_added" as any)
           .eq("user_id", user.id)
           .range(from, from + PAGE - 1);
         if (!data || data.length === 0) break;
@@ -392,14 +393,15 @@ export default function CollectionClient({
       const memoryTextMap      = new Map<string, string | null>(allLinks.map((l) => [l.record_id, l.memory_text ?? null]));
       const clientTagsMap      = new Map<string, string[]>(allLinks.map((l) => [l.record_id, l.tags ?? []]));
       const clientCopiesMap    = new Map<string, number>(allLinks.map((l) => [l.record_id, l.copies ?? 1]));
+      const clientDateAddedMap = new Map<string, string | null>(allLinks.map((l) => [l.record_id, l.date_added ?? null]));
       const BATCH        = 400;
-      const recordsMap   = new Map<string, Omit<CollectionRecord, "value" | "price_low" | "price_low_usd" | "price_median" | "price_currency" | "media_condition" | "sleeve_condition" | "open_to_offers" | "is_essential" | "feeling" | "memory_text" | "tags" | "copies">>();
+      const recordsMap   = new Map<string, Omit<CollectionRecord, "value" | "price_low" | "price_low_usd" | "price_median" | "price_currency" | "media_condition" | "sleeve_condition" | "open_to_offers" | "is_essential" | "feeling" | "memory_text" | "tags" | "copies" | "date_added">>();
       for (let i = 0; i < recordIds.length; i += BATCH) {
         const { data, error } = await supabase
           .from("records")
           .select("id, discogs_id, artist, album, year, genre, styles, cover_url, label, format, country, community_have, community_want, community_num_for_sale, edition_size")
           .in("id", recordIds.slice(i, i + BATCH));
-        for (const r of data ?? []) recordsMap.set(r.id, r as Omit<CollectionRecord, "value" | "price_low" | "price_low_usd" | "price_median" | "price_currency" | "media_condition" | "sleeve_condition" | "copies">);
+        for (const r of data ?? []) recordsMap.set(r.id, r as Omit<CollectionRecord, "value" | "price_low" | "price_low_usd" | "price_median" | "price_currency" | "media_condition" | "sleeve_condition" | "copies" | "date_added">);
       }
 
       const fetched: CollectionRecord[] = recordIds
@@ -421,6 +423,7 @@ export default function CollectionClient({
             memory_text:      memoryTextMap.get(id)      ?? null,
             tags:             clientTagsMap.get(id)      ?? [],
             copies:           clientCopiesMap.get(id)    ?? 1,
+            date_added:       clientDateAddedMap.get(id) ?? null,
           };
         })
         .filter((r): r is CollectionRecord => r !== undefined);
@@ -752,6 +755,10 @@ export default function CollectionClient({
         return arr.sort((a, b) => (b.year ?? 0) - (a.year ?? 0));
       case "year-old-new":
         return arr.sort((a, b) => (a.year ?? 9999) - (b.year ?? 9999));
+      case "date-added-new-old":
+        return arr.sort((a, b) => (b.date_added ?? "").localeCompare(a.date_added ?? ""));
+      case "date-added-old-new":
+        return arr.sort((a, b) => (a.date_added ?? "").localeCompare(b.date_added ?? ""));
       default:
         return arr;
     }
@@ -1166,22 +1173,24 @@ export default function CollectionClient({
                   </div>
                 </div>
                 <select
-                  value={["value-high-low", "value-low-high", "year-new-old", "year-old-new"].includes(sortBy) ? sortBy : ""}
+                  value={["value-high-low", "value-low-high", "year-new-old", "year-old-new", "date-added-new-old", "date-added-old-new"].includes(sortBy) ? sortBy : ""}
                   onChange={e => { if (e.target.value) setSortBy(e.target.value); }}
                   style={{
                     width: "100%", fontFamily: MONO, fontSize: "12px", letterSpacing: "0.02em",
-                    color: ["value-high-low", "value-low-high", "year-new-old", "year-old-new"].includes(sortBy) ? ORANGE : "#888888",
+                    color: ["value-high-low", "value-low-high", "year-new-old", "year-old-new", "date-added-new-old", "date-added-old-new"].includes(sortBy) ? ORANGE : "#888888",
                     background: "#fafafa",
-                    border: `0.5px solid ${["value-high-low", "value-low-high", "year-new-old", "year-old-new"].includes(sortBy) ? ORANGE : "#e8e8e8"}`,
+                    border: `0.5px solid ${["value-high-low", "value-low-high", "year-new-old", "year-old-new", "date-added-new-old", "date-added-old-new"].includes(sortBy) ? ORANGE : "#e8e8e8"}`,
                     borderRadius: "4px",
                     cursor: "pointer", padding: "8px", outline: "none",
                   }}
                 >
-                  <option value="">Value / Year sort…</option>
+                  <option value="">Value / Year / Date Added…</option>
                   <option value="value-high-low">Market Value: High to Low</option>
                   <option value="value-low-high">Market Value: Low to High</option>
                   <option value="year-new-old">Year: Newest First</option>
                   <option value="year-old-new">Year: Oldest First</option>
+                  <option value="date-added-new-old">Date Added: Newest First</option>
+                  <option value="date-added-old-new">Date Added: Oldest First</option>
                 </select>
               </div>
             </div>
@@ -1366,22 +1375,24 @@ export default function CollectionClient({
                 </div>
               </div>
               <select
-                value={["value-high-low", "value-low-high", "year-new-old", "year-old-new"].includes(sortBy) ? sortBy : ""}
+                value={["value-high-low", "value-low-high", "year-new-old", "year-old-new", "date-added-new-old", "date-added-old-new"].includes(sortBy) ? sortBy : ""}
                 onChange={e => { if (e.target.value) setSortBy(e.target.value); }}
                 style={{
                   width: "100%", fontFamily: MONO, fontSize: "10px", letterSpacing: "0.04em",
-                  color: ["value-high-low", "value-low-high", "year-new-old", "year-old-new"].includes(sortBy) ? ORANGE : "#888888",
+                  color: ["value-high-low", "value-low-high", "year-new-old", "year-old-new", "date-added-new-old", "date-added-old-new"].includes(sortBy) ? ORANGE : "#888888",
                   background: "#ffffff",
-                  border: `1px solid ${["value-high-low", "value-low-high", "year-new-old", "year-old-new"].includes(sortBy) ? ORANGE : "rgba(0,0,0,0.13)"}`,
+                  border: `1px solid ${["value-high-low", "value-low-high", "year-new-old", "year-old-new", "date-added-new-old", "date-added-old-new"].includes(sortBy) ? ORANGE : "rgba(0,0,0,0.13)"}`,
                   cursor: "pointer", padding: "4px 6px", outline: "none",
                   transition: "border-color 0.15s, color 0.15s",
                 }}
               >
-                <option value="">Value / Year sort…</option>
+                <option value="">Value / Year / Date Added…</option>
                 <option value="value-high-low">Market Value: High to Low</option>
                 <option value="value-low-high">Market Value: Low to High</option>
                 <option value="year-new-old">Year: Newest First</option>
                 <option value="year-old-new">Year: Oldest First</option>
+                <option value="date-added-new-old">Date Added: Newest First</option>
+                <option value="date-added-old-new">Date Added: Oldest First</option>
               </select>
             </div>
 
@@ -1768,6 +1779,9 @@ function AlbumDetail({ record, detail, price, valueCurrency }: {
             {offersLoading ? "…" : openToOffers ? "Open to Offers ✓" : "Open to Offers"}
           </button>
         </div>
+        {record.date_added && (
+          <MetaRow label="Date Added" value={formatDate(record.date_added)} />
+        )}
 
         {/* Marketplace pricing */}
         {price && (

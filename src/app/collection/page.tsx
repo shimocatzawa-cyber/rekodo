@@ -81,6 +81,7 @@ export type CollectionRecord = {
   matrix:                 string[] | null;
   edition_size:           number | null;
   copies:                 number;
+  date_added:             string | null;
 };
 
 export type CollectionInsights = {
@@ -118,6 +119,7 @@ export type LinkRow = {
   memory_text:      string | null;
   copies:           number;
   tags:             string[];
+  date_added:       string | null;
 };
 
 export type RecordRow = {
@@ -153,7 +155,7 @@ function fetchCollectionRaw(userId: string) {
       for (let from = 0; ; from += PAGE) {
         const { data, error } = await admin
           .from("user_records")
-          .select("record_id, created_at, value, price_low, price_median, price_currency, media_condition, sleeve_condition, last_played_at, open_to_offers, is_essential, feeling, memory_text, copies, tags")
+          .select("record_id, created_at, value, price_low, price_median, price_currency, media_condition, sleeve_condition, last_played_at, open_to_offers, is_essential, feeling, memory_text, copies, tags, date_added")
           .eq("user_id", userId)
           .order("created_at", { ascending: false })
           .range(from, from + PAGE - 1);
@@ -333,9 +335,10 @@ export default async function CollectionPage({
   const memoryTextMap    = new Map<string, string | null>(allLinks.map((l) => [l.record_id, l.memory_text ?? null]));
   const tagsMap          = new Map<string, string[]>(allLinks.map((l) => [l.record_id, l.tags ?? []]));
 
-  const copiesMap = new Map<string, number>(allLinks.map((l) => [l.record_id, l.copies ?? 1]));
+  const copiesMap    = new Map<string, number>(allLinks.map((l) => [l.record_id, l.copies ?? 1]));
+  const dateAddedMap = new Map<string, string | null>(allLinks.map((l) => [l.record_id, l.date_added ?? null]));
 
-  type RecordsMapValue = Omit<CollectionRecord, "value" | "price_low" | "price_median" | "price_currency" | "media_condition" | "sleeve_condition" | "last_played_at" | "open_to_offers" | "is_essential" | "feeling" | "memory_text" | "tags" | "copies">;
+  type RecordsMapValue = Omit<CollectionRecord, "value" | "price_low" | "price_median" | "price_currency" | "media_condition" | "sleeve_condition" | "last_played_at" | "open_to_offers" | "is_essential" | "feeling" | "memory_text" | "tags" | "copies" | "date_added">;
   const recordsMap = new Map<string, RecordsMapValue>();
   for (const r of recordRows) recordsMap.set(r.id, r as unknown as RecordsMapValue);
 
@@ -362,6 +365,7 @@ export default async function CollectionPage({
         memory_text:            memoryTextMap.get(id)    ?? null,
         tags:                   tagsMap.get(id)          ?? [],
         copies:                 copiesMap.get(id)        ?? 1,
+        date_added:             dateAddedMap.get(id)     ?? null,
       };
     })
     .filter((r): r is CollectionRecord => r !== undefined);
