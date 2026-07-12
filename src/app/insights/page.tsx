@@ -765,7 +765,7 @@ export default async function InsightsPage() {
     .slice(0, 10)
     .map(([artist, { count, valueSum }]) => ({ artist, count, valueSum }));
 
-  const VINYL_FMTS = new Set(["LP", "VINYL", "7\"", "10\"", "12\"", "EP"]);
+  const VINYL_FMTS = new Set(["LP", "VINYL", "7\"", "10\"", "12\"", "EP", "LP, ALBUM", "ALBUM"]);
   const vinylArtistCounts = new Map<string, number>();
   for (const link of allLinks) {
     const rec = recordsMap.get(link.record_id);
@@ -1053,7 +1053,7 @@ export default async function InsightsPage() {
     : null;
 
   // 7. Vinyl pure ↔ Format agnostic — vinyl share of (vinyl + digital imports).
-  const VINYL_FORMATS = new Set(["LP", "VINYL", "7\"", "10\"", "12\"", "EP"]);
+  const VINYL_FORMATS = new Set(["LP", "VINYL", "7\"", "10\"", "12\"", "EP", "LP, ALBUM", "ALBUM"]);
   let vinylCount = 0;
   for (const link of allLinks) {
     const fmt = recordsMap.get(link.record_id)?.format?.toUpperCase().trim();

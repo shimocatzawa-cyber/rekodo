@@ -108,21 +108,23 @@ const TIER_META: Record<string, { label: string; color: string }> = {
 };
 
 function ShelfCard({ username, totalRecords, styleBreakdown, genreBreakdown, desirabilityBreakdown, topArtist, topArtistCount, oldestAlbum, newestAlbum, collectionPhotoUrl, formatBreakdown, resolvedPhotoUrl, forExport }: CardProps & { resolvedPhotoUrl?: string; forExport?: boolean }) {
-  const VINYL_FMTS = new Set(["LP", "VINYL", "7\"", "10\"", "12\"", "EP"]);
+  const VINYL_FMTS = new Set(["LP", "VINYL", "7\"", "10\"", "12\"", "EP", "LP, ALBUM", "ALBUM"]);
   const CD_FMTS    = new Set(["CD", "CDR", "CD, ALBUM"]);
   const CASS_FMTS  = new Set(["CASSETTE", "CASS"]);
 
-  let records = 0, cds = 0, cassettes = 0;
+  let records = 0, cds = 0, cassettes = 0, others = 0;
   for (const { format, count } of formatBreakdown) {
     const f = format.toUpperCase().trim();
-    if (VINYL_FMTS.has(f))   records    += count;
-    else if (CD_FMTS.has(f)) cds        += count;
-    else if (CASS_FMTS.has(f)) cassettes += count;
+    if (VINYL_FMTS.has(f))     records    += count;
+    else if (CD_FMTS.has(f))   cds        += count;
+    else if (CASS_FMTS.has(f)) cassettes  += count;
+    else                       others     += count;
   }
   const formatPills = [
     ...(records   > 0 ? [{ label: "Records",   count: records,   icon: <VinylIcon size={22} color={INK} /> }]   : []),
     ...(cds       > 0 ? [{ label: "CDs",        count: cds,       icon: <CDIcon size={22} color={INK} /> }]       : []),
     ...(cassettes > 0 ? [{ label: "Cassettes",  count: cassettes, icon: <CassetteIcon size={22} color={INK} /> }] : []),
+    ...(others    > 0 ? [{ label: "Other",       count: others,    icon: <VinylIcon size={22} color={MUTED} /> }]  : []),
   ];
   const knownGenres = genreBreakdown.filter(g => g.genre && g.genre !== "Unknown");
   const top4 = knownGenres.slice(0, 4);

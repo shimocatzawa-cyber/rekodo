@@ -97,19 +97,29 @@ export default function ShelfWall({ viewerLoggedIn }: { viewerLoggedIn: boolean 
 
   async function toggleLike(postId: string) {
     if (!viewerLoggedIn) return;
-    setPosts(prev => prev.map(p =>
-      p.id === postId
-        ? { ...p, likedByMe: !p.likedByMe, likeCount: p.likedByMe ? p.likeCount - 1 : p.likeCount + 1 }
-        : p
-    ));
-    if (active?.id === postId) {
-      setActive(prev => prev ? { ...prev, likedByMe: !prev.likedByMe, likeCount: prev.likedByMe ? prev.likeCount - 1 : prev.likeCount + 1 } : prev);
+
+    function applyToggle(p: ShelfPost) {
+      return { ...p, likedByMe: !p.likedByMe, likeCount: p.likedByMe ? p.likeCount - 1 : p.likeCount + 1 };
     }
-    await fetch("/api/shelf/like", {
+
+    setPosts(prev => prev.map(p => p.id === postId ? applyToggle(p) : p));
+    if (active?.id === postId) {
+      setActive(prev => prev ? applyToggle(prev) : prev);
+    }
+
+    const res = await fetch("/api/shelf/like", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ postId }),
     });
+
+    if (!res.ok) {
+      // Revert optimistic update
+      setPosts(prev => prev.map(p => p.id === postId ? applyToggle(p) : p));
+      if (active?.id === postId) {
+        setActive(prev => prev ? applyToggle(prev) : prev);
+      }
+    }
   }
 
   if (loading) {

@@ -20,10 +20,12 @@ export async function POST(request: NextRequest) {
     .maybeSingle();
 
   if (existing) {
-    await db.from("shelf_post_likes").delete().eq("post_id", postId).eq("user_id", user.id);
+    const { error } = await db.from("shelf_post_likes").delete().eq("post_id", postId).eq("user_id", user.id);
+    if (error) return NextResponse.json({ error: "Failed to unlike" }, { status: 500 });
     return NextResponse.json({ liked: false });
   } else {
-    await db.from("shelf_post_likes").insert({ post_id: postId, user_id: user.id });
+    const { error } = await db.from("shelf_post_likes").insert({ post_id: postId, user_id: user.id });
+    if (error) return NextResponse.json({ error: "Failed to like" }, { status: 500 });
     return NextResponse.json({ liked: true });
   }
 }
