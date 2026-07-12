@@ -1315,6 +1315,27 @@ export default function CollectionClient({
               </select>
             </div>
 
+            {/* Filter dropdown — row 4: Tag (full width, only shown when tags exist) */}
+            {allTags.length > 0 && (
+              <div style={{ padding: "0 10px 6px", display: "flex", gap: "6px" }}>
+                <select
+                  value={filterTag}
+                  onChange={e => setFilterTag(e.target.value)}
+                  style={{
+                    flex: 1, fontFamily: MONO, fontSize: "10px", letterSpacing: "0.04em",
+                    color: filterTag ? ORANGE : "#888888",
+                    background: "#ffffff",
+                    border: `1px solid ${filterTag ? ORANGE : "rgba(0,0,0,0.13)"}`,
+                    cursor: "pointer", padding: "4px 6px", outline: "none",
+                    transition: "border-color 0.15s, color 0.15s",
+                  }}
+                >
+                  <option value="">Tag</option>
+                  {allTags.map(t => <option key={t} value={t}>{t}</option>)}
+                </select>
+              </div>
+            )}
+
             {/* Sort bar — name sorts as inline buttons, value/year as dropdown */}
             <div style={{ padding: "0 10px 6px" }}>
               <div style={{ display: "flex", alignItems: "center", gap: "6px", marginBottom: "6px" }}>
@@ -1363,27 +1384,6 @@ export default function CollectionClient({
                 <option value="year-old-new">Year: Oldest First</option>
               </select>
             </div>
-
-            {/* Filter dropdown — row 4: Tag (full width, only shown when tags exist) */}
-            {allTags.length > 0 && (
-              <div style={{ padding: "0 10px 6px", display: "flex", gap: "6px" }}>
-                <select
-                  value={filterTag}
-                  onChange={e => setFilterTag(e.target.value)}
-                  style={{
-                    flex: 1, fontFamily: MONO, fontSize: "10px", letterSpacing: "0.04em",
-                    color: filterTag ? ORANGE : "#888888",
-                    background: "#ffffff",
-                    border: `1px solid ${filterTag ? ORANGE : "rgba(0,0,0,0.13)"}`,
-                    cursor: "pointer", padding: "4px 6px", outline: "none",
-                    transition: "border-color 0.15s, color 0.15s",
-                  }}
-                >
-                  <option value="">Tag</option>
-                  {allTags.map(t => <option key={t} value={t}>{t}</option>)}
-                </select>
-              </div>
-            )}
 
             {/* Active filter tags */}
             {(filterGenre || filterStyle || filterYear || filterFormat || filterDesirability || filterFeeling || filterTag) && (
