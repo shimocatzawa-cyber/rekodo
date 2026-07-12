@@ -172,7 +172,7 @@ function formatDate(dateStr: string | null | undefined): string | null {
   try {
     const d = new Date(dateStr);
     if (isNaN(d.getTime())) return null;
-    return d.toLocaleDateString("en-US", { month: "short", year: "numeric" });
+    return d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
   } catch { return null; }
 }
 
