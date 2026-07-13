@@ -56,10 +56,10 @@ export default function ProfileRecordsTabs({
     }
   }
 
-  // Auto-load collection on mount
   useEffect(() => { loadTab("collection"); }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   function switchTab(tab: "collection" | "wantlist") {
+    if (tab === activeTab) return;
     setActiveTab(tab);
     setSearch("");
     loadTab(tab);
@@ -78,38 +78,48 @@ export default function ProfileRecordsTabs({
       )
     : items;
 
-  const collectionLabel = `Collection${totalCollectionCount > 0 ? ` (${totalCollectionCount.toLocaleString()})` : ""}`;
-
   return (
-    <div style={{ marginTop: "36px" }}>
-      {/* Tab bar — left-aligned, same style as DeepDive section tabs */}
-      <div style={{ display: "flex", borderBottom: `1px solid ${RULE}`, gap: "4px" }}>
-        {([["collection", collectionLabel], ["wantlist", "Wantlist"]] as const).map(([id, label]) => (
-          <button
-            key={id}
-            onClick={() => switchTab(id)}
-            style={{
-              fontFamily:      MONO,
-              fontSize:        "0.7rem",
-              letterSpacing:   "0.1em",
-              textTransform:   "uppercase",
-              color:           activeTab === id ? ORANGE : INK,
-              background:      "none",
-              border:          "none",
-              borderBottom:    activeTab === id ? `2px solid ${ORANGE}` : "2px solid transparent",
-              padding:         "8px 16px 8px 0",
-              cursor:          "pointer",
-              whiteSpace:      "nowrap",
-              marginBottom:    -1,
-            }}
-          >
-            {label}
-          </button>
-        ))}
+    <div style={{ marginTop: "36px", display: "flex", gap: "32px", alignItems: "flex-start" }}>
+
+      {/* ── Left nav column ── */}
+      <div style={{ flexShrink: 0, width: 120 }}>
+        {(["collection", "wantlist"] as const).map(id => {
+          const active = activeTab === id;
+          const label  = id === "collection"
+            ? `Collection${totalCollectionCount > 0 ? `\n(${totalCollectionCount.toLocaleString()})` : ""}`
+            : "Wantlist";
+
+          return (
+            <button
+              key={id}
+              onClick={() => switchTab(id)}
+              style={{
+                display:       "block",
+                width:         "100%",
+                textAlign:     "left",
+                fontFamily:    MONO,
+                fontSize:      "0.65rem",
+                letterSpacing: "0.1em",
+                textTransform: "uppercase",
+                lineHeight:    1.5,
+                color:         active ? ORANGE : MUTED,
+                background:    "none",
+                border:        "none",
+                borderLeft:    `2px solid ${active ? ORANGE : "transparent"}`,
+                padding:       "4px 0 4px 10px",
+                marginBottom:  "8px",
+                cursor:        "pointer",
+                whiteSpace:    "pre-line",
+              }}
+            >
+              {label}
+            </button>
+          );
+        })}
       </div>
 
-      <div style={{ marginTop: "16px" }}>
-        {/* Privacy gate */}
+      {/* ── Right content panel ── */}
+      <div style={{ flex: 1, minWidth: 0, borderTop: `1px solid ${RULE}`, paddingTop: "4px" }}>
         {isPrivate ? (
           <p style={{ fontFamily: MONO, fontSize: "0.65rem", color: MUTED, letterSpacing: "0.04em", margin: 0 }}>
             This {activeTab} is private.
@@ -131,7 +141,7 @@ export default function ProfileRecordsTabs({
                   background:    "none",
                   border:        "none",
                   borderBottom:  `1px solid ${RULE}`,
-                  padding:       "8px 0",
+                  padding:       "6px 0",
                   marginBottom:  "4px",
                   outline:       "none",
                   color:         INK,
@@ -174,24 +184,18 @@ export default function ProfileRecordsTabs({
                   <div
                     key={i}
                     style={{
-                      display:       "flex",
-                      alignItems:    "center",
-                      gap:           "12px",
-                      padding:       "9px 0",
-                      borderBottom:  `1px solid ${RULE}`,
+                      display:      "flex",
+                      alignItems:   "center",
+                      gap:          "12px",
+                      padding:      "9px 0",
+                      borderBottom: `1px solid ${RULE}`,
                     }}
                   >
                     {/* Cover */}
                     <div style={{ width: 40, height: 40, flexShrink: 0, background: "#f0ede8", overflow: "hidden" }}>
                       {item.coverUrl ? (
                         // eslint-disable-next-line @next/next/no-img-element
-                        <img
-                          src={item.coverUrl}
-                          alt=""
-                          width={40}
-                          height={40}
-                          style={{ objectFit: "cover", display: "block" }}
-                        />
+                        <img src={item.coverUrl} alt="" width={40} height={40} style={{ objectFit: "cover", display: "block" }} />
                       ) : (
                         <div style={{ width: 40, height: 40, border: "1px dashed rgba(0,0,0,0.1)" }} />
                       )}
@@ -228,15 +232,12 @@ export default function ProfileRecordsTabs({
                   </div>
                 ))}
 
-                {/* Count footer */}
-                {filtered.length > 0 && (
-                  <p style={{ fontFamily: MONO, fontSize: "0.6rem", color: "#cccccc", letterSpacing: "0.06em", margin: "12px 0 0", textAlign: "right" }}>
-                    {q
-                      ? `${filtered.length} result${filtered.length !== 1 ? "s" : ""}`
-                      : `${filtered.length.toLocaleString()} item${filtered.length !== 1 ? "s" : ""}`
-                    }
-                  </p>
-                )}
+                <p style={{ fontFamily: MONO, fontSize: "0.6rem", color: "#cccccc", letterSpacing: "0.06em", margin: "12px 0 0", textAlign: "right" }}>
+                  {q
+                    ? `${filtered.length} result${filtered.length !== 1 ? "s" : ""}`
+                    : `${filtered.length.toLocaleString()} item${filtered.length !== 1 ? "s" : ""}`
+                  }
+                </p>
               </div>
             )}
           </>
