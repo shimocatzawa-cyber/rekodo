@@ -38,9 +38,17 @@ function tryOpenWithAppFallback(appUrl: string, webUrl: string): void {
   const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
 
   if (!isMobile) {
-    // Desktop: the app-scheme causes a browser permission dialog and leaves a
-    // blank tab when it fails. Just open the web URL in a new tab instead.
-    window.open(webUrl, "_blank", "noopener,noreferrer");
+    // Desktop: navigate the current window to the app scheme (doesn't leave the
+    // page). If the app opens, the window loses focus — blur fires and we stop.
+    // If the app isn't installed, no blur fires and we fall back to the web URL.
+    let appOpened = false;
+    const onBlur = () => { appOpened = true; };
+    window.addEventListener("blur", onBlur, { once: true });
+    window.location.href = appUrl;
+    setTimeout(() => {
+      window.removeEventListener("blur", onBlur);
+      if (!appOpened) window.open(webUrl, "_blank", "noopener,noreferrer");
+    }, 1500);
     return;
   }
 
