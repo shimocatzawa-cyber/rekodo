@@ -210,8 +210,33 @@ function RankingsContent({
   wantlistSet?: Set<string>;
 }) {
   const norm = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, "");
+  const [artMap, setArtMap] = useState<Record<string, string | null>>({});
 
   const albums = data.albums ?? [];
+
+  // Fetch artwork for all albums in parallel on mount / artist change
+  useEffect(() => {
+    if (albums.length === 0) return;
+    let cancelled = false;
+    Promise.all(
+      albums.map(async (a) => {
+        try {
+          const r = await fetch(
+            `/api/deep-dive/album-art?artist=${encodeURIComponent(artist)}&album=${encodeURIComponent(a.title)}`
+          );
+          const d = r.ok ? (await r.json() as { url?: string | null }) : {};
+          return [a.title, d.url ?? null] as const;
+        } catch {
+          return [a.title, null] as const;
+        }
+      })
+    ).then((entries) => {
+      if (!cancelled) setArtMap(Object.fromEntries(entries));
+    });
+    return () => { cancelled = true; };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [artist, albums.length]);
+
   if (albums.length === 0) {
     return (
       <p style={{ fontFamily: MONO, fontSize: "0.72rem", letterSpacing: "0.04em", color: INK, padding: "2rem 0" }}>
@@ -225,6 +250,7 @@ function RankingsContent({
         const key          = norm(a.title);
         const inCollection = collectionSet?.has(key) ?? false;
         const inWantlist   = wantlistSet?.has(key) ?? wantlistAdded?.has(a.title) ?? false;
+        const artUrl       = artMap[a.title];
 
         const statusTag = inCollection
           ? <span style={{ fontFamily: MONO, fontSize: "0.65rem", letterSpacing: "0.06em", color: "#aaa", border: "1px solid #ddd", padding: "2px 7px", flexShrink: 0 }}>In Collection</span>
@@ -249,11 +275,19 @@ function RankingsContent({
 
         return (
           <div key={a.rank} style={{ padding: "1.5rem 0", borderBottom: `1px solid ${RULE}` }}>
-            <div style={{ display: "flex", gap: 20, alignItems: "flex-start" }}>
-              <span style={{ fontFamily: MONO, fontSize: "1.4rem", fontWeight: 500, color: ORANGE, lineHeight: 1, minWidth: 42, flexShrink: 0 }}>
+            <div style={{ display: "flex", gap: 16, alignItems: "flex-start" }}>
+              {/* Rank number */}
+              <span style={{ fontFamily: MONO, fontSize: "1.4rem", fontWeight: 500, color: ORANGE, lineHeight: 1, minWidth: 36, flexShrink: 0, paddingTop: 2 }}>
                 {String(a.rank).padStart(2, "0")}
               </span>
-              <div style={{ flex: 1 }}>
+              {/* Cover art */}
+              {artUrl
+                // eslint-disable-next-line @next/next/no-img-element
+                ? <img src={artUrl} alt="" aria-hidden style={{ width: 64, height: 64, objectFit: "cover", flexShrink: 0, display: "block" }} />
+                : <div style={{ width: 64, height: 64, background: SUBTLE, flexShrink: 0 }} />
+              }
+              {/* Content */}
+              <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ display: "flex", gap: 12, alignItems: "baseline", flexWrap: "wrap", marginBottom: 10 }}>
                   <span style={{ fontFamily: SERIF, fontSize: "1rem", fontWeight: 600, color: INK, letterSpacing: "-0.01em" }}>
                     {a.title}
