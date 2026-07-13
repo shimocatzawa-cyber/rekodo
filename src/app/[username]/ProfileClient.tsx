@@ -153,9 +153,6 @@ export default function ProfileClient({
   const [starSignValue, setStarSignValue] = useState(profile.star_sign         ?? "");
   const [bandcampValue, setBandcampValue] = useState(profile.bandcamp_username ?? "");
 
-  // ── Collection / Wantlist tab (controlled at profile level) ─────────────
-  const [profileTab, setProfileTab] = useState<"collection" | "wantlist">("collection");
-
   // ── Visibility settings ───────────────────────────────────────────────────
   const [collectionPublic, setCollectionPublic] = useState(profile.collection_public);
   const [wantlistPublic,   setWantlistPublic]   = useState(profile.wantlist_public);
@@ -459,46 +456,7 @@ export default function ProfileClient({
 
             {/* ── DISPLAY MODE ── */}
             {!editing && (
-              <div style={{ display: "flex", gap: 40, alignItems: "flex-start" }}>
-
-                {/* ── Left nav (Collection / Wantlist) — matches SpotlightArchivePicker style ── */}
-                <div style={{ width: 110, flexShrink: 0, paddingTop: 4 }}>
-                  {(["collection", "wantlist"] as const).map(tab => {
-                    const active = profileTab === tab;
-                    const count  = tab === "collection" && totalRecords > 0
-                      ? `\n(${totalRecords.toLocaleString()})`
-                      : "";
-                    return (
-                      <button
-                        key={tab}
-                        onClick={() => setProfileTab(tab)}
-                        style={{
-                          display:       "block",
-                          fontFamily:    MONO,
-                          fontSize:      "10px",
-                          letterSpacing: "0.06em",
-                          textTransform: "uppercase",
-                          whiteSpace:    "pre",
-                          lineHeight:    1.5,
-                          background:    "none",
-                          border:        "none",
-                          padding:       "2px 0",
-                          marginBottom:  "6px",
-                          textAlign:     "left",
-                          cursor:        active ? "default" : "pointer",
-                          color:         active ? ORANGE : "#888888",
-                          borderBottom:  `1px solid ${active ? ORANGE : "transparent"}`,
-                          width:         "fit-content",
-                        }}
-                      >
-                        {tab === "collection" ? `Collection${count}` : "Wantlist"}
-                      </button>
-                    );
-                  })}
-                </div>
-
-                {/* ── Right: all profile content ── */}
-                <div style={{ flex: 1, minWidth: 0 }}>
+              <>
                 <div style={{ display: "flex", alignItems: "baseline", gap: "12px", margin: "0 0 8px 0", flexWrap: "wrap" }}>
                   <h1 style={{ fontFamily: SERIF, fontSize: "clamp(32px, 5vw, 48px)", fontWeight: 400, color: INK, lineHeight: 1.1, margin: 0 }}>
                     {displayName}
@@ -725,16 +683,14 @@ export default function ProfileClient({
                   </div>
                 )}
 
-                {/* ── Collection / Wantlist content ── */}
-                <div style={{ marginTop: "24px" }}>
-                  <ProfileRecordsTabs
-                    userId={profile.id}
-                    isOwner={isOwner}
-                    collectionPublic={collectionPublic}
-                    wantlistPublic={wantlistPublic}
-                    activeTab={profileTab}
-                  />
-                </div>
+                {/* ── Collection / Wantlist ── */}
+                <ProfileRecordsTabs
+                  userId={profile.id}
+                  isOwner={isOwner}
+                  collectionPublic={collectionPublic}
+                  wantlistPublic={wantlistPublic}
+                  totalCollectionCount={totalRecords}
+                />
 
                 {/* ── SPOTIFY + BANDCAMP + WANTLIST ── */}
                 {isOwner && (
@@ -886,8 +842,7 @@ export default function ProfileClient({
 
                 {isOwner && <CollectionCsvUpload isOwner={isOwner} />}
 
-                </div>
-              </div>
+              </>
             )}
 
             {/* ── EDIT MODE ── */}
