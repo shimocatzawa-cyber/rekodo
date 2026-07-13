@@ -1,4 +1,13 @@
 import { createClient } from "@/lib/supabase/server";
+import { createClient as createServiceClient } from "@supabase/supabase-js";
+
+function getServiceDb() {
+  return createServiceClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!,
+    { auth: { persistSession: false } }
+  );
+}
 
 export const dynamic = "force-dynamic";
 
@@ -77,7 +86,7 @@ export async function GET() {
       }
     } catch { /* non-fatal */ }
 
-    await supabase.from("gig_cache").upsert(
+    await getServiceDb().from("gig_cache").upsert(
       { cache_key: cacheKey, results: rawEvents, cached_at: new Date().toISOString() },
       { onConflict: "cache_key" }
     );

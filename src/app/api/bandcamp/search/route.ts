@@ -1,4 +1,5 @@
 import { type NextRequest } from "next/server";
+import { createClient } from "@/lib/supabase/server";
 
 const UA = "Mozilla/5.0 (compatible; rekodo/1.0)";
 
@@ -7,6 +8,10 @@ function fallbackSearchUrl(artist: string, album: string): string {
 }
 
 export async function GET(req: NextRequest) {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return Response.json({ error: "Unauthorized" }, { status: 401 });
+
   const artist = req.nextUrl.searchParams.get("artist")?.trim() ?? "";
   const album  = req.nextUrl.searchParams.get("album")?.trim()  ?? "";
 
