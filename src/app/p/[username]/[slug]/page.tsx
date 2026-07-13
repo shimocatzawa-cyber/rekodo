@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import type { SlotItem, ListSlot } from "@/app/lists/types";
 import PublicListClient from "@/components/lists/PublicListClient";
@@ -13,38 +13,18 @@ const MONO  = "var(--font-mono)";
 
 type Params = Promise<{ username: string; slug: string }>;
 
-export async function generateMetadata({ params }: { params: Params }): Promise<Metadata> {
-  const { username, slug } = await params;
-  const supabase = await createClient();
-
-  const { data: profile } = await supabase
-    .from("profiles").select("id, display_name").eq("username", username).maybeSingle();
-  if (!profile) return { title: "List not found" };
-
-  const { data: list } = await supabase
-    .from("lists").select("title, is_public").eq("user_id", profile.id).eq("slug", slug).maybeSingle();
-  if (!list || !list.is_public) return { robots: { index: false } };
-
-  const name = profile.display_name?.trim() || username;
-  const description = `A curated list by ${name} on rekōdo.`;
-
-  return {
-    title: list.title,
-    description,
-    alternates: { canonical: `https://rekodo.co/p/${username}/${slug}` },
-    openGraph: {
-      title: `${list.title} — ${name} on rekōdo`,
-      description,
-      url: `https://rekodo.co/p/${username}/${slug}`,
-      type: "article",
-    },
-    twitter: { card: "summary", title: `${list.title} — ${name} on rekōdo`, description },
-  };
+export async function generateMetadata(): Promise<Metadata> {
+  // Lists are members-only — no indexing
+  return { robots: { index: false, follow: false } };
 }
 
 export default async function PublicListPage({ params }: { params: Params }) {
   const { username, slug } = await params;
   const supabase = await createClient();
+
+  // Lists are members-only — gate before any data fetching
+  const viewer = await getUserWithTimeout(supabase);
+  if (!viewer) redirect("/login");
 
   const { data: profile } = await supabase
     .from("profiles").select("id, username").eq("username", username).maybeSingle();
@@ -99,8 +79,7 @@ export default async function PublicListPage({ params }: { params: Params }) {
     };
   });
 
-  const viewer = await getUserWithTimeout(supabase);
-  const viewerUserId = viewer?.id ?? null;
+  const viewerUserId = viewer.id;
   const isOwner      = viewerUserId === profile.id;
 
   let viewerUsername: string | null = null;
