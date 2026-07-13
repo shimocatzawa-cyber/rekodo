@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import ProfileClient from "@/app/[username]/ProfileClient";
@@ -25,29 +25,11 @@ export async function generateMetadata({ params }: { params: Params }): Promise<
   if (!profile) return { title: "Profile not found" };
 
   const name = profile.display_name?.trim() || username;
-  const location = [profile.city, profile.country].filter(Boolean).join(", ");
-  const description = profile.bio?.trim()
-    || `Explore ${name}'s vinyl collection on rekōdo${location ? ` — based in ${location}` : ""}.`;
 
+  // Profiles are members-only — tell crawlers not to index them
   return {
-    title: `${name} (@${username})`,
-    description,
-    alternates: { canonical: `https://rekodo.co/@${username}` },
-    openGraph: {
-      title: `${name} on rekōdo`,
-      description,
-      url: `https://rekodo.co/@${username}`,
-      type: "profile",
-      ...(profile.avatar_url
-        ? { images: [{ url: profile.avatar_url, alt: `${name}'s avatar` }] }
-        : {}),
-    },
-    twitter: {
-      card: "summary",
-      title: `${name} on rekōdo`,
-      description,
-      ...(profile.avatar_url ? { images: [profile.avatar_url] } : {}),
-    },
+    title: `${name} (@${username}) · rekōdo`,
+    robots: { index: false, follow: false },
   };
 }
 
@@ -58,6 +40,11 @@ export default async function PublicProfilePage({ params }: { params: Params }) 
 
   const supabase = await createClient();
   const viewer = await getUserWithTimeout(supabase);
+
+  // Profiles are members-only — redirect unauthenticated visitors to login
+  if (!viewer) {
+    redirect("/login");
+  }
 
   type ProfileRow = {
     id: string; username: string; display_name: string | null;

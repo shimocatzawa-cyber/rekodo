@@ -322,6 +322,21 @@ export default function ProfileClient({
     setVisSaved(true);
   }
 
+  // Master profile privacy toggle — sets both collection + wantlist simultaneously
+  async function handlePrivacyToggle() {
+    const isPublic = collectionPublic || wantlistPublic;
+    const next = !isPublic;
+    setVisSaving(true);
+    setCollectionPublic(next);
+    setWantlistPublic(next);
+    const result = await saveVisibilitySettings(next, next);
+    setVisSaving(false);
+    if ("error" in result) {
+      setCollectionPublic(!next);
+      setWantlistPublic(!next);
+    }
+  }
+
   async function handleAvatarFile(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     (e.target as HTMLInputElement).value = "";
@@ -451,6 +466,22 @@ export default function ProfileClient({
                   <button onClick={openEdit} style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.1em", textTransform: "uppercase", color: INK, background: "none", border: "none", cursor: "pointer", padding: 0 }}>
                     Edit profile
                   </button>
+                  {/* Privacy toggle — prominent pill */}
+                  <button
+                    onClick={handlePrivacyToggle}
+                    disabled={visSaving}
+                    title={collectionPublic || wantlistPublic ? "Click to make profile private" : "Click to make profile public"}
+                    style={{
+                      fontFamily: MONO, fontSize: "9px", letterSpacing: "0.1em", textTransform: "uppercase",
+                      cursor: visSaving ? "default" : "pointer", padding: "5px 10px",
+                      border: `1px solid ${collectionPublic || wantlistPublic ? RULE : INK}`,
+                      background: collectionPublic || wantlistPublic ? "transparent" : INK,
+                      color: collectionPublic || wantlistPublic ? MUTED : "#ffffff",
+                      borderRadius: "2px",
+                    }}
+                  >
+                    {visSaving ? "…" : collectionPublic || wantlistPublic ? "Public" : "Private"}
+                  </button>
                   <button onClick={async () => { await createClient().auth.signOut(); router.push("/login"); }} style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.1em", textTransform: "uppercase", color: INK, background: "none", border: "none", cursor: "pointer", padding: 0 }}>
                     Sign out
                   </button>
@@ -470,7 +501,17 @@ export default function ProfileClient({
                   )}
                 </div>
 
+                {/* ── Private profile gate for visitors ── */}
+                {!isOwner && !collectionPublic && !wantlistPublic && (
+                  <div style={{ marginTop: "32px" }}>
+                    <p style={{ fontFamily: MONO, fontSize: "10px", letterSpacing: "0.12em", textTransform: "uppercase", color: MUTED, margin: "0 0 4px" }}>
+                      This profile is private.
+                    </p>
+                  </div>
+                )}
+
                 {/* ── Profile sub-tabs ── */}
+                {(isOwner || collectionPublic || wantlistPublic) && (<>
                 <div style={{ display: "flex", gap: "20px", borderBottom: `1px solid ${RULE}`, margin: "16px 0 20px" }}>
                   {(["about", "collection", "wantlist"] as const).map(tab => {
                     const label = tab === "about"
@@ -893,6 +934,9 @@ export default function ProfileClient({
                     </div>
                   </>
                 )}
+
+                {/* close privacy gate */}
+                </>)}
 
               </>
             )}
