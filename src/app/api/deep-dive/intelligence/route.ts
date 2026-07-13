@@ -795,13 +795,21 @@ export async function getOrGenerateSection(
 
   // ── Discogs discography fetch ──────────────────────────────────────────────
   // Used for rankings/blindspot to ground Claude on verified album titles.
-  // Also fetched for podcasts/print to anchor artist identity and prevent
-  // Claude from confusing ambiguous names (e.g. "Colleen" the musician vs
-  // Colleen Hoover the novelist) when iTunes/OpenLibrary return mixed results.
+  // For podcasts/print we only need a short album list for artist identity
+  // disambiguation — read it from the rankings cache to avoid two extra
+  // Discogs API calls that would push the function past its timeout.
   let discogsAlbums: DiscogsAlbum[] = [];
-  if (["rankings", "blindspot", "podcasts", "print"].includes(section)) {
+  if (section === "rankings" || section === "blindspot") {
     discogsAlbums = await fetchDiscogsDiscography(artist);
     console.log(`[deep-dive] discogs — ${artist}: ${discogsAlbums.length > 0 ? `${discogsAlbums.length} albums` : "unavailable, proceeding without"}`);
+  } else if (section === "podcasts" || section === "print") {
+    // Prefer rankings cache (already fetched for most artists) over a fresh
+    // Discogs call — a handful of titles is enough to disambiguate the artist.
+    const rankingsData = await readCache(artist, "rankings");
+    if (rankingsData && typeof rankingsData === "object" && Array.isArray((rankingsData as { albums?: unknown }).albums)) {
+      discogsAlbums = ((rankingsData as { albums: { title: string; year: number }[] }).albums)
+        .map(a => ({ title: a.title, year: a.year }));
+    }
   }
 
   // ── iTunes podcast episode search ──────────────────────────────────────────
