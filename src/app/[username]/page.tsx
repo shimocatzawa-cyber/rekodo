@@ -41,12 +41,11 @@ export default async function PublicProfilePage({ params }: { params: Params }) 
     bandcamp_username: string | null; role: string | null;
     spotify_connected: boolean | null; spotify_display_name: string | null;
     spotify_product: string | null;
-    collection_public: boolean | null; wantlist_public: boolean | null;
   };
 
   const { data: profile } = await (supabase as any)
     .from("profiles")
-    .select("id, username, display_name, city, country, country_code, bio, avatar_url, is_donor, is_supporter, taste_summary, star_sign, bandcamp_username, role, spotify_connected, spotify_display_name, spotify_product, collection_public, wantlist_public")
+    .select("id, username, display_name, city, country, country_code, bio, avatar_url, is_donor, is_supporter, taste_summary, star_sign, bandcamp_username, role, spotify_connected, spotify_display_name, spotify_product")
     .eq("username", username)
     .maybeSingle() as unknown as { data: ProfileRow | null };
 
@@ -79,6 +78,16 @@ export default async function PublicProfilePage({ params }: { params: Params }) 
   // Show password form for all owners — if a pure OAuth account tries to set
   // one, supabase.auth.updateUser returns a clear error that we surface inline.
   const hasPassword = isOwner;
+
+  // Visibility flags — queried separately so a stale PostgREST schema cache
+  // (which may not know about newly-added columns) never 404s the whole page.
+  const { data: visData } = await supabase
+    .from("profiles")
+    .select("collection_public, wantlist_public")
+    .eq("id", profile.id)
+    .maybeSingle();
+  const collectionPublic = (visData as { collection_public?: boolean | null } | null)?.collection_public ?? true;
+  const wantlistPublic   = (visData as { wantlist_public?:   boolean | null } | null)?.wantlist_public   ?? true;
 
   // Viewer profile for AppNav (skip extra query when viewer is the profile owner)
   let viewerNav: { username: string; displayName: string | null; avatarUrl: string | null } | null = null;
@@ -343,8 +352,8 @@ export default async function PublicProfilePage({ params }: { params: Params }) 
         spotify_connected:    profile.spotify_connected    ?? false,
         spotify_display_name: profile.spotify_display_name ?? null,
         spotify_product:      profile.spotify_product      ?? null,
-        collection_public:    profile.collection_public    ?? true,
-        wantlist_public:      profile.wantlist_public      ?? true,
+        collection_public:    collectionPublic,
+        wantlist_public:      wantlistPublic,
       }}
       isOwner={isOwner}
       isSupporter={!!(profile.is_supporter || profile.is_donor || profile.role === "admin")}
