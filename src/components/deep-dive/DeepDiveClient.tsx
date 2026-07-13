@@ -39,7 +39,7 @@ function BandcampIcon({ size = 13 }: { size?: number }) {
   );
 }
 
-const TAB_IDS: Section[] = ["about", "rankings", "discography", "pressings", "blindspot", "podcasts", "print", "related"];
+const TAB_IDS: Section[] = ["about", "discography", "rankings", "pressings", "blindspot", "podcasts", "print", "related"];
 
 // ── Shared primitives ──────────────────────────────────────────────────────────
 
@@ -1260,8 +1260,8 @@ export default function DeepDiveClient({
   const t = useTranslations("deepDive");
   const TABS: { id: Section; label: string }[] = [
     { id: "about",        label: "About" },
-    { id: "rankings",     label: t("essentialAlbums") },
     { id: "discography",  label: "Discography" },
+    { id: "rankings",     label: t("essentialAlbums") },
     { id: "pressings",    label: t("pressings") },
     { id: "blindspot", label: t("blindSpot") },
     { id: "podcasts",  label: t("podcasts") },
