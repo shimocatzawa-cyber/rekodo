@@ -38,19 +38,9 @@ function tryOpenWithAppFallback(appUrl: string, webUrl: string): void {
   const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
 
   if (!isMobile) {
-    // Desktop: open a blank fallback tab so the main tab can try the app scheme
-    // without losing the page. blur fires if the app (or new tab) gets focus.
-    const fallbackTab = window.open("", "_blank", "noopener,noreferrer");
-    let appOpened = false;
-    const onBlur = () => { appOpened = true; };
-    window.addEventListener("blur", onBlur);
-    window.location.href = appUrl;
-    setTimeout(() => {
-      window.removeEventListener("blur", onBlur);
-      if (!fallbackTab) { window.open(webUrl, "_blank", "noopener,noreferrer"); return; }
-      if (appOpened) fallbackTab.close();
-      else fallbackTab.location.href = webUrl;
-    }, 1000);
+    // Desktop: the app-scheme causes a browser permission dialog and leaves a
+    // blank tab when it fails. Just open the web URL in a new tab instead.
+    window.open(webUrl, "_blank", "noopener,noreferrer");
     return;
   }
 
