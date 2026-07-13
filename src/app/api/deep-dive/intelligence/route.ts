@@ -842,27 +842,32 @@ export async function getOrGenerateSection(
 
   console.log(`[deep-dive] done — ${artist}/${section} stop_reason=${message.stop_reason} tokens=${message.usage.output_tokens}`);
 
-  // Use the last text block, not the first — with web search enabled, Claude
-  // sometimes prefaces the JSON with a text block discussing what it found
-  // before settling on a final answer.
+  // Extract JSON from the response — scan all text blocks and use the first
+  // one that contains parseable JSON. This handles two Claude output patterns:
+  // 1. Web search: reasoning text first, JSON last → finds it at the end
+  // 2. Disambiguation rejection: JSON first, explanation text last → finds it at the start
   const textBlocks = message.content.filter((b) => b.type === "text");
-  const text  = textBlocks[textBlocks.length - 1]?.text ?? "";
-  let clean = text.replace(/```json\n?/g, "").replace(/```\n?/g, "").trim();
 
-  // Claude occasionally adds a disclaimer sentence before or after the JSON
-  // despite "no preamble" instructions — fall back to extracting the
-  // outermost {...} object rather than failing the whole section.
-  if (!clean.startsWith("{")) {
-    const start = clean.indexOf("{");
-    const end = clean.lastIndexOf("}");
-    if (start !== -1 && end > start) clean = clean.slice(start, end + 1);
+  function tryExtractJson(raw: string): unknown | null {
+    let s = raw.replace(/```json\n?/g, "").replace(/```\n?/g, "").trim();
+    if (!s.startsWith("{")) {
+      const start = s.indexOf("{");
+      const end   = s.lastIndexOf("}");
+      if (start === -1 || end <= start) return null;
+      s = s.slice(start, end + 1);
+    }
+    try { return JSON.parse(s); } catch { return null; }
   }
 
-  let data: unknown;
-  try {
-    data = JSON.parse(clean);
-  } catch {
-    console.error(`[deep-dive] parse error — ${artist}/${section} stop=${message.stop_reason} raw=${clean.slice(0, 400)}`);
+  let data: unknown = null;
+  for (const block of textBlocks) {
+    const parsed = tryExtractJson((block as { type: string; text: string }).text ?? "");
+    if (parsed !== null) { data = parsed; break; }
+  }
+
+  if (data === null) {
+    const raw = textBlocks.map(b => (b as { text?: string }).text ?? "").join("\n").slice(0, 400);
+    console.error(`[deep-dive] parse error — ${artist}/${section} stop=${message.stop_reason} raw=${raw}`);
     throw new Error("Parse error");
   }
 
@@ -873,7 +878,10 @@ export async function getOrGenerateSection(
   // a bare unawaited call was likely losing the write before it landed.
   // Skipped for empty results so a transient failure can't freeze "No
   // information available" in the shared cache for the full TTL.
-  if (CACHED_SECTIONS.has(section) && !isEmptyResult(section, data)) {
+  // Cache both populated and confirmed-empty results. Empty results use a short
+  // 3-day TTL (via the normal writeCache path) so they get a fresh attempt
+  // eventually without regenerating on every single visit.
+  if (CACHED_SECTIONS.has(section)) {
     after(() => writeCache(artist, section, data));
   }
 

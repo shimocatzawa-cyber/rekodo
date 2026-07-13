@@ -771,7 +771,7 @@ function PrintContent({ data, artist }: { data: PrintData; artist: string }) {
   if (!hasBooks && !hasInterviews) {
     return (
       <p style={{ fontFamily: MONO, fontSize: "0.72rem", letterSpacing: "0.04em", color: INK, padding: "2rem 0" }}>
-        No information available for this artist.
+        No books or notable print interviews found for this artist.
       </p>
     );
   }
