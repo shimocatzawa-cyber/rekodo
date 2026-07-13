@@ -356,12 +356,11 @@ function DiscographyContent({
     );
   }
 
+  const sorted = [...albums].sort((a, b) => b.year - a.year);
+
   return (
     <div>
-      <p style={{ fontFamily: MONO, fontSize: "0.62rem", letterSpacing: "0.08em", color: "#aaa", margin: "0 0 1.5rem", textTransform: "uppercase" }}>
-        {albums.length} album{albums.length !== 1 ? "s" : ""} · via Discogs
-      </p>
-      {albums.map((a) => {
+      {sorted.map((a) => {
         const key          = norm(a.title);
         const inCollection = collectionSet?.has(key) ?? false;
         const inWantlist   = wantlistSet?.has(key) ?? wantlistAdded?.has(a.title) ?? false;
@@ -396,17 +395,27 @@ function DiscographyContent({
             <div style={{ flex: 1, minWidth: 0 }}>
               <div style={{ display: "flex", gap: 10, alignItems: "baseline", flexWrap: "wrap", marginBottom: 4 }}>
                 <span style={{ fontFamily: SERIF, fontSize: "0.92rem", fontWeight: 600, color: INK, letterSpacing: "-0.01em" }}>
-                  {a.url
-                    ? <a href={a.url} target="_blank" rel="noopener noreferrer" style={{ color: "inherit", textDecoration: "none" }}>{a.title}</a>
-                    : a.title
-                  }
+                  {a.title}
                 </span>
                 <span style={{ fontFamily: MONO, fontSize: "0.68rem", letterSpacing: "0.04em", color: "#888" }}>
                   {a.year}{a.label ? ` · ${a.label}` : ""}
                 </span>
                 {statusTag}
               </div>
-              <div style={{ display: "flex", gap: 12, marginTop: 4 }}>
+              <div style={{ display: "flex", gap: 12, marginTop: 4, flexWrap: "wrap" }}>
+                {a.url && (
+                  <a
+                    href={a.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    style={{
+                      fontFamily: MONO, fontSize: "0.6rem", letterSpacing: "0.08em",
+                      color: "#999", textDecoration: "underline", textUnderlineOffset: "2px",
+                    }}
+                  >
+                    Discogs ↗
+                  </a>
+                )}
                 {[
                   { label: "Apple Music", url: `https://music.apple.com/search?term=${encodeURIComponent(artist + " " + a.title)}` },
                   { label: "Spotify",     url: `https://open.spotify.com/search/${encodeURIComponent(artist + " " + a.title)}` },
@@ -430,6 +439,9 @@ function DiscographyContent({
           </div>
         );
       })}
+      <p style={{ fontFamily: MONO, fontSize: "0.62rem", letterSpacing: "0.08em", color: "#aaa", margin: "1.5rem 0 0", textTransform: "uppercase" }}>
+        {albums.length} album{albums.length !== 1 ? "s" : ""} · via Discogs
+      </p>
     </div>
   );
 }
