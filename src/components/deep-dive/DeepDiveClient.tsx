@@ -5,6 +5,7 @@ import { createClient } from "@/lib/supabase/client";
 import { useTranslations } from "next-intl";
 import ArtistPlayer from "@/components/deep-dive/ArtistPlayer";
 import { useUrlTab } from "@/lib/useUrlTab";
+import { openStreamLink } from "@/lib/openAppleMusic";
 
 const SERIF  = "var(--font-editorial)";
 const MONO   = "var(--font-mono)";
@@ -194,12 +195,14 @@ type Album = { rank: number; title: string; year: number; review: string };
 
 function RankingsContent({
   data,
+  artist,
   onAddToWantlist,
   wantlistAdded,
   collectionSet,
   wantlistSet,
 }: {
   data: { albums?: Album[] };
+  artist: string;
   onAddToWantlist?: (album: Album) => void;
   wantlistAdded?: Set<string>;
   collectionSet?: Set<string>;
@@ -263,6 +266,26 @@ function RankingsContent({
                 <p style={{ fontFamily: MONO, fontSize: "0.72rem", letterSpacing: "0.04em", color: INK, lineHeight: 1.7, margin: 0 }}>
                   {a.review}
                 </p>
+                <div style={{ display: "flex", gap: 16, marginTop: 10 }}>
+                  {[
+                    { label: "Apple Music", url: `https://music.apple.com/search?term=${encodeURIComponent(artist + " " + a.title)}` },
+                    { label: "Spotify",     url: `https://open.spotify.com/search/${encodeURIComponent(artist + " " + a.title)}` },
+                  ].map(({ label, url }) => (
+                    <button
+                      key={label}
+                      type="button"
+                      onClick={() => openStreamLink(url)}
+                      style={{
+                        fontFamily: MONO, fontSize: "0.62rem", letterSpacing: "0.08em",
+                        color: "#999", background: "none", border: "none",
+                        padding: 0, cursor: "pointer", textDecoration: "underline",
+                        textUnderlineOffset: "2px",
+                      }}
+                    >
+                      {label} ↗
+                    </button>
+                  ))}
+                </div>
               </div>
             </div>
           </div>
@@ -1116,8 +1139,6 @@ export default function DeepDiveClient({
   const [loadingTabs, setLoadingTabs] = useState<Record<string, boolean>>({});
   const [errorTabs, setErrorTabs] = useState<Record<string, TabErrorKind>>({});
 
-  // Outside Collection mode
-  const [searchMode, setSearchMode] = useState<"inside" | "outside">("inside");
   const [isExternalArtist, setIsExternalArtist] = useState(false);
   const [discogsResults, setDiscogsResults] = useState<{ id: number; name: string; thumb: string | null }[]>([]);
   const [discogsSearching, setDiscogsSearching] = useState(false);
@@ -1392,29 +1413,20 @@ export default function DeepDiveClient({
     }
   }
 
-  function handleSearchModeSwitch(mode: "inside" | "outside") {
-    setSearchMode(mode);
-    setQuery("");
-    setDiscogsResults([]);
-    if (discogsTimerRef.current) clearTimeout(discogsTimerRef.current);
-  }
-
   function handleQueryChange(val: string) {
     setQuery(val);
-    if (searchMode === "outside") {
-      if (discogsTimerRef.current) clearTimeout(discogsTimerRef.current);
-      if (!val.trim() || val.trim().length < 2) { setDiscogsResults([]); return; }
-      setDiscogsSearching(true);
-      discogsTimerRef.current = setTimeout(() => {
-        fetch(`/api/deep-dive/artist-search?q=${encodeURIComponent(val.trim())}`)
-          .then((r) => (r.ok ? r.json() : { results: [] }))
-          .then((d: { results?: { id: number; name: string; thumb: string | null }[] }) => {
-            setDiscogsResults(d.results ?? []);
-          })
-          .catch(() => setDiscogsResults([]))
-          .finally(() => setDiscogsSearching(false));
-      }, 400);
-    }
+    if (discogsTimerRef.current) clearTimeout(discogsTimerRef.current);
+    if (!val.trim() || val.trim().length < 2) { setDiscogsResults([]); return; }
+    setDiscogsSearching(true);
+    discogsTimerRef.current = setTimeout(() => {
+      fetch(`/api/deep-dive/artist-search?q=${encodeURIComponent(val.trim())}`)
+        .then((r) => (r.ok ? r.json() : { results: [] }))
+        .then((d: { results?: { id: number; name: string; thumb: string | null }[] }) => {
+          setDiscogsResults(d.results ?? []);
+        })
+        .catch(() => setDiscogsResults([]))
+        .finally(() => setDiscogsSearching(false));
+    }, 400);
   }
 
   async function addAlbumToWantlist(album: Album) {
@@ -1599,6 +1611,7 @@ export default function DeepDiveClient({
       ]);
       return <RankingsContent
         data={data as { albums?: Album[] }}
+        artist={selectedArtist}
         onAddToWantlist={addAlbumToWantlist}
         wantlistAdded={wantlistAdded}
         collectionSet={collectionSet}
@@ -1930,37 +1943,12 @@ export default function DeepDiveClient({
             </button>
           </div>
 
-          {/* Inside / Outside Collection toggle */}
-          <div style={{ padding: "8px 1rem", borderBottom: `1px solid ${RULE}`, display: "flex", gap: 16 }}>
-            {(["inside", "outside"] as const).map((m) => {
-              const active = searchMode === m;
-              const label  = m === "inside" ? "Inside Collection" : "Outside Collection";
-              return (
-                <button
-                  key={m}
-                  type="button"
-                  onClick={() => handleSearchModeSwitch(m)}
-                  style={{
-                    fontFamily: MONO, fontSize: "10px", letterSpacing: "0.08em",
-                    textTransform: "uppercase",
-                    color: active ? INK : "#bbb",
-                    background: "none", border: "none",
-                    borderBottom: `1.5px solid ${active ? ORANGE : "transparent"}`,
-                    padding: "4px 0", cursor: active ? "default" : "pointer",
-                  }}
-                >
-                  {label}
-                </button>
-              );
-            })}
-          </div>
-
           {/* Search input */}
           <input
             type="text"
             value={query}
             onChange={(e) => handleQueryChange(e.target.value)}
-            placeholder={searchMode === "inside" ? t("searchYourArtists") : t("searchAnyArtist")}
+            placeholder={t("searchYourArtists")}
             style={{
               width: "100%",
               fontFamily: MONO,
@@ -1977,92 +1965,83 @@ export default function DeepDiveClient({
             }}
           />
 
-          {/* Outside Collection: Discogs search results */}
-          {searchMode === "outside" && (
+          {/* Collection artists — always shown, filtered by query */}
+          {filtered.map((a) => (
+            <ArtistRow
+              key={a.name}
+              artist={a}
+              isSelected={selectedArtist === a.name && !isExternalArtist}
+              imageUrl={imageMap[a.name]}
+              onSelect={selectArtist}
+            />
+          ))}
+          {filtered.length === 0 && !query && favoritesOnly && externalFavoriteArtists.length === 0 && (
+            <p style={{ fontFamily: MONO, fontSize: "0.68rem", letterSpacing: "0.06em", color: INK, padding: "1rem" }}>
+              No favourites yet — click ♡ next to an artist&rsquo;s name to add one.
+            </p>
+          )}
+          {mergedArtists.length === 0 && (
+            <div style={{ padding: "1.5rem 1rem" }}>
+              <p style={{ fontFamily: MONO, fontSize: "0.68rem", letterSpacing: "0.06em", color: INK, lineHeight: 1.6, margin: 0 }}>
+                Sync your Discogs collection first to unlock Deep Dive.
+              </p>
+            </div>
+          )}
+          {externalFavoriteArtists.length > 0 && (
             <>
+              {filtered.length > 0 && <div style={{ borderTop: `1px solid ${SUBTLE}` }} />}
+              <p style={{ fontFamily: MONO, fontSize: "0.52rem", letterSpacing: "0.12em", textTransform: "uppercase", color: "#aaa", padding: "0.5rem 1rem 0.25rem", margin: 0 }}>
+                Favourites
+              </p>
+              {externalFavoriteArtists.map((a) => (
+                <ArtistRow
+                  key={`ext-fav-${a.name}`}
+                  artist={a}
+                  isSelected={selectedArtist === a.name && isExternalArtist}
+                  imageUrl={imageMap[a.name]}
+                  onSelect={selectExternalArtist}
+                />
+              ))}
+            </>
+          )}
+
+          {/* Discogs results — other artists not in collection */}
+          {query.trim().length >= 2 && (
+            <>
+              {(filtered.length > 0 || externalFavoriteArtists.length > 0) && (discogsSearching || discogsResults.length > 0) && (
+                <div style={{ borderTop: `1px solid ${SUBTLE}` }} />
+              )}
               {discogsSearching && (
                 <p style={{ fontFamily: MONO, fontSize: "0.68rem", letterSpacing: "0.06em", color: "#aaa", padding: "0.75rem 1rem", margin: 0 }}>
                   Searching…
                 </p>
               )}
-              {!discogsSearching && discogsResults.map((r) => (
-                <button
-                  key={r.id}
-                  type="button"
-                  onClick={() => selectExternalArtist(r.name)}
-                  style={{
-                    display: "flex", alignItems: "center", gap: 10,
-                    width: "100%", textAlign: "left",
-                    padding: "0.6rem 1rem",
-                    background: selectedArtist === r.name ? WARM : "none",
-                    border: "none", borderBottom: `1px solid ${RULE}`,
-                    cursor: "pointer",
-                  }}
-                >
-                  {r.thumb
-                    // eslint-disable-next-line @next/next/no-img-element
-                    ? <img src={r.thumb} alt="" aria-hidden style={{ width: 32, height: 32, objectFit: "cover", flexShrink: 0 }} />
-                    : <div style={{ width: 32, height: 32, background: SUBTLE, flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: MONO, fontSize: "10px", color: "#aaa" }}>{r.name[0]}</div>
-                  }
-                  <span style={{ fontFamily: MONO, fontSize: "0.72rem", letterSpacing: "0.04em", color: INK }}>{r.name}</span>
-                </button>
-              ))}
-              {!discogsSearching && query.trim().length >= 2 && discogsResults.length === 0 && (
-                <p style={{ fontFamily: MONO, fontSize: "0.68rem", letterSpacing: "0.06em", color: INK, padding: "0.75rem 1rem", margin: 0 }}>
-                  No artists found for &ldquo;{query}&rdquo;
-                </p>
-              )}
-              {!query.trim() && (
-                <p style={{ fontFamily: MONO, fontSize: "0.68rem", letterSpacing: "0.06em", color: "#aaa", padding: "0.75rem 1rem", margin: 0, lineHeight: 1.6 }}>
-                  Search any artist to explore their essential albums.
-                </p>
-              )}
-            </>
-          )}
-
-          {/* Inside Collection: existing artist list */}
-          {searchMode === "inside" && (
-            <>
-              {filtered.map((a) => (
-                <ArtistRow
-                  key={a.name}
-                  artist={a}
-                  isSelected={selectedArtist === a.name && !isExternalArtist}
-                  imageUrl={imageMap[a.name]}
-                  onSelect={selectArtist}
-                />
-              ))}
-              {filtered.length === 0 && query && externalFavoriteArtists.length === 0 && (
-                <p style={{ fontFamily: MONO, fontSize: "0.68rem", letterSpacing: "0.06em", color: INK, padding: "1rem" }}>
-                  No artists match &ldquo;{query}&rdquo;
-                </p>
-              )}
-              {filtered.length === 0 && !query && favoritesOnly && externalFavoriteArtists.length === 0 && (
-                <p style={{ fontFamily: MONO, fontSize: "0.68rem", letterSpacing: "0.06em", color: INK, padding: "1rem" }}>
-                  No favourites yet — click ♡ next to an artist&rsquo;s name to add one.
-                </p>
-              )}
-              {mergedArtists.length === 0 && (
-                <div style={{ padding: "1.5rem 1rem" }}>
-                  <p style={{ fontFamily: MONO, fontSize: "0.68rem", letterSpacing: "0.06em", color: INK, lineHeight: 1.6, margin: 0 }}>
-                    Sync your Discogs collection first to unlock Deep Dive.
-                  </p>
-                </div>
-              )}
-              {externalFavoriteArtists.length > 0 && (
+              {!discogsSearching && discogsResults.length > 0 && (
                 <>
-                  {filtered.length > 0 && <div style={{ borderTop: `1px solid ${SUBTLE}` }} />}
                   <p style={{ fontFamily: MONO, fontSize: "0.52rem", letterSpacing: "0.12em", textTransform: "uppercase", color: "#aaa", padding: "0.5rem 1rem 0.25rem", margin: 0 }}>
-                    Outside Collection
+                    Other artists
                   </p>
-                  {externalFavoriteArtists.map((a) => (
-                    <ArtistRow
-                      key={`ext-fav-${a.name}`}
-                      artist={a}
-                      isSelected={selectedArtist === a.name && isExternalArtist}
-                      imageUrl={imageMap[a.name]}
-                      onSelect={selectExternalArtist}
-                    />
+                  {discogsResults.map((r) => (
+                    <button
+                      key={r.id}
+                      type="button"
+                      onClick={() => selectExternalArtist(r.name)}
+                      style={{
+                        display: "flex", alignItems: "center", gap: 10,
+                        width: "100%", textAlign: "left",
+                        padding: "0.6rem 1rem",
+                        background: selectedArtist === r.name ? WARM : "none",
+                        border: "none", borderBottom: `1px solid ${RULE}`,
+                        cursor: "pointer",
+                      }}
+                    >
+                      {r.thumb
+                        // eslint-disable-next-line @next/next/no-img-element
+                        ? <img src={r.thumb} alt="" aria-hidden style={{ width: 32, height: 32, objectFit: "cover", flexShrink: 0 }} />
+                        : <div style={{ width: 32, height: 32, background: SUBTLE, flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: MONO, fontSize: "10px", color: "#aaa" }}>{r.name[0]}</div>
+                      }
+                      <span style={{ fontFamily: MONO, fontSize: "0.72rem", letterSpacing: "0.04em", color: INK }}>{r.name}</span>
+                    </button>
                   ))}
                 </>
               )}
@@ -2081,36 +2060,12 @@ export default function DeepDiveClient({
         {/* Artist selector */}
         <div style={{ borderBottom: `1px solid ${RULE}` }}>
 
-          {/* Inside / Outside toggle */}
-          <div style={{ padding: "8px 1rem 0", display: "flex", gap: 16 }}>
-            {(["inside", "outside"] as const).map((m) => {
-              const active = searchMode === m;
-              return (
-                <button
-                  key={m}
-                  type="button"
-                  onClick={() => handleSearchModeSwitch(m)}
-                  style={{
-                    fontFamily: MONO, fontSize: "10px", letterSpacing: "0.08em",
-                    textTransform: "uppercase",
-                    color: active ? INK : "#bbb",
-                    background: "none", border: "none",
-                    borderBottom: `1.5px solid ${active ? ORANGE : "transparent"}`,
-                    padding: "4px 0", cursor: active ? "default" : "pointer",
-                  }}
-                >
-                  {m === "inside" ? "Inside Collection" : "Outside Collection"}
-                </button>
-              );
-            })}
-          </div>
-
           {/* Search input */}
           <input
             type="text"
             value={query}
             onChange={(e) => handleQueryChange(e.target.value)}
-            placeholder={searchMode === "inside" ? t("searchYourArtists") : t("searchAnyArtist")}
+            placeholder={t("searchYourArtists")}
             style={{
               width: "100%",
               fontFamily: MONO,
@@ -2127,8 +2082,8 @@ export default function DeepDiveClient({
             }}
           />
 
-          {/* Inside Collection: filtered artist list */}
-          {searchMode === "inside" && (mergedArtists.length > 0 || externalFavoriteArtists.length > 0) && (
+          {/* Collection artists + external results */}
+          {(mergedArtists.length > 0 || externalFavoriteArtists.length > 0) && (
             <div style={{ maxHeight: 220, overflowY: "auto" }}>
               {filtered.map((a) => (
                 <ArtistRow
@@ -2139,11 +2094,6 @@ export default function DeepDiveClient({
                   onSelect={selectArtist}
                 />
               ))}
-              {filtered.length === 0 && query && externalFavoriteArtists.length === 0 && (
-                <p style={{ fontFamily: MONO, fontSize: "0.68rem", letterSpacing: "0.06em", color: INK, padding: "0.75rem 1rem", margin: 0 }}>
-                  No artists match &ldquo;{query}&rdquo;
-                </p>
-              )}
               {filtered.length === 0 && !query && favoritesOnly && externalFavoriteArtists.length === 0 && (
                 <p style={{ fontFamily: MONO, fontSize: "0.68rem", letterSpacing: "0.06em", color: INK, padding: "0.75rem 1rem", margin: 0 }}>
                   No favourites yet — click ♡ next to an artist&rsquo;s name to add one.
@@ -2153,7 +2103,7 @@ export default function DeepDiveClient({
                 <>
                   {filtered.length > 0 && <div style={{ borderTop: `1px solid ${SUBTLE}` }} />}
                   <p style={{ fontFamily: MONO, fontSize: "0.52rem", letterSpacing: "0.12em", textTransform: "uppercase", color: "#aaa", padding: "0.5rem 1rem 0.25rem", margin: 0 }}>
-                    Outside Collection
+                    Favourites
                   </p>
                   {externalFavoriteArtists.map((a) => (
                     <ArtistRow
@@ -2166,10 +2116,40 @@ export default function DeepDiveClient({
                   ))}
                 </>
               )}
+              {query.trim().length >= 2 && !discogsSearching && discogsResults.length > 0 && (
+                <>
+                  <div style={{ borderTop: `1px solid ${SUBTLE}` }} />
+                  <p style={{ fontFamily: MONO, fontSize: "0.52rem", letterSpacing: "0.12em", textTransform: "uppercase", color: "#aaa", padding: "0.5rem 1rem 0.25rem", margin: 0 }}>
+                    Other artists
+                  </p>
+                  {discogsResults.map((r) => (
+                    <button
+                      key={r.id}
+                      type="button"
+                      onClick={() => selectExternalArtist(r.name)}
+                      style={{
+                        display: "flex", alignItems: "center", gap: 10,
+                        width: "100%", textAlign: "left",
+                        padding: "0.5rem 1rem",
+                        background: selectedArtist === r.name ? WARM : "none",
+                        border: "none", borderBottom: `1px solid ${RULE}`,
+                        cursor: "pointer",
+                      }}
+                    >
+                      {r.thumb
+                        // eslint-disable-next-line @next/next/no-img-element
+                        ? <img src={r.thumb} alt="" aria-hidden style={{ width: 28, height: 28, objectFit: "cover", flexShrink: 0 }} />
+                        : <div style={{ width: 28, height: 28, background: SUBTLE, flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: MONO, fontSize: "10px", color: "#aaa" }}>{r.name[0]}</div>
+                      }
+                      <span style={{ fontFamily: MONO, fontSize: "0.72rem", letterSpacing: "0.04em", color: INK }}>{r.name}</span>
+                    </button>
+                  ))}
+                </>
+              )}
             </div>
           )}
 
-          {searchMode === "inside" && mergedArtists.length === 0 && (
+          {mergedArtists.length === 0 && (
             <div style={{ padding: "1rem" }}>
               <p style={{ fontFamily: MONO, fontSize: "0.68rem", letterSpacing: "0.06em", color: INK, lineHeight: 1.6, margin: 0 }}>
                 Sync your Discogs collection first to unlock Deep Dive.
@@ -2177,51 +2157,8 @@ export default function DeepDiveClient({
             </div>
           )}
 
-          {/* Outside Collection: Discogs results */}
-          {searchMode === "outside" && (
-            <div>
-              {discogsSearching && (
-                <p style={{ fontFamily: MONO, fontSize: "0.68rem", letterSpacing: "0.06em", color: "#aaa", padding: "0.75rem 1rem", margin: 0 }}>
-                  Searching…
-                </p>
-              )}
-              {!discogsSearching && discogsResults.map((r) => (
-                <button
-                  key={r.id}
-                  type="button"
-                  onClick={() => selectExternalArtist(r.name)}
-                  style={{
-                    display: "flex", alignItems: "center", gap: 10,
-                    width: "100%", textAlign: "left",
-                    padding: "0.6rem 1rem",
-                    background: selectedArtist === r.name ? WARM : "none",
-                    border: "none", borderBottom: `1px solid ${RULE}`,
-                    cursor: "pointer",
-                  }}
-                >
-                  {r.thumb
-                    // eslint-disable-next-line @next/next/no-img-element
-                    ? <img src={r.thumb} alt="" aria-hidden style={{ width: 32, height: 32, objectFit: "cover", flexShrink: 0 }} />
-                    : <div style={{ width: 32, height: 32, background: SUBTLE, flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: MONO, fontSize: "10px", color: "#aaa" }}>{r.name[0]}</div>
-                  }
-                  <span style={{ fontFamily: MONO, fontSize: "0.72rem", letterSpacing: "0.04em", color: INK }}>{r.name}</span>
-                </button>
-              ))}
-              {!discogsSearching && query.trim().length >= 2 && discogsResults.length === 0 && (
-                <p style={{ fontFamily: MONO, fontSize: "0.68rem", letterSpacing: "0.06em", color: INK, padding: "0.75rem 1rem", margin: 0 }}>
-                  No artists found for &ldquo;{query}&rdquo;
-                </p>
-              )}
-              {!query.trim() && (
-                <p style={{ fontFamily: MONO, fontSize: "0.68rem", letterSpacing: "0.06em", color: "#aaa", padding: "0.75rem 1rem", margin: 0, lineHeight: 1.6 }}>
-                  Search any artist to explore their essential albums.
-                </p>
-              )}
-            </div>
-          )}
-
-          {/* Randomiser — inside mode only */}
-          {searchMode === "inside" && mergedArtists.length > 0 && (
+          {/* Randomiser */}
+          {mergedArtists.length > 0 && (
             <div style={{ padding: "6px 1rem 8px" }}>
               <button
                 type="button"
