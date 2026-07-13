@@ -897,14 +897,13 @@ export async function getOrGenerateSection(
   const textBlocks = message.content.filter((b) => b.type === "text");
 
   function tryExtractJson(raw: string): unknown | null {
-    let s = raw.replace(/```json\n?/g, "").replace(/```\n?/g, "").trim();
-    if (!s.startsWith("{")) {
-      const start = s.indexOf("{");
-      const end   = s.lastIndexOf("}");
-      if (start === -1 || end <= start) return null;
-      s = s.slice(start, end + 1);
-    }
-    try { return JSON.parse(s); } catch { return null; }
+    const s = raw.replace(/```json\n?/g, "").replace(/```\n?/g, "").trim();
+    // Always extract the outermost {...} block — handles trailing explanation
+    // text that Claude appends after the JSON (e.g. when rejecting all results)
+    const start = s.indexOf("{");
+    const end   = s.lastIndexOf("}");
+    if (start === -1 || end <= start) return null;
+    try { return JSON.parse(s.slice(start, end + 1)); } catch { return null; }
   }
 
   let data: unknown = null;

@@ -692,7 +692,7 @@ function BooksContent({ data }: { data: { items?: BookItem[] } }) {
 type InterviewItem = { publication: string; domain?: string; title: string; year: number; date?: string; note: string; url?: string };
 
 function interviewHref(iv: InterviewItem, artist: string): { href: string; direct: boolean } {
-  if (iv.url?.startsWith("https://")) return { href: iv.url, direct: true };
+  if (iv.url && /^https?:\/\//.test(iv.url)) return { href: iv.url, direct: true };
   // Domain-scoped search is a better fallback than a generic query
   if (iv.domain) {
     const q = encodeURIComponent(`${artist} ${iv.title} site:${iv.domain}`);
