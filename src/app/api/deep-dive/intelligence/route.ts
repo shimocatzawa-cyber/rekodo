@@ -217,37 +217,54 @@ async function searchTavilyInterviews(artist: string, discogsAlbums: DiscogsAlbu
   const key = process.env.TAVILY_API_KEY;
   if (!key) return [];
 
-  // Use an early album title to disambiguate common names (e.g. "Colleen" → searches "Colleen Everyone Alive Wants Answers interview")
+  // Use an early album title to disambiguate common names (e.g. "Colleen" → "Colleen Everyone Alive Wants Answers interview")
   const albumHint = discogsAlbums[0]?.title ?? "";
   const query = albumHint
     ? `"${artist}" "${albumHint}" interview`
     : `"${artist}" musician interview`;
 
+  const EXCLUDE = ["spotify.com", "apple.com", "youtube.com", "amazon.com",
+    "wikipedia.org", "discogs.com", "allmusic.com", "facebook.com",
+    "instagram.com", "twitter.com", "x.com", "setlist.fm"];
+
+  const INTERVIEW_PAT = /interview|feature|conversation|in conversation|profile|talks to|speaks to|we spoke|q&a/i;
+
+  // Second query targets press/interview pages specifically
+  const query2 = albumHint
+    ? `"${artist}" musician press interview feature`
+    : `"${artist}" musician press interview feature`;
+
   try {
-    const res = await fetch("https://api.tavily.com/search", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        api_key: key,
-        query,
-        max_results: 10,
-        search_depth: "basic",
-        exclude_domains: ["spotify.com", "apple.com", "youtube.com", "amazon.com",
-          "wikipedia.org", "discogs.com", "allmusic.com", "facebook.com",
-          "instagram.com", "twitter.com", "x.com", "setlist.fm"],
+    const [res1, res2] = await Promise.all([
+      fetch("https://api.tavily.com/search", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ api_key: key, query, max_results: 7, search_depth: "basic", exclude_domains: EXCLUDE }),
+        signal: AbortSignal.timeout(6000),
       }),
-      signal: AbortSignal.timeout(6000),
-    });
-    if (!res.ok) return [];
+      fetch("https://api.tavily.com/search", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ api_key: key, query: query2, max_results: 7, search_depth: "basic", exclude_domains: EXCLUDE }),
+        signal: AbortSignal.timeout(6000),
+      }),
+    ]);
 
-    const json = await res.json() as { results?: TavilyResult[] };
-    const results = json.results ?? [];
+    const seen = new Set<string>();
+    const results: TavilyResult[] = [];
 
-    // Keep only results that look like interviews or features
-    const INTERVIEW_PAT = /interview|feature|conversation|in conversation|profile|talks to|speaks to|we spoke|q&a/i;
-    return results.filter(r =>
-      INTERVIEW_PAT.test(r.title) || INTERVIEW_PAT.test(r.content)
-    );
+    for (const res of [res1, res2]) {
+      if (!res.ok) continue;
+      const json = await res.json() as { results?: TavilyResult[] };
+      for (const r of (json.results ?? [])) {
+        if (!seen.has(r.url) && (INTERVIEW_PAT.test(r.title) || INTERVIEW_PAT.test(r.content))) {
+          seen.add(r.url);
+          results.push(r);
+        }
+      }
+    }
+
+    return results;
   } catch {
     return [];
   }
