@@ -11,12 +11,18 @@ export interface ArtistAbout {
   source:    "lastfm" | "wikipedia" | "none";
 }
 
-// Strip Last.fm's appended "Read more on Last.fm" link and HTML tags
+// Strip Last.fm bio noise: HTML, URLs, CC boilerplate, and disambiguation sentences
 function cleanLastFmBio(raw: string): string {
   return raw
-    .replace(/<a[^>]*>.*?<\/a>/gi, "")
-    .replace(/<[^>]+>/g, "")
-    .replace(/\s+/g, " ")
+    .replace(/<a[^>]*>.*?<\/a>/gi, "")   // anchor tags
+    .replace(/<[^>]+>/g, "")              // remaining HTML
+    .replace(/https?:\/\/\S+/gi, "")      // bare URLs
+    .replace(/www\.\S+/gi, "")            // www. fragments
+    // Creative Commons boilerplate Last.fm appends to every bio
+    .replace(/User-contributed text is available under the Creative Commons By-SA License[^.]*/gi, "")
+    // "Read more on Last.fm" trailing link text
+    .replace(/Read more (about .+? )?on Last\.fm\.?/gi, "")
+    .replace(/\s{2,}/g, " ")
     .trim();
 }
 
@@ -104,11 +110,12 @@ export async function GET(request: NextRequest) {
     return NextResponse.json<ArtistAbout>({ bio: null, formed: null, origin: null, tags: [], listeners: null, plays: null, similar: [], source: "none" });
   }
 
-  // Merge: Last.fm stats/tags/similar + best available bio (Wikipedia preferred for quality)
-  const bio     = wiki?.bio ?? lfm?.bio ?? null;
-  const formed  = lfm?.formed  ?? wiki?.formed  ?? null;
-  const origin  = lfm?.origin  ?? wiki?.origin  ?? null;
-  const source  = wiki?.bio ? "wikipedia" : lfm?.bio ? "lastfm" : "none";
+  // Bio from Wikipedia only — Last.fm bios are user-contributed and frequently
+  // contain disambiguation text, raw URLs, and other noise.
+  const bio     = wiki?.bio ?? null;
+  const formed  = wiki?.formed  ?? null;
+  const origin  = wiki?.origin  ?? null;
+  const source  = wiki?.bio ? "wikipedia" : lfm?.tags.length ? "lastfm" : "none";
 
   const result: ArtistAbout = {
     bio,

@@ -181,8 +181,8 @@ function AboutContent({ data }: { data: ArtistAbout }) {
       {(data.source !== "none") && (
         <p style={{ fontFamily: MONO, fontSize: "0.55rem", letterSpacing: "0.06em", color: "#bbbbbb", margin: "24px 0 0" }}>
           {[
-            data.source === "wikipedia" || data.source === "lastfm" ? "via Wikipedia" : null,
-            data.tags.length > 0 || data.source === "lastfm" ? "via Last.fm" : null,
+            data.source === "wikipedia" ? "via Wikipedia" : null,
+            data.tags.length > 0 ? "via Last.fm" : null,
           ].filter(Boolean).join(" · ")}
         </p>
       )}
