@@ -201,6 +201,58 @@ type PressingsAlbum = {
   variants: PressingVariant[];
 };
 
+// ── Brave Search interview discovery ─────────────────────────────────────────
+// Searches the web for real interview URLs before calling Claude, so the model
+// can annotate verified links rather than recalling from training data (which
+// misses smaller music sites like furious.com). Free tier: 2000 req/month.
+
+type BraveWebResult = {
+  title: string;
+  url: string;
+  description: string;
+};
+
+async function searchBraveInterviews(artist: string, discogsAlbums: DiscogsAlbum[]): Promise<BraveWebResult[]> {
+  const key = process.env.BRAVE_SEARCH_API_KEY;
+  if (!key) return [];
+
+  // Use an album title hint when available to disambiguate (e.g. "Colleen" → "Colleen Everyone Alive Wants Answers interview")
+  const albumHint = discogsAlbums[0]?.title ?? "";
+  const query = albumHint
+    ? `"${artist}" "${albumHint}" interview`
+    : `"${artist}" musician interview`;
+
+  try {
+    const res = await fetch(
+      `https://api.search.brave.com/res/v1/web/search?q=${encodeURIComponent(query)}&count=10&search_lang=en&result_filter=web`,
+      {
+        headers: {
+          "Accept": "application/json",
+          "Accept-Encoding": "gzip",
+          "X-Subscription-Token": key,
+        },
+        signal: AbortSignal.timeout(5000),
+      }
+    );
+    if (!res.ok) return [];
+
+    const json = await res.json() as { web?: { results?: BraveWebResult[] } };
+    const results = json.web?.results ?? [];
+
+    // Keep only results that look like interviews/features — filter out streams,
+    // shops, Wikipedia, social media, etc.
+    const INTERVIEW_PAT = /interview|feature|conversation|in conversation|profile|talks to|speaks to|we spoke/i;
+    const SKIP_PAT      = /spotify|apple\.com|youtube|amazon|wikipedia|discogs|allmusic|setlist|facebook|instagram|twitter/i;
+
+    return results.filter(r =>
+      (INTERVIEW_PAT.test(r.title) || INTERVIEW_PAT.test(r.description)) &&
+      !SKIP_PAT.test(r.url)
+    );
+  } catch {
+    return [];
+  }
+}
+
 // ── Open Library book search ──────────────────────────────────────────────────
 // Free, no API key — used to ground the print prompt with real verified book
 // titles before handing off to Haiku, preventing hallucinated memoirs/bios.
@@ -246,49 +298,40 @@ async function searchOpenLibraryBooks(artist: string): Promise<OpenLibraryBook[]
   }
 }
 
-function buildPrintPromptWithOpenLibrary(artist: string, books: OpenLibraryBook[], discogsAlbums: DiscogsAlbum[]): string {
+function buildPrintPromptWithOpenLibrary(
+  artist: string,
+  books: OpenLibraryBook[],
+  discogsAlbums: DiscogsAlbum[],
+  braveInterviews: BraveWebResult[] = [],
+): string {
   const identityBlock = discogsAlbums.length > 0
     ? `ARTIST IDENTITY: ${artist} is a musician who released these albums: ${discogsAlbums.slice(0, 8).map(a => `"${a.title}" (${a.year})`).join(", ")}. This is NOT any other person who shares this name (e.g. not an author, actor, or public figure).`
     : `ARTIST IDENTITY: ${artist} is a musician. This is NOT any other person who shares this name.`;
 
-  if (books.length === 0) {
-    return `You are a music research assistant helping a vinyl collector.
+  const interviewBlock = braveInterviews.length > 0
+    ? `\nVERIFIED INTERVIEW URLS found via web search — these are real pages that exist:\n${braveInterviews.map((r, i) => `${i + 1}. "${r.title}" — ${r.url}`).join("\n")}\n\nFor INTERVIEWS: select up to 5 from the VERIFIED INTERVIEW URLS above. Copy the URL exactly. Extract the publication name and domain from the URL. Write a one-sentence note on what makes it worth reading. Do not invent interviews beyond this list.`
+    : `For INTERVIEWS: list up to 5 notable print/text interviews given by ${artist} the musician (Pitchfork, The Wire, The Guardian, NME, MOJO, Rolling Stone, Uncut, The Quietus, Bandcamp Daily, Fact, Resident Advisor, Stereogum, etc.). Only include interviews you are confident actually exist. Text only — no YouTube, podcasts, or audio/video. Return [] if none found with confidence.`;
 
-${identityBlock}
+  const booksList = books.length > 0
+    ? books.map((b, i) => {
+        const author = b.author_name?.join(", ") ?? "Unknown";
+        const year = b.first_publish_year ?? "unknown year";
+        return `${i + 1}. "${b.title}" by ${author} (${year})`;
+      }).join("\n")
+    : null;
 
-No verified books were found for ${artist} the musician in Open Library.
-
-For INTERVIEWS: list up to 5 notable print/text interviews given by ${artist} the musician (Pitchfork, The Wire, The Guardian, NME, MOJO, Rolling Stone, Uncut, The Quietus, Bandcamp Daily, Fact, Stereogum, etc.). Only include interviews you are highly confident actually exist. If uncertain, omit. Return [] if none found. Text only — no YouTube, podcasts, or audio/video.
-
-Return ONLY valid JSON, no markdown, no backticks, no preamble:
-{"books":[],"interviews":[{"publication":"Pitchfork","domain":"pitchfork.com","title":"Interview title","year":2019,"date":"2019-03","note":"What makes it worth reading"}]}`;
-  }
-
-  const list = books
-    .map((b, i) => {
-      const author = b.author_name?.join(", ") ?? "Unknown";
-      const year = b.first_publish_year ?? "unknown year";
-      return `${i + 1}. "${b.title}" by ${author} (${year})`;
-    })
-    .join("\n");
+  const booksBlock = booksList
+    ? `\nVERIFIED BOOKS from Open Library (may contain results for other people named "${artist}" — only select those clearly about the musician):\n${booksList}\n\nFor BOOKS: select up to 5 from the list above that are clearly about ${artist} the musician or their music scene. Copy title and author exactly. Add type (biography|memoir|criticism|history|fiction|reference) and a one-sentence note. Set written_by_artist: true only when the artist is listed as author. Return [] if none are relevant.`
+    : `No verified books were found for ${artist} the musician — return "books": [].`;
 
   return `You are a music research assistant helping a vinyl collector.
 
 ${identityBlock}
-
-Below are VERIFIED books from Open Library that may relate to ${artist}. You may ONLY use titles from this list — do not add, invent, or modify any titles.
-
-VERIFIED BOOKS:
-${list}
-
-CRITICAL: Only select books clearly about ${artist} the MUSICIAN or the music scene they belong to. If any book is clearly about a different person who shares the name "${artist}" (e.g. a novelist, actor, or other public figure), exclude it entirely. If none of the books are about ${artist} the musician, return "books": [].
-
-From the relevant books, select up to 5. Copy each title and author EXACTLY as shown. Add a "type" (biography|memoir|criticism|history|fiction|reference) and a one-sentence note. Set written_by_artist: true only when the artist themselves is listed as the author.
-
-For INTERVIEWS: list up to 5 notable print/text interviews given by ${artist} the musician (Pitchfork, The Wire, The Guardian, NME, MOJO, Rolling Stone, Uncut, The Quietus, Bandcamp Daily, Fact, Stereogum, etc.). Only include interviews you are highly confident actually exist. If uncertain, omit. Return [] if none found. Text only — no YouTube, podcasts, or audio/video.
+${booksBlock}
+${interviewBlock}
 
 Return ONLY valid JSON, no markdown, no backticks, no preamble:
-{"books":[{"title":"Exact Title from list","author":"Author Name","year":2003,"type":"memoir","written_by_artist":true,"note":"One sentence"}],"interviews":[{"publication":"Pitchfork","domain":"pitchfork.com","title":"Interview title","year":2019,"date":"2019-03","note":"What makes it worth reading"}]}`;
+{"books":[{"title":"Exact Title","author":"Author Name","year":2003,"type":"memoir","written_by_artist":true,"note":"One sentence"}],"interviews":[{"publication":"Furious","domain":"furious.com","title":"Interview title","year":2005,"url":"https://...","note":"What makes it worth reading"}]}`;
 }
 
 // ── iTunes podcast episode search ─────────────────────────────────────────────
@@ -819,17 +862,22 @@ export async function getOrGenerateSection(
     console.log(`[deep-dive] itunes — ${artist}: ${itunesEpisodes.length} episodes found`);
   }
 
-  // ── Open Library book search ───────────────────────────────────────────────
+  // ── Open Library book search + Brave interview search ─────────────────────
   let openLibraryBooks: OpenLibraryBook[] = [];
+  let braveInterviews: BraveWebResult[]   = [];
   if (section === "print") {
-    openLibraryBooks = await searchOpenLibraryBooks(artist);
+    [openLibraryBooks, braveInterviews] = await Promise.all([
+      searchOpenLibraryBooks(artist),
+      searchBraveInterviews(artist, discogsAlbums),
+    ]);
     console.log(`[deep-dive] openlibrary — ${artist}: ${openLibraryBooks.length} books found`);
+    console.log(`[deep-dive] brave — ${artist}: ${braveInterviews.length} interview URLs found`);
   }
 
   const prompt = (section === "podcasts" && itunesEpisodes.length > 0)
     ? buildPodcastsPromptWithItunes(artist, itunesEpisodes, discogsAlbums)
     : section === "print"
-      ? buildPrintPromptWithOpenLibrary(artist, openLibraryBooks, discogsAlbums)
+      ? buildPrintPromptWithOpenLibrary(artist, openLibraryBooks, discogsAlbums, braveInterviews)
       : PROMPTS[section](artist, promptAlbums, discogsAlbums);
 
   console.log(`[deep-dive] calling ${model} — ${artist}/${section} max_tokens=${maxTokens}`);
