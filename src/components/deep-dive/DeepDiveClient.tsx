@@ -166,9 +166,14 @@ function AboutContent({ data }: { data: ArtistAbout }) {
       )}
 
       {/* Source attribution */}
-      <p style={{ fontFamily: MONO, fontSize: "0.55rem", letterSpacing: "0.06em", color: "#bbbbbb", margin: "24px 0 0" }}>
-        {data.source === "wikipedia" ? "via Wikipedia" : data.source === "lastfm" ? "via Last.fm" : ""}
-      </p>
+      {(data.source !== "none") && (
+        <p style={{ fontFamily: MONO, fontSize: "0.55rem", letterSpacing: "0.06em", color: "#bbbbbb", margin: "24px 0 0" }}>
+          {[
+            data.source === "wikipedia" || data.source === "lastfm" ? "via Wikipedia" : null,
+            data.tags.length > 0 || data.source === "lastfm" ? "via Last.fm" : null,
+          ].filter(Boolean).join(" · ")}
+        </p>
+      )}
     </div>
   );
 }
