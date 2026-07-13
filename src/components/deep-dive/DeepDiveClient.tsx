@@ -1372,14 +1372,14 @@ export default function DeepDiveClient({
     if (selectedArtist !== name) {
       setIsExternalArtist(false);
       setSelectedArtist(name);
-      setActiveTab("rankings");
+      setActiveTab("about");
     }
   }
 
   function selectExternalArtist(name: string) {
     setIsExternalArtist(true);
     setSelectedArtist(name);
-    if (activeTab === "blindspot") setActiveTab("rankings");
+    if (activeTab === "blindspot") setActiveTab("about");
     setDiscogsResults([]);
     setQuery("");
     if (!imageMap[name]) {
