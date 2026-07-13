@@ -96,23 +96,54 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json({ items });
   } else {
-    const { data, error } = await supabase
-      .from("wantlist")
-      .select("artist, title, released, format, cover_image_url")
+    // Wantlist is stored as a list with slug "wantlist" inside lists/list_items
+    const { data: wantlistRow } = await supabase
+      .from("lists")
+      .select("id")
       .eq("user_id", userId)
-      .order("artist", { ascending: true })
+      .eq("slug", "wantlist")
+      .maybeSingle();
+
+    if (!wantlistRow) return NextResponse.json({ items: [] });
+
+    const { data: listItems, error: liError } = await supabase
+      .from("list_items")
+      .select("record_id, song_artist, song_album, song_cover_url")
+      .eq("list_id", wantlistRow.id)
+      .order("position", { ascending: true })
       .limit(2000);
 
-    if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+    if (liError) return NextResponse.json({ error: liError.message }, { status: 500 });
+    if (!listItems?.length) return NextResponse.json({ items: [] });
 
-    const items: ProfileRecord[] = (data ?? []).map(r => ({
-      artist:   r.artist           ?? "",
-      album:    r.title            ?? "",
-      year:     r.released         ?? null,
-      format:   r.format           ?? null,
-      genre:    null,
-      coverUrl: r.cover_image_url  ?? null,
-    }));
+    // Batch-fetch record details for items that reference a record row
+    const recIds = listItems.map(i => i.record_id).filter(Boolean) as string[];
+    const BATCH = 400;
+    const recBatches = recIds.length > 0
+      ? await Promise.all(
+          Array.from({ length: Math.ceil(recIds.length / BATCH) }, (_, i) =>
+            supabase.from("records").select("id, artist, album, year, format, genre, cover_url")
+              .in("id", recIds.slice(i * BATCH, (i + 1) * BATCH))
+          )
+        )
+      : [];
+    const recById = new Map(
+      recBatches.flatMap(b => b.data ?? []).map(r => [r.id, r])
+    );
+
+    const items: ProfileRecord[] = listItems
+      .map(item => {
+        const r = item.record_id ? recById.get(item.record_id) : undefined;
+        return {
+          artist:   r?.artist       ?? item.song_artist    ?? "",
+          album:    r?.album        ?? item.song_album     ?? "",
+          year:     r?.year         ?? null,
+          format:   r?.format       ?? null,
+          genre:    r?.genre        ?? null,
+          coverUrl: r?.cover_url    ?? item.song_cover_url ?? null,
+        };
+      })
+      .sort((a, b) => a.artist.localeCompare(b.artist) || a.album.localeCompare(b.album));
 
     return NextResponse.json({ items });
   }
