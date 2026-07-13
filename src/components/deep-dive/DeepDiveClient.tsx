@@ -14,7 +14,7 @@ const RULE   = "#e0e0da";
 const WARM   = "#FDF6F0";
 const SUBTLE = "#f0efea";
 
-type Section = "rankings" | "podcasts" | "print" | "related" | "blindspot" | "pressings";
+type Section = "about" | "rankings" | "podcasts" | "print" | "related" | "blindspot" | "pressings";
 
 export type ArtistData = {
   name: string;
@@ -38,7 +38,7 @@ function BandcampIcon({ size = 13 }: { size?: number }) {
   );
 }
 
-const TAB_IDS: Section[] = ["rankings", "pressings", "blindspot", "podcasts", "print", "related"];
+const TAB_IDS: Section[] = ["about", "rankings", "pressings", "blindspot", "podcasts", "print", "related"];
 
 // ── Shared primitives ──────────────────────────────────────────────────────────
 
@@ -111,6 +111,92 @@ function SkeletonRows() {
 }
 
 // ── Tab content renderers ──────────────────────────────────────────────────────
+
+import type { ArtistAbout } from "@/app/api/deep-dive/artist-about/route";
+
+function AboutContent({ data }: { data: ArtistAbout }) {
+  const formatNum = (n: number) =>
+    n >= 1_000_000 ? `${(n / 1_000_000).toFixed(1)}M` : n >= 1_000 ? `${Math.round(n / 1_000)}K` : String(n);
+
+  const hasContent = data.bio || data.tags.length > 0 || data.listeners !== null || data.similar.length > 0;
+  if (!hasContent) {
+    return (
+      <p style={{ fontFamily: MONO, fontSize: "0.72rem", letterSpacing: "0.04em", color: INK, padding: "2rem 0" }}>
+        No information available for this artist.
+      </p>
+    );
+  }
+
+  return (
+    <div style={{ maxWidth: 640 }}>
+      {/* Bio */}
+      {data.bio && (
+        <p style={{ fontFamily: SERIF, fontSize: "0.95rem", lineHeight: 1.75, color: INK, margin: "0 0 24px" }}>
+          {data.bio}
+        </p>
+      )}
+
+      {/* Stats row */}
+      {(data.listeners !== null || data.origin || data.formed) && (
+        <div style={{ display: "flex", gap: "32px", flexWrap: "wrap", margin: "0 0 20px", paddingBottom: "20px", borderBottom: `1px solid ${RULE}` }}>
+          {data.listeners !== null && (
+            <div>
+              <p style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.14em", textTransform: "uppercase", color: ORANGE, margin: "0 0 4px" }}>Listeners</p>
+              <p style={{ fontFamily: SERIF, fontSize: "1.1rem", color: INK, margin: 0 }}>{formatNum(data.listeners)}</p>
+            </div>
+          )}
+          {data.plays !== null && (
+            <div>
+              <p style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.14em", textTransform: "uppercase", color: ORANGE, margin: "0 0 4px" }}>Scrobbles</p>
+              <p style={{ fontFamily: SERIF, fontSize: "1.1rem", color: INK, margin: 0 }}>{formatNum(data.plays)}</p>
+            </div>
+          )}
+          {data.formed && (
+            <div>
+              <p style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.14em", textTransform: "uppercase", color: ORANGE, margin: "0 0 4px" }}>Formed</p>
+              <p style={{ fontFamily: SERIF, fontSize: "1.1rem", color: INK, margin: 0 }}>{data.formed}</p>
+            </div>
+          )}
+          {data.origin && (
+            <div>
+              <p style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.14em", textTransform: "uppercase", color: ORANGE, margin: "0 0 4px" }}>Origin</p>
+              <p style={{ fontFamily: SERIF, fontSize: "1.1rem", color: INK, margin: 0 }}>{data.origin}</p>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Tags */}
+      {data.tags.length > 0 && (
+        <div style={{ margin: "0 0 20px" }}>
+          <p style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.14em", textTransform: "uppercase", color: ORANGE, margin: "0 0 8px" }}>Genres</p>
+          <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
+            {data.tags.map(tag => (
+              <span key={tag} style={{ fontFamily: MONO, fontSize: "0.65rem", letterSpacing: "0.06em", color: INK, border: `1px solid ${RULE}`, padding: "3px 8px" }}>
+                {tag}
+              </span>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Similar artists */}
+      {data.similar.length > 0 && (
+        <div>
+          <p style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.14em", textTransform: "uppercase", color: ORANGE, margin: "0 0 8px" }}>Similar Artists</p>
+          <p style={{ fontFamily: MONO, fontSize: "0.72rem", letterSpacing: "0.04em", color: INK, margin: 0, lineHeight: 1.8 }}>
+            {data.similar.join("  ·  ")}
+          </p>
+        </div>
+      )}
+
+      {/* Source attribution */}
+      <p style={{ fontFamily: MONO, fontSize: "0.55rem", letterSpacing: "0.06em", color: "#bbbbbb", margin: "24px 0 0" }}>
+        {data.source === "wikipedia" ? "via Wikipedia" : data.source === "lastfm" ? "via Last.fm" : ""}
+      </p>
+    </div>
+  );
+}
 
 type Album = { rank: number; title: string; year: number; review: string };
 
@@ -1019,6 +1105,7 @@ export default function DeepDiveClient({
 }) {
   const t = useTranslations("deepDive");
   const TABS: { id: Section; label: string }[] = [
+    { id: "about",     label: "About" },
     { id: "rankings",  label: t("essentialAlbums") },
     { id: "pressings", label: t("pressings") },
     { id: "blindspot", label: t("blindSpot") },
@@ -1183,6 +1270,26 @@ export default function DeepDiveClient({
 
     const artist = selectedArtist;
     const section = activeTab;
+
+    // About tab fetches from Last.fm/Wikipedia, not the AI intelligence route
+    if (section === "about") {
+      setLoadingTabs((prev) => ({ ...prev, [key]: true }));
+      setErrorTabs((prev) => { const n = { ...prev }; delete n[key]; return n; });
+      fetch(`/api/deep-dive/artist-about?artist=${encodeURIComponent(artist)}`)
+        .then(async (r) => r.ok ? r.json() : Promise.reject())
+        .then((data: unknown) => {
+          setCache((prev) => ({ ...prev, [artist]: { ...(prev[artist] ?? {}), about: data } }));
+        })
+        .catch(() => {
+          startedRef.current.delete(key);
+          setErrorTabs((prev) => ({ ...prev, [key]: { kind: "error" } }));
+        })
+        .finally(() => {
+          setLoadingTabs((prev) => { const n = { ...prev }; delete n[key]; return n; });
+        });
+      return;
+    }
+
     const artistData = artists.find((a) => a.name === selectedArtist);
     const ownedAlbums = (section === "blindspot" || section === "rankings")
       ? (artistData?.records.map((r) => r.year ? `${r.album} (${r.year})` : r.album) ?? [])
@@ -1488,6 +1595,7 @@ export default function DeepDiveClient({
     const data = cache[selectedArtist]?.[activeTab];
     if (!data) return <SkeletonRows />;
 
+    if (tab === "about")    return <AboutContent data={data as ArtistAbout} />;
     if (tab === "rankings") {
       const norm = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, "");
       const artistData = mergedArtists.find((a) => a.name === selectedArtist);
