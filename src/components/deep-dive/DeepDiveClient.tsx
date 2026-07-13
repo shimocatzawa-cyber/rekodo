@@ -15,7 +15,7 @@ const RULE   = "#e0e0da";
 const WARM   = "#FDF6F0";
 const SUBTLE = "#f0efea";
 
-type Section = "about" | "rankings" | "podcasts" | "print" | "related" | "blindspot" | "pressings";
+type Section = "about" | "rankings" | "discography" | "podcasts" | "print" | "related" | "blindspot" | "pressings";
 
 export type ArtistData = {
   name: string;
@@ -39,7 +39,7 @@ function BandcampIcon({ size = 13 }: { size?: number }) {
   );
 }
 
-const TAB_IDS: Section[] = ["about", "rankings", "pressings", "blindspot", "podcasts", "print", "related"];
+const TAB_IDS: Section[] = ["about", "rankings", "discography", "pressings", "blindspot", "podcasts", "print", "related"];
 
 // ── Shared primitives ──────────────────────────────────────────────────────────
 
@@ -114,6 +114,7 @@ function SkeletonRows() {
 // ── Tab content renderers ──────────────────────────────────────────────────────
 
 import type { ArtistAbout } from "@/app/api/deep-dive/artist-about/route";
+import type { DiscographyResponse } from "@/app/api/deep-dive/discography/route";
 
 function AboutContent({ data }: { data: ArtistAbout }) {
   const hasContent = data.bio || data.tags.length > 0;
@@ -286,6 +287,110 @@ function RankingsContent({
                     </button>
                   ))}
                 </div>
+              </div>
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+function DiscographyContent({
+  data,
+  collectionSet,
+  wantlistSet,
+  onAddToWantlist,
+  wantlistAdded,
+  artist,
+}: {
+  data: DiscographyResponse;
+  collectionSet?: Set<string>;
+  wantlistSet?: Set<string>;
+  onAddToWantlist?: (album: { rank: number; title: string; year: number; review: string }) => void;
+  wantlistAdded?: Set<string>;
+  artist: string;
+}) {
+  const norm = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, "");
+  const albums = data.albums ?? [];
+
+  if (albums.length === 0) {
+    return (
+      <p style={{ fontFamily: MONO, fontSize: "0.72rem", letterSpacing: "0.04em", color: INK, padding: "2rem 0" }}>
+        No discography found on Discogs.
+      </p>
+    );
+  }
+
+  return (
+    <div>
+      <p style={{ fontFamily: MONO, fontSize: "0.62rem", letterSpacing: "0.08em", color: "#aaa", margin: "0 0 1.5rem", textTransform: "uppercase" }}>
+        {albums.length} album{albums.length !== 1 ? "s" : ""} · via Discogs
+      </p>
+      {albums.map((a) => {
+        const key          = norm(a.title);
+        const inCollection = collectionSet?.has(key) ?? false;
+        const inWantlist   = wantlistSet?.has(key) ?? wantlistAdded?.has(a.title) ?? false;
+
+        const statusTag = inCollection
+          ? <span style={{ fontFamily: MONO, fontSize: "0.62rem", letterSpacing: "0.06em", color: "#aaa", border: "1px solid #ddd", padding: "2px 6px", flexShrink: 0, whiteSpace: "nowrap" }}>In Collection</span>
+          : inWantlist
+          ? <span style={{ fontFamily: MONO, fontSize: "0.62rem", letterSpacing: "0.06em", color: ORANGE, border: `1px solid ${ORANGE}`, padding: "2px 6px", flexShrink: 0, whiteSpace: "nowrap", opacity: 0.6 }}>In Wantlist</span>
+          : onAddToWantlist
+          ? (
+            <button
+              type="button"
+              onClick={() => onAddToWantlist({ rank: 0, title: a.title, year: a.year, review: "" })}
+              style={{
+                fontFamily: MONO, fontSize: "0.62rem", letterSpacing: "0.06em",
+                color: ORANGE, background: "none", border: `1px dashed ${ORANGE}`,
+                padding: "2px 6px", cursor: "pointer", flexShrink: 0, whiteSpace: "nowrap",
+              }}
+            >
+              + Wantlist
+            </button>
+          )
+          : null;
+
+        return (
+          <div key={a.id} style={{ display: "flex", gap: 14, padding: "1rem 0", borderBottom: `1px solid ${RULE}`, alignItems: "flex-start" }}>
+            {a.thumb
+              // eslint-disable-next-line @next/next/no-img-element
+              ? <img src={a.thumb} alt="" aria-hidden style={{ width: 52, height: 52, objectFit: "cover", flexShrink: 0, display: "block" }} />
+              : <div style={{ width: 52, height: 52, background: SUBTLE, flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: MONO, fontSize: "10px", color: "#aaa" }}>{a.title[0]}</div>
+            }
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ display: "flex", gap: 10, alignItems: "baseline", flexWrap: "wrap", marginBottom: 4 }}>
+                <span style={{ fontFamily: SERIF, fontSize: "0.92rem", fontWeight: 600, color: INK, letterSpacing: "-0.01em" }}>
+                  {a.url
+                    ? <a href={a.url} target="_blank" rel="noopener noreferrer" style={{ color: "inherit", textDecoration: "none" }}>{a.title}</a>
+                    : a.title
+                  }
+                </span>
+                <span style={{ fontFamily: MONO, fontSize: "0.68rem", letterSpacing: "0.04em", color: "#888" }}>
+                  {a.year}{a.label ? ` · ${a.label}` : ""}
+                </span>
+                {statusTag}
+              </div>
+              <div style={{ display: "flex", gap: 12, marginTop: 4 }}>
+                {[
+                  { label: "Apple Music", url: `https://music.apple.com/search?term=${encodeURIComponent(artist + " " + a.title)}` },
+                  { label: "Spotify",     url: `https://open.spotify.com/search/${encodeURIComponent(artist + " " + a.title)}` },
+                ].map(({ label, url }) => (
+                  <button
+                    key={label}
+                    type="button"
+                    onClick={() => openStreamLink(url)}
+                    style={{
+                      fontFamily: MONO, fontSize: "0.6rem", letterSpacing: "0.08em",
+                      color: "#999", background: "none", border: "none",
+                      padding: 0, cursor: "pointer", textDecoration: "underline",
+                      textUnderlineOffset: "2px",
+                    }}
+                  >
+                    {label} ↗
+                  </button>
+                ))}
               </div>
             </div>
           </div>
@@ -1120,9 +1225,10 @@ export default function DeepDiveClient({
 }) {
   const t = useTranslations("deepDive");
   const TABS: { id: Section; label: string }[] = [
-    { id: "about",     label: "About" },
-    { id: "rankings",  label: t("essentialAlbums") },
-    { id: "pressings", label: t("pressings") },
+    { id: "about",        label: "About" },
+    { id: "rankings",     label: t("essentialAlbums") },
+    { id: "discography",  label: "Discography" },
+    { id: "pressings",    label: t("pressings") },
     { id: "blindspot", label: t("blindSpot") },
     { id: "podcasts",  label: t("podcasts") },
     { id: "print",     label: "Print" },
@@ -1292,6 +1398,25 @@ export default function DeepDiveClient({
         .then(async (r) => r.ok ? r.json() : Promise.reject())
         .then((data: unknown) => {
           setCache((prev) => ({ ...prev, [artist]: { ...(prev[artist] ?? {}), about: data } }));
+        })
+        .catch(() => {
+          startedRef.current.delete(key);
+          setErrorTabs((prev) => ({ ...prev, [key]: { kind: "error" } }));
+        })
+        .finally(() => {
+          setLoadingTabs((prev) => { const n = { ...prev }; delete n[key]; return n; });
+        });
+      return;
+    }
+
+    // Discography tab fetches from Discogs directly, no AI token cost
+    if (section === "discography") {
+      setLoadingTabs((prev) => ({ ...prev, [key]: true }));
+      setErrorTabs((prev) => { const n = { ...prev }; delete n[key]; return n; });
+      fetch(`/api/deep-dive/discography?artist=${encodeURIComponent(artist)}`)
+        .then(async (r) => r.ok ? r.json() : Promise.reject())
+        .then((data: unknown) => {
+          setCache((prev) => ({ ...prev, [artist]: { ...(prev[artist] ?? {}), discography: data } }));
         })
         .catch(() => {
           startedRef.current.delete(key);
@@ -1536,6 +1661,24 @@ export default function DeepDiveClient({
     setLoadingTabs((prev) => ({ ...prev, [key]: true }));
     startedRef.current.add(key);
 
+    if (section === "about") {
+      fetch(`/api/deep-dive/artist-about?artist=${encodeURIComponent(artist)}`)
+        .then(async (r) => r.ok ? r.json() : Promise.reject())
+        .then((data: unknown) => { setCache((prev) => ({ ...prev, [artist]: { ...(prev[artist] ?? {}), about: data } })); })
+        .catch(() => { startedRef.current.delete(key); setErrorTabs((prev) => ({ ...prev, [key]: { kind: "error" } })); })
+        .finally(() => { setLoadingTabs((prev) => { const n = { ...prev }; delete n[key]; return n; }); });
+      return;
+    }
+
+    if (section === "discography") {
+      fetch(`/api/deep-dive/discography?artist=${encodeURIComponent(artist)}`)
+        .then(async (r) => r.ok ? r.json() : Promise.reject())
+        .then((data: unknown) => { setCache((prev) => ({ ...prev, [artist]: { ...(prev[artist] ?? {}), discography: data } })); })
+        .catch(() => { startedRef.current.delete(key); setErrorTabs((prev) => ({ ...prev, [key]: { kind: "error" } })); })
+        .finally(() => { setLoadingTabs((prev) => { const n = { ...prev }; delete n[key]; return n; }); });
+      return;
+    }
+
     const artistData = artists.find((a) => a.name === artist);
     const ownedAlbums = (section === "blindspot" || section === "rankings")
       ? (artistData?.records.map((r) => r.year ? `${r.album} (${r.year})` : r.album) ?? [])
@@ -1616,6 +1759,24 @@ export default function DeepDiveClient({
         wantlistAdded={wantlistAdded}
         collectionSet={collectionSet}
         wantlistSet={wantlistSet}
+      />;
+    }
+    if (tab === "discography") {
+      const norm2 = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, "");
+      const artistData2 = mergedArtists.find((a) => a.name === selectedArtist);
+      const collectionSet2 = new Set((artistData2?.records ?? []).map((r) => norm2(r.album)));
+      const wantlistSet2   = new Set([
+        ...(artistData2?.wantlistRecords ?? []).map((r) => norm2(r.album)),
+        ...(knownWantlistAlbums[selectedArtist] ?? []),
+        ...[...wantlistAdded].map(norm2),
+      ]);
+      return <DiscographyContent
+        data={data as DiscographyResponse}
+        artist={selectedArtist}
+        collectionSet={collectionSet2}
+        wantlistSet={wantlistSet2}
+        onAddToWantlist={addAlbumToWantlist}
+        wantlistAdded={wantlistAdded}
       />;
     }
     if (tab === "podcasts") return <PodcastsContent data={data as { episodes?: Episode[] }} artist={selectedArtist} />;
