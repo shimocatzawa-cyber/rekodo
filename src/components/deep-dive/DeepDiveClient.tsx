@@ -393,14 +393,20 @@ function DiscographyContent({
               : <div style={{ width: 52, height: 52, background: SUBTLE, flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: MONO, fontSize: "10px", color: "#aaa" }}>{a.title[0]}</div>
             }
             <div style={{ flex: 1, minWidth: 0 }}>
-              <div style={{ display: "flex", gap: 10, alignItems: "baseline", flexWrap: "wrap", marginBottom: 4 }}>
+              <div style={{ display: "flex", gap: 10, alignItems: "baseline", flexWrap: "wrap", marginBottom: 2 }}>
                 <span style={{ fontFamily: SERIF, fontSize: "0.92rem", fontWeight: 600, color: INK, letterSpacing: "-0.01em" }}>
                   {a.title}
                 </span>
-                <span style={{ fontFamily: MONO, fontSize: "0.68rem", letterSpacing: "0.04em", color: "#888" }}>
-                  {a.year}{a.label ? ` · ${a.label}` : ""}
-                </span>
                 {statusTag}
+              </div>
+              <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap", marginBottom: 4 }}>
+                <span style={{ fontFamily: MONO, fontSize: "0.66rem", letterSpacing: "0.04em", color: "#888" }}>{a.year}</span>
+                {a.label && (
+                  <>
+                    <span style={{ color: "#ccc", fontSize: "0.6rem" }}>·</span>
+                    <span style={{ fontFamily: MONO, fontSize: "0.66rem", letterSpacing: "0.04em", color: "#888" }}>{a.label}</span>
+                  </>
+                )}
               </div>
               <div style={{ display: "flex", gap: 12, marginTop: 4, flexWrap: "wrap" }}>
                 {a.url && (
