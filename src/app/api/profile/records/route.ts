@@ -10,6 +10,24 @@ export type ProfileRecord = {
   coverUrl: string | null;
 };
 
+const PAGE = 1000; // PostgREST hard max per request
+const BATCH = 400; // safe IN-clause size for records lookups
+
+async function fetchAllPages<T>(
+  query: (from: number, to: number) => PromiseLike<{ data: T[] | null }>
+): Promise<T[]> {
+  // Fetch first page, then fan out remaining pages in parallel
+  const first = await query(0, PAGE - 1);
+  const items = first.data ?? [];
+  if (items.length < PAGE) return items;
+
+  // We got a full page — there may be more. Fetch up to 9 more pages (10k total).
+  const extras = await Promise.all(
+    Array.from({ length: 9 }, (_, i) => query((i + 1) * PAGE, (i + 2) * PAGE - 1))
+  );
+  return [...items, ...extras.flatMap(r => r.data ?? [])];
+}
+
 export async function GET(request: NextRequest) {
   const { searchParams } = request.nextUrl;
   const userId = searchParams.get("userId") ?? "";
@@ -55,24 +73,16 @@ export async function GET(request: NextRequest) {
   }
 
   if (type === "collection") {
-    // Use public_collection_summary — same view the profile page uses, works
-    // under RLS for both owners and non-owners.
-    const PAGE = 1000;
-    const [page1, page2] = await Promise.all([
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      (supabase as any).from("public_collection_summary").select("record_id").eq("user_id", userId).range(0, PAGE - 1),
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      (supabase as any).from("public_collection_summary").select("record_id").eq("user_id", userId).range(PAGE, PAGE * 2 - 1),
-    ]);
-
-    const recordIds = [
-      ...(page1.data ?? []).map((r: { record_id: string }) => r.record_id),
-      ...(page2.data ?? []).map((r: { record_id: string }) => r.record_id),
-    ].filter(Boolean) as string[];
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const s = supabase as any;
+    const recordIds = (
+      await fetchAllPages<{ record_id: string }>((from, to) =>
+        s.from("public_collection_summary").select("record_id").eq("user_id", userId).range(from, to)
+      )
+    ).map(r => r.record_id).filter(Boolean) as string[];
 
     if (recordIds.length === 0) return NextResponse.json({ items: [] });
 
-    const BATCH = 400;
     const batches = await Promise.all(
       Array.from({ length: Math.ceil(recordIds.length / BATCH) }, (_, i) =>
         supabase
@@ -85,18 +95,17 @@ export async function GET(request: NextRequest) {
     const items: ProfileRecord[] = batches
       .flatMap(b => b.data ?? [])
       .map(r => ({
-        artist:   r.artist   ?? "",
-        album:    r.album    ?? "",
-        year:     r.year     ?? null,
-        format:   r.format   ?? null,
-        genre:    r.genre    ?? null,
+        artist:   r.artist    ?? "",
+        album:    r.album     ?? "",
+        year:     r.year      ?? null,
+        format:   r.format    ?? null,
+        genre:    r.genre     ?? null,
         coverUrl: r.cover_url ?? null,
       }))
       .sort((a, b) => a.artist.localeCompare(b.artist) || a.album.localeCompare(b.album));
 
     return NextResponse.json({ items });
   } else {
-    // Wantlist is stored as a list with slug "wantlist" inside lists/list_items
     const { data: wantlistRow } = await supabase
       .from("lists")
       .select("id")
@@ -106,19 +115,26 @@ export async function GET(request: NextRequest) {
 
     if (!wantlistRow) return NextResponse.json({ items: [] });
 
-    const { data: listItems, error: liError } = await supabase
-      .from("list_items")
-      .select("record_id, song_artist, song_album, song_cover_url")
-      .eq("list_id", wantlistRow.id)
-      .order("position", { ascending: true })
-      .limit(2000);
+    const listId = wantlistRow.id as string;
 
-    if (liError) return NextResponse.json({ error: liError.message }, { status: 500 });
-    if (!listItems?.length) return NextResponse.json({ items: [] });
+    // Paginate through list_items — PostgREST caps single requests at 1000 rows
+    const listItems = await fetchAllPages<{
+      record_id: string | null;
+      song_artist: string | null;
+      song_album: string | null;
+      song_cover_url: string | null;
+    }>((from, to) =>
+      supabase
+        .from("list_items")
+        .select("record_id, song_artist, song_album, song_cover_url")
+        .eq("list_id", listId)
+        .order("position", { ascending: true })
+        .range(from, to)
+    );
 
-    // Batch-fetch record details for items that reference a record row
+    if (!listItems.length) return NextResponse.json({ items: [] });
+
     const recIds = listItems.map(i => i.record_id).filter(Boolean) as string[];
-    const BATCH = 400;
     const recBatches = recIds.length > 0
       ? await Promise.all(
           Array.from({ length: Math.ceil(recIds.length / BATCH) }, (_, i) =>

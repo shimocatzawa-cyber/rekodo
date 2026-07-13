@@ -71,21 +71,56 @@ export default function ProfileRecordsTabs({ userId, isOwner, type, isPublic, on
   const totalPages = Math.ceil(filtered.length / PAGE_SIZE);
   const paged      = filtered.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE);
 
+  const paginationBar = totalPages > 1 ? (
+    <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+      <button
+        onClick={() => { setPage(p => p - 1); window.scrollTo({ top: 0, behavior: "smooth" }); }}
+        disabled={page === 0}
+        style={{
+          fontFamily: MONO, fontSize: "0.6rem", letterSpacing: "0.06em",
+          background: "none", border: "none", padding: 0,
+          color: page === 0 ? "#cccccc" : INK,
+          cursor: page === 0 ? "default" : "pointer",
+        }}
+      >
+        ← Prev
+      </button>
+      <span style={{ fontFamily: MONO, fontSize: "0.6rem", color: MUTED, letterSpacing: "0.04em" }}>
+        {page + 1} / {totalPages}
+      </span>
+      <button
+        onClick={() => { setPage(p => p + 1); window.scrollTo({ top: 0, behavior: "smooth" }); }}
+        disabled={page >= totalPages - 1}
+        style={{
+          fontFamily: MONO, fontSize: "0.6rem", letterSpacing: "0.06em",
+          background: "none", border: "none", padding: 0,
+          color: page >= totalPages - 1 ? "#cccccc" : INK,
+          cursor: page >= totalPages - 1 ? "default" : "pointer",
+        }}
+      >
+        Next →
+      </button>
+    </div>
+  ) : null;
+
   return (
     <div>
       {state === "done" && items.length > 0 && (
-        <input
-          type="text"
-          value={search}
-          onChange={e => setSearch(e.target.value)}
-          placeholder="Search artist, album or genre…"
-          style={{
-            fontFamily: MONO, fontSize: "0.72rem", letterSpacing: "0.04em",
-            width: "100%", background: "none", border: "none",
-            borderBottom: `1px solid ${RULE}`, padding: "6px 0", marginBottom: "4px",
-            outline: "none", color: INK, boxSizing: "border-box",
-          }}
-        />
+        <div style={{ display: "flex", alignItems: "center", gap: "16px", marginBottom: "4px" }}>
+          <input
+            type="text"
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            placeholder="Search artist, album or genre…"
+            style={{
+              fontFamily: MONO, fontSize: "0.72rem", letterSpacing: "0.04em",
+              flex: 1, background: "none", border: "none",
+              borderBottom: `1px solid ${RULE}`, padding: "6px 0",
+              outline: "none", color: INK, boxSizing: "border-box",
+            }}
+          />
+          {paginationBar}
+        </div>
       )}
 
       {state === "loading" && (
@@ -153,45 +188,13 @@ export default function ProfileRecordsTabs({ userId, isOwner, type, isPublic, on
             </div>
           ))}
 
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginTop: "12px" }}>
+          <div style={{ marginTop: "12px" }}>
             <p style={{ fontFamily: MONO, fontSize: "0.6rem", color: "#cccccc", letterSpacing: "0.06em", margin: 0 }}>
               {q
                 ? `${filtered.length} result${filtered.length !== 1 ? "s" : ""}`
                 : `${filtered.length.toLocaleString()} item${filtered.length !== 1 ? "s" : ""}`
               }
             </p>
-
-            {totalPages > 1 && (
-              <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
-                <button
-                  onClick={() => { setPage(p => p - 1); window.scrollTo({ top: 0, behavior: "smooth" }); }}
-                  disabled={page === 0}
-                  style={{
-                    fontFamily: MONO, fontSize: "0.6rem", letterSpacing: "0.06em",
-                    background: "none", border: "none", padding: 0,
-                    color: page === 0 ? "#cccccc" : INK,
-                    cursor: page === 0 ? "default" : "pointer",
-                  }}
-                >
-                  ← Prev
-                </button>
-                <span style={{ fontFamily: MONO, fontSize: "0.6rem", color: MUTED, letterSpacing: "0.04em" }}>
-                  {page + 1} / {totalPages}
-                </span>
-                <button
-                  onClick={() => { setPage(p => p + 1); window.scrollTo({ top: 0, behavior: "smooth" }); }}
-                  disabled={page >= totalPages - 1}
-                  style={{
-                    fontFamily: MONO, fontSize: "0.6rem", letterSpacing: "0.06em",
-                    background: "none", border: "none", padding: 0,
-                    color: page >= totalPages - 1 ? "#cccccc" : INK,
-                    cursor: page >= totalPages - 1 ? "default" : "pointer",
-                  }}
-                >
-                  Next →
-                </button>
-              </div>
-            )}
           </div>
         </div>
       )}
