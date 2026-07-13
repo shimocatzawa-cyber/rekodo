@@ -246,14 +246,22 @@ async function searchOpenLibraryBooks(artist: string): Promise<OpenLibraryBook[]
   }
 }
 
-function buildPrintPromptWithOpenLibrary(artist: string, books: OpenLibraryBook[]): string {
+function buildPrintPromptWithOpenLibrary(artist: string, books: OpenLibraryBook[], discogsAlbums: DiscogsAlbum[]): string {
+  const identityBlock = discogsAlbums.length > 0
+    ? `ARTIST IDENTITY: ${artist} is a musician who released these albums: ${discogsAlbums.slice(0, 8).map(a => `"${a.title}" (${a.year})`).join(", ")}. This is NOT any other person who shares this name (e.g. not an author, actor, or public figure).`
+    : `ARTIST IDENTITY: ${artist} is a musician. This is NOT any other person who shares this name.`;
+
   if (books.length === 0) {
     return `You are a music research assistant helping a vinyl collector.
 
-No verified books were found for ${artist} in Open Library.
+${identityBlock}
 
-Return ONLY this exact JSON — do not invent or add any books:
-{"books":[],"interviews":[]}`;
+No verified books were found for ${artist} the musician in Open Library.
+
+For INTERVIEWS: list up to 5 notable print/text interviews given by ${artist} the musician (Pitchfork, The Wire, The Guardian, NME, MOJO, Rolling Stone, Uncut, The Quietus, Bandcamp Daily, Fact, Stereogum, etc.). Only include interviews you are highly confident actually exist. If uncertain, omit. Return [] if none found. Text only — no YouTube, podcasts, or audio/video.
+
+Return ONLY valid JSON, no markdown, no backticks, no preamble:
+{"books":[],"interviews":[{"publication":"Pitchfork","domain":"pitchfork.com","title":"Interview title","year":2019,"date":"2019-03","note":"What makes it worth reading"}]}`;
   }
 
   const list = books
@@ -266,16 +274,18 @@ Return ONLY this exact JSON — do not invent or add any books:
 
   return `You are a music research assistant helping a vinyl collector.
 
-Below are VERIFIED books from Open Library related to ${artist}. You may ONLY use titles from this list — do not add, invent, or modify any titles.
+${identityBlock}
+
+Below are VERIFIED books from Open Library that may relate to ${artist}. You may ONLY use titles from this list — do not add, invent, or modify any titles.
 
 VERIFIED BOOKS:
 ${list}
 
-From the list above, select up to 5 most relevant books for a serious ${artist} fan. Copy each title and author EXACTLY as shown. Add a "type" (biography|memoir|criticism|history|fiction|reference) and a one-sentence note. Set written_by_artist: true only when the artist themselves is listed as the author.
+CRITICAL: Only select books clearly about ${artist} the MUSICIAN or the music scene they belong to. If any book is clearly about a different person who shares the name "${artist}" (e.g. a novelist, actor, or other public figure), exclude it entirely. If none of the books are about ${artist} the musician, return "books": [].
 
-If fewer than the maximum are relevant, return only those. Do not pad with invented titles.
+From the relevant books, select up to 5. Copy each title and author EXACTLY as shown. Add a "type" (biography|memoir|criticism|history|fiction|reference) and a one-sentence note. Set written_by_artist: true only when the artist themselves is listed as the author.
 
-For INTERVIEWS: list up to 5 notable print/text interviews given by ${artist} (Pitchfork, The Wire, The Guardian, NME, MOJO, Rolling Stone, Uncut, The Quietus, Bandcamp Daily, Fact, Stereogum, etc.). Only include interviews you are highly confident actually exist — specific publication, year, and headline. If uncertain, omit entirely. Return [] for interviews if you cannot name any with confidence. Text only — no YouTube, podcasts, or audio/video.
+For INTERVIEWS: list up to 5 notable print/text interviews given by ${artist} the musician (Pitchfork, The Wire, The Guardian, NME, MOJO, Rolling Stone, Uncut, The Quietus, Bandcamp Daily, Fact, Stereogum, etc.). Only include interviews you are highly confident actually exist. If uncertain, omit. Return [] if none found. Text only — no YouTube, podcasts, or audio/video.
 
 Return ONLY valid JSON, no markdown, no backticks, no preamble:
 {"books":[{"title":"Exact Title from list","author":"Author Name","year":2003,"type":"memoir","written_by_artist":true,"note":"One sentence"}],"interviews":[{"publication":"Pitchfork","domain":"pitchfork.com","title":"Interview title","year":2019,"date":"2019-03","note":"What makes it worth reading"}]}`;
@@ -309,7 +319,11 @@ async function searchItunesPodcasts(artist: string): Promise<iTunesEpisode[]> {
   }
 }
 
-function buildPodcastsPromptWithItunes(artist: string, episodes: iTunesEpisode[]): string {
+function buildPodcastsPromptWithItunes(artist: string, episodes: iTunesEpisode[], discogsAlbums: DiscogsAlbum[]): string {
+  const identityBlock = discogsAlbums.length > 0
+    ? `ARTIST IDENTITY: ${artist} is a musician who released these albums: ${discogsAlbums.slice(0, 8).map(a => `"${a.title}" (${a.year})`).join(", ")}. This is NOT any other person who shares this name.`
+    : `ARTIST IDENTITY: ${artist} is a musician. This is NOT any other person who shares this name.`;
+
   const list = episodes
     .map((e, i) => {
       const year = new Date(e.releaseDate).getFullYear();
@@ -319,16 +333,21 @@ function buildPodcastsPromptWithItunes(artist: string, episodes: iTunesEpisode[]
 
   return `You are a music research assistant. Below are real podcast episodes found for ${artist} via iTunes Search.
 
+${identityBlock}
+
 VERIFIED EPISODES:
 ${list}
 
-Select the 5–6 most relevant for a serious ${artist} fan. Prefer episodes where ${artist} is the main interview subject, deep-dive album reviews, or dedicated documentary episodes.
+Select the 5–6 most relevant for a serious ${artist} fan. Prefer episodes where ${artist} the MUSICIAN is the main interview subject, deep-dive album reviews, or dedicated documentary episodes.
+
+CRITICAL: If any episode is clearly about a different person who happens to share the name "${artist}" (e.g. an author, actor, or public figure), exclude it entirely. Only include episodes about the musician.
 
 Copy the show name, episode title, year, and appleUrl EXACTLY as shown above. Add a one-sentence note on why it's worth listening. Only pick from this list — do not invent episodes.
 
 Return ONLY valid JSON, no markdown, no backticks, no preamble:
 {"episodes":[{"show":"Show Name","episode":"Exact episode title","year":2021,"type":"interview","note":"One sentence on why worth listening","appleUrl":"https://podcasts.apple.com/..."}]}
-type must be one of: "interview", "review", "documentary", "discussion".`;
+type must be one of: "interview", "review", "documentary", "discussion".
+If no episodes clearly relate to ${artist} the musician, return {"episodes":[]}.`;
 }
 
 async function fetchPressingsData(artistName: string): Promise<{ pressings: PressingsAlbum[] }> {
@@ -774,19 +793,18 @@ export async function getOrGenerateSection(
       ? ownedAlbums.slice(0, 5)
       : ownedAlbums;
 
-  // ── Discogs discography fetch (rankings + blindspot only) ──────────────────
-  // Fetch verified album titles and years before calling Claude so the model
-  // cannot hallucinate albums that don't exist or assign wrong release years.
+  // ── Discogs discography fetch ──────────────────────────────────────────────
+  // Used for rankings/blindspot to ground Claude on verified album titles.
+  // Also fetched for podcasts/print to anchor artist identity and prevent
+  // Claude from confusing ambiguous names (e.g. "Colleen" the musician vs
+  // Colleen Hoover the novelist) when iTunes/OpenLibrary return mixed results.
   let discogsAlbums: DiscogsAlbum[] = [];
-  if (section === "rankings" || section === "blindspot") {
+  if (["rankings", "blindspot", "podcasts", "print"].includes(section)) {
     discogsAlbums = await fetchDiscogsDiscography(artist);
     console.log(`[deep-dive] discogs — ${artist}: ${discogsAlbums.length > 0 ? `${discogsAlbums.length} albums` : "unavailable, proceeding without"}`);
   }
 
   // ── iTunes podcast episode search ──────────────────────────────────────────
-  // Pre-fetch real episodes (free, no API key) and inject them into the prompt
-  // as verified ground truth so Haiku only needs to select + annotate — no
-  // hallucination risk, no expensive web search tool needed.
   let itunesEpisodes: iTunesEpisode[] = [];
   if (section === "podcasts") {
     itunesEpisodes = await searchItunesPodcasts(artist);
@@ -794,8 +812,6 @@ export async function getOrGenerateSection(
   }
 
   // ── Open Library book search ───────────────────────────────────────────────
-  // Pre-fetch verified book titles (free, no API key) so Haiku can only select
-  // from real entries — prevents hallucinated memoirs and biographies.
   let openLibraryBooks: OpenLibraryBook[] = [];
   if (section === "print") {
     openLibraryBooks = await searchOpenLibraryBooks(artist);
@@ -803,9 +819,9 @@ export async function getOrGenerateSection(
   }
 
   const prompt = (section === "podcasts" && itunesEpisodes.length > 0)
-    ? buildPodcastsPromptWithItunes(artist, itunesEpisodes)
+    ? buildPodcastsPromptWithItunes(artist, itunesEpisodes, discogsAlbums)
     : section === "print"
-      ? buildPrintPromptWithOpenLibrary(artist, openLibraryBooks)
+      ? buildPrintPromptWithOpenLibrary(artist, openLibraryBooks, discogsAlbums)
       : PROMPTS[section](artist, promptAlbums, discogsAlbums);
 
   console.log(`[deep-dive] calling ${model} — ${artist}/${section} max_tokens=${maxTokens}`);
