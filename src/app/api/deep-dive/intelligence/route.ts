@@ -201,52 +201,52 @@ type PressingsAlbum = {
   variants: PressingVariant[];
 };
 
-// ── Brave Search interview discovery ─────────────────────────────────────────
+// ── Tavily Search interview discovery ────────────────────────────────────────
 // Searches the web for real interview URLs before calling Claude, so the model
 // can annotate verified links rather than recalling from training data (which
-// misses smaller music sites like furious.com). Free tier: 2000 req/month.
+// misses smaller music sites like furious.com). Free tier: 1000 req/month.
 
-type BraveWebResult = {
+type TavilyResult = {
   title: string;
   url: string;
-  description: string;
+  content: string;
+  score: number;
 };
 
-async function searchBraveInterviews(artist: string, discogsAlbums: DiscogsAlbum[]): Promise<BraveWebResult[]> {
-  const key = process.env.BRAVE_SEARCH_API_KEY;
+async function searchTavilyInterviews(artist: string, discogsAlbums: DiscogsAlbum[]): Promise<TavilyResult[]> {
+  const key = process.env.TAVILY_API_KEY;
   if (!key) return [];
 
-  // Use an album title hint when available to disambiguate (e.g. "Colleen" → "Colleen Everyone Alive Wants Answers interview")
+  // Use an early album title to disambiguate common names (e.g. "Colleen" → searches "Colleen Everyone Alive Wants Answers interview")
   const albumHint = discogsAlbums[0]?.title ?? "";
   const query = albumHint
     ? `"${artist}" "${albumHint}" interview`
     : `"${artist}" musician interview`;
 
   try {
-    const res = await fetch(
-      `https://api.search.brave.com/res/v1/web/search?q=${encodeURIComponent(query)}&count=10&search_lang=en&result_filter=web`,
-      {
-        headers: {
-          "Accept": "application/json",
-          "Accept-Encoding": "gzip",
-          "X-Subscription-Token": key,
-        },
-        signal: AbortSignal.timeout(5000),
-      }
-    );
+    const res = await fetch("https://api.tavily.com/search", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        api_key: key,
+        query,
+        max_results: 10,
+        search_depth: "basic",
+        exclude_domains: ["spotify.com", "apple.com", "youtube.com", "amazon.com",
+          "wikipedia.org", "discogs.com", "allmusic.com", "facebook.com",
+          "instagram.com", "twitter.com", "x.com", "setlist.fm"],
+      }),
+      signal: AbortSignal.timeout(6000),
+    });
     if (!res.ok) return [];
 
-    const json = await res.json() as { web?: { results?: BraveWebResult[] } };
-    const results = json.web?.results ?? [];
+    const json = await res.json() as { results?: TavilyResult[] };
+    const results = json.results ?? [];
 
-    // Keep only results that look like interviews/features — filter out streams,
-    // shops, Wikipedia, social media, etc.
-    const INTERVIEW_PAT = /interview|feature|conversation|in conversation|profile|talks to|speaks to|we spoke/i;
-    const SKIP_PAT      = /spotify|apple\.com|youtube|amazon|wikipedia|discogs|allmusic|setlist|facebook|instagram|twitter/i;
-
+    // Keep only results that look like interviews or features
+    const INTERVIEW_PAT = /interview|feature|conversation|in conversation|profile|talks to|speaks to|we spoke|q&a/i;
     return results.filter(r =>
-      (INTERVIEW_PAT.test(r.title) || INTERVIEW_PAT.test(r.description)) &&
-      !SKIP_PAT.test(r.url)
+      INTERVIEW_PAT.test(r.title) || INTERVIEW_PAT.test(r.content)
     );
   } catch {
     return [];
@@ -302,14 +302,14 @@ function buildPrintPromptWithOpenLibrary(
   artist: string,
   books: OpenLibraryBook[],
   discogsAlbums: DiscogsAlbum[],
-  braveInterviews: BraveWebResult[] = [],
+  tavilyInterviews: TavilyResult[] = [],
 ): string {
   const identityBlock = discogsAlbums.length > 0
     ? `ARTIST IDENTITY: ${artist} is a musician who released these albums: ${discogsAlbums.slice(0, 8).map(a => `"${a.title}" (${a.year})`).join(", ")}. This is NOT any other person who shares this name (e.g. not an author, actor, or public figure).`
     : `ARTIST IDENTITY: ${artist} is a musician. This is NOT any other person who shares this name.`;
 
-  const interviewBlock = braveInterviews.length > 0
-    ? `\nVERIFIED INTERVIEW URLS found via web search — these are real pages that exist:\n${braveInterviews.map((r, i) => `${i + 1}. "${r.title}" — ${r.url}`).join("\n")}\n\nFor INTERVIEWS: select up to 5 from the VERIFIED INTERVIEW URLS above. Copy the URL exactly. Extract the publication name and domain from the URL. Write a one-sentence note on what makes it worth reading. Do not invent interviews beyond this list.`
+  const interviewBlock = tavilyInterviews.length > 0
+    ? `\nVERIFIED INTERVIEW URLS found via web search — these are real pages that exist:\n${tavilyInterviews.map((r, i) => `${i + 1}. "${r.title}" — ${r.url}`).join("\n")}\n\nFor INTERVIEWS: select up to 5 from the VERIFIED INTERVIEW URLS above. Copy the URL exactly. Extract the publication name and domain from the URL. Write a one-sentence note on what makes it worth reading. Do not invent interviews beyond this list.`
     : `For INTERVIEWS: list up to 5 notable print/text interviews given by ${artist} the musician (Pitchfork, The Wire, The Guardian, NME, MOJO, Rolling Stone, Uncut, The Quietus, Bandcamp Daily, Fact, Resident Advisor, Stereogum, etc.). Only include interviews you are confident actually exist. Text only — no YouTube, podcasts, or audio/video. Return [] if none found with confidence.`;
 
   const booksList = books.length > 0
@@ -864,20 +864,20 @@ export async function getOrGenerateSection(
 
   // ── Open Library book search + Brave interview search ─────────────────────
   let openLibraryBooks: OpenLibraryBook[] = [];
-  let braveInterviews: BraveWebResult[]   = [];
+  let tavilyInterviews: TavilyResult[]   = [];
   if (section === "print") {
-    [openLibraryBooks, braveInterviews] = await Promise.all([
+    [openLibraryBooks, tavilyInterviews] = await Promise.all([
       searchOpenLibraryBooks(artist),
-      searchBraveInterviews(artist, discogsAlbums),
+      searchTavilyInterviews(artist, discogsAlbums),
     ]);
     console.log(`[deep-dive] openlibrary — ${artist}: ${openLibraryBooks.length} books found`);
-    console.log(`[deep-dive] brave — ${artist}: ${braveInterviews.length} interview URLs found`);
+    console.log(`[deep-dive] tavily — ${artist}: ${tavilyInterviews.length} interview URLs found`);
   }
 
   const prompt = (section === "podcasts" && itunesEpisodes.length > 0)
     ? buildPodcastsPromptWithItunes(artist, itunesEpisodes, discogsAlbums)
     : section === "print"
-      ? buildPrintPromptWithOpenLibrary(artist, openLibraryBooks, discogsAlbums, braveInterviews)
+      ? buildPrintPromptWithOpenLibrary(artist, openLibraryBooks, discogsAlbums, tavilyInterviews)
       : PROMPTS[section](artist, promptAlbums, discogsAlbums);
 
   console.log(`[deep-dive] calling ${model} — ${artist}/${section} max_tokens=${maxTokens}`);
