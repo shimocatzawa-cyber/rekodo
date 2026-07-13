@@ -153,6 +153,10 @@ export default function ProfileClient({
   const [starSignValue, setStarSignValue] = useState(profile.star_sign         ?? "");
   const [bandcampValue, setBandcampValue] = useState(profile.bandcamp_username ?? "");
 
+  // ── Profile view (about / collection / wantlist) ─────────────────────────
+  const [profileView,     setProfileView]     = useState<"about" | "collection" | "wantlist">("about");
+  const [wantlistLoaded,  setWantlistLoaded]  = useState(0); // count after wantlist tab loads
+
   // ── Visibility settings ───────────────────────────────────────────────────
   const [collectionPublic, setCollectionPublic] = useState(profile.collection_public);
   const [wantlistPublic,   setWantlistPublic]   = useState(profile.wantlist_public);
@@ -466,6 +470,37 @@ export default function ProfileClient({
                   )}
                 </div>
 
+                {/* ── Profile sub-tabs ── */}
+                <div style={{ display: "flex", gap: "20px", borderBottom: `1px solid ${RULE}`, margin: "16px 0 20px" }}>
+                  {(["about", "collection", "wantlist"] as const).map(tab => {
+                    const label = tab === "about"
+                      ? "Overview"
+                      : tab === "collection"
+                        ? `Collection${totalRecords > 0 ? ` (${totalRecords.toLocaleString()})` : ""}`
+                        : `Wantlist${wantlistLoaded > 0 ? ` (${wantlistLoaded.toLocaleString()})` : ""}`;
+                    const active = profileView === tab;
+                    return (
+                      <button
+                        key={tab}
+                        onClick={() => setProfileView(tab)}
+                        style={{
+                          fontFamily: MONO, fontSize: "10px", letterSpacing: "0.1em",
+                          textTransform: "uppercase", background: "none", border: "none",
+                          borderBottom: `2px solid ${active ? ORANGE : "transparent"}`,
+                          padding: "6px 0 8px", marginBottom: "-1px",
+                          color: active ? INK : "#aaaaaa",
+                          cursor: active ? "default" : "pointer",
+                        }}
+                      >
+                        {label}
+                      </button>
+                    );
+                  })}
+                </div>
+
+                {profileView === "about" && (
+                <>
+
                 {(bioValue || profile.bio) && (
                   <p style={{ fontFamily: SERIF, fontSize: "0.95rem", fontStyle: "italic", color: "#505050", lineHeight: 1.7, margin: "0 0 12px 0", maxWidth: 560 }}>
                     {bioValue || profile.bio}
@@ -683,15 +718,6 @@ export default function ProfileClient({
                   </div>
                 )}
 
-                {/* ── Collection / Wantlist ── */}
-                <ProfileRecordsTabs
-                  userId={profile.id}
-                  isOwner={isOwner}
-                  collectionPublic={collectionPublic}
-                  wantlistPublic={wantlistPublic}
-                  totalCollectionCount={totalRecords}
-                />
-
                 {/* ── SPOTIFY + BANDCAMP + WANTLIST ── */}
                 {isOwner && (
                   <div style={{ marginTop: "0", paddingTop: "16px", borderTop: `1px solid ${RULE}`, display: "flex", gap: "0", alignItems: "flex-start" }}>
@@ -841,6 +867,32 @@ export default function ProfileClient({
                 )}
 
                 {isOwner && <CollectionCsvUpload isOwner={isOwner} />}
+
+                </>
+                )}
+
+                {/* ── Collection / Wantlist list views ── */}
+                {profileView !== "about" && (
+                  <>
+                    <div style={{ display: profileView === "collection" ? "block" : "none" }}>
+                      <ProfileRecordsTabs
+                        userId={profile.id}
+                        isOwner={isOwner}
+                        type="collection"
+                        isPublic={collectionPublic}
+                      />
+                    </div>
+                    <div style={{ display: profileView === "wantlist" ? "block" : "none" }}>
+                      <ProfileRecordsTabs
+                        userId={profile.id}
+                        isOwner={isOwner}
+                        type="wantlist"
+                        isPublic={wantlistPublic}
+                        onLoad={count => setWantlistLoaded(count)}
+                      />
+                    </div>
+                  </>
+                )}
 
               </>
             )}
