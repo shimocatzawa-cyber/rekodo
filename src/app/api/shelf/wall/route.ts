@@ -14,6 +14,7 @@ function getServiceClient() {
 export async function GET() {
   const authClient = await createAuthClient();
   const { data: { user } } = await authClient.auth.getUser();
+  if (!user) return NextResponse.json({ posts: [] }, { status: 401 });
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const db = getServiceClient() as any;
 

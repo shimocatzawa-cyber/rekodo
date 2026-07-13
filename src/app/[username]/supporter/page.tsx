@@ -1,4 +1,4 @@
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import AppNav from "@/components/AppNav";
 import SupporterContent from "@/components/profile/SupporterContent";
@@ -15,6 +15,8 @@ export default async function SupporterPage({ params }: { params: Params }) {
 
   const supabase = await createClient();
   const viewer = await getUserWithTimeout(supabase);
+
+  if (!viewer) redirect("/login");
 
   type ProfileRow = {
     id: string; username: string | null; display_name: string | null;

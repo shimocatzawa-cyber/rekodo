@@ -32,8 +32,9 @@ rekōdo is free to use. A supporter subscription ($5/month, billed in local curr
 
 - Homepage: https://rekodo.co
 - Support / About: https://rekodo.co/about
-- Public profiles: https://rekodo.co/@{username}
-- Public lists: https://rekodo.co/@{username}/{list-slug}
+- Login: https://rekodo.co/login
+
+Note: profiles, lists, and all collection content require a rekōdo account to view.
 `;
 
 export function GET() {
