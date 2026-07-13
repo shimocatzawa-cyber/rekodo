@@ -126,12 +126,24 @@ function AboutContent({ data }: { data: ArtistAbout }) {
 
   return (
     <div style={{ maxWidth: 640 }}>
-      {/* Bio */}
-      {data.bio && (
-        <p style={{ fontFamily: SERIF, fontSize: "0.95rem", lineHeight: 1.75, color: INK, margin: "0 0 24px" }}>
-          {data.bio}
-        </p>
-      )}
+      {/* Bio — split into readable paragraphs */}
+      {data.bio && (() => {
+        // Split on sentence boundaries, group into ~3-sentence paragraphs
+        const sentences = data.bio.match(/[^.!?]+[.!?]+["']?/g) ?? [data.bio];
+        const paras: string[] = [];
+        for (let i = 0; i < sentences.length; i += 3) {
+          paras.push(sentences.slice(i, i + 3).join(" ").trim());
+        }
+        return (
+          <div style={{ margin: "0 0 24px" }}>
+            {paras.map((p, i) => (
+              <p key={i} style={{ fontFamily: SERIF, fontSize: "0.95rem", lineHeight: 1.8, color: INK, margin: i < paras.length - 1 ? "0 0 14px" : 0 }}>
+                {p}
+              </p>
+            ))}
+          </div>
+        );
+      })()}
 
       {/* Stats row — formed/origin only */}
       {(data.origin || data.formed) && (
@@ -1098,7 +1110,7 @@ export default function DeepDiveClient({
   const [favorites, setFavorites] = useState<Set<string>>(() => new Set(initialFavorites));
   const [favoritesOnly, setFavoritesOnly] = useState(false);
   const favoriteTogglingRef = useRef(new Set<string>());
-  const [activeTab, setActiveTab] = useUrlTab<Section>("tab", TAB_IDS, "rankings");
+  const [activeTab, setActiveTab] = useUrlTab<Section>("tab", TAB_IDS, "about");
   const [imageMap, setImageMap] = useState<Record<string, string>>({});
   const [cache, setCache] = useState<Record<string, Record<string, unknown>>>({});
   const [loadingTabs, setLoadingTabs] = useState<Record<string, boolean>>({});

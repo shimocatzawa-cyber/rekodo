@@ -519,6 +519,7 @@ export default function ConstellationPOC({ username }: Props) {
   const nodePosRef         = useRef<Map<string, [number, number]>>(new Map());
   const mbEdgesRef             = useRef<Edge[]>([]);
   const discogsEdgesRef        = useRef<Edge[]>([]);
+  const lfmEdgesRef            = useRef<Edge[]>([]);
   const artistDiscogsIdsRef    = useRef<Map<string, number>>(new Map());
   const artistYearsRef         = useRef<Map<string, Set<number>>>(new Map());
   const decadeFilterRef        = useRef<number | null>(null);
@@ -892,6 +893,42 @@ export default function ConstellationPOC({ username }: Props) {
         artistDiscogsIdsRef.current = byNodeId;
       }
 
+      // ── Style-tag scene edges ─────────────────────────────────────────────────
+      // Two owned artists who share ≥2 non-generic Discogs styles → scene edge.
+      // Uses the topStyles map already built above; zero extra API calls.
+      if (username) {
+        const SKIP_STYLE_EDGE = new Set([
+          "rock","pop","indie","alternative","electronic","folk","acoustic","experimental",
+          "jazz","blues","country","classical","soul","funk","punk","metal","dance",
+          "alternative rock","indie rock","indie pop","alternative pop","singer-songwriter",
+          "hip hop","rap","r&b","r&b/soul","ambient","psychedelic","avantgarde","art rock",
+        ]);
+        const ownedNodeList = nodes.filter(n => n.owned);
+        // Build nodeId → top styles (lowercase, filtered)
+        const nodeStyles = new Map<string, string[]>();
+        for (const n of ownedNodeList) {
+          const styles = (topStyles.get(n.name) ?? []).filter(s => !SKIP_STYLE_EDGE.has(s));
+          if (styles.length > 0) nodeStyles.set(n.id, styles.slice(0, 8));
+        }
+        const styleNodeList = [...nodeStyles.keys()];
+        for (let i = 0; i < styleNodeList.length; i++) {
+          for (let j = i + 1; j < styleNodeList.length; j++) {
+            const idA = styleNodeList[i], idB = styleNodeList[j];
+            const key = [idA, idB].sort().join("|");
+            if (derivedKeys.has(key)) continue;
+            const sa = new Set(nodeStyles.get(idA)!);
+            const shared = (nodeStyles.get(idB) ?? []).filter(s => sa.has(s));
+            if (shared.length < 2) continue;
+            derivedKeys.add(key);
+            const weight = Math.min(0.4 + shared.length * 0.1, 0.82);
+            derivedEdges.push({
+              source: idA, target: idB, type: "scene", weight,
+              note: `Shared styles: ${shared.slice(0, 3).join(", ")}`,
+            });
+          }
+        }
+      }
+
       const edges = [
         ...CURATED_EDGES.filter(e => nodeIds.has(e.source) && nodeIds.has(e.target)),
         ...derivedEdges.filter(e => nodeIds.has(e.source) && nodeIds.has(e.target)),
@@ -1154,6 +1191,76 @@ export default function ConstellationPOC({ username }: Props) {
     return () => { cancelled = true; };
   }, [isReady, username]);
 
+  // ── Last.fm similarity edges ──────────────────────────────────────────────────
+  // For each owned artist, fetch Last.fm similar artists. If a similar artist is
+  // also an owned node, draw a "scene" edge weighted by Last.fm match score.
+  // Results are cached in sessionStorage; 200ms delay between requests.
+
+  useEffect(() => {
+    if (!isReady || !username) return;
+    let cancelled = false;
+
+    const run = async () => {
+      const ownedNodes = nodesRef.current.filter(n => n.owned);
+      if (ownedNodes.length === 0) return;
+
+      const nodeByName = new Map(nodesRef.current.map(n => [n.name.toLowerCase(), n]));
+      const existingKeys = new Set([
+        ...edgesRef.current,
+        ...mbEdgesRef.current,
+        ...discogsEdgesRef.current,
+      ].map(e => [e.source, e.target].sort().join("|")));
+
+      const discovered: Edge[] = [];
+
+      for (const node of ownedNodes) {
+        if (cancelled) return;
+
+        const ssKey = `lfm-sim:${node.name}`;
+        let similar: { name: string; match: number }[] = [];
+
+        try {
+          const cached = sessionStorage.getItem(ssKey);
+          if (cached) {
+            similar = JSON.parse(cached) as typeof similar;
+          } else {
+            const res = await fetch(`/api/constellation/lastfm-similar?artist=${encodeURIComponent(node.name)}`);
+            if (!res.ok || cancelled) continue;
+            const json = await res.json() as { similar?: typeof similar };
+            similar = json.similar ?? [];
+            try { sessionStorage.setItem(ssKey, JSON.stringify(similar)); } catch { /* quota */ }
+            await new Promise(r => setTimeout(r, 200)); // respect Last.fm rate limit
+          }
+        } catch { continue; }
+
+        for (const s of similar) {
+          const target = nodeByName.get(s.name.toLowerCase());
+          if (!target || !target.owned || target.id === node.id) continue;
+
+          const key = [node.id, target.id].sort().join("|");
+          if (existingKeys.has(key)) continue;
+          existingKeys.add(key);
+
+          const h = strHash(node.id + target.id + "lfm");
+          discovered.push({
+            source: node.id, target: target.id,
+            type: "scene", weight: Math.max(0.35, Math.min(s.match, 0.85)),
+            note: `Last.fm similarity score: ${Math.round(s.match * 100)}%`,
+            cpDx: (seededRng(h) - 0.5) * 60,
+            cpDy: (seededRng(h + 1) - 0.5) * 50,
+          });
+        }
+      }
+
+      if (!cancelled && discovered.length > 0) {
+        lfmEdgesRef.current = [...discovered];
+      }
+    };
+
+    run();
+    return () => { cancelled = true; };
+  }, [isReady, username]);
+
   // ── Global sonic neighbours from 467k dataset ─────────────────────────────────
   // Queries the full records table via RPC for artists beyond the user's collection
   // who share the same style tags. Runs once when styleGroups is populated.
@@ -1401,7 +1508,7 @@ export default function ConstellationPOC({ username }: Props) {
       if (!physicsRef.current) return;
       const { W, H } = cssSize();
       const nodes = nodesRef.current;
-      const edges = [...edgesRef.current, ...mbEdgesRef.current, ...discogsEdgesRef.current].filter(e => enabledTypesRef.current.has(e.type));
+      const edges = [...edgesRef.current, ...mbEdgesRef.current, ...discogsEdgesRef.current, ...lfmEdgesRef.current].filter(e => enabledTypesRef.current.has(e.type));
       for (const n of nodes) {
         if (draggingNodeRef.current === n.id) continue;
         if (isFiltered(n)) continue; // filtered-out nodes stay put
@@ -1452,7 +1559,7 @@ export default function ConstellationPOC({ username }: Props) {
     function render() {
       const { W, H } = cssSize();
       const nodes    = nodesRef.current;
-      const edges    = [...edgesRef.current, ...mbEdgesRef.current, ...discogsEdgesRef.current].filter(e => enabledTypesRef.current.has(e.type));
+      const edges    = [...edgesRef.current, ...mbEdgesRef.current, ...discogsEdgesRef.current, ...lfmEdgesRef.current].filter(e => enabledTypesRef.current.has(e.type));
       const cam      = cameraRef.current;
       const hovered  = hoveredRef.current, selected = selectedRef.current;
       const activeId = hovered || selected;
@@ -1791,7 +1898,7 @@ export default function ConstellationPOC({ username }: Props) {
       const { x: wx, y: wy } = s2w(sx, sy);
       const sc = cameraRef.current.scale;
       const threshold = 10 / sc;
-      for (const e of [...edgesRef.current, ...mbEdgesRef.current, ...discogsEdgesRef.current].filter(e => enabledTypesRef.current.has(e.type))) {
+      for (const e of [...edgesRef.current, ...mbEdgesRef.current, ...discogsEdgesRef.current, ...lfmEdgesRef.current].filter(e => enabledTypesRef.current.has(e.type))) {
         const src = nodesRef.current.find(n => n.id === e.source);
         const tgt = nodesRef.current.find(n => n.id === e.target);
         if (!src || !tgt) continue;
@@ -1934,7 +2041,7 @@ export default function ConstellationPOC({ username }: Props) {
   const PANEL_W = 340;
 
   const getConnections = useCallback((nodeId: string) => {
-    return [...edgesRef.current, ...mbEdgesRef.current, ...discogsEdgesRef.current].filter(e => enabledTypesRef.current.has(e.type))
+    return [...edgesRef.current, ...mbEdgesRef.current, ...discogsEdgesRef.current, ...lfmEdgesRef.current].filter(e => enabledTypesRef.current.has(e.type))
       .filter(e => e.source === nodeId || e.target === nodeId)
       .map(e => {
         const otherId  = e.source === nodeId ? e.target : e.source;
@@ -1979,7 +2086,7 @@ export default function ConstellationPOC({ username }: Props) {
     if (!canvas) return;
     const W = canvas.clientWidth, H = canvas.clientHeight;
     const AVAIL_W = W - PANEL_W;
-    const allEdges = [...edgesRef.current, ...mbEdgesRef.current, ...discogsEdgesRef.current]
+    const allEdges = [...edgesRef.current, ...mbEdgesRef.current, ...discogsEdgesRef.current, ...lfmEdgesRef.current]
       .filter(e => enabledTypesRef.current.has(e.type));
     const neighborIds = new Set<string>();
     for (const e of allEdges) {
