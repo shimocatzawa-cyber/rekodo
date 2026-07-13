@@ -975,6 +975,34 @@ function BlindSpotContent({ data, artist }: { data: { albums?: BlindSpotAlbum[] 
               <p style={{ fontFamily: MONO, fontSize: "0.72rem", letterSpacing: "0.04em", color: INK, lineHeight: 1.7, margin: 0 }}>
                 {a.why}
               </p>
+              <div style={{ display: "flex", gap: 12, marginTop: 8, flexWrap: "wrap" }}>
+                <a
+                  href={`https://www.discogs.com/search/?q=${encodeURIComponent(artist + " " + a.title)}&type=master`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  style={{ fontFamily: MONO, fontSize: "0.6rem", letterSpacing: "0.08em", color: "#999", textDecoration: "underline", textUnderlineOffset: "2px" }}
+                >
+                  Discogs ↗
+                </a>
+                {[
+                  { label: "Apple Music", url: `https://music.apple.com/search?term=${encodeURIComponent(artist + " " + a.title)}` },
+                  { label: "Spotify",     url: `https://open.spotify.com/search/${encodeURIComponent(artist + " " + a.title)}` },
+                ].map(({ label, url }) => (
+                  <button
+                    key={label}
+                    type="button"
+                    onClick={() => openStreamLink(url)}
+                    style={{
+                      fontFamily: MONO, fontSize: "0.6rem", letterSpacing: "0.08em",
+                      color: "#999", background: "none", border: "none",
+                      padding: 0, cursor: "pointer", textDecoration: "underline",
+                      textUnderlineOffset: "2px",
+                    }}
+                  >
+                    {label} ↗
+                  </button>
+                ))}
+              </div>
             </div>
           </div>
         </div>
