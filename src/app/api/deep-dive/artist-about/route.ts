@@ -11,19 +11,28 @@ export interface ArtistAbout {
   source:    "lastfm" | "wikipedia" | "none";
 }
 
-// Strip Last.fm bio noise: HTML, URLs, CC boilerplate, and disambiguation sentences
+// Strip Last.fm bio noise and truncate at disambiguation sections
 function cleanLastFmBio(raw: string): string {
-  return raw
-    .replace(/<a[^>]*>.*?<\/a>/gi, "")   // anchor tags
-    .replace(/<[^>]+>/g, "")              // remaining HTML
-    .replace(/https?:\/\/\S+/gi, "")      // bare URLs
-    .replace(/www\.\S+/gi, "")            // www. fragments
-    // Creative Commons boilerplate Last.fm appends to every bio
-    .replace(/User-contributed text is available under the Creative Commons By-SA License[^.]*/gi, "")
-    // "Read more on Last.fm" trailing link text
-    .replace(/Read more (about .+? )?on Last\.fm\.?/gi, "")
-    .replace(/\s{2,}/g, " ")
-    .trim();
+  // Strip HTML and links first
+  let text = raw
+    .replace(/<a[^>]*>.*?<\/a>/gi, "")
+    .replace(/<[^>]+>/g, "")
+    .replace(/https?:\/\/\S+/gi, "")
+    .replace(/www\.\S+/gi, "");
+
+  // Truncate at common Last.fm disambiguation/boilerplate markers
+  const cutoffs = [
+    /\bThere (?:are|is|was) (?:also|at least|\d)/i,
+    /\bThis (?:tag|artist) may also/i,
+    /\bUser-contributed text/i,
+    /\bRead more (?:about .+? )?on Last\.fm/i,
+  ];
+  for (const pat of cutoffs) {
+    const idx = text.search(pat);
+    if (idx > 80) text = text.slice(0, idx); // only cut if there's real content before it
+  }
+
+  return text.replace(/\s{2,}/g, " ").trim();
 }
 
 async function fetchLastFm(artist: string): Promise<ArtistAbout | null> {
@@ -110,12 +119,12 @@ export async function GET(request: NextRequest) {
     return NextResponse.json<ArtistAbout>({ bio: null, formed: null, origin: null, tags: [], listeners: null, plays: null, similar: [], source: "none" });
   }
 
-  // Bio from Wikipedia only — Last.fm bios are user-contributed and frequently
-  // contain disambiguation text, raw URLs, and other noise.
-  const bio     = wiki?.bio ?? null;
+  // Prefer Wikipedia bio (editorial quality); fall back to cleaned Last.fm bio
+  // only when Wikipedia has no article (e.g. disambiguation pages, obscure artists).
+  const bio     = wiki?.bio ?? lfm?.bio ?? null;
   const formed  = wiki?.formed  ?? null;
   const origin  = wiki?.origin  ?? null;
-  const source  = wiki?.bio ? "wikipedia" : lfm?.tags.length ? "lastfm" : "none";
+  const source  = wiki?.bio ? "wikipedia" : lfm?.bio ? "lastfm" : lfm?.tags.length ? "lastfm" : "none";
 
   const result: ArtistAbout = {
     bio,
