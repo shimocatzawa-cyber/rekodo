@@ -115,10 +115,7 @@ function SkeletonRows() {
 import type { ArtistAbout } from "@/app/api/deep-dive/artist-about/route";
 
 function AboutContent({ data }: { data: ArtistAbout }) {
-  const formatNum = (n: number) =>
-    n >= 1_000_000 ? `${(n / 1_000_000).toFixed(1)}M` : n >= 1_000 ? `${Math.round(n / 1_000)}K` : String(n);
-
-  const hasContent = data.bio || data.tags.length > 0 || data.listeners !== null || data.similar.length > 0;
+  const hasContent = data.bio || data.tags.length > 0;
   if (!hasContent) {
     return (
       <p style={{ fontFamily: MONO, fontSize: "0.72rem", letterSpacing: "0.04em", color: INK, padding: "2rem 0" }}>
@@ -136,21 +133,9 @@ function AboutContent({ data }: { data: ArtistAbout }) {
         </p>
       )}
 
-      {/* Stats row */}
-      {(data.listeners !== null || data.origin || data.formed) && (
+      {/* Stats row — formed/origin only */}
+      {(data.origin || data.formed) && (
         <div style={{ display: "flex", gap: "32px", flexWrap: "wrap", margin: "0 0 20px", paddingBottom: "20px", borderBottom: `1px solid ${RULE}` }}>
-          {data.listeners !== null && (
-            <div>
-              <p style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.14em", textTransform: "uppercase", color: ORANGE, margin: "0 0 4px" }}>Listeners</p>
-              <p style={{ fontFamily: SERIF, fontSize: "1.1rem", color: INK, margin: 0 }}>{formatNum(data.listeners)}</p>
-            </div>
-          )}
-          {data.plays !== null && (
-            <div>
-              <p style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.14em", textTransform: "uppercase", color: ORANGE, margin: "0 0 4px" }}>Scrobbles</p>
-              <p style={{ fontFamily: SERIF, fontSize: "1.1rem", color: INK, margin: 0 }}>{formatNum(data.plays)}</p>
-            </div>
-          )}
           {data.formed && (
             <div>
               <p style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.14em", textTransform: "uppercase", color: ORANGE, margin: "0 0 4px" }}>Formed</p>
@@ -177,16 +162,6 @@ function AboutContent({ data }: { data: ArtistAbout }) {
               </span>
             ))}
           </div>
-        </div>
-      )}
-
-      {/* Similar artists */}
-      {data.similar.length > 0 && (
-        <div>
-          <p style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.14em", textTransform: "uppercase", color: ORANGE, margin: "0 0 8px" }}>Similar Artists</p>
-          <p style={{ fontFamily: MONO, fontSize: "0.72rem", letterSpacing: "0.04em", color: INK, margin: 0, lineHeight: 1.8 }}>
-            {data.similar.join("  ·  ")}
-          </p>
         </div>
       )}
 
