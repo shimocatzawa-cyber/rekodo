@@ -172,9 +172,10 @@ function SkeletonRow() {
 
 // ─── New Releases date helpers & picker ──────────────────────────────────────
 
+const MONTH_ABBR = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
 function formatDateLabel(dateStr: string): string {
-  const [y, m, d] = dateStr.split("-").map(Number);
-  return new Date(y, m - 1, d).toLocaleDateString("en-GB", { day: "numeric", month: "short" });
+  const [, m, d] = dateStr.split("-").map(Number);
+  return `${d} ${MONTH_ABBR[m - 1]}`;
 }
 
 function NewReleasesDatePicker({
@@ -186,7 +187,11 @@ function NewReleasesDatePicker({
   selectedDate: string | null;
   onSelect: (date: string | null) => void;
 }) {
-  const monthLabel = new Date().toLocaleDateString("en-GB", { month: "long", year: "numeric" });
+  const [monthLabel, setMonthLabel] = useState("");
+  useEffect(() => {
+    const now = new Date();
+    setMonthLabel(`${now.toLocaleString("en-GB", { month: "long" })} ${now.getFullYear()}`);
+  }, []);
 
   return (
     <div style={{ width: 110, flexShrink: 0, paddingTop: 4 }}>
