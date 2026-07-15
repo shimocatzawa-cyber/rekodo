@@ -14,6 +14,7 @@ const csp = [
   "font-src 'self'",
   "connect-src 'self' https://*.supabase.co wss://*.supabase.co https://*.spotify.com wss://*.spotify.com https://*.scdn.co wss://*.scdn.co https://api.discogs.com https://www.google-analytics.com https://analytics.google.com https://www.googletagmanager.com https://vitals.vercel-insights.com",
   "media-src 'self' blob: https://*.scdn.co",
+  "frame-src https://sdk.scdn.co",
   "worker-src blob:",
   "object-src 'none'",
   "base-uri 'self'",
