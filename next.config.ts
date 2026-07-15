@@ -12,7 +12,7 @@ const csp = [
   "img-src 'self' data: blob: https://*.supabase.co https://i.discogs.com https://img.discogs.com https://a.discogs.com https://i.scdn.co https://mosaic.scdn.co https://www.google-analytics.com",
   // next/font/google self-hosts fonts under /_next/static/
   "font-src 'self'",
-  "connect-src 'self' https://*.supabase.co wss://*.supabase.co https://api.spotify.com https://accounts.spotify.com https://*.scdn.co wss://*.scdn.co https://api.discogs.com https://www.google-analytics.com https://analytics.google.com https://www.googletagmanager.com https://vitals.vercel-insights.com",
+  "connect-src 'self' https://*.supabase.co wss://*.supabase.co https://*.spotify.com wss://*.spotify.com https://*.scdn.co wss://*.scdn.co https://api.discogs.com https://www.google-analytics.com https://analytics.google.com https://www.googletagmanager.com https://vitals.vercel-insights.com",
   "media-src 'self' blob: https://*.scdn.co",
   "worker-src blob:",
   "object-src 'none'",
