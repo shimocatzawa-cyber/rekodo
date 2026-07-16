@@ -9,7 +9,8 @@ const csp = [
   "script-src 'self' 'unsafe-inline' https://www.googletagmanager.com https://www.google-analytics.com https://z-na.amazon-adsystem.com https://sdk.scdn.co",
   "style-src 'self' 'unsafe-inline'",
   // Images are mostly proxied through /api/image-proxy, but direct Supabase/Discogs/Spotify CDN loads still occur
-  "img-src 'self' data: blob: https://*.supabase.co https://i.discogs.com https://img.discogs.com https://a.discogs.com https://i.scdn.co https://mosaic.scdn.co https://www.google-analytics.com",
+  // Last.fm album art (lastfm.freetls.fastly.net) and iTunes artwork (*.mzstatic.com) needed for deep dive rankings
+  "img-src 'self' data: blob: https://*.supabase.co https://i.discogs.com https://img.discogs.com https://a.discogs.com https://i.scdn.co https://mosaic.scdn.co https://www.google-analytics.com https://lastfm.freetls.fastly.net https://*.mzstatic.com",
   // next/font/google self-hosts fonts under /_next/static/
   "font-src 'self'",
   "connect-src 'self' https://*.supabase.co wss://*.supabase.co https://*.spotify.com wss://*.spotify.com https://*.scdn.co wss://*.scdn.co https://api.discogs.com https://www.google-analytics.com https://analytics.google.com https://www.googletagmanager.com https://vitals.vercel-insights.com",
