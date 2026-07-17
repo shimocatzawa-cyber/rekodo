@@ -110,7 +110,9 @@ function CredentialForm({ onSaved }: { onSaved: () => void }) {
       const body = await res.json() as { error?: string };
       if (res.ok) {
         setSaved(true);
-        setTimeout(() => onSaved(), 2000);
+        // Auto-sync immediately after credentials are saved
+        await fetch("/api/digital/subsonic-sync", { method: "POST" });
+        onSaved();
       } else {
         setError(body.error ?? `Server error ${res.status}`);
       }
@@ -170,7 +172,7 @@ function CredentialForm({ onSaved }: { onSaved: () => void }) {
 
         {saved ? (
           <p style={{ fontFamily: MONO, fontSize: "11px", color: "#4caf50", letterSpacing: "0.06em" }}>
-            Credentials saved — connecting…
+            Connected — importing your collection…
           </p>
         ) : (
           <button
