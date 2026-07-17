@@ -1963,31 +1963,32 @@ export default function DeepDiveClient({
             </div>
 
             {/* Mobile section picker */}
-            <select
-              className="dd-tab-select"
-              value={activeTab}
-              onChange={(e) => setActiveTab(e.target.value as Section)}
-              style={{
-                width: "100%",
-                fontFamily: MONO,
-                fontSize: "0.75rem",
-                letterSpacing: "0.06em",
-                color: INK,
-                background: "#ffffff",
-                border: "none",
-                borderBottom: `2px solid ${ORANGE}`,
-                padding: "0.75rem 0",
-                outline: "none",
-                cursor: "pointer",
-                appearance: "none",
-                WebkitAppearance: "none",
-                marginBottom: "1rem",
-              }}
-            >
-              {externalTabs.map((tab) => (
-                <option key={tab.id} value={tab.id}>{tab.label}</option>
-              ))}
-            </select>
+            <div className="dd-tab-select" style={{ position: "relative", marginBottom: "1rem" }}>
+              <select
+                value={activeTab}
+                onChange={(e) => setActiveTab(e.target.value as Section)}
+                style={{
+                  width: "100%",
+                  fontFamily: MONO,
+                  fontSize: "0.75rem",
+                  letterSpacing: "0.06em",
+                  color: INK,
+                  background: WARM,
+                  border: `1px solid ${RULE}`,
+                  borderBottom: `2px solid ${ORANGE}`,
+                  padding: "0.75rem 2rem 0.75rem 0.5rem",
+                  outline: "none",
+                  cursor: "pointer",
+                  appearance: "none",
+                  WebkitAppearance: "none",
+                }}
+              >
+                {externalTabs.map((tab) => (
+                  <option key={tab.id} value={tab.id}>{tab.label}</option>
+                ))}
+              </select>
+              <span aria-hidden style={{ position: "absolute", right: "0.5rem", top: "50%", transform: "translateY(-50%)", pointerEvents: "none", color: ORANGE, fontSize: "0.85rem", lineHeight: 1 }}>▾</span>
+            </div>
 
             <div style={{ marginTop: 24 }}>
               {renderTabContent()}
@@ -2101,31 +2102,32 @@ export default function DeepDiveClient({
         </div>
 
         {/* Mobile section picker */}
-        <select
-          className="dd-tab-select"
-          value={activeTab}
-          onChange={(e) => setActiveTab(e.target.value as Section)}
-          style={{
-            width: "100%",
-            fontFamily: MONO,
-            fontSize: "0.75rem",
-            letterSpacing: "0.06em",
-            color: INK,
-            background: "#ffffff",
-            border: "none",
-            borderBottom: `2px solid ${ORANGE}`,
-            padding: "0.75rem 0",
-            outline: "none",
-            cursor: "pointer",
-            appearance: "none",
-            WebkitAppearance: "none",
-            marginBottom: "1rem",
-          }}
-        >
-          {TABS.map((tab) => (
-            <option key={tab.id} value={tab.id}>{tab.label}</option>
-          ))}
-        </select>
+        <div className="dd-tab-select" style={{ position: "relative", marginBottom: "1rem" }}>
+          <select
+            value={activeTab}
+            onChange={(e) => setActiveTab(e.target.value as Section)}
+            style={{
+              width: "100%",
+              fontFamily: MONO,
+              fontSize: "0.75rem",
+              letterSpacing: "0.06em",
+              color: INK,
+              background: WARM,
+              border: `1px solid ${RULE}`,
+              borderBottom: `2px solid ${ORANGE}`,
+              padding: "0.75rem 2rem 0.75rem 0.5rem",
+              outline: "none",
+              cursor: "pointer",
+              appearance: "none",
+              WebkitAppearance: "none",
+            }}
+          >
+            {TABS.map((tab) => (
+              <option key={tab.id} value={tab.id}>{tab.label}</option>
+            ))}
+          </select>
+          <span aria-hidden style={{ position: "absolute", right: "0.5rem", top: "50%", transform: "translateY(-50%)", pointerEvents: "none", color: ORANGE, fontSize: "0.85rem", lineHeight: 1 }}>▾</span>
+        </div>
 
         {/* Tab content */}
         <div style={{ marginTop: 24 }}>
@@ -2298,126 +2300,144 @@ export default function DeepDiveClient({
 
       {/* ── Mobile layout ──────────────────────────────────────────────────── */}
       <div className="md:hidden">
-        {/* Artist selector */}
-        <div style={{ borderBottom: `1px solid ${RULE}` }}>
-
-          {/* Search input */}
+        {/* Search bar + ♥ liked-artists toggle + randomiser */}
+        <div style={{ display: "flex", alignItems: "stretch", borderBottom: `1px solid ${RULE}` }}>
           <input
             type="text"
             value={query}
             onChange={(e) => handleQueryChange(e.target.value)}
             placeholder={t("searchYourArtists")}
             style={{
-              width: "100%",
+              flex: 1,
               fontFamily: MONO,
               fontSize: "0.75rem",
               letterSpacing: "0.06em",
               color: INK,
               background: "#ffffff",
               border: "none",
-              borderBottom: `1px solid ${RULE}`,
               padding: "0.6rem 1rem",
               outline: "none",
-              display: "block",
-              boxSizing: "border-box",
+              minWidth: 0,
+              boxSizing: "border-box" as const,
             }}
           />
-
-          {/* Collection artists + external results */}
-          {(mergedArtists.length > 0 || externalFavoriteArtists.length > 0) && (
-            <div style={{ maxHeight: 220, overflowY: "auto" }}>
-              {filtered.map((a) => (
-                <ArtistRow
-                  key={a.name}
-                  artist={a}
-                  isSelected={selectedArtist === a.name && !isExternalArtist}
-                  imageUrl={imageMap[a.name]}
-                  onSelect={selectArtist}
-                />
-              ))}
-              {filtered.length === 0 && !query && favoritesOnly && externalFavoriteArtists.length === 0 && (
-                <p style={{ fontFamily: MONO, fontSize: "0.68rem", letterSpacing: "0.06em", color: INK, padding: "0.75rem 1rem", margin: 0 }}>
-                  No favourites yet — click ♡ next to an artist&rsquo;s name to add one.
-                </p>
-              )}
-              {externalFavoriteArtists.length > 0 && (
-                <>
-                  {filtered.length > 0 && <div style={{ borderTop: `1px solid ${SUBTLE}` }} />}
-                  <p style={{ fontFamily: MONO, fontSize: "0.52rem", letterSpacing: "0.12em", textTransform: "uppercase", color: "#aaa", padding: "0.5rem 1rem 0.25rem", margin: 0 }}>
-                    Favourites
-                  </p>
-                  {externalFavoriteArtists.map((a) => (
-                    <ArtistRow
-                      key={`ext-fav-${a.name}`}
-                      artist={a}
-                      isSelected={selectedArtist === a.name && isExternalArtist}
-                      imageUrl={imageMap[a.name]}
-                      onSelect={selectExternalArtist}
-                    />
-                  ))}
-                </>
-              )}
-              {query.trim().length >= 2 && !discogsSearching && discogsResults.length > 0 && (
-                <>
-                  <div style={{ borderTop: `1px solid ${SUBTLE}` }} />
-                  <p style={{ fontFamily: MONO, fontSize: "0.52rem", letterSpacing: "0.12em", textTransform: "uppercase", color: "#aaa", padding: "0.5rem 1rem 0.25rem", margin: 0 }}>
-                    Other artists
-                  </p>
-                  {discogsResults.map((r) => (
-                    <button
-                      key={r.id}
-                      type="button"
-                      onClick={() => selectExternalArtist(r.name)}
-                      style={{
-                        display: "flex", alignItems: "center", gap: 10,
-                        width: "100%", textAlign: "left",
-                        padding: "0.5rem 1rem",
-                        background: selectedArtist === r.name ? WARM : "none",
-                        border: "none", borderBottom: `1px solid ${RULE}`,
-                        cursor: "pointer",
-                      }}
-                    >
-                      {r.thumb
-                        // eslint-disable-next-line @next/next/no-img-element
-                        ? <img src={r.thumb} alt="" aria-hidden style={{ width: 28, height: 28, objectFit: "cover", flexShrink: 0 }} />
-                        : <div style={{ width: 28, height: 28, background: SUBTLE, flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: MONO, fontSize: "10px", color: "#aaa" }}>{r.name[0]}</div>
-                      }
-                      <span style={{ fontFamily: MONO, fontSize: "0.72rem", letterSpacing: "0.04em", color: INK }}>{r.name}</span>
-                    </button>
-                  ))}
-                </>
-              )}
-            </div>
-          )}
-
-          {mergedArtists.length === 0 && (
-            <div style={{ padding: "1rem" }}>
-              <p style={{ fontFamily: MONO, fontSize: "0.68rem", letterSpacing: "0.06em", color: INK, lineHeight: 1.6, margin: 0 }}>
-                Sync your Discogs collection first to unlock Deep Dive.
-              </p>
-            </div>
-          )}
-
-          {/* Randomiser */}
           {mergedArtists.length > 0 && (
-            <div style={{ padding: "6px 1rem 8px" }}>
-              <button
-                type="button"
-                onClick={() => {
-                  const idx = Math.floor(Math.random() * mergedArtists.length);
-                  selectArtist(mergedArtists[idx].name);
-                }}
-                style={{
-                  fontFamily: MONO, fontSize: "10px", letterSpacing: "0.06em",
-                  color: ORANGE, background: "none", border: "none",
-                  cursor: "pointer", padding: 0,
-                }}
-              >
-                ↺ Randomiser
-              </button>
-            </div>
+            <button
+              type="button"
+              title="Randomiser"
+              onClick={() => {
+                const idx = Math.floor(Math.random() * mergedArtists.length);
+                selectArtist(mergedArtists[idx].name);
+              }}
+              style={{
+                fontFamily: MONO, fontSize: "14px",
+                color: ORANGE, background: "none",
+                border: "none", borderLeft: `1px solid ${RULE}`,
+                padding: "0 0.75rem",
+                cursor: "pointer", flexShrink: 0,
+                display: "flex", alignItems: "center",
+              }}
+            >
+              ↺
+            </button>
           )}
+          <button
+            type="button"
+            onClick={() => setFavoritesOnly((v) => !v)}
+            title={favoritesOnly ? t("showAllArtists") : t("favouritesOnly")}
+            style={{
+              fontSize: "1.3rem", lineHeight: 1,
+              color: favoritesOnly ? ORANGE : "#aaa",
+              background: "none",
+              border: "none", borderLeft: `1px solid ${RULE}`,
+              padding: "0 0.85rem",
+              cursor: "pointer", flexShrink: 0,
+              display: "flex", alignItems: "center",
+            }}
+          >
+            {favoritesOnly ? "♥" : "♡"}
+          </button>
         </div>
+
+        {/* Artist list — only when searching or ♥ liked-artists filter is active */}
+        {(query.trim().length > 0 || favoritesOnly) && (
+          <div style={{ borderBottom: `1px solid ${RULE}`, maxHeight: 280, overflowY: "auto" }}>
+            {favoritesOnly && !query.trim() && filtered.length === 0 && externalFavoriteArtists.length === 0 && (
+              <p style={{ fontFamily: MONO, fontSize: "0.68rem", letterSpacing: "0.06em", color: INK, padding: "0.75rem 1rem", margin: 0 }}>
+                No liked artists yet — tap ♡ next to an artist&rsquo;s name to add one.
+              </p>
+            )}
+            {filtered.map((a) => (
+              <ArtistRow
+                key={a.name}
+                artist={a}
+                isSelected={selectedArtist === a.name && !isExternalArtist}
+                imageUrl={imageMap[a.name]}
+                onSelect={selectArtist}
+              />
+            ))}
+            {externalFavoriteArtists.length > 0 && (
+              <>
+                {filtered.length > 0 && <div style={{ borderTop: `1px solid ${SUBTLE}` }} />}
+                <p style={{ fontFamily: MONO, fontSize: "0.52rem", letterSpacing: "0.12em", textTransform: "uppercase", color: "#aaa", padding: "0.5rem 1rem 0.25rem", margin: 0 }}>
+                  Liked artists
+                </p>
+                {externalFavoriteArtists.map((a) => (
+                  <ArtistRow
+                    key={`ext-fav-${a.name}`}
+                    artist={a}
+                    isSelected={selectedArtist === a.name && isExternalArtist}
+                    imageUrl={imageMap[a.name]}
+                    onSelect={selectExternalArtist}
+                  />
+                ))}
+              </>
+            )}
+            {query.trim().length >= 2 && discogsSearching && (
+              <p style={{ fontFamily: MONO, fontSize: "0.68rem", letterSpacing: "0.06em", color: "#aaa", padding: "0.75rem 1rem", margin: 0 }}>
+                Searching…
+              </p>
+            )}
+            {query.trim().length >= 2 && !discogsSearching && discogsResults.length > 0 && (
+              <>
+                {(filtered.length > 0 || externalFavoriteArtists.length > 0) && <div style={{ borderTop: `1px solid ${SUBTLE}` }} />}
+                <p style={{ fontFamily: MONO, fontSize: "0.52rem", letterSpacing: "0.12em", textTransform: "uppercase", color: "#aaa", padding: "0.5rem 1rem 0.25rem", margin: 0 }}>
+                  Other artists
+                </p>
+                {discogsResults.map((r) => (
+                  <button
+                    key={r.id}
+                    type="button"
+                    onClick={() => selectExternalArtist(r.name)}
+                    style={{
+                      display: "flex", alignItems: "center", gap: 10,
+                      width: "100%", textAlign: "left",
+                      padding: "0.5rem 1rem",
+                      background: selectedArtist === r.name ? WARM : "none",
+                      border: "none", borderBottom: `1px solid ${RULE}`,
+                      cursor: "pointer",
+                    }}
+                  >
+                    {r.thumb
+                      // eslint-disable-next-line @next/next/no-img-element
+                      ? <img src={r.thumb} alt="" aria-hidden style={{ width: 28, height: 28, objectFit: "cover", flexShrink: 0 }} />
+                      : <div style={{ width: 28, height: 28, background: SUBTLE, flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: MONO, fontSize: "10px", color: "#aaa" }}>{r.name[0]}</div>
+                    }
+                    <span style={{ fontFamily: MONO, fontSize: "0.72rem", letterSpacing: "0.04em", color: INK }}>{r.name}</span>
+                  </button>
+                ))}
+              </>
+            )}
+          </div>
+        )}
+
+        {mergedArtists.length === 0 && (
+          <div style={{ padding: "1rem" }}>
+            <p style={{ fontFamily: MONO, fontSize: "0.68rem", letterSpacing: "0.06em", color: INK, lineHeight: 1.6, margin: 0 }}>
+              Sync your Discogs collection first to unlock Deep Dive.
+            </p>
+          </div>
+        )}
 
         {/* Mobile content panel */}
         {RightPanelContent()}
