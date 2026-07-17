@@ -55,7 +55,7 @@ export async function updateSession(request: NextRequest) {
     }
   );
 
-  const protectedRoutes = ["/collection", "/lists", "/dig", "/onboarding", "/settings", "/admin", "/library"];
+  const protectedRoutes = ["/collection", "/lists", "/dig", "/onboarding", "/settings", "/admin", "/library", "/digital"];
   const isProtected = protectedRoutes.some((route) =>
     request.nextUrl.pathname.startsWith(route)
   );

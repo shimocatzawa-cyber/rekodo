@@ -30,6 +30,7 @@ export default function AppNav({ username, displayLabel, avatarUrl }: { username
   const [menuOpen,     setMenuOpen]     = useState(false);
   const [userDropOpen, setUserDropOpen] = useState(false);
   const [isSupporter,  setIsSupporter]  = useState(false);
+  const [isAdmin,      setIsAdmin]      = useState(false);
   const userDropRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -53,6 +54,7 @@ export default function AppNav({ username, displayLabel, avatarUrl }: { username
         .maybeSingle()
         .then(({ data }: { data: { is_donor?: boolean; is_supporter?: boolean; role?: string } | null }) => {
           if (data?.is_donor || data?.is_supporter || data?.role === "admin") setIsSupporter(true);
+          if (data?.role === "admin") setIsAdmin(true);
         });
     });
   }, []);
@@ -175,10 +177,11 @@ export default function AppNav({ username, displayLabel, avatarUrl }: { username
                 boxShadow: "0 4px 16px rgba(0,0,0,0.08)", zIndex: 100, minWidth: 160,
               }}>
                 {[
-                  { href: `/@${username}`, label: "Profile",   jp: "プロフィール" },
-                  { href: "/community",    label: "Community", jp: "コミュニティ" },
-                  { href: "/about",        label: "Support",   jp: "サポート" },
-                ].map(({ href, label, jp }, i) => (
+                  { href: `/@${username}`, label: "Profile",   jp: "プロフィール", adminOnly: false },
+                  { href: "/community",    label: "Community", jp: "コミュニティ",  adminOnly: false },
+                  { href: "/about",        label: "Support",   jp: "サポート",     adminOnly: false },
+                  ...(isAdmin ? [{ href: "/digital", label: "Digital", jp: "デジタル", adminOnly: true }] : []),
+                ].map(({ href, label, jp }, i, arr) => (
                   <Link
                     key={href}
                     href={href}
@@ -188,7 +191,7 @@ export default function AppNav({ username, displayLabel, avatarUrl }: { username
                       padding: "11px 16px", whiteSpace: "nowrap",
                       fontFamily: MONO, fontSize: "9px", letterSpacing: "0.1em",
                       textTransform: "uppercase", color: "#0a0a0a", textDecoration: "none",
-                      borderBottom: i < 2 ? "1px solid #e0e0da" : "none",
+                      borderBottom: i < arr.length - 1 ? "1px solid #e0e0da" : "none",
                     }}
                     onMouseEnter={e => (e.currentTarget.style.background = "#f7f5f0")}
                     onMouseLeave={e => (e.currentTarget.style.background = "transparent")}
@@ -270,6 +273,7 @@ export default function AppNav({ username, displayLabel, avatarUrl }: { username
             {[
               { href: "/community", label: "Community", jp: "コミュニティ" },
               { href: "/about",     label: "Support",   jp: "サポート" },
+              ...(isAdmin ? [{ href: "/digital", label: "Digital", jp: "デジタル" }] : []),
             ].map(({ href, label, jp }) => (
               <Link
                 key={href}
