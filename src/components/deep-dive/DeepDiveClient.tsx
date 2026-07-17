@@ -2373,7 +2373,7 @@ export default function DeepDiveClient({
                 artist={a}
                 isSelected={selectedArtist === a.name && !isExternalArtist}
                 imageUrl={imageMap[a.name]}
-                onSelect={selectArtist}
+                onSelect={(name) => { selectArtist(name); setQuery(""); setFavoritesOnly(false); }}
               />
             ))}
             {externalFavoriteArtists.length > 0 && (
@@ -2388,7 +2388,7 @@ export default function DeepDiveClient({
                     artist={a}
                     isSelected={selectedArtist === a.name && isExternalArtist}
                     imageUrl={imageMap[a.name]}
-                    onSelect={selectExternalArtist}
+                    onSelect={(name) => { selectExternalArtist(name); setQuery(""); setFavoritesOnly(false); }}
                   />
                 ))}
               </>
@@ -2408,7 +2408,7 @@ export default function DeepDiveClient({
                   <button
                     key={r.id}
                     type="button"
-                    onClick={() => selectExternalArtist(r.name)}
+                    onClick={() => { selectExternalArtist(r.name); setQuery(""); setFavoritesOnly(false); }}
                     style={{
                       display: "flex", alignItems: "center", gap: 10,
                       width: "100%", textAlign: "left",
