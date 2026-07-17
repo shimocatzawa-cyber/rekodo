@@ -516,7 +516,7 @@ export default function DigitalClient({ imports, connected, syncedAt, subsonicUs
       {!connected ? (
         <CredentialForm onSaved={() => router.refresh()} />
       ) : (
-        <div style={{ maxWidth: 1400, margin: "0 auto", padding: "1.5rem 2rem" }}>
+        <div style={{ background: "#ffffff", maxWidth: 1400, margin: "0 auto", padding: "1.5rem 2rem" }}>
           {/* Search */}
           {imports.length > 0 && (
             <div style={{ marginBottom: "1.5rem" }}>
