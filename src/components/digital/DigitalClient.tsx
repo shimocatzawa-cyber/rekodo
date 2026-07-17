@@ -450,102 +450,61 @@ export default function DigitalClient({ imports, connected, syncedAt, subsonicUs
     return imp.artist.toLowerCase().includes(q) || imp.album.toLowerCase().includes(q);
   });
 
-  const subsonicCount = imports.filter(i => i.source === "bandcamp-subsonic").length;
-  const scraperCount  = imports.filter(i => i.source === "bandcamp").length;
-
   return (
     <div style={{ paddingBottom: playingSrc ? "64px" : 0 }}>
-      {/* Header */}
-      <div style={{ borderBottom: `1px solid ${RULE}`, padding: "2rem 2rem 1.5rem", background: "#fff" }}>
-        <div style={{ maxWidth: 1400, margin: "0 auto" }}>
-          <div style={{ display: "flex", alignItems: "baseline", gap: "12px", marginBottom: "0.5rem", flexWrap: "wrap" }}>
-            <h1 style={{ fontFamily: SERIF, fontSize: "28px", fontWeight: 700, color: ORANGE, margin: 0, lineHeight: 1 }}>
-              Digital
-            </h1>
-            <span style={{ fontFamily: JP, fontSize: "16px", color: SUBTLE }}>デジタル</span>
-            {imports.length > 0 && (
-              <span style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.12em", textTransform: "uppercase", color: SUBTLE, marginLeft: "auto" }}>
-                {imports.length} album{imports.length !== 1 ? "s" : ""}
-              </span>
-            )}
-          </div>
-
-          {connected ? (
-            <div style={{ display: "flex", alignItems: "center", gap: "16px", flexWrap: "wrap", marginTop: "1rem" }}>
-              <div style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.08em", color: SUBTLE }}>
-                <span style={{ color: "#4caf50", marginRight: "5px" }}>●</span>
-                Connected as <strong style={{ color: INK }}>{subsonicUsername}</strong>
-                {syncedAt && <> · Synced {fmtSyncedAt(syncedAt)}</>}
-                {subsonicCount > 0 && <> · {subsonicCount} from Subsonic</>}
-                {scraperCount  > 0 && <>, {scraperCount} from scraper</>}
-              </div>
-              <button
-                onClick={handleSync}
-                disabled={syncing}
-                style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.1em", textTransform: "uppercase", background: ORANGE, color: "#fff", border: "none", padding: "7px 16px", cursor: syncing ? "default" : "pointer", opacity: syncing ? 0.6 : 1 }}
-              >
-                {syncing ? "Syncing…" : "Sync now"}
-              </button>
-              {syncMsg && (
-                <span style={{ fontFamily: MONO, fontSize: "9px", color: SUBTLE }}>{syncMsg}</span>
-              )}
-              <button
-                onClick={() => setShowDisconnect(d => !d)}
-                style={{ fontFamily: MONO, fontSize: "8px", letterSpacing: "0.08em", textTransform: "uppercase", background: "none", border: "none", color: SUBTLE, cursor: "pointer", padding: 0 }}
-              >
-                {showDisconnect ? "Cancel" : "Disconnect"}
-              </button>
-              {showDisconnect && (
-                <button
-                  onClick={handleDisconnect}
-                  style={{ fontFamily: MONO, fontSize: "8px", letterSpacing: "0.08em", textTransform: "uppercase", background: "#b00", color: "#fff", border: "none", padding: "5px 12px", cursor: "pointer" }}
-                >
-                  Confirm disconnect
-                </button>
-              )}
-            </div>
-          ) : (
-            <div style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.08em", color: SUBTLE, marginTop: "0.5rem" }}>
-              <span style={{ marginRight: "5px" }}>○</span>Not connected to Bandcamp Subsonic
-            </div>
-          )}
-        </div>
-      </div>
-
       {/* Not connected → show credential form */}
       {!connected ? (
         <CredentialForm onSaved={() => router.refresh()} />
       ) : (
         <div style={{ background: "#ffffff", maxWidth: 1400, margin: "0 auto", padding: "1.5rem 2rem" }}>
-          {/* Search */}
-          {imports.length > 0 && (
-            <div style={{ marginBottom: "1.5rem" }}>
+          {/* Controls bar: search + sync + disconnect */}
+          <div style={{ display: "flex", alignItems: "center", gap: "12px", marginBottom: "1.5rem", flexWrap: "wrap" }}>
+            {imports.length > 0 && (
               <input
                 type="search"
                 placeholder="Search artist or album…"
                 value={query}
                 onChange={e => setQuery(e.target.value)}
-                style={{ fontFamily: MONO, fontSize: "12px", padding: "9px 14px", border: `1px solid ${RULE}`, background: "#fff", color: INK, width: "100%", maxWidth: 320, outline: "none", boxSizing: "border-box" }}
+                style={{ fontFamily: MONO, fontSize: "12px", padding: "9px 14px", border: `1px solid ${RULE}`, background: "#fff", color: INK, width: "100%", maxWidth: 280, outline: "none", boxSizing: "border-box" }}
               />
-            </div>
-          )}
+            )}
+            <button
+              onClick={handleSync}
+              disabled={syncing}
+              style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.1em", textTransform: "uppercase", background: ORANGE, color: "#fff", border: "none", padding: "9px 16px", cursor: syncing ? "default" : "pointer", opacity: syncing ? 0.6 : 1, flexShrink: 0 }}
+            >
+              {syncing ? "Syncing…" : "Sync now"}
+            </button>
+            {syncMsg && (
+              <span style={{ fontFamily: MONO, fontSize: "9px", color: SUBTLE }}>{syncMsg}</span>
+            )}
+            {syncedAt && !syncMsg && (
+              <span style={{ fontFamily: MONO, fontSize: "9px", color: SUBTLE, letterSpacing: "0.04em" }}>
+                Synced {fmtSyncedAt(syncedAt)}
+              </span>
+            )}
+            <button
+              onClick={() => setShowDisconnect(d => !d)}
+              style={{ fontFamily: MONO, fontSize: "8px", letterSpacing: "0.08em", textTransform: "uppercase", background: "none", border: "none", color: SUBTLE, cursor: "pointer", padding: 0, marginLeft: "auto" }}
+            >
+              {showDisconnect ? "Cancel" : "Disconnect"}
+            </button>
+            {showDisconnect && (
+              <button
+                onClick={handleDisconnect}
+                style={{ fontFamily: MONO, fontSize: "8px", letterSpacing: "0.08em", textTransform: "uppercase", background: "#b00", color: "#fff", border: "none", padding: "5px 12px", cursor: "pointer", flexShrink: 0 }}
+              >
+                Confirm disconnect
+              </button>
+            )}
+          </div>
 
-          {/* Empty states */}
+          {/* Empty state */}
           {imports.length === 0 && (
             <div style={{ textAlign: "center", padding: "4rem 0" }}>
-              <p style={{ fontFamily: MONO, fontSize: "11px", letterSpacing: "0.1em", textTransform: "uppercase", color: SUBTLE, marginBottom: "1rem" }}>
-                No albums yet
+              <p style={{ fontFamily: MONO, fontSize: "11px", color: SUBTLE, marginBottom: "0.5rem" }}>
+                No albums yet — hit <strong>Sync now</strong> above to import your Bandcamp collection.
               </p>
-              <p style={{ fontFamily: MONO, fontSize: "11px", color: SUBTLE, marginBottom: "1.5rem" }}>
-                Hit <strong>Sync now</strong> to import your Bandcamp collection via Subsonic.
-              </p>
-              <button
-                onClick={handleSync}
-                disabled={syncing}
-                style={{ fontFamily: MONO, fontSize: "10px", letterSpacing: "0.12em", textTransform: "uppercase", background: ORANGE, color: "#fff", border: "none", padding: "12px 28px", cursor: syncing ? "default" : "pointer", opacity: syncing ? 0.6 : 1 }}
-              >
-                {syncing ? "Syncing…" : "Sync now"}
-              </button>
               {syncMsg && <p style={{ fontFamily: MONO, fontSize: "10px", color: SUBTLE, marginTop: "1rem" }}>{syncMsg}</p>}
             </div>
           )}
