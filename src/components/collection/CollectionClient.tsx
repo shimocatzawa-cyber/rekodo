@@ -1793,6 +1793,12 @@ function AlbumDetail({ record, detail, price, valueCurrency }: {
               value={formatPrice(price.last_sold, price.currency)}
               note={formatDate(price.last_sold_date)}
             />
+            {record.community_want != null && (
+              <MetaRow label="Wants" value={record.community_want.toLocaleString()} />
+            )}
+            {record.community_have != null && (
+              <MetaRow label="Haves" value={record.community_have.toLocaleString()} />
+            )}
             {price.num_for_sale > 0 && (
               <div style={{ padding: "8px 0 4px", borderTop: "1px solid rgba(0,0,0,0.05)" }}>
                 <div style={{ display: "flex", alignItems: "baseline", gap: "12px" }}>
