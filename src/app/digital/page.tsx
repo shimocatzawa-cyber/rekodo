@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { createClient as createServiceClient } from "@supabase/supabase-js";
 import AppNav from "@/components/AppNav";
 import DigitalClient from "@/components/digital/DigitalClient";
 
@@ -43,8 +44,13 @@ export default async function DigitalPage() {
       .select("username, display_name, avatar_url")
       .eq("id", user.id)
       .maybeSingle(),
-    // Subsonic fields separately so a missing column doesn't blank the nav
-    supabase
+    // Subsonic fields via service role — these columns have no authenticated
+    // grant (token is excluded from grants intentionally; column-level grants
+    // on profiles mean new columns must be explicitly added)
+    createServiceClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.SUPABASE_SERVICE_ROLE_KEY!
+    )
       .from("profiles")
       .select("bandcamp_subsonic_username, bandcamp_subsonic_synced_at")
       .eq("id", user.id)
