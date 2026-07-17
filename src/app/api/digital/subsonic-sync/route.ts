@@ -21,8 +21,6 @@ type SubsonicAlbum = {
   artist: string;
   year?: number;
   genre?: string;
-  duration?: number;
-  songCount?: number;
 };
 
 function buildAuth(username: string, password: string): Record<string, string> {
@@ -46,9 +44,12 @@ async function fetchSubsonic<T>(
   const json = await res.json() as { "subsonic-response"?: Record<string, unknown> & { status?: string } };
   const resp = json["subsonic-response"];
   if (!resp || resp.status !== "ok") return null;
-  // e.g. "getAlbumList2" → key "albumList2"
   const key = method.charAt(0).toLowerCase() + method.slice(1);
   return (resp[key] as T) ?? null;
+}
+
+function normalizeKey(artist: string, album: string): string {
+  return `${artist.toLowerCase().replace(/\s+/g, " ").trim()}||${album.toLowerCase().replace(/\s+/g, " ").trim()}`;
 }
 
 export async function POST(_request: NextRequest) {
@@ -56,13 +57,22 @@ export async function POST(_request: NextRequest) {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const { data: profile } = await supabase
+  // Check admin role via session client (no sensitive data)
+  const { data: roleCheck } = await supabase
     .from("profiles")
-    .select("role, bandcamp_subsonic_username, bandcamp_subsonic_token")
+    .select("role")
+    .eq("id", user.id)
+    .maybeSingle();
+  if (roleCheck?.role !== "admin") return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+
+  // Read credentials via service role — bandcamp_subsonic_token is never granted to authenticated
+  const svc = serviceRole();
+  const { data: profile } = await svc
+    .from("profiles")
+    .select("bandcamp_subsonic_username, bandcamp_subsonic_token")
     .eq("id", user.id)
     .maybeSingle();
 
-  if (profile?.role !== "admin") return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   if (!profile?.bandcamp_subsonic_username || !profile?.bandcamp_subsonic_token) {
     return NextResponse.json({ error: "Bandcamp Subsonic credentials not configured" }, { status: 400 });
   }
@@ -95,38 +105,78 @@ export async function POST(_request: NextRequest) {
     return NextResponse.json({ synced: 0, message: "No albums returned from Bandcamp Subsonic — check credentials" });
   }
 
-  // Clear previous Subsonic-sourced rows for this user, then bulk insert fresh data
-  await supabase
+  // Fetch existing scraper rows so we can match and update subsonic_id in-place
+  const { data: existingRows } = await svc
+    .from("digital_imports")
+    .select("id, artist, album")
+    .eq("user_id", user.id)
+    .eq("source", "bandcamp");
+
+  // Build lookup: normalized artist+album → row id
+  const scraperMap = new Map<string, string>();
+  for (const row of existingRows ?? []) {
+    scraperMap.set(normalizeKey(row.artist, row.album), row.id);
+  }
+
+  // Partition subsonic albums: matched (update existing row) vs unmatched (insert new)
+  const toUpdate: Array<{ id: string; subsonic_id: string }> = [];
+  const toInsert: Array<Record<string, unknown>> = [];
+
+  for (const a of allAlbums) {
+    const key = normalizeKey(a.artist, a.name);
+    const existingId = scraperMap.get(key);
+    if (existingId) {
+      toUpdate.push({ id: existingId, subsonic_id: a.id });
+    } else {
+      toInsert.push({
+        user_id: user.id,
+        source: "bandcamp-subsonic",
+        artist: a.artist,
+        album: a.name,
+        subsonic_id: a.id,
+        release_date: a.year ? String(a.year) : null,
+        tags: a.genre ? [a.genre] : [],
+        is_duplicate: false,
+      });
+    }
+  }
+
+  // Clear subsonic_id on existing bandcamp rows (so stale matches are reset)
+  await svc
+    .from("digital_imports")
+    .update({ subsonic_id: null })
+    .eq("user_id", user.id)
+    .eq("source", "bandcamp");
+
+  // Update matched rows with their subsonic_id (20 concurrent)
+  const CONCURRENCY = 20;
+  for (let i = 0; i < toUpdate.length; i += CONCURRENCY) {
+    await Promise.all(
+      toUpdate.slice(i, i + CONCURRENCY).map(({ id, subsonic_id }) =>
+        svc.from("digital_imports").update({ subsonic_id }).eq("id", id)
+      )
+    );
+  }
+
+  // Replace unmatched bandcamp-subsonic rows
+  await svc
     .from("digital_imports")
     .delete()
     .eq("user_id", user.id)
     .eq("source", "bandcamp-subsonic");
 
-  const rows = allAlbums.map((a) => ({
-    user_id: user.id,
-    source: "bandcamp-subsonic",
-    artist: a.artist,
-    album: a.name,
-    subsonic_id: a.id,
-    release_date: a.year ? String(a.year) : null,
-    label: null,
-    tags: a.genre ? [a.genre] : [],
-    is_duplicate: false,
-  }));
-
-  // Insert in batches of 200 to stay well under PostgREST limits
   const BATCH = 200;
   let inserted = 0;
-  for (let i = 0; i < rows.length; i += BATCH) {
-    const { error } = await supabase.from("digital_imports").insert(rows.slice(i, i + BATCH));
-    if (!error) inserted += Math.min(BATCH, rows.length - i);
+  for (let i = 0; i < toInsert.length; i += BATCH) {
+    const { error } = await svc.from("digital_imports").insert(toInsert.slice(i, i + BATCH));
+    if (!error) inserted += Math.min(BATCH, toInsert.length - i);
   }
 
-  // Update last-sync timestamp (service role to bypass column-level RLS restrictions)
-  await serviceRole()
+  // Update last-sync timestamp
+  await svc
     .from("profiles")
     .update({ bandcamp_subsonic_synced_at: new Date().toISOString() })
     .eq("id", user.id);
 
-  return NextResponse.json({ synced: inserted });
+  return NextResponse.json({ synced: toUpdate.length + inserted });
 }
