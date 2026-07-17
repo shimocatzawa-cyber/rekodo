@@ -126,13 +126,11 @@ function CredentialForm({ onSaved }: { onSaved: () => void }) {
   return (
     <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", padding: "3rem 1.5rem" }}>
       <div style={{ width: "100%", maxWidth: 360 }}>
-        <h1 style={{ fontFamily: SERIF, fontSize: "2rem", fontWeight: 700, color: INK, marginBottom: "8px", lineHeight: 1.2 }}>
+        <h1 className="text-4xl mb-2 leading-tight" style={{ fontFamily: SERIF, color: INK }}>
           Connect Bandcamp
         </h1>
-        <p style={{ fontFamily: MONO, fontSize: "11px", color: "#aaaaaa", letterSpacing: "0.06em", marginBottom: "2.5rem", lineHeight: 1.7 }}>
-          Find your credentials at{" "}
-          <strong style={{ color: INK }}>bandcamp.com → Settings → Fan tab → Subsonic</strong>.
-          They are encrypted and never exposed to the browser.
+        <p className="mb-10" style={{ fontFamily: MONO, fontSize: "11px", color: "#aaaaaa", letterSpacing: "0.06em" }}>
+          Find credentials at bandcamp.com → Settings → Fan tab → Subsonic.
         </p>
 
         <div style={{ marginBottom: "1.5rem" }}>
