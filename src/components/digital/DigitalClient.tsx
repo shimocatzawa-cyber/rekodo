@@ -76,17 +76,23 @@ function CredentialForm({ onSaved }: { onSaved: () => void }) {
   async function handleSave() {
     if (!username.trim() || !password.trim()) { setError("Both fields are required"); return; }
     setSaving(true); setError(null);
-    const res = await fetch("/api/digital/credentials", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ username: username.trim(), password: password.trim() }),
-    });
-    if (res.ok) { onSaved(); }
-    else {
-      const d = await res.json() as { error?: string };
-      setError(d.error ?? "Save failed");
+    try {
+      const res = await fetch("/api/digital/credentials", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ username: username.trim(), password: password.trim() }),
+      });
+      if (res.ok) {
+        onSaved();
+      } else {
+        const d = await res.json() as { error?: string };
+        setError(d.error ?? `Save failed (${res.status})`);
+      }
+    } catch (err) {
+      setError(`Network error — ${(err as Error).message ?? "please try again"}`);
+    } finally {
+      setSaving(false);
     }
-    setSaving(false);
   }
 
   return (
@@ -441,7 +447,7 @@ export default function DigitalClient({ imports, connected, syncedAt, subsonicUs
 
   async function handleDisconnect() {
     await fetch("/api/digital/credentials", { method: "DELETE" });
-    router.refresh();
+    window.location.reload();
   }
 
   const filtered = imports.filter(imp => {
@@ -454,7 +460,7 @@ export default function DigitalClient({ imports, connected, syncedAt, subsonicUs
     <div style={{ paddingBottom: playingSrc ? "64px" : 0 }}>
       {/* Not connected → show credential form */}
       {!connected ? (
-        <CredentialForm onSaved={() => router.refresh()} />
+        <CredentialForm onSaved={() => { window.location.reload(); }} />
       ) : (
         <div style={{ background: "#ffffff", maxWidth: 1400, margin: "0 auto", padding: "1.5rem 2rem" }}>
           {/* Controls bar: search + sync + disconnect */}
