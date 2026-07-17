@@ -271,51 +271,71 @@ function AlbumRow({ imp, selected, onClick }: {
   );
 }
 
+// ── MetaRow (matches Collection exactly) ──────────────────────────────────
+
+function MetaRow({ label, value }: { label: string; value: string | null | undefined }) {
+  if (!value) return null;
+  return (
+    <div style={{ display: "flex", padding: "4px 0", borderBottom: "1px solid rgba(0,0,0,0.05)", alignItems: "baseline" }}>
+      <span style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.1em", textTransform: "uppercase", color: "#aaaaaa", width: "84px", flexShrink: 0, lineHeight: 1.4 }}>
+        {label}
+      </span>
+      <span style={{ fontFamily: MONO, fontSize: "11px", color: INK, letterSpacing: "0.03em", lineHeight: 1.4 }}>
+        {value}
+      </span>
+    </div>
+  );
+}
+
 // ── Album detail (Col 2) ───────────────────────────────────────────────────
 
 function AlbumDetail({ imp }: { imp: DigitalImport }) {
   const coverUrl = useCoverArt(imp.artist, imp.album);
   const year = getYear(imp);
+  const tags = (imp.tags ?? []).join(", ") || null;
   return (
     <div style={{ overflowY: "auto", height: "100%" }}>
-      <div style={{ background: "#f0ede6", aspectRatio: "1 / 1", width: "100%" }}>
-        {coverUrl ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img src={coverUrl} alt="" style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
-        ) : (
-          <div style={{ width: "100%", height: "100%", display: "flex", alignItems: "center", justifyContent: "center" }}>
-            <span style={{ fontFamily: SERIF, fontSize: "48px", color: "#c8c4bb" }}>ō</span>
-          </div>
-        )}
-      </div>
-      <div style={{ padding: "20px 24px" }}>
-        <p style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.1em", textTransform: "uppercase", color: SUBTLE, marginBottom: "6px" }}>
-          {imp.artist}
-        </p>
-        <h2 style={{ fontFamily: SERIF, fontSize: "22px", fontWeight: 400, color: INK, marginBottom: "12px", lineHeight: 1.2 }}>
+      <div style={{ padding: "16px 20px 20px", maxWidth: "480px" }}>
+        {/* Art — capped at 220px, objectFit: contain so any aspect ratio fits */}
+        <div style={{ width: "100%", maxWidth: 220, maxHeight: 220, height: 220, background: "#f0f0f0", overflow: "hidden", marginBottom: "12px" }}>
+          {coverUrl ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={coverUrl} alt="" loading="lazy" decoding="async" style={{ width: "100%", height: "100%", objectFit: "contain", display: "block" }} />
+          ) : (
+            <div style={{ width: "100%", height: "100%", display: "flex", alignItems: "center", justifyContent: "center" }}>
+              <span style={{ fontFamily: SERIF, fontSize: "36px", color: "#ddd" }}>ō</span>
+            </div>
+          )}
+        </div>
+
+        <h2 style={{ fontFamily: SERIF, fontSize: "20px", fontWeight: 700, color: INK, lineHeight: 1.2, marginBottom: "3px" }}>
           {imp.album}
         </h2>
-        <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: "8px", marginBottom: "16px" }}>
-          {year && (
-            <span style={{ fontFamily: MONO, fontSize: "10px", color: SUBTLE }}>{year}</span>
+        <p style={{ fontFamily: MONO, fontSize: "12px", letterSpacing: "0.04em", color: SUBTLE, marginBottom: "12px" }}>
+          {imp.artist}
+        </p>
+
+        <div style={{ borderTop: "1px solid rgba(0,0,0,0.07)" }}>
+          <MetaRow label="Year"  value={year ? String(year) : null} />
+          <MetaRow label="Label" value={imp.label} />
+          <MetaRow label="Tags"  value={tags} />
+          {imp.purchased_at && (
+            <MetaRow label="Purchased" value={new Date(imp.purchased_at).toLocaleDateString("en-AU", { day: "numeric", month: "short", year: "numeric" })} />
           )}
-          {imp.label && (
-            <span style={{ fontFamily: MONO, fontSize: "10px", color: SUBTLE }}>· {imp.label}</span>
+          {imp.item_url && (
+            <div style={{ display: "flex", padding: "4px 0", borderBottom: "1px solid rgba(0,0,0,0.05)", alignItems: "baseline" }}>
+              <span style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.1em", textTransform: "uppercase", color: "#aaaaaa", width: "84px", flexShrink: 0 }}>
+                Bandcamp
+              </span>
+              <a
+                href={imp.item_url} target="_blank" rel="noopener noreferrer"
+                style={{ fontFamily: MONO, fontSize: "11px", color: ORANGE, letterSpacing: "0.03em", textDecoration: "none" }}
+              >
+                Open ↗
+              </a>
+            </div>
           )}
-          {(imp.tags ?? []).map(tag => (
-            <span key={tag} style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.06em", textTransform: "uppercase", color: SUBTLE, background: "#f0ede6", padding: "2px 6px" }}>
-              {tag}
-            </span>
-          ))}
         </div>
-        {imp.item_url && (
-          <a
-            href={imp.item_url} target="_blank" rel="noopener noreferrer"
-            style={{ fontFamily: MONO, fontSize: "10px", letterSpacing: "0.06em", color: ORANGE, textDecoration: "none" }}
-          >
-            Open on Bandcamp ↗
-          </a>
-        )}
       </div>
     </div>
   );
@@ -800,7 +820,7 @@ export default function DigitalClient({ imports, connected, syncedAt, dbError }:
                   className="md:hidden"
                   onClick={() => setMobileDetailOpen(false)}
                   style={{
-                    display: "flex", alignItems: "center", gap: "6px",
+                    alignItems: "center", gap: "6px",
                     padding: "14px 16px", background: "none", border: "none",
                     borderBottom: "0.5px solid #e8e8e8", cursor: "pointer",
                     fontFamily: MONO, fontSize: "12px", letterSpacing: "0.08em",
