@@ -145,22 +145,26 @@ async function fetchDiscogsDiscography(artistName: string): Promise<DiscogsAlbum
     // Discogs master records often lack a format field, so singles (e.g. "Don't Be Sad"
     // by Whiskeytown — a 7" single, not an album) can slip through. We apply both
     // title-pattern and format-field exclusions; the prompt adds a final Claude-side guard.
-    const LIVE_PAT   = /\blive\b|\blive at\b|\bconcert\b/i;
-    const SINGLE_PAT = /\bb\/w\b/i;
-    const REMIX_PAT  = /\bremix(es)?\b|\bdub\b|\bedit\b|\breworked?\b/i;
+    const LIVE_PAT        = /\blive\b|\blive at\b|\bconcert\b/i;
+    const SINGLE_PAT      = /\bb\/w\b/i;
+    const REMIX_PAT       = /\bremix(es)?\b|\bdub\b|\bedit\b|\breworked?\b/i;
+    // Title-based compilation/box-set guard — catches releases whose format field is empty
+    const COMPILATION_PAT = /\bgreatest\s+hits\b|\bbest\s+of\b|\banthology\b|\bretrospective\b|\bbox\s*set\b|\bintroduction\s+to\b|\bthe\s+very\s+best\b|\bcomplete\s+recorded\s+works\b|\bcomplete\s+studio\s+albums\b|\bcollected\s+works\b|\bsingles\s+collection\b|\brarities\b/i;
     // When Discogs does populate the format field for a master, use it as a positive
     // gate: only pass through entries that look like albums (contain "lp" or "album"),
-    // and hard-exclude anything that reveals itself to be a single or EP.
+    // and hard-exclude anything that reveals itself to be a single, EP, or compilation.
     const FORMAT_SINGLE_PAT = /\b(7"|ep|45\s*rpm|single)\b/i;
     const seen = new Set<string>();
     const out: DiscogsAlbum[] = [];
     for (const r of releases) {
       if (r.role !== "Main" || r.type !== "master" || !r.year || r.year < 1900) continue;
-      if (LIVE_PAT.test(r.title) || SINGLE_PAT.test(r.title) || REMIX_PAT.test(r.title)) continue;
+      if (LIVE_PAT.test(r.title) || SINGLE_PAT.test(r.title) || REMIX_PAT.test(r.title) || COMPILATION_PAT.test(r.title)) continue;
       const fmt = (r.format ?? "").toLowerCase();
       if (fmt) {
         // If the format field is present and reveals a non-album, always exclude.
-        if (fmt.includes("live") || fmt.includes("single") || FORMAT_SINGLE_PAT.test(fmt)) continue;
+        // "compilation" must be here explicitly — "Compilation, LP" would otherwise
+        // pass the positive LP gate and slip through as a studio album.
+        if (fmt.includes("live") || fmt.includes("single") || fmt.includes("compilation") || fmt.includes("box") || FORMAT_SINGLE_PAT.test(fmt)) continue;
         // If the format field is present but doesn't indicate LP/Album, also exclude —
         // albums in Discogs always say "lp" or "album" when the field is populated.
         const looksLikeAlbum = fmt.includes("lp") || fmt.includes("album");
@@ -792,7 +796,8 @@ CRITICAL RULES:
 ${discogsAlbums.length > 0
   ? `- Only recommend albums from the COMPLETE CATALOGUE list above. Do not fabricate or suggest albums not on that list.
 - SONG TITLE TRAP: The catalogue may include 7" or 12" singles listed as masters. If a title looks like an individual song name rather than an album title, skip it — do not recommend it as a gap.
-- EP/MINI-ALBUM TRAP: The catalogue may include EPs, mini-albums, covers records, or session collections. If a release has fewer than 7 original studio tracks, or is clearly a covers EP or session collection, skip it — recommend full-length studio albums only.`
+- EP/MINI-ALBUM TRAP: The catalogue may include EPs, mini-albums, covers records, or session collections. If a release has fewer than 7 original studio tracks, or is clearly a covers EP or session collection, skip it — recommend full-length studio albums only.
+- COMPILATION/BOX SET TRAP: The catalogue may include compilations, box sets, and retrospectives. Skip any entry whose title contains "Greatest Hits", "Best Of", "Complete Recorded Works", "Complete Works", "Anthology", "Retrospective", "Box Set", "Introduction To", "Singles Collection", "Rarities", or similar. Also skip any release you recognise as a posthumous compilation or re-packaged collection of already-released material rather than original studio recordings.`
   : `- Only recommend albums you are certain ${artist} actually released. Do not fabricate or guess titles.`}
 - Full-length studio albums only — no live albums, compilations, EPs, or covers collections.
 - Be selective: flag only albums a serious collector would consider essential gaps, not completionist picks.
