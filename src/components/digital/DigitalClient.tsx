@@ -67,6 +67,30 @@ function useCoverArt(artist: string, album: string): string | null {
 
 // ── Credential form ────────────────────────────────────────────────────────
 
+const labelSt: React.CSSProperties = {
+  fontFamily: MONO,
+  fontSize: "10px",
+  letterSpacing: "0.1em",
+  textTransform: "uppercase",
+  color: "#999999",
+  display: "block",
+  marginBottom: "8px",
+};
+
+const inputSt: React.CSSProperties = {
+  fontFamily: MONO,
+  fontSize: "13px",
+  color: "#0d0d0d",
+  background: "white",
+  display: "block",
+  width: "100%",
+  padding: "12px 14px",
+  border: "1px solid #dddddd",
+  outline: "none",
+  boxSizing: "border-box",
+  transition: "border-color 0.15s",
+};
+
 function CredentialForm({ onSaved }: { onSaved: () => void }) {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
@@ -98,60 +122,73 @@ function CredentialForm({ onSaved }: { onSaved: () => void }) {
   }
 
   return (
-    <div style={{ maxWidth: 480, margin: "0 auto", padding: "3rem 1.5rem" }}>
-      <h2 style={{ fontFamily: SERIF, fontSize: "22px", fontWeight: 700, color: ORANGE, marginBottom: "0.5rem" }}>
-        Connect Bandcamp
-      </h2>
-      <p style={{ fontFamily: MONO, fontSize: "11px", letterSpacing: "0.06em", color: SUBTLE, marginBottom: "2rem", lineHeight: 1.7 }}>
-        Enter your Bandcamp Subsonic credentials. Find them in{" "}
-        <strong>bandcamp.com → Settings → Fan tab → Subsonic section</strong>.
-        Credentials are encrypted with AES-256 and never exposed to the browser.
-      </p>
-
-      <label style={{ display: "block", marginBottom: "1rem" }}>
-        <div style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.14em", textTransform: "uppercase", color: SUBTLE, marginBottom: "4px" }}>
-          Bandcamp username
-        </div>
-        <input
-          type="text"
-          autoComplete="username"
-          value={username}
-          onChange={e => setUsername(e.target.value)}
-          style={{ width: "100%", boxSizing: "border-box", fontFamily: MONO, fontSize: "13px", padding: "10px 12px", border: `1px solid ${RULE}`, background: "#fff", color: INK, outline: "none" }}
-        />
-      </label>
-
-      <label style={{ display: "block", marginBottom: "1.5rem" }}>
-        <div style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.14em", textTransform: "uppercase", color: SUBTLE, marginBottom: "4px" }}>
-          Subsonic password
-        </div>
-        <input
-          type="password"
-          autoComplete="current-password"
-          value={password}
-          onChange={e => setPassword(e.target.value)}
-          onKeyDown={e => e.key === "Enter" && handleSave()}
-          style={{ width: "100%", boxSizing: "border-box", fontFamily: MONO, fontSize: "13px", padding: "10px 12px", border: `1px solid ${RULE}`, background: "#fff", color: INK, outline: "none" }}
-        />
-      </label>
-
-      {error && (
-        <p style={{ fontFamily: MONO, fontSize: "11px", color: "#b00", marginBottom: "1rem" }}>{error}</p>
-      )}
-
-      {saved ? (
-        <p style={{ fontFamily: MONO, fontSize: "11px", color: "#4caf50", letterSpacing: "0.06em" }}>
-          Credentials saved — connecting…
+    <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", padding: "3rem 1.5rem" }}>
+      <div style={{ width: "100%", maxWidth: 360 }}>
+        <h1 style={{ fontFamily: SERIF, fontSize: "2rem", fontWeight: 700, color: INK, marginBottom: "8px", lineHeight: 1.2 }}>
+          Connect Bandcamp
+        </h1>
+        <p style={{ fontFamily: MONO, fontSize: "11px", color: "#aaaaaa", letterSpacing: "0.06em", marginBottom: "2.5rem", lineHeight: 1.7 }}>
+          Find your credentials at{" "}
+          <strong style={{ color: INK }}>bandcamp.com → Settings → Fan tab → Subsonic</strong>.
+          They are encrypted and never exposed to the browser.
         </p>
-      ) : (
-        <button
-          onClick={handleSave}
-          disabled={saving}
-          style={{ fontFamily: MONO, fontSize: "10px", letterSpacing: "0.12em", textTransform: "uppercase", background: ORANGE, color: "#fff", border: "none", padding: "12px 28px", cursor: saving ? "default" : "pointer", opacity: saving ? 0.6 : 1 }}
-        >
-          {saving ? "Saving…" : "Save credentials"}
-        </button>
-      )}
+
+        <div style={{ marginBottom: "1.5rem" }}>
+          <label htmlFor="bc-username" style={labelSt}>Bandcamp username</label>
+          <input
+            id="bc-username"
+            type="text"
+            autoComplete="username"
+            value={username}
+            onChange={e => setUsername(e.target.value)}
+            style={inputSt}
+            onFocus={e => { e.currentTarget.style.borderColor = ORANGE; }}
+            onBlur={e => { e.currentTarget.style.borderColor = "#dddddd"; }}
+          />
+        </div>
+
+        <div style={{ marginBottom: "1.5rem" }}>
+          <label htmlFor="bc-password" style={labelSt}>Subsonic password</label>
+          <input
+            id="bc-password"
+            type="password"
+            autoComplete="current-password"
+            value={password}
+            onChange={e => setPassword(e.target.value)}
+            onKeyDown={e => e.key === "Enter" && handleSave()}
+            style={inputSt}
+            onFocus={e => { e.currentTarget.style.borderColor = ORANGE; }}
+            onBlur={e => { e.currentTarget.style.borderColor = "#dddddd"; }}
+          />
+        </div>
+
+        {error && (
+          <p style={{ fontFamily: MONO, fontSize: "11px", color: "#cc2200", letterSpacing: "0.04em", marginBottom: "1rem" }}>
+            {error}
+          </p>
+        )}
+
+        {saved ? (
+          <p style={{ fontFamily: MONO, fontSize: "11px", color: "#4caf50", letterSpacing: "0.06em" }}>
+            Credentials saved — connecting…
+          </p>
+        ) : (
+          <button
+            onClick={handleSave}
+            disabled={saving}
+            style={{
+              width: "100%", fontFamily: MONO, fontSize: "11px", letterSpacing: "0.12em",
+              textTransform: "uppercase", background: saving ? "#555" : "#0a0a0a", color: "#fff",
+              border: "none", padding: "15px 0", cursor: saving ? "not-allowed" : "pointer",
+              opacity: saving ? 0.5 : 1, transition: "background 0.2s",
+            }}
+            onMouseEnter={e => { if (!saving) (e.currentTarget as HTMLButtonElement).style.background = ORANGE; }}
+            onMouseLeave={e => { if (!saving) (e.currentTarget as HTMLButtonElement).style.background = "#0a0a0a"; }}
+          >
+            {saving ? "Saving…" : "Connect"}
+          </button>
+        )}
+      </div>
     </div>
   );
 }
