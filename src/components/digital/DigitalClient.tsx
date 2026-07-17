@@ -70,8 +70,9 @@ function useCoverArt(artist: string, album: string): string | null {
 function CredentialForm({ onSaved }: { onSaved: () => void }) {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
-  const [saving, setSaving] = useState(false);
-  const [error, setError]   = useState<string | null>(null);
+  const [saving, setSaving]   = useState(false);
+  const [saved, setSaved]     = useState(false);
+  const [error, setError]     = useState<string | null>(null);
 
   async function handleSave() {
     if (!username.trim() || !password.trim()) { setError("Both fields are required"); return; }
@@ -82,14 +83,15 @@ function CredentialForm({ onSaved }: { onSaved: () => void }) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ username: username.trim(), password: password.trim() }),
       });
+      const body = await res.json() as { error?: string };
       if (res.ok) {
-        onSaved();
+        setSaved(true);
+        setTimeout(() => onSaved(), 2000);
       } else {
-        const d = await res.json() as { error?: string };
-        setError(d.error ?? `Save failed (${res.status})`);
+        setError(body.error ?? `Server error ${res.status}`);
       }
     } catch (err) {
-      setError(`Network error — ${(err as Error).message ?? "please try again"}`);
+      setError(`Network error — ${(err as Error).message}`);
     } finally {
       setSaving(false);
     }
@@ -137,13 +139,19 @@ function CredentialForm({ onSaved }: { onSaved: () => void }) {
         <p style={{ fontFamily: MONO, fontSize: "11px", color: "#b00", marginBottom: "1rem" }}>{error}</p>
       )}
 
-      <button
-        onClick={handleSave}
-        disabled={saving}
-        style={{ fontFamily: MONO, fontSize: "10px", letterSpacing: "0.12em", textTransform: "uppercase", background: ORANGE, color: "#fff", border: "none", padding: "12px 28px", cursor: saving ? "default" : "pointer", opacity: saving ? 0.6 : 1 }}
-      >
-        {saving ? "Saving…" : "Save credentials"}
-      </button>
+      {saved ? (
+        <p style={{ fontFamily: MONO, fontSize: "11px", color: "#4caf50", letterSpacing: "0.06em" }}>
+          Credentials saved — connecting…
+        </p>
+      ) : (
+        <button
+          onClick={handleSave}
+          disabled={saving}
+          style={{ fontFamily: MONO, fontSize: "10px", letterSpacing: "0.12em", textTransform: "uppercase", background: ORANGE, color: "#fff", border: "none", padding: "12px 28px", cursor: saving ? "default" : "pointer", opacity: saving ? 0.6 : 1 }}
+        >
+          {saving ? "Saving…" : "Save credentials"}
+        </button>
+      )}
     </div>
   );
 }
