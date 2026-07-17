@@ -44,7 +44,8 @@ async function fetchSubsonic<T>(
   const json = await res.json() as { "subsonic-response"?: Record<string, unknown> & { status?: string } };
   const resp = json["subsonic-response"];
   if (!resp || resp.status !== "ok") return null;
-  const key = method.charAt(0).toLowerCase() + method.slice(1);
+  // Subsonic response keys drop the "get" prefix: getAlbumList2 → albumList2
+  const key = method.replace(/^get([A-Z])/, (_: string, c: string) => c.toLowerCase());
   return (resp[key] as T) ?? null;
 }
 

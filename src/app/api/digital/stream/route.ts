@@ -1,11 +1,19 @@
 import { type NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { createClient as createServiceClient } from "@supabase/supabase-js";
 import { decryptToken } from "@/lib/subsonic-crypto";
 import { createHash, randomBytes } from "crypto";
 
 export const maxDuration = 60;
 
 const BASE = "https://bandcamp.com/api/subsonic";
+
+function serviceRole() {
+  return createServiceClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!
+  );
+}
 
 function buildAuth(username: string, password: string): Record<string, string> {
   const salt = randomBytes(8).toString("hex");
@@ -18,13 +26,21 @@ export async function GET(request: NextRequest) {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return new NextResponse("Unauthorized", { status: 401 });
 
-  const { data: profile } = await supabase
+  // Role check via session client (role column is granted to authenticated)
+  const { data: roleCheck } = await supabase
     .from("profiles")
-    .select("role, bandcamp_subsonic_username, bandcamp_subsonic_token")
+    .select("role")
+    .eq("id", user.id)
+    .maybeSingle();
+  if (roleCheck?.role !== "admin") return new NextResponse("Forbidden", { status: 403 });
+
+  // Credentials via service role — bandcamp_subsonic_token is not granted to authenticated
+  const { data: profile } = await serviceRole()
+    .from("profiles")
+    .select("bandcamp_subsonic_username, bandcamp_subsonic_token")
     .eq("id", user.id)
     .maybeSingle();
 
-  if (profile?.role !== "admin") return new NextResponse("Forbidden", { status: 403 });
   if (!profile?.bandcamp_subsonic_username || !profile?.bandcamp_subsonic_token) {
     return new NextResponse("Not connected", { status: 400 });
   }
