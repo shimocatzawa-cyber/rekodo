@@ -225,9 +225,12 @@ async function searchTavilyInterviews(artist: string, discogsAlbums: DiscogsAlbu
 
   const EXCLUDE = ["spotify.com", "apple.com", "youtube.com", "amazon.com",
     "wikipedia.org", "discogs.com", "allmusic.com", "facebook.com",
-    "instagram.com", "twitter.com", "x.com", "setlist.fm"];
+    "instagram.com", "twitter.com", "x.com", "setlist.fm", "genius.com",
+    "bandsintown.com", "songkick.com", "last.fm", "rateyourmusic.com"];
 
   const INTERVIEW_PAT = /interview|feature|conversation|in conversation|profile|talks to|speaks to|we spoke|q&a/i;
+  // Titles matching these patterns are news/announcement/lyrics pages — never actual interviews
+  const NON_INTERVIEW_PAT = /\bannounces?\b|\btracklist\b|\blyrics?\b|\bnew album\b|\bstream\b|\blisten\b|\btour dates?\b|\brelease date\b|\breview\b|\bnews\b|\bpremiere\b/i;
 
   // Second query targets press/interview pages specifically
   const query2 = albumHint
@@ -239,13 +242,13 @@ async function searchTavilyInterviews(artist: string, discogsAlbums: DiscogsAlbu
       fetch("https://api.tavily.com/search", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ api_key: key, query, max_results: 7, search_depth: "basic", exclude_domains: EXCLUDE }),
+        body: JSON.stringify({ api_key: key, query, max_results: 10, search_depth: "basic", exclude_domains: EXCLUDE }),
         signal: AbortSignal.timeout(6000),
       }),
       fetch("https://api.tavily.com/search", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ api_key: key, query: query2, max_results: 7, search_depth: "basic", exclude_domains: EXCLUDE }),
+        body: JSON.stringify({ api_key: key, query: query2, max_results: 10, search_depth: "basic", exclude_domains: EXCLUDE }),
         signal: AbortSignal.timeout(6000),
       }),
     ]);
@@ -257,7 +260,10 @@ async function searchTavilyInterviews(artist: string, discogsAlbums: DiscogsAlbu
       if (!res.ok) continue;
       const json = await res.json() as { results?: TavilyResult[] };
       for (const r of (json.results ?? [])) {
-        if (!seen.has(r.url) && (INTERVIEW_PAT.test(r.title) || INTERVIEW_PAT.test(r.content))) {
+        const titleIsInterview = INTERVIEW_PAT.test(r.title);
+        const contentMentionsInterview = INTERVIEW_PAT.test(r.content);
+        const titleLooksLikeAnnouncement = NON_INTERVIEW_PAT.test(r.title);
+        if (!seen.has(r.url) && (titleIsInterview || contentMentionsInterview) && !titleLooksLikeAnnouncement) {
           seen.add(r.url);
           results.push(r);
         }
@@ -326,8 +332,8 @@ function buildPrintPromptWithOpenLibrary(
     : `ARTIST IDENTITY: ${artist} is a musician. This is NOT any other person who shares this name.`;
 
   const interviewBlock = tavilyInterviews.length > 0
-    ? `\nVERIFIED INTERVIEW URLS found via web search — these are real pages that exist:\n${tavilyInterviews.map((r, i) => `${i + 1}. "${r.title}" — ${r.url}`).join("\n")}\n\nFor INTERVIEWS: select up to 5 from the VERIFIED INTERVIEW URLS above. Copy the URL exactly. Extract the publication name and domain from the URL. Write a one-sentence note on what makes it worth reading. Do not invent interviews beyond this list.`
-    : `For INTERVIEWS: list up to 5 notable print/text interviews given by ${artist} the musician (Pitchfork, The Wire, The Guardian, NME, MOJO, Rolling Stone, Uncut, The Quietus, Bandcamp Daily, Fact, Resident Advisor, Stereogum, etc.). Only include interviews you are confident actually exist. Text only — no YouTube, podcasts, or audio/video. Return [] if none found with confidence.`;
+    ? `\nVERIFIED INTERVIEW URLS found via web search — these are real pages that exist:\n${tavilyInterviews.map((r, i) => `${i + 1}. "${r.title}" — ${r.url}`).join("\n")}\n\nFor INTERVIEWS: select up to 10 from the VERIFIED INTERVIEW URLS above. ONLY include pages where ${artist} is actually interviewed — the artist speaks directly, is quoted, or is the primary subject of a conversation/profile. REJECT: album announcements, tracklist pages, lyrics pages, news articles, streaming links, tour dates, pure album reviews where the artist is not quoted. Copy the URL exactly. Extract the publication name and domain from the URL. Write a one-sentence note on what makes it worth reading. Do not invent interviews beyond this list.`
+    : `For INTERVIEWS: list up to 10 notable print/text interviews given by ${artist} the musician (Pitchfork, The Wire, The Guardian, NME, MOJO, Rolling Stone, Uncut, The Quietus, Bandcamp Daily, Fact, Resident Advisor, Stereogum, etc.). Only include genuine interviews where the artist speaks directly — not album reviews, announcements, or news. Text only — no YouTube, podcasts, or audio/video. Return [] if none found with confidence.`;
 
   const booksList = books.length > 0
     ? books.map((b, i) => {
@@ -756,9 +762,9 @@ BOOKS — up to 5 books by or about ${artist}:
 Sort by year ascending within each group. Only include titles you are confident exist.
 "type": "biography"|"memoir"|"criticism"|"history"|"fiction"|"reference"
 
-INTERVIEWS — up to 5 notable print/text interviews given by ${artist}:
+INTERVIEWS — up to 10 notable print/text interviews given by ${artist}:
 Sources: Pitchfork, The Wire, The Guardian, NME, MOJO, Rolling Stone, Uncut, The Quietus, Bandcamp Daily, Fact, Resident Advisor, XLR8R, Stereogum, etc.
-Text only — no YouTube, podcasts, or audio/video.
+Only include genuine interviews where the artist speaks directly — not album reviews, announcements, or news. Text only — no YouTube, podcasts, or audio/video.
 Most recent first. Omit "url" unless you are certain of the exact URL.
 "domain" is the bare domain (e.g. "pitchfork.com"). "date" is YYYY-MM or YYYY-MM-DD when known.
 
@@ -785,13 +791,14 @@ CRITICAL RULES:
 - NEVER recommend an album that appears in the ALREADY OWNED list above. If you are unsure whether an album matches one already owned, do not recommend it.
 ${discogsAlbums.length > 0
   ? `- Only recommend albums from the COMPLETE CATALOGUE list above. Do not fabricate or suggest albums not on that list.
-- SONG TITLE TRAP: The catalogue may include 7" or 12" singles listed as masters. If a title looks like an individual song name rather than an album title, skip it — do not recommend it as a gap.`
+- SONG TITLE TRAP: The catalogue may include 7" or 12" singles listed as masters. If a title looks like an individual song name rather than an album title, skip it — do not recommend it as a gap.
+- EP/MINI-ALBUM TRAP: The catalogue may include EPs, mini-albums, covers records, or session collections. If a release has fewer than 7 original studio tracks, or is clearly a covers EP or session collection, skip it — recommend full-length studio albums only.`
   : `- Only recommend albums you are certain ${artist} actually released. Do not fabricate or guess titles.`}
-- Studio albums only — no live albums, compilations, or EPs unless they are genuinely essential to the artist's legacy.
+- Full-length studio albums only — no live albums, compilations, EPs, or covers collections.
 - Be selective: flag only albums a serious collector would consider essential gaps, not completionist picks.
 - If the collection already covers the essential catalogue, return {"albums":[]}.
 
-For the "why" field: write 1–2 sentences of FACTUAL description only — what the record actually sounds like, who produced it, what instrumentation or approach it uses, how it differs from their other work. No assertions like "essential", "crucial", "pivotal", "defines", "bridges" or other critical boilerplate. Describe the music, not its importance.
+For the "why" field: write 1–2 sentences of FACTUAL description only — what the record sounds like, who produced it, what instrumentation or production approach it uses, how it differs from their other work. NEVER state or imply what number in the artist's discography this album is (no "debut", "second album", "third studio album", "final album", "last record" or any ordinal claim). Describe the music, not its position or importance.
 
 Return ONLY valid JSON, no markdown, no backticks, no preamble:
 {"albums":[{"title":"Album Title","year":1975,"why":"Factual 1-2 sentence description of the record."}]}
