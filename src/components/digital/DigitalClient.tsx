@@ -96,7 +96,7 @@ function CredentialForm({ onSaved }: { onSaved: () => void }) {
       </h2>
       <p style={{ fontFamily: MONO, fontSize: "11px", letterSpacing: "0.06em", color: SUBTLE, marginBottom: "2rem", lineHeight: 1.7 }}>
         Enter your Bandcamp Subsonic credentials. Find them in{" "}
-        <strong>bandcamp.com → Settings → Connected Apps → Subsonic API</strong>.
+        <strong>bandcamp.com → Settings → Fan tab → Subsonic section</strong>.
         Credentials are encrypted with AES-256 and never exposed to the browser.
       </p>
 
@@ -454,7 +454,7 @@ export default function DigitalClient({ imports, connected, syncedAt, subsonicUs
   const scraperCount  = imports.filter(i => i.source === "bandcamp").length;
 
   return (
-    <div style={{ minHeight: "100vh", background: WARM, paddingBottom: playingSrc ? "64px" : 0 }}>
+    <div style={{ paddingBottom: playingSrc ? "64px" : 0 }}>
       {/* Header */}
       <div style={{ borderBottom: `1px solid ${RULE}`, padding: "2rem 2rem 1.5rem", background: "#fff" }}>
         <div style={{ maxWidth: 1400, margin: "0 auto" }}>

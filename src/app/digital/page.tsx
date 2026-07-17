@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import AppNav from "@/components/AppNav";
 import DigitalClient from "@/components/digital/DigitalClient";
 
 export const metadata: Metadata = {
@@ -38,22 +39,30 @@ export default async function DigitalPage() {
       .order("album", { ascending: true }),
     supabase
       .from("profiles")
-      .select("bandcamp_subsonic_username, bandcamp_subsonic_synced_at")
+      .select("username, display_name, avatar_url, bandcamp_subsonic_username, bandcamp_subsonic_synced_at")
       .eq("id", user.id)
       .maybeSingle(),
   ]);
 
+  const profile = profileRes.data;
   const imports = (importsRes.data ?? []) as DigitalImport[];
-  const connected = !!(profileRes.data?.bandcamp_subsonic_username);
-  const syncedAt = profileRes.data?.bandcamp_subsonic_synced_at ?? null;
-  const subsonicUsername = profileRes.data?.bandcamp_subsonic_username ?? null;
+  const connected = !!(profile?.bandcamp_subsonic_username);
+  const syncedAt = profile?.bandcamp_subsonic_synced_at ?? null;
+  const subsonicUsername = profile?.bandcamp_subsonic_username ?? null;
 
   return (
-    <DigitalClient
-      imports={imports}
-      connected={connected}
-      syncedAt={syncedAt}
-      subsonicUsername={subsonicUsername}
-    />
+    <div style={{ minHeight: "100vh", background: "#FDFCF8" }}>
+      <AppNav
+        username={profile?.username ?? ""}
+        displayLabel={profile?.display_name ?? undefined}
+        avatarUrl={profile?.avatar_url ?? null}
+      />
+      <DigitalClient
+        imports={imports}
+        connected={connected}
+        syncedAt={syncedAt}
+        subsonicUsername={subsonicUsername}
+      />
+    </div>
   );
 }

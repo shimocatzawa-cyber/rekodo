@@ -1,7 +1,15 @@
 import { type NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { createClient as createServiceClient } from "@supabase/supabase-js";
 import { decryptToken } from "@/lib/subsonic-crypto";
 import { createHash, randomBytes } from "crypto";
+
+function serviceRole() {
+  return createServiceClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!
+  );
+}
 
 export const maxDuration = 60;
 
@@ -114,8 +122,8 @@ export async function POST(_request: NextRequest) {
     if (!error) inserted += Math.min(BATCH, rows.length - i);
   }
 
-  // Update last-sync timestamp
-  await supabase
+  // Update last-sync timestamp (service role to bypass column-level RLS restrictions)
+  await serviceRole()
     .from("profiles")
     .update({ bandcamp_subsonic_synced_at: new Date().toISOString() })
     .eq("id", user.id);
