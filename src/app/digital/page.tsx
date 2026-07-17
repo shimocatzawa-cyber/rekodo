@@ -53,7 +53,10 @@ export default async function DigitalPage() {
 
   const navProfile = navProfileRes.data;
   const imports = (importsRes.data ?? []) as DigitalImport[];
-  const connected = !!(subsonicRes.data?.bandcamp_subsonic_username);
+  // If the column query errors (e.g. migration not yet applied), treat as disconnected
+  // and surface the DB error to the client so it's visible
+  const subsonicDbError = subsonicRes.error?.message ?? null;
+  const connected = !subsonicRes.error && !!(subsonicRes.data?.bandcamp_subsonic_username);
   const syncedAt = subsonicRes.data?.bandcamp_subsonic_synced_at ?? null;
   const subsonicUsername = subsonicRes.data?.bandcamp_subsonic_username ?? null;
 
@@ -69,6 +72,7 @@ export default async function DigitalPage() {
         connected={connected}
         syncedAt={syncedAt}
         subsonicUsername={subsonicUsername}
+        dbError={subsonicDbError}
       />
     </div>
   );

@@ -457,9 +457,10 @@ type Props = {
   connected: boolean;
   syncedAt: string | null;
   subsonicUsername: string | null;
+  dbError: string | null;
 };
 
-export default function DigitalClient({ imports, connected, syncedAt, subsonicUsername }: Props) {
+export default function DigitalClient({ imports, connected, syncedAt, subsonicUsername, dbError }: Props) {
   const router = useRouter();
 
   const [query, setQuery]       = useState("");
@@ -503,6 +504,19 @@ export default function DigitalClient({ imports, connected, syncedAt, subsonicUs
 
   return (
     <div style={{ paddingBottom: playingSrc ? "64px" : 0 }}>
+      {/* DB migration not applied — surface the error clearly */}
+      {dbError && (
+        <div style={{ maxWidth: 480, margin: "3rem auto", padding: "1rem 1.5rem", border: "1px solid #ffcccc", background: "#fff8f8" }}>
+          <p style={{ fontFamily: MONO, fontSize: "11px", color: "#cc2200", letterSpacing: "0.04em", marginBottom: "0.5rem" }}>
+            Database error — the migration may not have been applied yet.
+          </p>
+          <p style={{ fontFamily: MONO, fontSize: "10px", color: "#999" }}>{dbError}</p>
+          <p style={{ fontFamily: MONO, fontSize: "10px", color: "#999", marginTop: "0.5rem" }}>
+            Run the SQL migration in Supabase dashboard and reload.
+          </p>
+        </div>
+      )}
+
       {/* Not connected → show credential form */}
       {!connected ? (
         <CredentialForm onSaved={() => { window.location.reload(); }} />
