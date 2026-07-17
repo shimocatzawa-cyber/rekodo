@@ -29,7 +29,7 @@ export default async function DigitalPage() {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) redirect("/login");
 
-  const [importsRes, profileRes] = await Promise.all([
+  const [importsRes, navProfileRes, subsonicRes] = await Promise.all([
     supabase
       .from("digital_imports")
       .select("id, artist, album, purchased_at, item_url, release_date, label, tags, subsonic_id, source")
@@ -37,25 +37,32 @@ export default async function DigitalPage() {
       .or("is_duplicate.is.null,is_duplicate.eq.false")
       .order("artist", { ascending: true })
       .order("album", { ascending: true }),
+    // Nav fields in their own query — must never fail
     supabase
       .from("profiles")
-      .select("username, display_name, avatar_url, bandcamp_subsonic_username, bandcamp_subsonic_synced_at")
+      .select("username, display_name, avatar_url")
+      .eq("id", user.id)
+      .maybeSingle(),
+    // Subsonic fields separately so a missing column doesn't blank the nav
+    supabase
+      .from("profiles")
+      .select("bandcamp_subsonic_username, bandcamp_subsonic_synced_at")
       .eq("id", user.id)
       .maybeSingle(),
   ]);
 
-  const profile = profileRes.data;
+  const navProfile = navProfileRes.data;
   const imports = (importsRes.data ?? []) as DigitalImport[];
-  const connected = !!(profile?.bandcamp_subsonic_username);
-  const syncedAt = profile?.bandcamp_subsonic_synced_at ?? null;
-  const subsonicUsername = profile?.bandcamp_subsonic_username ?? null;
+  const connected = !!(subsonicRes.data?.bandcamp_subsonic_username);
+  const syncedAt = subsonicRes.data?.bandcamp_subsonic_synced_at ?? null;
+  const subsonicUsername = subsonicRes.data?.bandcamp_subsonic_username ?? null;
 
   return (
     <div style={{ minHeight: "100vh", background: "#ffffff" }}>
       <AppNav
-        username={profile?.username ?? ""}
-        displayLabel={profile?.display_name ?? undefined}
-        avatarUrl={profile?.avatar_url ?? null}
+        username={navProfile?.username ?? ""}
+        displayLabel={navProfile?.display_name ?? undefined}
+        avatarUrl={navProfile?.avatar_url ?? null}
       />
       <DigitalClient
         imports={imports}
