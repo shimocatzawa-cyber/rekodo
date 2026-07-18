@@ -38,14 +38,18 @@ function parseDiscogsTitle(title: string): { artist: string; album: string } {
 // "couldn't verify, drop it") — same choice made for the book pattern, and
 // the 5-candidate buffer this is filtering already exists to absorb losses
 // like this without shortchanging the final 3 shown.
-async function verifyOnDiscogs(artist: string, album: string): Promise<boolean> {
+async function verifyOnDiscogs(artist: string, album: string, year?: number | null): Promise<boolean> {
   const key = process.env.DISCOGS_CONSUMER_KEY;
   const secret = process.env.DISCOGS_CONSUMER_SECRET;
   if (!key || !secret) return true; // integration not configured — don't block on it
 
   try {
     const url = new URL("https://api.discogs.com/database/search");
-    url.searchParams.set("q", `${artist} ${album}`);
+    // Include year in the query when available — dramatically narrows results
+    // for the "famous name, wrong era" false-positive case (e.g. a band named
+    // "Sparrow" releasing something in 2010 passing as a 1969 private-press pick).
+    const q = year ? `${artist} ${album} ${year}` : `${artist} ${album}`;
+    url.searchParams.set("q", q);
     url.searchParams.set("type", "release");
     url.searchParams.set("per_page", "10");
     url.searchParams.set("key", key);
@@ -54,11 +58,17 @@ async function verifyOnDiscogs(artist: string, album: string): Promise<boolean> 
     const res = await fetch(url.toString(), { headers: { "User-Agent": "rekodo/1.0" } });
     if (!res.ok) return true; // rate-limited or server error — can't verify, don't drop the pick
 
-    const data = await res.json() as { results?: Array<{ title: string }> };
+    const data = await res.json() as { results?: Array<{ title: string; year?: number }> };
     const results = data.results ?? [];
     return results.some(r => {
       const { artist: ra, album: rt } = parseDiscogsTitle(r.title);
-      return isPlausibleAlbumMatch(artist, album, [ra], rt);
+      if (!isPlausibleAlbumMatch(artist, album, [ra], rt)) return false;
+      // When both sides have a year, require them to be within ±5 years.
+      // A record claimed to be from 1969 shouldn't be verified by a 2015 reissue
+      // that happens to share the artist/title — the reissue is a real entry on
+      // Discogs but the original press Claude described may never have existed.
+      if (year && r.year && Math.abs(r.year - year) > 5) return false;
+      return true;
     });
   } catch {
     return true;
@@ -542,6 +552,7 @@ Rules:
 - The picks should feel genuinely surprising but inevitable in hindsight — the kind of record they will wonder how they missed.
 - Prioritise records obtainable on vinyl (original pressings, reissues, or easily available secondhand).
 - Only recommend a record you are confident actually exists and was released under that exact artist/album name — if you are not sure, do not include it.
+- NEVER recommend a self-released, private-press, or hand-distributed record from a first-name/single-word artist that you cannot independently recall a specific label, catalogue number, or documented release context for. "Sounds like it could exist" is not sufficient — private-press hallucinations are the most common failure mode.
 ${isJa ? "- Write all reason text in Japanese (日本語).\n" : ""}
 Return ONLY a valid JSON array with exactly 10 objects — extra picks give headroom after artists already owned or already recommended get filtered out; only the first 3 surviving picks are shown. No markdown, no explanation outside the JSON.
 
@@ -629,6 +640,7 @@ Rules:
 - The picks should feel genuinely surprising but inevitable in hindsight — the kind of record they will wonder how they missed.
 - Prioritise records obtainable on vinyl (original pressings, reissues, or easily available secondhand).
 - Only recommend a record you are confident actually exists and was released under that exact artist/album name — if you are not sure, do not include it.
+- NEVER recommend a self-released, private-press, or hand-distributed record from a first-name/single-word artist that you cannot independently recall a specific label, catalogue number, or documented release context for. "Sounds like it could exist" is not sufficient — private-press hallucinations are the most common failure mode.
 ${isJa ? "- Write all reason text in Japanese (日本語).\n" : ""}
 Return ONLY a valid JSON array with exactly 10 objects — extra picks give headroom after artists already owned or already recommended get filtered out; only the first 3 surviving picks are shown. No markdown, no explanation outside the JSON.
 
@@ -782,8 +794,8 @@ ${JSON_SCHEMA}`;
       // Existence check — run in parallel across the surviving candidates,
       // dropping anything Discogs can't plausibly verify (likely hallucinated).
       const verified = await Promise.all(
-        candidates.map(async (r: { artist?: string; album?: string }) =>
-          r.artist && r.album && (await verifyOnDiscogs(r.artist, r.album)) ? r : null
+        candidates.map(async (r: { artist?: string; album?: string; year?: number | null }) =>
+          r.artist && r.album && (await verifyOnDiscogs(r.artist, r.album, r.year)) ? r : null
         )
       );
       recommendations = verified.filter((r): r is { artist?: string; album?: string } => r !== null);
