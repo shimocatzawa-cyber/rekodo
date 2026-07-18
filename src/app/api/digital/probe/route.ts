@@ -12,26 +12,16 @@ function serviceRole() {
   );
 }
 
-async function probe(url: string): Promise<{ status: number; body: unknown }> {
+async function probe(url: string, headers: Record<string, string> = {}): Promise<{ status: number; body: unknown }> {
   try {
-    const res = await fetch(url, { signal: AbortSignal.timeout(8_000), cache: "no-store" });
+    const res = await fetch(url, { headers, signal: AbortSignal.timeout(8_000), cache: "no-store" });
     const text = await res.text();
     let body: unknown;
-    try { body = JSON.parse(text); } catch { body = text.slice(0, 500); }
+    try { body = JSON.parse(text); } catch { body = text.slice(0, 800); }
     return { status: res.status, body };
   } catch (e) {
     return { status: 0, body: String(e) };
   }
-}
-
-function qs(u: string, password: string, c: string, v: string, authType: "md5" | "plain" = "md5") {
-  if (authType === "plain") {
-    const hexPass = Buffer.from(password).toString("hex");
-    return new URLSearchParams({ u, p: `enc:${hexPass}`, c, v, f: "json" }).toString();
-  }
-  const salt = randomBytes(8).toString("hex");
-  const token = createHash("md5").update(password + salt).digest("hex");
-  return new URLSearchParams({ u, t: token, s: salt, c, v, f: "json" }).toString();
 }
 
 export async function GET() {
@@ -59,26 +49,52 @@ export async function GET() {
   const u = profile.bandcamp_subsonic_username;
   const BASE = "https://bandcamp.com/api/subsonic";
 
-  // Try Bandcamp's listed supported client names with multiple versions + auth types
-  const clients = ["Feishin", "feishin", "Submariner", "submariner", "Amperfy", "amperfy", "DSub", "Symfonium"];
-  const versions = ["1.16.1", "1.15.0", "1.14.0", "1.13.0", "1.12.0"];
+  const salt = randomBytes(8).toString("hex");
+  const token = createHash("md5").update(password + salt).digest("hex");
+  const baseQs = new URLSearchParams({ u, t: token, s: salt, c: "Feishin", v: "1.16.1", f: "json" }).toString();
+  const basicAuth = "Basic " + Buffer.from(`${u}:${password}`).toString("base64");
+  const hexPass = Buffer.from(password).toString("hex");
+  const plainQs = new URLSearchParams({ u, p: `enc:${hexPass}`, c: "Feishin", v: "1.16.1", f: "json" }).toString();
+
   const results: Record<string, unknown> = {};
 
-  for (const c of clients) {
-    for (const v of versions) {
-      const key = `${c} v${v} md5`;
-      results[key] = await probe(`${BASE}/ping?${qs(u, password, c, v, "md5")}`);
-      // Stop testing this client if we find a non-error response
-      const r = results[key] as { body: { error?: boolean } };
-      if (!r.body?.error) break;
-    }
-    // Also try plain auth with first version
-    results[`${c} v1.16.1 plain`] = await probe(`${BASE}/ping?${qs(u, password, c, "1.16.1", "plain")}`);
+  // User-Agent variations (Feishin, Amperfy, Submariner desktop/mobile UAs)
+  const userAgents: Record<string, string> = {
+    "Feishin desktop": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Feishin/10.6.2 Chrome/120.0.6099.291 Electron/28.2.10 Safari/537.36",
+    "Amperfy iOS": "Amperfy/3.3.0 (iPhone; iOS 17.0; Scale/3.00)",
+    "Submariner macOS": "Submariner/1.0 CFNetwork/1490.0.4 Darwin/23.2.0",
+    "curl": "curl/8.1.2",
+    "no UA": "",
+  };
+
+  for (const [label, ua] of Object.entries(userAgents)) {
+    const h: Record<string, string> = { "Content-Type": "application/json" };
+    if (ua) h["User-Agent"] = ua;
+    results[`UA:${label} md5`] = await probe(`${BASE}/ping?${baseQs}`, h);
   }
 
-  // Also try raw password as p= (not hex-encoded) with Feishin
-  const rawP = new URLSearchParams({ u, p: password, c: "Feishin", v: "1.16.1", f: "json" });
-  results["Feishin v1.16.1 p=raw"] = await probe(`${BASE}/ping?${rawP}`);
+  // HTTP Basic Auth header (no query param auth)
+  const basicQs = new URLSearchParams({ c: "Feishin", v: "1.16.1", f: "json" }).toString();
+  results["Basic Auth header"] = await probe(`${BASE}/ping?${basicQs}`, { "Authorization": basicAuth });
+  results["Basic Auth + Feishin UA"] = await probe(`${BASE}/ping?${basicQs}`, {
+    "Authorization": basicAuth,
+    "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Feishin/10.6.2 Chrome/120.0.6099.291 Electron/28.2.10 Safari/537.36",
+  });
+
+  // Bearer token
+  results["Bearer token"] = await probe(`${BASE}/ping?${basicQs}`, { "Authorization": `Bearer ${password}` });
+
+  // Password IS the token (pass directly as t= without salt)
+  const directTokenQs = new URLSearchParams({ u, t: password, s: "", c: "Feishin", v: "1.16.1", f: "json" }).toString();
+  results["password as t= directly"] = await probe(`${BASE}/ping?${directTokenQs}`);
+
+  // Try XML format instead of JSON
+  const xmlQs = new URLSearchParams({ u, t: token, s: salt, c: "Feishin", v: "1.16.1", f: "xml" }).toString();
+  results["xml format"] = await probe(`${BASE}/ping?${xmlQs}`);
+
+  // Try plain password directly (not hex-encoded)
+  const rawPassQs = new URLSearchParams({ u, p: password, c: "Feishin", v: "1.16.1", f: "json" }).toString();
+  results["p=rawPassword"] = await probe(`${BASE}/ping?${rawPassQs}`);
 
   return NextResponse.json({ u, passwordLength: password.length, results });
 }
