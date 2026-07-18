@@ -1,4 +1,4 @@
-// Temporary diagnostic endpoint — admin only, returns raw Subsonic API response
+// Temporary diagnostic endpoint — admin only
 import { type NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createClient as createServiceClient } from "@supabase/supabase-js";
@@ -12,6 +12,12 @@ function serviceRole() {
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.SUPABASE_SERVICE_ROLE_KEY!
   );
+}
+
+function buildParams(username: string, password: string, version: string, extra: Record<string, string> = {}) {
+  const salt = randomBytes(8).toString("hex");
+  const token = createHash("md5").update(password + salt).digest("hex");
+  return new URLSearchParams({ u: username, t: token, s: salt, c: "rekodo", v: version, f: "json", ...extra });
 }
 
 export async function GET(_req: NextRequest) {
@@ -39,24 +45,41 @@ export async function GET(_req: NextRequest) {
     return NextResponse.json({ error: "Decrypt failed", detail: String(e) });
   }
 
-  const salt = randomBytes(8).toString("hex");
-  const token = createHash("md5").update(password + salt).digest("hex");
-  const params = new URLSearchParams({
-    u: profile.bandcamp_subsonic_username,
-    t: token, s: salt, c: "rekodo", v: "1.16.1", f: "json",
-    type: "alphabeticalByName", size: "5", offset: "0",
-  });
+  const username = profile.bandcamp_subsonic_username;
 
-  const url = `${BASE}/getAlbumList2?${params}`;
-  let raw: unknown;
-  let httpStatus: number;
-  try {
-    const res = await fetch(url, { signal: AbortSignal.timeout(15_000), cache: "no-store" });
-    httpStatus = res.status;
-    raw = await res.json();
-  } catch (e) {
-    return NextResponse.json({ error: "Fetch failed", detail: String(e) });
+  // Try ping with multiple versions to find what Bandcamp accepts
+  const versions = ["1.16.1", "1.15.0", "1.14.0", "1.13.0", "1.12.0", "1.11.0", "1.10.2", "1.9.0", "1.8.0"];
+  const pingResults: Record<string, unknown> = {};
+
+  for (const v of versions) {
+    try {
+      const res = await fetch(`${BASE}/ping?${buildParams(username, password, v)}`, {
+        signal: AbortSignal.timeout(8_000), cache: "no-store",
+      });
+      pingResults[v] = await res.json();
+    } catch (e) {
+      pingResults[v] = { fetchError: String(e) };
+    }
   }
 
-  return NextResponse.json({ httpStatus, username: profile.bandcamp_subsonic_username, raw });
+  // Also try getAlbumList2 with the first version that isn't a "bad version" error
+  const workingVersion = versions.find(v => {
+    const r = pingResults[v] as Record<string, unknown>;
+    return r && !r.error && (r["subsonic-response"] as Record<string, unknown>)?.status === "ok";
+  });
+
+  let albumSample: unknown = null;
+  if (workingVersion) {
+    try {
+      const res = await fetch(
+        `${BASE}/getAlbumList2?${buildParams(username, password, workingVersion, { type: "alphabeticalByName", size: "3", offset: "0" })}`,
+        { signal: AbortSignal.timeout(10_000), cache: "no-store" }
+      );
+      albumSample = await res.json();
+    } catch (e) {
+      albumSample = { fetchError: String(e) };
+    }
+  }
+
+  return NextResponse.json({ username, pingResults, workingVersion, albumSample });
 }
