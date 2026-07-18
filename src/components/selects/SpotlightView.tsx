@@ -85,9 +85,19 @@ function SpotlightPanel({ spotlight }: { spotlight: Spotlight }) {
               </p>
             )}
             {(meta.location || meta.active_period) && (
-              <p style={{ fontFamily: MONO, fontSize: "11px", color: INK, margin: 0, fontWeight: 400 }}>
+              <p style={{ fontFamily: MONO, fontSize: "11px", color: INK, margin: meta.bandcamp_url ? "0 0 4px" : "0", fontWeight: 400 }}>
                 {[meta.location, meta.active_period ? `Active ${meta.active_period}` : null].filter(Boolean).join(" · ")}
               </p>
+            )}
+            {meta.bandcamp_url && (
+              <a
+                href={meta.bandcamp_url}
+                target="_blank"
+                rel="noopener noreferrer"
+                style={{ fontFamily: MONO, fontSize: "11px", color: ORANGE, fontWeight: 400, textDecoration: "none" }}
+              >
+                Bandcamp ↗
+              </a>
             )}
           </>
         ) : (

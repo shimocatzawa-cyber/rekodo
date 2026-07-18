@@ -23,6 +23,7 @@ export interface SpotlightMeta {
   // artist
   label_affiliation?: string;
   active_period?: string;
+  bandcamp_url?: string;
   // label
   founded?: string;
   website?: string;

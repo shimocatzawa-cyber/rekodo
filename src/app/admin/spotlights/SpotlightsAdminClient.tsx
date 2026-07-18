@@ -26,7 +26,7 @@ const EMPTY: SpotlightPayload = {
 };
 
 const META_PLACEHOLDERS: Record<string, string> = {
-  artist: `{"label_affiliation": "Sacred Bones Records", "location": "Oakland, CA", "active_period": "2020–present"}`,
+  artist: `{"label_affiliation": "Sacred Bones Records", "location": "Oakland, CA", "active_period": "2020–present", "bandcamp_url": "https://artist.bandcamp.com"}`,
   label:  `{"founded": "2001", "location": "Seattle, WA", "website": "lightintheattic.net"}`,
 };
 
