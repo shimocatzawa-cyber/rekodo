@@ -70,13 +70,12 @@ export async function GET(request: NextRequest) {
       if (!r.year || r.year < 1900) continue;
       if (LIVE_PAT.test(r.title) || SINGLE_PAT.test(r.title) || REMIX_PAT.test(r.title)) continue;
 
+      // Exclude formats that are clearly not studio albums (7", EP, Single, etc.).
+      // Don't require a positive LP/Album signal — master releases from the
+      // Discogs artist endpoint often have format="Vinyl" or no format at all,
+      // and the positive check was filtering out valid albums like Townes Van Zandt.
       const fmt = (r.format ?? "").toLowerCase();
-      if (fmt) {
-        if (fmt.includes("live") || FORMAT_EXCL_PAT.test(fmt)) continue;
-        // If format is populated, only pass through LP/Album entries
-        const looksLikeAlbum = fmt.includes("lp") || fmt.includes("album");
-        if (!looksLikeAlbum) continue;
-      }
+      if (fmt && (fmt.includes("live") || FORMAT_EXCL_PAT.test(fmt))) continue;
 
       const norm = r.title.toLowerCase().trim();
       if (seen.has(norm)) continue;

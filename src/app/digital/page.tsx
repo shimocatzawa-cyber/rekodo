@@ -67,7 +67,7 @@ export default async function DigitalPage() {
   const subsonicUsername = subsonicRes.data?.bandcamp_subsonic_username ?? null;
 
   return (
-    <div style={{ height: "100vh", display: "flex", flexDirection: "column", background: "#ffffff", overflow: "hidden" }}>
+    <div style={{ minHeight: "100vh", background: "#ffffff" }}>
       <AppNav
         username={navProfile?.username ?? ""}
         displayLabel={navProfile?.display_name ?? undefined}
