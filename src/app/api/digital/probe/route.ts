@@ -5,8 +5,6 @@ import { createClient as createServiceClient } from "@supabase/supabase-js";
 import { decryptToken } from "@/lib/subsonic-crypto";
 import { createHash, randomBytes } from "crypto";
 
-const BASE = "https://bandcamp.com/api/subsonic";
-
 function serviceRole() {
   return createServiceClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -14,13 +12,27 @@ function serviceRole() {
   );
 }
 
-async function probe(url: string): Promise<{ status: number; body: unknown }> {
+async function probe(url: string, method = "GET"): Promise<{ status: number; body: unknown }> {
   try {
-    const res = await fetch(url, { signal: AbortSignal.timeout(8_000), cache: "no-store" });
-    return { status: res.status, body: await res.json() };
+    const res = await fetch(url, { method, signal: AbortSignal.timeout(8_000), cache: "no-store" });
+    const text = await res.text();
+    let body: unknown;
+    try { body = JSON.parse(text); } catch { body = text.slice(0, 500); }
+    return { status: res.status, body };
   } catch (e) {
     return { status: 0, body: String(e) };
   }
+}
+
+function md5Params(u: string, password: string, v = "1.14.0", extra: Record<string, string> = {}) {
+  const salt = randomBytes(8).toString("hex");
+  const token = createHash("md5").update(password + salt).digest("hex");
+  return new URLSearchParams({ u, t: token, s: salt, c: "rekodo", v, f: "json", ...extra }).toString();
+}
+
+function plainParams(u: string, password: string, v = "1.14.0", extra: Record<string, string> = {}) {
+  const hexPass = Buffer.from(password).toString("hex");
+  return new URLSearchParams({ u, p: `enc:${hexPass}`, c: "rekodo", v, f: "json", ...extra }).toString();
 }
 
 export async function GET() {
@@ -42,42 +54,38 @@ export async function GET() {
   }
 
   let password: string;
-  try {
-    password = decryptToken(profile.bandcamp_subsonic_token);
-  } catch (e) {
-    return NextResponse.json({ error: "Decrypt failed", detail: String(e) });
-  }
+  try { password = decryptToken(profile.bandcamp_subsonic_token); }
+  catch (e) { return NextResponse.json({ error: "Decrypt failed", detail: String(e) }); }
 
   const u = profile.bandcamp_subsonic_username;
-  const versions = ["1.16.1", "1.15.0", "1.14.0", "1.13.0", "1.12.0", "1.11.0", "1.10.2", "1.9.0", "1.8.0"];
 
-  // Test MD5 token auth across all versions
-  const md5Results: Record<string, unknown> = {};
-  for (const v of versions) {
-    const salt = randomBytes(8).toString("hex");
-    const token = createHash("md5").update(password + salt).digest("hex");
-    const p = new URLSearchParams({ u, t: token, s: salt, c: "rekodo", v, f: "json" });
-    md5Results[v] = await probe(`${BASE}/ping?${p}`);
-  }
+  // Try different URL structures Bandcamp might use
+  const BASE = "https://bandcamp.com/api/subsonic";
+  const results: Record<string, unknown> = {};
 
-  // Test plain-text hex-encoded auth (p=enc:...) with a few versions
-  const plainResults: Record<string, unknown> = {};
-  const hexPass = Buffer.from(password).toString("hex");
-  for (const v of ["1.16.1", "1.14.0", "1.12.0", "1.8.0"]) {
-    const p = new URLSearchParams({ u, p: `enc:${hexPass}`, c: "rekodo", v, f: "json" });
-    plainResults[v] = await probe(`${BASE}/ping?${p}`);
-  }
+  // Standard: /method?...
+  results["GET /ping md5"] = await probe(`${BASE}/ping?${md5Params(u, password)}`);
+  results["GET /ping plain"] = await probe(`${BASE}/ping?${plainParams(u, password)}`);
 
-  // Also test without version param entirely
-  const noVersion = await probe(`${BASE}/ping?${new URLSearchParams({ u, p: `enc:${hexPass}`, c: "rekodo", f: "json" })}`);
-  const noVersionMd5 = (() => { const salt = randomBytes(8).toString("hex"); const token = createHash("md5").update(password + salt).digest("hex"); return probe(`${BASE}/ping?${new URLSearchParams({ u, t: token, s: salt, c: "rekodo", f: "json" })}`); })();
+  // With .view suffix (standard Subsonic REST)
+  results["GET /ping.view md5"] = await probe(`${BASE}/ping.view?${md5Params(u, password)}`);
 
-  return NextResponse.json({
-    username: u,
-    passwordLength: password.length,
-    md5Results,
-    plainResults,
-    noVersion: await noVersion,
-    noVersionMd5: await noVersionMd5,
-  });
+  // With /rest/ prefix
+  results["GET /rest/ping md5"] = await probe(`${BASE}/rest/ping?${md5Params(u, password)}`);
+  results["GET /rest/ping.view md5"] = await probe(`${BASE}/rest/ping.view?${md5Params(u, password)}`);
+
+  // Username in path
+  results[`GET /${u}/ping md5`] = await probe(`${BASE}/${u}/ping?${md5Params(u, password)}`);
+
+  // POST variants
+  results["POST /ping md5"] = await probe(`${BASE}/ping?${md5Params(u, password)}`, "POST");
+
+  // Try swap: stored username used as password, password used as username
+  results["GET /ping md5 SWAPPED"] = await probe(`${BASE}/ping?${md5Params(password, u)}`);
+  results["GET /ping plain SWAPPED"] = await probe(`${BASE}/ping?${plainParams(password, u)}`);
+
+  // Also probe top-level URL to see what's there
+  results["GET / (base)"] = await probe(BASE);
+
+  return NextResponse.json({ storedUsername: u, passwordLength: password.length, results });
 }
