@@ -1,6 +1,7 @@
 import Link from "next/link";
 
 export default function HeroSection({ isSignedIn }: { isSignedIn: boolean }) {
+
   const wordmark = (
     <h1
       className="leading-none tracking-tighter text-black select-none text-left"
@@ -30,23 +31,7 @@ export default function HeroSection({ isSignedIn }: { isSignedIn: boolean }) {
         )}
       </div>
 
-      {/* Bottom strip */}
-      <div className="flex items-end justify-center md:justify-end gap-3 pt-16 border-t-0 md:border-t border-black/10">
-        <Link
-          href="/signup"
-          className="font-mono text-xs tracking-widest uppercase bg-black text-white px-8 py-4 hover:bg-[#CC5500] hover:text-white transition-colors"
-          style={{ fontFamily: "var(--font-dm-mono), 'Courier New', monospace" }}
-        >
-          Sign up free
-        </Link>
-        <Link
-          href="/login"
-          className="font-mono text-xs tracking-widest uppercase border border-black text-black px-8 py-4 hover:border-[#CC5500] hover:text-[#CC5500] transition-colors"
-          style={{ fontFamily: "var(--font-dm-mono), 'Courier New', monospace" }}
-        >
-          Log in
-        </Link>
-      </div>
+
     </section>
   );
 }
