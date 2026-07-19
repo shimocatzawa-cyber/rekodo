@@ -7,12 +7,10 @@ import Top5Tab from "@/components/lists/Top5Tab";
 import ProfileListsTab from "@/components/profile/ProfileListsTab";
 import SellListClient from "@/components/profile/SellListClient";
 import PlaylistTab from "@/components/lists/PlaylistTab";
-import BandcampListTab from "@/components/lists/BandcampListTab";
-
 const MONO   = "var(--font-mono)";
 const ORANGE = "#CC5500";
 
-type SubTab = "top5" | "wantlist" | "selllist" | "playlist" | "bandcamp";
+type SubTab = "top5" | "wantlist" | "selllist" | "playlist";
 
 interface Props {
   profileId:    string;
@@ -26,7 +24,6 @@ export default function ListsHub({ profileId, username, displayLabel, avatarUrl,
   const t = useTranslations("lists");
   const TABS: Array<{ key: SubTab; label: string }> = [
     { key: "top5",      label: t("myLists") },
-    { key: "bandcamp",  label: "Bandcamp" },
     { key: "wantlist",  label: t("wantList") },
     { key: "selllist",  label: t("sellList") },
     { key: "playlist",  label: t("playlist") },
@@ -86,9 +83,7 @@ export default function ListsHub({ profileId, username, displayLabel, avatarUrl,
         <div style={{ display: activeTab === "playlist" ? "block" : "none" }}>
           <PlaylistTab username={username} />
         </div>
-        {activeTab === "bandcamp" && (
-          <BandcampListTab />
-        )}
+
       </div>
     </div>
   );
