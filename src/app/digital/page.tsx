@@ -33,8 +33,8 @@ export default async function DigitalPage() {
       .from("digital_imports")
       .select("id, artist, album, purchased_at, item_url, release_date, label, tags, source")
       .eq("user_id", user.id)
-      .order("artist", { ascending: true })
-      .order("album", { ascending: true }),
+      .order("purchased_at", { ascending: false, nullsFirst: false })
+      .order("artist", { ascending: true }),
     supabase
       .from("profiles")
       .select("username, display_name, avatar_url, bandcamp_username")

@@ -245,7 +245,7 @@ export default function DigitalClient({ imports, hasBandcampUsername }: Props) {
   const router = useRouter();
   const [query,      setQuery]      = useState("");
   const [filterTag,  setFilterTag]  = useState("");
-  const [sortBy,     setSortBy]     = useState<Sort>("artist-az");
+  const [sortBy,     setSortBy]     = useState<Sort>("purchased");
   const [syncing,    setSyncing]    = useState(false);
   const [syncMsg,    setSyncMsg]    = useState<string | null>(null);
 
