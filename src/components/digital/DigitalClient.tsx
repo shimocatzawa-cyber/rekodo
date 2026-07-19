@@ -172,36 +172,33 @@ function AlbumCard({ imp }: { imp: DigitalImport }) {
                 allow="autoplay"
                 title={`${imp.artist} – ${imp.album}`}
               />
-              {embed!.tracks.length > 0 && (
-                <div style={{ borderTop: `1px solid ${RULE}` }}>
-                  {embed!.tracks.map(t => {
-                    const active = t.n === activeTrack;
-                    return (
-                      <button
-                        key={t.n}
-                        onClick={() => setActiveTrack(t.n)}
-                        style={{
-                          display: "flex", alignItems: "center", gap: "8px",
-                          width: "100%", textAlign: "left",
-                          padding: "6px 10px",
-                          background: active ? "#fff8f4" : "transparent",
-                          border: "none", borderBottom: `0.5px solid ${RULE}`,
-                          cursor: "pointer",
-                        }}
-                        onMouseEnter={e => { if (!active) (e.currentTarget as HTMLElement).style.background = "#f7f5f0"; }}
-                        onMouseLeave={e => { if (!active) (e.currentTarget as HTMLElement).style.background = "transparent"; }}
-                      >
-                        <span style={{ fontFamily: MONO, fontSize: "8px", color: active ? ORANGE : SUBTLE, minWidth: "14px", textAlign: "right", flexShrink: 0 }}>
-                          {active ? "▶" : t.n}
-                        </span>
-                        <span style={{ fontFamily: MONO, fontSize: "9px", color: active ? ORANGE : INK, letterSpacing: "0.02em", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                          {t.title}
-                        </span>
-                      </button>
-                    );
-                  })}
-                </div>
-              )}
+              {embed!.tracks.length > 0 && (() => {
+                const idx = embed!.tracks.findIndex(t => t.n === activeTrack);
+                const track = embed!.tracks[idx];
+                const hasPrev = idx > 0;
+                const hasNext = idx < embed!.tracks.length - 1;
+                return (
+                  <div style={{ display: "flex", alignItems: "center", gap: "6px", padding: "6px 10px", borderTop: `1px solid ${RULE}` }}>
+                    <button
+                      onClick={() => hasPrev && setActiveTrack(embed!.tracks[idx - 1].n)}
+                      disabled={!hasPrev}
+                      style={{ fontFamily: MONO, fontSize: "9px", color: hasPrev ? INK : "#cccccc", background: "none", border: "none", cursor: hasPrev ? "pointer" : "default", padding: "0 2px", flexShrink: 0 }}
+                    >
+                      ◀
+                    </button>
+                    <span style={{ fontFamily: MONO, fontSize: "9px", color: ORANGE, letterSpacing: "0.02em", flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", textAlign: "center" }}>
+                      {track?.title ?? ""}
+                    </span>
+                    <button
+                      onClick={() => hasNext && setActiveTrack(embed!.tracks[idx + 1].n)}
+                      disabled={!hasNext}
+                      style={{ fontFamily: MONO, fontSize: "9px", color: hasNext ? INK : "#cccccc", background: "none", border: "none", cursor: hasNext ? "pointer" : "default", padding: "0 2px", flexShrink: 0 }}
+                    >
+                      ▶
+                    </button>
+                  </div>
+                );
+              })()}
             </>
           )}
         </div>
