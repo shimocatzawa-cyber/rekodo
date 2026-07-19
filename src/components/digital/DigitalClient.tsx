@@ -33,7 +33,7 @@ function fmtYear(imp: DigitalImport): string | null {
 const coverCache = new Map<string, string | null>();
 
 function useCoverArt(artist: string, album: string, bandcampUrl?: string | null): string | null {
-  const key = `${artist}::${album}`;
+  const key = bandcampUrl ? `${artist}::${album}::bc` : `${artist}::${album}`;
   const [url, setUrl] = useState<string | null>(coverCache.get(key) ?? null);
 
   useEffect(() => {
@@ -44,10 +44,10 @@ function useCoverArt(artist: string, album: string, bandcampUrl?: string | null)
     fetch(`/api/deep-dive/album-art?${params}`)
       .then(r => r.json() as Promise<{ url: string | null }>)
       .then(({ url: u }) => {
-        coverCache.set(key, u);
+        if (u) coverCache.set(key, u); // only cache hits, not misses
         if (!cancelled) setUrl(u);
       })
-      .catch(() => { coverCache.set(key, null); });
+      .catch(() => {});
     return () => { cancelled = true; };
   }, [key, artist, album, bandcampUrl]);
 
