@@ -15,11 +15,11 @@ const ORANGE = "#CC5500";
 const NAV_ITEMS = [
   { href: "/selects",       label: "Rekōdo Selects", jp: "選集" },
   { href: "/collection",    label: "Collection",     jp: "コレクション" },
+  { href: "/digital",       label: "Digital",        jp: "デジタル" },
   { href: "/dig",           label: "Dig",            jp: "発掘" },
   { href: "/deep-dive",     label: "Deep Dive",      jp: "ディープダイブ" },
   { href: "/lists",         label: "Lists",          jp: "リスト" },
   { href: "/insights",      label: "Insights",       jp: "インサイト" },
-  { href: "/archetypes",    label: "Archetypes",     jp: "アーキタイプ" },
   { href: "/constellation", label: "Constellation",  jp: "星座", newTab: true },
 ] as const;
 
@@ -177,10 +177,10 @@ export default function AppNav({ username, displayLabel, avatarUrl }: { username
                 boxShadow: "0 4px 16px rgba(0,0,0,0.08)", zIndex: 100, minWidth: 160,
               }}>
                 {[
-                  { href: `/@${username}`, label: "Profile",   jp: "プロフィール", adminOnly: false },
-                  { href: "/community",    label: "Community", jp: "コミュニティ",  adminOnly: false },
-                  { href: "/about",        label: "Support",   jp: "サポート",     adminOnly: false },
-                  ...(isAdmin ? [{ href: "/digital", label: "Digital", jp: "デジタル", adminOnly: true }] : []),
+                  { href: `/@${username}`, label: "Profile",    jp: "プロフィール" },
+                  { href: "/archetypes",   label: "Archetypes", jp: "アーキタイプ" },
+                  { href: "/community",    label: "Community",  jp: "コミュニティ" },
+                  { href: "/about",        label: "Support",    jp: "サポート" },
                 ].map(({ href, label, jp }, i, arr) => (
                   <Link
                     key={href}
@@ -271,9 +271,9 @@ export default function AppNav({ username, displayLabel, avatarUrl }: { username
 
           <div style={{ marginTop: "1.5rem" }}>
             {[
-              { href: "/community", label: "Community", jp: "コミュニティ" },
-              { href: "/about",     label: "Support",   jp: "サポート" },
-              ...(isAdmin ? [{ href: "/digital", label: "Digital", jp: "デジタル" }] : []),
+              { href: "/archetypes", label: "Archetypes", jp: "アーキタイプ" },
+              { href: "/community",  label: "Community",  jp: "コミュニティ" },
+              { href: "/about",      label: "Support",    jp: "サポート" },
             ].map(({ href, label, jp }) => (
               <Link
                 key={href}
