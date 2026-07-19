@@ -7,6 +7,7 @@ import { createClient } from "@/lib/supabase/server";
 const SECTION_BY_PREFIX: [prefix: string, label: string][] = [
   ["/selects",            "Rekōdo Selects"],
   ["/collection",         "Collection"],
+  ["/digital",            "Digital"],
   ["/deep-dive",          "Deep Dive"],
   ["/dig",                "Dig"],
   ["/lists",              "Lists"],
