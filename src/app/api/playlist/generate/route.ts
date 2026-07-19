@@ -107,7 +107,7 @@ async function selectInBatches<T>(
 
 type UnmatchedItem = {
   refId:     string;
-  table:     "records" | "list_items";
+  table:     "records" | "list_items" | "digital_imports";
   artist:    string;
   album:     string;
   year:      number | null;
@@ -380,6 +380,23 @@ export async function POST(request: NextRequest) {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const db = supabase as any;
 
+  // ── Digital imports — fetched once, used in both metadata and Spotify paths
+  type DigitalImportRow = {
+    id: string; artist: string; album: string; release_date: string | null;
+    tags: string[] | null; spotify_tracks: SpotifyTrackJson[] | null;
+    spotify_matched: boolean | null; spotify_matched_at: string | null;
+  };
+  const digitalImports: DigitalImportRow[] = [];
+  for (let from = 0; ; from += PAGE_SIZE) {
+    const { data } = await db.from("digital_imports")
+      .select("id, artist, album, release_date, tags, spotify_tracks, spotify_matched, spotify_matched_at")
+      .eq("user_id", user.id).range(from, from + PAGE_SIZE - 1);
+    if (!data || data.length === 0) break;
+    digitalImports.push(...data);
+    if (data.length < PAGE_SIZE) break;
+  }
+  const digitalArtists = [...new Set(digitalImports.map((d: DigitalImportRow) => d.artist))];
+
   // ── Owned collection candidates ──────────────────────────────────────────
   const ownedLinks: Array<{ record_id: string; feeling: string | null }> = [];
   for (let from = 0; ; from += PAGE_SIZE) {
@@ -442,6 +459,17 @@ export async function POST(request: NextRequest) {
       record_id: r.id, discogs_id: r.discogs_id,
     }));
 
+    // Digital imports are owned music — always added as collection candidates
+    for (const d of digitalImports) {
+      if (excludeArtists.has(d.artist.toLowerCase().trim())) continue;
+      const yr = d.release_date ? parseInt(d.release_date.slice(0, 4), 10) : NaN;
+      albumPool.push({
+        artist: d.artist, album: d.album, year: isNaN(yr) ? null : yr,
+        genre: d.tags?.[0] ?? null, cover_url: null,
+        source: "collection", confidence: "inferred",
+      });
+    }
+
     if (includeOutsideCollection) {
       // Wantlist records
       const { data: wl } = await db
@@ -472,7 +500,7 @@ export async function POST(request: NextRequest) {
       const ownedStyles = [...new Set(ownedArtistRows.flatMap(r => r.styles ?? []))].sort();
       const discoveries = await discoverOutsideCollection(
         mood, refinement,
-        [...new Set(ownedArtistRows.map(r => r.artist))],
+        [...new Set([...ownedArtistRows.map(r => r.artist), ...digitalArtists])],
         [], ownedStyles,
       );
       for (const d of discoveries)
@@ -697,6 +725,22 @@ export async function POST(request: NextRequest) {
   }
   let candidates: Candidate[] = flattenCandidates(moodCandidatePool, "collection", "inferred");
 
+  // Digital imports — Spotify-matched, always included as owned collection
+  {
+    const matchedDigital = digitalImports.filter(d => d.spotify_matched === true);
+    const filtered = excludeArtists.size > 0
+      ? matchedDigital.filter(d => !excludeArtists.has(d.artist.toLowerCase().trim()))
+      : matchedDigital;
+    candidates = candidates.concat(flattenCandidates(
+      filtered.map(d => ({
+        artist: d.artist, album: d.album,
+        year: d.release_date ? (parseInt(d.release_date.slice(0, 4), 10) || null) : null,
+        cover_url: null, spotify_tracks: d.spotify_tracks,
+      })),
+      "collection", "inferred",
+    ));
+  }
+
   // ── Wantlist candidates (optional) ───────────────────────────────────────
   let wantlistId: string | null = null;
   let wantlistRecordIds: string[] = [];
@@ -739,7 +783,7 @@ export async function POST(request: NextRequest) {
     const ownedArtistRows = await selectInBatches<{ artist: string; styles: string[] | null }>(
       db, "records", "artist, styles", "id", ownedRecordIds,
     );
-    const ownedArtistsAll = [...new Set(ownedArtistRows.map(r => r.artist))];
+    const ownedArtistsAll = [...new Set([...ownedArtistRows.map(r => r.artist), ...digitalArtists])];
     const ownedStyles = [...new Set(ownedArtistRows.flatMap(r => r.styles ?? []))].sort();
 
     const wantlistArtistsAll = new Set<string>();
@@ -845,6 +889,18 @@ export async function POST(request: NextRequest) {
           year: r.song_year, cover_url: r.song_cover_url, genre: null, feeling: null, source: "wantlist",
         });
       }
+    }
+
+    // Unmatched digital imports — treated as collection source, same as physical records
+    for (const d of digitalImports) {
+      if (d.spotify_matched_at !== null) continue;
+      const yr = d.release_date ? parseInt(d.release_date.slice(0, 4), 10) : NaN;
+      unmatchedPool.push({
+        refId: d.id, table: "digital_imports",
+        artist: d.artist, album: d.album,
+        year: isNaN(yr) ? null : yr,
+        cover_url: null, genre: d.tags?.[0] ?? null, feeling: null, source: "collection",
+      });
     }
 
     // A single fixed-size (12-album) shortlist was a hard ceiling on how many
