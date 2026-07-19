@@ -149,22 +149,25 @@ function extractTagsFromHtml(html: string): string[] {
 
 async function fetchTagsForUrl(url: string): Promise<string[]> {
   try {
-    const res = await fetch(url, { headers: { "User-Agent": UA, "Accept": "text/html" }, signal: AbortSignal.timeout(10_000) });
+    const res = await fetch(url, { headers: { "User-Agent": UA, "Accept": "text/html" }, signal: AbortSignal.timeout(4_000) });
     if (!res.ok) return [];
     return extractTagsFromHtml(await res.text());
   } catch { return []; }
 }
 
-// Fetch tags for a batch of items concurrently, capped at `concurrency` at once
-async function fetchTagsBatch(urls: string[], concurrency = 6): Promise<Map<string, string[]>> {
+// Fetch tags for a batch of items concurrently, capped at `concurrency` at once.
+// Stops early if the deadline is reached so the route never times out waiting
+// for slow Bandcamp pages — albums without tags are stored, not dropped.
+async function fetchTagsBatch(urls: string[], concurrency = 8, deadlineMs = 90_000): Promise<Map<string, string[]>> {
   const result = new Map<string, string[]>();
   const queue = [...urls];
+  const deadline = Date.now() + deadlineMs;
 
   async function worker() {
-    while (queue.length > 0) {
+    while (queue.length > 0 && Date.now() < deadline) {
       const url = queue.shift()!;
       result.set(url, await fetchTagsForUrl(url));
-      if (queue.length > 0) await new Promise(r => setTimeout(r, 150));
+      if (queue.length > 0) await new Promise(r => setTimeout(r, 50));
     }
   }
 
@@ -194,7 +197,7 @@ async function fetchCollection(fanId: number): Promise<CollectionItem[]> {
       res = await fetch("https://bandcamp.com/api/fancollection/1/collection_items", {
         method: "POST",
         headers: { "Content-Type": "application/json", "User-Agent": UA },
-        body: JSON.stringify({ fan_id: fanId, older_than_token: olderThanToken, count: 20 }),
+        body: JSON.stringify({ fan_id: fanId, older_than_token: olderThanToken, count: 50 }),
         signal: AbortSignal.timeout(15_000),
       });
     } catch { break; }
