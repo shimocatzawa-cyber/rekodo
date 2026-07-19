@@ -32,14 +32,16 @@ function fmtYear(imp: DigitalImport): string | null {
 
 const coverCache = new Map<string, string | null>();
 
-function useCoverArt(artist: string, album: string): string | null {
+function useCoverArt(artist: string, album: string, bandcampUrl?: string | null): string | null {
   const key = `${artist}::${album}`;
   const [url, setUrl] = useState<string | null>(coverCache.get(key) ?? null);
 
   useEffect(() => {
     if (coverCache.has(key)) { setUrl(coverCache.get(key) ?? null); return; }
     let cancelled = false;
-    fetch(`/api/deep-dive/album-art?artist=${encodeURIComponent(artist)}&album=${encodeURIComponent(album)}`)
+    const params = new URLSearchParams({ artist, album });
+    if (bandcampUrl) params.set("bandcampUrl", bandcampUrl);
+    fetch(`/api/deep-dive/album-art?${params}`)
       .then(r => r.json() as Promise<{ url: string | null }>)
       .then(({ url: u }) => {
         coverCache.set(key, u);
@@ -47,7 +49,7 @@ function useCoverArt(artist: string, album: string): string | null {
       })
       .catch(() => { coverCache.set(key, null); });
     return () => { cancelled = true; };
-  }, [key, artist, album]);
+  }, [key, artist, album, bandcampUrl]);
 
   return url;
 }
@@ -60,7 +62,7 @@ const embedCache = new Map<string, EmbedInfo | "error">();
 // ── Album card ─────────────────────────────────────────────────────────────
 
 function AlbumCard({ imp }: { imp: DigitalImport }) {
-  const coverUrl = useCoverArt(imp.artist, imp.album);
+  const coverUrl = useCoverArt(imp.artist, imp.album, imp.item_url);
   const year = fmtYear(imp);
 
   const [embedState, setEmbedState] = useState<"idle" | "loading" | "ready" | "error">("idle");

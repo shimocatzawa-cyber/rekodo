@@ -2,6 +2,29 @@ import { type NextRequest, NextResponse } from "next/server";
 
 const CACHE = { headers: { "Cache-Control": "public, max-age=86400" } };
 
+const UA = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36";
+
+// Bandcamp fallback — scrapes art_id from TralbumData and constructs CDN URL
+async function fromBandcamp(itemUrl: string): Promise<string | null> {
+  if (!itemUrl.match(/^https?:\/\/[^/]*\.?bandcamp\.com\//)) return null;
+  try {
+    const res = await fetch(itemUrl, {
+      headers: { "User-Agent": UA, "Accept": "text/html" },
+      signal: AbortSignal.timeout(10_000),
+    });
+    if (!res.ok) return null;
+    const html = await res.text();
+    const tralbumIdx = html.indexOf("TralbumData");
+    if (tralbumIdx === -1) return null;
+    const chunk = html.slice(tralbumIdx, tralbumIdx + 1000);
+    const artMatch = chunk.match(/"art_id"\s*:\s*(\d+)/);
+    if (!artMatch) return null;
+    return `https://f4.bcbits.com/img/a${artMatch[1]}_10.jpg`;
+  } catch {
+    return null;
+  }
+}
+
 // Last.fm album.getInfo — exact artist+album match, most reliable source
 async function fromLastFm(artist: string, album: string): Promise<string | null> {
   const key = process.env.LASTFM_API_KEY;
@@ -57,10 +80,15 @@ async function fromItunes(artist: string, album: string): Promise<string | null>
 }
 
 export async function GET(request: NextRequest) {
-  const artist = request.nextUrl.searchParams.get("artist");
-  const album  = request.nextUrl.searchParams.get("album");
+  const artist      = request.nextUrl.searchParams.get("artist");
+  const album       = request.nextUrl.searchParams.get("album");
+  const bandcampUrl = request.nextUrl.searchParams.get("bandcampUrl");
   if (!artist || !album) return NextResponse.json({ url: null });
 
-  const url = (await fromLastFm(artist, album)) ?? (await fromItunes(artist, album));
+  const url =
+    (await fromLastFm(artist, album)) ??
+    (await fromItunes(artist, album)) ??
+    (bandcampUrl ? await fromBandcamp(bandcampUrl) : null);
+
   return NextResponse.json({ url }, CACHE);
 }
