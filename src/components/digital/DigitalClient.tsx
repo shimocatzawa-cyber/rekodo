@@ -102,7 +102,7 @@ function AlbumCard({ imp }: { imp: DigitalImport }) {
   }
 
   const embedSrc = embed
-    ? `https://bandcamp.com/EmbeddedPlayer/${embed.type}=${embed.id}/size=small/bgcol=ffffff/linkcol=${ORANGE.replace("#", "")}/transparent=true/`
+    ? `https://bandcamp.com/EmbeddedPlayer/${embed.type}=${embed.id}/size=large/bgcol=ffffff/linkcol=${ORANGE.replace("#", "")}/tracklist=false/artwork=small/transparent=true/`
     : null;
 
   return (
@@ -164,7 +164,7 @@ function AlbumCard({ imp }: { imp: DigitalImport }) {
             <iframe
               src={embedSrc}
               seamless
-              style={{ display: "block", width: "100%", height: "42px", border: 0 }}
+              style={{ display: "block", width: "100%", height: "120px", border: 0 }}
               allow="autoplay"
               title={`${imp.artist} – ${imp.album}`}
             />
