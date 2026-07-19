@@ -205,15 +205,17 @@ async function fetchCollection(fanId: number): Promise<CollectionItem[]> {
     if (!res.ok) break;
 
     type ApiItem = {
-      band_name?: string; album_title?: string; item_url?: string;
-      purchased?: string; release_date?: string; label_name?: string;
+      band_name?: string; album_title?: string; item_title?: string;
+      item_url?: string; purchased?: string; release_date?: string; label_name?: string;
     };
     let data: { items?: ApiItem[]; more_available?: boolean; last_token?: string };
     try { data = (await res.json()) as typeof data; }
     catch { break; }
 
     for (const item of data.items ?? []) {
-      if (!item.band_name || !item.album_title) continue;
+      // album_title is set for albums; item_title is set for standalone track purchases
+      const title = item.album_title ?? item.item_title;
+      if (!item.band_name || !title) continue;
       // Parse purchased timestamp — Bandcamp returns either ISO string or Unix seconds
       let purchasedAt: string | null = null;
       if (item.purchased) {
@@ -224,7 +226,7 @@ async function fetchCollection(fanId: number): Promise<CollectionItem[]> {
       }
       items.push({
         band_name:    item.band_name,
-        album_title:  item.album_title,
+        album_title:  title,
         item_url:     item.item_url ?? null,
         purchased_at: purchasedAt,
         release_date: item.release_date ?? null,

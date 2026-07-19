@@ -33,7 +33,6 @@ export default async function DigitalPage() {
       .from("digital_imports")
       .select("id, artist, album, purchased_at, item_url, release_date, label, tags, source")
       .eq("user_id", user.id)
-      .or("is_duplicate.is.null,is_duplicate.eq.false")
       .order("artist", { ascending: true })
       .order("album", { ascending: true }),
     supabase
