@@ -52,15 +52,67 @@ function useCoverArt(artist: string, album: string): string | null {
   return url;
 }
 
+// ── Embed ID cache ─────────────────────────────────────────────────────────
+
+type EmbedInfo = { id: number; type: "album" | "track" };
+const embedCache = new Map<string, EmbedInfo | "error">();
+
 // ── Album card ─────────────────────────────────────────────────────────────
 
 function AlbumCard({ imp }: { imp: DigitalImport }) {
   const coverUrl = useCoverArt(imp.artist, imp.album);
   const year = fmtYear(imp);
 
+  const [embedState, setEmbedState] = useState<"idle" | "loading" | "ready" | "error">("idle");
+  const [embed, setEmbed]           = useState<EmbedInfo | null>(null);
+  const [open, setOpen]             = useState(false);
+
+  const canPlay = !!imp.item_url;
+
+  async function handleArtworkClick() {
+    if (!canPlay) return;
+
+    if (open) { setOpen(false); return; }
+    setOpen(true);
+
+    if (embed) return; // already fetched
+
+    const cached = embedCache.get(imp.item_url!);
+    if (cached === "error") { setEmbedState("error"); return; }
+    if (cached) { setEmbed(cached); setEmbedState("ready"); return; }
+
+    setEmbedState("loading");
+    try {
+      const res = await fetch(`/api/digital/bandcamp-embed?url=${encodeURIComponent(imp.item_url!)}`);
+      const d = await res.json() as EmbedInfo & { error?: string };
+      if (res.ok && d.id) {
+        embedCache.set(imp.item_url!, d);
+        setEmbed(d);
+        setEmbedState("ready");
+      } else {
+        embedCache.set(imp.item_url!, "error");
+        setEmbedState("error");
+      }
+    } catch {
+      embedCache.set(imp.item_url!, "error");
+      setEmbedState("error");
+    }
+  }
+
+  const embedSrc = embed
+    ? `https://bandcamp.com/EmbeddedPlayer/${embed.type}=${embed.id}/size=small/bgcol=ffffff/linkcol=${encodeURIComponent(ORANGE)}/transparent=true/`
+    : null;
+
   return (
     <div style={{ background: "#fff", border: `1px solid ${RULE}` }}>
-      <div style={{ position: "relative", aspectRatio: "1 / 1", background: "#f0ede6", overflow: "hidden" }}>
+      {/* Cover art — clickable if item_url available */}
+      <div
+        onClick={handleArtworkClick}
+        style={{
+          position: "relative", aspectRatio: "1 / 1", background: "#f0ede6", overflow: "hidden",
+          cursor: canPlay ? "pointer" : "default",
+        }}
+      >
         {coverUrl ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img
@@ -75,7 +127,48 @@ function AlbumCard({ imp }: { imp: DigitalImport }) {
             <span style={{ fontFamily: SERIF, fontSize: "28px", color: "#c8c4bb" }}>ō</span>
           </div>
         )}
+
+        {/* Play / collapse badge */}
+        {canPlay && (
+          <div style={{
+            position: "absolute", bottom: "6px", right: "6px",
+            background: open ? ORANGE : "rgba(0,0,0,0.45)",
+            color: "#fff", fontFamily: MONO, fontSize: "9px",
+            padding: "3px 6px", letterSpacing: "0.04em",
+            transition: "background 0.15s",
+          }}>
+            {open ? "▲" : "▶"}
+          </div>
+        )}
       </div>
+
+      {/* Bandcamp player */}
+      {open && (
+        <div style={{ borderTop: `1px solid ${RULE}` }}>
+          {embedState === "loading" && (
+            <div style={{ padding: "10px 10px", fontFamily: MONO, fontSize: "9px", color: SUBTLE, letterSpacing: "0.06em" }}>
+              Loading…
+            </div>
+          )}
+          {embedState === "error" && (
+            <div style={{ padding: "10px 10px", fontFamily: MONO, fontSize: "9px", color: SUBTLE }}>
+              Not streamable —{" "}
+              <a href={imp.item_url!} target="_blank" rel="noopener noreferrer" style={{ color: ORANGE, textDecoration: "none" }}>
+                open on Bandcamp ↗
+              </a>
+            </div>
+          )}
+          {embedState === "ready" && embedSrc && (
+            <iframe
+              src={embedSrc}
+              seamless
+              style={{ display: "block", width: "100%", height: "42px", border: 0 }}
+              allow="autoplay"
+              title={`${imp.artist} – ${imp.album}`}
+            />
+          )}
+        </div>
+      )}
 
       <div style={{ padding: "10px 10px 12px" }}>
         <div style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.1em", textTransform: "uppercase", color: SUBTLE, marginBottom: "3px" }}>
@@ -204,37 +297,9 @@ export default function DigitalClient({ imports, hasBandcampUsername }: Props) {
   return (
     <div style={{ background: "#ffffff", maxWidth: 1400, margin: "0 auto", padding: "1.5rem 2rem" }}>
 
-      {/* Sync row */}
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "10px" }}>
-        <button
-          onClick={handleSync}
-          disabled={syncing}
-          style={{
-            fontFamily: MONO, fontSize: "10px", letterSpacing: "0.06em",
-            color: syncing ? "#aaaaaa" : ORANGE,
-            background: "none", border: "none",
-            cursor: syncing ? "default" : "pointer",
-            padding: 0,
-          }}
-        >
-          {syncing ? "Syncing…" : "Sync with Bandcamp →"}
-        </button>
-        {syncMsg && (
-          <span style={{ fontFamily: MONO, fontSize: "9px", color: SUBTLE }}>{syncMsg}</span>
-        )}
+      {/* Sync + search row */}
+      <div style={{ display: "flex", alignItems: "center", gap: "16px", marginBottom: "10px" }}>
         {imports.length > 0 && (
-          <span style={{ fontFamily: MONO, fontSize: "9px", color: "#bbbbbb", letterSpacing: "0.04em" }}>
-            {filtered.length !== imports.length
-              ? `${filtered.length} of ${imports.length}`
-              : imports.length}{" "}
-            {imports.length === 1 ? "album" : "albums"}
-          </span>
-        )}
-      </div>
-
-      {/* Search + tag filter + sort */}
-      {imports.length > 0 && (
-        <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "1.25rem", flexWrap: "wrap", borderBottom: "1px solid rgba(0,0,0,0.08)", paddingBottom: "10px" }}>
           <input
             type="search"
             placeholder="Search artist or album…"
@@ -249,6 +314,36 @@ export default function DigitalClient({ imports, hasBandcampUsername }: Props) {
               transition: "border-color 0.15s",
             }}
           />
+        )}
+        <button
+          onClick={handleSync}
+          disabled={syncing}
+          style={{
+            fontFamily: MONO, fontSize: "10px", letterSpacing: "0.06em",
+            color: syncing ? "#aaaaaa" : ORANGE,
+            background: "none", border: "none",
+            cursor: syncing ? "default" : "pointer",
+            padding: 0, flexShrink: 0,
+          }}
+        >
+          {syncing ? "Syncing…" : "Sync with Bandcamp →"}
+        </button>
+        {syncMsg && (
+          <span style={{ fontFamily: MONO, fontSize: "9px", color: SUBTLE }}>{syncMsg}</span>
+        )}
+        {imports.length > 0 && (
+          <span style={{ fontFamily: MONO, fontSize: "9px", color: "#bbbbbb", letterSpacing: "0.04em", marginLeft: "auto" }}>
+            {filtered.length !== imports.length
+              ? `${filtered.length} of ${imports.length}`
+              : imports.length}{" "}
+            {imports.length === 1 ? "album" : "albums"}
+          </span>
+        )}
+      </div>
+
+      {/* Tag filter + sort */}
+      {imports.length > 0 && (
+        <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "1.25rem", flexWrap: "wrap", borderBottom: "1px solid rgba(0,0,0,0.08)", paddingBottom: "10px" }}>
 
           {allTags.length > 0 && (
             <select
