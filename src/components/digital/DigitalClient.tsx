@@ -56,7 +56,8 @@ function useCoverArt(artist: string, album: string, bandcampUrl?: string | null)
 
 // ── Embed ID cache ─────────────────────────────────────────────────────────
 
-type EmbedInfo = { id: number; type: "album" | "track" };
+type Track = { n: number; title: string };
+type EmbedInfo = { id: number; type: "album" | "track"; tracks: Track[] };
 const embedCache = new Map<string, EmbedInfo | "error">();
 
 // ── Album card ─────────────────────────────────────────────────────────────
@@ -68,6 +69,7 @@ function AlbumCard({ imp }: { imp: DigitalImport }) {
   const [embedState, setEmbedState] = useState<"idle" | "loading" | "ready" | "error">("idle");
   const [embed, setEmbed]           = useState<EmbedInfo | null>(null);
   const [open, setOpen]             = useState(false);
+  const [activeTrack, setActiveTrack] = useState<number>(1);
 
   const canPlay = !!imp.item_url;
 
@@ -102,7 +104,7 @@ function AlbumCard({ imp }: { imp: DigitalImport }) {
   }
 
   const embedSrc = embed
-    ? `https://bandcamp.com/EmbeddedPlayer/${embed.type}=${embed.id}/size=small/bgcol=ffffff/linkcol=${ORANGE.replace("#", "")}/transparent=true/`
+    ? `https://bandcamp.com/EmbeddedPlayer/${embed.type}=${embed.id}/size=small/bgcol=ffffff/linkcol=${ORANGE.replace("#", "")}/transparent=true/t=${activeTrack}/`
     : null;
 
   return (
@@ -161,13 +163,46 @@ function AlbumCard({ imp }: { imp: DigitalImport }) {
             </div>
           )}
           {embedState === "ready" && embedSrc && (
-            <iframe
-              src={embedSrc}
-              seamless
-              style={{ display: "block", width: "100%", height: "42px", border: 0 }}
-              allow="autoplay"
-              title={`${imp.artist} – ${imp.album}`}
-            />
+            <>
+              <iframe
+                key={embedSrc}
+                src={embedSrc}
+                seamless
+                style={{ display: "block", width: "100%", height: "42px", border: 0 }}
+                allow="autoplay"
+                title={`${imp.artist} – ${imp.album}`}
+              />
+              {embed!.tracks.length > 0 && (
+                <div style={{ borderTop: `1px solid ${RULE}` }}>
+                  {embed!.tracks.map(t => {
+                    const active = t.n === activeTrack;
+                    return (
+                      <button
+                        key={t.n}
+                        onClick={() => setActiveTrack(t.n)}
+                        style={{
+                          display: "flex", alignItems: "center", gap: "8px",
+                          width: "100%", textAlign: "left",
+                          padding: "6px 10px",
+                          background: active ? "#fff8f4" : "transparent",
+                          border: "none", borderBottom: `0.5px solid ${RULE}`,
+                          cursor: "pointer",
+                        }}
+                        onMouseEnter={e => { if (!active) (e.currentTarget as HTMLElement).style.background = "#f7f5f0"; }}
+                        onMouseLeave={e => { if (!active) (e.currentTarget as HTMLElement).style.background = "transparent"; }}
+                      >
+                        <span style={{ fontFamily: MONO, fontSize: "8px", color: active ? ORANGE : SUBTLE, minWidth: "14px", textAlign: "right", flexShrink: 0 }}>
+                          {active ? "▶" : t.n}
+                        </span>
+                        <span style={{ fontFamily: MONO, fontSize: "9px", color: active ? ORANGE : INK, letterSpacing: "0.02em", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                          {t.title}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+            </>
           )}
         </div>
       )}

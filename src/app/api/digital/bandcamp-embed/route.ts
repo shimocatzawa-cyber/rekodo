@@ -3,28 +3,40 @@ import { createClient } from "@/lib/supabase/server";
 
 const UA = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36";
 
-type EmbedResult = { id: number; type: "album" | "track" } | null;
+type Track = { n: number; title: string };
+type EmbedResult = { id: number; type: "album" | "track"; tracks: Track[] } | null;
+
+type TrackInfo = { track_num?: number; title?: string };
+
+function extractTracks(parsed: { trackinfo?: TrackInfo[] } | null | undefined): Track[] {
+  if (!parsed?.trackinfo) return [];
+  return parsed.trackinfo
+    .filter(t => t.track_num && t.title)
+    .map(t => ({ n: t.track_num!, title: t.title! }))
+    .sort((a, b) => a.n - b.n);
+}
 
 function extractFromHtml(html: string, url: string): EmbedResult {
   const type = url.includes("/track/") ? "track" : "album";
 
-  // 1. og:video meta tag — most reliable, gives the embed URL directly
-  //    <meta property="og:video" content="https://bandcamp.com/EmbeddedPlayer/album=123/..."/>
-  const ogVideo = html.match(/property="og:video(?::url)?"\s+content="([^"]+)"/i)
-                ?? html.match(/content="([^"]+)"\s+property="og:video(?::url)?"/i);
-  if (ogVideo) {
-    const m = ogVideo[1].match(/EmbeddedPlayer\/(album|track)=(\d+)/);
-    if (m) return { id: parseInt(m[2], 10), type: m[1] as "album" | "track" };
-  }
-
-  // 2. data-tralbum attribute (newer Bandcamp pages)
+  // 1. data-tralbum attribute (newer Bandcamp pages) — try first as it has full trackinfo
   const dataTralbum = html.match(/data-tralbum="([^"]+)"/);
   if (dataTralbum) {
     try {
       const decoded = dataTralbum[1].replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&amp;/g, "&");
-      const parsed = JSON.parse(decoded) as { id?: number };
-      if (parsed.id) return { id: parsed.id, type };
+      const parsed = JSON.parse(decoded) as { id?: number; trackinfo?: TrackInfo[] };
+      if (parsed.id) return { id: parsed.id, type, tracks: extractTracks(parsed) };
     } catch { /* continue */ }
+  }
+
+  // 2. og:video meta tag — reliable for ID but no trackinfo
+  const ogVideo = html.match(/property="og:video(?::url)?"\s+content="([^"]+)"/i)
+               ?? html.match(/content="([^"]+)"\s+property="og:video(?::url)?"/i);
+  let ogId: number | null = null;
+  let ogType: "album" | "track" = type;
+  if (ogVideo) {
+    const m = ogVideo[1].match(/EmbeddedPlayer\/(album|track)=(\d+)/);
+    if (m) { ogId = parseInt(m[2], 10); ogType = m[1] as "album" | "track"; }
   }
 
   // 3. pagedata blob containing TralbumData
@@ -32,22 +44,40 @@ function extractFromHtml(html: string, url: string): EmbedResult {
   if (pagedata) {
     try {
       const decoded = pagedata[1].replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&amp;/g, "&");
-      const parsed = JSON.parse(decoded) as { TralbumData?: { id?: number } };
-      if (parsed.TralbumData?.id) return { id: parsed.TralbumData.id, type };
+      const parsed = JSON.parse(decoded) as { TralbumData?: { id?: number; trackinfo?: TrackInfo[] } };
+      if (parsed.TralbumData?.id) {
+        return { id: parsed.TralbumData.id, type, tracks: extractTracks(parsed.TralbumData) };
+      }
     } catch { /* continue */ }
   }
 
-  // 4. Inline TralbumData JS object (old Bandcamp format)
+  // 4. Inline TralbumData JS object — parse a large chunk to capture trackinfo
   const tralbumIdx = html.indexOf("TralbumData");
   if (tralbumIdx !== -1) {
-    const chunk = html.slice(tralbumIdx, tralbumIdx + 800);
+    // Try to grab a big enough slice to include trackinfo
+    const chunk = html.slice(tralbumIdx, tralbumIdx + 60_000);
     const idMatch = chunk.match(/"id"\s*:\s*(\d+)/);
-    if (idMatch) return { id: parseInt(idMatch[1], 10), type };
+    if (idMatch) {
+      const id = parseInt(idMatch[1], 10);
+      // Try to parse trackinfo from inline JSON
+      const trackinfoMatch = chunk.match(/"trackinfo"\s*:\s*(\[[\s\S]*?\])\s*,\s*"/);
+      let tracks: Track[] = [];
+      if (trackinfoMatch) {
+        try {
+          const raw = JSON.parse(trackinfoMatch[1]) as TrackInfo[];
+          tracks = extractTracks({ trackinfo: raw });
+        } catch { /* no tracks */ }
+      }
+      return { id, type, tracks };
+    }
   }
 
-  // 5. data-item-id attribute
+  // 5. og:video ID fallback (no tracks)
+  if (ogId) return { id: ogId, type: ogType, tracks: [] };
+
+  // 6. data-item-id attribute
   const itemId = html.match(/data-item-id="[at]-?(\d+)"/);
-  if (itemId) return { id: parseInt(itemId[1], 10), type };
+  if (itemId) return { id: parseInt(itemId[1], 10), type, tracks: [] };
 
   return null;
 }
