@@ -102,7 +102,7 @@ function AlbumCard({ imp }: { imp: DigitalImport }) {
   }
 
   const embedSrc = embed
-    ? `https://bandcamp.com/EmbeddedPlayer/${embed.type}=${embed.id}/size=large/bgcol=ffffff/linkcol=${ORANGE.replace("#", "")}/tracklist=false/artwork=small/transparent=true/`
+    ? `https://bandcamp.com/EmbeddedPlayer/${embed.type}=${embed.id}/size=large/bgcol=ffffff/linkcol=${ORANGE.replace("#", "")}/tracklist=false/artwork=none/transparent=true/`
     : null;
 
   return (
