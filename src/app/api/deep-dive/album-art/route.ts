@@ -4,7 +4,7 @@ const CACHE = { headers: { "Cache-Control": "public, max-age=86400" } };
 
 const UA = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36";
 
-// Bandcamp fallback — scrapes art_id from TralbumData and constructs CDN URL
+// Bandcamp fallback — uses og:image (always present) then art_id from TralbumData
 async function fromBandcamp(itemUrl: string): Promise<string | null> {
   if (!itemUrl.match(/^https?:\/\/[^/]*\.?bandcamp\.com\//)) return null;
   try {
@@ -14,12 +14,24 @@ async function fromBandcamp(itemUrl: string): Promise<string | null> {
     });
     if (!res.ok) return null;
     const html = await res.text();
+
+    // og:image is always present and is the most reliable source
+    const ogImage = html.match(/property="og:image"\s+content="([^"]+)"/i)
+                 ?? html.match(/content="([^"]+)"\s+property="og:image"/i);
+    if (ogImage?.[1] && ogImage[1].includes("bcbits.com")) {
+      // Upgrade to _10.jpg (1200×1200) — og:image is usually _5.jpg (700×700)
+      return ogImage[1].replace(/_\d+\.jpg$/, "_10.jpg");
+    }
+
+    // Fallback: art_id in TralbumData
     const tralbumIdx = html.indexOf("TralbumData");
-    if (tralbumIdx === -1) return null;
-    const chunk = html.slice(tralbumIdx, tralbumIdx + 1000);
-    const artMatch = chunk.match(/"art_id"\s*:\s*(\d+)/);
-    if (!artMatch) return null;
-    return `https://f4.bcbits.com/img/a${artMatch[1]}_10.jpg`;
+    if (tralbumIdx !== -1) {
+      const chunk = html.slice(tralbumIdx, tralbumIdx + 1000);
+      const artMatch = chunk.match(/"art_id"\s*:\s*(\d+)/);
+      if (artMatch) return `https://f4.bcbits.com/img/a${artMatch[1]}_10.jpg`;
+    }
+
+    return null;
   } catch {
     return null;
   }
