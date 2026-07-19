@@ -297,13 +297,25 @@ export default function DigitalClient({ imports, hasBandcampUsername }: Props) {
   }
 
   return (
-    <div style={{ background: "#ffffff", maxWidth: 1400, margin: "0 auto", padding: "1.5rem 2rem" }}>
+    <div className="dig-outer" style={{ background: "#ffffff", maxWidth: 1400, margin: "0 auto", padding: "1.5rem 2rem" }}>
+      <style>{`
+        @media (max-width: 767px) {
+          .dig-outer { padding: 1rem !important; }
+          .dig-top-row { flex-wrap: wrap !important; }
+          .dig-search { width: 100% !important; }
+          .dig-filter-row { overflow-x: auto; flex-wrap: nowrap !important; padding-bottom: 12px !important; }
+          .dig-filter-row::-webkit-scrollbar { display: none; }
+          .dig-sort-group { flex-wrap: nowrap !important; }
+          .dig-count { display: none !important; }
+        }
+      `}</style>
 
       {/* Sync + search row */}
-      <div style={{ display: "flex", alignItems: "center", gap: "16px", marginBottom: "10px" }}>
+      <div className="dig-top-row" style={{ display: "flex", alignItems: "center", gap: "12px", marginBottom: "10px" }}>
         {imports.length > 0 && (
           <input
             type="search"
+            className="dig-search"
             placeholder="Search artist or album…"
             value={query}
             onChange={e => setQuery(e.target.value)}
@@ -331,10 +343,10 @@ export default function DigitalClient({ imports, hasBandcampUsername }: Props) {
           {syncing ? "Syncing…" : "Sync with Bandcamp →"}
         </button>
         {syncMsg && (
-          <span style={{ fontFamily: MONO, fontSize: "9px", color: SUBTLE }}>{syncMsg}</span>
+          <span style={{ fontFamily: MONO, fontSize: "9px", color: SUBTLE, flexShrink: 0 }}>{syncMsg}</span>
         )}
         {imports.length > 0 && (
-          <span style={{ fontFamily: MONO, fontSize: "9px", color: "#bbbbbb", letterSpacing: "0.04em", marginLeft: "auto" }}>
+          <span className="dig-count" style={{ fontFamily: MONO, fontSize: "9px", color: "#bbbbbb", letterSpacing: "0.04em", marginLeft: "auto" }}>
             {filtered.length !== imports.length
               ? `${filtered.length} of ${imports.length}`
               : imports.length}{" "}
@@ -343,9 +355,9 @@ export default function DigitalClient({ imports, hasBandcampUsername }: Props) {
         )}
       </div>
 
-      {/* Tag filter + sort */}
+      {/* Tag filter + sort — scrollable on mobile */}
       {imports.length > 0 && (
-        <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "1.25rem", flexWrap: "wrap", borderBottom: "1px solid rgba(0,0,0,0.08)", paddingBottom: "10px" }}>
+        <div className="dig-filter-row" style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "1.25rem", flexWrap: "wrap", borderBottom: "1px solid rgba(0,0,0,0.08)", paddingBottom: "10px" }}>
 
           {allTags.length > 0 && (
             <select
@@ -357,6 +369,7 @@ export default function DigitalClient({ imports, hasBandcampUsername }: Props) {
                 background: "#ffffff",
                 border: `1px solid ${filterTag ? ORANGE : "rgba(0,0,0,0.13)"}`,
                 cursor: "pointer", padding: "4px 6px", outline: "none",
+                flexShrink: 0,
                 transition: "border-color 0.15s, color 0.15s",
               }}
             >
@@ -365,8 +378,8 @@ export default function DigitalClient({ imports, hasBandcampUsername }: Props) {
             </select>
           )}
 
-          <div style={{ display: "flex", alignItems: "center", gap: "6px", marginLeft: "4px", flexWrap: "wrap" }}>
-            <span style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.1em", textTransform: "uppercase", color: "#aaaaaa" }}>
+          <div className="dig-sort-group" style={{ display: "flex", alignItems: "center", gap: "6px", marginLeft: "4px", flexWrap: "wrap" }}>
+            <span style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.1em", textTransform: "uppercase", color: "#aaaaaa", flexShrink: 0 }}>
               Sort
             </span>
             {SORT_OPTIONS.map(o => {
@@ -382,7 +395,7 @@ export default function DigitalClient({ imports, hasBandcampUsername }: Props) {
                     background: active ? "#0d0d0d" : "none",
                     border: `1px solid ${active ? "#0d0d0d" : "rgba(0,0,0,0.13)"}`,
                     borderRadius: "3px", cursor: "pointer", padding: "3px 8px",
-                    whiteSpace: "nowrap", transition: "all 0.15s",
+                    whiteSpace: "nowrap", flexShrink: 0, transition: "all 0.15s",
                   }}
                 >
                   {o.label}
@@ -397,7 +410,7 @@ export default function DigitalClient({ imports, hasBandcampUsername }: Props) {
               style={{
                 fontFamily: MONO, fontSize: "9px", letterSpacing: "0.06em",
                 color: ORANGE, background: "none", border: "none",
-                cursor: "pointer", padding: 0, marginLeft: "4px",
+                cursor: "pointer", padding: 0, marginLeft: "4px", flexShrink: 0,
               }}
             >
               Clear ×
@@ -424,7 +437,7 @@ export default function DigitalClient({ imports, hasBandcampUsername }: Props) {
       {filtered.length > 0 && (
         <div style={{
           display: "grid",
-          gridTemplateColumns: "repeat(auto-fill, minmax(180px, 1fr))",
+          gridTemplateColumns: "repeat(auto-fill, minmax(160px, 1fr))",
           gap: "1px",
           background: RULE,
           border: `1px solid ${RULE}`,
