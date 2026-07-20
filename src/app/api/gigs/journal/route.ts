@@ -23,7 +23,16 @@ export async function GET() {
     .order("date", { ascending: false });
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-  return NextResponse.json({ gigs: data ?? [] });
+
+  // Supabase returns nested tables using their table name as the key.
+  // Remap to the shape the client expects.
+  const gigs = (data ?? []).map((g: any) => ({ // eslint-disable-line @typescript-eslint/no-explicit-any
+    ...g,
+    artists: g.gig_artists   ?? [],
+    songs:   g.gig_setlist_songs ?? [],
+  }));
+
+  return NextResponse.json({ gigs });
 }
 
 export async function POST(request: NextRequest) {
