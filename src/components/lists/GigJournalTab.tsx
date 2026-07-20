@@ -191,6 +191,27 @@ function GigRow({ gig, selected, onClick }: { gig: Gig; selected: boolean; onCli
   );
 }
 
+// ── Enrichment types ──────────────────────────────────────────────────────────
+
+type EnrichMatch = { album: string; cover_url: string | null; source: "collection" | "musicbrainz" };
+type EnrichMap   = Record<string, EnrichMatch | null>;
+
+function groupByAlbum(songs: GigSong[], enrichMap: EnrichMap) {
+  const order: string[]  = [];
+  const groups = new Map<string, { album: string | null; cover_url: string | null; source: string | null; songs: GigSong[] }>();
+
+  for (const song of [...songs].sort((a, b) => a.position - b.position)) {
+    const match = enrichMap[song.song_title];
+    const key   = match?.album ?? "__none__";
+    if (!groups.has(key)) {
+      order.push(key);
+      groups.set(key, { album: match?.album ?? null, cover_url: match?.cover_url ?? null, source: match?.source ?? null, songs: [] });
+    }
+    groups.get(key)!.songs.push(song);
+  }
+  return order.map(k => groups.get(k)!);
+}
+
 // ── Detail panel ──────────────────────────────────────────────────────────────
 
 function GigDetail({ gig, onEdit, onDelete }: {
@@ -201,9 +222,30 @@ function GigDetail({ gig, onEdit, onDelete }: {
   const supports   = gig.artists.filter(a => !a.is_headliner).map(a => a.artist_name);
   const sets       = groupSongsBySet(gig.songs);
   const [confirmDelete, setConfirmDelete] = useState(false);
-  const location = [gig.venue, gig.city, gig.country].filter(Boolean).join("  ·  ").toUpperCase();
 
-  // Primary photo: photo1, fallback to poster if only that exists
+  const [enrichMap, setEnrichMap]   = useState<EnrichMap | null>(null);
+  const [enriching, setEnriching]   = useState(false);
+
+  const headlinerName = headliners[0] ?? gig.artists[0]?.artist_name ?? "";
+
+  useEffect(() => {
+    if (!headlinerName || gig.songs.length === 0) return;
+    setEnrichMap(null);
+    setEnriching(true);
+    fetch("/api/gigs/setlist-enrich", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ artist: headlinerName, songs: gig.songs.map(s => s.song_title) }),
+    })
+      .then(r => r.json())
+      .then(d => setEnrichMap(d.matches ?? {}))
+      .catch(() => setEnrichMap({}))
+      .finally(() => setEnriching(false));
+  }, [gig.id]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const locationStr = [gig.venue, gig.city].filter(Boolean).join(", ").toUpperCase();
+  const fullDate    = `${d.day} ${d.month} ${d.year}`;
+
   const primaryPhoto = gig.photo_1_url ?? (!gig.photo_2_url ? gig.poster_url : null);
   const showPhoto2   = gig.photo_2_url;
   const showPoster   = gig.poster_url && primaryPhoto !== gig.poster_url ? gig.poster_url : null;
@@ -211,30 +253,31 @@ function GigDetail({ gig, onEdit, onDelete }: {
   return (
     <div>
 
-      {/* ── Hero: photo left | info right ── */}
-      <div style={{ display: "flex", alignItems: "stretch", minHeight: 400, borderBottom: `1px solid ${BORDER}` }}>
+      {/* ── Hero: thumbnail left | info right ── */}
+      <div style={{ display: "flex", alignItems: "flex-start", gap: 28, padding: "32px 40px 30px", borderBottom: `1px solid ${BORDER}` }}>
 
-        {/* Left: full-height photo */}
-        <div style={{ flex: "0 0 42%", position: "relative", background: LIGHT, overflow: "hidden", flexShrink: 0 }}>
+        {/* Small square photo */}
+        <div style={{ flexShrink: 0, width: 128, height: 128, background: LIGHT, overflow: "hidden" }}>
           {primaryPhoto ? (
             /* eslint-disable-next-line @next/next/no-img-element */
             <img src={primaryPhoto} alt=""
-              style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover", display: "block" }}
+              style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
             />
           ) : (
-            <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "flex-end", padding: "20px 24px" }}>
-              <span style={{ fontFamily: MONO, fontSize: "7px", color: "#d8d5d0", letterSpacing: "0.1em" }}>No photo</span>
+            <div style={{ width: "100%", height: "100%", display: "flex", alignItems: "center", justifyContent: "center" }}>
+              <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#ccc9c0" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round">
+                <rect x="3" y="3" width="18" height="18" rx="2" />
+                <circle cx="8.5" cy="8.5" r="1.5" />
+                <polyline points="21 15 16 10 5 21" />
+              </svg>
             </div>
           )}
         </div>
 
-        {/* Right: date / artist / meta */}
-        <div style={{
-          flex: 1, padding: "36px 36px 32px 36px",
-          display: "flex", flexDirection: "column", position: "relative", minWidth: 0,
-        }}>
+        {/* Info */}
+        <div style={{ flex: 1, minWidth: 0, paddingTop: 2 }}>
           {/* Actions */}
-          <div style={{ display: "flex", gap: 12, alignItems: "center", marginBottom: "auto", justifyContent: "flex-end" }}>
+          <div style={{ display: "flex", gap: 12, alignItems: "center", justifyContent: "flex-end", marginBottom: 12 }}>
             <button type="button" onClick={onEdit}
               style={{ fontFamily: MONO, fontSize: "7.5px", letterSpacing: "0.1em", textTransform: "uppercase", color: ORANGE, background: "none", border: `1px solid ${ORANGE}`, padding: "5px 11px", cursor: "pointer" }}
             >Edit</button>
@@ -249,38 +292,27 @@ function GigDetail({ gig, onEdit, onDelete }: {
             )}
           </div>
 
-          {/* Spacer pushes date/artist down to a comfortable midpoint */}
-          <div style={{ flex: "0 0 32px" }} />
-
-          {/* Date */}
-          <div style={{ marginBottom: 20 }}>
-            <div style={{ fontFamily: SERIF, fontSize: "84px", lineHeight: 0.85, color: ORANGE, fontWeight: 700, letterSpacing: "-0.03em" }}>
-              {d.day}
-            </div>
-            <div style={{ marginTop: 10, display: "flex", gap: 10, alignItems: "baseline" }}>
-              <span style={{ fontFamily: MONO, fontSize: "11px", letterSpacing: "0.14em", color: SUBTLE }}>{d.month}</span>
-              <span style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.1em", color: "#c0c0c0" }}>{d.year}</span>
-            </div>
+          {/* Date · Venue, City */}
+          <div style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.14em", color: ORANGE, marginBottom: 10 }}>
+            {fullDate}{locationStr && <span style={{ color: "#c0b090" }}> · {locationStr}</span>}
           </div>
 
-          {/* Artist */}
+          {/* Artist name */}
           <div style={{
             fontFamily: SERIF, fontWeight: 700, letterSpacing: "-0.01em",
-            fontSize: "clamp(20px, 2.6vw, 32px)", lineHeight: 1.05, color: INK, marginBottom: 6,
+            fontSize: "clamp(22px, 2.8vw, 34px)", lineHeight: 1.05, color: INK, marginBottom: 6,
           }}>
             {headliners.join(" & ") || "Unknown Artist"}
           </div>
+
+          {/* Support acts */}
           {supports.length > 0 && (
-            <div style={{ fontFamily: MONO, fontSize: "8.5px", letterSpacing: "0.06em", color: SUBTLE, marginBottom: 10 }}>
+            <div style={{ fontFamily: SERIF, fontSize: "14px", color: SUBTLE, marginBottom: 10 }}>
               w/ {supports.join(", ")}
             </div>
           )}
-          {location && (
-            <div style={{ fontFamily: MONO, fontSize: "8px", letterSpacing: "0.12em", color: "#aaaaaa", marginBottom: 16 }}>
-              {location}
-            </div>
-          )}
-          {!!gig.rating && <RatingStars value={gig.rating} size={18} />}
+
+          {!!gig.rating && <RatingStars value={gig.rating} size={16} />}
         </div>
       </div>
 
@@ -304,11 +336,11 @@ function GigDetail({ gig, onEdit, onDelete }: {
 
       {/* ── Journal ── */}
       {gig.journal_entry && (
-        <div style={{ padding: "36px 44px 0", borderBottom: sets.length > 0 ? `1px solid ${BORDER}` : "none" }}>
-          <div style={{ fontFamily: MONO, fontSize: "7px", letterSpacing: "0.14em", textTransform: "uppercase", color: "#c8c8c8", marginBottom: 14 }}>
+        <div style={{ padding: "32px 40px", borderBottom: sets.length > 0 ? `1px solid ${BORDER}` : "none" }}>
+          <div style={{ fontFamily: MONO, fontSize: "7px", letterSpacing: "0.14em", textTransform: "uppercase", color: "#c8c8c8", marginBottom: 16 }}>
             Notes
           </div>
-          <div style={{ fontFamily: SERIF, fontSize: "16px", lineHeight: 1.8, color: INK, fontStyle: "italic", paddingBottom: 36 }}>
+          <div style={{ fontFamily: SERIF, fontSize: "16px", lineHeight: 1.85, color: INK, fontStyle: "italic" }}>
             {gig.journal_entry}
           </div>
         </div>
@@ -316,45 +348,93 @@ function GigDetail({ gig, onEdit, onDelete }: {
 
       {/* ── Setlist ── */}
       {sets.length > 0 && (
-        <div style={{ padding: "32px 44px 64px" }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 16, marginBottom: 20 }}>
+        <div style={{ padding: "32px 40px 64px" }}>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 18 }}>
             <span style={{ fontFamily: MONO, fontSize: "7px", letterSpacing: "0.14em", textTransform: "uppercase", color: "#c8c8c8" }}>
               Setlist
             </span>
-            <div style={{ flex: 1, height: 1, background: BORDER }} />
-            {gig.setlist_fm_id && (
-              <a href={`https://www.setlist.fm/setlist/${gig.setlist_fm_id}`} target="_blank" rel="noopener noreferrer"
-                style={{ fontFamily: MONO, fontSize: "7px", color: "#c0c0c0", letterSpacing: "0.06em", textDecoration: "none" }}>
-                setlist.fm ↗
-              </a>
-            )}
+            <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
+              {enriching && (
+                <span style={{ fontFamily: MONO, fontSize: "7px", color: "#d8d5d0", letterSpacing: "0.06em" }}>matching albums…</span>
+              )}
+              {gig.setlist_fm_id && (
+                <a href={`https://www.setlist.fm/setlist/${gig.setlist_fm_id}`} target="_blank" rel="noopener noreferrer"
+                  style={{ fontFamily: MONO, fontSize: "7px", color: "#c0c0c0", letterSpacing: "0.06em", textDecoration: "none" }}>
+                  setlist.fm ↗
+                </a>
+              )}
+            </div>
           </div>
 
-          {/* Two-column if long */}
-          <div style={{ columns: gig.songs.length > 10 ? 2 : 1, columnGap: 48 }}>
-            {sets.map((set, si) => (
-              <div key={si} style={{ breakInside: "avoid", marginBottom: si < sets.length - 1 ? 24 : 0 }}>
+          {/* Album-grouped view once enrichment is ready */}
+          {enrichMap ? (
+            groupByAlbum(gig.songs, enrichMap).map((group, gi, arr) => (
+              <div key={gi} style={{ marginBottom: gi < arr.length - 1 ? 28 : 0 }}>
+                {/* Album header */}
+                {group.album && (
+                  <div style={{
+                    display: "flex", alignItems: "center", gap: 10,
+                    marginBottom: 4, paddingBottom: 8, borderBottom: `1px solid ${BORDER}`,
+                  }}>
+                    {/* Artwork */}
+                    <div style={{ flexShrink: 0, width: 36, height: 36, background: LIGHT, overflow: "hidden" }}>
+                      {group.cover_url ? (
+                        /* eslint-disable-next-line @next/next/no-img-element */
+                        <img src={group.cover_url} alt={group.album}
+                          style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
+                          onError={e => { (e.currentTarget as HTMLImageElement).style.display = "none"; }}
+                        />
+                      ) : null}
+                    </div>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{
+                        fontFamily: MONO, fontSize: "8px", letterSpacing: "0.1em",
+                        textTransform: "uppercase", color: SUBTLE,
+                        overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
+                      }}>{group.album}</div>
+                      {group.source === "collection" && (
+                        <div style={{ fontFamily: MONO, fontSize: "6.5px", letterSpacing: "0.08em", color: ORANGE, marginTop: 2 }}>
+                          in your collection
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+                {group.songs.map(s => (
+                  <div key={s.id} style={{ display: "flex", gap: 16, padding: "11px 0", borderBottom: `1px solid #f2f1ed`, alignItems: "baseline" }}>
+                    <span style={{ fontFamily: MONO, fontSize: "10px", color: "#c0c0c0", minWidth: 24, flexShrink: 0 }}>
+                      {String(s.position).padStart(2, "0")}
+                    </span>
+                    <span style={{ fontFamily: SERIF, fontSize: "15px", color: INK, lineHeight: 1.4 }}>{s.song_title}</span>
+                  </div>
+                ))}
+              </div>
+            ))
+          ) : (
+            /* Flat list while enrichment is loading */
+            sets.map((set, si) => (
+              <div key={si} style={{ marginBottom: si < sets.length - 1 ? 28 : 0 }}>
                 {set.label !== "Main Set" && (
                   <div style={{ fontFamily: MONO, fontSize: "7px", letterSpacing: "0.14em", textTransform: "uppercase", color: ORANGE, marginBottom: 10, paddingBottom: 7, borderBottom: `1px solid ${BORDER}` }}>
                     {set.label}
                   </div>
                 )}
                 {set.songs.map(s => (
-                  <div key={s.id} style={{ display: "flex", gap: 14, padding: "5px 0", borderBottom: `1px solid #f2f1ed`, alignItems: "baseline" }}>
-                    <span style={{ fontFamily: MONO, fontSize: "8px", color: "#c8c8c8", minWidth: 22, flexShrink: 0 }}>
+                  <div key={s.id} style={{ display: "flex", gap: 16, padding: "11px 0", borderBottom: `1px solid #f2f1ed`, alignItems: "baseline" }}>
+                    <span style={{ fontFamily: MONO, fontSize: "10px", color: "#c0c0c0", minWidth: 24, flexShrink: 0 }}>
                       {String(s.position).padStart(2, "0")}
                     </span>
-                    <span style={{ fontFamily: SERIF, fontSize: "14px", color: INK, lineHeight: 1.4 }}>{s.song_title}</span>
+                    <span style={{ fontFamily: SERIF, fontSize: "15px", color: INK, lineHeight: 1.4 }}>{s.song_title}</span>
                   </div>
                 ))}
               </div>
-            ))}
-          </div>
+            ))
+          )}
         </div>
       )}
 
       {!gig.journal_entry && sets.length === 0 && (
-        <div style={{ padding: "32px 44px 64px", fontFamily: MONO, fontSize: "9px", color: "#cccccc" }}>
+        <div style={{ padding: "32px 40px 64px", fontFamily: MONO, fontSize: "9px", color: "#cccccc" }}>
           No notes or setlist yet. <button type="button" onClick={onEdit}
             style={{ fontFamily: MONO, fontSize: "9px", color: ORANGE, background: "none", border: "none", cursor: "pointer", padding: 0, textDecoration: "underline" }}>
             Add them →
