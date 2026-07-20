@@ -7,10 +7,11 @@ import Top5Tab from "@/components/lists/Top5Tab";
 import ProfileListsTab from "@/components/profile/ProfileListsTab";
 import SellListClient from "@/components/profile/SellListClient";
 import PlaylistTab from "@/components/lists/PlaylistTab";
+import GigJournalTab from "@/components/lists/GigJournalTab";
 const MONO   = "var(--font-mono)";
 const ORANGE = "#CC5500";
 
-type SubTab = "top5" | "wantlist" | "selllist" | "playlist";
+type SubTab = "top5" | "wantlist" | "selllist" | "playlist" | "gigs";
 
 interface Props {
   profileId:    string;
@@ -18,16 +19,20 @@ interface Props {
   displayLabel?: string;
   avatarUrl?:   string | null;
   isSupporter:  boolean;
+  isAdmin?:     boolean;
 }
 
-export default function ListsHub({ profileId, username, displayLabel, avatarUrl, isSupporter }: Props) {
+export default function ListsHub({ profileId, username, displayLabel, avatarUrl, isSupporter, isAdmin }: Props) {
   const t = useTranslations("lists");
-  const TABS: Array<{ key: SubTab; label: string }> = [
+  const baseTabs: Array<{ key: SubTab; label: string }> = [
     { key: "top5",      label: t("myLists") },
     { key: "wantlist",  label: t("wantList") },
     { key: "selllist",  label: t("sellList") },
     { key: "playlist",  label: t("playlist") },
   ];
+  const TABS = isAdmin
+    ? [...baseTabs, { key: "gigs" as SubTab, label: "Gig Journal" }]
+    : baseTabs;
   const [activeTab, setActiveTab] = useUrlTab<SubTab>("tab", TABS.map(t => t.key), "top5");
 
   // isSupporter kept in Props for potential future use
@@ -83,6 +88,8 @@ export default function ListsHub({ profileId, username, displayLabel, avatarUrl,
         <div style={{ display: activeTab === "playlist" ? "block" : "none" }}>
           <PlaylistTab username={username} />
         </div>
+
+        {isAdmin && activeTab === "gigs" && <GigJournalTab />}
 
       </div>
     </div>
