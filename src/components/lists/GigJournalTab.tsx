@@ -226,6 +226,28 @@ function GigDetail({ gig, onEdit, onDelete }: {
   const [enrichMap, setEnrichMap]   = useState<EnrichMap | null>(null);
   const [enriching, setEnriching]   = useState(false);
 
+  const [lightboxUrl, setLightboxUrl]   = useState<string | null>(null);
+  const [editingNotes, setEditingNotes] = useState(false);
+  const [notesValue, setNotesValue]     = useState(gig.journal_entry ?? "");
+  const [notesSaving, setNotesSaving]   = useState(false);
+
+  useEffect(() => { setNotesValue(gig.journal_entry ?? ""); }, [gig.id]);
+
+  async function saveNotes(value: string) {
+    if (value === (gig.journal_entry ?? "")) return;
+    setNotesSaving(true);
+    await fetch(`/api/gigs/journal/${gig.id}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        date: gig.date, venue: gig.venue, city: gig.city, country: gig.country,
+        journal_entry: value || null, rating: gig.rating,
+        setlist_fm_id: gig.setlist_fm_id, setlist_source: gig.setlist_source,
+        photo_1_url: gig.photo_1_url, photo_2_url: gig.photo_2_url, poster_url: gig.poster_url,
+      }),
+    }).finally(() => setNotesSaving(false));
+  }
+
   const headlinerName = headliners[0] ?? gig.artists[0]?.artist_name ?? "";
 
   useEffect(() => {
@@ -256,20 +278,43 @@ function GigDetail({ gig, onEdit, onDelete }: {
       {/* ── Hero: thumbnail left | info right ── */}
       <div style={{ display: "flex", alignItems: "flex-start", gap: 28, padding: "32px 40px 30px", borderBottom: `1px solid ${BORDER}` }}>
 
-        {/* Small square photo */}
-        <div style={{ flexShrink: 0, width: 128, height: 128, background: LIGHT, overflow: "hidden" }}>
-          {primaryPhoto ? (
-            /* eslint-disable-next-line @next/next/no-img-element */
-            <img src={primaryPhoto} alt=""
-              style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
-            />
-          ) : (
-            <div style={{ width: "100%", height: "100%", display: "flex", alignItems: "center", justifyContent: "center" }}>
-              <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#ccc9c0" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round">
-                <rect x="3" y="3" width="18" height="18" rx="2" />
-                <circle cx="8.5" cy="8.5" r="1.5" />
-                <polyline points="21 15 16 10 5 21" />
-              </svg>
+        {/* Photo column: main thumbnail + secondary thumbnails below */}
+        <div style={{ flexShrink: 0, width: 128, display: "flex", flexDirection: "column", gap: 5 }}>
+          {/* Main photo */}
+          <div
+            onClick={() => primaryPhoto && setLightboxUrl(primaryPhoto)}
+            style={{ width: 128, height: 128, background: LIGHT, overflow: "hidden", cursor: primaryPhoto ? "zoom-in" : "default", flexShrink: 0 }}
+          >
+            {primaryPhoto ? (
+              /* eslint-disable-next-line @next/next/no-img-element */
+              <img src={primaryPhoto} alt="" style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
+            ) : (
+              <div style={{ width: "100%", height: "100%", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#ccc9c0" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round">
+                  <rect x="3" y="3" width="18" height="18" rx="2" />
+                  <circle cx="8.5" cy="8.5" r="1.5" />
+                  <polyline points="21 15 16 10 5 21" />
+                </svg>
+              </div>
+            )}
+          </div>
+          {/* Secondary thumbnails */}
+          {(showPhoto2 || showPoster) && (
+            <div style={{ display: "flex", gap: 5 }}>
+              {showPhoto2 && (
+                <div onClick={() => setLightboxUrl(showPhoto2!)}
+                  style={{ flex: 1, height: 58, background: LIGHT, overflow: "hidden", cursor: "zoom-in" }}>
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={showPhoto2} alt="" style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
+                </div>
+              )}
+              {showPoster && (
+                <div onClick={() => setLightboxUrl(showPoster!)}
+                  style={{ flex: 1, height: 58, background: LIGHT, overflow: "hidden", cursor: "zoom-in" }}>
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={showPoster} alt="" style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
+                </div>
+              )}
             </div>
           )}
         </div>
@@ -316,145 +361,178 @@ function GigDetail({ gig, onEdit, onDelete }: {
         </div>
       </div>
 
-      {/* ── Secondary photos (photo2 + poster) ── */}
-      {(showPhoto2 || showPoster) && (
-        <div style={{ display: "flex", borderBottom: `1px solid ${BORDER}` }}>
-          {showPhoto2 && (
-            <div style={{ flex: showPoster ? "0 0 60%" : 1, height: 200, overflow: "hidden" }}>
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={showPhoto2} alt="" style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
-            </div>
-          )}
-          {showPoster && (
-            <div style={{ flex: 1, height: 200, overflow: "hidden", borderLeft: showPhoto2 ? `4px solid #fff` : "none" }}>
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={showPoster} alt="" style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
-            </div>
-          )}
-        </div>
-      )}
+      {/* ── Body: [notes + setlist] | [album breakdown] ── */}
+      {(() => {
+        const albumGroups = enrichMap ? groupByAlbum(gig.songs, enrichMap) : [];
+        const matched     = albumGroups.filter(g => g.album !== null);
+        const unmatched   = albumGroups.filter(g => g.album === null).flatMap(g => g.songs);
+        const showPanel   = enrichMap !== null && (matched.length > 0 || unmatched.length > 0);
 
-      {/* ── Journal ── */}
-      {gig.journal_entry && (
-        <div style={{ padding: "32px 40px", borderBottom: sets.length > 0 ? `1px solid ${BORDER}` : "none" }}>
-          <div style={{ fontFamily: MONO, fontSize: "10px", letterSpacing: "0.14em", textTransform: "uppercase", color: SUBTLE, marginBottom: 16 }}>
-            Notes
-          </div>
-          <div style={{ fontFamily: SERIF, fontSize: "16px", lineHeight: 1.85, color: INK, fontStyle: "italic" }}>
-            {gig.journal_entry}
-          </div>
-        </div>
-      )}
+        return (
+          <div style={{ display: "flex", alignItems: "flex-start" }}>
 
-      {/* ── Setlist ── */}
-      {sets.length > 0 && (
-        <div style={{ padding: "32px 40px 64px" }}>
-          {/* Header */}
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 20 }}>
-            <span style={{ fontFamily: MONO, fontSize: "10px", letterSpacing: "0.14em", textTransform: "uppercase", color: SUBTLE }}>
-              Setlist
-            </span>
-            <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
-              {enriching && (
-                <span style={{ fontFamily: MONO, fontSize: "9px", color: "#aaaaaa", letterSpacing: "0.06em" }}>matching albums…</span>
-              )}
-              {gig.setlist_fm_id && (
-                <a href={`https://www.setlist.fm/setlist/${gig.setlist_fm_id}`} target="_blank" rel="noopener noreferrer"
-                  style={{ fontFamily: MONO, fontSize: "9px", color: SUBTLE, letterSpacing: "0.06em", textDecoration: "none" }}>
-                  setlist.fm ↗
-                </a>
-              )}
-            </div>
-          </div>
-
-          {/* Two-column body: songs left, album breakdown right */}
-          <div style={{ display: "flex", gap: 40, alignItems: "flex-start" }}>
-
-            {/* Left: flat numbered list */}
+            {/* ── Left: notes + setlist ── */}
             <div style={{ flex: 1, minWidth: 0 }}>
-              {sets.map((set, si) => (
-                <div key={si} style={{ marginBottom: si < sets.length - 1 ? 28 : 0 }}>
-                  {set.label !== "Main Set" && (
-                    <div style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.14em", textTransform: "uppercase", color: ORANGE, marginBottom: 10, paddingBottom: 8, borderBottom: `1px solid ${BORDER}` }}>
-                      {set.label}
-                    </div>
-                  )}
-                  {set.songs.map(s => (
-                    <div key={s.id} style={{ display: "flex", gap: 16, padding: "11px 0", borderBottom: `1px solid #f0ede8`, alignItems: "baseline" }}>
-                      <span style={{ fontFamily: MONO, fontSize: "11px", color: "#999999", minWidth: 26, flexShrink: 0 }}>
-                        {String(s.position).padStart(2, "0")}
-                      </span>
-                      <span style={{ fontFamily: SERIF, fontSize: "15px", color: INK, lineHeight: 1.4 }}>{s.song_title}</span>
-                    </div>
-                  ))}
-                </div>
-              ))}
-            </div>
 
-            {/* Right: album breakdown — shown once enrichment resolves */}
-            {enrichMap && (() => {
-              const albumGroups = groupByAlbum(gig.songs, enrichMap);
-              const matched   = albumGroups.filter(g => g.album !== null);
-              const unmatched = albumGroups.filter(g => g.album === null).flatMap(g => g.songs);
-              if (!matched.length && !unmatched.length) return null;
-              return (
-                <div style={{ width: 176, flexShrink: 0 }}>
-                  {matched.map((group, gi) => (
-                    <div key={gi} style={{ marginBottom: 24 }}>
-                      {/* Square artwork */}
-                      <div style={{ width: 176, height: 176, background: LIGHT, overflow: "hidden", marginBottom: 10 }}>
-                        {group.cover_url ? (
-                          /* eslint-disable-next-line @next/next/no-img-element */
-                          <img src={group.cover_url} alt={group.album ?? ""}
-                            style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
-                            onError={e => { (e.currentTarget as HTMLImageElement).style.display = "none"; }}
-                          />
-                        ) : null}
-                      </div>
-                      {/* Album name */}
-                      <div style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.1em", textTransform: "uppercase", color: INK, marginBottom: 3, lineHeight: 1.4 }}>
-                        {group.album}
-                      </div>
-                      {group.source === "collection" && (
-                        <div style={{ fontFamily: MONO, fontSize: "8px", color: ORANGE, letterSpacing: "0.06em", marginBottom: 8 }}>
-                          in your collection
+              {/* Notes */}
+              <div style={{ padding: "32px 32px 32px 40px", borderBottom: sets.length > 0 ? `1px solid ${BORDER}` : "none" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 16 }}>
+                  <div style={{ fontFamily: MONO, fontSize: "10px", letterSpacing: "0.14em", textTransform: "uppercase", color: SUBTLE }}>
+                    Notes
+                  </div>
+                  {notesSaving && (
+                    <span style={{ fontFamily: MONO, fontSize: "9px", color: "#aaaaaa" }}>saving…</span>
+                  )}
+                </div>
+                {editingNotes ? (
+                  <textarea
+                    autoFocus
+                    value={notesValue}
+                    onChange={e => setNotesValue(e.target.value)}
+                    onBlur={() => { setEditingNotes(false); saveNotes(notesValue); }}
+                    onKeyDown={e => { if (e.key === "Escape") { setEditingNotes(false); saveNotes(notesValue); } }}
+                    rows={5}
+                    style={{
+                      fontFamily: SERIF, fontSize: "16px", lineHeight: 1.85, color: INK, fontStyle: "italic",
+                      width: "100%", border: "none", outline: "none", resize: "vertical",
+                      background: "transparent", padding: 0,
+                    }}
+                  />
+                ) : (
+                  <div onClick={() => setEditingNotes(true)}
+                    style={{ fontFamily: SERIF, fontSize: "16px", lineHeight: 1.85, fontStyle: "italic", cursor: "text", minHeight: 28 }}>
+                    {notesValue
+                      ? <span style={{ color: INK }}>{notesValue}</span>
+                      : <span style={{ color: "#bbbbbb" }}>Click to add notes…</span>
+                    }
+                  </div>
+                )}
+              </div>
+
+              {/* Setlist */}
+              {sets.length > 0 && (
+                <div style={{ padding: "32px 32px 64px 40px" }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 20 }}>
+                    <span style={{ fontFamily: MONO, fontSize: "10px", letterSpacing: "0.14em", textTransform: "uppercase", color: SUBTLE }}>
+                      Setlist
+                    </span>
+                    {gig.setlist_fm_id && (
+                      <a href={`https://www.setlist.fm/setlist/${gig.setlist_fm_id}`} target="_blank" rel="noopener noreferrer"
+                        style={{ fontFamily: MONO, fontSize: "9px", color: SUBTLE, letterSpacing: "0.06em", textDecoration: "none" }}>
+                        · setlist.fm ↗
+                      </a>
+                    )}
+                    {enriching && (
+                      <span style={{ fontFamily: MONO, fontSize: "9px", color: "#aaaaaa" }}>matching albums…</span>
+                    )}
+                  </div>
+
+                  {sets.map((set, si) => (
+                    <div key={si} style={{ marginBottom: si < sets.length - 1 ? 28 : 0 }}>
+                      {set.label !== "Main Set" && (
+                        <div style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.14em", textTransform: "uppercase", color: ORANGE, marginBottom: 10, paddingBottom: 8, borderBottom: `1px solid ${BORDER}` }}>
+                          {set.label}
                         </div>
                       )}
-                      {/* Songs from this album */}
-                      {group.songs.map(s => (
-                        <div key={s.id} style={{ fontFamily: MONO, fontSize: "9px", color: SUBTLE, lineHeight: 1.8, letterSpacing: "0.02em" }}>
-                          {s.song_title}
+                      {set.songs.map(s => (
+                        <div key={s.id} style={{ display: "flex", gap: 16, padding: "11px 0", borderBottom: `1px solid #f0ede8`, alignItems: "baseline" }}>
+                          <span style={{ fontFamily: MONO, fontSize: "11px", color: "#999999", minWidth: 26, flexShrink: 0 }}>
+                            {String(s.position).padStart(2, "0")}
+                          </span>
+                          <span style={{ fontFamily: SERIF, fontSize: "15px", color: INK, lineHeight: 1.4 }}>{s.song_title}</span>
                         </div>
                       ))}
                     </div>
                   ))}
-
-                  {/* Unmatched songs */}
-                  {unmatched.length > 0 && (
-                    <div>
-                      <div style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.1em", textTransform: "uppercase", color: "#aaaaaa", marginBottom: 8 }}>
-                        Not matched
-                      </div>
-                      {unmatched.map(s => (
-                        <div key={s.id} style={{ fontFamily: MONO, fontSize: "9px", color: "#aaaaaa", lineHeight: 1.8 }}>
-                          {s.song_title}
-                        </div>
-                      ))}
-                    </div>
-                  )}
                 </div>
-              );
-            })()}
-          </div>
-        </div>
-      )}
+              )}
 
-      {!gig.journal_entry && sets.length === 0 && (
-        <div style={{ padding: "32px 40px 64px", fontFamily: MONO, fontSize: "10px", color: SUBTLE }}>
-          No notes or setlist yet. <button type="button" onClick={onEdit}
-            style={{ fontFamily: MONO, fontSize: "10px", color: ORANGE, background: "none", border: "none", cursor: "pointer", padding: 0, textDecoration: "underline" }}>
-            Add them →
-          </button>
+              {sets.length === 0 && (
+                <div style={{ padding: "8px 32px 40px 40px", fontFamily: MONO, fontSize: "10px", color: SUBTLE }}>
+                  No setlist yet —{" "}
+                  <button type="button" onClick={onEdit}
+                    style={{ fontFamily: MONO, fontSize: "10px", color: ORANGE, background: "none", border: "none", cursor: "pointer", padding: 0, textDecoration: "underline" }}>
+                    add one →
+                  </button>
+                </div>
+              )}
+            </div>
+
+            {/* ── Right: album breakdown panel ── */}
+            {showPanel && (
+              <div style={{ width: 152, flexShrink: 0, padding: "32px 40px 64px 0" }}>
+                {matched.map((group, gi) => (
+                  <div key={gi} style={{ marginBottom: 24 }}>
+                    {/* Artwork */}
+                    <div style={{ width: 112, height: 112, background: LIGHT, overflow: "hidden", marginBottom: 8, position: "relative" }}>
+                      {group.cover_url ? (
+                        /* eslint-disable-next-line @next/next/no-img-element */
+                        <img src={group.cover_url} alt={group.album ?? ""}
+                          referrerPolicy="no-referrer"
+                          style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
+                          onError={e => {
+                            const el = e.currentTarget as HTMLImageElement;
+                            el.style.display = "none";
+                            const parent = el.parentElement;
+                            if (parent) parent.setAttribute("data-noart", "1");
+                          }}
+                        />
+                      ) : (
+                        <div style={{ width: "100%", height: "100%", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#ccc9c0" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round">
+                            <circle cx="12" cy="12" r="9" /><circle cx="12" cy="12" r="2" />
+                          </svg>
+                        </div>
+                      )}
+                    </div>
+                    {/* Album name */}
+                    <div style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.08em", textTransform: "uppercase", color: INK, marginBottom: 2, lineHeight: 1.4 }}>
+                      {group.album}
+                    </div>
+                    {group.source === "collection" && (
+                      <div style={{ fontFamily: MONO, fontSize: "8px", color: ORANGE, letterSpacing: "0.05em", marginBottom: 6 }}>
+                        in your collection
+                      </div>
+                    )}
+                    {group.songs.map(s => (
+                      <div key={s.id} style={{ fontFamily: MONO, fontSize: "9px", color: SUBTLE, lineHeight: 1.8 }}>
+                        {s.song_title}
+                      </div>
+                    ))}
+                  </div>
+                ))}
+
+                {unmatched.length > 0 && matched.length > 0 && (
+                  <div style={{ borderTop: `1px solid ${BORDER}`, paddingTop: 16, marginTop: 4 }}>
+                    <div style={{ fontFamily: MONO, fontSize: "8px", letterSpacing: "0.1em", textTransform: "uppercase", color: "#aaaaaa", marginBottom: 8 }}>
+                      Other
+                    </div>
+                    {unmatched.map(s => (
+                      <div key={s.id} style={{ fontFamily: MONO, fontSize: "9px", color: "#aaaaaa", lineHeight: 1.8 }}>
+                        {s.song_title}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        );
+      })()}
+
+      {/* ── Lightbox ── */}
+      {lightboxUrl && (
+        <div
+          onClick={() => setLightboxUrl(null)}
+          style={{
+            position: "fixed", inset: 0, background: "rgba(0,0,0,0.88)", zIndex: 1000,
+            display: "flex", alignItems: "center", justifyContent: "center", cursor: "zoom-out",
+          }}
+        >
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={lightboxUrl} alt=""
+            style={{ maxWidth: "92vw", maxHeight: "92vh", objectFit: "contain", display: "block" }}
+          />
         </div>
       )}
     </div>
