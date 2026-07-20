@@ -7,7 +7,8 @@ import Top5Tab from "@/components/lists/Top5Tab";
 import ProfileListsTab from "@/components/profile/ProfileListsTab";
 import SellListClient from "@/components/profile/SellListClient";
 import PlaylistTab from "@/components/lists/PlaylistTab";
-import GigJournalTab from "@/components/lists/GigJournalTab";
+import dynamic from "next/dynamic";
+const GigJournalTab = dynamic(() => import("@/components/lists/GigJournalTab"), { ssr: false, loading: () => null });
 const MONO   = "var(--font-mono)";
 const ORANGE = "#CC5500";
 
