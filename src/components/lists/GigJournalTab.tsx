@@ -78,24 +78,32 @@ function groupSongsBySet(songs: GigSong[]) {
 
 // ── Rating dots ───────────────────────────────────────────────────────────────
 
-function RatingDots({ value, onChange, size = 10 }: {
+function RatingStars({ value, onChange, size = 14 }: {
   value: number; onChange?: (v: number) => void; size?: number;
 }) {
+  const [hovered, setHovered] = useState(0);
+  const display = onChange ? (hovered || value) : value;
   return (
-    <div style={{ display: "flex", gap: 5, alignItems: "center" }}>
+    <div style={{ display: "flex", gap: 2, alignItems: "center" }}>
       {[1, 2, 3, 4, 5].map(n => (
-        <button key={n} type="button" onClick={() => onChange?.(value === n ? 0 : n)}
+        <button key={n} type="button"
+          onClick={() => onChange?.(value === n ? 0 : n)}
+          onMouseEnter={() => onChange && setHovered(n)}
+          onMouseLeave={() => onChange && setHovered(0)}
           style={{
-            width: size, height: size, borderRadius: "50%", padding: 0, flexShrink: 0,
-            background: n <= value ? ORANGE : "transparent",
-            border: `1.5px solid ${n <= value ? ORANGE : "#d0d0d0"}`,
+            fontSize: size, lineHeight: 1, padding: 0, background: "none", border: "none",
             cursor: onChange ? "pointer" : "default",
+            color: n <= display ? ORANGE : "#d8d5d0",
+            transition: "color 0.1s",
           }} aria-label={`${n} of 5`}
-        />
+        >★</button>
       ))}
     </div>
   );
 }
+// Keep alias used in sidebar rows
+const RatingDots = ({ value, size = 10 }: { value: number; size?: number }) =>
+  <RatingStars value={value} size={size} />;
 
 // ── Photo upload slot ─────────────────────────────────────────────────────────
 
@@ -192,161 +200,167 @@ function GigDetail({ gig, onEdit, onDelete }: {
   const headliners = gig.artists.filter(a => a.is_headliner).map(a => a.artist_name);
   const supports   = gig.artists.filter(a => !a.is_headliner).map(a => a.artist_name);
   const sets       = groupSongsBySet(gig.songs);
-  const hasPhotos  = gig.photo_1_url || gig.photo_2_url || gig.poster_url;
   const [confirmDelete, setConfirmDelete] = useState(false);
   const location = [gig.venue, gig.city, gig.country].filter(Boolean).join("  ·  ").toUpperCase();
+
+  // Primary photo: photo1, fallback to poster if only that exists
+  const primaryPhoto = gig.photo_1_url ?? (!gig.photo_2_url ? gig.poster_url : null);
+  const showPhoto2   = gig.photo_2_url;
+  const showPoster   = gig.poster_url && primaryPhoto !== gig.poster_url ? gig.poster_url : null;
 
   return (
     <div>
 
-      {/* ── Hero ── */}
-      <div style={{ padding: "40px 48px 36px", borderBottom: `1px solid ${BORDER}`, position: "relative" }}>
-        <div style={{ position: "absolute", top: 28, right: 40, display: "flex", gap: 12, alignItems: "center" }}>
-          <button type="button" onClick={onEdit}
-            style={{ fontFamily: MONO, fontSize: "8px", letterSpacing: "0.1em", textTransform: "uppercase", color: ORANGE, background: "none", border: `1px solid ${ORANGE}`, padding: "5px 12px", cursor: "pointer" }}
-          >Edit</button>
-          {confirmDelete ? (
-            <button type="button" onClick={onDelete}
-              style={{ fontFamily: MONO, fontSize: "8px", letterSpacing: "0.1em", textTransform: "uppercase", color: "#fff", background: "#cc2200", border: "1px solid #cc2200", padding: "5px 12px", cursor: "pointer" }}
-            >Confirm?</button>
+      {/* ── Hero: photo left | info right ── */}
+      <div style={{ display: "flex", alignItems: "stretch", minHeight: 400, borderBottom: `1px solid ${BORDER}` }}>
+
+        {/* Left: full-height photo */}
+        <div style={{ flex: "0 0 42%", position: "relative", background: LIGHT, overflow: "hidden", flexShrink: 0 }}>
+          {primaryPhoto ? (
+            /* eslint-disable-next-line @next/next/no-img-element */
+            <img src={primaryPhoto} alt=""
+              style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover", display: "block" }}
+            />
           ) : (
-            <button type="button" onClick={() => setConfirmDelete(true)}
-              style={{ fontFamily: MONO, fontSize: "8px", letterSpacing: "0.1em", textTransform: "uppercase", color: "#cccccc", background: "none", border: "none", cursor: "pointer", padding: "5px 0" }}
-            >Delete</button>
+            <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "flex-end", padding: "20px 24px" }}>
+              <span style={{ fontFamily: MONO, fontSize: "7px", color: "#d8d5d0", letterSpacing: "0.1em" }}>No photo</span>
+            </div>
           )}
         </div>
 
-        <div style={{ display: "flex", alignItems: "flex-start", gap: 28 }}>
-          {/* Huge date */}
-          <div style={{ flexShrink: 0, lineHeight: 1 }}>
-            <div style={{ fontFamily: SERIF, fontSize: "90px", lineHeight: 0.85, color: ORANGE, fontWeight: 700, letterSpacing: "-0.03em" }}>
+        {/* Right: date / artist / meta */}
+        <div style={{
+          flex: 1, padding: "36px 36px 32px 36px",
+          display: "flex", flexDirection: "column", position: "relative", minWidth: 0,
+        }}>
+          {/* Actions */}
+          <div style={{ display: "flex", gap: 12, alignItems: "center", marginBottom: "auto", justifyContent: "flex-end" }}>
+            <button type="button" onClick={onEdit}
+              style={{ fontFamily: MONO, fontSize: "7.5px", letterSpacing: "0.1em", textTransform: "uppercase", color: ORANGE, background: "none", border: `1px solid ${ORANGE}`, padding: "5px 11px", cursor: "pointer" }}
+            >Edit</button>
+            {confirmDelete ? (
+              <button type="button" onClick={onDelete}
+                style={{ fontFamily: MONO, fontSize: "7.5px", letterSpacing: "0.1em", textTransform: "uppercase", color: "#fff", background: "#cc2200", border: "1px solid #cc2200", padding: "5px 11px", cursor: "pointer" }}
+              >Confirm?</button>
+            ) : (
+              <button type="button" onClick={() => setConfirmDelete(true)}
+                style={{ fontFamily: MONO, fontSize: "7.5px", letterSpacing: "0.1em", textTransform: "uppercase", color: "#cccccc", background: "none", border: "none", cursor: "pointer", padding: "5px 0" }}
+              >Delete</button>
+            )}
+          </div>
+
+          {/* Spacer pushes date/artist down to a comfortable midpoint */}
+          <div style={{ flex: "0 0 32px" }} />
+
+          {/* Date */}
+          <div style={{ marginBottom: 20 }}>
+            <div style={{ fontFamily: SERIF, fontSize: "84px", lineHeight: 0.85, color: ORANGE, fontWeight: 700, letterSpacing: "-0.03em" }}>
               {d.day}
             </div>
-            <div style={{ marginTop: 12 }}>
-              <div style={{ fontFamily: MONO, fontSize: "11px", letterSpacing: "0.14em", color: SUBTLE }}>{d.month}</div>
-              <div style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.1em", color: "#c0c0c0" }}>{d.year}</div>
+            <div style={{ marginTop: 10, display: "flex", gap: 10, alignItems: "baseline" }}>
+              <span style={{ fontFamily: MONO, fontSize: "11px", letterSpacing: "0.14em", color: SUBTLE }}>{d.month}</span>
+              <span style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.1em", color: "#c0c0c0" }}>{d.year}</span>
             </div>
           </div>
 
-          {/* Artist / meta */}
-          <div style={{ paddingTop: 4, flex: 1 }}>
-            <div style={{
-              fontFamily: SERIF, fontWeight: 700, letterSpacing: "-0.01em",
-              fontSize: "clamp(22px, 3vw, 36px)", lineHeight: 1.05, color: INK, marginBottom: 6,
-            }}>
-              {headliners.join(" & ") || "Unknown Artist"}
-            </div>
-            {supports.length > 0 && (
-              <div style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.06em", color: SUBTLE, marginBottom: 10 }}>
-                w/ {supports.join(", ")}
-              </div>
-            )}
-            {location && (
-              <div style={{ fontFamily: MONO, fontSize: "8.5px", letterSpacing: "0.12em", color: "#aaaaaa", marginBottom: 14 }}>
-                {location}
-              </div>
-            )}
-            {!!gig.rating && <RatingDots value={gig.rating} size={11} />}
+          {/* Artist */}
+          <div style={{
+            fontFamily: SERIF, fontWeight: 700, letterSpacing: "-0.01em",
+            fontSize: "clamp(20px, 2.6vw, 32px)", lineHeight: 1.05, color: INK, marginBottom: 6,
+          }}>
+            {headliners.join(" & ") || "Unknown Artist"}
           </div>
+          {supports.length > 0 && (
+            <div style={{ fontFamily: MONO, fontSize: "8.5px", letterSpacing: "0.06em", color: SUBTLE, marginBottom: 10 }}>
+              w/ {supports.join(", ")}
+            </div>
+          )}
+          {location && (
+            <div style={{ fontFamily: MONO, fontSize: "8px", letterSpacing: "0.12em", color: "#aaaaaa", marginBottom: 16 }}>
+              {location}
+            </div>
+          )}
+          {!!gig.rating && <RatingStars value={gig.rating} size={18} />}
         </div>
       </div>
 
-      {/* ── Photos ── */}
-      {hasPhotos && (
-        <div style={{ display: "flex", gap: 6, alignItems: "flex-end", padding: "0", overflow: "hidden" }}>
-          {gig.photo_1_url && (
-            <div style={{ flex: "0 0 44%", height: 240, overflow: "hidden" }}>
+      {/* ── Secondary photos (photo2 + poster) ── */}
+      {(showPhoto2 || showPoster) && (
+        <div style={{ display: "flex", borderBottom: `1px solid ${BORDER}` }}>
+          {showPhoto2 && (
+            <div style={{ flex: showPoster ? "0 0 60%" : 1, height: 200, overflow: "hidden" }}>
               {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={gig.photo_1_url} alt="" style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
+              <img src={showPhoto2} alt="" style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
             </div>
           )}
-          {gig.photo_2_url && (
-            <div style={{ flex: "0 0 32%", height: 190, overflow: "hidden" }}>
+          {showPoster && (
+            <div style={{ flex: 1, height: 200, overflow: "hidden", borderLeft: showPhoto2 ? `4px solid #fff` : "none" }}>
               {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={gig.photo_2_url} alt="" style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
-            </div>
-          )}
-          {gig.poster_url && (
-            <div style={{ flex: 1, height: 260, overflow: "hidden" }}>
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={gig.poster_url} alt="" style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
+              <img src={showPoster} alt="" style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
             </div>
           )}
         </div>
       )}
 
-      {/* ── Body: journal + setlist ── */}
-      <div style={{
-        display: "flex", gap: 0, alignItems: "flex-start",
-        borderTop: hasPhotos ? `1px solid ${BORDER}` : "none",
-      }}>
-
-        {/* Journal */}
-        {gig.journal_entry && (
-          <div style={{
-            flex: sets.length > 0 ? "0 0 58%" : 1,
-            padding: "36px 40px 48px 48px",
-            borderRight: sets.length > 0 ? `1px solid ${BORDER}` : "none",
-          }}>
-            <div style={{ fontFamily: MONO, fontSize: "7.5px", letterSpacing: "0.14em", textTransform: "uppercase", color: "#c0c0c0", marginBottom: 16 }}>
-              Notes
-            </div>
-            <div style={{
-              fontFamily: SERIF, fontSize: "16px", lineHeight: 1.75, color: INK,
-              fontStyle: "italic",
-            }}>
-              {gig.journal_entry}
-            </div>
+      {/* ── Journal ── */}
+      {gig.journal_entry && (
+        <div style={{ padding: "36px 44px 0", borderBottom: sets.length > 0 ? `1px solid ${BORDER}` : "none" }}>
+          <div style={{ fontFamily: MONO, fontSize: "7px", letterSpacing: "0.14em", textTransform: "uppercase", color: "#c8c8c8", marginBottom: 14 }}>
+            Notes
           </div>
-        )}
+          <div style={{ fontFamily: SERIF, fontSize: "16px", lineHeight: 1.8, color: INK, fontStyle: "italic", paddingBottom: 36 }}>
+            {gig.journal_entry}
+          </div>
+        </div>
+      )}
 
-        {/* Setlist */}
-        {sets.length > 0 && (
-          <div style={{
-            flex: gig.journal_entry ? 1 : "0 0 340px",
-            padding: "36px 40px 48px",
-            maxWidth: gig.journal_entry ? undefined : 340,
-          }}>
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
-              <span style={{ fontFamily: MONO, fontSize: "7.5px", letterSpacing: "0.14em", textTransform: "uppercase", color: "#c0c0c0" }}>
-                Setlist
-              </span>
-              {gig.setlist_fm_id && (
-                <a href={`https://www.setlist.fm/setlist/${gig.setlist_fm_id}`} target="_blank" rel="noopener noreferrer"
-                  style={{ fontFamily: MONO, fontSize: "7.5px", color: "#c0c0c0", letterSpacing: "0.06em", textDecoration: "none" }}>
-                  setlist.fm ↗
-                </a>
-              )}
-            </div>
+      {/* ── Setlist ── */}
+      {sets.length > 0 && (
+        <div style={{ padding: "32px 44px 64px" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 16, marginBottom: 20 }}>
+            <span style={{ fontFamily: MONO, fontSize: "7px", letterSpacing: "0.14em", textTransform: "uppercase", color: "#c8c8c8" }}>
+              Setlist
+            </span>
+            <div style={{ flex: 1, height: 1, background: BORDER }} />
+            {gig.setlist_fm_id && (
+              <a href={`https://www.setlist.fm/setlist/${gig.setlist_fm_id}`} target="_blank" rel="noopener noreferrer"
+                style={{ fontFamily: MONO, fontSize: "7px", color: "#c0c0c0", letterSpacing: "0.06em", textDecoration: "none" }}>
+                setlist.fm ↗
+              </a>
+            )}
+          </div>
+
+          {/* Two-column if long */}
+          <div style={{ columns: gig.songs.length > 10 ? 2 : 1, columnGap: 48 }}>
             {sets.map((set, si) => (
-              <div key={si} style={{ marginBottom: si < sets.length - 1 ? 20 : 0 }}>
+              <div key={si} style={{ breakInside: "avoid", marginBottom: si < sets.length - 1 ? 24 : 0 }}>
                 {set.label !== "Main Set" && (
-                  <div style={{ fontFamily: MONO, fontSize: "7px", letterSpacing: "0.14em", textTransform: "uppercase", color: ORANGE, marginBottom: 8, paddingBottom: 6, borderBottom: `1px solid ${BORDER}` }}>
+                  <div style={{ fontFamily: MONO, fontSize: "7px", letterSpacing: "0.14em", textTransform: "uppercase", color: ORANGE, marginBottom: 10, paddingBottom: 7, borderBottom: `1px solid ${BORDER}` }}>
                     {set.label}
                   </div>
                 )}
                 {set.songs.map(s => (
-                  <div key={s.id} style={{ display: "flex", gap: 12, padding: "4px 0", borderBottom: `1px solid #f2f1ed`, alignItems: "baseline" }}>
-                    <span style={{ fontFamily: MONO, fontSize: "8px", color: "#c8c8c8", minWidth: 20, flexShrink: 0 }}>
+                  <div key={s.id} style={{ display: "flex", gap: 14, padding: "5px 0", borderBottom: `1px solid #f2f1ed`, alignItems: "baseline" }}>
+                    <span style={{ fontFamily: MONO, fontSize: "8px", color: "#c8c8c8", minWidth: 22, flexShrink: 0 }}>
                       {String(s.position).padStart(2, "0")}
                     </span>
-                    <span style={{ fontFamily: SERIF, fontSize: "13.5px", color: INK, lineHeight: 1.4 }}>{s.song_title}</span>
+                    <span style={{ fontFamily: SERIF, fontSize: "14px", color: INK, lineHeight: 1.4 }}>{s.song_title}</span>
                   </div>
                 ))}
               </div>
             ))}
           </div>
-        )}
+        </div>
+      )}
 
-        {/* Neither journal nor setlist */}
-        {!gig.journal_entry && sets.length === 0 && (
-          <div style={{ padding: "32px 48px", fontFamily: MONO, fontSize: "9px", color: "#cccccc" }}>
-            No notes or setlist yet.
-          </div>
-        )}
-      </div>
-
-      <div style={{ paddingBottom: 64 }} />
+      {!gig.journal_entry && sets.length === 0 && (
+        <div style={{ padding: "32px 44px 64px", fontFamily: MONO, fontSize: "9px", color: "#cccccc" }}>
+          No notes or setlist yet. <button type="button" onClick={onEdit}
+            style={{ fontFamily: MONO, fontSize: "9px", color: ORANGE, background: "none", border: "none", cursor: "pointer", padding: 0, textDecoration: "underline" }}>
+            Add them →
+          </button>
+        </div>
+      )}
     </div>
   );
 }
@@ -637,7 +651,7 @@ export default function GigJournalTab() {
             {/* Rating */}
             <div style={{ marginBottom: 24 }}>
               <label style={{ fontFamily: MONO, fontSize: "7px", letterSpacing: "0.1em", textTransform: "uppercase", color: SUBTLE, display: "block", marginBottom: 8 }}>Rating</label>
-              <RatingDots value={form.rating} onChange={v => setForm(f => ({ ...f, rating: v }))} size={15} />
+              <RatingStars value={form.rating} onChange={v => setForm(f => ({ ...f, rating: v }))} size={20} />
             </div>
 
             {/* Photos */}
