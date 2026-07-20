@@ -172,7 +172,7 @@ function GigRow({ gig, selected, onClick }: { gig: Gig; selected: boolean; onCli
     >
       <div style={{ flexShrink: 0, width: 30, textAlign: "center" }}>
         <div style={{ fontFamily: SERIF, fontSize: "20px", lineHeight: 1, color: selected ? ORANGE : INK, fontWeight: 600 }}>{d.day}</div>
-        <div style={{ fontFamily: MONO, fontSize: "6.5px", letterSpacing: "0.08em", color: SUBTLE, marginTop: 1 }}>{d.month}</div>
+        <div style={{ fontFamily: MONO, fontSize: "8px", letterSpacing: "0.08em", color: SUBTLE, marginTop: 1 }}>{d.month}</div>
       </div>
       <div style={{ flex: 1, minWidth: 0 }}>
         <div style={{
@@ -181,12 +181,12 @@ function GigRow({ gig, selected, onClick }: { gig: Gig; selected: boolean; onCli
         }}>{headliner}</div>
         {(gig.venue || gig.city) && (
           <div style={{
-            fontFamily: MONO, fontSize: "7.5px", color: "#b0b0b0", letterSpacing: "0.04em",
+            fontFamily: MONO, fontSize: "9px", color: SUBTLE, letterSpacing: "0.04em",
             marginTop: 2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
           }}>{[gig.venue, gig.city].filter(Boolean).join(" · ")}</div>
         )}
       </div>
-      {!!gig.rating && <RatingDots value={gig.rating} size={6} />}
+      {!!gig.rating && <RatingDots value={gig.rating} size={7} />}
     </div>
   );
 }
@@ -294,7 +294,7 @@ function GigDetail({ gig, onEdit, onDelete }: {
 
           {/* Date · Venue, City */}
           <div style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.14em", color: ORANGE, marginBottom: 10 }}>
-            {fullDate}{locationStr && <span style={{ color: "#c0b090" }}> · {locationStr}</span>}
+            {fullDate}{locationStr && <span style={{ color: "#a08060" }}> · {locationStr}</span>}
           </div>
 
           {/* Artist name */}
@@ -337,7 +337,7 @@ function GigDetail({ gig, onEdit, onDelete }: {
       {/* ── Journal ── */}
       {gig.journal_entry && (
         <div style={{ padding: "32px 40px", borderBottom: sets.length > 0 ? `1px solid ${BORDER}` : "none" }}>
-          <div style={{ fontFamily: MONO, fontSize: "7px", letterSpacing: "0.14em", textTransform: "uppercase", color: "#c8c8c8", marginBottom: 16 }}>
+          <div style={{ fontFamily: MONO, fontSize: "10px", letterSpacing: "0.14em", textTransform: "uppercase", color: SUBTLE, marginBottom: 16 }}>
             Notes
           </div>
           <div style={{ fontFamily: SERIF, fontSize: "16px", lineHeight: 1.85, color: INK, fontStyle: "italic" }}>
@@ -349,94 +349,110 @@ function GigDetail({ gig, onEdit, onDelete }: {
       {/* ── Setlist ── */}
       {sets.length > 0 && (
         <div style={{ padding: "32px 40px 64px" }}>
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 18 }}>
-            <span style={{ fontFamily: MONO, fontSize: "7px", letterSpacing: "0.14em", textTransform: "uppercase", color: "#c8c8c8" }}>
+          {/* Header */}
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 20 }}>
+            <span style={{ fontFamily: MONO, fontSize: "10px", letterSpacing: "0.14em", textTransform: "uppercase", color: SUBTLE }}>
               Setlist
             </span>
             <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
               {enriching && (
-                <span style={{ fontFamily: MONO, fontSize: "7px", color: "#d8d5d0", letterSpacing: "0.06em" }}>matching albums…</span>
+                <span style={{ fontFamily: MONO, fontSize: "9px", color: "#aaaaaa", letterSpacing: "0.06em" }}>matching albums…</span>
               )}
               {gig.setlist_fm_id && (
                 <a href={`https://www.setlist.fm/setlist/${gig.setlist_fm_id}`} target="_blank" rel="noopener noreferrer"
-                  style={{ fontFamily: MONO, fontSize: "7px", color: "#c0c0c0", letterSpacing: "0.06em", textDecoration: "none" }}>
+                  style={{ fontFamily: MONO, fontSize: "9px", color: SUBTLE, letterSpacing: "0.06em", textDecoration: "none" }}>
                   setlist.fm ↗
                 </a>
               )}
             </div>
           </div>
 
-          {/* Album-grouped view once enrichment is ready */}
-          {enrichMap ? (
-            groupByAlbum(gig.songs, enrichMap).map((group, gi, arr) => (
-              <div key={gi} style={{ marginBottom: gi < arr.length - 1 ? 28 : 0 }}>
-                {/* Album header */}
-                {group.album && (
-                  <div style={{
-                    display: "flex", alignItems: "center", gap: 10,
-                    marginBottom: 4, paddingBottom: 8, borderBottom: `1px solid ${BORDER}`,
-                  }}>
-                    {/* Artwork */}
-                    <div style={{ flexShrink: 0, width: 36, height: 36, background: LIGHT, overflow: "hidden" }}>
-                      {group.cover_url ? (
-                        /* eslint-disable-next-line @next/next/no-img-element */
-                        <img src={group.cover_url} alt={group.album}
-                          style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
-                          onError={e => { (e.currentTarget as HTMLImageElement).style.display = "none"; }}
-                        />
-                      ) : null}
+          {/* Two-column body: songs left, album breakdown right */}
+          <div style={{ display: "flex", gap: 40, alignItems: "flex-start" }}>
+
+            {/* Left: flat numbered list */}
+            <div style={{ flex: 1, minWidth: 0 }}>
+              {sets.map((set, si) => (
+                <div key={si} style={{ marginBottom: si < sets.length - 1 ? 28 : 0 }}>
+                  {set.label !== "Main Set" && (
+                    <div style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.14em", textTransform: "uppercase", color: ORANGE, marginBottom: 10, paddingBottom: 8, borderBottom: `1px solid ${BORDER}` }}>
+                      {set.label}
                     </div>
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{
-                        fontFamily: MONO, fontSize: "8px", letterSpacing: "0.1em",
-                        textTransform: "uppercase", color: SUBTLE,
-                        overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
-                      }}>{group.album}</div>
+                  )}
+                  {set.songs.map(s => (
+                    <div key={s.id} style={{ display: "flex", gap: 16, padding: "11px 0", borderBottom: `1px solid #f0ede8`, alignItems: "baseline" }}>
+                      <span style={{ fontFamily: MONO, fontSize: "11px", color: "#999999", minWidth: 26, flexShrink: 0 }}>
+                        {String(s.position).padStart(2, "0")}
+                      </span>
+                      <span style={{ fontFamily: SERIF, fontSize: "15px", color: INK, lineHeight: 1.4 }}>{s.song_title}</span>
+                    </div>
+                  ))}
+                </div>
+              ))}
+            </div>
+
+            {/* Right: album breakdown — shown once enrichment resolves */}
+            {enrichMap && (() => {
+              const albumGroups = groupByAlbum(gig.songs, enrichMap);
+              const matched   = albumGroups.filter(g => g.album !== null);
+              const unmatched = albumGroups.filter(g => g.album === null).flatMap(g => g.songs);
+              if (!matched.length && !unmatched.length) return null;
+              return (
+                <div style={{ width: 176, flexShrink: 0 }}>
+                  {matched.map((group, gi) => (
+                    <div key={gi} style={{ marginBottom: 24 }}>
+                      {/* Square artwork */}
+                      <div style={{ width: 176, height: 176, background: LIGHT, overflow: "hidden", marginBottom: 10 }}>
+                        {group.cover_url ? (
+                          /* eslint-disable-next-line @next/next/no-img-element */
+                          <img src={group.cover_url} alt={group.album ?? ""}
+                            style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
+                            onError={e => { (e.currentTarget as HTMLImageElement).style.display = "none"; }}
+                          />
+                        ) : null}
+                      </div>
+                      {/* Album name */}
+                      <div style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.1em", textTransform: "uppercase", color: INK, marginBottom: 3, lineHeight: 1.4 }}>
+                        {group.album}
+                      </div>
                       {group.source === "collection" && (
-                        <div style={{ fontFamily: MONO, fontSize: "6.5px", letterSpacing: "0.08em", color: ORANGE, marginTop: 2 }}>
+                        <div style={{ fontFamily: MONO, fontSize: "8px", color: ORANGE, letterSpacing: "0.06em", marginBottom: 8 }}>
                           in your collection
                         </div>
                       )}
+                      {/* Songs from this album */}
+                      {group.songs.map(s => (
+                        <div key={s.id} style={{ fontFamily: MONO, fontSize: "9px", color: SUBTLE, lineHeight: 1.8, letterSpacing: "0.02em" }}>
+                          {s.song_title}
+                        </div>
+                      ))}
                     </div>
-                  </div>
-                )}
-                {group.songs.map(s => (
-                  <div key={s.id} style={{ display: "flex", gap: 16, padding: "11px 0", borderBottom: `1px solid #f2f1ed`, alignItems: "baseline" }}>
-                    <span style={{ fontFamily: MONO, fontSize: "10px", color: "#c0c0c0", minWidth: 24, flexShrink: 0 }}>
-                      {String(s.position).padStart(2, "0")}
-                    </span>
-                    <span style={{ fontFamily: SERIF, fontSize: "15px", color: INK, lineHeight: 1.4 }}>{s.song_title}</span>
-                  </div>
-                ))}
-              </div>
-            ))
-          ) : (
-            /* Flat list while enrichment is loading */
-            sets.map((set, si) => (
-              <div key={si} style={{ marginBottom: si < sets.length - 1 ? 28 : 0 }}>
-                {set.label !== "Main Set" && (
-                  <div style={{ fontFamily: MONO, fontSize: "7px", letterSpacing: "0.14em", textTransform: "uppercase", color: ORANGE, marginBottom: 10, paddingBottom: 7, borderBottom: `1px solid ${BORDER}` }}>
-                    {set.label}
-                  </div>
-                )}
-                {set.songs.map(s => (
-                  <div key={s.id} style={{ display: "flex", gap: 16, padding: "11px 0", borderBottom: `1px solid #f2f1ed`, alignItems: "baseline" }}>
-                    <span style={{ fontFamily: MONO, fontSize: "10px", color: "#c0c0c0", minWidth: 24, flexShrink: 0 }}>
-                      {String(s.position).padStart(2, "0")}
-                    </span>
-                    <span style={{ fontFamily: SERIF, fontSize: "15px", color: INK, lineHeight: 1.4 }}>{s.song_title}</span>
-                  </div>
-                ))}
-              </div>
-            ))
-          )}
+                  ))}
+
+                  {/* Unmatched songs */}
+                  {unmatched.length > 0 && (
+                    <div>
+                      <div style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.1em", textTransform: "uppercase", color: "#aaaaaa", marginBottom: 8 }}>
+                        Not matched
+                      </div>
+                      {unmatched.map(s => (
+                        <div key={s.id} style={{ fontFamily: MONO, fontSize: "9px", color: "#aaaaaa", lineHeight: 1.8 }}>
+                          {s.song_title}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              );
+            })()}
+          </div>
         </div>
       )}
 
       {!gig.journal_entry && sets.length === 0 && (
-        <div style={{ padding: "32px 40px 64px", fontFamily: MONO, fontSize: "9px", color: "#cccccc" }}>
+        <div style={{ padding: "32px 40px 64px", fontFamily: MONO, fontSize: "10px", color: SUBTLE }}>
           No notes or setlist yet. <button type="button" onClick={onEdit}
-            style={{ fontFamily: MONO, fontSize: "9px", color: ORANGE, background: "none", border: "none", cursor: "pointer", padding: 0, textDecoration: "underline" }}>
+            style={{ fontFamily: MONO, fontSize: "10px", color: ORANGE, background: "none", border: "none", cursor: "pointer", padding: 0, textDecoration: "underline" }}>
             Add them →
           </button>
         </div>
@@ -622,14 +638,14 @@ export default function GigJournalTab() {
         </div>
 
         <div style={{ flex: 1, overflowY: "auto" }}>
-          {loading && <div style={{ padding: "18px 14px", fontFamily: MONO, fontSize: "8px", color: "#cccccc" }}>Loading…</div>}
+          {loading && <div style={{ padding: "18px 14px", fontFamily: MONO, fontSize: "9px", color: SUBTLE }}>Loading…</div>}
           {!loading && gigs.length === 0 && (
-            <div style={{ padding: "20px 14px", fontFamily: MONO, fontSize: "8px", color: "#cccccc", lineHeight: 1.7 }}>No gigs logged yet.</div>
+            <div style={{ padding: "20px 14px", fontFamily: MONO, fontSize: "9px", color: SUBTLE, lineHeight: 1.7 }}>No gigs logged yet.</div>
           )}
           {grouped.map(([year, yearGigs]) => (
             <div key={year}>
               <div style={{
-                padding: "7px 14px 5px", fontFamily: MONO, fontSize: "7.5px",
+                padding: "7px 14px 5px", fontFamily: MONO, fontSize: "9px",
                 letterSpacing: "0.12em", color: ORANGE, background: "#faf9f6",
                 borderBottom: `1px solid ${BORDER}`,
               }}>{year}</div>
