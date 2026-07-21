@@ -223,176 +223,212 @@ function GigDetail({ gig, onEdit, onDelete }: {
     }).finally(() => setNotesSaving(false));
   }
 
-  const locationStr = [gig.venue, gig.city].filter(Boolean).join(", ").toUpperCase();
-  const fullDate    = `${d.day} ${d.month} ${d.year}`;
-  const photos      = [gig.photo_1_url, gig.photo_2_url, gig.poster_url].filter(Boolean) as string[];
+  const photos    = [gig.photo_1_url, gig.photo_2_url, gig.poster_url].filter(Boolean) as string[];
+  const heroPhoto = photos[0] ?? null;
+  const heroRight = photos[1] ?? null;
+
+  const infoChips = [
+    { label: "VENUE",        value: [gig.venue, gig.city].filter(Boolean).join(", ") || null },
+    { label: "SUPPORT",      value: supports.length > 0 ? supports.join(", ") : null },
+    { label: "SONGS PLAYED", value: gig.songs.length > 0 ? String(gig.songs.length) : null },
+  ].filter(c => c.value !== null) as { label: string; value: string }[];
 
   return (
     <div>
 
-      {/* ── Hero: thumbnail left | info right ── */}
-      <div style={{ display: "flex", alignItems: "flex-start", gap: 28, padding: "32px 40px 30px", borderBottom: `1px solid ${BORDER}` }}>
+      {/* ── HERO ── */}
+      <div style={{ position: "relative", display: "flex", height: 380, overflow: "hidden" }}>
 
-        {/* Photos: up to 3 equal squares, all clickable */}
-        <div style={{ display: "flex", gap: 6, flexShrink: 0 }}>
-          {photos.length > 0 ? photos.map((url, i) => (
-            <div key={i} onClick={() => setLightboxUrl(url)}
-              style={{ width: 128, height: 128, background: LIGHT, overflow: "hidden", cursor: "zoom-in", flexShrink: 0 }}>
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={url} alt="" style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
-            </div>
-          )) : (
-            <div style={{ width: 128, height: 128, background: LIGHT, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-              <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#ccc9c0" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round">
-                <rect x="3" y="3" width="18" height="18" rx="2" />
-                <circle cx="8.5" cy="8.5" r="1.5" />
-                <polyline points="21 15 16 10 5 21" />
-              </svg>
-            </div>
+        {/* Left: main photo with info overlay */}
+        <div style={{ flex: heroRight ? "0 0 55%" : "1", position: "relative", overflow: "hidden", background: "#111" }}>
+          {heroPhoto && (
+            /* eslint-disable-next-line @next/next/no-img-element */
+            <img src={heroPhoto} alt="" onClick={() => setLightboxUrl(heroPhoto)}
+              style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover", display: "block", cursor: "zoom-in" }}
+            />
           )}
+          <div style={{ position: "absolute", inset: 0, background: "linear-gradient(to top, rgba(0,0,0,0.84) 0%, rgba(0,0,0,0.28) 55%, rgba(0,0,0,0.04) 100%)", pointerEvents: "none" }} />
+
+          {/* Date box — top left */}
+          <div style={{ position: "absolute", top: 24, left: 28, border: "1px solid rgba(255,255,255,0.38)", padding: "12px 16px" }}>
+            <div style={{ fontFamily: SERIF, fontSize: 44, lineHeight: 1, fontWeight: 700, color: ORANGE }}>{d.day}</div>
+            <div style={{ fontFamily: MONO, fontSize: "8px", letterSpacing: "0.15em", color: "#fff", marginTop: 5 }}>{d.month}</div>
+            <div style={{ fontFamily: MONO, fontSize: "8px", letterSpacing: "0.15em", color: "rgba(255,255,255,0.7)" }}>{d.year}</div>
+          </div>
+
+          {/* Artist name + support + venue + rating — bottom left */}
+          <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, padding: "0 28px 26px" }}>
+            <div style={{ fontFamily: SERIF, fontWeight: 700, fontSize: "clamp(28px, 3vw, 48px)", lineHeight: 1.05, color: "#fff", marginBottom: 7 }}>
+              {headliners.join(" & ") || "Unknown Artist"}
+            </div>
+            {supports.length > 0 && (
+              <div style={{ fontFamily: SERIF, fontSize: 14, color: "rgba(255,255,255,0.72)", marginBottom: 5 }}>
+                w/ {supports.join(", ")}
+              </div>
+            )}
+            {(gig.venue || gig.city) && (
+              <div style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.08em", color: "rgba(255,255,255,0.55)", marginBottom: 13, textTransform: "uppercase" }}>
+                {[gig.venue, gig.city].filter(Boolean).join(", ")}
+              </div>
+            )}
+            {!!gig.rating && <RatingStars value={gig.rating} size={16} />}
+          </div>
         </div>
 
-        {/* Info */}
-        <div style={{ flex: 1, minWidth: 0, paddingTop: 2 }}>
-          {/* Actions */}
-          <div style={{ display: "flex", gap: 12, alignItems: "center", justifyContent: "flex-end", marginBottom: 12 }}>
+        {/* Right: second photo */}
+        {heroRight ? (
+          <div style={{ flex: "0 0 45%", position: "relative", overflow: "hidden", background: LIGHT }}>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={heroRight} alt="" onClick={() => setLightboxUrl(heroRight)}
+              style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover", display: "block", cursor: "zoom-in" }}
+            />
+            <div style={{ position: "absolute", top: 16, right: 16, display: "flex", gap: 8, alignItems: "center", zIndex: 10 }}>
+              <button type="button" onClick={onEdit}
+                style={{ fontFamily: MONO, fontSize: "7.5px", letterSpacing: "0.1em", textTransform: "uppercase", color: INK, background: "rgba(255,255,255,0.92)", border: "1px solid rgba(0,0,0,0.18)", padding: "5px 11px", cursor: "pointer" }}
+              >Edit</button>
+              {confirmDelete ? (
+                <button type="button" onClick={onDelete}
+                  style={{ fontFamily: MONO, fontSize: "7.5px", letterSpacing: "0.1em", textTransform: "uppercase", color: "#fff", background: "#cc2200", border: "none", padding: "5px 11px", cursor: "pointer" }}
+                >Confirm?</button>
+              ) : (
+                <button type="button" onClick={() => setConfirmDelete(true)}
+                  style={{ fontFamily: MONO, fontSize: "7.5px", letterSpacing: "0.1em", textTransform: "uppercase", color: "rgba(0,0,0,0.38)", background: "rgba(255,255,255,0.75)", border: "none", cursor: "pointer", padding: "5px 8px" }}
+                >Delete</button>
+              )}
+            </div>
+          </div>
+        ) : (
+          <div style={{ position: "absolute", top: 16, right: 16, display: "flex", gap: 8, alignItems: "center", zIndex: 10 }}>
             <button type="button" onClick={onEdit}
-              style={{ fontFamily: MONO, fontSize: "7.5px", letterSpacing: "0.1em", textTransform: "uppercase", color: ORANGE, background: "none", border: `1px solid ${ORANGE}`, padding: "5px 11px", cursor: "pointer" }}
+              style={{ fontFamily: MONO, fontSize: "7.5px", letterSpacing: "0.1em", textTransform: "uppercase", color: ORANGE, background: "rgba(255,255,255,0.9)", border: `1px solid ${ORANGE}`, padding: "5px 11px", cursor: "pointer" }}
             >Edit</button>
             {confirmDelete ? (
               <button type="button" onClick={onDelete}
-                style={{ fontFamily: MONO, fontSize: "7.5px", letterSpacing: "0.1em", textTransform: "uppercase", color: "#fff", background: "#cc2200", border: "1px solid #cc2200", padding: "5px 11px", cursor: "pointer" }}
+                style={{ fontFamily: MONO, fontSize: "7.5px", letterSpacing: "0.1em", textTransform: "uppercase", color: "#fff", background: "#cc2200", border: "none", padding: "5px 11px", cursor: "pointer" }}
               >Confirm?</button>
             ) : (
               <button type="button" onClick={() => setConfirmDelete(true)}
-                style={{ fontFamily: MONO, fontSize: "7.5px", letterSpacing: "0.1em", textTransform: "uppercase", color: "#cccccc", background: "none", border: "none", cursor: "pointer", padding: "5px 0" }}
+                style={{ fontFamily: MONO, fontSize: "7.5px", letterSpacing: "0.1em", textTransform: "uppercase", color: "rgba(255,255,255,0.6)", background: "none", border: "none", cursor: "pointer", padding: "5px 8px" }}
               >Delete</button>
             )}
           </div>
-
-          {/* Date · Venue, City */}
-          <div style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.14em", color: ORANGE, marginBottom: 10 }}>
-            {fullDate}{locationStr && <span style={{ color: "#a08060" }}> · {locationStr}</span>}
-          </div>
-
-          {/* Artist name */}
-          <div style={{
-            fontFamily: SERIF, fontWeight: 700, letterSpacing: "-0.01em",
-            fontSize: "clamp(22px, 2.8vw, 34px)", lineHeight: 1.05, color: INK, marginBottom: 6,
-          }}>
-            {headliners.join(" & ") || "Unknown Artist"}
-          </div>
-
-          {/* Support acts */}
-          {supports.length > 0 && (
-            <div style={{ fontFamily: SERIF, fontSize: "14px", color: SUBTLE, marginBottom: 10 }}>
-              w/ {supports.join(", ")}
-            </div>
-          )}
-
-          {!!gig.rating && <RatingStars value={gig.rating} size={16} />}
-        </div>
+        )}
       </div>
 
-      {/* ── Body: notes + setlist ── */}
-      <div>
-            <div>
+      {/* ── INFO BAR ── */}
+      {infoChips.length > 0 && (
+        <div style={{ display: "flex", borderBottom: `1px solid ${BORDER}` }}>
+          {infoChips.map((chip, i) => (
+            <div key={i} style={{ padding: "14px 24px", borderRight: i < infoChips.length - 1 ? `1px solid ${BORDER}` : "none" }}>
+              <div style={{ fontFamily: MONO, fontSize: "7.5px", letterSpacing: "0.12em", textTransform: "uppercase", color: SUBTLE, marginBottom: 5 }}>{chip.label}</div>
+              <div style={{ fontFamily: MONO, fontSize: "11px", color: INK }}>{chip.value}</div>
+            </div>
+          ))}
+        </div>
+      )}
 
-              {/* Notes */}
-              <div style={{ padding: "32px 32px 32px 40px", borderBottom: sets.length > 0 ? `1px solid ${BORDER}` : "none" }}>
-                <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 16 }}>
-                  <div style={{ fontFamily: MONO, fontSize: "10px", letterSpacing: "0.14em", textTransform: "uppercase", color: SUBTLE }}>
-                    Notes
-                  </div>
-                  {notesSaving && (
-                    <span style={{ fontFamily: MONO, fontSize: "9px", color: "#aaaaaa" }}>saving…</span>
-                  )}
-                </div>
-                {editingNotes ? (
-                  <textarea
-                    autoFocus
-                    value={notesValue}
-                    onChange={e => setNotesValue(e.target.value)}
-                    onBlur={() => { setEditingNotes(false); saveNotes(notesValue); }}
-                    onKeyDown={e => { if (e.key === "Escape") { setEditingNotes(false); saveNotes(notesValue); } }}
-                    rows={5}
-                    style={{
-                      fontFamily: SERIF, fontSize: "16px", lineHeight: 1.85, color: INK, fontStyle: "italic",
-                      width: "100%", border: "none", outline: "none", resize: "vertical",
-                      background: "transparent", padding: 0,
-                    }}
-                  />
-                ) : (
-                  <div onClick={() => setEditingNotes(true)}
-                    style={{ fontFamily: SERIF, fontSize: "16px", lineHeight: 1.85, fontStyle: "italic", cursor: "text", minHeight: 28 }}>
-                    {notesValue
-                      ? <span style={{ color: INK }}>{notesValue}</span>
-                      : <span style={{ color: "#bbbbbb" }}>Click to add notes…</span>
-                    }
-                  </div>
-                )}
+      {/* ── BODY: two columns ── */}
+      <div style={{ display: "flex", alignItems: "flex-start" }}>
+
+        {/* Left: Notes + Photos */}
+        <div style={{ flex: "0 0 58%", borderRight: `1px solid ${BORDER}` }}>
+
+          {/* Notes */}
+          <div style={{ padding: "32px 36px", borderBottom: photos.length > 0 ? `1px solid ${BORDER}` : "none" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 18 }}>
+              <div style={{ fontFamily: MONO, fontSize: "10px", letterSpacing: "0.14em", textTransform: "uppercase", color: SUBTLE }}>Notes</div>
+              {notesSaving && <span style={{ fontFamily: MONO, fontSize: "9px", color: "#aaa" }}>saving…</span>}
+            </div>
+            <div style={{ fontFamily: SERIF, fontSize: 34, color: ORANGE, lineHeight: 0.75, marginBottom: 14, userSelect: "none" }}>&ldquo;</div>
+            {editingNotes ? (
+              <textarea autoFocus value={notesValue}
+                onChange={e => setNotesValue(e.target.value)}
+                onBlur={() => { setEditingNotes(false); saveNotes(notesValue); }}
+                onKeyDown={e => { if (e.key === "Escape") { setEditingNotes(false); saveNotes(notesValue); } }}
+                rows={5}
+                style={{ fontFamily: SERIF, fontSize: "17px", lineHeight: 1.8, color: INK, fontStyle: "italic", width: "100%", border: "none", outline: "none", resize: "vertical", background: "transparent", padding: 0 }}
+              />
+            ) : (
+              <div onClick={() => setEditingNotes(true)}
+                style={{ fontFamily: SERIF, fontSize: "17px", lineHeight: 1.8, fontStyle: "italic", cursor: "text", minHeight: 28 }}>
+                {notesValue
+                  ? <span style={{ color: INK }}>{notesValue}</span>
+                  : <span style={{ color: "#bbb" }}>Click to add notes…</span>
+                }
               </div>
+            )}
+          </div>
 
-              {/* Setlist */}
-              {sets.length > 0 && (
-                <div style={{ padding: "32px 32px 64px 40px" }}>
-                  <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 20 }}>
-                    <span style={{ fontFamily: MONO, fontSize: "10px", letterSpacing: "0.14em", textTransform: "uppercase", color: SUBTLE }}>
-                      Setlist
-                    </span>
-                    {gig.setlist_fm_id && (
-                      <a href={`https://www.setlist.fm/setlist/${gig.setlist_fm_id}`} target="_blank" rel="noopener noreferrer"
-                        style={{ fontFamily: MONO, fontSize: "9px", color: SUBTLE, letterSpacing: "0.06em", textDecoration: "none" }}>
-                        · setlist.fm ↗
-                      </a>
-                    )}
+          {/* Photos gallery */}
+          {photos.length > 0 && (
+            <div style={{ padding: "28px 36px 40px" }}>
+              <div style={{ fontFamily: MONO, fontSize: "10px", letterSpacing: "0.14em", textTransform: "uppercase", color: SUBTLE, marginBottom: 16 }}>Photos</div>
+              <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                {photos.map((url, i) => (
+                  <div key={i} onClick={() => setLightboxUrl(url)}
+                    style={{ width: 100, height: 100, overflow: "hidden", cursor: "zoom-in", background: LIGHT, flexShrink: 0 }}>
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={url} alt="" style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
                   </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
 
-                  {sets.map((set, si) => (
-                    <div key={si} style={{ marginBottom: si < sets.length - 1 ? 28 : 0 }}>
-                      {set.label !== "Main Set" && (
-                        <div style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.14em", textTransform: "uppercase", color: ORANGE, marginBottom: 10, paddingBottom: 8, borderBottom: `1px solid ${BORDER}` }}>
-                          {set.label}
-                        </div>
-                      )}
-                      {set.songs.map(s => (
-                        <div key={s.id} style={{ display: "flex", gap: 16, padding: "11px 0", borderBottom: `1px solid #f0ede8`, alignItems: "baseline" }}>
-                          <span style={{ fontFamily: MONO, fontSize: "11px", color: "#999999", minWidth: 26, flexShrink: 0 }}>
-                            {String(s.position).padStart(2, "0")}
-                          </span>
-                          <span style={{ fontFamily: SERIF, fontSize: "15px", color: INK, lineHeight: 1.4 }}>{s.song_title}</span>
-                        </div>
-                      ))}
+        {/* Right: Setlist */}
+        <div style={{ flex: 1, padding: "32px 32px 64px 32px" }}>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 24 }}>
+            <div style={{ fontFamily: MONO, fontSize: "10px", letterSpacing: "0.14em", textTransform: "uppercase", color: SUBTLE }}>Setlist</div>
+            {gig.setlist_fm_id && (
+              <a href={`https://www.setlist.fm/setlist/${gig.setlist_fm_id}`} target="_blank" rel="noopener noreferrer"
+                style={{ fontFamily: MONO, fontSize: "9px", color: SUBTLE, letterSpacing: "0.06em", textDecoration: "none" }}>
+                setlist.fm ↗
+              </a>
+            )}
+          </div>
+
+          {sets.length > 0 ? (
+            <>
+              {sets.map((set, si) => (
+                <div key={si} style={{ marginBottom: si < sets.length - 1 ? 20 : 0 }}>
+                  {set.label !== "Main Set" && (
+                    <div style={{ fontFamily: MONO, fontSize: "8.5px", letterSpacing: "0.14em", textTransform: "uppercase", color: ORANGE, marginBottom: 8, paddingBottom: 6, borderBottom: `1px solid ${BORDER}` }}>
+                      {set.label}
+                    </div>
+                  )}
+                  {set.songs.map(s => (
+                    <div key={s.id} style={{ display: "flex", gap: 14, padding: "9px 0", borderBottom: `1px solid #f0ede8`, alignItems: "baseline" }}>
+                      <span style={{ fontFamily: MONO, fontSize: "10px", color: "#aaa", minWidth: 22, flexShrink: 0 }}>
+                        {String(s.position).padStart(2, "0")}
+                      </span>
+                      <span style={{ fontFamily: SERIF, fontSize: "14px", color: INK, lineHeight: 1.4 }}>{s.song_title}</span>
                     </div>
                   ))}
                 </div>
-              )}
-
-              {sets.length === 0 && (
-                <div style={{ padding: "8px 32px 40px 40px", fontFamily: MONO, fontSize: "10px", color: SUBTLE }}>
-                  No setlist yet —{" "}
-                  <button type="button" onClick={onEdit}
-                    style={{ fontFamily: MONO, fontSize: "10px", color: ORANGE, background: "none", border: "none", cursor: "pointer", padding: 0, textDecoration: "underline" }}>
-                    add one →
-                  </button>
-                </div>
-              )}
+              ))}
+              <div style={{ fontFamily: MONO, fontSize: "9px", color: SUBTLE, marginTop: 20, letterSpacing: "0.04em" }}>
+                Total songs: {gig.songs.length}
+              </div>
+            </>
+          ) : (
+            <div style={{ fontFamily: MONO, fontSize: "10px", color: SUBTLE }}>
+              No setlist yet —{" "}
+              <button type="button" onClick={onEdit}
+                style={{ fontFamily: MONO, fontSize: "10px", color: ORANGE, background: "none", border: "none", cursor: "pointer", padding: 0, textDecoration: "underline" }}>
+                add one →
+              </button>
             </div>
+          )}
+        </div>
       </div>
 
       {/* ── Lightbox ── */}
       {lightboxUrl && (
-        <div
-          onClick={() => setLightboxUrl(null)}
-          style={{
-            position: "fixed", inset: 0, background: "rgba(0,0,0,0.88)", zIndex: 1000,
-            display: "flex", alignItems: "center", justifyContent: "center", cursor: "zoom-out",
-          }}
-        >
+        <div onClick={() => setLightboxUrl(null)}
+          style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.88)", zIndex: 1000, display: "flex", alignItems: "center", justifyContent: "center", cursor: "zoom-out" }}>
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={lightboxUrl} alt=""
-            style={{ maxWidth: "92vw", maxHeight: "92vh", objectFit: "contain", display: "block" }}
-          />
+          <img src={lightboxUrl} alt="" style={{ maxWidth: "92vw", maxHeight: "92vh", objectFit: "contain", display: "block" }} />
         </div>
       )}
     </div>
