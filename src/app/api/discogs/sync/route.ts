@@ -1,7 +1,7 @@
 import { type NextRequest } from "next/server";
-import { cookies } from "next/headers";
 import { revalidateTag } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
+import { createClient as createServiceClient } from "@supabase/supabase-js";
 import { enqueueSync } from "@/lib/sync-queue";
 import { invalidateCollectionCache } from "@/lib/collectionCache";
 
@@ -13,13 +13,23 @@ export async function GET(request: NextRequest) {
     return Response.json({ error: "Not authenticated" }, { status: 401 });
   }
 
-  const cookieStore = await cookies();
-  const accessToken = cookieStore.get("dg_at")?.value;
-  const tokenSecret = cookieStore.get("dg_ts")?.value;
-  const discogsUser = cookieStore.get("dg_un")?.value;
+  // Check tokens via the DB (service role) — the 10-minute OAuth cookies are
+  // only set during the initial connect handshake and must not gate re-syncs.
+  // The Edge Function reads from discogs_tokens directly; the cookies are unused
+  // in the actual sync and were causing all re-syncs to fail after 10 minutes.
+  const adminDb = createServiceClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!,
+    { auth: { persistSession: false } }
+  );
+  const { data: tokenRow } = await adminDb
+    .from("discogs_tokens")
+    .select("discogs_username")
+    .eq("user_id", user.id)
+    .maybeSingle();
 
-  if (!accessToken || !tokenSecret || !discogsUser) {
-    return Response.json({ error: "No Discogs session — please reconnect" }, { status: 400 });
+  if (!tokenRow) {
+    return Response.json({ error: "No Discogs connection — please connect Discogs from your collection page" }, { status: 400 });
   }
 
   const encoder = new TextEncoder();

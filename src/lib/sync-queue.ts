@@ -1,16 +1,28 @@
 import { createClient } from "@/lib/supabase/server";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
+const STUCK_JOB_MS = 20 * 60 * 1000; // 20 minutes without a progress update = stuck
+
 export async function enqueueSync(supabase: SupabaseClient, userId: string): Promise<string> {
-  // Return existing job ID if one is already pending or processing.
+  // Check for an active job — but treat ones that haven't progressed in
+  // 20+ minutes as stuck (Edge Function timed out without writing "failed").
   const { data: existing } = await supabase
     .from("sync_queue")
-    .select("id")
+    .select("id, updated_at")
     .eq("user_id", userId)
     .in("status", ["pending", "processing"])
     .maybeSingle();
 
-  if (existing) return existing.id;
+  if (existing) {
+    const age = Date.now() - new Date(existing.updated_at).getTime();
+    if (age < STUCK_JOB_MS) return existing.id;
+
+    // Stale — mark failed so a fresh job can be created below.
+    await supabase
+      .from("sync_queue")
+      .update({ status: "failed", error_message: "Sync stalled — automatically restarted", updated_at: new Date().toISOString() })
+      .eq("id", existing.id);
+  }
 
   const { data, error } = await supabase
     .from("sync_queue")
