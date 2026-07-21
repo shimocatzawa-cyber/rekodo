@@ -25,7 +25,8 @@ export async function GET(request: Request) {
 
   // Uses search_user_collection RPC which applies unaccent() on both sides
   // so "Diabate" correctly matches stored "Diabaté" etc.
-  const { data, error } = await supabase
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data, error } = await (supabase as any)
     .rpc("search_user_collection", { p_query: q, p_limit: 80 });
 
   if (error) return Response.json({ results: [] });
