@@ -1026,7 +1026,7 @@ export default function InsightsClient({
                   { label: "Record Shelf",         onClick: () => setShowShelf(true),          updated: false },
                   { label: "Essentials Wall",      onClick: () => setShowEssentialsShare(true), updated: false },
                   { label: "Collector DNA",        onClick: () => setShowDNAModal(true),        updated: false },
-                  { label: "Collection Story",     onClick: () => setShowStory(true),           updated: true  },
+                  { label: "Collection Story",     onClick: () => setShowStory(true),           updated: false },
                   { label: "Genre Map",            onClick: () => setShowGenreMap(true),        updated: false },
                   { label: "Style Map",            onClick: () => setShowStyleMap(true),        updated: false },
                   { label: "Spectrum",             onClick: () => setShowSpectrum(true),        updated: false },
