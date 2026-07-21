@@ -377,12 +377,12 @@ function GigDetail({ gig, onEdit, onDelete, timesSeen, onUploadPhoto }: {
       {/* ── INFO BAR ── */}
       <div style={{ display: "flex", flexWrap: "wrap", borderBottom: `1px solid ${BORDER}`, overflowX: "auto" }}>
         {infoChips.map((chip, i) => (
-          <div key={i} style={{ padding: "13px 18px", borderRight: i < infoChips.length - 1 ? `1px solid ${BORDER}` : "none", flexShrink: 0 }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 5, color: SUBTLE, marginBottom: 5 }}>
-              {chip.icon}
-              <span style={{ fontFamily: MONO, fontSize: "7.5px", letterSpacing: "0.12em", textTransform: "uppercase" }}>{chip.label}</span>
+          <div key={i} style={{ padding: "16px 28px", borderRight: i < infoChips.length - 1 ? `1px solid ${BORDER}` : "none", flexShrink: 0, display: "flex", alignItems: "center", gap: 12 }}>
+            <div style={{ color: SUBTLE, flexShrink: 0 }}>{chip.icon}</div>
+            <div>
+              <div style={{ fontFamily: MONO, fontSize: "7.5px", letterSpacing: "0.12em", textTransform: "uppercase", color: SUBTLE, marginBottom: 4 }}>{chip.label}</div>
+              <div style={{ fontFamily: MONO, fontSize: "11px", color: INK }}>{chip.value}</div>
             </div>
-            <div style={{ fontFamily: MONO, fontSize: "11px", color: INK }}>{chip.value}</div>
           </div>
         ))}
       </div>
