@@ -191,27 +191,6 @@ function GigRow({ gig, selected, onClick }: { gig: Gig; selected: boolean; onCli
   );
 }
 
-// ── Enrichment types ──────────────────────────────────────────────────────────
-
-type EnrichMatch = { album: string; cover_url: string | null; source: "collection" | "musicbrainz" };
-type EnrichMap   = Record<string, EnrichMatch | null>;
-
-function groupByAlbum(songs: GigSong[], enrichMap: EnrichMap) {
-  const order: string[]  = [];
-  const groups = new Map<string, { album: string | null; cover_url: string | null; source: string | null; songs: GigSong[] }>();
-
-  for (const song of [...songs].sort((a, b) => a.position - b.position)) {
-    const match = enrichMap[song.song_title];
-    const key   = match?.album ?? "__none__";
-    if (!groups.has(key)) {
-      order.push(key);
-      groups.set(key, { album: match?.album ?? null, cover_url: match?.cover_url ?? null, source: match?.source ?? null, songs: [] });
-    }
-    groups.get(key)!.songs.push(song);
-  }
-  return order.map(k => groups.get(k)!);
-}
-
 // ── Detail panel ──────────────────────────────────────────────────────────────
 
 function GigDetail({ gig, onEdit, onDelete }: {
@@ -222,10 +201,6 @@ function GigDetail({ gig, onEdit, onDelete }: {
   const supports   = gig.artists.filter(a => !a.is_headliner).map(a => a.artist_name);
   const sets       = groupSongsBySet(gig.songs);
   const [confirmDelete, setConfirmDelete] = useState(false);
-
-  const [enrichMap, setEnrichMap]   = useState<EnrichMap | null>(null);
-  const [enriching, setEnriching]   = useState(false);
-
   const [lightboxUrl, setLightboxUrl]   = useState<string | null>(null);
   const [editingNotes, setEditingNotes] = useState(false);
   const [notesValue, setNotesValue]     = useState(gig.journal_entry ?? "");
@@ -248,29 +223,9 @@ function GigDetail({ gig, onEdit, onDelete }: {
     }).finally(() => setNotesSaving(false));
   }
 
-  const headlinerName = headliners[0] ?? gig.artists[0]?.artist_name ?? "";
-
-  useEffect(() => {
-    if (!headlinerName || gig.songs.length === 0) return;
-    setEnrichMap(null);
-    setEnriching(true);
-    fetch("/api/gigs/setlist-enrich", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ artist: headlinerName, songs: gig.songs.map(s => s.song_title) }),
-    })
-      .then(r => r.json())
-      .then(d => setEnrichMap(d.matches ?? {}))
-      .catch(() => setEnrichMap({}))
-      .finally(() => setEnriching(false));
-  }, [gig.id]); // eslint-disable-line react-hooks/exhaustive-deps
-
   const locationStr = [gig.venue, gig.city].filter(Boolean).join(", ").toUpperCase();
   const fullDate    = `${d.day} ${d.month} ${d.year}`;
-
-  const primaryPhoto = gig.photo_1_url ?? (!gig.photo_2_url ? gig.poster_url : null);
-  const showPhoto2   = gig.photo_2_url;
-  const showPoster   = gig.poster_url && primaryPhoto !== gig.poster_url ? gig.poster_url : null;
+  const photos      = [gig.photo_1_url, gig.photo_2_url, gig.poster_url].filter(Boolean) as string[];
 
   return (
     <div>
@@ -278,16 +233,16 @@ function GigDetail({ gig, onEdit, onDelete }: {
       {/* ── Hero: thumbnail left | info right ── */}
       <div style={{ display: "flex", alignItems: "flex-start", gap: 28, padding: "32px 40px 30px", borderBottom: `1px solid ${BORDER}` }}>
 
-        {/* Photo column: main thumbnail only */}
-        <div
-          onClick={() => primaryPhoto && setLightboxUrl(primaryPhoto)}
-          style={{ flexShrink: 0, width: 128, height: 128, background: LIGHT, overflow: "hidden", cursor: primaryPhoto ? "zoom-in" : "default" }}
-        >
-          {primaryPhoto ? (
-            /* eslint-disable-next-line @next/next/no-img-element */
-            <img src={primaryPhoto} alt="" style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
-          ) : (
-            <div style={{ width: "100%", height: "100%", display: "flex", alignItems: "center", justifyContent: "center" }}>
+        {/* Photos: up to 3 equal squares, all clickable */}
+        <div style={{ display: "flex", gap: 6, flexShrink: 0 }}>
+          {photos.length > 0 ? photos.map((url, i) => (
+            <div key={i} onClick={() => setLightboxUrl(url)}
+              style={{ width: 128, height: 128, background: LIGHT, overflow: "hidden", cursor: "zoom-in", flexShrink: 0 }}>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={url} alt="" style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
+            </div>
+          )) : (
+            <div style={{ width: 128, height: 128, background: LIGHT, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
               <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#ccc9c0" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round">
                 <rect x="3" y="3" width="18" height="18" rx="2" />
                 <circle cx="8.5" cy="8.5" r="1.5" />
@@ -339,31 +294,9 @@ function GigDetail({ gig, onEdit, onDelete }: {
         </div>
       </div>
 
-      {/* ── Secondary photo strip (between hero and body) ── */}
-      {(showPhoto2 || showPoster) && (
-        <div style={{ display: "flex", gap: 1, borderBottom: `1px solid ${BORDER}` }}>
-          {[showPhoto2, showPoster].filter(Boolean).map((url, i) => (
-            <div key={i} onClick={() => setLightboxUrl(url!)}
-              style={{ flex: 1, height: 160, overflow: "hidden", cursor: "zoom-in", background: LIGHT }}>
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={url!} alt="" style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
-            </div>
-          ))}
-        </div>
-      )}
-
-      {/* ── Body: [notes + setlist] | [album breakdown] ── */}
-      {(() => {
-        const albumGroups = enrichMap ? groupByAlbum(gig.songs, enrichMap) : [];
-        const matched     = albumGroups.filter(g => g.album !== null);
-        const unmatched   = albumGroups.filter(g => g.album === null).flatMap(g => g.songs);
-        const showPanel   = enrichMap !== null && matched.length > 0;
-
-        return (
-          <div style={{ display: "flex", alignItems: "flex-start" }}>
-
-            {/* ── Left: notes + setlist ── */}
-            <div style={{ flex: 1, minWidth: 0 }}>
+      {/* ── Body: notes + setlist ── */}
+      <div>
+            <div>
 
               {/* Notes */}
               <div style={{ padding: "32px 32px 32px 40px", borderBottom: sets.length > 0 ? `1px solid ${BORDER}` : "none" }}>
@@ -413,9 +346,6 @@ function GigDetail({ gig, onEdit, onDelete }: {
                         · setlist.fm ↗
                       </a>
                     )}
-                    {enriching && (
-                      <span style={{ fontFamily: MONO, fontSize: "9px", color: "#aaaaaa" }}>matching albums…</span>
-                    )}
                   </div>
 
                   {sets.map((set, si) => (
@@ -448,63 +378,7 @@ function GigDetail({ gig, onEdit, onDelete }: {
                 </div>
               )}
             </div>
-
-            {/* ── Right: album breakdown panel ── */}
-            {showPanel && (
-              <div style={{ width: 196, flexShrink: 0, borderLeft: `1px solid ${BORDER}`, padding: "32px 32px 64px 24px" }}>
-                {matched.map((group, gi) => (
-                  <div key={gi} style={{ marginBottom: 24 }}>
-                    {/* Artwork */}
-                    <div style={{ width: 140, height: 140, background: LIGHT, overflow: "hidden", marginBottom: 8, position: "relative" }}>
-                      {/* Vinyl SVG always rendered behind — revealed if image fails */}
-                      <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center" }}>
-                        <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#ccc9c0" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round">
-                          <circle cx="12" cy="12" r="9" /><circle cx="12" cy="12" r="2" />
-                        </svg>
-                      </div>
-                      {group.cover_url && (
-                        /* eslint-disable-next-line @next/next/no-img-element */
-                        <img src={group.cover_url} alt={group.album ?? ""}
-                          referrerPolicy="no-referrer"
-                          style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover", display: "block" }}
-                          onError={e => { (e.currentTarget as HTMLImageElement).style.display = "none"; }}
-                        />
-                      )}
-                    </div>
-                    {/* Album name */}
-                    <div style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.08em", textTransform: "uppercase", color: INK, marginBottom: 2, lineHeight: 1.4 }}>
-                      {group.album}
-                    </div>
-                    {group.source === "collection" && (
-                      <div style={{ fontFamily: MONO, fontSize: "8px", color: ORANGE, letterSpacing: "0.05em", marginBottom: 6 }}>
-                        in your collection
-                      </div>
-                    )}
-                    {group.songs.map(s => (
-                      <div key={s.id} style={{ fontFamily: MONO, fontSize: "9px", color: SUBTLE, lineHeight: 1.8 }}>
-                        {s.song_title}
-                      </div>
-                    ))}
-                  </div>
-                ))}
-
-                {unmatched.length > 0 && matched.length > 0 && (
-                  <div style={{ borderTop: `1px solid ${BORDER}`, paddingTop: 16, marginTop: 4 }}>
-                    <div style={{ fontFamily: MONO, fontSize: "8px", letterSpacing: "0.1em", textTransform: "uppercase", color: "#aaaaaa", marginBottom: 8 }}>
-                      Other
-                    </div>
-                    {unmatched.map(s => (
-                      <div key={s.id} style={{ fontFamily: MONO, fontSize: "9px", color: "#aaaaaa", lineHeight: 1.8 }}>
-                        {s.song_title}
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
-        );
-      })()}
+      </div>
 
       {/* ── Lightbox ── */}
       {lightboxUrl && (
