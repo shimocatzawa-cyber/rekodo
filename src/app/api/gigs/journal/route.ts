@@ -15,6 +15,8 @@ export async function GET() {
       id, date, venue, city, country, journal_entry, rating,
       setlist_fm_id, setlist_source,
       photo_1_url, photo_2_url, poster_url,
+      highlight_moment, highlight_best_song, highlight_sound,
+      start_time, duration,
       created_at, updated_at,
       gig_artists ( id, artist_name, is_headliner ),
       gig_setlist_songs ( id, position, song_title, set_label )
@@ -55,9 +57,14 @@ export async function POST(request: NextRequest) {
       city:          body.city          || null,
       country:       body.country       || null,
       journal_entry: body.journal_entry || null,
-      rating:        body.rating        || null,
-      setlist_fm_id: body.setlist_fm_id || null,
-      setlist_source: body.setlist_source || "none",
+      rating:               body.rating               || null,
+      setlist_fm_id:        body.setlist_fm_id        || null,
+      setlist_source:       body.setlist_source       || "none",
+      highlight_moment:     body.highlight_moment     || null,
+      highlight_best_song:  body.highlight_best_song  || null,
+      highlight_sound:      body.highlight_sound      || null,
+      start_time:           body.start_time           || null,
+      duration:             body.duration             || null,
     })
     .select("id")
     .single();

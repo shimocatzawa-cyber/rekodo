@@ -31,10 +31,15 @@ export async function PUT(request: NextRequest, { params }: Params) {
     rating:        body.rating        || null,
     setlist_fm_id: body.setlist_fm_id || null,
     setlist_source: body.setlist_source || "none",
-    photo_1_url:   body.photo_1_url   ?? null,
-    photo_2_url:   body.photo_2_url   ?? null,
-    poster_url:    body.poster_url    ?? null,
-    updated_at:    new Date().toISOString(),
+    photo_1_url:          body.photo_1_url          ?? null,
+    photo_2_url:          body.photo_2_url          ?? null,
+    poster_url:           body.poster_url           ?? null,
+    highlight_moment:     body.highlight_moment     || null,
+    highlight_best_song:  body.highlight_best_song  || null,
+    highlight_sound:      body.highlight_sound      || null,
+    start_time:           body.start_time           || null,
+    duration:             body.duration             || null,
+    updated_at:           new Date().toISOString(),
   }).eq("id", id);
 
   if (artists !== undefined) {
