@@ -312,6 +312,11 @@ function GigDetail({ gig, onEdit, onDelete, timesSeen, onUploadPhoto }: {
       <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>
     </svg>
   ) });
+  if (gig.rating) infoChips.push({ label: "RATING", value: "★".repeat(gig.rating), icon: (
+    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+      <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>
+    </svg>
+  ) });
   void Ic;
 
   return (
@@ -329,22 +334,11 @@ function GigDetail({ gig, onEdit, onDelete, timesSeen, onUploadPhoto }: {
             />
           )}
           <div style={{ position: "absolute", inset: 0, background: "linear-gradient(to top, rgba(0,0,0,0.84) 0%, rgba(0,0,0,0.28) 55%, rgba(0,0,0,0.04) 100%)", pointerEvents: "none" }} />
-          {/* Artist name + support + venue + rating */}
-          <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, padding: "0 28px 26px" }}>
-            <div style={{ fontFamily: SERIF, fontWeight: 700, fontSize: "clamp(28px, 3vw, 48px)", lineHeight: 1.05, color: "#fff", marginBottom: 7 }}>
+          {/* Artist name only */}
+          <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, padding: "0 28px 28px" }}>
+            <div style={{ fontFamily: SERIF, fontWeight: 700, fontSize: "clamp(28px, 3vw, 48px)", lineHeight: 1.05, color: "#fff" }}>
               {headliners.join(" & ") || "Unknown Artist"}
             </div>
-            {supports.length > 0 && (
-              <div style={{ fontFamily: SERIF, fontSize: 14, color: "rgba(255,255,255,0.72)", marginBottom: 5 }}>
-                w/ {supports.join(", ")}
-              </div>
-            )}
-            {(gig.venue || gig.city) && (
-              <div style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.08em", color: "rgba(255,255,255,0.55)", marginBottom: 13, textTransform: "uppercase" }}>
-                {[gig.venue, gig.city].filter(Boolean).join(", ")}
-              </div>
-            )}
-            {!!gig.rating && <RatingStars value={gig.rating} size={16} />}
           </div>
         </div>
 
@@ -375,9 +369,9 @@ function GigDetail({ gig, onEdit, onDelete, timesSeen, onUploadPhoto }: {
       </div>
 
       {/* ── INFO BAR ── */}
-      <div style={{ display: "flex", flexWrap: "wrap", borderBottom: `1px solid ${BORDER}`, overflowX: "auto" }}>
+      <div style={{ display: "flex", borderBottom: `1px solid ${BORDER}` }}>
         {infoChips.map((chip, i) => (
-          <div key={i} style={{ padding: "16px 28px", borderRight: i < infoChips.length - 1 ? `1px solid ${BORDER}` : "none", flexShrink: 0, display: "flex", alignItems: "center", gap: 12 }}>
+          <div key={i} style={{ flex: 1, padding: "16px 20px", borderRight: i < infoChips.length - 1 ? `1px solid ${BORDER}` : "none", display: "flex", alignItems: "center", gap: 10 }}>
             <div style={{ color: SUBTLE, flexShrink: 0 }}>{chip.icon}</div>
             <div>
               <div style={{ fontFamily: MONO, fontSize: "7.5px", letterSpacing: "0.12em", textTransform: "uppercase", color: SUBTLE, marginBottom: 4 }}>{chip.label}</div>
