@@ -278,43 +278,21 @@ function GigDetail({ gig, onEdit, onDelete }: {
       {/* ── Hero: thumbnail left | info right ── */}
       <div style={{ display: "flex", alignItems: "flex-start", gap: 28, padding: "32px 40px 30px", borderBottom: `1px solid ${BORDER}` }}>
 
-        {/* Photo column: main thumbnail + secondary thumbnails below */}
-        <div style={{ flexShrink: 0, width: 128, display: "flex", flexDirection: "column", gap: 5 }}>
-          {/* Main photo */}
-          <div
-            onClick={() => primaryPhoto && setLightboxUrl(primaryPhoto)}
-            style={{ width: 128, height: 128, background: LIGHT, overflow: "hidden", cursor: primaryPhoto ? "zoom-in" : "default", flexShrink: 0 }}
-          >
-            {primaryPhoto ? (
-              /* eslint-disable-next-line @next/next/no-img-element */
-              <img src={primaryPhoto} alt="" style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
-            ) : (
-              <div style={{ width: "100%", height: "100%", display: "flex", alignItems: "center", justifyContent: "center" }}>
-                <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#ccc9c0" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round">
-                  <rect x="3" y="3" width="18" height="18" rx="2" />
-                  <circle cx="8.5" cy="8.5" r="1.5" />
-                  <polyline points="21 15 16 10 5 21" />
-                </svg>
-              </div>
-            )}
-          </div>
-          {/* Secondary thumbnails */}
-          {(showPhoto2 || showPoster) && (
-            <div style={{ display: "flex", gap: 5 }}>
-              {showPhoto2 && (
-                <div onClick={() => setLightboxUrl(showPhoto2!)}
-                  style={{ flex: 1, height: 58, background: LIGHT, overflow: "hidden", cursor: "zoom-in" }}>
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src={showPhoto2} alt="" style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
-                </div>
-              )}
-              {showPoster && (
-                <div onClick={() => setLightboxUrl(showPoster!)}
-                  style={{ flex: 1, height: 58, background: LIGHT, overflow: "hidden", cursor: "zoom-in" }}>
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src={showPoster} alt="" style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
-                </div>
-              )}
+        {/* Photo column: main thumbnail only */}
+        <div
+          onClick={() => primaryPhoto && setLightboxUrl(primaryPhoto)}
+          style={{ flexShrink: 0, width: 128, height: 128, background: LIGHT, overflow: "hidden", cursor: primaryPhoto ? "zoom-in" : "default" }}
+        >
+          {primaryPhoto ? (
+            /* eslint-disable-next-line @next/next/no-img-element */
+            <img src={primaryPhoto} alt="" style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
+          ) : (
+            <div style={{ width: "100%", height: "100%", display: "flex", alignItems: "center", justifyContent: "center" }}>
+              <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#ccc9c0" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round">
+                <rect x="3" y="3" width="18" height="18" rx="2" />
+                <circle cx="8.5" cy="8.5" r="1.5" />
+                <polyline points="21 15 16 10 5 21" />
+              </svg>
             </div>
           )}
         </div>
@@ -361,12 +339,25 @@ function GigDetail({ gig, onEdit, onDelete }: {
         </div>
       </div>
 
+      {/* ── Secondary photo strip (between hero and body) ── */}
+      {(showPhoto2 || showPoster) && (
+        <div style={{ display: "flex", gap: 1, borderBottom: `1px solid ${BORDER}` }}>
+          {[showPhoto2, showPoster].filter(Boolean).map((url, i) => (
+            <div key={i} onClick={() => setLightboxUrl(url!)}
+              style={{ flex: 1, height: 160, overflow: "hidden", cursor: "zoom-in", background: LIGHT }}>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={url!} alt="" style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
+            </div>
+          ))}
+        </div>
+      )}
+
       {/* ── Body: [notes + setlist] | [album breakdown] ── */}
       {(() => {
         const albumGroups = enrichMap ? groupByAlbum(gig.songs, enrichMap) : [];
         const matched     = albumGroups.filter(g => g.album !== null);
         const unmatched   = albumGroups.filter(g => g.album === null).flatMap(g => g.songs);
-        const showPanel   = enrichMap !== null && (matched.length > 0 || unmatched.length > 0);
+        const showPanel   = enrichMap !== null && matched.length > 0;
 
         return (
           <div style={{ display: "flex", alignItems: "flex-start" }}>
@@ -460,29 +451,24 @@ function GigDetail({ gig, onEdit, onDelete }: {
 
             {/* ── Right: album breakdown panel ── */}
             {showPanel && (
-              <div style={{ width: 152, flexShrink: 0, padding: "32px 40px 64px 0" }}>
+              <div style={{ width: 196, flexShrink: 0, borderLeft: `1px solid ${BORDER}`, padding: "32px 32px 64px 24px" }}>
                 {matched.map((group, gi) => (
                   <div key={gi} style={{ marginBottom: 24 }}>
                     {/* Artwork */}
-                    <div style={{ width: 112, height: 112, background: LIGHT, overflow: "hidden", marginBottom: 8, position: "relative" }}>
-                      {group.cover_url ? (
+                    <div style={{ width: 140, height: 140, background: LIGHT, overflow: "hidden", marginBottom: 8, position: "relative" }}>
+                      {/* Vinyl SVG always rendered behind — revealed if image fails */}
+                      <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center" }}>
+                        <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#ccc9c0" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round">
+                          <circle cx="12" cy="12" r="9" /><circle cx="12" cy="12" r="2" />
+                        </svg>
+                      </div>
+                      {group.cover_url && (
                         /* eslint-disable-next-line @next/next/no-img-element */
                         <img src={group.cover_url} alt={group.album ?? ""}
                           referrerPolicy="no-referrer"
-                          style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
-                          onError={e => {
-                            const el = e.currentTarget as HTMLImageElement;
-                            el.style.display = "none";
-                            const parent = el.parentElement;
-                            if (parent) parent.setAttribute("data-noart", "1");
-                          }}
+                          style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover", display: "block" }}
+                          onError={e => { (e.currentTarget as HTMLImageElement).style.display = "none"; }}
                         />
-                      ) : (
-                        <div style={{ width: "100%", height: "100%", display: "flex", alignItems: "center", justifyContent: "center" }}>
-                          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#ccc9c0" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round">
-                            <circle cx="12" cy="12" r="9" /><circle cx="12" cy="12" r="2" />
-                          </svg>
-                        </div>
                       )}
                     </div>
                     {/* Album name */}
