@@ -49,6 +49,19 @@ const EMPTY_FORM: FormState = {
   highlightMoment: "", highlightBestSong: "", highlightSound: "",
 };
 
+// ── Hooks ─────────────────────────────────────────────────────────────────────
+
+function useIsMobile(bp = 768) {
+  const [m, setM] = useState(false);
+  useEffect(() => {
+    const fn = () => setM(window.innerWidth < bp);
+    fn();
+    window.addEventListener("resize", fn);
+    return () => window.removeEventListener("resize", fn);
+  }, [bp]);
+  return m;
+}
+
 // ── Utilities ─────────────────────────────────────────────────────────────────
 
 function parseDateParts(iso: string) {
@@ -199,10 +212,11 @@ function GigRow({ gig, selected, onClick }: { gig: Gig; selected: boolean; onCli
 
 // ── Detail panel ──────────────────────────────────────────────────────────────
 
-function GigDetail({ gig, onEdit, onDelete, timesSeen, onUploadPhoto }: {
+function GigDetail({ gig, onEdit, onDelete, timesSeen, onUploadPhoto, isMobile }: {
   gig: Gig; onEdit: () => void; onDelete: () => void;
   timesSeen: number;
   onUploadPhoto: (slot: "photo1" | "photo2" | "poster", file: File) => Promise<void>;
+  isMobile: boolean;
 }) {
   const d = parseDateParts(gig.date);
   const headliners = gig.artists.filter(a => a.is_headliner).map(a => a.artist_name);
@@ -323,10 +337,10 @@ function GigDetail({ gig, onEdit, onDelete, timesSeen, onUploadPhoto }: {
     <div>
 
       {/* ── HERO (with top buffer) ── */}
-      <div style={{ position: "relative", display: "flex", height: 380, overflow: "hidden", borderTop: `4px solid #fff` }}>
+      <div style={{ position: "relative", display: "flex", height: isMobile ? 260 : 380, overflow: "hidden", borderTop: `4px solid #fff` }}>
 
         {/* Left: main photo with overlay */}
-        <div style={{ flex: heroRight ? "0 0 55%" : "1", position: "relative", overflow: "hidden", background: "#111" }}>
+        <div style={{ flex: heroRight && !isMobile ? "0 0 55%" : "1", position: "relative", overflow: "hidden", background: "#111" }}>
           {heroPhoto && (
             /* eslint-disable-next-line @next/next/no-img-element */
             <img src={heroPhoto} alt="" onClick={() => setLightboxUrl(heroPhoto)}
@@ -342,8 +356,8 @@ function GigDetail({ gig, onEdit, onDelete, timesSeen, onUploadPhoto }: {
           </div>
         </div>
 
-        {/* Right: second photo */}
-        {heroRight ? (
+        {/* Right: second photo — desktop only */}
+        {heroRight && !isMobile ? (
           <div style={{ flex: "0 0 45%", position: "relative", overflow: "hidden", background: LIGHT }}>
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img src={heroRight} alt="" onClick={() => setLightboxUrl(heroRight)}
@@ -369,26 +383,33 @@ function GigDetail({ gig, onEdit, onDelete, timesSeen, onUploadPhoto }: {
       </div>
 
       {/* ── INFO BAR ── */}
-      <div style={{ display: "flex", borderBottom: `1px solid ${BORDER}` }}>
+      <div style={{ display: "flex", borderBottom: `1px solid ${BORDER}`, ...(isMobile && { overflowX: "auto" }) }}>
         {infoChips.map((chip, i) => (
-          <div key={i} style={{ flex: 1, padding: "16px 20px", borderRight: i < infoChips.length - 1 ? `1px solid ${BORDER}` : "none", display: "flex", alignItems: "center", gap: 10 }}>
+          <div key={i} style={{
+            ...(isMobile ? { flexShrink: 0, padding: "14px 16px" } : { flex: 1, padding: "16px 20px" }),
+            borderRight: i < infoChips.length - 1 ? `1px solid ${BORDER}` : "none",
+            display: "flex", alignItems: "center", gap: 10,
+          }}>
             <div style={{ color: SUBTLE, flexShrink: 0 }}>{chip.icon}</div>
             <div>
               <div style={{ fontFamily: MONO, fontSize: "7.5px", letterSpacing: "0.12em", textTransform: "uppercase", color: SUBTLE, marginBottom: 4 }}>{chip.label}</div>
-              <div style={{ fontFamily: MONO, fontSize: "11px", color: INK }}>{chip.value}</div>
+              <div style={{ fontFamily: MONO, fontSize: "11px", color: INK, whiteSpace: "nowrap" }}>{chip.value}</div>
             </div>
           </div>
         ))}
       </div>
 
-      {/* ── BODY: two columns ── */}
-      <div style={{ display: "flex", alignItems: "flex-start" }}>
+      {/* ── BODY: two columns desktop / single column mobile ── */}
+      <div style={{ display: "flex", alignItems: "flex-start", ...(isMobile && { flexDirection: "column" }) }}>
 
         {/* Left: Notes + Highlights + Photos */}
-        <div style={{ flex: "0 0 58%", borderRight: `1px solid ${BORDER}` }}>
+        <div style={isMobile
+          ? { width: "100%", borderBottom: `1px solid ${BORDER}` }
+          : { flex: "0 0 58%", borderRight: `1px solid ${BORDER}` }
+        }>
 
           {/* Notes */}
-          <div style={{ padding: "32px 36px", borderBottom: `1px solid ${BORDER}` }}>
+          <div style={{ padding: isMobile ? "24px 20px" : "32px 36px", borderBottom: `1px solid ${BORDER}` }}>
             <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 18 }}>
               <div style={{ fontFamily: MONO, fontSize: "10px", letterSpacing: "0.14em", textTransform: "uppercase", color: SUBTLE }}>Notes</div>
               {saving && <span style={{ fontFamily: MONO, fontSize: "9px", color: "#aaa" }}>saving…</span>}
@@ -416,9 +437,9 @@ function GigDetail({ gig, onEdit, onDelete, timesSeen, onUploadPhoto }: {
           </div>
 
           {/* Highlights */}
-          <div style={{ padding: "28px 36px", borderBottom: `1px solid ${BORDER}` }}>
+          <div style={{ padding: isMobile ? "24px 20px" : "28px 36px", borderBottom: `1px solid ${BORDER}` }}>
             <div style={{ fontFamily: MONO, fontSize: "10px", letterSpacing: "0.14em", textTransform: "uppercase", color: SUBTLE, marginBottom: 16 }}>Highlights</div>
-            <div style={{ display: "flex", gap: 10 }}>
+            <div style={{ display: "flex", gap: 10, ...(isMobile && { flexDirection: "column" }) }}>
               {([
                 { key: "moment",   label: "Favourite Moment", value: momentValue,   set: setMomentValue,   field: "highlight_moment" },
                 { key: "bestSong", label: "Best Song",        value: bestSongValue, set: setBestSongValue, field: "highlight_best_song" },
@@ -447,7 +468,7 @@ function GigDetail({ gig, onEdit, onDelete, timesSeen, onUploadPhoto }: {
           </div>
 
           {/* Photos — 3 slots always shown */}
-          <div style={{ padding: "28px 36px 40px" }}>
+          <div style={{ padding: isMobile ? "24px 20px 32px" : "28px 36px 40px" }}>
             <div style={{ fontFamily: MONO, fontSize: "10px", letterSpacing: "0.14em", textTransform: "uppercase", color: SUBTLE, marginBottom: 16 }}>Photos</div>
             <div style={{ display: "flex", gap: 8 }}>
               {photoSlots.map(({ slot, url }) => (
@@ -481,7 +502,10 @@ function GigDetail({ gig, onEdit, onDelete, timesSeen, onUploadPhoto }: {
         </div>
 
         {/* Right: Setlist */}
-        <div style={{ flex: 1, padding: "32px 32px 64px 32px" }}>
+        <div style={isMobile
+          ? { width: "100%", padding: "28px 20px 48px" }
+          : { flex: 1, padding: "32px 32px 64px 32px" }
+        }>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 24 }}>
             <div style={{ fontFamily: MONO, fontSize: "10px", letterSpacing: "0.14em", textTransform: "uppercase", color: SUBTLE }}>Setlist</div>
             {gig.setlist_fm_id && (
@@ -712,6 +736,11 @@ export default function GigJournalTab() {
   }
 
   const grouped = groupByYear(gigs);
+  const isMobile = useIsMobile();
+
+  // On mobile: show list OR detail/form — not both
+  const mobileShowList = isMobile && !selected && view !== "form";
+  const mobileShowPanel = isMobile && (!!selected || view === "form");
 
   // ── Render ───────────────────────────────────────────────────────────────────
 
@@ -720,8 +749,11 @@ export default function GigJournalTab() {
 
       {/* ── Sidebar ── */}
       <aside style={{
-        width: 256, flexShrink: 0, borderRight: `1px solid ${BORDER}`,
-        display: "flex", flexDirection: "column", background: "#fff",
+        width: isMobile ? "100%" : 256,
+        flexShrink: 0,
+        borderRight: isMobile ? "none" : `1px solid ${BORDER}`,
+        display: (!isMobile || mobileShowList) ? "flex" : "none",
+        flexDirection: "column", background: "#fff",
       }}>
         <div style={{ padding: "14px 14px 12px", borderBottom: `1px solid ${BORDER}`, flexShrink: 0 }}>
           <button type="button" onClick={openNew}
@@ -756,7 +788,18 @@ export default function GigJournalTab() {
       </aside>
 
       {/* ── Right panel ── */}
-      <main style={{ flex: 1, overflowY: "auto", background: "#fff", minWidth: 0 }}>
+      <main style={{ flex: 1, overflowY: "auto", background: "#fff", minWidth: 0, display: (!isMobile || mobileShowPanel) ? undefined : "none" }}>
+
+        {/* Mobile back button */}
+        {isMobile && (
+          <div style={{ padding: "12px 16px", borderBottom: `1px solid ${BORDER}`, background: "#fff", position: "sticky", top: 0, zIndex: 20 }}>
+            <button type="button"
+              onClick={() => { setSelected(null); setView("detail"); }}
+              style={{ fontFamily: MONO, fontSize: "8.5px", letterSpacing: "0.08em", textTransform: "uppercase", color: SUBTLE, background: "none", border: "none", cursor: "pointer", padding: 0 }}>
+              ← All gigs
+            </button>
+          </div>
+        )}
 
         {view === "detail" && !selected && (
           <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: "100%", flexDirection: "column", gap: 10 }}>
@@ -775,16 +818,17 @@ export default function GigJournalTab() {
           <GigDetail gig={selected} onEdit={() => openEdit(selected)} onDelete={() => handleDelete(selected)}
             timesSeen={computeTimesSeen(selected)}
             onUploadPhoto={(slot, file) => detailUploadPhoto(selected.id, slot, file)}
+            isMobile={isMobile}
           />
         )}
 
         {view === "form" && (
-          <div style={{ maxWidth: 560, margin: "0 auto", padding: "36px 32px 80px" }}>
+          <div style={{ maxWidth: 560, margin: "0 auto", padding: isMobile ? "24px 16px 80px" : "36px 32px 80px" }}>
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 30 }}>
               <div style={{ fontFamily: SERIF, fontSize: "18px", color: INK }}>
                 {editGig ? "Edit gig" : "Log a gig"}
               </div>
-              <button type="button" onClick={() => setView("detail")}
+              <button type="button" onClick={() => { setView("detail"); if (isMobile) setSelected(null); }}
                 style={{ fontFamily: MONO, fontSize: "8px", letterSpacing: "0.08em", textTransform: "uppercase", color: SUBTLE, background: "none", border: "none", cursor: "pointer" }}
               >← Cancel</button>
             </div>
