@@ -1,6 +1,5 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
-import { unstable_cache } from "next/cache";
 import Link from "next/link";
 import { createClient as createServiceClient } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase/server";
@@ -142,48 +141,42 @@ export type RecordRow = {
   edition_size: number | null;
 };
 
-function fetchCollectionRaw(userId: string) {
-  return unstable_cache(
-    async (): Promise<{ allLinks: LinkRow[]; recordRows: RecordRow[] }> => {
-      const admin = createServiceClient(
-        process.env.NEXT_PUBLIC_SUPABASE_URL!,
-        process.env.SUPABASE_SERVICE_ROLE_KEY!
-      );
+async function fetchCollectionRaw(userId: string): Promise<{ allLinks: LinkRow[]; recordRows: RecordRow[] }> {
+  const admin = createServiceClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!
+  );
 
-      const allLinks: LinkRow[] = [];
-      const PAGE = 1000;
-      for (let from = 0; ; from += PAGE) {
-        const { data, error } = await admin
-          .from("user_records")
-          .select("record_id, created_at, value, price_low, price_median, price_currency, media_condition, sleeve_condition, last_played_at, open_to_offers, is_essential, feeling, memory_text, copies, tags, date_added")
-          .eq("user_id", userId)
-          .order("created_at", { ascending: false })
-          .range(from, from + PAGE - 1);
-        if (error || !data || data.length === 0) break;
-        allLinks.push(...(data as unknown as LinkRow[]));
-        if (data.length < PAGE) break;
-      }
+  const allLinks: LinkRow[] = [];
+  const PAGE = 1000;
+  for (let from = 0; ; from += PAGE) {
+    const { data, error } = await admin
+      .from("user_records")
+      .select("record_id, created_at, value, price_low, price_median, price_currency, media_condition, sleeve_condition, last_played_at, open_to_offers, is_essential, feeling, memory_text, copies, tags, date_added")
+      .eq("user_id", userId)
+      .order("created_at", { ascending: false })
+      .range(from, from + PAGE - 1);
+    if (error || !data || data.length === 0) break;
+    allLinks.push(...(data as unknown as LinkRow[]));
+    if (data.length < PAGE) break;
+  }
 
-      const recordIds = allLinks.map((l) => l.record_id);
-      const BATCH = 400;
-      const batches: string[][] = [];
-      for (let i = 0; i < recordIds.length; i += BATCH) batches.push(recordIds.slice(i, i + BATCH));
-      const batchResults = await Promise.all(
-        batches.map((ids) =>
-          admin
-            .from("records")
-            .select("id, discogs_id, artist, album, year, genre, styles, cover_url, label, format, country, community_have, community_want, community_num_for_sale, barcode, matrix, edition_size")
-            .in("id", ids)
-        )
-      );
-      const recordRows: RecordRow[] = [];
-      for (const { data } of batchResults) recordRows.push(...((data ?? []) as unknown as RecordRow[]));
+  const recordIds = allLinks.map((l) => l.record_id);
+  const BATCH = 400;
+  const batches: string[][] = [];
+  for (let i = 0; i < recordIds.length; i += BATCH) batches.push(recordIds.slice(i, i + BATCH));
+  const batchResults = await Promise.all(
+    batches.map((ids) =>
+      admin
+        .from("records")
+        .select("id, discogs_id, artist, album, year, genre, styles, cover_url, label, format, country, community_have, community_want, community_num_for_sale, barcode, matrix, edition_size")
+        .in("id", ids)
+    )
+  );
+  const recordRows: RecordRow[] = [];
+  for (const { data } of batchResults) recordRows.push(...((data ?? []) as unknown as RecordRow[]));
 
-      return { allLinks, recordRows };
-    },
-    [`collection-raw-${userId}`],
-    { tags: [`collection-${userId}`], revalidate: false }
-  )();
+  return { allLinks, recordRows };
 }
 
 export default async function CollectionPage({
