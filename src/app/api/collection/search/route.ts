@@ -23,17 +23,14 @@ export async function GET(request: Request) {
   const q = new URL(request.url).searchParams.get("q")?.trim() ?? "";
   if (!q) return Response.json({ results: [] });
 
-  // Inner-join records→user_records to avoid a large IN clause.
+  // Uses search_user_collection RPC which applies unaccent() on both sides
+  // so "Diabate" correctly matches stored "Diabaté" etc.
   const { data, error } = await supabase
-    .from("records")
-    .select("id, discogs_id, artist, album, year, genre, cover_url, label, user_records!inner(user_id)")
-    .eq("user_records.user_id", user.id)
-    .or(`artist.ilike.%${q}%,album.ilike.%${q}%`)
-    .limit(80);
+    .rpc("search_user_collection", { p_query: q, p_limit: 80 });
 
   if (error) return Response.json({ results: [] });
 
-  const ql = q.toLowerCase();
+  const ql = q.normalize("NFD").replace(/\p{Diacritic}/gu, "").toLowerCase();
   const rows = (data ?? []) as unknown as Row[];
 
   rows.sort((a, b) => {

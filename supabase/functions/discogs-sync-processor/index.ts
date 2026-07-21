@@ -552,6 +552,7 @@ async function processSync(supabase: SB, jobId: string, userId: string) {
           .from("user_records")
           .select("record_id")
           .eq("user_id", userId)
+          .order("record_id")   // stable ordering required for correct offset pagination
           .range(from, from + BATCH - 1);
         if (!data || data.length === 0) break;
         for (const row of data) {
