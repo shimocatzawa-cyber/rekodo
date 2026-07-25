@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 
 const SERIF  = "var(--font-editorial)";
 const MONO   = "var(--font-mono)";
@@ -738,7 +738,41 @@ export default function GigJournalTab() {
     setForm(f => ({ ...f, [slot]: null }));
   }
 
-  const grouped = groupByYear(gigs);
+  const [filterArtist, setFilterArtist] = useState("");
+  const [filterVenue,  setFilterVenue]  = useState("");
+  const [filterYear,   setFilterYear]   = useState("");
+
+  const uniqueVenues = useMemo(() => {
+    const seen = new Set<string>();
+    const result: string[] = [];
+    for (const g of gigs) {
+      const v = [g.venue, g.city].filter(Boolean).join(", ");
+      if (v && !seen.has(v)) { seen.add(v); result.push(v); }
+    }
+    return result.sort();
+  }, [gigs]);
+
+  const uniqueYears = useMemo(() => {
+    const seen = new Set<string>();
+    for (const g of gigs) if (g.date) seen.add(g.date.slice(0, 4));
+    return [...seen].sort((a, b) => Number(b) - Number(a));
+  }, [gigs]);
+
+  const filteredGigs = useMemo(() => {
+    const aq = filterArtist.toLowerCase().trim();
+    return gigs.filter(g => {
+      if (aq && !g.artists.some(a => a.artist_name.toLowerCase().includes(aq))) return false;
+      if (filterVenue) {
+        const v = [g.venue, g.city].filter(Boolean).join(", ");
+        if (v !== filterVenue) return false;
+      }
+      if (filterYear && g.date?.slice(0, 4) !== filterYear) return false;
+      return true;
+    });
+  }, [gigs, filterArtist, filterVenue, filterYear]);
+
+  const hasFilters = !!(filterArtist.trim() || filterVenue || filterYear);
+  const grouped = groupByYear(hasFilters ? filteredGigs : gigs);
   const isMobile = useIsMobile();
 
   // On mobile: show list OR detail/form — not both
@@ -758,13 +792,57 @@ export default function GigJournalTab() {
         display: (!isMobile || mobileShowList) ? "flex" : "none",
         flexDirection: "column", background: "#fff",
       }}>
-        <div style={{ padding: "14px 14px 12px", borderBottom: `1px solid ${BORDER}`, flexShrink: 0 }}>
+        <div style={{ padding: "14px 14px 0", borderBottom: `1px solid ${BORDER}`, flexShrink: 0 }}>
+          {/* Stat line */}
+          {!loading && gigs.length > 0 && (
+            <div style={{ fontFamily: MONO, fontSize: "9px", color: SUBTLE, letterSpacing: "0.06em", marginBottom: 10 }}>
+              <span style={{ fontWeight: 600, color: INK }}>{gigs.length}</span> gig{gigs.length !== 1 ? "s" : ""}{hasFilters && filteredGigs.length !== gigs.length ? ` · ${filteredGigs.length} shown` : ""}
+            </div>
+          )}
+
+          {/* Log a gig button */}
           <button type="button" onClick={openNew}
             style={{
               width: "100%", fontFamily: MONO, fontSize: "8.5px", letterSpacing: "0.1em",
               textTransform: "uppercase", color: ORANGE, background: "none",
               border: `1px solid ${ORANGE}`, padding: "9px 0", cursor: "pointer",
+              marginBottom: 12,
             }}>+ Log a gig</button>
+
+          {/* Filters */}
+          {gigs.length > 0 && (
+            <div style={{ display: "flex", flexDirection: "column", gap: 6, paddingBottom: 12 }}>
+              <input
+                type="text"
+                placeholder="Artist…"
+                value={filterArtist}
+                onChange={e => setFilterArtist(e.target.value)}
+                style={{ fontFamily: MONO, fontSize: "9px", color: INK, background: "#faf9f6", border: `1px solid ${filterArtist ? ORANGE : BORDER}`, padding: "5px 8px", outline: "none", width: "100%", boxSizing: "border-box" }}
+              />
+              <select
+                value={filterVenue}
+                onChange={e => setFilterVenue(e.target.value)}
+                style={{ fontFamily: MONO, fontSize: "9px", color: filterVenue ? INK : SUBTLE, background: "#faf9f6", border: `1px solid ${filterVenue ? ORANGE : BORDER}`, padding: "5px 8px", outline: "none", width: "100%", appearance: "none", cursor: "pointer" }}
+              >
+                <option value="">Venue…</option>
+                {uniqueVenues.map(v => <option key={v} value={v}>{v}</option>)}
+              </select>
+              <select
+                value={filterYear}
+                onChange={e => setFilterYear(e.target.value)}
+                style={{ fontFamily: MONO, fontSize: "9px", color: filterYear ? INK : SUBTLE, background: "#faf9f6", border: `1px solid ${filterYear ? ORANGE : BORDER}`, padding: "5px 8px", outline: "none", width: "100%", appearance: "none", cursor: "pointer" }}
+              >
+                <option value="">Year…</option>
+                {uniqueYears.map(y => <option key={y} value={y}>{y}</option>)}
+              </select>
+              {hasFilters && (
+                <button type="button" onClick={() => { setFilterArtist(""); setFilterVenue(""); setFilterYear(""); }}
+                  style={{ fontFamily: MONO, fontSize: "7.5px", letterSpacing: "0.08em", textTransform: "uppercase", color: SUBTLE, background: "none", border: "none", cursor: "pointer", padding: "2px 0", textAlign: "left" }}>
+                  Clear filters ✕
+                </button>
+              )}
+            </div>
+          )}
         </div>
 
         <div style={{ flex: 1, overflowY: "auto" }}>
