@@ -77,7 +77,11 @@ export function isPlausibleArtistMatch(queryArtist: string, resultArtist: string
   const qArtist = normalizeTitle(queryArtist);
   const norm    = normalizeTitle(resultArtist);
   if (!norm || !qArtist) return false;
-  return similarity(qArtist, norm) >= 0.6 || norm.includes(qArtist) || qArtist.includes(norm);
+  // Require the contained string to cover ≥60% of the containing string — prevents
+  // "Heron" matching "Levi Heron" (substring hit, different artist entirely).
+  return similarity(qArtist, norm) >= 0.6
+    || (norm.includes(qArtist) && qArtist.length >= norm.length * 0.6)
+    || (qArtist.includes(norm) && norm.length   >= qArtist.length * 0.6);
 }
 
 // Album title is checked looser than artist since formatting (slashes,
@@ -93,7 +97,11 @@ export function isPlausibleAlbumMatch(
 
   const qAlbum = normalizeTitle(queryAlbum);
   const rAlbum = normalizeTitle(resultAlbum);
+  // subsetOverlap on a single-word query always returns 1.0 for any result
+  // containing that word — gate it on ≥2 words to prevent e.g. "Heron" matching
+  // "The Glen (Levi Heron Edit)" via the shared word "heron".
+  const multiWordQuery = qAlbum.split(" ").filter(Boolean).length >= 2;
   return similarity(qAlbum, rAlbum) >= 0.35
     || tokenOverlap(qAlbum, rAlbum) >= 0.34
-    || subsetOverlap(qAlbum, rAlbum) >= 0.8;
+    || (multiWordQuery && subsetOverlap(qAlbum, rAlbum) >= 0.8);
 }

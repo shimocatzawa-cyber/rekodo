@@ -123,7 +123,8 @@ function SleeveCard({ rec, mode, onAddToWantlist, wantlistAdded, onDismiss, dism
 }) {
   const t = useTranslations("dig");
   // Component remounts on every rec change (key prop), so useState resets naturally.
-  const [coverUrl, setCoverUrl] = useState<string | null>(null);
+  const [coverUrl, setCoverUrl]             = useState<string | null>(null);
+  const [spotifyAlbumUri, setSpotifyAlbumUri] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -152,6 +153,7 @@ function SleeveCard({ rec, mode, onAddToWantlist, wantlistAdded, onDismiss, dism
       .then(data => {
         if (cancelled) return;
         if (data.album_art_url) setCoverUrl(`/api/image-proxy?url=${encodeURIComponent(data.album_art_url)}`);
+        if (data.album_uri) setSpotifyAlbumUri(data.album_uri);
         onPreviewReady({ previewUrl: data.preview_url, trackUri: data.track_uri, albumUri: data.album_uri ?? null, artist: rec.artist, album: rec.album });
       })
       .catch(() => {});
@@ -162,9 +164,15 @@ function SleeveCard({ rec, mode, onAddToWantlist, wantlistAdded, onDismiss, dism
 
   const q = encodeURIComponent(`${rec.artist} ${rec.album}`);
 
+  // Use the verified album URI from the preview API when available — links directly
+  // to the matched album rather than a search that may surface a different release.
+  const spotifyHref = spotifyAlbumUri
+    ? spotifyAlbumUri.replace("spotify:album:", "https://open.spotify.com/album/")
+    : `https://open.spotify.com/search/${q}`;
+
   const STREAM = [
     { label: t("openAppleMusic"), href: `https://music.apple.com/search?term=${q}` },
-    { label: t("openSpotify"),    href: `https://open.spotify.com/search/${q}` },
+    { label: t("openSpotify"),    href: spotifyHref },
     { label: t("openTidal"),      href: `https://tidal.com/search?q=${q}` },
     { label: t("openDeezer"),     href: `https://www.deezer.com/search/${q}` },
   ];
