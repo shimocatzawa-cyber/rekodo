@@ -850,7 +850,7 @@ export default function SelectsClient({ username, displayLabel, avatarUrl }: Pro
 
       <main className="rk-selects-main" style={{ padding: "36px 40px 80px", maxWidth: 1200, margin: "0 auto" }}>
         {activeTab === "new_releases" ? (
-          <div style={{ maxWidth: 780, margin: "0 auto" }}><NewReleasesSection /></div>
+          <NewReleasesSection />
         ) : activeTab === "live" ? (
           <LiveSection />
         ) : activeTab === "artist" ? (
