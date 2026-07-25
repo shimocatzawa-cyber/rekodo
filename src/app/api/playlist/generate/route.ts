@@ -7,7 +7,7 @@ import { FEELINGS as MOODS } from "@/lib/feelings";
 import { checkDailyLimit, isSupporter } from "@/lib/rateLimit";
 
 export const dynamic = "force-dynamic";
-export const maxDuration = 60;
+export const maxDuration = 300;
 
 // Don't try to live-match the user's entire backlog just to fill one
 // playlist — the background worker already does that, slowly and safely.
