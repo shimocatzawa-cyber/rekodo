@@ -599,7 +599,7 @@ export default function GigJournalTab() {
     if (selectId) {
       setSelected(list.find(g => g.id === selectId) ?? null);
     } else {
-      setSelected(prev => prev ? (list.find(g => g.id === prev.id) ?? null) : null);
+      setSelected(prev => prev ? (list.find(g => g.id === prev.id) ?? null) : (list[0] ?? null));
     }
   }, []);
 
