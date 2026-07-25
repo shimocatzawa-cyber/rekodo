@@ -396,8 +396,8 @@ function GigDetail({ gig, onEdit, onDelete, timesSeen, onUploadPhoto, isMobile }
           }}>
             <div style={{ color: SUBTLE, flexShrink: 0 }}>{chip.icon}</div>
             <div>
-              <div style={{ fontFamily: MONO, fontSize: "7.5px", letterSpacing: "0.12em", textTransform: "uppercase", color: SUBTLE, marginBottom: 4 }}>{chip.label}</div>
-              <div style={{ fontFamily: MONO, fontSize: "11px", color: INK, whiteSpace: "nowrap" }}>{chip.value}</div>
+              <div style={{ fontFamily: MONO, fontSize: "13px", color: INK, whiteSpace: "nowrap", marginBottom: 2 }}>{chip.value}</div>
+              <div style={{ fontFamily: MONO, fontSize: "7px", letterSpacing: "0.1em", textTransform: "uppercase", color: SUBTLE }}>{chip.label}</div>
             </div>
           </div>
         ))}
