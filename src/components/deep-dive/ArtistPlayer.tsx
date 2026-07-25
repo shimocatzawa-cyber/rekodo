@@ -39,6 +39,8 @@ export default function ArtistPlayer({ artist }: Props) {
     setFetchError(null);
     setShuffled(false);
     setLoading(true);
+    // Clear the old source immediately so the previous artist's queue stops
+    setActiveSource({ mode: "dig", spotifyTrackUris: [], artist, albumTitle: "Top Tracks" } as ActiveSource);
     const controller = new AbortController();
     fetch(`/api/spotify/artist-top-tracks?artist=${encodeURIComponent(artist)}`, { signal: controller.signal })
       .then(async r => {
@@ -58,7 +60,7 @@ export default function ArtistPlayer({ artist }: Props) {
       })
       .finally(() => setLoading(false));
     return () => { controller.abort(); };
-  }, [artist, tokenData?.connected, retryCount]);
+  }, [artist, tokenData?.connected, retryCount, setActiveSource]);
 
   // Keep provider source in sync
   useEffect(() => {
