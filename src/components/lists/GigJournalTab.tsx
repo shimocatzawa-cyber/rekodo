@@ -414,10 +414,6 @@ function GigDetail({ gig, onEdit, onDelete, timesSeen, onUploadPhoto, isMobile }
 
           {/* Notes */}
           <div style={{ padding: isMobile ? "24px 20px" : "32px 36px", borderBottom: `1px solid ${BORDER}` }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 18 }}>
-              <div style={{ fontFamily: MONO, fontSize: "10px", letterSpacing: "0.14em", textTransform: "uppercase", color: SUBTLE }}>Notes</div>
-              {saving && <span style={{ fontFamily: MONO, fontSize: "9px", color: "#aaa" }}>saving…</span>}
-            </div>
             {editingField === "notes" ? (
               <textarea autoFocus value={notesValue}
                 onChange={e => setNotesValue(e.target.value)}
@@ -438,11 +434,14 @@ function GigDetail({ gig, onEdit, onDelete, timesSeen, onUploadPhoto, isMobile }
                 )}
               </div>
             )}
+            <div style={{ display: "flex", alignItems: "center", gap: 10, marginTop: 10 }}>
+              <div style={{ fontFamily: MONO, fontSize: "7px", letterSpacing: "0.1em", textTransform: "uppercase", color: SUBTLE }}>Notes</div>
+              {saving && <span style={{ fontFamily: MONO, fontSize: "7px", color: "#aaa" }}>saving…</span>}
+            </div>
           </div>
 
           {/* Highlights */}
           <div style={{ padding: isMobile ? "24px 20px" : "28px 36px", borderBottom: `1px solid ${BORDER}` }}>
-            <div style={{ fontFamily: MONO, fontSize: "10px", letterSpacing: "0.14em", textTransform: "uppercase", color: SUBTLE, marginBottom: 16 }}>Highlights</div>
             <div style={{ display: "flex", gap: 10, ...(isMobile && { flexDirection: "column" }) }}>
               {([
                 { key: "moment",   label: "Favourite Moment", value: momentValue,   set: setMomentValue,   field: "highlight_moment" },
@@ -452,7 +451,6 @@ function GigDetail({ gig, onEdit, onDelete, timesSeen, onUploadPhoto, isMobile }
                 <div key={card.key}
                   onClick={() => editingField !== card.key && setEditingField(card.key)}
                   style={{ flex: 1, border: `1px solid ${BORDER}`, padding: "14px 14px 12px", minHeight: 90, cursor: "text" }}>
-                  <div style={{ fontFamily: MONO, fontSize: "7.5px", letterSpacing: "0.1em", textTransform: "uppercase", color: SUBTLE, marginBottom: 10 }}>{card.label}</div>
                   {editingField === card.key ? (
                     <textarea autoFocus value={card.value}
                       onChange={e => card.set(e.target.value)}
@@ -462,10 +460,11 @@ function GigDetail({ gig, onEdit, onDelete, timesSeen, onUploadPhoto, isMobile }
                       style={{ fontFamily: SERIF, fontSize: "13px", lineHeight: 1.6, color: INK, width: "100%", border: "none", outline: "none", resize: "none", background: "transparent", padding: 0 }}
                     />
                   ) : (
-                    <div style={{ fontFamily: SERIF, fontSize: "13px", lineHeight: 1.6, color: card.value ? INK : "#ccc" }}>
+                    <div style={{ fontFamily: SERIF, fontSize: "13px", lineHeight: 1.6, color: card.value ? INK : "#ccc", marginBottom: 10 }}>
                       {card.value || "—"}
                     </div>
                   )}
+                  <div style={{ fontFamily: MONO, fontSize: "7px", letterSpacing: "0.1em", textTransform: "uppercase", color: SUBTLE }}>{card.label}</div>
                 </div>
               ))}
             </div>
