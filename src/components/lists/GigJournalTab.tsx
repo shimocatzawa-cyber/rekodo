@@ -233,6 +233,8 @@ function GigDetail({ gig, onEdit, onDelete, timesSeen, onUploadPhoto, isMobile }
   const [soundValue,   setSoundValue]   = useState(gig.highlight_sound     ?? "");
 
   const [photoUploading, setPhotoUploading] = useState<Record<string, boolean>>({});
+  const [heroLeftPos,  setHeroLeftPos]  = useState<"top" | "center">("center");
+  const [heroRightPos, setHeroRightPos] = useState<"top" | "center">("center");
   const p1Ref = useRef<HTMLInputElement>(null);
   const p2Ref = useRef<HTMLInputElement>(null);
   const p3Ref = useRef<HTMLInputElement>(null);
@@ -344,7 +346,8 @@ function GigDetail({ gig, onEdit, onDelete, timesSeen, onUploadPhoto, isMobile }
           {heroPhoto && (
             /* eslint-disable-next-line @next/next/no-img-element */
             <img src={heroPhoto} alt="" onClick={() => setLightboxUrl(heroPhoto)}
-              style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover", display: "block", cursor: "zoom-in" }}
+              onLoad={e => { const i = e.currentTarget; setHeroLeftPos(i.naturalHeight > i.naturalWidth ? "top" : "center"); }}
+              style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover", objectPosition: heroLeftPos, display: "block", cursor: "zoom-in" }}
             />
           )}
           <div style={{ position: "absolute", inset: 0, background: "linear-gradient(to top, rgba(0,0,0,0.84) 0%, rgba(0,0,0,0.28) 55%, rgba(0,0,0,0.04) 100%)", pointerEvents: "none" }} />
@@ -361,7 +364,8 @@ function GigDetail({ gig, onEdit, onDelete, timesSeen, onUploadPhoto, isMobile }
           <div style={{ flex: "0 0 45%", position: "relative", overflow: "hidden", background: LIGHT }}>
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img src={heroRight} alt="" onClick={() => setLightboxUrl(heroRight)}
-              style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover", display: "block", cursor: "zoom-in" }}
+              onLoad={e => { const i = e.currentTarget; setHeroRightPos(i.naturalHeight > i.naturalWidth ? "top" : "center"); }}
+              style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover", objectPosition: heroRightPos, display: "block", cursor: "zoom-in" }}
             />
             <div style={{ position: "absolute", top: 16, right: 16, display: "flex", gap: 8, alignItems: "center", zIndex: 10 }}>
               <button type="button" onClick={onEdit} style={{ fontFamily: MONO, fontSize: "7.5px", letterSpacing: "0.1em", textTransform: "uppercase", color: INK, background: "rgba(255,255,255,0.92)", border: "1px solid rgba(0,0,0,0.18)", padding: "5px 11px", cursor: "pointer" }}>Edit</button>
