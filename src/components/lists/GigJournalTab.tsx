@@ -396,8 +396,7 @@ function GigDetail({ gig, onEdit, onDelete, timesSeen, onUploadPhoto, isMobile }
           }}>
             <div style={{ color: SUBTLE, flexShrink: 0 }}>{chip.icon}</div>
             <div>
-              <div style={{ fontFamily: MONO, fontSize: "13px", color: INK, whiteSpace: "nowrap", marginBottom: 2 }}>{chip.value}</div>
-              <div style={{ fontFamily: MONO, fontSize: "7px", letterSpacing: "0.1em", textTransform: "uppercase", color: SUBTLE }}>{chip.label}</div>
+              <div style={{ fontFamily: MONO, fontSize: "13px", color: INK, whiteSpace: "nowrap" }}>{chip.value}</div>
             </div>
           </div>
         ))}
@@ -434,10 +433,7 @@ function GigDetail({ gig, onEdit, onDelete, timesSeen, onUploadPhoto, isMobile }
                 )}
               </div>
             )}
-            <div style={{ display: "flex", alignItems: "center", gap: 10, marginTop: 10 }}>
-              <div style={{ fontFamily: MONO, fontSize: "7px", letterSpacing: "0.1em", textTransform: "uppercase", color: SUBTLE }}>Notes</div>
-              {saving && <span style={{ fontFamily: MONO, fontSize: "7px", color: "#aaa" }}>saving…</span>}
-            </div>
+            {saving && <div style={{ fontFamily: MONO, fontSize: "7px", color: "#aaa", marginTop: 8 }}>saving…</div>}
           </div>
 
           {/* Highlights */}
@@ -460,11 +456,10 @@ function GigDetail({ gig, onEdit, onDelete, timesSeen, onUploadPhoto, isMobile }
                       style={{ fontFamily: SERIF, fontSize: "13px", lineHeight: 1.6, color: INK, width: "100%", border: "none", outline: "none", resize: "none", background: "transparent", padding: 0 }}
                     />
                   ) : (
-                    <div style={{ fontFamily: SERIF, fontSize: "13px", lineHeight: 1.6, color: card.value ? INK : "#ccc", marginBottom: 10 }}>
+                    <div style={{ fontFamily: SERIF, fontSize: "13px", lineHeight: 1.6, color: card.value ? INK : "#ccc" }}>
                       {card.value || "—"}
                     </div>
                   )}
-                  <div style={{ fontFamily: MONO, fontSize: "7px", letterSpacing: "0.1em", textTransform: "uppercase", color: SUBTLE }}>{card.label}</div>
                 </div>
               ))}
             </div>
