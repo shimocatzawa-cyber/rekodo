@@ -792,11 +792,10 @@ export default function GigJournalTab() {
           {/* Stat line */}
           {!loading && gigs.length > 0 && (
             <div style={{ marginBottom: 12 }}>
-              <div style={{ fontFamily: SERIF, fontSize: "22px", fontWeight: 600, color: INK, lineHeight: 1.15 }}>
-                {hasFilters && filteredGigs.length !== gigs.length
-                  ? <>{filteredGigs.length} <span style={{ fontWeight: 400 }}>gig{filteredGigs.length !== 1 ? "s" : ""} shown</span></>
-                  : <>{gigs.length} <span style={{ fontWeight: 400 }}>gig{gigs.length !== 1 ? "s" : ""}</span></>
-                }
+              <div style={{ fontFamily: SERIF, fontSize: "22px", fontWeight: 400, color: INK, lineHeight: 1.15 }}>
+                Total Gigs: <span style={{ fontWeight: 600, color: ORANGE }}>
+                  {hasFilters && filteredGigs.length !== gigs.length ? filteredGigs.length : gigs.length}
+                </span>
               </div>
             </div>
           )}
