@@ -447,6 +447,7 @@ function GigDetail({ gig, onEdit, onDelete, timesSeen, onUploadPhoto, isMobile }
                 <div key={card.key}
                   onClick={() => editingField !== card.key && setEditingField(card.key)}
                   style={{ flex: 1, border: `1px solid ${BORDER}`, padding: "14px 14px 12px", minHeight: 90, cursor: "text" }}>
+                  <div style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.13em", textTransform: "uppercase", color: SUBTLE, marginBottom: 8 }}>{card.label}</div>
                   {editingField === card.key ? (
                     <textarea autoFocus value={card.value}
                       onChange={e => card.set(e.target.value)}
