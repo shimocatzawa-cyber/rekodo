@@ -2,6 +2,8 @@ import { type NextRequest } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createClient as createServiceClient } from "@supabase/supabase-js";
 
+export const maxDuration = 300;
+
 const UA          = "rekodo/1.0";
 const BATCH_LIMIT = 50;
 const CONCURRENT  = 2;
