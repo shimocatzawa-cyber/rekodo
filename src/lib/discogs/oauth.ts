@@ -6,7 +6,11 @@ async function fetchWithRetry(url: string, init: RequestInit, retries = 3): Prom
   let delay = 1000;
   for (let attempt = 0; ; attempt++) {
     const res = await fetch(url, init);
-    if (res.status !== 429 || attempt >= retries) return res;
+    // Retry on rate-limit (429) and transient server errors (502/503/504) —
+    // Discogs API intermittently returns 502 "This Page is Unavailable" during
+    // partial outages and these always recover within a few seconds.
+    const retryable = res.status === 429 || res.status === 502 || res.status === 503 || res.status === 504;
+    if (!retryable || attempt >= retries) return res;
     await new Promise(r => setTimeout(r, delay));
     delay *= 2;
   }

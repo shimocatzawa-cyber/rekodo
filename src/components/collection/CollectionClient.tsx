@@ -841,7 +841,7 @@ export default function CollectionClient({
         <StatusBanner color="#aaaaaa" bg="#f4f4f4">Discogs authorization cancelled</StatusBanner>
       )}
       {oauthError && (
-        <StatusBanner color="#cc2200" bg="#fff5f5">Discogs connection error — please try again</StatusBanner>
+        <StatusBanner color="#cc2200" bg="#fff5f5">Discogs is temporarily unavailable — please try again in a few minutes</StatusBanner>
       )}
       {syncState === "syncing" && syncProgress && (
         <StatusBanner color="#0d0d0d" bg="#f4f4f4">
