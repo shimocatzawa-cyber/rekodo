@@ -789,6 +789,17 @@ export default function GigJournalTab() {
         flexDirection: "column", background: "#fff",
       }}>
         <div style={{ padding: "14px 14px 0", borderBottom: `1px solid ${BORDER}`, flexShrink: 0 }}>
+          {/* Stat line */}
+          {!loading && gigs.length > 0 && (
+            <div style={{ marginBottom: 12 }}>
+              <div style={{ fontFamily: SERIF, fontSize: "22px", fontWeight: 400, color: INK, lineHeight: 1.15 }}>
+                Total Gigs: <span style={{ fontWeight: 600, color: ORANGE }}>
+                  {hasFilters && filteredGigs.length !== gigs.length ? filteredGigs.length : gigs.length}
+                </span>
+              </div>
+            </div>
+          )}
+
           {/* Log a gig button */}
           <button type="button" onClick={openNew}
             style={{
@@ -831,16 +842,6 @@ export default function GigJournalTab() {
                 </button>
               )}
 
-              {/* Stat line — below filters */}
-              {!loading && (
-                <div style={{ paddingTop: 6 }}>
-                  <div style={{ fontFamily: SERIF, fontSize: "22px", fontWeight: 400, color: INK, lineHeight: 1.15 }}>
-                    Total Gigs: <span style={{ fontWeight: 600, color: ORANGE }}>
-                      {hasFilters && filteredGigs.length !== gigs.length ? filteredGigs.length : gigs.length}
-                    </span>
-                  </div>
-                </div>
-              )}
             </div>
           )}
         </div>
