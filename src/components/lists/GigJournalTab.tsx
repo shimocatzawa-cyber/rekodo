@@ -791,8 +791,13 @@ export default function GigJournalTab() {
         <div style={{ padding: "14px 14px 0", borderBottom: `1px solid ${BORDER}`, flexShrink: 0 }}>
           {/* Stat line */}
           {!loading && gigs.length > 0 && (
-            <div style={{ fontFamily: MONO, fontSize: "9px", color: SUBTLE, letterSpacing: "0.06em", marginBottom: 10 }}>
-              <span style={{ fontWeight: 600, color: INK }}>{gigs.length}</span> gig{gigs.length !== 1 ? "s" : ""}{hasFilters && filteredGigs.length !== gigs.length ? ` · ${filteredGigs.length} shown` : ""}
+            <div style={{ marginBottom: 12 }}>
+              <div style={{ fontFamily: SERIF, fontSize: "22px", fontWeight: 600, color: INK, lineHeight: 1.15 }}>
+                {hasFilters && filteredGigs.length !== gigs.length
+                  ? <>{filteredGigs.length} <span style={{ fontWeight: 400 }}>gig{filteredGigs.length !== 1 ? "s" : ""} shown</span></>
+                  : <>{gigs.length} <span style={{ fontWeight: 400 }}>gig{gigs.length !== 1 ? "s" : ""}</span></>
+                }
+              </div>
             </div>
           )}
 
