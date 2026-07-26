@@ -222,6 +222,20 @@ function GigDetail({ gig, onEdit, onDelete, timesSeen, onUploadPhoto, isMobile }
   const headliners = gig.artists.filter(a => a.is_headliner).map(a => a.artist_name);
   const supports   = gig.artists.filter(a => !a.is_headliner).map(a => a.artist_name);
   const sets       = groupSongsBySet(gig.songs);
+
+  function exportSetlistCsv() {
+    const artist = headliners[0] ?? gig.artists[0]?.artist_name ?? "Unknown Artist";
+    const esc    = (s: string) => `"${s.replace(/"/g, '""')}"`;
+    const sorted = [...gig.songs].sort((a, b) => a.position - b.position);
+    const rows   = sorted.map(s => [esc(s.song_title), esc(artist)].join(","));
+    const csv    = ["Track,Artist", ...rows].join("\n");
+    const blob   = new Blob([csv], { type: "text/plain;charset=utf-8" });
+    const url    = URL.createObjectURL(blob);
+    const a      = document.createElement("a");
+    const slug   = `${artist} ${gig.date ?? ""}`.toLowerCase().replace(/[^a-z0-9]+/g, "-").slice(0, 50);
+    a.href = url; a.download = `rekodo-${slug}.csv`; a.click();
+    URL.revokeObjectURL(url);
+  }
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [lightboxUrl, setLightboxUrl]     = useState<string | null>(null);
   const [editingField, setEditingField]   = useState<string | null>(null);
@@ -507,12 +521,23 @@ function GigDetail({ gig, onEdit, onDelete, timesSeen, onUploadPhoto, isMobile }
         }>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 24 }}>
             <div style={{ fontFamily: MONO, fontSize: "10px", letterSpacing: "0.14em", textTransform: "uppercase", color: SUBTLE }}>Setlist</div>
-            {gig.setlist_fm_id && (
-              <a href={`https://www.setlist.fm/setlist/${gig.setlist_fm_id}`} target="_blank" rel="noopener noreferrer"
-                style={{ fontFamily: MONO, fontSize: "9px", color: SUBTLE, letterSpacing: "0.06em", textDecoration: "none" }}>
-                setlist.fm ↗
-              </a>
-            )}
+            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+              {gig.songs.length > 0 && (
+                <button
+                  onClick={exportSetlistCsv}
+                  title="CSV for Soundiiz / TuneMyMusic import"
+                  style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.08em", textTransform: "uppercase", color: INK, background: "none", border: `1px solid #c0bcb4`, cursor: "pointer", padding: "4px 10px" }}
+                >
+                  Export CSV
+                </button>
+              )}
+              {gig.setlist_fm_id && (
+                <a href={`https://www.setlist.fm/setlist/${gig.setlist_fm_id}`} target="_blank" rel="noopener noreferrer"
+                  style={{ fontFamily: MONO, fontSize: "9px", color: SUBTLE, letterSpacing: "0.06em", textDecoration: "none" }}>
+                  setlist.fm ↗
+                </a>
+              )}
+            </div>
           </div>
           {sets.length > 0 ? (
             <>
