@@ -36,6 +36,7 @@ export interface AdminUser {
   playlists_generated: number;
   deep_dive_count: number;
   digs_count: number;
+  gigs_logged: number;
   top_sections: { section: string; count: number }[];
   referral_source: string | null;
   connections: {
@@ -456,6 +457,10 @@ export default function UserRow({ user, showFinancial, columnCount }: { user: Ad
 
         <td style={{ ...cellSt, color: user.digs_count > 0 ? INK : MUTED, textAlign: "right" as const }}>
           {user.digs_count > 0 ? user.digs_count.toLocaleString() : "—"}
+        </td>
+
+        <td style={{ ...cellSt, color: user.gigs_logged > 0 ? INK : MUTED, textAlign: "right" as const }}>
+          {user.gigs_logged > 0 ? user.gigs_logged.toLocaleString() : "—"}
         </td>
 
         {/* Subscription spend / Donated / Discogs username — hidden by default behind "show all columns" */}

@@ -31,9 +31,7 @@ export default function ListsHub({ profileId, username, displayLabel, avatarUrl,
     { key: "selllist",  label: t("sellList") },
     { key: "playlist",  label: t("playlist") },
   ];
-  const TABS = isAdmin
-    ? [...baseTabs, { key: "gigs" as SubTab, label: "Gig Journal" }]
-    : baseTabs;
+  const TABS = [...baseTabs, { key: "gigs" as SubTab, label: "Gig Journal" }];
   const [activeTab, setActiveTab] = useUrlTab<SubTab>("tab", TABS.map(t => t.key), "top5");
 
   // isSupporter kept in Props for potential future use
@@ -90,7 +88,7 @@ export default function ListsHub({ profileId, username, displayLabel, avatarUrl,
           <PlaylistTab username={username} />
         </div>
 
-        {isAdmin && activeTab === "gigs" && <GigJournalTab />}
+        {activeTab === "gigs" && <GigJournalTab />}
 
       </div>
     </div>

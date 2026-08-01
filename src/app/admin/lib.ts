@@ -56,6 +56,7 @@ export async function enrichProfiles(
     pageViewResult,
     deepDiveViewResult,
     digResult,
+    gigResult,
     recordCounts,
   ] = await Promise.all([
     // Auth data: one getUserById per user (parallel, no bulk API available)
@@ -68,6 +69,7 @@ export async function enrichProfiles(
     adminDb.from("page_views").select("user_id, section").in("user_id", userIds).limit(2000),
     adminDb.from("api_daily_usage").select("user_id, count").in("user_id", userIds).eq("route", "deep_dive"),
     adminDb.from("dig_daily_count").select("user_id, count").in("user_id", userIds),
+    adminDb.from("gigs").select("user_id").in("user_id", userIds),
     // Sum copies per user — paginate with .range() to bypass the PostgREST
     // max_rows cap (1000). .limit(N > 1000) is silently capped server-side.
     Promise.all(
@@ -102,6 +104,7 @@ export async function enrichProfiles(
   const pageViewRows    = pageViewResult.data      ?? [];
   const deepDiveRows    = deepDiveViewResult.data  ?? [];
   const digRows         = digResult.data           ?? [];
+  const gigRows         = gigResult.data           ?? [];
 
   const wantlistIds        = new Set(listRows.filter(r => isWantlistSlug(r.slug as string)).map(r => r.user_id as string));
   const discogsIds         = new Set(discogsRows.map(r => r.user_id as string));
@@ -132,6 +135,12 @@ export async function enrichProfiles(
   for (const row of digRows) {
     const uid = row.user_id as string;
     digCountMap.set(uid, (digCountMap.get(uid) ?? 0) + (row.count as number));
+  }
+
+  const gigCountMap = new Map<string, number>();
+  for (const row of gigRows) {
+    const uid = row.user_id as string;
+    gigCountMap.set(uid, (gigCountMap.get(uid) ?? 0) + 1);
   }
 
   const subSpendMap = new Map<string, { cents: number; currency: string }>();
@@ -188,6 +197,7 @@ export async function enrichProfiles(
       playlists_generated:  playlistsGeneratedMap.get(p.id) ?? 0,
       deep_dive_count:      deepDiveCountMap.get(p.id) ?? 0,
       digs_count:           digCountMap.get(p.id) ?? 0,
+      gigs_logged:          gigCountMap.get(p.id) ?? 0,
       top_sections:         [...(userSectionCounts.get(p.id) ?? new Map<string, number>()).entries()]
         .sort((a, b) => b[1] - a[1])
         .slice(0, 3)

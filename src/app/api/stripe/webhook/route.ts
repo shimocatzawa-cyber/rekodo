@@ -135,5 +135,37 @@ Your contribution goes directly into keeping the lights on and building what com
     }
   }
 
+  // Subscription cancelled or ended — revoke supporter access.
+  if (
+    event.type === "customer.subscription.deleted" ||
+    (event.type === "customer.subscription.updated" &&
+      ["canceled", "unpaid", "past_due"].includes(
+        (event.data.object as Stripe.Subscription).status
+      ))
+  ) {
+    const subscription = event.data.object as Stripe.Subscription;
+    const customerId = typeof subscription.customer === "string"
+      ? subscription.customer
+      : (subscription.customer as { id: string }).id;
+
+    const supabase = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.SUPABASE_SERVICE_ROLE_KEY!
+    );
+
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("id, is_supporter")
+      .eq("stripe_customer_id", customerId)
+      .maybeSingle();
+
+    if (profile?.is_supporter) {
+      await supabase
+        .from("profiles")
+        .update({ is_supporter: false, subscription_tier: "free" })
+        .eq("stripe_customer_id", customerId);
+    }
+  }
+
   return NextResponse.json({ received: true });
 }

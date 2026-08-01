@@ -625,6 +625,13 @@ export default function GigJournalTab() {
 
   useEffect(() => { loadGigs(); }, [loadGigs]);
 
+  useEffect(() => {
+    fetch("/api/track-pageview", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ path: "/lists/gigs" }), keepalive: true,
+    }).catch(() => {});
+  }, []);
+
   function openNew() {
     setEditGig(null); setSavedId(null);
     setForm({ ...EMPTY_FORM, date: new Date().toISOString().slice(0, 10) });

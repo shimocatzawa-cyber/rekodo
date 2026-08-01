@@ -31,7 +31,8 @@ type SortKey =
   | "username" | "email" | "location" | "archetype" | "record_count"
   | "lists_created" | "playlists_generated" | "deep_dive_count" | "digs_count"
   | "subscription_spend" | "donation_total" | "connected" | "discogs_username"
-  | "subscription_tier" | "joined" | "last_active" | "status" | "referral_source";
+  | "subscription_tier" | "joined" | "last_active" | "status" | "referral_source"
+  | "gigs_logged";
 
 type ConnectionKey = keyof AdminUser["connections"];
 
@@ -45,6 +46,7 @@ const ALL_COLUMNS: { label: string; key: SortKey | null; optional?: boolean }[] 
   { label: "Playlists",        key: "playlists_generated" },
   { label: "Deep Dive",        key: "deep_dive_count" },
   { label: "Digs",             key: "digs_count" },
+  { label: "Gig Journal",      key: "gigs_logged" },
   { label: "Sub. spend",       key: "subscription_spend", optional: true },
   { label: "Donated",          key: "donation_total",     optional: true },
   { label: "Connected",        key: "connected" },
@@ -86,6 +88,7 @@ function getSortValue(u: AdminUser, key: SortKey): string | number {
     case "playlists_generated": return u.playlists_generated;
     case "deep_dive_count":     return u.deep_dive_count;
     case "digs_count":          return u.digs_count;
+    case "gigs_logged":         return u.gigs_logged;
     case "subscription_spend":  return u.subscription_spend?.cents ?? 0;
     case "donation_total":      return u.donation_total?.cents ?? 0;
     case "connected":           return Object.values(u.connections).filter(Boolean).length;
@@ -109,7 +112,7 @@ function csvAmount(v: { cents: number; currency: string } | null): string {
 function buildCSV(users: AdminUser[]): string {
   const headers = [
     "Username", "Email", "Location", "Archetype", "Collection",
-    "Lists", "Playlists", "Deep Dive", "Digs", "Sub. spend", "Donated",
+    "Lists", "Playlists", "Deep Dive", "Digs", "Gig Journal", "Sub. spend", "Donated",
     "Connected", "Discogs username", "Tier", "Joined", "Last active", "Status", "Source",
   ];
   const lines = [headers.map(csvEscape).join(",")];
@@ -122,7 +125,7 @@ function buildCSV(users: AdminUser[]): string {
       u.email, location,
       u.archetype ?? "",
       String(u.record_count), String(u.lists_created),
-      String(u.playlists_generated), String(u.deep_dive_count), String(u.digs_count),
+      String(u.playlists_generated), String(u.deep_dive_count), String(u.digs_count), String(u.gigs_logged),
       csvAmount(u.subscription_spend), csvAmount(u.donation_total),
       connected, u.discogs_username ?? "",
       isSupporterTier(u.subscription_tier) ? "Supporter" : "Free",

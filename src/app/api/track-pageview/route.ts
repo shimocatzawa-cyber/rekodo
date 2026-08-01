@@ -10,6 +10,7 @@ const SECTION_BY_PREFIX: [prefix: string, label: string][] = [
   ["/digital",            "Digital"],
   ["/deep-dive",          "Deep Dive"],
   ["/dig",                "Dig"],
+  ["/lists/gigs",         "Gig Journal"],
   ["/lists",              "Lists"],
   ["/insights",           "Insights"],
   ["/archetypes",         "Archetypes"],
