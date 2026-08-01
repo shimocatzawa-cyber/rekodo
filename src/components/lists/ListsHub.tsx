@@ -27,11 +27,12 @@ export default function ListsHub({ profileId, username, displayLabel, avatarUrl,
   const t = useTranslations("lists");
   const baseTabs: Array<{ key: SubTab; label: string }> = [
     { key: "top5",      label: t("myLists") },
+    { key: "gigs",      label: "Gig Journal" },
     { key: "wantlist",  label: t("wantList") },
     { key: "selllist",  label: t("sellList") },
     { key: "playlist",  label: t("playlist") },
   ];
-  const TABS = [...baseTabs, { key: "gigs" as SubTab, label: "Gig Journal" }];
+  const TABS = baseTabs;
   const [activeTab, setActiveTab] = useUrlTab<SubTab>("tab", TABS.map(t => t.key), "top5");
 
   // isSupporter kept in Props for potential future use
