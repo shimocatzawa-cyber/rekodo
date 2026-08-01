@@ -1339,6 +1339,8 @@ export default function DeepDiveClient({
 
   // Track which artist:section combos have been requested to prevent duplicates
   const startedRef = useRef(new Set<string>());
+  // Accumulates episode/book/interview titles already shown so regenerate can exclude them
+  const seenItemsRef = useRef<Record<string, string[]>>({});
 
   // Live wantlist counts (null = use server-provided counts from props)
   const [liveWantlistCounts, setLiveWantlistCounts] = useState<Record<string, number> | null>(null);
@@ -1785,6 +1787,53 @@ export default function DeepDiveClient({
       });
   }
 
+  async function handleRegenerate(section: "podcasts" | "print") {
+    if (!selectedArtist) return;
+    const artist = selectedArtist;
+    const key = `${artist}:${section}`;
+
+    // Collect current items so we can tell the API not to repeat them
+    const currentData = cache[artist]?.[section];
+    const existing = seenItemsRef.current[key] ?? [];
+    if (section === "podcasts") {
+      const eps = (currentData as { episodes?: { episode: string }[] } | undefined)?.episodes ?? [];
+      seenItemsRef.current[key] = [...new Set([...existing, ...eps.map(e => e.episode)])];
+    } else {
+      const pd = currentData as PrintData | undefined;
+      const bookTitles      = (pd?.books      ?? []).map(b => b.title);
+      const interviewTitles = (pd?.interviews ?? []).map(iv => iv.title);
+      seenItemsRef.current[key] = [...new Set([...existing, ...bookTitles, ...interviewTitles])];
+    }
+    const excludeItems = seenItemsRef.current[key];
+
+    // Clear cached result and show skeleton while fetching
+    setCache(prev => {
+      const ac = { ...(prev[artist] ?? {}) };
+      delete ac[section];
+      return { ...prev, [artist]: ac };
+    });
+    setLoadingTabs(prev => ({ ...prev, [key]: true }));
+    setErrorTabs(prev => { const n = { ...prev }; delete n[key]; return n; });
+
+    try {
+      const r = await fetch("/api/deep-dive/intelligence", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ artist, section, force: true, excludeItems }),
+      });
+      if (!r.ok) throw await classifyFetchError(r);
+      const json = await r.json() as { data: unknown };
+      setCache(prev => ({
+        ...prev,
+        [artist]: { ...(prev[artist] ?? {}), [section]: json.data ?? {} },
+      }));
+    } catch (err) {
+      setErrorTabs(prev => ({ ...prev, [key]: (err as TabErrorKind)?.kind ? (err as TabErrorKind) : { kind: "error" } }));
+    } finally {
+      setLoadingTabs(prev => { const n = { ...prev }; delete n[key]; return n; });
+    }
+  }
+
   function renderTabContent() {
     if (!selectedArtist) return null;
     const key = `${selectedArtist}:${activeTab}`;
@@ -1859,8 +1908,42 @@ export default function DeepDiveClient({
         wantlistAdded={wantlistAdded}
       />;
     }
-    if (tab === "podcasts") return <PodcastsContent data={data as { episodes?: Episode[] }} artist={selectedArtist} />;
-    if (tab === "print")    return <PrintContent    data={data as PrintData} artist={selectedArtist} />;
+    if (tab === "podcasts") return (
+      <>
+        <PodcastsContent data={data as { episodes?: Episode[] }} artist={selectedArtist} />
+        <div style={{ paddingTop: "1.5rem" }}>
+          <button
+            type="button"
+            onClick={() => void handleRegenerate("podcasts")}
+            style={{
+              fontFamily: MONO, fontSize: "0.62rem", letterSpacing: "0.08em",
+              textTransform: "uppercase", color: ORANGE, background: "none",
+              border: "none", padding: 0, cursor: "pointer",
+            }}
+          >
+            ↺ Find more episodes
+          </button>
+        </div>
+      </>
+    );
+    if (tab === "print")    return (
+      <>
+        <PrintContent data={data as PrintData} artist={selectedArtist} />
+        <div style={{ paddingTop: "1.5rem" }}>
+          <button
+            type="button"
+            onClick={() => void handleRegenerate("print")}
+            style={{
+              fontFamily: MONO, fontSize: "0.62rem", letterSpacing: "0.08em",
+              textTransform: "uppercase", color: ORANGE, background: "none",
+              border: "none", padding: 0, cursor: "pointer",
+            }}
+          >
+            ↺ Find more
+          </button>
+        </div>
+      </>
+    );
     if (tab === "related")  return <RelatedArtistsContent data={data as { artists?: RelatedArtist[] }} />;
     if (tab === "blindspot")  return <BlindSpotContent  data={data as { albums?: BlindSpotAlbum[] }} artist={selectedArtist} />;
     if (tab === "pressings")  return <PressingsContent  data={data as { pressings?: PressingsAlbum[] }} onRetry={() => retryFetch(selectedArtist, "pressings")} />;

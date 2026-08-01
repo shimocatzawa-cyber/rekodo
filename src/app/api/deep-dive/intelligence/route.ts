@@ -819,7 +819,8 @@ export async function getOrGenerateSection(
   artist: string,
   section: string,
   ownedAlbums?: string[],
-  force?: boolean
+  force?: boolean,
+  excludeItems?: string[],
 ): Promise<{ data: unknown; cached: boolean }> {
   if (!artist || !section) throw new Error("Invalid request");
 
@@ -903,11 +904,16 @@ export async function getOrGenerateSection(
     console.log(`[deep-dive] tavily — ${artist}: ${tavilyInterviews.length} interview URLs found`);
   }
 
-  const prompt = (section === "podcasts" && itunesEpisodes.length > 0)
+  let prompt = (section === "podcasts" && itunesEpisodes.length > 0)
     ? buildPodcastsPromptWithItunes(artist, itunesEpisodes, discogsAlbums)
     : section === "print"
       ? buildPrintPromptWithOpenLibrary(artist, openLibraryBooks, discogsAlbums, tavilyInterviews)
       : PROMPTS[section](artist, promptAlbums, discogsAlbums);
+
+  if (excludeItems && excludeItems.length > 0) {
+    const label = section === "podcasts" ? "episodes" : "books or interviews";
+    prompt += `\n\nIMPORTANT — ALREADY SHOWN: The user has already seen these ${label}. Do NOT include them in your response. Find different ones:\n${excludeItems.map(s => `- ${s}`).join("\n")}`;
+  }
 
   console.log(`[deep-dive] calling ${model} — ${artist}/${section} max_tokens=${maxTokens}`);
 
@@ -994,13 +1000,15 @@ export async function POST(request: NextRequest) {
       section?: string;
       ownedAlbums?: string[];
       force?: boolean;
+      excludeItems?: string[];
     };
     artist  = body.artist  ?? "";
     section = body.section ?? "";
-    const ownedAlbums = body.ownedAlbums;
-    const force = body.force === true;
+    const ownedAlbums  = body.ownedAlbums;
+    const force        = body.force === true;
+    const excludeItems = Array.isArray(body.excludeItems) ? body.excludeItems as string[] : undefined;
 
-    const { data, cached } = await getOrGenerateSection(artist, section, ownedAlbums, force);
+    const { data, cached } = await getOrGenerateSection(artist, section, ownedAlbums, force, excludeItems);
 
     // ── Track per-user deep dive (fire-and-forget, kept alive via after() —
     // a bare unawaited async IIFE gets killed mid-flight as soon as the
