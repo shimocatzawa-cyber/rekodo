@@ -76,7 +76,7 @@ export async function GET() {
         `&startDateTime=${isoNow()}` +
         `&endDateTime=${isoMonthsFromNow(9)}` +
         `&apikey=${TM_API_KEY}` +
-        `&size=50` +
+        `&size=200` +
         `&sort=date,asc`;
 
       const res = await fetch(url, { cache: "no-store" });
