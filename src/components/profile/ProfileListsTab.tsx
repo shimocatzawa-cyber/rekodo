@@ -4,14 +4,12 @@ import { useState, useEffect, useRef, useTransition, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import {
-  setListRecord, addDiscogsRecordToList, addSongToList,
-  appendRecordToList, appendDiscogsRecordToList, appendSongToList,
+  addDiscogsRecordToList, appendDiscogsRecordToList,
   removeListItem, toggleListPublic, createList, deleteList,
   updateWantlistItemMeta, reorderListItems,
-  type DiscogsPayload, type SongPayload,
+  type DiscogsPayload,
 } from "@/app/lists/actions";
 import type { UserList, ListSlot, SlotItem } from "@/app/lists/types";
-import type { CollectionRecord } from "@/app/collection/page";
 import { generateShareCard, downloadCard, copyCardToClipboard, trackShareCard } from "@/lib/shareCard";
 import { createClient } from "@/lib/supabase/client";
 
@@ -67,7 +65,7 @@ type PickerMode =
   | { listId: string; position: number; strategy: "replace" }
   | { listId: string; strategy: "append" };
 
-type PickerTab = "collection" | "discogs" | "songs";
+type PickerTab = "discogs";
 
 type CreateState =
   | null
@@ -123,13 +121,8 @@ export default function ProfileListsTab({ initialLists, username, listTypeFilter
   const [isCreating,  startCreating]  = useTransition();
 
   const [picker,       setPicker]       = useState<PickerMode | null>(null);
-  const [pickerTab,    setPickerTab]    = useState<PickerTab>("collection");
   const [pickerSearch, setPickerSearch] = useState("");
   const pickerRef = useRef<HTMLDivElement>(null);
-
-  const [collectionResults,   setCollectionResults]   = useState<CollectionRecord[]>([]);
-  const [collectionSearching, setCollectionSearching] = useState(false);
-  const collectionDebounce = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const [discogsResults,   setDiscogsResults]   = useState<DiscogsResult[]>([]);
   const [discogsSearching, setDiscogsSearching] = useState(false);
@@ -212,43 +205,23 @@ export default function ProfileListsTab({ initialLists, username, listTypeFilter
   }, [lists]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
-    if (pickerTab !== "collection") return;
-    if (!pickerSearch.trim()) { setCollectionResults([]); return; }
-    if (collectionDebounce.current) clearTimeout(collectionDebounce.current);
-    collectionDebounce.current = setTimeout(async () => {
-      setCollectionSearching(true);
-      try {
-        const res = await fetch(`/api/collection/search?q=${encodeURIComponent(pickerSearch.trim())}`);
-        const json = await res.json();
-        setCollectionResults(json.results ?? []);
-      } catch { setCollectionResults([]); }
-      finally { setCollectionSearching(false); }
-    }, 300);
-    return () => { if (collectionDebounce.current) clearTimeout(collectionDebounce.current); };
-  }, [pickerSearch, pickerTab]);
-
-  useEffect(() => {
-    if (pickerTab === "collection") return;
     if (!pickerSearch.trim()) { setDiscogsResults([]); return; }
     if (discogsDebounce.current) clearTimeout(discogsDebounce.current);
     discogsDebounce.current = setTimeout(async () => {
       setDiscogsSearching(true);
       try {
-        const mode = pickerTab === "songs" ? "song" : "record";
-        const res = await fetch(`/api/discogs/search?q=${encodeURIComponent(pickerSearch.trim())}&mode=${mode}`);
+        const res = await fetch(`/api/discogs/search?q=${encodeURIComponent(pickerSearch.trim())}&mode=record`);
         const data = await res.json();
         setDiscogsResults(data.results ?? []);
       } catch { setDiscogsResults([]); }
       finally { setDiscogsSearching(false); }
     }, 400);
     return () => { if (discogsDebounce.current) clearTimeout(discogsDebounce.current); };
-  }, [pickerSearch, pickerTab]);
+  }, [pickerSearch]);
 
   function openPicker(mode: PickerMode) {
     setPicker(mode);
-    setPickerTab("collection");
     setPickerSearch("");
-    setCollectionResults([]);
     setDiscogsResults([]);
     setTimeout(() => {
       pickerRef.current?.querySelector("input")?.focus();
@@ -259,7 +232,6 @@ export default function ProfileListsTab({ initialLists, username, listTypeFilter
   function closePicker() {
     setPicker(null);
     setPickerSearch("");
-    setCollectionResults([]);
     setDiscogsResults([]);
   }
 
@@ -272,30 +244,6 @@ export default function ProfileListsTab({ initialLists, username, listTypeFilter
           : [...l.slots, { position, item }].sort((a, b) => a.position - b.position),
       }
     ));
-  }
-
-  async function handlePickCollectionRecord(record: CollectionRecord) {
-    if (!picker) return;
-    const { listId } = picker;
-    const slotItem: SlotItem = {
-      id: record.id, item_type: "record",
-      artist: record.artist, album: record.album, year: record.year,
-      genre: record.genre, cover_url: record.cover_url, song_title: null,
-    };
-    if (picker.strategy === "replace") {
-      const { position } = picker;
-      const prevLists = lists;
-      optimisticSet(listId, position, slotItem);
-      closePicker();
-      const res = await setListRecord(listId, position, record.id);
-      if (res?.error) { console.error(res.error); setLists(prevLists); }
-    } else {
-      closePicker();
-      const res = await appendRecordToList(listId, record.id);
-      if (res?.success && res.position) optimisticSet(listId, res.position, slotItem);
-      else if (res?.error) console.error(res.error);
-    }
-    router.refresh();
   }
 
   async function handlePickDiscogsRecord(result: DiscogsResult) {
@@ -319,37 +267,6 @@ export default function ProfileListsTab({ initialLists, username, listTypeFilter
       else if (res?.item) optimisticSet(listId, position, res.item as SlotItem);
     } else {
       const res = await appendDiscogsRecordToList(listId, payload);
-      if (res?.error) console.error(res.error);
-      else if (res?.item && res.position) optimisticSet(listId, res.position, res.item as SlotItem);
-    }
-    router.refresh();
-  }
-
-  async function handlePickSong(result: DiscogsResult) {
-    if (!picker) return;
-    const { listId } = picker;
-    const { artist, album: songTitle } = parseTitle(result.title);
-    const payload: SongPayload = {
-      song_title: songTitle, song_artist: artist, song_album: "",
-      song_cover_url: (result.cover_image && !result.cover_image.includes("spacer"))
-        ? result.cover_image : result.thumb ?? null,
-      song_year: result.year ? parseInt(result.year, 10) : null,
-    };
-    const tempItem: SlotItem = {
-      id: `temp-${result.id}`, item_type: "song",
-      artist, album: "", year: payload.song_year,
-      genre: null, cover_url: payload.song_cover_url, song_title: songTitle,
-    };
-    closePicker();
-    if (picker.strategy === "replace") {
-      const { position } = picker;
-      const prevLists = lists;
-      optimisticSet(listId, position, tempItem);
-      const res = await addSongToList(listId, position, payload);
-      if (res?.error) { console.error(res.error); setLists(prevLists); }
-      else if (res?.item) optimisticSet(listId, position, res.item as SlotItem);
-    } else {
-      const res = await appendSongToList(listId, payload);
       if (res?.error) console.error(res.error);
       else if (res?.item && res.position) optimisticSet(listId, res.position, res.item as SlotItem);
     }
@@ -610,9 +527,9 @@ export default function ProfileListsTab({ initialLists, username, listTypeFilter
                       })}
                     </div>
 
-                    {/* Search + sort */}
-                    <div style={{ display: "flex", alignItems: "center", gap: "16px", marginBottom: "1.5rem", flexWrap: "wrap" }}>
-                      <div style={{ flex: 1, minWidth: "180px", position: "relative" }}>
+                    {/* Search + sort + add */}
+                    <div style={{ display: "flex", alignItems: "center", gap: "12px", marginBottom: "1.5rem", flexWrap: "wrap" }}>
+                      <div style={{ flex: 1, minWidth: "160px", position: "relative" }}>
                         <input
                           type="text"
                           value={wantlistSearch}
@@ -642,6 +559,17 @@ export default function ProfileListsTab({ initialLists, username, listTypeFilter
                           </button>
                         ))}
                       </div>
+                      <button
+                        onClick={() => openPicker({ listId: selectedList.id, strategy: "append" })}
+                        style={{
+                          fontFamily: MONO, fontSize: "0.62rem", letterSpacing: "0.07em", textTransform: "uppercase",
+                          color: "#fff", background: ORANGE,
+                          border: "none", cursor: "pointer", padding: "8px 16px",
+                          flexShrink: 0, whiteSpace: "nowrap",
+                        }}
+                      >
+                        + Add
+                      </button>
                     </div>
 
                     {/* Card grid */}
@@ -667,22 +595,6 @@ export default function ProfileListsTab({ initialLists, username, listTypeFilter
                           />
                         );
                       })}
-                      {/* Add record tile */}
-                      <button
-                        onClick={() => openPicker({ listId: selectedList.id, strategy: "append" })}
-                        style={{
-                          display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
-                          border: "1px dashed #d8d5d0", background: "#fafaf8", cursor: "pointer",
-                          aspectRatio: "1", padding: 0,
-                        }}
-                        onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = "#aaa6a0"; }}
-                        onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = "#d8d5d0"; }}
-                      >
-                        <span style={{ fontSize: "1.8rem", color: "#ccc", lineHeight: 1, marginBottom: "8px" }}>+</span>
-                        <span style={{ fontFamily: MONO, fontSize: "0.58rem", letterSpacing: "0.07em", color: "#bbb", textAlign: "center", padding: "0 10px", lineHeight: 1.6 }}>
-                          Add a record
-                        </span>
-                      </button>
                     </div>
 
                     {wantlistSlots.length > wantlistVisibleCount && (
@@ -837,34 +749,9 @@ export default function ProfileListsTab({ initialLists, username, listTypeFilter
                     <p style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.1em", textTransform: "uppercase", color: "#aaaaaa", marginBottom: "14px" }}>
                       {"position" in picker ? `Add to slot ${picker.position}` : "Add to list"}
                     </p>
-                    <div style={{ display: "flex", gap: "20px", borderBottom: "1px solid rgba(0,0,0,0.08)", marginBottom: "14px" }}>
-                      {([
-                        { key: "collection" as PickerTab, label: "My Collection" },
-                        { key: "discogs"    as PickerTab, label: "Discogs" },
-                        { key: "songs"      as PickerTab, label: "Song" },
-                      ]).map(({ key, label }) => (
-                        <button key={key}
-                          onClick={() => { setPickerTab(key); setPickerSearch(""); setCollectionResults([]); setDiscogsResults([]); }}
-                          style={{
-                            fontFamily: MONO, fontSize: "9px", letterSpacing: "0.08em",
-                            color: pickerTab === key ? "#0d0d0d" : "#aaaaaa",
-                            background: "none", border: "none",
-                            borderBottom: `2px solid ${pickerTab === key ? "#0d0d0d" : "transparent"}`,
-                            cursor: "pointer", padding: "0 0 8px", marginBottom: "-1px",
-                            transition: "color 0.15s",
-                          }}
-                        >
-                          {label}
-                        </button>
-                      ))}
-                    </div>
                     <input
                       type="text" value={pickerSearch} onChange={e => setPickerSearch(e.target.value)}
-                      placeholder={
-                        pickerTab === "collection" ? "Search your collection…" :
-                        pickerTab === "songs"      ? "Search by song title…" :
-                                                     "Search Discogs…"
-                      }
+                      placeholder="Search Discogs…"
                       autoComplete="off"
                       style={{
                         width: "100%", boxSizing: "border-box",
@@ -874,44 +761,25 @@ export default function ProfileListsTab({ initialLists, username, listTypeFilter
                         outline: "none", padding: "0 0 8px", marginBottom: "14px",
                       }}
                     />
-                    {pickerTab === "collection" && (
-                      !pickerSearch.trim() ? (
-                        <p style={{ fontFamily: MONO, fontSize: "10px", color: "#cccccc", letterSpacing: "0.04em" }}>Type to search your collection.</p>
-                      ) : collectionSearching ? (
-                        <p style={{ fontFamily: MONO, fontSize: "10px", color: "#aaaaaa", letterSpacing: "0.1em", textTransform: "uppercase" }}>Searching…</p>
-                      ) : collectionResults.length === 0 ? (
-                        <p style={{ fontFamily: MONO, fontSize: "10px", color: "#aaaaaa" }}>No results for &ldquo;{pickerSearch}&rdquo;</p>
-                      ) : (
-                        <ul style={{ margin: 0, padding: 0, listStyle: "none" }}>
-                          {collectionResults.map(r => (
-                            <PickerRow key={r.id} cover={r.cover_url} primary={r.album} secondary={r.artist} onClick={() => handlePickCollectionRecord(r)} />
-                          ))}
-                        </ul>
-                      )
-                    )}
-                    {(pickerTab === "discogs" || pickerTab === "songs") && (
-                      discogsSearching ? (
-                        <p style={{ fontFamily: MONO, fontSize: "10px", color: "#aaaaaa", letterSpacing: "0.1em", textTransform: "uppercase" }}>Searching…</p>
-                      ) : !pickerSearch.trim() ? (
-                        <p style={{ fontFamily: MONO, fontSize: "10px", color: "#cccccc", letterSpacing: "0.04em" }}>
-                          {pickerTab === "songs" ? "Type a song title to search." : "Type to search the Discogs database."}
-                        </p>
-                      ) : discogsResults.length === 0 ? (
-                        <p style={{ fontFamily: MONO, fontSize: "10px", color: "#aaaaaa" }}>No results for &ldquo;{pickerSearch}&rdquo;</p>
-                      ) : (
-                        <ul style={{ margin: 0, padding: 0, listStyle: "none" }}>
-                          {discogsResults.map(r => {
-                            const { artist, album: title } = parseTitle(r.title);
-                            const thumb = r.thumb && !r.thumb.includes("spacer") ? r.thumb : null;
-                            return (
-                              <PickerRow key={r.id} cover={thumb} primary={title}
-                                secondary={`${artist}${r.year ? ` · ${r.year}` : ""}`}
-                                onClick={() => pickerTab === "songs" ? handlePickSong(r) : handlePickDiscogsRecord(r)}
-                              />
-                            );
-                          })}
-                        </ul>
-                      )
+                    {discogsSearching ? (
+                      <p style={{ fontFamily: MONO, fontSize: "10px", color: "#aaaaaa", letterSpacing: "0.1em", textTransform: "uppercase" }}>Searching…</p>
+                    ) : !pickerSearch.trim() ? (
+                      <p style={{ fontFamily: MONO, fontSize: "10px", color: "#cccccc", letterSpacing: "0.04em" }}>Type to search the Discogs database.</p>
+                    ) : discogsResults.length === 0 ? (
+                      <p style={{ fontFamily: MONO, fontSize: "10px", color: "#aaaaaa" }}>No results for &ldquo;{pickerSearch}&rdquo;</p>
+                    ) : (
+                      <ul style={{ margin: 0, padding: 0, listStyle: "none" }}>
+                        {discogsResults.map(r => {
+                          const { artist, album: title } = parseTitle(r.title);
+                          const thumb = r.thumb && !r.thumb.includes("spacer") ? r.thumb : null;
+                          return (
+                            <PickerRow key={r.id} cover={thumb} primary={title}
+                              secondary={`${artist}${r.year ? ` · ${r.year}` : ""}`}
+                              onClick={() => handlePickDiscogsRecord(r)}
+                            />
+                          );
+                        })}
+                      </ul>
                     )}
                   </>
                 )}
@@ -1486,13 +1354,13 @@ function WantlistGridCard({ slot, fetchIndex, monthsOld, showSomedayPrompt, onRe
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
     >
-      {/* Cover image — square aspect ratio */}
+      {/* Cover image — square aspect ratio; img is absolute so it never expands grid tracks */}
       <div style={{ position: "relative", width: "100%", aspectRatio: "1 / 1", background: "#ece9e3", overflow: "hidden", flexShrink: 0 }}>
         {coverUrl ? (
           // eslint-disable-next-line @next/next/no-img-element
-          <img src={coverUrl} alt="" style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
+          <img src={coverUrl} alt="" style={{ position: "absolute", top: 0, left: 0, width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
         ) : (
-          <div style={{ width: "100%", height: "100%", display: "flex", alignItems: "center", justifyContent: "center" }}>
+          <div style={{ position: "absolute", top: 0, left: 0, width: "100%", height: "100%", display: "flex", alignItems: "center", justifyContent: "center" }}>
             <span style={{ fontFamily: MONO, fontSize: "0.55rem", color: "#bbb", letterSpacing: "0.1em" }}>NO COVER</span>
           </div>
         )}
