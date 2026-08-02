@@ -454,7 +454,7 @@ export default function ProfileListsTab({ initialLists, username, listTypeFilter
 
               <div style={{ marginBottom: "20px" }}>
                 {(selectedList.slug === "wantlist" || selectedList.slug === "want-to-buy") ? (
-                  isAdmin ? <>
+                  <>
                     {/* Wantlist header: title + count | sort */}
                     <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: "12px", marginBottom: "1rem", flexWrap: "wrap" }}>
                       <div style={{ display: "flex", alignItems: "baseline", gap: "12px" }}>
@@ -675,66 +675,6 @@ export default function ProfileListsTab({ initialLists, username, listTypeFilter
                           Dig for records →
                         </Link>
                       </div>
-                    )}
-                  </> : <>
-                    {/* Legacy wantlist layout — shown to non-admin users until grid design ships */}
-                    <div style={{ marginBottom: "12px" }}>
-                      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "8px", flexWrap: "wrap", marginBottom: "14px" }}>
-                        <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
-                          {(["must_have", "would_love", "someday"] as Priority[]).map(p => {
-                            const on = wantlistFilter.has(p);
-                            return (
-                              <button key={p} onClick={() => {
-                                setWantlistFilter(prev => { const next = new Set(prev); if (on) next.delete(p); else next.add(p); return next; });
-                              }} style={{ fontFamily: MONO, fontSize: "11px", letterSpacing: "0.06em", color: on ? "#fff" : "#555", background: on ? PRIORITY_COLORS[p] : "none", border: `1px solid ${on ? PRIORITY_COLORS[p] : "#999"}`, borderRadius: "3px", cursor: "pointer", padding: "4px 10px", flexShrink: 0, whiteSpace: "nowrap", transition: "all 0.15s" }}>
-                                {PRIORITY_LABELS[p]}
-                              </button>
-                            );
-                          })}
-                        </div>
-                        <div style={{ display: "flex", gap: "6px", flexShrink: 0 }}>
-                          {(["discogs", "rekodo"] as const).map(src => {
-                            const on = wantlistSourceFilter === src;
-                            return (
-                              <button key={src} onClick={() => setWantlistSourceFilter(on ? null : src)} style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.1em", textTransform: "uppercase", color: on ? "#fff" : "#555", background: on ? "#333" : "none", border: `1px solid ${on ? "#333" : "#999"}`, borderRadius: "3px", cursor: "pointer", padding: "4px 10px", whiteSpace: "nowrap", transition: "all 0.15s" }}>
-                                {src === "discogs" ? "Discogs" : "Rekōdo"}
-                              </button>
-                            );
-                          })}
-                        </div>
-                      </div>
-                      <div style={{ marginBottom: "10px" }}>
-                        <input type="text" value={wantlistSearch} onChange={e => setWantlistSearch(e.target.value)} placeholder="Search artist or album…" style={{ width: "100%", boxSizing: "border-box", fontFamily: MONO, fontSize: "10px", letterSpacing: "0.04em", color: "#333", background: "transparent", border: "none", borderBottom: "1px solid rgba(0,0,0,0.12)", outline: "none", padding: "0 0 6px" }} />
-                      </div>
-                      <div style={{ display: "flex", alignItems: "center", gap: "10px", flexWrap: "wrap" }}>
-                        <span style={{ fontFamily: MONO, fontSize: "0.75rem", letterSpacing: "0.1em", textTransform: "uppercase", color: "#777", flexShrink: 0, marginRight: "4px" }}>Sort</span>
-                        {(["priority", "date_added", "artist"] as const).map(s => (
-                          <button key={s} onClick={() => setWantlistSort(s)} style={{ fontFamily: MONO, fontSize: "0.75rem", letterSpacing: "0.05em", color: wantlistSort === s ? "#0d0d0d" : "#555", background: "none", border: "none", cursor: "pointer", padding: "0 0 2px", borderBottom: `1px solid ${wantlistSort === s ? "#0d0d0d" : "transparent"}` }}>
-                            {s === "priority" ? "Priority" : s === "date_added" ? "Date Added" : "Artist A–Z"}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-                    {wantlistSlots.slice(0, wantlistVisibleCount).map(slot => {
-                      const monthsOld = slot.created_at ? Math.floor((Date.now() - new Date(slot.created_at).getTime()) / (1000 * 60 * 60 * 24 * 30)) : null;
-                      const showSomedayPrompt = slot.priority === "someday" && monthsOld !== null && monthsOld >= 6 && !keptSomeday.has(slot.position);
-                      return (
-                        <WantlistGridCard key={slot.item?.id ?? slot.position} slot={slot} fetchIndex={0} monthsOld={monthsOld} showSomedayPrompt={showSomedayPrompt} onRemove={() => handleRemoveItem(selectedList.id, slot.position)} onKeepSomeday={() => setKeptSomeday(prev => new Set([...prev, slot.position]))} onUpdateMeta={updates => handleUpdateWantlistItemMeta(selectedList.id, slot.position, updates)} />
-                      );
-                    })}
-                    {wantlistSlots.length > wantlistVisibleCount && (
-                      <button onClick={() => setWantlistVisibleCount(c => c + WANTLIST_PAGE_SIZE)} style={{ display: "block", width: "100%", margin: "12px 0 4px", fontFamily: MONO, fontSize: "10px", letterSpacing: "0.08em", textTransform: "uppercase", color: ORANGE, background: "none", border: `1px solid ${ORANGE}`, borderRadius: "2px", padding: "10px 0", cursor: "pointer" }}>
-                        Load {Math.min(WANTLIST_PAGE_SIZE, wantlistSlots.length - wantlistVisibleCount)} more
-                      </button>
-                    )}
-                    {selectedList.slots.filter(s => s.item).length === 0 && (
-                      <div style={{ margin: "32px 0 24px" }}>
-                        <p style={{ fontFamily: SERIF, fontSize: "14px", color: "#666", lineHeight: 1.7, marginBottom: "10px" }}>Your Wantlist is empty. Every record you&apos;ve almost bought, nearly found, or need to own belongs here.</p>
-                        <Link href="/dig" style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.1em", textTransform: "uppercase", color: ORANGE, textDecoration: "none" }}>Dig for records →</Link>
-                      </div>
-                    )}
-                    {selectedList.slots.length < 20 && (
-                      <AddRecordButton onClick={() => openPicker({ listId: selectedList.id, strategy: "append" })} />
                     )}
                   </>
                 ) : selectedList.list_type === "top5" ? (
