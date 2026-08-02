@@ -147,9 +147,10 @@ export async function addDiscogsRecordToList(
 
   await supabase.from("list_items").delete().eq("list_id", listId).eq("position", position);
 
+  const discogsReleaseId = parseInt(payload.discogs_id, 10) || null;
   const { data: written, error } = await supabase
     .from("list_items")
-    .insert({ list_id: listId, record_id: recordId, position })
+    .insert({ list_id: listId, record_id: recordId, position, discogs_release_id: discogsReleaseId })
     .select("id");
 
   if (error) return { error: error.message };
@@ -297,9 +298,10 @@ export async function appendDiscogsRecordToList(listId: string, payload: Discogs
     }
   }
 
+  const discogsReleaseId = parseInt(payload.discogs_id, 10) || null;
   const { data: written, error } = await supabase
     .from("list_items")
-    .insert({ list_id: listId, record_id: recordId, position: nextPos })
+    .insert({ list_id: listId, record_id: recordId, position: nextPos, discogs_release_id: discogsReleaseId })
     .select("id");
 
   if (error) return { error: error.message };

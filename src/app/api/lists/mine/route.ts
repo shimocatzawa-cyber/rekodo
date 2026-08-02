@@ -116,7 +116,7 @@ export async function GET() {
     itemsData.filter(i => i.item_type !== "song" && i.record_id).map(i => i.record_id as string)
   )];
   const { data: recordsData } = recordIds.length
-    ? await supabase.from("records").select("id, artist, album, year, genre, cover_url").in("id", recordIds)
+    ? await supabase.from("records").select("id, artist, album, year, genre, cover_url, discogs_id").in("id", recordIds)
     : { data: [] };
   const recordById = new Map((recordsData ?? []).map(r => [r.id, r]));
 
@@ -150,6 +150,11 @@ export async function GET() {
         };
       }
       const r = item.record_id ? recordById.get(item.record_id) : undefined;
+      // Fall back to the record's discogs_id when list_item has no discogs_release_id
+      const resolvedDiscogsId = slotMeta.discogs_release_id
+        ?? (r?.discogs_id ? parseInt(r.discogs_id, 10) || null : null);
+      const resolvedMeta = { ...slotMeta, discogs_release_id: resolvedDiscogsId };
+
       if (!r && !item.song_artist) return { position: item.position, item: null };
       if (!r) {
         return {
@@ -160,7 +165,7 @@ export async function GET() {
             year: item.song_year ?? null, genre: null,
             cover_url: item.song_cover_url ?? null, song_title: null,
           } satisfies SlotItem,
-          ...slotMeta,
+          ...resolvedMeta,
         };
       }
       return {
@@ -171,7 +176,7 @@ export async function GET() {
           year: r.year ?? null, genre: r.genre ?? null,
           cover_url: r.cover_url ?? null, song_title: null,
         } satisfies SlotItem,
-        ...slotMeta,
+        ...resolvedMeta,
       };
     }
 
