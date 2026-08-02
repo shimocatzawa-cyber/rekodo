@@ -1482,17 +1482,17 @@ function WantlistGridCard({ slot, fetchIndex, monthsOld, showSomedayPrompt, onRe
 
   return (
     <div
-      style={{ position: "relative", display: "flex", flexDirection: "column" }}
+      style={{ position: "relative", display: "flex", flexDirection: "column", minWidth: 0 }}
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
     >
       {/* Cover image — square aspect ratio */}
-      <div style={{ position: "relative", width: "100%", paddingBottom: "100%", background: "#ece9e3", overflow: "hidden" }}>
+      <div style={{ position: "relative", width: "100%", aspectRatio: "1 / 1", background: "#ece9e3", overflow: "hidden", flexShrink: 0 }}>
         {coverUrl ? (
           // eslint-disable-next-line @next/next/no-img-element
-          <img src={coverUrl} alt="" style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover" }} />
+          <img src={coverUrl} alt="" style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
         ) : (
-          <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center" }}>
+          <div style={{ width: "100%", height: "100%", display: "flex", alignItems: "center", justifyContent: "center" }}>
             <span style={{ fontFamily: MONO, fontSize: "0.55rem", color: "#bbb", letterSpacing: "0.1em" }}>NO COVER</span>
           </div>
         )}
