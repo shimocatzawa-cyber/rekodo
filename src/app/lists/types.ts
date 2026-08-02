@@ -38,6 +38,7 @@ export type ListSlot = {
   created_at?: string | null;
   source?: string | null;
   discogs_release_id?: number | null;
+  user_tags?: string[];
 };
 
 export type UserList = {

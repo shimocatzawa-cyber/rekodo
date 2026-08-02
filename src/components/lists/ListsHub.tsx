@@ -75,7 +75,7 @@ export default function ListsHub({ profileId, username, displayLabel, avatarUrl,
           <Top5Tab username={username} />
         )}
         {activeTab === "wantlist" && (
-          <ProfileListsTab initialLists={[]} username={username} listTypeFilter="wantlist" />
+          <ProfileListsTab initialLists={[]} username={username} listTypeFilter="wantlist" isAdmin={isAdmin} />
         )}
         {activeTab === "selllist" && (
           <SellListClient profileOwnerId={profileId} isOwner={true} />

@@ -3,10 +3,13 @@ import createNextIntlPlugin from "next-intl/plugin";
 
 const withNextIntl = createNextIntlPlugin("./src/i18n/request.ts");
 
+const isDev = process.env.NODE_ENV === "development";
+
 const csp = [
   "default-src 'self'",
   // Next.js requires 'unsafe-inline' for hydration scripts; GTM/GA/Amazon/Spotify SDK are external
-  "script-src 'self' 'unsafe-inline' https://www.googletagmanager.com https://www.google-analytics.com https://z-na.amazon-adsystem.com https://sdk.scdn.co",
+  // 'unsafe-eval' is added in dev only — React uses eval() for debug stack trace reconstruction
+  `script-src 'self' 'unsafe-inline'${isDev ? " 'unsafe-eval'" : ""} https://www.googletagmanager.com https://www.google-analytics.com https://z-na.amazon-adsystem.com https://sdk.scdn.co`,
   "style-src 'self' 'unsafe-inline'",
   // Images are mostly proxied through /api/image-proxy, but direct Supabase/Discogs/Spotify CDN loads still occur
   // Last.fm album art (lastfm.freetls.fastly.net) and iTunes artwork (*.mzstatic.com) needed for deep dive rankings
@@ -35,9 +38,7 @@ const nextConfig: NextConfig = {
   images: {
     formats: ["image/avif", "image/webp"],
   },
-  turbopack: {
-    root: __dirname,
-  },
+  turbopack: {},
   async headers() {
     return [
       {

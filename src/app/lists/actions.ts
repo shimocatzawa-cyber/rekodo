@@ -399,6 +399,7 @@ export async function updateWantlistItemMeta(
     price_cap?: number | null;
     pressing_tip?: string | null;
     found?: boolean | null;
+    user_tags?: string[];
   }
 ) {
   const supabase = await createClient();

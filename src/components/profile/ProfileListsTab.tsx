@@ -60,6 +60,7 @@ interface Props {
   initialLists: UserList[];
   username:     string;
   listTypeFilter?: "top5" | "wantlist";
+  isAdmin?:     boolean;
 }
 
 type PickerMode =
@@ -102,7 +103,7 @@ function reorderSlots(slots: ListSlot[], fromPos: number, toPos: number): ListSl
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
-export default function ProfileListsTab({ initialLists, username, listTypeFilter }: Props) {
+export default function ProfileListsTab({ initialLists, username, listTypeFilter, isAdmin }: Props) {
   const router = useRouter();
 
   const [lists,        setLists]       = useState<UserList[]>(initialLists);
@@ -144,6 +145,7 @@ export default function ProfileListsTab({ initialLists, username, listTypeFilter
   const [wantlistFilter,       setWantlistFilter]       = useState<Set<Priority>>(new Set());
   const [wantlistSearch,       setWantlistSearch]       = useState("");
   const [wantlistSourceFilter, setWantlistSourceFilter] = useState<"discogs" | "rekodo" | null>(null);
+  const [wantlistTagFilter,    setWantlistTagFilter]    = useState<Set<string>>(new Set());
   const [keptSomeday,          setKeptSomeday]          = useState<Set<number>>(new Set());
   const WANTLIST_PAGE_SIZE = 50;
   const [wantlistVisibleCount, setWantlistVisibleCount] = useState(WANTLIST_PAGE_SIZE);
@@ -383,7 +385,7 @@ export default function ProfileListsTab({ initialLists, username, listTypeFilter
 
   async function handleUpdateWantlistItemMeta(
     listId: string, position: number,
-    updates: { note?: string | null; priority?: Priority | null; price_cap?: number | null; pressing_tip?: string | null; found?: boolean | null }
+    updates: { note?: string | null; priority?: Priority | null; price_cap?: number | null; pressing_tip?: string | null; found?: boolean | null; user_tags?: string[] }
   ) {
     const prevLists = lists;
     setLists(prev => prev.map(l => l.id !== listId ? l : {
@@ -474,6 +476,12 @@ export default function ProfileListsTab({ initialLists, username, listTypeFilter
       slots = slots.filter(s => s.source !== "discogs");
     }
 
+    if (wantlistTagFilter.size > 0) {
+      slots = slots.filter(s =>
+        (s.user_tags ?? []).some(t => wantlistTagFilter.has(t))
+      );
+    }
+
     const PRIORITY_ORDER: Record<string, number> = { must_have: 0, would_love: 1, someday: 2 };
     if (wantlistSort === "priority") {
       slots = [...slots].sort((a, b) =>
@@ -486,22 +494,37 @@ export default function ProfileListsTab({ initialLists, username, listTypeFilter
     }
 
     return slots;
-  }, [selectedList, wantlistSearch, wantlistFilter, wantlistSourceFilter, wantlistSort]);
+  }, [selectedList, wantlistSearch, wantlistFilter, wantlistSourceFilter, wantlistTagFilter, wantlistSort]);
+
+  // All unique user-defined tags across the visible wantlist, for the filter bar
+  const allUserTags = useMemo(() => {
+    if (!selectedList) return [] as string[];
+    const seen = new Set<string>();
+    for (const slot of selectedList.slots) {
+      for (const t of slot.user_tags ?? []) seen.add(t);
+    }
+    return [...seen].sort();
+  }, [selectedList]);
 
   // Search/filter/sort always run over the full wantlistSlots above — this only
   // caps how many of the *matching* results get mounted as cards at once.
   useEffect(() => {
     setWantlistVisibleCount(WANTLIST_PAGE_SIZE);
-  }, [wantlistSearch, wantlistFilter, wantlistSourceFilter, wantlistSort, selectedList?.id]);
+  }, [wantlistSearch, wantlistFilter, wantlistSourceFilter, wantlistTagFilter, wantlistSort, selectedList?.id]);
 
   // ── Render ──────────────────────────────────────────────────────────────────
 
   return (
     <div style={{ background: "#ffffff" }}>
-      <style>{`.pill-strip::-webkit-scrollbar { display: none; }`}</style>
+      <style>{`
+        .pill-strip::-webkit-scrollbar { display: none; }
+        .wl-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 20px; }
+        @media (max-width: 1100px) { .wl-grid { grid-template-columns: repeat(3, 1fr); } }
+        @media (max-width: 640px) { .wl-grid { grid-template-columns: repeat(2, 1fr); gap: 12px; } }
+      `}</style>
 
       {/* ── Wantlist ── */}
-      <div style={{ maxWidth: selectedList?.list_type === "top5" ? (activeDrawer && !isMobile ? 1440 : 1100) : (activeDrawer && !isMobile ? 960 : 680), margin: "0 auto", padding: "2rem 1.5rem 3rem", transition: "max-width 0.2s ease" }}>
+      <div style={{ maxWidth: (selectedList?.slug === "wantlist" || selectedList?.slug === "want-to-buy") ? 1440 : selectedList?.list_type === "top5" ? (activeDrawer && !isMobile ? 1440 : 1100) : (activeDrawer && !isMobile ? 960 : 680), margin: "0 auto", padding: "2rem 1.5rem 3rem", transition: "max-width 0.2s ease" }}>
         {!selectedList && lists.length === 0 ? (
           <p style={{ fontFamily: "var(--font-mono)", fontSize: "11px", letterSpacing: "0.06em", color: "#aaaaaa" }}>
             Loading your lists…
@@ -511,8 +534,183 @@ export default function ProfileListsTab({ initialLists, username, listTypeFilter
 
               <div style={{ marginBottom: "20px" }}>
                 {(selectedList.slug === "wantlist" || selectedList.slug === "want-to-buy") ? (
-                  <>
-                    {/* Wantlist controls */}
+                  isAdmin ? <>
+                    {/* Wantlist header */}
+                    <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: "16px", marginBottom: "1.5rem", flexWrap: "wrap" }}>
+                      <div>
+                        <h1 style={{ fontFamily: SERIF, fontSize: "clamp(1.8rem, 3.5vw, 2.6rem)", fontWeight: 400, color: "#0d0d0d", margin: "0 0 6px", lineHeight: 1.1 }}>
+                          Want List
+                        </h1>
+                        <p style={{ fontFamily: MONO, fontSize: "0.68rem", letterSpacing: "0.05em", color: "#888", margin: 0 }}>
+                          <span style={{ color: ORANGE, fontWeight: 700 }}>{selectedList.slots.filter(s => s.item).length}</span>
+                          {" "}{selectedList.slots.filter(s => s.item).length === 1 ? "record" : "records"} on your radar
+                        </p>
+                      </div>
+                      <div style={{ display: "flex", gap: "6px", flexShrink: 0 }}>
+                        {(["discogs", "rekodo"] as const).map(src => {
+                          const on = wantlistSourceFilter === src;
+                          return (
+                            <button key={src} onClick={() => setWantlistSourceFilter(on ? null : src)} style={{
+                              fontFamily: MONO, fontSize: "0.6rem", letterSpacing: "0.1em", textTransform: "uppercase",
+                              color: on ? "#fff" : "#aaaaaa",
+                              background: on ? "#0d0d0d" : "none",
+                              border: `1px solid ${on ? "#0d0d0d" : "#e0e0da"}`,
+                              cursor: "pointer", padding: "5px 12px", whiteSpace: "nowrap", transition: "all 0.15s",
+                            }}>
+                              {src === "discogs" ? "Discogs" : "Rekōdo"}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+
+                    {/* Priority + tag filter pills */}
+                    <div style={{ display: "flex", gap: "8px", flexWrap: "wrap", marginBottom: "12px", alignItems: "center" }}>
+                      {(["must_have", "would_love", "someday"] as Priority[]).map(p => {
+                        const on = wantlistFilter.has(p);
+                        return (
+                          <button key={p} onClick={() => {
+                            setWantlistFilter(prev => {
+                              const next = new Set(prev);
+                              if (on) next.delete(p); else next.add(p);
+                              return next;
+                            });
+                          }} style={{
+                            fontFamily: MONO, fontSize: "0.62rem", letterSpacing: "0.06em",
+                            color: on ? "#fff" : PRIORITY_COLORS[p],
+                            background: on ? PRIORITY_COLORS[p] : "none",
+                            border: `1px solid ${PRIORITY_COLORS[p]}`,
+                            borderRadius: "20px", cursor: "pointer", padding: "4px 12px",
+                            whiteSpace: "nowrap", transition: "all 0.15s",
+                          }}>
+                            {PRIORITY_LABELS[p]}
+                          </button>
+                        );
+                      })}
+                      {allUserTags.map(tag => {
+                        const on = wantlistTagFilter.has(tag);
+                        return (
+                          <button key={tag} onClick={() => {
+                            setWantlistTagFilter(prev => {
+                              const next = new Set(prev);
+                              if (on) next.delete(tag); else next.add(tag);
+                              return next;
+                            });
+                          }} style={{
+                            fontFamily: MONO, fontSize: "0.6rem", letterSpacing: "0.04em",
+                            color: on ? "#fff" : "#666",
+                            background: on ? "#555" : "none",
+                            border: `1px solid ${on ? "#555" : "#d0d0cc"}`,
+                            borderRadius: "20px", cursor: "pointer", padding: "4px 10px",
+                            whiteSpace: "nowrap", transition: "all 0.15s",
+                          }}>
+                            #{tag}
+                          </button>
+                        );
+                      })}
+                    </div>
+
+                    {/* Search + sort */}
+                    <div style={{ display: "flex", alignItems: "center", gap: "16px", marginBottom: "1.5rem", flexWrap: "wrap" }}>
+                      <div style={{ flex: 1, minWidth: "180px", position: "relative" }}>
+                        <input
+                          type="text"
+                          value={wantlistSearch}
+                          onChange={e => setWantlistSearch(e.target.value)}
+                          placeholder="Search artist or album…"
+                          style={{
+                            width: "100%", boxSizing: "border-box",
+                            fontFamily: MONO, fontSize: "0.7rem", letterSpacing: "0.04em",
+                            color: "#333", background: "#f8f7f4",
+                            border: "1px solid #e8e5e0", outline: "none",
+                            padding: "8px 12px 8px 32px",
+                          }}
+                        />
+                        <span style={{ position: "absolute", left: "10px", top: "50%", transform: "translateY(-50%)", color: "#ccc", fontSize: "14px", pointerEvents: "none" }}>⌕</span>
+                      </div>
+                      <div style={{ display: "flex", alignItems: "center", gap: "2px", flexShrink: 0 }}>
+                        <span style={{ fontFamily: MONO, fontSize: "0.6rem", letterSpacing: "0.1em", textTransform: "uppercase", color: "#ccc", marginRight: "8px" }}>Sort</span>
+                        {(["priority", "date_added", "artist"] as const).map(s => (
+                          <button key={s} onClick={() => setWantlistSort(s)} style={{
+                            fontFamily: MONO, fontSize: "0.7rem", letterSpacing: "0.04em",
+                            color: wantlistSort === s ? "#0d0d0d" : "#aaaaaa",
+                            background: "none", border: "none", cursor: "pointer", padding: "4px 8px",
+                            borderBottom: `1.5px solid ${wantlistSort === s ? ORANGE : "transparent"}`,
+                            transition: "all 0.15s",
+                          }}>
+                            {s === "priority" ? "Priority" : s === "date_added" ? "Date" : "Artist"}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Card grid */}
+                    <div className="wl-grid">
+                      {wantlistSlots.slice(0, wantlistVisibleCount).map((slot, idx) => {
+                        const monthsOld = slot.created_at
+                          ? Math.floor((Date.now() - new Date(slot.created_at).getTime()) / (1000 * 60 * 60 * 24 * 30))
+                          : null;
+                        const showSomedayPrompt =
+                          slot.priority === "someday" &&
+                          monthsOld !== null && monthsOld >= 6 &&
+                          !keptSomeday.has(slot.position);
+                        return (
+                          <WantlistGridCard
+                            key={slot.item?.id ?? slot.position}
+                            slot={slot}
+                            fetchIndex={idx}
+                            monthsOld={monthsOld}
+                            showSomedayPrompt={showSomedayPrompt}
+                            onRemove={() => handleRemoveItem(selectedList.id, slot.position)}
+                            onKeepSomeday={() => setKeptSomeday(prev => new Set([...prev, slot.position]))}
+                            onUpdateMeta={updates => handleUpdateWantlistItemMeta(selectedList.id, slot.position, updates)}
+                          />
+                        );
+                      })}
+                      {/* Add record tile */}
+                      <button
+                        onClick={() => openPicker({ listId: selectedList.id, strategy: "append" })}
+                        style={{
+                          display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
+                          border: "1px dashed #d8d5d0", background: "#fafaf8", cursor: "pointer",
+                          aspectRatio: "1", padding: 0,
+                        }}
+                        onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = "#aaa6a0"; }}
+                        onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = "#d8d5d0"; }}
+                      >
+                        <span style={{ fontSize: "1.8rem", color: "#ccc", lineHeight: 1, marginBottom: "8px" }}>+</span>
+                        <span style={{ fontFamily: MONO, fontSize: "0.58rem", letterSpacing: "0.07em", color: "#bbb", textAlign: "center", padding: "0 10px", lineHeight: 1.6 }}>
+                          Add a record
+                        </span>
+                      </button>
+                    </div>
+
+                    {wantlistSlots.length > wantlistVisibleCount && (
+                      <button
+                        onClick={() => setWantlistVisibleCount(c => c + WANTLIST_PAGE_SIZE)}
+                        style={{
+                          display: "block", width: "100%", margin: "24px 0 4px",
+                          fontFamily: MONO, fontSize: "0.65rem", letterSpacing: "0.08em", textTransform: "uppercase",
+                          color: ORANGE, background: "none", border: `1px solid ${ORANGE}`,
+                          padding: "12px 0", cursor: "pointer",
+                        }}
+                      >
+                        Load {Math.min(WANTLIST_PAGE_SIZE, wantlistSlots.length - wantlistVisibleCount)} more ({wantlistSlots.length - wantlistVisibleCount} remaining)
+                      </button>
+                    )}
+
+                    {selectedList.slots.filter(s => s.item).length === 0 && (
+                      <div style={{ margin: "48px 0 24px", textAlign: "center" }}>
+                        <p style={{ fontFamily: SERIF, fontSize: "1.1rem", color: "#aaaaaa", lineHeight: 1.7, marginBottom: "16px" }}>
+                          Your Wantlist is empty. Every record you&apos;ve almost bought, nearly found, or need to own belongs here.
+                        </p>
+                        <Link href="/dig" style={{ fontFamily: MONO, fontSize: "0.65rem", letterSpacing: "0.1em", textTransform: "uppercase", color: ORANGE, textDecoration: "none" }}>
+                          Dig for records →
+                        </Link>
+                      </div>
+                    )}
+                  </> : <>
+                    {/* Legacy wantlist layout — shown to non-admin users until grid design ships */}
                     <div style={{ marginBottom: "12px" }}>
                       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "8px", flexWrap: "wrap", marginBottom: "14px" }}>
                         <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
@@ -520,19 +718,8 @@ export default function ProfileListsTab({ initialLists, username, listTypeFilter
                             const on = wantlistFilter.has(p);
                             return (
                               <button key={p} onClick={() => {
-                                setWantlistFilter(prev => {
-                                  const next = new Set(prev);
-                                  if (on) next.delete(p); else next.add(p);
-                                  return next;
-                                });
-                              }} style={{
-                                fontFamily: MONO, fontSize: "11px", letterSpacing: "0.06em",
-                                color: on ? PRIORITY_COLORS[p] : "#aaaaaa",
-                                background: on ? `${PRIORITY_COLORS[p]}14` : "none",
-                                border: `1px solid ${on ? PRIORITY_COLORS[p] : "#e0e0da"}`,
-                                borderRadius: "3px", cursor: "pointer", padding: "4px 10px",
-                                flexShrink: 0, whiteSpace: "nowrap", transition: "all 0.15s",
-                              }}>
+                                setWantlistFilter(prev => { const next = new Set(prev); if (on) next.delete(p); else next.add(p); return next; });
+                              }} style={{ fontFamily: MONO, fontSize: "11px", letterSpacing: "0.06em", color: on ? PRIORITY_COLORS[p] : "#aaaaaa", background: on ? `${PRIORITY_COLORS[p]}14` : "none", border: `1px solid ${on ? PRIORITY_COLORS[p] : "#e0e0da"}`, borderRadius: "3px", cursor: "pointer", padding: "4px 10px", flexShrink: 0, whiteSpace: "nowrap", transition: "all 0.15s" }}>
                                 {PRIORITY_LABELS[p]}
                               </button>
                             );
@@ -542,19 +729,7 @@ export default function ProfileListsTab({ initialLists, username, listTypeFilter
                           {(["discogs", "rekodo"] as const).map(src => {
                             const on = wantlistSourceFilter === src;
                             return (
-                              <button
-                                key={src}
-                                onClick={() => setWantlistSourceFilter(on ? null : src)}
-                                style={{
-                                  fontFamily: MONO, fontSize: "9px", letterSpacing: "0.1em",
-                                  textTransform: "uppercase",
-                                  color: on ? "#0d0d0d" : "#aaaaaa",
-                                  background: on ? "#0d0d0d0d" : "none",
-                                  border: `1px solid ${on ? "#0d0d0d" : "#e0e0da"}`,
-                                  borderRadius: "3px", cursor: "pointer", padding: "4px 10px",
-                                  whiteSpace: "nowrap", transition: "all 0.15s",
-                                }}
-                              >
+                              <button key={src} onClick={() => setWantlistSourceFilter(on ? null : src)} style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.1em", textTransform: "uppercase", color: on ? "#0d0d0d" : "#aaaaaa", background: on ? "#0d0d0d0d" : "none", border: `1px solid ${on ? "#0d0d0d" : "#e0e0da"}`, borderRadius: "3px", cursor: "pointer", padding: "4px 10px", whiteSpace: "nowrap", transition: "all 0.15s" }}>
                                 {src === "discogs" ? "Discogs" : "Rekōdo"}
                               </button>
                             );
@@ -562,114 +737,37 @@ export default function ProfileListsTab({ initialLists, username, listTypeFilter
                         </div>
                       </div>
                       <div style={{ marginBottom: "10px" }}>
-                        <input
-                          type="text"
-                          value={wantlistSearch}
-                          onChange={e => setWantlistSearch(e.target.value)}
-                          placeholder="Search artist or album…"
-                          style={{
-                            width: "100%", boxSizing: "border-box",
-                            fontFamily: MONO, fontSize: "10px", letterSpacing: "0.04em",
-                            color: "#333", background: "transparent", border: "none",
-                            borderBottom: "1px solid rgba(0,0,0,0.12)", outline: "none",
-                            padding: "0 0 6px",
-                          }}
-                        />
+                        <input type="text" value={wantlistSearch} onChange={e => setWantlistSearch(e.target.value)} placeholder="Search artist or album…" style={{ width: "100%", boxSizing: "border-box", fontFamily: MONO, fontSize: "10px", letterSpacing: "0.04em", color: "#333", background: "transparent", border: "none", borderBottom: "1px solid rgba(0,0,0,0.12)", outline: "none", padding: "0 0 6px" }} />
                       </div>
                       <div style={{ display: "flex", alignItems: "center", gap: "10px", flexWrap: "wrap" }}>
                         <span style={{ fontFamily: MONO, fontSize: "0.75rem", letterSpacing: "0.1em", textTransform: "uppercase", color: "#cccccc", flexShrink: 0, marginRight: "4px" }}>Sort</span>
                         {(["priority", "date_added", "artist"] as const).map(s => (
-                          <button key={s} onClick={() => setWantlistSort(s)} style={{
-                            fontFamily: MONO, fontSize: "0.75rem", letterSpacing: "0.05em",
-                            color: wantlistSort === s ? "#0d0d0d" : "#aaaaaa",
-                            background: "none", border: "none", cursor: "pointer", padding: "0 0 2px",
-                            borderBottom: `1px solid ${wantlistSort === s ? "#0d0d0d" : "transparent"}`,
-                          }}>
+                          <button key={s} onClick={() => setWantlistSort(s)} style={{ fontFamily: MONO, fontSize: "0.75rem", letterSpacing: "0.05em", color: wantlistSort === s ? "#0d0d0d" : "#aaaaaa", background: "none", border: "none", cursor: "pointer", padding: "0 0 2px", borderBottom: `1px solid ${wantlistSort === s ? "#0d0d0d" : "transparent"}` }}>
                             {s === "priority" ? "Priority" : s === "date_added" ? "Date Added" : "Artist A–Z"}
                           </button>
                         ))}
                       </div>
                     </div>
-
-                    <div style={activeDrawer && !isMobile
-                      ? { display: "grid", gridTemplateColumns: "1fr 280px", gap: "20px", alignItems: "start" }
-                      : {}
-                    }>
-                      <div>
-                        {wantlistSlots.slice(0, wantlistVisibleCount).map(slot => {
-                          const monthsOld = slot.created_at
-                            ? Math.floor((Date.now() - new Date(slot.created_at).getTime()) / (1000 * 60 * 60 * 24 * 30))
-                            : null;
-                          const showSomedayPrompt =
-                            slot.priority === "someday" &&
-                            monthsOld !== null && monthsOld >= 6 &&
-                            !keptSomeday.has(slot.position);
-                          return (
-                            <WantlistCard
-                              key={slot.item?.id ?? slot.position}
-                              slot={slot}
-                              monthsOld={monthsOld}
-                              showSomedayPrompt={showSomedayPrompt}
-                              onRemove={() => handleRemoveItem(selectedList.id, slot.position)}
-                              onKeepSomeday={() => setKeptSomeday(prev => new Set([...prev, slot.position]))}
-                              onUpdateMeta={updates => handleUpdateWantlistItemMeta(selectedList.id, slot.position, updates)}
-                              onOpenDrawer={() => setActiveDrawer({ artist: slot.item!.artist, album: slot.item!.song_title ?? slot.item!.album })}
-                            />
-                          );
-                        })}
-
-                        {wantlistSlots.length > wantlistVisibleCount && (
-                          <button
-                            onClick={() => setWantlistVisibleCount(c => c + WANTLIST_PAGE_SIZE)}
-                            style={{
-                              display: "block", width: "100%", margin: "12px 0 4px",
-                              fontFamily: MONO, fontSize: "10px", letterSpacing: "0.08em", textTransform: "uppercase",
-                              color: ORANGE, background: "none", border: `1px solid ${ORANGE}`, borderRadius: "2px",
-                              padding: "10px 0", cursor: "pointer",
-                            }}
-                          >
-                            Load {Math.min(WANTLIST_PAGE_SIZE, wantlistSlots.length - wantlistVisibleCount)} more ({wantlistSlots.length - wantlistVisibleCount} remaining)
-                          </button>
-                        )}
-
-                        {selectedList.slots.filter(s => s.item).length === 0 && (
-                          <div style={{ margin: "32px 0 24px" }}>
-                            <p style={{ fontFamily: SERIF, fontSize: "14px", color: "#aaaaaa", lineHeight: 1.7, marginBottom: "10px" }}>
-                              Your Wantlist is empty. Every record you&apos;ve almost bought, nearly found, or need to own belongs here.
-                            </p>
-                            <Link href="/dig" style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.1em", textTransform: "uppercase", color: ORANGE, textDecoration: "none" }}>
-                              Dig for records →
-                            </Link>
-                          </div>
-                        )}
-
-                        {selectedList.slots.length < 20 && (
-                          <AddRecordButton onClick={() => openPicker({ listId: selectedList.id, strategy: "append" })} />
-                        )}
+                    {wantlistSlots.slice(0, wantlistVisibleCount).map(slot => {
+                      const monthsOld = slot.created_at ? Math.floor((Date.now() - new Date(slot.created_at).getTime()) / (1000 * 60 * 60 * 24 * 30)) : null;
+                      const showSomedayPrompt = slot.priority === "someday" && monthsOld !== null && monthsOld >= 6 && !keptSomeday.has(slot.position);
+                      return (
+                        <WantlistGridCard key={slot.item?.id ?? slot.position} slot={slot} fetchIndex={0} monthsOld={monthsOld} showSomedayPrompt={showSomedayPrompt} onRemove={() => handleRemoveItem(selectedList.id, slot.position)} onKeepSomeday={() => setKeptSomeday(prev => new Set([...prev, slot.position]))} onUpdateMeta={updates => handleUpdateWantlistItemMeta(selectedList.id, slot.position, updates)} />
+                      );
+                    })}
+                    {wantlistSlots.length > wantlistVisibleCount && (
+                      <button onClick={() => setWantlistVisibleCount(c => c + WANTLIST_PAGE_SIZE)} style={{ display: "block", width: "100%", margin: "12px 0 4px", fontFamily: MONO, fontSize: "10px", letterSpacing: "0.08em", textTransform: "uppercase", color: ORANGE, background: "none", border: `1px solid ${ORANGE}`, borderRadius: "2px", padding: "10px 0", cursor: "pointer" }}>
+                        Load {Math.min(WANTLIST_PAGE_SIZE, wantlistSlots.length - wantlistVisibleCount)} more
+                      </button>
+                    )}
+                    {selectedList.slots.filter(s => s.item).length === 0 && (
+                      <div style={{ margin: "32px 0 24px" }}>
+                        <p style={{ fontFamily: SERIF, fontSize: "14px", color: "#aaaaaa", lineHeight: 1.7, marginBottom: "10px" }}>Your Wantlist is empty. Every record you&apos;ve almost bought, nearly found, or need to own belongs here.</p>
+                        <Link href="/dig" style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.1em", textTransform: "uppercase", color: ORANGE, textDecoration: "none" }}>Dig for records →</Link>
                       </div>
-
-                      {/* Desktop inline drawer column */}
-                      {activeDrawer && !isMobile && (
-                        <div style={{ position: "sticky", top: "80px" }}>
-                          <MarketplaceDrawer
-                            inline
-                            isOpen={true}
-                            onClose={() => setActiveDrawer(null)}
-                            artist={activeDrawer.artist}
-                            album={activeDrawer.album}
-                          />
-                        </div>
-                      )}
-                    </div>
-
-                    {/* Mobile bottom sheet */}
-                    {activeDrawer && isMobile && (
-                      <MarketplaceDrawer
-                        isOpen={true}
-                        onClose={() => setActiveDrawer(null)}
-                        artist={activeDrawer.artist}
-                        album={activeDrawer.album}
-                      />
+                    )}
+                    {selectedList.slots.length < 20 && (
+                      <AddRecordButton onClick={() => openPicker({ listId: selectedList.id, strategy: "append" })} />
                     )}
                   </>
                 ) : selectedList.list_type === "top5" ? (
@@ -1297,24 +1395,29 @@ type WantlistMeta = {
   price_cap?: number | null;
   pressing_tip?: string | null;
   found?: boolean | null;
+  user_tags?: string[];
 };
 
-function WantlistCard({ slot, monthsOld, showSomedayPrompt, onRemove, onKeepSomeday, onUpdateMeta, onOpenDrawer }: {
+function WantlistGridCard({ slot, fetchIndex, monthsOld, showSomedayPrompt, onRemove, onKeepSomeday, onUpdateMeta }: {
   slot: ListSlot;
+  fetchIndex: number;
   monthsOld: number | null;
   showSomedayPrompt: boolean;
   onRemove: () => void;
   onKeepSomeday: () => void;
   onUpdateMeta: (updates: WantlistMeta) => void;
-  onOpenDrawer: () => void;
 }) {
   const { item } = slot;
   if (!item) return null;
 
-  const [hovered,   setHovered]   = useState(false);
-  const [coverUrl,  setCoverUrl]  = useState<string | null>(item.cover_url ?? null);
-  const [noteOpen,  setNoteOpen]  = useState(false);
-  const [noteDraft, setNoteDraft] = useState(slot.note ?? "");
+  const [hovered,  setHovered]  = useState(false);
+  const [coverUrl, setCoverUrl] = useState<string | null>(item.cover_url ?? null);
+  const [addingTag, setAddingTag] = useState(false);
+  const [tagInput,  setTagInput]  = useState("");
+  const tagInputRef = useRef<HTMLInputElement>(null);
+
+  type MarketplaceStats = { numForSale: number; lowestPrice: number | null; currency: string };
+  const [marketStats, setMarketStats] = useState<MarketplaceStats | null>(null);
 
   useEffect(() => {
     if (coverUrl) return;
@@ -1330,9 +1433,6 @@ function WantlistCard({ slot, monthsOld, showSomedayPrompt, onRemove, onKeepSome
           : (first.thumb && !first.thumb.includes("spacer") ? first.thumb : null);
         if (!url) return;
         setCoverUrl(url);
-        // Cache so this card never re-hits Discogs on a later page load.
-        // item.id is the list_items row id for "song" rows (Dig/CSV imports);
-        // "record" rows already get a persistent cover via the records table.
         if (item.item_type === "song") {
           createClient().from("list_items").update({ song_cover_url: url }).eq("id", item.id).then(() => {});
         }
@@ -1341,142 +1441,229 @@ function WantlistCard({ slot, monthsOld, showSomedayPrompt, onRemove, onKeepSome
     return () => { cancelled = true; };
   }, [item.artist, item.album]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Fetch Discogs marketplace stats staggered by card index to avoid rate limits
+  useEffect(() => {
+    if (!slot.discogs_release_id) return;
+    let cancelled = false;
+    const t = setTimeout(() => {
+      fetch(`/api/discogs/release/${slot.discogs_release_id}`)
+        .then(r => r.ok ? r.json() : null)
+        .then(data => {
+          if (cancelled || !data) return;
+          setMarketStats({
+            numForSale: data.num_for_sale ?? 0,
+            lowestPrice: data.lowest_price ?? null,
+            currency: data.lowest_price?.currency ?? "USD",
+          });
+        })
+        .catch(() => {});
+    }, fetchIndex * 150);
+    return () => { cancelled = true; clearTimeout(t); };
+  }, [slot.discogs_release_id, fetchIndex]);
+
   const priority = (slot.priority ?? null) as Priority | null;
+  const userTags = slot.user_tags ?? [];
+
+  const discogsHref = slot.discogs_release_id
+    ? `https://www.discogs.com/release/${slot.discogs_release_id}`
+    : `https://www.discogs.com/search/?q=${encodeURIComponent(`${item.artist} ${item.album}`)}&type=release`;
 
   const dateLabel = slot.created_at
     ? new Date(slot.created_at).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })
     : null;
 
+  function handleAddTag() {
+    const tag = tagInput.trim().toLowerCase();
+    if (!tag || userTags.includes(tag) || userTags.length >= 5) return;
+    onUpdateMeta({ user_tags: [...userTags, tag] });
+    setTagInput("");
+    setAddingTag(false);
+  }
+
   return (
     <div
-      style={{
-        border: "1px solid rgba(0,0,0,0.07)", padding: "10px 12px",
-        marginBottom: "6px", transition: "border-color 0.15s",
-        borderColor: hovered ? "rgba(0,0,0,0.14)" : "rgba(0,0,0,0.07)",
-      }}
+      style={{ position: "relative", display: "flex", flexDirection: "column" }}
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
     >
-      <div style={{ display: "flex", alignItems: "flex-start", gap: "12px", marginBottom: "6px" }}>
-        {/* Cover art */}
-        <div style={{
-          width: 80, height: 80, flexShrink: 0, overflow: "hidden", borderRadius: "2px",
-          background: coverUrl ? "transparent" : "#f0f0f0",
-          border: coverUrl ? "none" : "1px solid rgba(0,0,0,0.08)",
-        }}>
-          {coverUrl && (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img src={coverUrl} alt="" style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
-          )}
-        </div>
-
-        {/* Content column */}
-        <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", gap: "3px" }}>
-          {/* Priority select + Discogs import badge */}
-          <div style={{ display: "flex", alignItems: "center", gap: "6px", flexWrap: "wrap" }}>
-            <select
-              value={priority ?? ""}
-              onChange={e => onUpdateMeta({ priority: (e.target.value as Priority) || null })}
-              onClick={e => e.stopPropagation()}
-              style={{
-                fontFamily: MONO, fontSize: "0.6rem", letterSpacing: "0.07em",
-                color: priority ? PRIORITY_COLORS[priority] : "#bbbbbb",
-                background: "none",
-                border: `1px solid ${priority ? PRIORITY_COLORS[priority] : "#ccc"}`,
-                borderRadius: "2px", cursor: "pointer", padding: "0.1rem 0.35rem",
-                outline: "none", appearance: "none", WebkitAppearance: "none",
-              }}
-            >
-              <option value="">Priority</option>
-              <option value="must_have">Must Have</option>
-              <option value="would_love">Would Love</option>
-              <option value="someday">Someday</option>
-            </select>
-            {slot.source === "discogs" && (
-              <span style={{
-                fontFamily: MONO, fontSize: "0.55rem", letterSpacing: "0.07em",
-                color: "#999", border: "1px solid #ddd",
-                borderRadius: "2px", padding: "0.1rem 0.35rem",
-                whiteSpace: "nowrap",
-              }}>
-                Discogs import
-              </span>
-            )}
+      {/* Cover image — square aspect ratio */}
+      <div style={{ position: "relative", width: "100%", paddingBottom: "100%", background: "#ece9e3", overflow: "hidden" }}>
+        {coverUrl ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={coverUrl} alt="" style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover" }} />
+        ) : (
+          <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center" }}>
+            <span style={{ fontFamily: MONO, fontSize: "0.55rem", color: "#bbb", letterSpacing: "0.1em" }}>NO COVER</span>
           </div>
-          <p style={{ fontFamily: SERIF, fontSize: "1rem", fontWeight: 600, color: "#0d0d0d", lineHeight: 1.25, margin: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-            {item.artist}
-          </p>
-          <p style={{ fontFamily: SERIF, fontStyle: "italic", fontSize: "0.85rem", color: "#444444", lineHeight: 1.25, margin: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-            {item.song_title ?? item.album}
-            {item.year && <span style={{ fontFamily: MONO, fontStyle: "normal", fontSize: "0.7rem", color: "#999999", letterSpacing: "0.05em" }}> · {item.year}</span>}
-          </p>
-          {/* Find It button — opens marketplace drawer */}
-          <button
-            onClick={onOpenDrawer}
-            style={{ fontFamily: MONO, fontSize: "10px", letterSpacing: "0.05em", color: hovered ? "#a34400" : ORANGE, background: "none", border: "none", cursor: "pointer", padding: 0, transition: "color 0.15s", textAlign: "left" }}
-          >
-            Find It ↗
-          </button>
-        </div>
+        )}
+
+        {/* Priority badge */}
+        {priority && (
+          <span style={{
+            position: "absolute", top: "8px", left: "8px",
+            fontFamily: MONO, fontSize: "0.5rem", letterSpacing: "0.07em", textTransform: "uppercase",
+            background: PRIORITY_COLORS[priority], color: "#fff",
+            padding: "2px 6px", lineHeight: 1.4,
+          }}>
+            {PRIORITY_LABELS[priority]}
+          </span>
+        )}
+
+        {/* Source badge */}
+        {slot.source === "discogs" && (
+          <span style={{
+            position: "absolute", top: priority ? "26px" : "8px", left: "8px",
+            fontFamily: MONO, fontSize: "0.48rem", letterSpacing: "0.06em",
+            background: "rgba(0,0,0,0.52)", color: "rgba(255,255,255,0.85)",
+            padding: "2px 5px", lineHeight: 1.4,
+          }}>
+            Discogs
+          </span>
+        )}
 
         {/* Remove button */}
-        <button onClick={e => { e.stopPropagation(); onRemove(); }}
+        <button
+          onClick={e => { e.stopPropagation(); onRemove(); }}
           aria-label="Remove from wantlist"
           style={{
-            fontFamily: MONO, fontSize: "16px", lineHeight: 1, flexShrink: 0,
-            color: hovered ? "#888888" : "#cccccc", background: "none", border: "none",
-            cursor: "pointer", padding: "2px 4px", transition: "color 0.15s",
-          }}>
+            position: "absolute", top: "6px", right: "6px",
+            width: "22px", height: "22px", display: "flex", alignItems: "center", justifyContent: "center",
+            background: "rgba(0,0,0,0.55)", color: "#fff",
+            border: "none", cursor: "pointer", fontSize: "15px", lineHeight: 1,
+            opacity: hovered ? 1 : 0, transition: "opacity 0.15s",
+          }}
+        >
           ×
         </button>
+
+        {/* Someday aging overlay */}
+        {showSomedayPrompt && (
+          <div style={{
+            position: "absolute", inset: 0, background: "rgba(0,0,0,0.7)",
+            display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: "10px", padding: "12px",
+          }}>
+            <p style={{ fontFamily: MONO, fontSize: "0.6rem", letterSpacing: "0.05em", color: "#fff", textAlign: "center", margin: 0 }}>
+              {monthsOld}mo old · Still want this?
+            </p>
+            <div style={{ display: "flex", gap: "6px" }}>
+              <button onClick={e => { e.stopPropagation(); onKeepSomeday(); }} style={{ fontFamily: MONO, fontSize: "0.55rem", letterSpacing: "0.06em", background: "#fff", color: "#0d0d0d", border: "none", cursor: "pointer", padding: "3px 10px" }}>Keep</button>
+              <button onClick={e => { e.stopPropagation(); onRemove(); }} style={{ fontFamily: MONO, fontSize: "0.55rem", letterSpacing: "0.06em", background: "none", color: "#ccc", border: "1px solid rgba(255,255,255,0.3)", cursor: "pointer", padding: "3px 10px" }}>Remove</button>
+            </div>
+          </div>
+        )}
       </div>
 
-      <div style={{ display: "flex", alignItems: "flex-start", gap: "8px", marginTop: "5px", paddingTop: "5px", borderTop: "1px solid rgba(0,0,0,0.05)" }}>
-        <div style={{ flex: 1, minWidth: 0 }}>
-          {noteOpen ? (
-            <input
-              autoFocus value={noteDraft} onChange={e => setNoteDraft(e.target.value)}
-              onBlur={() => { setNoteOpen(false); onUpdateMeta({ note: noteDraft.trim() || null }); }}
-              onKeyDown={e => {
-                if (e.key === "Enter") e.currentTarget.blur();
-                if (e.key === "Escape") { setNoteDraft(slot.note ?? ""); setNoteOpen(false); }
-              }}
-              placeholder="Add a note…"
+      {/* Card body */}
+      <div style={{ paddingTop: "8px", flex: 1, display: "flex", flexDirection: "column", gap: "3px" }}>
+        <p style={{ fontFamily: SERIF, fontSize: "0.82rem", fontWeight: 600, color: "#0d0d0d", lineHeight: 1.25, margin: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+          {item.artist}
+        </p>
+        <p style={{ fontFamily: SERIF, fontStyle: "italic", fontSize: "0.76rem", color: "#555", lineHeight: 1.25, margin: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+          {item.song_title ?? item.album}
+          {item.year && <span style={{ fontFamily: MONO, fontStyle: "normal", fontSize: "0.62rem", color: "#999", letterSpacing: "0.04em" }}> · {item.year}</span>}
+        </p>
+
+        {/* Priority selector */}
+        <select
+          value={priority ?? ""}
+          onChange={e => onUpdateMeta({ priority: (e.target.value as Priority) || null })}
+          onClick={e => e.stopPropagation()}
+          style={{
+            fontFamily: MONO, fontSize: "0.52rem", letterSpacing: "0.06em",
+            color: priority ? PRIORITY_COLORS[priority] : "#bbbbbb",
+            background: "none",
+            border: `1px solid ${priority ? `${PRIORITY_COLORS[priority]}50` : "#e0e0da"}`,
+            cursor: "pointer", padding: "2px 4px",
+            outline: "none", appearance: "none", WebkitAppearance: "none",
+            width: "auto", alignSelf: "flex-start", marginTop: "2px",
+          }}
+        >
+          <option value="">Set priority</option>
+          <option value="must_have">Must Have</option>
+          <option value="would_love">Would Love</option>
+          <option value="someday">Someday</option>
+        </select>
+
+        {/* User tags */}
+        <div style={{ display: "flex", flexWrap: "wrap", gap: "3px", marginTop: "4px" }}>
+          {userTags.map(tag => (
+            <span key={tag} style={{
+              fontFamily: MONO, fontSize: "0.52rem", letterSpacing: "0.03em",
+              color: "#666", background: "#f0ede8", padding: "2px 5px",
+              display: "inline-flex", alignItems: "center", gap: "3px",
+            }}>
+              #{tag}
+              <button
+                onClick={() => onUpdateMeta({ user_tags: userTags.filter(t => t !== tag) })}
+                style={{ fontFamily: MONO, fontSize: "10px", lineHeight: 1, color: "#aaa", background: "none", border: "none", cursor: "pointer", padding: "0 0 0 1px" }}
+              >
+                ×
+              </button>
+            </span>
+          ))}
+          {!addingTag && userTags.length < 5 && (
+            <button
+              onClick={() => { setAddingTag(true); setTimeout(() => tagInputRef.current?.focus(), 30); }}
               style={{
-                width: "100%", boxSizing: "border-box",
-                fontFamily: MONO, fontSize: "10px", letterSpacing: "0.03em",
-                color: "#333", background: "transparent",
-                border: "none", borderBottom: "1px solid rgba(0,0,0,0.15)",
-                outline: "none", padding: "0 0 3px",
-              }}
-            />
-          ) : (
-            <span onClick={() => { setNoteDraft(slot.note ?? ""); setNoteOpen(true); }}
-              style={{
-                fontFamily: MONO, fontSize: "10px", letterSpacing: "0.03em",
-                color: slot.note ? "#666666" : "#cccccc",
-                cursor: "text", display: "block",
-                overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
+                fontFamily: MONO, fontSize: "0.52rem", letterSpacing: "0.03em",
+                color: "#bbb", background: "none", border: "1px dashed #ddd",
+                cursor: "pointer", padding: "2px 5px",
               }}
             >
-              {slot.note || "+ Note"}
-            </span>
+              + tag
+            </button>
+          )}
+          {addingTag && (
+            <input
+              ref={tagInputRef}
+              value={tagInput}
+              onChange={e => setTagInput(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, "").slice(0, 20))}
+              onKeyDown={e => {
+                if (e.key === "Enter") handleAddTag();
+                if (e.key === "Escape") { setTagInput(""); setAddingTag(false); }
+              }}
+              onBlur={() => { if (tagInput.trim()) handleAddTag(); else { setTagInput(""); setAddingTag(false); } }}
+              placeholder="tag…"
+              style={{
+                fontFamily: MONO, fontSize: "0.52rem", letterSpacing: "0.03em",
+                color: "#333", background: "#fafafa",
+                border: "1px solid #ccc", outline: "none",
+                padding: "2px 4px", width: "54px",
+              }}
+            />
           )}
         </div>
 
-        {showSomedayPrompt ? (
-          <>
-            <span style={{ fontFamily: MONO, fontSize: "8px", color: "#aaaaaa", letterSpacing: "0.03em", fontStyle: "italic", flexShrink: 0 }}>
-              {monthsOld}mo · Still want?
+        {/* Marketplace stats + Find It link */}
+        <div style={{ marginTop: "auto", paddingTop: "6px" }}>
+          {marketStats ? (
+            <a
+              href={discogsHref}
+              target="_blank"
+              rel="noopener noreferrer"
+              style={{ fontFamily: MONO, fontSize: "0.58rem", letterSpacing: "0.03em", color: marketStats.numForSale > 0 ? ORANGE : "#aaa", textDecoration: "none", display: "block" }}
+            >
+              {marketStats.numForSale > 0
+                ? `${marketStats.numForSale} ${marketStats.numForSale === 1 ? "copy" : "copies"} · From $${marketStats.lowestPrice?.toFixed(2) ?? "—"} ↗`
+                : "None for sale ↗"
+              }
+            </a>
+          ) : (
+            <a
+              href={discogsHref}
+              target="_blank"
+              rel="noopener noreferrer"
+              style={{ fontFamily: MONO, fontSize: "0.58rem", letterSpacing: "0.03em", color: ORANGE, textDecoration: "none" }}
+            >
+              Find It ↗
+            </a>
+          )}
+          {dateLabel && (
+            <span style={{ fontFamily: MONO, fontSize: "0.52rem", color: "#bbb", letterSpacing: "0.02em", display: "block", marginTop: "2px" }}>
+              {dateLabel}
             </span>
-            <button onClick={onKeepSomeday} style={{ fontFamily: MONO, fontSize: "7px", letterSpacing: "0.07em", color: "#888", background: "none", border: "1px solid rgba(0,0,0,0.14)", borderRadius: "2px", cursor: "pointer", padding: "1px 5px", flexShrink: 0 }}>Keep</button>
-            <button onClick={onRemove} style={{ fontFamily: MONO, fontSize: "7px", letterSpacing: "0.07em", color: "#aaaaaa", background: "none", border: "none", cursor: "pointer", padding: "1px 0", flexShrink: 0 }}>Remove</button>
-          </>
-        ) : dateLabel ? (
-          <span style={{ fontFamily: MONO, fontSize: "10px", color: "#bbbbbb", letterSpacing: "0.03em", flexShrink: 0 }}>
-            {dateLabel}
-          </span>
-        ) : null}
+          )}
+        </div>
       </div>
     </div>
   );

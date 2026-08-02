@@ -81,13 +81,14 @@ export async function GET() {
     price_cap: number | null; pressing_tip: string | null;
     found: boolean | null; created_at: string | null;
     source: string | null; discogs_release_id: number | null;
+    user_tags: string[] | null;
   };
 
   let itemsData: ItemRow[] = [];
   {
     const { data: full, error: fullErr } = await fetchAllListItems(
       supabase, listIds,
-      "id, list_id, position, item_type, record_id, song_title, song_artist, song_album, song_cover_url, song_year, note, priority, price_cap, pressing_tip, found, created_at, source, discogs_release_id",
+      "id, list_id, position, item_type, record_id, song_title, song_artist, song_album, song_cover_url, song_year, note, priority, price_cap, pressing_tip, found, created_at, source, discogs_release_id, user_tags",
     );
     if (!fullErr) {
       itemsData = (full ?? []) as unknown as ItemRow[];
@@ -98,14 +99,14 @@ export async function GET() {
       );
       if (!tier2Err) {
         itemsData = ((tier2 ?? []) as unknown as Record<string, unknown>[]).map(i => ({
-          ...i, price_cap: null, pressing_tip: null, found: null, created_at: null, source: null, discogs_release_id: null,
+          ...i, price_cap: null, pressing_tip: null, found: null, created_at: null, source: null, discogs_release_id: null, user_tags: null,
         })) as unknown as ItemRow[];
       } else {
         const { data: fallback } = await fetchAllListItems(supabase, listIds, "id, list_id, position, record_id");
         itemsData = (fallback ?? []).map(i => ({
           ...i, item_type: "record", song_title: null, song_artist: null, song_album: null,
           song_cover_url: null, song_year: null, note: null, priority: null,
-          price_cap: null, pressing_tip: null, found: null, created_at: null, source: null, discogs_release_id: null,
+          price_cap: null, pressing_tip: null, found: null, created_at: null, source: null, discogs_release_id: null, user_tags: null,
         })) as unknown as ItemRow[];
       }
     }
@@ -134,6 +135,7 @@ export async function GET() {
         created_at: item.created_at ?? null,
         source: item.source ?? null,
         discogs_release_id: item.discogs_release_id ?? null,
+        user_tags: item.user_tags ?? [],
       };
       if (item.item_type === "song") {
         return {
