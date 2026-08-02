@@ -453,103 +453,21 @@ export default function ProfileListsTab({ initialLists, username, listTypeFilter
                 {(selectedList.slug === "wantlist" || selectedList.slug === "want-to-buy") ? (
                   isAdmin ? <>
                     {/* Wantlist header */}
-                    <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: "16px", marginBottom: "1.5rem", flexWrap: "wrap" }}>
-                      <div>
-                        <h1 style={{ fontFamily: SERIF, fontSize: "clamp(1.8rem, 3.5vw, 2.6rem)", fontWeight: 400, color: "#0d0d0d", margin: "0 0 6px", lineHeight: 1.1 }}>
+                    <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: "12px", marginBottom: "1rem", flexWrap: "wrap" }}>
+                      <div style={{ display: "flex", alignItems: "baseline", gap: "12px" }}>
+                        <h1 style={{ fontFamily: SERIF, fontSize: "clamp(1.5rem, 2.8vw, 2.1rem)", fontWeight: 400, color: "#0d0d0d", margin: 0, lineHeight: 1.1 }}>
                           Want List
                         </h1>
-                        <p style={{ fontFamily: MONO, fontSize: "0.68rem", letterSpacing: "0.05em", color: "#888", margin: 0 }}>
+                        <p style={{ fontFamily: MONO, fontSize: "0.65rem", letterSpacing: "0.05em", color: "#aaa", margin: 0 }}>
                           <span style={{ color: ORANGE, fontWeight: 700 }}>{selectedList.slots.filter(s => s.item).length}</span>
-                          {" "}{selectedList.slots.filter(s => s.item).length === 1 ? "record" : "records"} on your radar
+                          {" "}records
                         </p>
                       </div>
-                      <div style={{ display: "flex", gap: "6px", flexShrink: 0 }}>
-                        {(["discogs", "rekodo"] as const).map(src => {
-                          const on = wantlistSourceFilter === src;
-                          return (
-                            <button key={src} onClick={() => setWantlistSourceFilter(on ? null : src)} style={{
-                              fontFamily: MONO, fontSize: "0.6rem", letterSpacing: "0.1em", textTransform: "uppercase",
-                              color: on ? "#fff" : "#aaaaaa",
-                              background: on ? "#0d0d0d" : "none",
-                              border: `1px solid ${on ? "#0d0d0d" : "#e0e0da"}`,
-                              cursor: "pointer", padding: "5px 12px", whiteSpace: "nowrap", transition: "all 0.15s",
-                            }}>
-                              {src === "discogs" ? "Discogs" : "Rekōdo"}
-                            </button>
-                          );
-                        })}
-                      </div>
-                    </div>
-
-                    {/* Priority + tag filter pills */}
-                    <div style={{ display: "flex", gap: "8px", flexWrap: "wrap", marginBottom: "12px", alignItems: "center" }}>
-                      {(["must_have", "would_love", "someday"] as Priority[]).map(p => {
-                        const on = wantlistFilter.has(p);
-                        return (
-                          <button key={p} onClick={() => {
-                            setWantlistFilter(prev => {
-                              const next = new Set(prev);
-                              if (on) next.delete(p); else next.add(p);
-                              return next;
-                            });
-                          }} style={{
-                            fontFamily: MONO, fontSize: "0.62rem", letterSpacing: "0.06em",
-                            color: on ? "#fff" : PRIORITY_COLORS[p],
-                            background: on ? PRIORITY_COLORS[p] : "none",
-                            border: `1px solid ${PRIORITY_COLORS[p]}`,
-                            borderRadius: "20px", cursor: "pointer", padding: "4px 12px",
-                            whiteSpace: "nowrap", transition: "all 0.15s",
-                          }}>
-                            {PRIORITY_LABELS[p]}
-                          </button>
-                        );
-                      })}
-                      {allUserTags.map(tag => {
-                        const on = wantlistTagFilter.has(tag);
-                        return (
-                          <button key={tag} onClick={() => {
-                            setWantlistTagFilter(prev => {
-                              const next = new Set(prev);
-                              if (on) next.delete(tag); else next.add(tag);
-                              return next;
-                            });
-                          }} style={{
-                            fontFamily: MONO, fontSize: "0.6rem", letterSpacing: "0.04em",
-                            color: on ? "#fff" : "#666",
-                            background: on ? "#555" : "none",
-                            border: `1px solid ${on ? "#555" : "#d0d0cc"}`,
-                            borderRadius: "20px", cursor: "pointer", padding: "4px 10px",
-                            whiteSpace: "nowrap", transition: "all 0.15s",
-                          }}>
-                            #{tag}
-                          </button>
-                        );
-                      })}
-                    </div>
-
-                    {/* Search + sort + add */}
-                    <div style={{ display: "flex", alignItems: "center", gap: "12px", marginBottom: "1.5rem", flexWrap: "wrap" }}>
-                      <div style={{ flex: 1, minWidth: "160px", position: "relative" }}>
-                        <input
-                          type="text"
-                          value={wantlistSearch}
-                          onChange={e => setWantlistSearch(e.target.value)}
-                          placeholder="Search artist or album…"
-                          style={{
-                            width: "100%", boxSizing: "border-box",
-                            fontFamily: MONO, fontSize: "0.7rem", letterSpacing: "0.04em",
-                            color: "#333", background: "#f8f7f4",
-                            border: "1px solid #e8e5e0", outline: "none",
-                            padding: "8px 12px 8px 32px",
-                          }}
-                        />
-                        <span style={{ position: "absolute", left: "10px", top: "50%", transform: "translateY(-50%)", color: "#ccc", fontSize: "14px", pointerEvents: "none" }}>⌕</span>
-                      </div>
                       <div style={{ display: "flex", alignItems: "center", gap: "2px", flexShrink: 0 }}>
-                        <span style={{ fontFamily: MONO, fontSize: "0.6rem", letterSpacing: "0.1em", textTransform: "uppercase", color: "#ccc", marginRight: "8px" }}>Sort</span>
+                        <span style={{ fontFamily: MONO, fontSize: "0.58rem", letterSpacing: "0.1em", textTransform: "uppercase", color: "#ccc", marginRight: "6px" }}>Sort</span>
                         {(["priority", "date_added", "artist"] as const).map(s => (
                           <button key={s} onClick={() => setWantlistSort(s)} style={{
-                            fontFamily: MONO, fontSize: "0.7rem", letterSpacing: "0.04em",
+                            fontFamily: MONO, fontSize: "0.65rem", letterSpacing: "0.04em",
                             color: wantlistSort === s ? "#0d0d0d" : "#aaaaaa",
                             background: "none", border: "none", cursor: "pointer", padding: "4px 8px",
                             borderBottom: `1.5px solid ${wantlistSort === s ? ORANGE : "transparent"}`,
@@ -558,19 +476,145 @@ export default function ProfileListsTab({ initialLists, username, listTypeFilter
                             {s === "priority" ? "Priority" : s === "date_added" ? "Date" : "Artist"}
                           </button>
                         ))}
+                        <button
+                          onClick={() => {
+                            setPicker({ listId: selectedList.id, strategy: "append" });
+                            setPickerSearch("");
+                            setDiscogsResults([]);
+                          }}
+                          style={{
+                            fontFamily: MONO, fontSize: "0.6rem", letterSpacing: "0.07em", textTransform: "uppercase",
+                            color: "#fff", background: ORANGE,
+                            border: "none", cursor: "pointer", padding: "6px 14px",
+                            marginLeft: "8px", flexShrink: 0, whiteSpace: "nowrap",
+                          }}
+                        >
+                          + Add
+                        </button>
                       </div>
-                      <button
-                        onClick={() => openPicker({ listId: selectedList.id, strategy: "append" })}
-                        style={{
-                          fontFamily: MONO, fontSize: "0.62rem", letterSpacing: "0.07em", textTransform: "uppercase",
-                          color: "#fff", background: ORANGE,
-                          border: "none", cursor: "pointer", padding: "8px 16px",
-                          flexShrink: 0, whiteSpace: "nowrap",
-                        }}
-                      >
-                        + Add
-                      </button>
                     </div>
+
+                    {/* Single toolbar: search + priority + source + tag pills */}
+                    <div className="pill-strip" style={{ display: "flex", alignItems: "center", gap: "6px", marginBottom: "1rem", overflowX: "auto" }}>
+                      <div style={{ position: "relative", flexShrink: 0 }}>
+                        <input
+                          type="text"
+                          value={wantlistSearch}
+                          onChange={e => setWantlistSearch(e.target.value)}
+                          placeholder="Search…"
+                          style={{
+                            fontFamily: MONO, fontSize: "0.65rem", letterSpacing: "0.04em",
+                            color: "#333", background: "#f8f7f4",
+                            border: "1px solid #e8e5e0", outline: "none",
+                            padding: "5px 10px 5px 26px", width: "160px",
+                          }}
+                        />
+                        <span style={{ position: "absolute", left: "8px", top: "50%", transform: "translateY(-50%)", color: "#ccc", fontSize: "13px", pointerEvents: "none" }}>⌕</span>
+                      </div>
+                      <span style={{ color: "#e0e0da", flexShrink: 0 }}>|</span>
+                      {(["must_have", "would_love", "someday"] as Priority[]).map(p => {
+                        const on = wantlistFilter.has(p);
+                        return (
+                          <button key={p} onClick={() => {
+                            setWantlistFilter(prev => { const next = new Set(prev); if (on) next.delete(p); else next.add(p); return next; });
+                          }} style={{
+                            fontFamily: MONO, fontSize: "0.58rem", letterSpacing: "0.06em",
+                            color: on ? "#fff" : PRIORITY_COLORS[p],
+                            background: on ? PRIORITY_COLORS[p] : "none",
+                            border: `1px solid ${PRIORITY_COLORS[p]}`,
+                            borderRadius: "20px", cursor: "pointer", padding: "3px 10px",
+                            whiteSpace: "nowrap", flexShrink: 0, transition: "all 0.15s",
+                          }}>
+                            {PRIORITY_LABELS[p]}
+                          </button>
+                        );
+                      })}
+                      <span style={{ color: "#e0e0da", flexShrink: 0 }}>|</span>
+                      {(["discogs", "rekodo"] as const).map(src => {
+                        const on = wantlistSourceFilter === src;
+                        return (
+                          <button key={src} onClick={() => setWantlistSourceFilter(on ? null : src)} style={{
+                            fontFamily: MONO, fontSize: "0.58rem", letterSpacing: "0.08em", textTransform: "uppercase",
+                            color: on ? "#fff" : "#aaaaaa",
+                            background: on ? "#555" : "none",
+                            border: `1px solid ${on ? "#555" : "#e0e0da"}`,
+                            borderRadius: "20px", cursor: "pointer", padding: "3px 10px",
+                            whiteSpace: "nowrap", flexShrink: 0, transition: "all 0.15s",
+                          }}>
+                            {src === "discogs" ? "Discogs" : "Rekōdo"}
+                          </button>
+                        );
+                      })}
+                      {allUserTags.length > 0 && <span style={{ color: "#e0e0da", flexShrink: 0 }}>|</span>}
+                      {allUserTags.map(tag => {
+                        const on = wantlistTagFilter.has(tag);
+                        return (
+                          <button key={tag} onClick={() => {
+                            setWantlistTagFilter(prev => { const next = new Set(prev); if (on) next.delete(tag); else next.add(tag); return next; });
+                          }} style={{
+                            fontFamily: MONO, fontSize: "0.58rem", letterSpacing: "0.04em",
+                            color: on ? "#fff" : "#666",
+                            background: on ? "#555" : "none",
+                            border: `1px solid ${on ? "#555" : "#d0d0cc"}`,
+                            borderRadius: "20px", cursor: "pointer", padding: "3px 10px",
+                            whiteSpace: "nowrap", flexShrink: 0, transition: "all 0.15s",
+                          }}>
+                            #{tag}
+                          </button>
+                        );
+                      })}
+                    </div>
+
+                    {/* Inline add panel — appears above the grid when picker is open */}
+                    {picker?.listId === selectedList.id && (
+                      <div style={{ marginBottom: "1.25rem", border: "1px solid #e8e5e0", background: "#fafaf8", padding: "14px 16px" }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: "10px", marginBottom: discogsResults.length > 0 || discogsSearching || pickerSearch.trim() ? "12px" : 0 }}>
+                          <span style={{ color: "#ccc", fontSize: "15px", flexShrink: 0 }}>⌕</span>
+                          <input
+                            autoFocus
+                            type="text"
+                            value={pickerSearch}
+                            onChange={e => setPickerSearch(e.target.value)}
+                            onKeyDown={e => { if (e.key === "Escape") { setPicker(null); setPickerSearch(""); setDiscogsResults([]); } }}
+                            placeholder="Search Discogs to add a record…"
+                            style={{
+                              flex: 1, fontFamily: MONO, fontSize: "0.72rem", letterSpacing: "0.03em",
+                              color: "#0d0d0d", background: "transparent",
+                              border: "none", outline: "none",
+                            }}
+                          />
+                          <button
+                            onClick={() => { setPicker(null); setPickerSearch(""); setDiscogsResults([]); }}
+                            style={{ fontFamily: MONO, fontSize: "0.65rem", color: "#aaa", background: "none", border: "none", cursor: "pointer", padding: "2px 4px", flexShrink: 0 }}
+                          >
+                            ✕ Cancel
+                          </button>
+                        </div>
+                        {pickerSearch.trim() && (
+                          discogsSearching ? (
+                            <p style={{ fontFamily: MONO, fontSize: "0.62rem", color: "#aaa", letterSpacing: "0.08em", textTransform: "uppercase", margin: 0 }}>Searching…</p>
+                          ) : discogsResults.length === 0 ? (
+                            <p style={{ fontFamily: MONO, fontSize: "0.62rem", color: "#aaa", margin: 0 }}>No results for &ldquo;{pickerSearch}&rdquo;</p>
+                          ) : (
+                            <ul style={{ margin: 0, padding: 0, listStyle: "none", borderTop: "1px solid #eeebe6" }}>
+                              {discogsResults.map(r => {
+                                const { artist, album: title } = parseTitle(r.title);
+                                const thumb = r.thumb && !r.thumb.includes("spacer") ? r.thumb : null;
+                                return (
+                                  <PickerRow key={r.id} cover={thumb} primary={title}
+                                    secondary={`${artist}${r.year ? ` · ${r.year}` : ""}`}
+                                    onClick={() => handlePickDiscogsRecord(r)}
+                                  />
+                                );
+                              })}
+                            </ul>
+                          )
+                        )}
+                        {!pickerSearch.trim() && (
+                          <p style={{ fontFamily: MONO, fontSize: "0.62rem", color: "#ccc", letterSpacing: "0.03em", margin: 0 }}>Type an artist or album name to search.</p>
+                        )}
+                      </div>
+                    )}
 
                     {/* Card grid */}
                     <div className="wl-grid">
@@ -742,9 +786,9 @@ export default function ProfileListsTab({ initialLists, username, listTypeFilter
                 )}
               </div>
 
-              {/* Record picker */}
+              {/* Record picker — hidden for wantlist (uses the inline panel above the grid instead) */}
               <div ref={pickerRef} style={{ marginTop: "20px", borderTop: "1px solid rgba(0,0,0,0.08)", paddingTop: "16px" }}>
-                {picker?.listId === selectedList.id && (
+                {picker?.listId === selectedList.id && selectedList.slug !== "wantlist" && selectedList.slug !== "want-to-buy" && (
                   <>
                     <p style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.1em", textTransform: "uppercase", color: "#aaaaaa", marginBottom: "14px" }}>
                       {"position" in picker ? `Add to slot ${picker.position}` : "Add to list"}
