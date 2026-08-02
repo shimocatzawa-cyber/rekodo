@@ -493,14 +493,14 @@ export default function ProfileListsTab({ initialLists, username, listTypeFilter
                           fontFamily: MONO, fontSize: "0.72rem", letterSpacing: "0.04em",
                           color: "#0d0d0d", background: "#f8f7f4",
                           border: "1px solid #d0cdc8", outline: "none",
-                          padding: "8px 14px 8px 34px", width: "320px", boxSizing: "border-box",
+                          padding: "8px 14px 8px 34px", width: isMobile ? "100%" : "320px", boxSizing: "border-box",
                         }}
                       />
                       <span style={{ position: "absolute", left: "11px", top: "50%", transform: "translateY(-50%)", color: "#777", fontSize: "14px", pointerEvents: "none" }}>⌕</span>
                     </div>
 
                     {/* Filter pills + Add button */}
-                    <div className="pill-strip" style={{ display: "flex", alignItems: "center", gap: "6px", marginBottom: "1rem", overflowX: "auto" }}>
+                    <div className="pill-strip" style={{ display: "flex", alignItems: "center", gap: "6px", marginBottom: "1rem", ...(isMobile ? { flexWrap: "wrap" } : { overflowX: "auto" }) }}>
                       <button
                         onClick={() => {
                           setPicker({ listId: selectedList.id, strategy: "append" });

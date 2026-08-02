@@ -401,11 +401,12 @@ function GigDetail({ gig, onEdit, onDelete, timesSeen, onUploadPhoto, isMobile }
       </div>
 
       {/* ── INFO BAR ── */}
-      <div style={{ display: "flex", borderBottom: `1px solid ${BORDER}`, ...(isMobile && { overflowX: "auto" }) }}>
+      <div style={{ display: "flex", borderBottom: `1px solid ${BORDER}`, ...(isMobile && { flexWrap: "wrap" }) }}>
         {infoChips.map((chip, i) => (
           <div key={i} style={{
-            ...(isMobile ? { flexShrink: 0, padding: "14px 16px" } : { flex: 1, padding: "16px 20px" }),
-            borderRight: i < infoChips.length - 1 ? `1px solid ${BORDER}` : "none",
+            ...(isMobile ? { flex: "0 0 50%", padding: "12px 16px", boxSizing: "border-box" } : { flex: 1, padding: "16px 20px" }),
+            borderRight: !isMobile && i < infoChips.length - 1 ? `1px solid ${BORDER}` : "none",
+            borderBottom: isMobile ? `1px solid ${BORDER}` : "none",
             display: "flex", alignItems: "center", gap: 10,
           }}>
             <div style={{ color: SUBTLE, flexShrink: 0 }}>{chip.icon}</div>
@@ -810,7 +811,33 @@ export default function GigJournalTab() {
   // ── Render ───────────────────────────────────────────────────────────────────
 
   return (
-    <div style={{ display: "flex", height: "calc(100vh - 114px)", overflow: "hidden" }}>
+    <div style={{ display: "flex", flexDirection: "column", height: "calc(100vh - 114px)", overflow: "hidden" }}>
+
+      {/* ── Full-width header ── */}
+      <div style={{ padding: "14px 16px", borderBottom: `1px solid ${BORDER}`, flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "space-between", gap: "12px", background: "#fff" }}>
+        <div style={{ display: "flex", alignItems: "baseline", gap: "12px", minWidth: 0 }}>
+          <h1 style={{ fontFamily: SERIF, fontSize: "clamp(1.5rem, 2.8vw, 2.1rem)", fontWeight: 400, color: "#0d0d0d", margin: 0, lineHeight: 1.1 }}>
+            Gig Journal
+          </h1>
+          {!loading && gigs.length > 0 && (
+            <p style={{ fontFamily: MONO, fontSize: "0.65rem", letterSpacing: "0.05em", color: "#666", margin: 0, whiteSpace: "nowrap" }}>
+              <span style={{ color: ORANGE, fontWeight: 700 }}>
+                {hasFilters && filteredGigs.length !== gigs.length ? filteredGigs.length : gigs.length}
+              </span>
+              {" "}Gigs logged
+            </p>
+          )}
+        </div>
+        <button type="button" onClick={openNew}
+          style={{
+            flexShrink: 0, fontFamily: MONO, fontSize: "8.5px", letterSpacing: "0.1em",
+            textTransform: "uppercase", color: ORANGE, background: "none",
+            border: `1px solid ${ORANGE}`, padding: "7px 12px", cursor: "pointer",
+          }}>+ Log a gig</button>
+      </div>
+
+      {/* ── Split panel ── */}
+      <div style={{ display: "flex", flex: 1, overflow: "hidden" }}>
 
       {/* ── Sidebar ── */}
       <aside style={{
@@ -821,29 +848,6 @@ export default function GigJournalTab() {
         flexDirection: "column", background: "#fff",
       }}>
         <div style={{ padding: "14px 14px 0", borderBottom: `1px solid ${BORDER}`, flexShrink: 0 }}>
-          {/* Header: title + count + Log a gig button */}
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "12px", marginBottom: 12 }}>
-            <div style={{ display: "flex", alignItems: "baseline", gap: "12px", minWidth: 0 }}>
-              <h1 style={{ fontFamily: SERIF, fontSize: "clamp(1.5rem, 2.8vw, 2.1rem)", fontWeight: 400, color: "#0d0d0d", margin: 0, lineHeight: 1.1 }}>
-                Gig Journal
-              </h1>
-              {!loading && gigs.length > 0 && (
-                <p style={{ fontFamily: MONO, fontSize: "0.65rem", letterSpacing: "0.05em", color: "#666", margin: 0, whiteSpace: "nowrap" }}>
-                  <span style={{ color: ORANGE, fontWeight: 700 }}>
-                    {hasFilters && filteredGigs.length !== gigs.length ? filteredGigs.length : gigs.length}
-                  </span>
-                  {" "}Gigs logged
-                </p>
-              )}
-            </div>
-            <button type="button" onClick={openNew}
-              style={{
-                flexShrink: 0, fontFamily: MONO, fontSize: "8.5px", letterSpacing: "0.1em",
-                textTransform: "uppercase", color: ORANGE, background: "none",
-                border: `1px solid ${ORANGE}`, padding: "7px 12px", cursor: "pointer",
-              }}>+ Log a gig</button>
-          </div>
-
           {/* Filters */}
           {gigs.length > 0 && (
             <div style={{ display: "flex", flexDirection: "column", gap: 6, paddingBottom: 12 }}>
@@ -1093,6 +1097,7 @@ export default function GigJournalTab() {
           </div>
         )}
       </main>
+      </div>{/* end split panel */}
     </div>
   );
 }
