@@ -771,6 +771,12 @@ export default function GigJournalTab() {
   const [filterVenue,  setFilterVenue]  = useState("");
   const [filterYear,   setFilterYear]   = useState("");
 
+  const uniqueArtists = useMemo(() => {
+    const seen = new Set<string>();
+    for (const g of gigs) for (const a of g.artists) if (a.artist_name) seen.add(a.artist_name);
+    return [...seen].sort();
+  }, [gigs]);
+
   const uniqueVenues = useMemo(() => {
     const seen = new Set<string>();
     const result: string[] = [];
@@ -788,9 +794,8 @@ export default function GigJournalTab() {
   }, [gigs]);
 
   const filteredGigs = useMemo(() => {
-    const aq = filterArtist.toLowerCase().trim();
     return gigs.filter(g => {
-      if (aq && !g.artists.some(a => a.artist_name.toLowerCase().includes(aq))) return false;
+      if (filterArtist && !g.artists.some(a => a.artist_name === filterArtist)) return false;
       if (filterVenue) {
         const v = [g.venue, g.city].filter(Boolean).join(", ");
         if (v !== filterVenue) return false;
@@ -800,7 +805,7 @@ export default function GigJournalTab() {
     });
   }, [gigs, filterArtist, filterVenue, filterYear]);
 
-  const hasFilters = !!(filterArtist.trim() || filterVenue || filterYear);
+  const hasFilters = !!(filterArtist || filterVenue || filterYear);
   const grouped = groupByYear(hasFilters ? filteredGigs : gigs);
   const isMobile = useIsMobile();
 
@@ -851,13 +856,14 @@ export default function GigJournalTab() {
           {/* Filters */}
           {gigs.length > 0 && (
             <div style={{ display: "flex", flexDirection: "column", gap: 6, paddingBottom: 12 }}>
-              <input
-                type="text"
-                placeholder="Artist…"
+              <select
                 value={filterArtist}
                 onChange={e => setFilterArtist(e.target.value)}
-                style={{ fontFamily: MONO, fontSize: "9px", color: INK, background: "#faf9f6", border: `1px solid ${filterArtist ? ORANGE : BORDER}`, padding: "5px 8px", outline: "none", width: "100%", boxSizing: "border-box" }}
-              />
+                style={{ fontFamily: MONO, fontSize: "9px", color: filterArtist ? INK : SUBTLE, background: "#faf9f6", border: `1px solid ${filterArtist ? ORANGE : BORDER}`, padding: "5px 8px", outline: "none", width: "100%", appearance: "none", cursor: "pointer" }}
+              >
+                <option value="">Artist…</option>
+                {uniqueArtists.map(a => <option key={a} value={a}>{a}</option>)}
+              </select>
               <select
                 value={filterVenue}
                 onChange={e => setFilterVenue(e.target.value)}
