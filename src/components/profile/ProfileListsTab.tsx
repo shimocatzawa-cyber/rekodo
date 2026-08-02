@@ -443,7 +443,7 @@ export default function ProfileListsTab({ initialLists, username, listTypeFilter
       {/* ── Wantlist ── */}
       <div style={{ maxWidth: (selectedList?.slug === "wantlist" || selectedList?.slug === "want-to-buy") ? 1440 : selectedList?.list_type === "top5" ? (activeDrawer && !isMobile ? 1440 : 1100) : (activeDrawer && !isMobile ? 960 : 680), margin: "0 auto", padding: "2rem 1.5rem 3rem", transition: "max-width 0.2s ease" }}>
         {!selectedList && lists.length === 0 ? (
-          <p style={{ fontFamily: "var(--font-mono)", fontSize: "11px", letterSpacing: "0.06em", color: "#aaaaaa" }}>
+          <p style={{ fontFamily: "var(--font-mono)", fontSize: "11px", letterSpacing: "0.06em", color: "#666" }}>
             Loading your lists…
           </p>
         ) : selectedList ? (
@@ -452,23 +452,23 @@ export default function ProfileListsTab({ initialLists, username, listTypeFilter
               <div style={{ marginBottom: "20px" }}>
                 {(selectedList.slug === "wantlist" || selectedList.slug === "want-to-buy") ? (
                   isAdmin ? <>
-                    {/* Wantlist header */}
+                    {/* Wantlist header: title + count | sort */}
                     <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: "12px", marginBottom: "1rem", flexWrap: "wrap" }}>
                       <div style={{ display: "flex", alignItems: "baseline", gap: "12px" }}>
                         <h1 style={{ fontFamily: SERIF, fontSize: "clamp(1.5rem, 2.8vw, 2.1rem)", fontWeight: 400, color: "#0d0d0d", margin: 0, lineHeight: 1.1 }}>
                           Want List
                         </h1>
-                        <p style={{ fontFamily: MONO, fontSize: "0.65rem", letterSpacing: "0.05em", color: "#aaa", margin: 0 }}>
+                        <p style={{ fontFamily: MONO, fontSize: "0.65rem", letterSpacing: "0.05em", color: "#666", margin: 0 }}>
                           <span style={{ color: ORANGE, fontWeight: 700 }}>{selectedList.slots.filter(s => s.item).length}</span>
                           {" "}records
                         </p>
                       </div>
                       <div style={{ display: "flex", alignItems: "center", gap: "2px", flexShrink: 0 }}>
-                        <span style={{ fontFamily: MONO, fontSize: "0.58rem", letterSpacing: "0.1em", textTransform: "uppercase", color: "#ccc", marginRight: "6px" }}>Sort</span>
+                        <span style={{ fontFamily: MONO, fontSize: "0.58rem", letterSpacing: "0.1em", textTransform: "uppercase", color: "#777", marginRight: "6px" }}>Sort</span>
                         {(["priority", "date_added", "artist"] as const).map(s => (
                           <button key={s} onClick={() => setWantlistSort(s)} style={{
                             fontFamily: MONO, fontSize: "0.65rem", letterSpacing: "0.04em",
-                            color: wantlistSort === s ? "#0d0d0d" : "#aaaaaa",
+                            color: wantlistSort === s ? "#0d0d0d" : "#666",
                             background: "none", border: "none", cursor: "pointer", padding: "4px 8px",
                             borderBottom: `1.5px solid ${wantlistSort === s ? ORANGE : "transparent"}`,
                             transition: "all 0.15s",
@@ -476,42 +476,44 @@ export default function ProfileListsTab({ initialLists, username, listTypeFilter
                             {s === "priority" ? "Priority" : s === "date_added" ? "Date" : "Artist"}
                           </button>
                         ))}
-                        <button
-                          onClick={() => {
-                            setPicker({ listId: selectedList.id, strategy: "append" });
-                            setPickerSearch("");
-                            setDiscogsResults([]);
-                          }}
-                          style={{
-                            fontFamily: MONO, fontSize: "0.6rem", letterSpacing: "0.07em", textTransform: "uppercase",
-                            color: "#fff", background: ORANGE,
-                            border: "none", cursor: "pointer", padding: "6px 14px",
-                            marginLeft: "8px", flexShrink: 0, whiteSpace: "nowrap",
-                          }}
-                        >
-                          + Add
-                        </button>
                       </div>
                     </div>
 
-                    {/* Single toolbar: search + priority + source + tag pills */}
+                    {/* Search bar — prominent, on its own row */}
+                    <div style={{ position: "relative", marginBottom: "0.6rem" }}>
+                      <input
+                        type="text"
+                        value={wantlistSearch}
+                        onChange={e => setWantlistSearch(e.target.value)}
+                        placeholder="Search artist or album…"
+                        style={{
+                          fontFamily: MONO, fontSize: "0.72rem", letterSpacing: "0.04em",
+                          color: "#0d0d0d", background: "#f8f7f4",
+                          border: "1px solid #d0cdc8", outline: "none",
+                          padding: "8px 14px 8px 34px", width: "320px", boxSizing: "border-box",
+                        }}
+                      />
+                      <span style={{ position: "absolute", left: "11px", top: "50%", transform: "translateY(-50%)", color: "#777", fontSize: "14px", pointerEvents: "none" }}>⌕</span>
+                    </div>
+
+                    {/* Filter pills + Add button */}
                     <div className="pill-strip" style={{ display: "flex", alignItems: "center", gap: "6px", marginBottom: "1rem", overflowX: "auto" }}>
-                      <div style={{ position: "relative", flexShrink: 0 }}>
-                        <input
-                          type="text"
-                          value={wantlistSearch}
-                          onChange={e => setWantlistSearch(e.target.value)}
-                          placeholder="Search…"
-                          style={{
-                            fontFamily: MONO, fontSize: "0.65rem", letterSpacing: "0.04em",
-                            color: "#333", background: "#f8f7f4",
-                            border: "1px solid #e8e5e0", outline: "none",
-                            padding: "5px 10px 5px 26px", width: "160px",
-                          }}
-                        />
-                        <span style={{ position: "absolute", left: "8px", top: "50%", transform: "translateY(-50%)", color: "#ccc", fontSize: "13px", pointerEvents: "none" }}>⌕</span>
-                      </div>
-                      <span style={{ color: "#e0e0da", flexShrink: 0 }}>|</span>
+                      <button
+                        onClick={() => {
+                          setPicker({ listId: selectedList.id, strategy: "append" });
+                          setPickerSearch("");
+                          setDiscogsResults([]);
+                        }}
+                        style={{
+                          fontFamily: MONO, fontSize: "0.6rem", letterSpacing: "0.07em", textTransform: "uppercase",
+                          color: "#fff", background: ORANGE,
+                          border: "none", cursor: "pointer", padding: "5px 14px",
+                          flexShrink: 0, whiteSpace: "nowrap",
+                        }}
+                      >
+                        + Add
+                      </button>
+                      <span style={{ color: "#bbb", flexShrink: 0 }}>|</span>
                       {(["must_have", "would_love", "someday"] as Priority[]).map(p => {
                         const on = wantlistFilter.has(p);
                         return (
@@ -519,9 +521,9 @@ export default function ProfileListsTab({ initialLists, username, listTypeFilter
                             setWantlistFilter(prev => { const next = new Set(prev); if (on) next.delete(p); else next.add(p); return next; });
                           }} style={{
                             fontFamily: MONO, fontSize: "0.58rem", letterSpacing: "0.06em",
-                            color: on ? "#fff" : PRIORITY_COLORS[p],
+                            color: on ? "#fff" : "#555",
                             background: on ? PRIORITY_COLORS[p] : "none",
-                            border: `1px solid ${PRIORITY_COLORS[p]}`,
+                            border: `1px solid ${on ? PRIORITY_COLORS[p] : "#999"}`,
                             borderRadius: "20px", cursor: "pointer", padding: "3px 10px",
                             whiteSpace: "nowrap", flexShrink: 0, transition: "all 0.15s",
                           }}>
@@ -529,15 +531,15 @@ export default function ProfileListsTab({ initialLists, username, listTypeFilter
                           </button>
                         );
                       })}
-                      <span style={{ color: "#e0e0da", flexShrink: 0 }}>|</span>
+                      <span style={{ color: "#bbb", flexShrink: 0 }}>|</span>
                       {(["discogs", "rekodo"] as const).map(src => {
                         const on = wantlistSourceFilter === src;
                         return (
                           <button key={src} onClick={() => setWantlistSourceFilter(on ? null : src)} style={{
                             fontFamily: MONO, fontSize: "0.58rem", letterSpacing: "0.08em", textTransform: "uppercase",
-                            color: on ? "#fff" : "#aaaaaa",
-                            background: on ? "#555" : "none",
-                            border: `1px solid ${on ? "#555" : "#e0e0da"}`,
+                            color: on ? "#fff" : "#555",
+                            background: on ? "#333" : "none",
+                            border: `1px solid ${on ? "#333" : "#999"}`,
                             borderRadius: "20px", cursor: "pointer", padding: "3px 10px",
                             whiteSpace: "nowrap", flexShrink: 0, transition: "all 0.15s",
                           }}>
@@ -545,7 +547,7 @@ export default function ProfileListsTab({ initialLists, username, listTypeFilter
                           </button>
                         );
                       })}
-                      {allUserTags.length > 0 && <span style={{ color: "#e0e0da", flexShrink: 0 }}>|</span>}
+                      {allUserTags.length > 0 && <span style={{ color: "#bbb", flexShrink: 0 }}>|</span>}
                       {allUserTags.map(tag => {
                         const on = wantlistTagFilter.has(tag);
                         return (
@@ -553,9 +555,9 @@ export default function ProfileListsTab({ initialLists, username, listTypeFilter
                             setWantlistTagFilter(prev => { const next = new Set(prev); if (on) next.delete(tag); else next.add(tag); return next; });
                           }} style={{
                             fontFamily: MONO, fontSize: "0.58rem", letterSpacing: "0.04em",
-                            color: on ? "#fff" : "#666",
-                            background: on ? "#555" : "none",
-                            border: `1px solid ${on ? "#555" : "#d0d0cc"}`,
+                            color: on ? "#fff" : "#555",
+                            background: on ? "#333" : "none",
+                            border: `1px solid ${on ? "#333" : "#999"}`,
                             borderRadius: "20px", cursor: "pointer", padding: "3px 10px",
                             whiteSpace: "nowrap", flexShrink: 0, transition: "all 0.15s",
                           }}>
@@ -569,7 +571,7 @@ export default function ProfileListsTab({ initialLists, username, listTypeFilter
                     {picker?.listId === selectedList.id && (
                       <div style={{ marginBottom: "1.25rem", border: "1px solid #e8e5e0", background: "#fafaf8", padding: "14px 16px" }}>
                         <div style={{ display: "flex", alignItems: "center", gap: "10px", marginBottom: discogsResults.length > 0 || discogsSearching || pickerSearch.trim() ? "12px" : 0 }}>
-                          <span style={{ color: "#ccc", fontSize: "15px", flexShrink: 0 }}>⌕</span>
+                          <span style={{ color: "#777", fontSize: "15px", flexShrink: 0 }}>⌕</span>
                           <input
                             autoFocus
                             type="text"
@@ -585,16 +587,16 @@ export default function ProfileListsTab({ initialLists, username, listTypeFilter
                           />
                           <button
                             onClick={() => { setPicker(null); setPickerSearch(""); setDiscogsResults([]); }}
-                            style={{ fontFamily: MONO, fontSize: "0.65rem", color: "#aaa", background: "none", border: "none", cursor: "pointer", padding: "2px 4px", flexShrink: 0 }}
+                            style={{ fontFamily: MONO, fontSize: "0.65rem", color: "#555", background: "none", border: "none", cursor: "pointer", padding: "2px 4px", flexShrink: 0 }}
                           >
                             ✕ Cancel
                           </button>
                         </div>
                         {pickerSearch.trim() && (
                           discogsSearching ? (
-                            <p style={{ fontFamily: MONO, fontSize: "0.62rem", color: "#aaa", letterSpacing: "0.08em", textTransform: "uppercase", margin: 0 }}>Searching…</p>
+                            <p style={{ fontFamily: MONO, fontSize: "0.62rem", color: "#555", letterSpacing: "0.08em", textTransform: "uppercase", margin: 0 }}>Searching…</p>
                           ) : discogsResults.length === 0 ? (
-                            <p style={{ fontFamily: MONO, fontSize: "0.62rem", color: "#aaa", margin: 0 }}>No results for &ldquo;{pickerSearch}&rdquo;</p>
+                            <p style={{ fontFamily: MONO, fontSize: "0.62rem", color: "#555", margin: 0 }}>No results for &ldquo;{pickerSearch}&rdquo;</p>
                           ) : (
                             <ul style={{ margin: 0, padding: 0, listStyle: "none", borderTop: "1px solid #eeebe6" }}>
                               {discogsResults.map(r => {
@@ -611,7 +613,7 @@ export default function ProfileListsTab({ initialLists, username, listTypeFilter
                           )
                         )}
                         {!pickerSearch.trim() && (
-                          <p style={{ fontFamily: MONO, fontSize: "0.62rem", color: "#ccc", letterSpacing: "0.03em", margin: 0 }}>Type an artist or album name to search.</p>
+                          <p style={{ fontFamily: MONO, fontSize: "0.62rem", color: "#666", letterSpacing: "0.03em", margin: 0 }}>Type an artist or album name to search.</p>
                         )}
                       </div>
                     )}
@@ -657,7 +659,7 @@ export default function ProfileListsTab({ initialLists, username, listTypeFilter
 
                     {selectedList.slots.filter(s => s.item).length === 0 && (
                       <div style={{ margin: "48px 0 24px", textAlign: "center" }}>
-                        <p style={{ fontFamily: SERIF, fontSize: "1.1rem", color: "#aaaaaa", lineHeight: 1.7, marginBottom: "16px" }}>
+                        <p style={{ fontFamily: SERIF, fontSize: "1.1rem", color: "#666", lineHeight: 1.7, marginBottom: "16px" }}>
                           Your Wantlist is empty. Every record you&apos;ve almost bought, nearly found, or need to own belongs here.
                         </p>
                         <Link href="/dig" style={{ fontFamily: MONO, fontSize: "0.65rem", letterSpacing: "0.1em", textTransform: "uppercase", color: ORANGE, textDecoration: "none" }}>
@@ -675,7 +677,7 @@ export default function ProfileListsTab({ initialLists, username, listTypeFilter
                             return (
                               <button key={p} onClick={() => {
                                 setWantlistFilter(prev => { const next = new Set(prev); if (on) next.delete(p); else next.add(p); return next; });
-                              }} style={{ fontFamily: MONO, fontSize: "11px", letterSpacing: "0.06em", color: on ? PRIORITY_COLORS[p] : "#aaaaaa", background: on ? `${PRIORITY_COLORS[p]}14` : "none", border: `1px solid ${on ? PRIORITY_COLORS[p] : "#e0e0da"}`, borderRadius: "3px", cursor: "pointer", padding: "4px 10px", flexShrink: 0, whiteSpace: "nowrap", transition: "all 0.15s" }}>
+                              }} style={{ fontFamily: MONO, fontSize: "11px", letterSpacing: "0.06em", color: on ? "#fff" : "#555", background: on ? PRIORITY_COLORS[p] : "none", border: `1px solid ${on ? PRIORITY_COLORS[p] : "#999"}`, borderRadius: "3px", cursor: "pointer", padding: "4px 10px", flexShrink: 0, whiteSpace: "nowrap", transition: "all 0.15s" }}>
                                 {PRIORITY_LABELS[p]}
                               </button>
                             );
@@ -685,7 +687,7 @@ export default function ProfileListsTab({ initialLists, username, listTypeFilter
                           {(["discogs", "rekodo"] as const).map(src => {
                             const on = wantlistSourceFilter === src;
                             return (
-                              <button key={src} onClick={() => setWantlistSourceFilter(on ? null : src)} style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.1em", textTransform: "uppercase", color: on ? "#0d0d0d" : "#aaaaaa", background: on ? "#0d0d0d0d" : "none", border: `1px solid ${on ? "#0d0d0d" : "#e0e0da"}`, borderRadius: "3px", cursor: "pointer", padding: "4px 10px", whiteSpace: "nowrap", transition: "all 0.15s" }}>
+                              <button key={src} onClick={() => setWantlistSourceFilter(on ? null : src)} style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.1em", textTransform: "uppercase", color: on ? "#fff" : "#555", background: on ? "#333" : "none", border: `1px solid ${on ? "#333" : "#999"}`, borderRadius: "3px", cursor: "pointer", padding: "4px 10px", whiteSpace: "nowrap", transition: "all 0.15s" }}>
                                 {src === "discogs" ? "Discogs" : "Rekōdo"}
                               </button>
                             );
@@ -696,9 +698,9 @@ export default function ProfileListsTab({ initialLists, username, listTypeFilter
                         <input type="text" value={wantlistSearch} onChange={e => setWantlistSearch(e.target.value)} placeholder="Search artist or album…" style={{ width: "100%", boxSizing: "border-box", fontFamily: MONO, fontSize: "10px", letterSpacing: "0.04em", color: "#333", background: "transparent", border: "none", borderBottom: "1px solid rgba(0,0,0,0.12)", outline: "none", padding: "0 0 6px" }} />
                       </div>
                       <div style={{ display: "flex", alignItems: "center", gap: "10px", flexWrap: "wrap" }}>
-                        <span style={{ fontFamily: MONO, fontSize: "0.75rem", letterSpacing: "0.1em", textTransform: "uppercase", color: "#cccccc", flexShrink: 0, marginRight: "4px" }}>Sort</span>
+                        <span style={{ fontFamily: MONO, fontSize: "0.75rem", letterSpacing: "0.1em", textTransform: "uppercase", color: "#777", flexShrink: 0, marginRight: "4px" }}>Sort</span>
                         {(["priority", "date_added", "artist"] as const).map(s => (
-                          <button key={s} onClick={() => setWantlistSort(s)} style={{ fontFamily: MONO, fontSize: "0.75rem", letterSpacing: "0.05em", color: wantlistSort === s ? "#0d0d0d" : "#aaaaaa", background: "none", border: "none", cursor: "pointer", padding: "0 0 2px", borderBottom: `1px solid ${wantlistSort === s ? "#0d0d0d" : "transparent"}` }}>
+                          <button key={s} onClick={() => setWantlistSort(s)} style={{ fontFamily: MONO, fontSize: "0.75rem", letterSpacing: "0.05em", color: wantlistSort === s ? "#0d0d0d" : "#555", background: "none", border: "none", cursor: "pointer", padding: "0 0 2px", borderBottom: `1px solid ${wantlistSort === s ? "#0d0d0d" : "transparent"}` }}>
                             {s === "priority" ? "Priority" : s === "date_added" ? "Date Added" : "Artist A–Z"}
                           </button>
                         ))}
@@ -718,7 +720,7 @@ export default function ProfileListsTab({ initialLists, username, listTypeFilter
                     )}
                     {selectedList.slots.filter(s => s.item).length === 0 && (
                       <div style={{ margin: "32px 0 24px" }}>
-                        <p style={{ fontFamily: SERIF, fontSize: "14px", color: "#aaaaaa", lineHeight: 1.7, marginBottom: "10px" }}>Your Wantlist is empty. Every record you&apos;ve almost bought, nearly found, or need to own belongs here.</p>
+                        <p style={{ fontFamily: SERIF, fontSize: "14px", color: "#666", lineHeight: 1.7, marginBottom: "10px" }}>Your Wantlist is empty. Every record you&apos;ve almost bought, nearly found, or need to own belongs here.</p>
                         <Link href="/dig" style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.1em", textTransform: "uppercase", color: ORANGE, textDecoration: "none" }}>Dig for records →</Link>
                       </div>
                     )}
@@ -762,7 +764,7 @@ export default function ProfileListsTab({ initialLists, username, listTypeFilter
               {/* Footer actions */}
               <div style={{ display: "flex", alignItems: "center", gap: "10px", paddingTop: "14px", borderTop: "1px solid rgba(0,0,0,0.06)", flexWrap: "wrap" }}>
                 {selectedList.list_type === "top5" && likeCounts[selectedList.id] !== undefined && (
-                  <span style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.08em", color: "#aaa", marginRight: "4px" }}>
+                  <span style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.08em", color: "#666", marginRight: "4px" }}>
                     ♥ {likeCounts[selectedList.id]} {likeCounts[selectedList.id] === 1 ? "like" : "likes"}
                   </span>
                 )}
@@ -780,7 +782,7 @@ export default function ProfileListsTab({ initialLists, username, listTypeFilter
                 )}
                 {selectedList.slug !== "wantlist" && selectedList.slug !== "want-to-buy" && (
                   <button onClick={() => handleDeleteList(selectedList.id)}
-                    style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.1em", textTransform: "uppercase", background: "none", border: "none", cursor: "pointer", padding: 0, color: "#cccccc" }}>
+                    style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.1em", textTransform: "uppercase", background: "none", border: "none", cursor: "pointer", padding: 0, color: "#666" }}>
                     Delete
                   </button>
                 )}
@@ -790,7 +792,7 @@ export default function ProfileListsTab({ initialLists, username, listTypeFilter
               <div ref={pickerRef} style={{ marginTop: "20px", borderTop: "1px solid rgba(0,0,0,0.08)", paddingTop: "16px" }}>
                 {picker?.listId === selectedList.id && selectedList.slug !== "wantlist" && selectedList.slug !== "want-to-buy" && (
                   <>
-                    <p style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.1em", textTransform: "uppercase", color: "#aaaaaa", marginBottom: "14px" }}>
+                    <p style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.1em", textTransform: "uppercase", color: "#666", marginBottom: "14px" }}>
                       {"position" in picker ? `Add to slot ${picker.position}` : "Add to list"}
                     </p>
                     <input
@@ -806,11 +808,11 @@ export default function ProfileListsTab({ initialLists, username, listTypeFilter
                       }}
                     />
                     {discogsSearching ? (
-                      <p style={{ fontFamily: MONO, fontSize: "10px", color: "#aaaaaa", letterSpacing: "0.1em", textTransform: "uppercase" }}>Searching…</p>
+                      <p style={{ fontFamily: MONO, fontSize: "10px", color: "#555", letterSpacing: "0.1em", textTransform: "uppercase" }}>Searching…</p>
                     ) : !pickerSearch.trim() ? (
-                      <p style={{ fontFamily: MONO, fontSize: "10px", color: "#cccccc", letterSpacing: "0.04em" }}>Type to search the Discogs database.</p>
+                      <p style={{ fontFamily: MONO, fontSize: "10px", color: "#666", letterSpacing: "0.04em" }}>Type to search the Discogs database.</p>
                     ) : discogsResults.length === 0 ? (
-                      <p style={{ fontFamily: MONO, fontSize: "10px", color: "#aaaaaa" }}>No results for &ldquo;{pickerSearch}&rdquo;</p>
+                      <p style={{ fontFamily: MONO, fontSize: "10px", color: "#555" }}>No results for &ldquo;{pickerSearch}&rdquo;</p>
                     ) : (
                       <ul style={{ margin: 0, padding: 0, listStyle: "none" }}>
                         {discogsResults.map(r => {
@@ -896,14 +898,14 @@ function Top5Grid({ slots, onEdit, onRemove, isMobile }: {
                   <img src={item.cover_url} alt="" style={{ display: "block", width: "100%", height: "100%", objectFit: "cover" }} />
                 ) : (
                   <div style={{ width: "100%", height: "100%", background: "#f4f4f4", border: "1px dashed rgba(0,0,0,0.14)", display: "flex", alignItems: "center", justifyContent: "center" }}>
-                    <span style={{ fontFamily: MONO, fontSize: "16px", color: "#ddd" }}>+</span>
+                    <span style={{ fontFamily: MONO, fontSize: "16px", color: "#999" }}>+</span>
                   </div>
                 )}
               </div>
               <div onClick={() => onEdit(pos)} style={{ flex: 1, minWidth: 0, cursor: "pointer" }}>
                 {item ? (
                   <>
-                    <p style={{ fontFamily: MONO, fontSize: "8px", letterSpacing: "0.07em", textTransform: "uppercase", color: "#aaa", marginBottom: "2px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                    <p style={{ fontFamily: MONO, fontSize: "8px", letterSpacing: "0.07em", textTransform: "uppercase", color: "#666", marginBottom: "2px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                       {item.artist}
                     </p>
                     <p style={{ fontFamily: SERIF, fontSize: "13px", color: "#0d0d0d", lineHeight: 1.3, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
@@ -911,13 +913,13 @@ function Top5Grid({ slots, onEdit, onRemove, isMobile }: {
                     </p>
                   </>
                 ) : (
-                  <p style={{ fontFamily: SERIF, fontStyle: "italic", fontSize: "13px", color: "#cccccc" }}>+ Add a record</p>
+                  <p style={{ fontFamily: SERIF, fontStyle: "italic", fontSize: "13px", color: "#777" }}>+ Add a record</p>
                 )}
               </div>
               {item && (
                 <button
                   onClick={e => { e.stopPropagation(); onRemove(pos); }}
-                  style={{ fontFamily: MONO, fontSize: "16px", color: "#cccccc", background: "none", border: "none", cursor: "pointer", padding: "0 4px", lineHeight: 1, flexShrink: 0 }}
+                  style={{ fontFamily: MONO, fontSize: "16px", color: "#777", background: "none", border: "none", cursor: "pointer", padding: "0 4px", lineHeight: 1, flexShrink: 0 }}
                 >
                   ×
                 </button>
@@ -950,7 +952,7 @@ function Top5Grid({ slots, onEdit, onRemove, isMobile }: {
                 <img src={item.cover_url} alt="" style={{ display: "block", width: "100%", height: "100%", objectFit: "cover" }} />
               ) : (
                 <div style={{ width: "100%", height: "100%", background: "#f4f4f4", border: "1px dashed rgba(0,0,0,0.14)", display: "flex", alignItems: "center", justifyContent: "center", flexDirection: "column", gap: "4px" }}>
-                  <span style={{ fontFamily: MONO, fontSize: "18px", color: "#ddd" }}>+</span>
+                  <span style={{ fontFamily: MONO, fontSize: "18px", color: "#999" }}>+</span>
                 </div>
               )}
               {/* Position badge */}
@@ -979,7 +981,7 @@ function Top5Grid({ slots, onEdit, onRemove, isMobile }: {
             <div style={{ marginTop: "8px" }}>
               {item ? (
                 <>
-                  <p style={{ fontFamily: MONO, fontSize: "8px", letterSpacing: "0.07em", textTransform: "uppercase", color: "#aaa", marginBottom: "2px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                  <p style={{ fontFamily: MONO, fontSize: "8px", letterSpacing: "0.07em", textTransform: "uppercase", color: "#666", marginBottom: "2px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                     {item.artist}
                   </p>
                   <p style={{ fontFamily: SERIF, fontSize: "12px", color: "#0d0d0d", lineHeight: 1.3, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}>
@@ -987,7 +989,7 @@ function Top5Grid({ slots, onEdit, onRemove, isMobile }: {
                   </p>
                 </>
               ) : (
-                <p style={{ fontFamily: MONO, fontSize: "8px", letterSpacing: "0.07em", textTransform: "uppercase", color: "#ddd" }}>Empty</p>
+                <p style={{ fontFamily: MONO, fontSize: "8px", letterSpacing: "0.07em", textTransform: "uppercase", color: "#999" }}>Empty</p>
               )}
             </div>
           </div>
@@ -1026,7 +1028,7 @@ function PersonalRow({ slot, onRemove, isDragging, isDragOver, onDragStart, onDr
       onDrop={onDrop}
       onDragEnd={onDragEnd}
     >
-      <span style={{ fontFamily: MONO, fontSize: "9px", color: "#cccccc", width: "16px", flexShrink: 0, textAlign: "right" }}>
+      <span style={{ fontFamily: MONO, fontSize: "9px", color: "#777", width: "16px", flexShrink: 0, textAlign: "right" }}>
         {slot.position}
       </span>
       <div style={{ width: 36, height: 36, flexShrink: 0, overflow: "hidden", background: "#f0f0f0" }}>
@@ -1039,13 +1041,13 @@ function PersonalRow({ slot, onRemove, isDragging, isDragOver, onDragStart, onDr
         <p style={{ fontFamily: SERIF, fontSize: "11px", color: "#0d0d0d", lineHeight: 1.3, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
           {item.song_title ?? item.album}
         </p>
-        <p style={{ fontFamily: MONO, fontSize: "8px", color: "#aaaaaa", letterSpacing: "0.06em", marginTop: "2px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+        <p style={{ fontFamily: MONO, fontSize: "8px", color: "#666", letterSpacing: "0.06em", marginTop: "2px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
           {item.artist}{item.year ? ` · ${item.year}` : ""}
         </p>
       </div>
       {hovered && (
         <button onClick={onRemove}
-          style={{ fontFamily: MONO, fontSize: "14px", color: "#cccccc", background: "none", border: "none", cursor: "pointer", padding: "0 4px", flexShrink: 0, lineHeight: 1 }}>
+          style={{ fontFamily: MONO, fontSize: "14px", color: "#777", background: "none", border: "none", cursor: "pointer", padding: "0 4px", flexShrink: 0, lineHeight: 1 }}>
           ×
         </button>
       )}
@@ -1079,7 +1081,7 @@ function PickerRow({ cover, primary, secondary, onClick }: {
       </div>
       <div style={{ flex: 1, minWidth: 0 }}>
         <p style={{ fontFamily: SERIF, fontSize: "11px", color: "#0d0d0d", lineHeight: 1.3, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{primary}</p>
-        <p style={{ fontFamily: MONO, fontSize: "8px", color: "#aaaaaa", letterSpacing: "0.06em", marginTop: "2px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{secondary}</p>
+        <p style={{ fontFamily: MONO, fontSize: "8px", color: "#666", letterSpacing: "0.06em", marginTop: "2px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{secondary}</p>
       </div>
       <span style={{ fontFamily: MONO, fontSize: "9px", color: ORANGE, flexShrink: 0, letterSpacing: "0.04em" }}>Add →</span>
     </li>
@@ -1227,7 +1229,7 @@ function MarketplaceDrawer({
             <p style={{ fontFamily: SERIF, fontSize: "14px", fontWeight: 600, color: "#0a0a0a", margin: 0, lineHeight: 1.2 }}>{artist}</p>
             <p style={{ fontFamily: SERIF, fontStyle: "italic", fontSize: "12px", color: "#555", margin: "3px 0 0" }}>{album}</p>
           </div>
-          <button onClick={onClose} style={{ fontFamily: MONO, fontSize: "18px", color: "#aaaaaa", background: "none", border: "none", cursor: "pointer", padding: "0 0 0 16px", lineHeight: 1, flexShrink: 0 }}>×</button>
+          <button onClick={onClose} style={{ fontFamily: MONO, fontSize: "18px", color: "#666", background: "none", border: "none", cursor: "pointer", padding: "0 0 0 16px", lineHeight: 1, flexShrink: 0 }}>×</button>
         </div>
 
         <div style={{ padding: "16px 20px" }}>
@@ -1439,7 +1441,7 @@ function WantlistGridCard({ slot, fetchIndex, monthsOld, showSomedayPrompt, onRe
           <img src={coverUrl} alt="" style={{ position: "absolute", top: 0, left: 0, width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
         ) : (
           <div style={{ position: "absolute", top: 0, left: 0, width: "100%", height: "100%", display: "flex", alignItems: "center", justifyContent: "center" }}>
-            <span style={{ fontFamily: MONO, fontSize: "0.55rem", color: "#bbb", letterSpacing: "0.1em" }}>NO COVER</span>
+            <span style={{ fontFamily: MONO, fontSize: "0.55rem", color: "#888", letterSpacing: "0.1em" }}>NO COVER</span>
           </div>
         )}
 
@@ -1493,7 +1495,7 @@ function WantlistGridCard({ slot, fetchIndex, monthsOld, showSomedayPrompt, onRe
             </p>
             <div style={{ display: "flex", gap: "6px" }}>
               <button onClick={e => { e.stopPropagation(); onKeepSomeday(); }} style={{ fontFamily: MONO, fontSize: "0.55rem", letterSpacing: "0.06em", background: "#fff", color: "#0d0d0d", border: "none", cursor: "pointer", padding: "3px 10px" }}>Keep</button>
-              <button onClick={e => { e.stopPropagation(); onRemove(); }} style={{ fontFamily: MONO, fontSize: "0.55rem", letterSpacing: "0.06em", background: "none", color: "#ccc", border: "1px solid rgba(255,255,255,0.3)", cursor: "pointer", padding: "3px 10px" }}>Remove</button>
+              <button onClick={e => { e.stopPropagation(); onRemove(); }} style={{ fontFamily: MONO, fontSize: "0.55rem", letterSpacing: "0.06em", background: "none", color: "#777", border: "1px solid rgba(255,255,255,0.3)", cursor: "pointer", padding: "3px 10px" }}>Remove</button>
             </div>
           </div>
         )}
@@ -1534,7 +1536,7 @@ function WantlistGridCard({ slot, fetchIndex, monthsOld, showSomedayPrompt, onRe
             onClick={e => e.stopPropagation()}
             style={{
               fontFamily: MONO, fontSize: "0.52rem", letterSpacing: "0.06em",
-              color: priority ? PRIORITY_COLORS[priority] : "#bbbbbb",
+              color: priority ? PRIORITY_COLORS[priority] : "#777",
               background: "none",
               border: `1px solid ${priority ? `${PRIORITY_COLORS[priority]}50` : "#e0e0da"}`,
               cursor: "pointer", padding: "2px 4px",
@@ -1556,7 +1558,7 @@ function WantlistGridCard({ slot, fetchIndex, monthsOld, showSomedayPrompt, onRe
               #{tag}
               <button
                 onClick={() => onUpdateMeta({ user_tags: userTags.filter(t => t !== tag) })}
-                style={{ fontFamily: MONO, fontSize: "10px", lineHeight: 1, color: "#aaa", background: "none", border: "none", cursor: "pointer", padding: "0 0 0 1px" }}
+                style={{ fontFamily: MONO, fontSize: "10px", lineHeight: 1, color: "#666", background: "none", border: "none", cursor: "pointer", padding: "0 0 0 1px" }}
               >
                 ×
               </button>
@@ -1567,7 +1569,7 @@ function WantlistGridCard({ slot, fetchIndex, monthsOld, showSomedayPrompt, onRe
               onClick={() => { setAddingTag(true); setTimeout(() => tagInputRef.current?.focus(), 30); }}
               style={{
                 fontFamily: MONO, fontSize: "0.52rem", letterSpacing: "0.03em",
-                color: "#bbb", background: "none", border: "1px dashed #ddd",
+                color: "#555", background: "none", border: "1px dashed #bbb",
                 cursor: "pointer", padding: "2px 5px",
               }}
             >
@@ -1602,7 +1604,7 @@ function WantlistGridCard({ slot, fetchIndex, monthsOld, showSomedayPrompt, onRe
               href={discogsHref}
               target="_blank"
               rel="noopener noreferrer"
-              style={{ fontFamily: MONO, fontSize: "0.58rem", letterSpacing: "0.03em", color: marketStats.numForSale > 0 ? ORANGE : "#aaa", textDecoration: "none", display: "block" }}
+              style={{ fontFamily: MONO, fontSize: "0.58rem", letterSpacing: "0.03em", color: marketStats.numForSale > 0 ? ORANGE : "#777", textDecoration: "none", display: "block" }}
             >
               {marketStats.numForSale > 0
                 ? `${marketStats.numForSale} ${marketStats.numForSale === 1 ? "copy" : "copies"} · From $${marketStats.lowestPrice?.toFixed(2) ?? "—"} ↗`
@@ -1620,7 +1622,7 @@ function WantlistGridCard({ slot, fetchIndex, monthsOld, showSomedayPrompt, onRe
             </a>
           )}
           {dateLabel && (
-            <span style={{ fontFamily: MONO, fontSize: "0.52rem", color: "#bbb", letterSpacing: "0.02em", display: "block", marginTop: "2px" }}>
+            <span style={{ fontFamily: MONO, fontSize: "0.52rem", color: "#777", letterSpacing: "0.02em", display: "block", marginTop: "2px" }}>
               {dateLabel}
             </span>
           )}
@@ -1653,10 +1655,10 @@ function CreateModal({ state, newTitle, isCreating, onChangeTitle, onChangeState
       <div style={{ background: "#fff", border: "1px solid rgba(0,0,0,0.1)", width: "100%", maxWidth: "660px", padding: "40px" }}>
         <div style={{ display: "flex", alignItems: "start", justifyContent: "space-between", marginBottom: "28px" }}>
           <div>
-            <p style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.14em", textTransform: "uppercase", color: "#aaaaaa", marginBottom: "6px" }}>New list</p>
+            <p style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.14em", textTransform: "uppercase", color: "#666", marginBottom: "6px" }}>New list</p>
             <p style={{ fontFamily: SERIF, fontSize: "18px", fontWeight: 400, color: "#0d0d0d", margin: 0 }}>Top 5 list</p>
           </div>
-          <button onClick={onClose} style={{ fontFamily: MONO, fontSize: "18px", color: "#aaaaaa", background: "none", border: "none", cursor: "pointer", lineHeight: 1 }}>×</button>
+          <button onClick={onClose} style={{ fontFamily: MONO, fontSize: "18px", color: "#666", background: "none", border: "none", cursor: "pointer", lineHeight: 1 }}>×</button>
         </div>
 
         {state.step === "templates" && (
@@ -1685,7 +1687,7 @@ function CreateModal({ state, newTitle, isCreating, onChangeTitle, onChangeState
           <form onSubmit={e => onSubmit(e, state.listType)} style={{ display: "flex", alignItems: "center", gap: "16px" }}>
             <div style={{ flex: 1, display: "flex", alignItems: "baseline", borderBottom: "1px solid rgba(0,0,0,0.2)", paddingBottom: "6px" }}>
               {state.listType === "top5" && (
-                <span style={{ fontFamily: SERIF, fontSize: "20px", color: "#cccccc", whiteSpace: "nowrap", userSelect: "none" }}>Top 5{" "}</span>
+                <span style={{ fontFamily: SERIF, fontSize: "20px", color: "#777", whiteSpace: "nowrap", userSelect: "none" }}>Top 5{" "}</span>
               )}
               <input
                 type="text" value={newTitle} onChange={e => onChangeTitle(e.target.value.replace(/^top\s+5\s+/i, ""))}
@@ -1699,7 +1701,7 @@ function CreateModal({ state, newTitle, isCreating, onChangeTitle, onChangeState
               {isCreating ? "Creating…" : "Create →"}
             </button>
             <button type="button" onClick={() => onChangeState({ ...state, step: "templates" })}
-              style={{ fontFamily: MONO, fontSize: "10px", letterSpacing: "0.1em", textTransform: "uppercase", color: "#aaaaaa", background: "none", border: "none", cursor: "pointer", padding: 0 }}>
+              style={{ fontFamily: MONO, fontSize: "10px", letterSpacing: "0.1em", textTransform: "uppercase", color: "#666", background: "none", border: "none", cursor: "pointer", padding: 0 }}>
               ← Back
             </button>
           </form>
@@ -1735,15 +1737,15 @@ function ShareCardModal({
       <div style={{ background: "#fff", border: "1px solid rgba(0,0,0,0.1)", width: "100%", maxWidth: "480px", padding: "32px" }}>
         <div style={{ display: "flex", alignItems: "start", justifyContent: "space-between", marginBottom: "24px" }}>
           <div>
-            <p style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.12em", textTransform: "uppercase", color: "#aaaaaa", marginBottom: "4px" }}>Share card</p>
+            <p style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.12em", textTransform: "uppercase", color: "#666", marginBottom: "4px" }}>Share card</p>
             <h3 style={{ fontFamily: SERIF, fontSize: "20px", color: "#0d0d0d", lineHeight: 1.2 }}>{list.title}</h3>
           </div>
-          <button onClick={onClose} style={{ fontFamily: MONO, fontSize: "18px", color: "#aaaaaa", background: "none", border: "none", cursor: "pointer", lineHeight: 1, padding: "0 0 0 16px", flexShrink: 0 }}>×</button>
+          <button onClick={onClose} style={{ fontFamily: MONO, fontSize: "18px", color: "#666", background: "none", border: "none", cursor: "pointer", lineHeight: 1, padding: "0 0 0 16px", flexShrink: 0 }}>×</button>
         </div>
 
         <div style={{ display: "flex", justifyContent: "center", marginBottom: "24px" }}>
           <div style={{ width: 270, height: 480, background: generating ? "#f9f9f9" : "#fff", border: "1px solid rgba(0,0,0,0.08)", display: "flex", alignItems: "center", justifyContent: "center", overflow: "hidden", flexShrink: 0 }}>
-            {generating && <p style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.12em", textTransform: "uppercase", color: "#cccccc" }}>Rendering…</p>}
+            {generating && <p style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.12em", textTransform: "uppercase", color: "#777" }}>Rendering…</p>}
             {previewUrl && !generating && (
               // eslint-disable-next-line @next/next/no-img-element
               <img src={previewUrl} alt="Share card preview" style={{ width: "100%", height: "100%", objectFit: "contain", display: "block" }} />
@@ -1751,7 +1753,7 @@ function ShareCardModal({
           </div>
         </div>
 
-        <p style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.1em", textTransform: "uppercase", color: "#cccccc", textAlign: "center", marginBottom: "20px" }}>
+        <p style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.1em", textTransform: "uppercase", color: "#777", textAlign: "center", marginBottom: "20px" }}>
           1080 × 1920 · PNG · Instagram Stories
         </p>
 
@@ -1768,7 +1770,7 @@ function ShareCardModal({
 
         {list.is_public && (
           <div style={{ borderTop: "1px solid rgba(0,0,0,0.06)", paddingTop: "16px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-            <p style={{ fontFamily: MONO, fontSize: "10px", letterSpacing: "0.06em", color: "#aaaaaa", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", marginRight: "16px" }}>
+            <p style={{ fontFamily: MONO, fontSize: "10px", letterSpacing: "0.06em", color: "#666", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", marginRight: "16px" }}>
               {shareUrl}
             </p>
             <button onClick={handleCopyLink}
