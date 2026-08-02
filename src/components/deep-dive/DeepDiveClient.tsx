@@ -899,7 +899,7 @@ function CollectionStrip({ records, wantlistRecords = [], tileSize = 80 }: { rec
 
 type RelatedArtist = { name: string; genre: string; reason: string; mustHear: string };
 
-function RelatedArtistsContent({ data }: { data: { artists?: RelatedArtist[] } }) {
+function RelatedArtistsContent({ data, onSelectArtist }: { data: { artists?: RelatedArtist[] }; onSelectArtist?: (name: string) => void }) {
   const related = data.artists ?? [];
   if (related.length === 0) {
     return (
@@ -913,7 +913,13 @@ function RelatedArtistsContent({ data }: { data: { artists?: RelatedArtist[] } }
       {related.map((a, i) => (
         <div key={i} style={{ padding: "1.5rem 0", borderBottom: `1px solid ${RULE}` }}>
           <div style={{ display: "flex", gap: 10, alignItems: "baseline", flexWrap: "wrap", marginBottom: 8 }}>
-            <span style={{ fontFamily: SERIF, fontSize: "1rem", fontWeight: 600, color: INK, letterSpacing: "-0.01em" }}>
+            <span
+              style={{ fontFamily: SERIF, fontSize: "1rem", fontWeight: 600, color: INK, letterSpacing: "-0.01em", cursor: onSelectArtist ? "pointer" : "default", textDecoration: onSelectArtist ? "underline" : "none", textUnderlineOffset: 3 }}
+              onClick={() => onSelectArtist?.(a.name)}
+              role={onSelectArtist ? "button" : undefined}
+              tabIndex={onSelectArtist ? 0 : undefined}
+              onKeyDown={(e) => { if (onSelectArtist && (e.key === "Enter" || e.key === " ")) onSelectArtist(a.name); }}
+            >
               {a.name}
             </span>
             <Badge label={a.genre} />
@@ -1944,7 +1950,7 @@ export default function DeepDiveClient({
         </div>
       </>
     );
-    if (tab === "related")  return <RelatedArtistsContent data={data as { artists?: RelatedArtist[] }} />;
+    if (tab === "related")  return <RelatedArtistsContent data={data as { artists?: RelatedArtist[] }} onSelectArtist={selectArtist} />;
     if (tab === "blindspot")  return <BlindSpotContent  data={data as { albums?: BlindSpotAlbum[] }} artist={selectedArtist} />;
     if (tab === "pressings")  return <PressingsContent  data={data as { pressings?: PressingsAlbum[] }} onRetry={() => retryFetch(selectedArtist, "pressings")} />;
     return null;

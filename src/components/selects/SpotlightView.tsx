@@ -30,7 +30,8 @@ function SpotlightPanel({ spotlight }: { spotlight: Spotlight }) {
 
     // Use manual image override when set in meta
     if (spotlight.meta.image_url) {
-      setImgUrl(`/api/image-proxy?url=${encodeURIComponent(spotlight.meta.image_url)}`);
+      const url = spotlight.meta.image_url;
+      setImgUrl(url.startsWith("/") ? url : `/api/image-proxy?url=${encodeURIComponent(url)}`);
       return;
     }
 
@@ -134,6 +135,11 @@ export default function SpotlightView({ spotlight }: { spotlight: Spotlight }) {
     : `If ${spotlight.name} is in your collection`;
   const ownsSubtitle  = spotlight.type === "artist" ? "You might also reach for" : "You might also explore";
 
+  const bio             = Array.isArray(spotlight.bio)             ? spotlight.bio             : [];
+  const releases        = Array.isArray(spotlight.releases)        ? spotlight.releases        : [];
+  const collector_notes = Array.isArray(spotlight.collector_notes) ? spotlight.collector_notes : [];
+  const neighbors       = Array.isArray(spotlight.neighbors)       ? spotlight.neighbors       : [];
+
   return (
     <div className="rk-spotlight-outer" style={{ display: "flex", gap: 40, alignItems: "flex-start" }}>
       <SpotlightPanel spotlight={spotlight} />
@@ -156,8 +162,8 @@ export default function SpotlightView({ spotlight }: { spotlight: Spotlight }) {
         {/* 2. Bio / About */}
         <div style={{ borderBottom: `1px solid ${RULE}`, paddingBottom: 32, marginBottom: 32 }}>
           <SectionEyebrow>About</SectionEyebrow>
-          {spotlight.bio.map((para, i) => (
-            <p key={i} style={{ fontFamily: MONO, fontSize: "12px", lineHeight: 1.75, color: INK, margin: i < spotlight.bio.length - 1 ? "0 0 14px" : 0, fontWeight: 400 }}>
+          {bio.map((para, i) => (
+            <p key={i} style={{ fontFamily: MONO, fontSize: "12px", lineHeight: 1.75, color: INK, margin: i < bio.length - 1 ? "0 0 14px" : 0, fontWeight: 400 }}>
               {para}
             </p>
           ))}
@@ -167,12 +173,12 @@ export default function SpotlightView({ spotlight }: { spotlight: Spotlight }) {
         <div style={{ borderBottom: `1px solid ${RULE}`, paddingBottom: 32, marginBottom: 32 }}>
           <SectionEyebrow>{releasesLabel}</SectionEyebrow>
           <div>
-            {spotlight.releases.map((row, i) => (
+            {releases.map((row, i) => (
               <div
                 key={`${row.year}-${row.title}`}
                 style={{
                   display: "flex", gap: 16, padding: "16px 0",
-                  borderBottom: i < spotlight.releases.length - 1 ? `1px solid ${RULE}` : "none",
+                  borderBottom: i < releases.length - 1 ? `1px solid ${RULE}` : "none",
                 }}
               >
                 <div style={{ width: 48, flexShrink: 0, fontFamily: MONO, fontSize: "12px", color: ORANGE, fontWeight: 400 }}>
@@ -222,13 +228,13 @@ export default function SpotlightView({ spotlight }: { spotlight: Spotlight }) {
             </p>
           )}
           <div className="rk-pressing-grid" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", border: `1px solid ${RULE}` }}>
-            {spotlight.collector_notes.map((cell, i) => (
+            {collector_notes.map((cell, i) => (
               <div
                 key={cell.title}
                 style={{
                   padding: 16,
                   borderRight: i % 2 === 0 ? `1px solid ${RULE}` : "none",
-                  borderBottom: i < spotlight.collector_notes.length - 2 ? `1px solid ${RULE}` : "none",
+                  borderBottom: i < collector_notes.length - 2 ? `1px solid ${RULE}` : "none",
                 }}
               >
                 <p style={{ fontFamily: MONO, fontSize: "11px", fontWeight: 500, color: INK, margin: "0 0 8px" }}>
@@ -252,7 +258,7 @@ export default function SpotlightView({ spotlight }: { spotlight: Spotlight }) {
               </p>
             )}
             <div className="rk-neighbors-flex" style={{ display: "flex", border: `1px solid ${RULE}` }}>
-              {spotlight.neighbors.map((n, i) => (
+              {neighbors.map((n, i) => (
                 <div
                   key={n.artist}
                   style={{

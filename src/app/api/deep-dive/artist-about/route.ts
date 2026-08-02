@@ -108,9 +108,26 @@ async function fetchWikipedia(artist: string): Promise<{ bio: string; formed: st
   };
 }
 
+// Curated bios that override both Last.fm and Wikipedia for specific artists.
+const ARTIST_BIO_OVERRIDES: Record<string, string> = {
+  "Julie Byrne": `Julie Byrne grew up in Buffalo listening to her father play fingerstyle guitar and began playing his instrument herself at seventeen. His influence remains central to a style shaped by intricate picking, open tunings and an instinctive use of silence. Across three albums released between 2014 and 2023, Byrne has built a small but remarkably coherent catalogue: intimate without sounding narrowly diaristic, technically assured without calling attention to its difficulty, and patient enough to let a held note or the space around a phrase carry as much weight as the lyric.
+
+Not Even Happiness brought Byrne to a wider audience in 2017. Although voice and fingerpicked guitar remain at its centre, the album is less bare than its reputation suggests, with strings, flute, synthesizer and environmental textures quietly expanding its arrangements. Songs such as "Follow My Voice" and "Natural Blue" move through gradual changes in atmosphere rather than conventional dramatic peaks, turning landscape, solitude and memory into something almost physical.
+
+Six years later, The Greater Wings widened that musical language with piano, harp, synthesizers and orchestral strings. Recording began with Eric Littmann, Byrne's longtime collaborator and the producer of Not Even Happiness, before his death in 2021; Byrne later completed the record with Alex Somers and returning collaborators including Jake Falby. Grief runs through the album, but Byrne has described it more broadly as a love letter to her chosen family and a commitment to their shared future. It is her most expansive record without being her loudest, showing how restraint can hold devotion, loss, renewal and an enormous amount of life.`,
+};
+
 export async function GET(request: NextRequest) {
   const artist = request.nextUrl.searchParams.get("artist")?.trim() ?? "";
   if (!artist) return NextResponse.json({ error: "artist required" }, { status: 400 });
+
+  const overrideBio = ARTIST_BIO_OVERRIDES[artist];
+  if (overrideBio) {
+    return NextResponse.json<ArtistAbout>(
+      { bio: overrideBio, formed: null, origin: null, tags: [], listeners: null, plays: null, similar: [], source: "none" },
+      { headers: { "Cache-Control": "public, s-maxage=86400, stale-while-revalidate=3600" } },
+    );
+  }
 
   // Fetch Last.fm and Wikipedia in parallel
   const [lfm, wiki] = await Promise.all([fetchLastFm(artist), fetchWikipedia(artist)]);
