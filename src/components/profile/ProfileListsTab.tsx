@@ -1612,7 +1612,7 @@ function WantlistGridCard({ slot, fetchIndex, monthsOld, showSomedayPrompt, onRe
           )}
         </div>
 
-        {/* Marketplace stats + Find It link */}
+        {/* Marketplace stats + streaming links */}
         <div style={{ marginTop: "auto", paddingTop: "6px" }}>
           {marketStats ? (
             <a
@@ -1636,6 +1636,14 @@ function WantlistGridCard({ slot, fetchIndex, monthsOld, showSomedayPrompt, onRe
               Find It ↗
             </a>
           )}
+          <a
+            href={`https://music.apple.com/search?term=${encodeURIComponent(`${item.artist} ${item.album}`)}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            style={{ fontFamily: MONO, fontSize: "0.58rem", letterSpacing: "0.03em", color: "#555", textDecoration: "none", display: "block", marginTop: "2px" }}
+          >
+            Apple Music ↗
+          </a>
           {dateLabel && (
             <span style={{ fontFamily: MONO, fontSize: "0.52rem", color: "#777", letterSpacing: "0.02em", display: "block", marginTop: "2px" }}>
               {dateLabel}
