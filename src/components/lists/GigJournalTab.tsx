@@ -856,12 +856,12 @@ export default function GigJournalTab() {
                 placeholder="Artist…"
                 value={filterArtist}
                 onChange={e => setFilterArtist(e.target.value)}
-                style={{ fontFamily: MONO, fontSize: "9px", color: INK, background: "#faf9f6", border: `1px solid ${filterArtist ? ORANGE : BORDER}`, padding: "5px 8px", outline: "none", width: "100%", boxSizing: "border-box" }}
+                style={{ fontFamily: MONO, fontSize: "16px", color: INK, background: "#faf9f6", border: `1px solid ${filterArtist ? ORANGE : BORDER}`, padding: "5px 8px", outline: "none", width: "100%", boxSizing: "border-box" }}
               />
               <select
                 value={filterVenue}
                 onChange={e => setFilterVenue(e.target.value)}
-                style={{ fontFamily: MONO, fontSize: "9px", color: filterVenue ? INK : SUBTLE, background: "#faf9f6", border: `1px solid ${filterVenue ? ORANGE : BORDER}`, padding: "5px 8px", outline: "none", width: "100%", appearance: "none", cursor: "pointer" }}
+                style={{ fontFamily: MONO, fontSize: "16px", color: filterVenue ? INK : SUBTLE, background: "#faf9f6", border: `1px solid ${filterVenue ? ORANGE : BORDER}`, padding: "5px 8px", outline: "none", width: "100%", appearance: "none", cursor: "pointer" }}
               >
                 <option value="">Venue…</option>
                 {uniqueVenues.map(v => <option key={v} value={v}>{v}</option>)}
@@ -869,7 +869,7 @@ export default function GigJournalTab() {
               <select
                 value={filterYear}
                 onChange={e => setFilterYear(e.target.value)}
-                style={{ fontFamily: MONO, fontSize: "9px", color: filterYear ? INK : SUBTLE, background: "#faf9f6", border: `1px solid ${filterYear ? ORANGE : BORDER}`, padding: "5px 8px", outline: "none", width: "100%", appearance: "none", cursor: "pointer" }}
+                style={{ fontFamily: MONO, fontSize: "16px", color: filterYear ? INK : SUBTLE, background: "#faf9f6", border: `1px solid ${filterYear ? ORANGE : BORDER}`, padding: "5px 8px", outline: "none", width: "100%", appearance: "none", cursor: "pointer" }}
               >
                 <option value="">Year…</option>
                 {uniqueYears.map(y => <option key={y} value={y}>{y}</option>)}
