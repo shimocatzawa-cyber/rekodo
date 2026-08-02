@@ -22,6 +22,7 @@ type ParsedRow = {
   title: string;
   released: number | null;
   discogs_release_id: number;
+  date_added: string | null;
 };
 
 // Parses the whole file in one pass rather than splitting into lines first —
@@ -74,11 +75,14 @@ function parseWantlistCsv(text: string): { rows: ParsedRow[]; errors: string[] }
       errors.push(`Row ${ri + 1}: missing artist or title`);
       continue;
     }
+    const rawDate = (cols[9] ?? "").trim();
+    const date_added = rawDate && !isNaN(Date.parse(rawDate)) ? new Date(rawDate).toISOString() : null;
     rows.push({
       artist,
       title,
       released: parseInt(cols[6] ?? "", 10) || null,
       discogs_release_id: releaseId,
+      date_added,
     });
   }
 
@@ -169,6 +173,7 @@ export default function WantlistClient({ isOwner, isSupporter, userId, embedded 
         song_year: r.released,
         source: "discogs",
         discogs_release_id: r.discogs_release_id,
+        ...(r.date_added ? { created_at: r.date_added } : {}),
       };
     });
 
