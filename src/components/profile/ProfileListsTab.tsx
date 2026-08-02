@@ -1431,29 +1431,27 @@ function WantlistGridCard({ slot, fetchIndex, monthsOld, showSomedayPrompt, onRe
           {item.year && <span style={{ fontFamily: MONO, fontStyle: "normal", fontSize: "0.62rem", color: "#999", letterSpacing: "0.04em" }}> · {item.year}</span>}
         </p>
 
-        {/* Priority selector */}
-        <select
-          value={priority ?? ""}
-          onChange={e => onUpdateMeta({ priority: (e.target.value as Priority) || null })}
-          onClick={e => e.stopPropagation()}
-          style={{
-            fontFamily: MONO, fontSize: "0.52rem", letterSpacing: "0.06em",
-            color: priority ? PRIORITY_COLORS[priority] : "#bbbbbb",
-            background: "none",
-            border: `1px solid ${priority ? `${PRIORITY_COLORS[priority]}50` : "#e0e0da"}`,
-            cursor: "pointer", padding: "2px 4px",
-            outline: "none", appearance: "none", WebkitAppearance: "none",
-            width: "auto", alignSelf: "flex-start", marginTop: "2px",
-          }}
-        >
-          <option value="">Set priority</option>
-          <option value="must_have">Must Have</option>
-          <option value="would_love">Would Love</option>
-          <option value="someday">Someday</option>
-        </select>
-
-        {/* User tags */}
-        <div style={{ display: "flex", flexWrap: "wrap", gap: "3px", marginTop: "4px" }}>
+        {/* Priority + tags on one row */}
+        <div style={{ display: "flex", flexWrap: "wrap", gap: "3px", alignItems: "center", marginTop: "2px" }}>
+          <select
+            value={priority ?? ""}
+            onChange={e => onUpdateMeta({ priority: (e.target.value as Priority) || null })}
+            onClick={e => e.stopPropagation()}
+            style={{
+              fontFamily: MONO, fontSize: "0.52rem", letterSpacing: "0.06em",
+              color: priority ? PRIORITY_COLORS[priority] : "#bbbbbb",
+              background: "none",
+              border: `1px solid ${priority ? `${PRIORITY_COLORS[priority]}50` : "#e0e0da"}`,
+              cursor: "pointer", padding: "2px 4px",
+              outline: "none", appearance: "none", WebkitAppearance: "none",
+              flexShrink: 0,
+            }}
+          >
+            <option value="">Set priority</option>
+            <option value="must_have">Must Have</option>
+            <option value="would_love">Would Love</option>
+            <option value="someday">Someday</option>
+          </select>
           {userTags.map(tag => (
             <span key={tag} style={{
               fontFamily: MONO, fontSize: "0.52rem", letterSpacing: "0.03em",
