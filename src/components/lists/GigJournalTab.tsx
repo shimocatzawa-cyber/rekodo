@@ -404,7 +404,7 @@ function GigDetail({ gig, onEdit, onDelete, timesSeen, onUploadPhoto, isMobile }
       <div style={{ display: "flex", borderBottom: `1px solid ${BORDER}`, ...(isMobile && { flexWrap: "wrap" }) }}>
         {infoChips.map((chip, i) => (
           <div key={i} style={{
-            ...(isMobile ? { flex: "0 0 50%", padding: "12px 16px", boxSizing: "border-box" } : { flex: 1, padding: "16px 20px" }),
+            ...(isMobile ? { flex: "0 0 100%", padding: "10px 16px", boxSizing: "border-box" } : { flex: 1, padding: "16px 20px" }),
             borderRight: !isMobile && i < infoChips.length - 1 ? `1px solid ${BORDER}` : "none",
             borderBottom: isMobile ? `1px solid ${BORDER}` : "none",
             display: "flex", alignItems: "center", gap: 10,
@@ -620,7 +620,7 @@ export default function GigJournalTab() {
     if (selectId) {
       setSelected(list.find(g => g.id === selectId) ?? null);
     } else {
-      setSelected(prev => prev ? (list.find(g => g.id === prev.id) ?? null) : (list[0] ?? null));
+      setSelected(prev => prev ? (list.find(g => g.id === prev.id) ?? null) : (window.innerWidth >= 768 ? (list[0] ?? null) : null));
     }
   }, []);
 
