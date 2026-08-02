@@ -821,25 +821,28 @@ export default function GigJournalTab() {
         flexDirection: "column", background: "#fff",
       }}>
         <div style={{ padding: "14px 14px 0", borderBottom: `1px solid ${BORDER}`, flexShrink: 0 }}>
-          {/* Stat line */}
-          {!loading && gigs.length > 0 && (
-            <div style={{ marginBottom: 12 }}>
-              <div style={{ fontFamily: SERIF, fontSize: "22px", fontWeight: 400, color: INK, lineHeight: 1.15 }}>
-                Total Gigs: <span style={{ fontWeight: 600, color: ORANGE }}>
-                  {hasFilters && filteredGigs.length !== gigs.length ? filteredGigs.length : gigs.length}
-                </span>
-              </div>
+          {/* Header: title + count + Log a gig button */}
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "12px", marginBottom: 12 }}>
+            <div style={{ display: "flex", alignItems: "baseline", gap: "12px", minWidth: 0 }}>
+              <h1 style={{ fontFamily: SERIF, fontSize: "clamp(1.5rem, 2.8vw, 2.1rem)", fontWeight: 400, color: "#0d0d0d", margin: 0, lineHeight: 1.1 }}>
+                Gig Journal
+              </h1>
+              {!loading && gigs.length > 0 && (
+                <p style={{ fontFamily: MONO, fontSize: "0.65rem", letterSpacing: "0.05em", color: "#666", margin: 0, whiteSpace: "nowrap" }}>
+                  <span style={{ color: ORANGE, fontWeight: 700 }}>
+                    {hasFilters && filteredGigs.length !== gigs.length ? filteredGigs.length : gigs.length}
+                  </span>
+                  {" "}Gigs logged
+                </p>
+              )}
             </div>
-          )}
-
-          {/* Log a gig button */}
-          <button type="button" onClick={openNew}
-            style={{
-              width: "100%", fontFamily: MONO, fontSize: "8.5px", letterSpacing: "0.1em",
-              textTransform: "uppercase", color: ORANGE, background: "none",
-              border: `1px solid ${ORANGE}`, padding: "9px 0", cursor: "pointer",
-              marginBottom: 12,
-            }}>+ Log a gig</button>
+            <button type="button" onClick={openNew}
+              style={{
+                flexShrink: 0, fontFamily: MONO, fontSize: "8.5px", letterSpacing: "0.1em",
+                textTransform: "uppercase", color: ORANGE, background: "none",
+                border: `1px solid ${ORANGE}`, padding: "7px 12px", cursor: "pointer",
+              }}>+ Log a gig</button>
+          </div>
 
           {/* Filters */}
           {gigs.length > 0 && (

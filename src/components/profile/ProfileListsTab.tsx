@@ -75,6 +75,9 @@ interface DiscogsResult {
   id: number;
   title: string;
   year?: string;
+  country?: string;
+  format?: string[];
+  catno?: string;
   genre?: string[];
   label?: string[];
   cover_image?: string;
@@ -460,7 +463,7 @@ export default function ProfileListsTab({ initialLists, username, listTypeFilter
                         </h1>
                         <p style={{ fontFamily: MONO, fontSize: "0.65rem", letterSpacing: "0.05em", color: "#666", margin: 0 }}>
                           <span style={{ color: ORANGE, fontWeight: 700 }}>{selectedList.slots.filter(s => s.item).length}</span>
-                          {" "}records
+                          {" "}items
                         </p>
                       </div>
                       <div style={{ display: "flex", alignItems: "center", gap: "2px", flexShrink: 0 }}>
@@ -602,9 +605,15 @@ export default function ProfileListsTab({ initialLists, username, listTypeFilter
                               {discogsResults.map(r => {
                                 const { artist, album: title } = parseTitle(r.title);
                                 const thumb = r.thumb && !r.thumb.includes("spacer") ? r.thumb : null;
+                                const pressingParts = [
+                                  r.country,
+                                  r.year,
+                                  (r.format ?? []).filter(f => !["Vinyl", "Album"].includes(f)).slice(0, 3).join(", ") || null,
+                                ].filter(Boolean);
+                                const secondary = [artist, ...pressingParts].join(" · ");
                                 return (
                                   <PickerRow key={r.id} cover={thumb} primary={title}
-                                    secondary={`${artist}${r.year ? ` · ${r.year}` : ""}`}
+                                    secondary={secondary}
                                     onClick={() => handlePickDiscogsRecord(r)}
                                   />
                                 );
@@ -818,9 +827,15 @@ export default function ProfileListsTab({ initialLists, username, listTypeFilter
                         {discogsResults.map(r => {
                           const { artist, album: title } = parseTitle(r.title);
                           const thumb = r.thumb && !r.thumb.includes("spacer") ? r.thumb : null;
+                          const pressingParts = [
+                            r.country,
+                            r.year,
+                            (r.format ?? []).filter(f => !["Vinyl", "Album"].includes(f)).slice(0, 3).join(", ") || null,
+                          ].filter(Boolean);
+                          const secondary = [artist, ...pressingParts].join(" · ");
                           return (
                             <PickerRow key={r.id} cover={thumb} primary={title}
-                              secondary={`${artist}${r.year ? ` · ${r.year}` : ""}`}
+                              secondary={secondary}
                               onClick={() => handlePickDiscogsRecord(r)}
                             />
                           );
