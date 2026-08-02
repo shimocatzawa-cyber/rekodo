@@ -141,7 +141,7 @@ export default function ProfileListsTab({ initialLists, username, listTypeFilter
   const [shareCopyState,  setShareCopyState]  = useState<"idle"|"copied"|"failed">("idle");
 
   type WantlistSort = "priority" | "date_added" | "artist";
-  const [wantlistSort,         setWantlistSort]         = useState<WantlistSort>("priority");
+  const [wantlistSort,         setWantlistSort]         = useState<WantlistSort>("date_added");
   const [wantlistFilter,       setWantlistFilter]       = useState<Set<Priority>>(new Set());
   const [wantlistSearch,       setWantlistSearch]       = useState("");
   const [wantlistSourceFilter, setWantlistSourceFilter] = useState<"discogs" | "rekodo" | null>(null);
