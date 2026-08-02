@@ -444,7 +444,7 @@ export default function ProfileListsTab({ initialLists, username, listTypeFilter
       `}</style>
 
       {/* ── Wantlist ── */}
-      <div style={{ maxWidth: (selectedList?.slug === "wantlist" || selectedList?.slug === "want-to-buy") ? 1440 : selectedList?.list_type === "top5" ? (activeDrawer && !isMobile ? 1440 : 1100) : (activeDrawer && !isMobile ? 960 : 680), margin: "0 auto", padding: "2rem 1.5rem 3rem", transition: "max-width 0.2s ease" }}>
+      <div style={{ maxWidth: (listTypeFilter === "wantlist" || selectedList?.slug === "wantlist" || selectedList?.slug === "want-to-buy") ? 1440 : selectedList?.list_type === "top5" ? (activeDrawer && !isMobile ? 1440 : 1100) : (activeDrawer && !isMobile ? 960 : 680), margin: "0 auto", padding: "2rem 1.5rem 3rem", transition: "max-width 0.2s ease" }}>
         {!selectedList && lists.length === 0 ? (
           <p style={{ fontFamily: "var(--font-mono)", fontSize: "11px", letterSpacing: "0.06em", color: "#666" }}>
             Loading your lists…
