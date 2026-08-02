@@ -1331,6 +1331,9 @@ function WantlistGridCard({ slot, fetchIndex, monthsOld, showSomedayPrompt, onRe
   type MarketplaceStats = { numForSale: number; lowestPrice: number | null; currency: string };
   const [marketStats, setMarketStats] = useState<MarketplaceStats | null>(null);
 
+  type PressingInfo = { country: string | null; pressYear: string | null; vinylColor: { label: string; hex: string } | null; edition: string | null; catno: string | null };
+  const [pressingInfo, setPressingInfo] = useState<PressingInfo | null>(null);
+
   useEffect(() => {
     if (coverUrl) return;
     let cancelled = false;
@@ -1353,7 +1356,7 @@ function WantlistGridCard({ slot, fetchIndex, monthsOld, showSomedayPrompt, onRe
     return () => { cancelled = true; };
   }, [item.artist, item.album]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Fetch Discogs marketplace stats staggered by card index to avoid rate limits
+  // Fetch Discogs release data (marketplace stats + pressing details), staggered to avoid rate limits
   useEffect(() => {
     if (!slot.discogs_release_id) return;
     let cancelled = false;
@@ -1366,6 +1369,37 @@ function WantlistGridCard({ slot, fetchIndex, monthsOld, showSomedayPrompt, onRe
             numForSale: data.num_for_sale ?? 0,
             lowestPrice: data.lowest_price ?? null,
             currency: data.lowest_price?.currency ?? "USD",
+          });
+          // Extract pressing details from the release
+          const fmt = data.formats?.[0] ?? {};
+          const fmtText: string = (fmt.text ?? "").toLowerCase();
+          const fmtDescs: string[] = (fmt.descriptions ?? []).map((d: string) => d.toLowerCase());
+          const combined = [fmtText, ...fmtDescs].join(" ");
+          const COLORS: { label: string; hex: string; key: string }[] = [
+            { key: "clear", label: "Clear",  hex: "#c8d6e5" },
+            { key: "white", label: "White",  hex: "#e8e8e8" },
+            { key: "gold",  label: "Gold",   hex: "#d4a017" },
+            { key: "silver",label: "Silver", hex: "#a8a9ad" },
+            { key: "red",   label: "Red",    hex: "#c0392b" },
+            { key: "pink",  label: "Pink",   hex: "#e91e8c" },
+            { key: "orange",label: "Orange", hex: "#e67e22" },
+            { key: "yellow",label: "Yellow", hex: "#f1c40f" },
+            { key: "green", label: "Green",  hex: "#27ae60" },
+            { key: "blue",  label: "Blue",   hex: "#2980b9" },
+            { key: "purple",label: "Purple", hex: "#8e44ad" },
+            { key: "brown", label: "Brown",  hex: "#7f4d28" },
+          ];
+          const vinylColor = combined.includes("black") ? null
+            : COLORS.find(c => combined.includes(c.key)) ?? null;
+          const EDITIONS = ["original", "reissue", "repress", "promo", "test pressing", "numbered", "limited edition", "unofficial"];
+          const edition = EDITIONS.find(e => combined.includes(e)) ?? null;
+          const catno = data.labels?.[0]?.catno ?? null;
+          setPressingInfo({
+            country: data.country ?? null,
+            pressYear: data.year ? String(data.year) : null,
+            vinylColor: vinylColor ? { label: vinylColor.label, hex: vinylColor.hex } : null,
+            edition: edition ? edition.replace(/\b\w/g, c => c.toUpperCase()) : null,
+            catno,
           });
         })
         .catch(() => {});
@@ -1474,6 +1508,23 @@ function WantlistGridCard({ slot, fetchIndex, monthsOld, showSomedayPrompt, onRe
           {item.song_title ?? item.album}
           {item.year && <span style={{ fontFamily: MONO, fontStyle: "normal", fontSize: "0.62rem", color: "#999", letterSpacing: "0.04em" }}> · {item.year}</span>}
         </p>
+
+        {/* Pressing details */}
+        {pressingInfo && (
+          <p style={{ fontFamily: MONO, fontSize: "0.56rem", color: "#999", letterSpacing: "0.04em", margin: "1px 0 0", display: "flex", alignItems: "center", gap: "4px", overflow: "hidden" }}>
+            {pressingInfo.vinylColor && (
+              <span style={{ display: "inline-block", width: "7px", height: "7px", borderRadius: "50%", background: pressingInfo.vinylColor.hex, border: "1px solid rgba(0,0,0,0.15)", flexShrink: 0 }} title={pressingInfo.vinylColor.label} />
+            )}
+            <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+              {[
+                pressingInfo.country,
+                pressingInfo.pressYear !== String(item.year) ? pressingInfo.pressYear : null,
+                pressingInfo.vinylColor?.label,
+                pressingInfo.edition,
+              ].filter(Boolean).join(" · ") || pressingInfo.catno}
+            </span>
+          </p>
+        )}
 
         {/* Priority + tags on one row */}
         <div style={{ display: "flex", flexWrap: "wrap", gap: "3px", alignItems: "center", marginTop: "2px" }}>
