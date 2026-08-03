@@ -651,7 +651,7 @@ export default function CollectionClient({
             totalLocked = true;
           }
           const batch = data.processed ?? data.priced;
-          if (batch === 0) { if (++zeroStreak >= 3) break; } else { zeroStreak = 0; }
+          if (batch === 0) { if (++zeroStreak >= 6) break; } else { zeroStreak = 0; }
           done += batch;
           setPriceProgress({ done, total, phase });
           if (data.remaining <= 0) break;

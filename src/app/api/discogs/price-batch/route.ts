@@ -6,10 +6,20 @@ export const maxDuration = 300;
 
 const UA          = "rekodo/1.0";
 const BATCH_LIMIT = 50;
-const CONCURRENT  = 2;
-const SLEEP_MS    = 2_500; // 2 records × 2 calls per 2.5 s ≈ 48 req/min
+const CONCURRENT  = 1;
+const SLEEP_MS    = 2_000; // 1 record × 2 calls per 2 s ≈ 30 req/min — well under Discogs 60/min
 
 const sleep = (ms: number) => new Promise<void>(r => setTimeout(r, ms));
+
+async function discogsGet(url: string, signal: AbortSignal): Promise<Response> {
+  const opts = { headers: { "User-Agent": UA }, cache: "no-store" as const, signal };
+  let res = await fetch(url, opts);
+  if (res.status === 429) {
+    await sleep(10_000); // back off 10s on rate limit
+    res = await fetch(url, opts);
+  }
+  return res;
+}
 
 export async function GET(_req: NextRequest) {
   const supabase = await createClient();
@@ -97,15 +107,12 @@ export async function GET(_req: NextRequest) {
     await Promise.all(batch.map(async (record) => {
       try {
         const abort   = new AbortController();
-        const timeout = setTimeout(() => abort.abort(), 15_000);
-        const opts    = { headers: { "User-Agent": UA }, cache: "no-store" as const, signal: abort.signal };
+        const timeout = setTimeout(() => abort.abort(), 25_000);
 
         const [statsRes, releaseRes] = await Promise.all([
-          fetch(`https://api.discogs.com/marketplace/stats/${encodeURIComponent(record.discogs_id)}?key=${key}&secret=${secret}`, opts),
-          fetch(`https://api.discogs.com/releases/${encodeURIComponent(record.discogs_id)}?key=${key}&secret=${secret}`, opts),
+          discogsGet(`https://api.discogs.com/marketplace/stats/${encodeURIComponent(record.discogs_id)}?key=${key}&secret=${secret}`, abort.signal),
+          discogsGet(`https://api.discogs.com/releases/${encodeURIComponent(record.discogs_id)}?key=${key}&secret=${secret}`, abort.signal),
         ]).finally(() => clearTimeout(timeout));
-
-        if (statsRes.status === 429 || releaseRes.status === 429) return;
 
         let numForSale: number | null = null;
 
