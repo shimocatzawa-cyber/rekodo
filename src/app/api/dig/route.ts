@@ -6,7 +6,7 @@ import { isPlausibleArtistMatch, isPlausibleAlbumMatch } from "@/lib/textMatch";
 
 export const dynamic = "force-dynamic";
 
-const BATCH = 1000;
+const BATCH = 400;
 // Max records sent to Claude as a taste signal. The full artist list is always
 // sent separately for exclusion — this cap only applies to the album-level lines.
 const TASTE_SAMPLE = 250;
@@ -743,10 +743,9 @@ ${JSON_SCHEMA}`;
     const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
     const message = await anthropic.messages.create({
       model: "claude-sonnet-4-6",
-      // Discover/style modes ask for 10 objects so post-filtering has headroom.
-      // 3000 tokens (~8500 chars) was the exact ceiling for 10 objects and
-      // routinely truncated mid-string, surfacing as "Unterminated string in JSON".
-      max_tokens: 5000,
+      // 15 candidates × ~300 tokens each ≈ 4,500 tokens output; 6,000 gives
+      // enough headroom so longer reasons don't truncate mid-JSON.
+      max_tokens: 6000,
       messages: [{ role: "user", content: prompt }],
     });
 
@@ -783,11 +782,15 @@ ${JSON_SCHEMA}`;
     // re-showing the same artist under a slightly different spelling.
     if (mode === "discover" || mode === "style") {
       const ownedArtistSet = new Set(collection.map(r => r.artist.toLowerCase().trim()));
-      const seenThisBatch: string[] = []; // the 5-candidate buffer could repeat an artist across its own picks
-      const candidates = (recommendations as Array<{ artist?: string }>).filter(r => {
+      // Album-level set catches the edge case where an artist name collides
+      // but the specific album isn't owned (rare, but worth checking).
+      const ownedAlbumSet = new Set(collection.map(r => `${r.artist.toLowerCase().trim()}||${r.album.toLowerCase().trim()}`));
+      const seenThisBatch: string[] = []; // the 15-candidate buffer could repeat an artist across its own picks
+      const candidates = (recommendations as Array<{ artist?: string; album?: string }>).filter(r => {
         if (!r.artist) return false;
         const exactKey = r.artist.toLowerCase().trim();
         if (ownedArtistSet.has(exactKey)) return false;
+        if (r.album && ownedAlbumSet.has(`${exactKey}||${r.album.toLowerCase().trim()}`)) return false;
         if (allPrevArtists.some(a => isPlausibleArtistMatch(r.artist!, a))) return false;
         if (seenThisBatch.some(a => isPlausibleArtistMatch(r.artist!, a))) return false;
         seenThisBatch.push(r.artist);
