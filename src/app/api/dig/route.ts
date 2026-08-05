@@ -6,10 +6,10 @@ import { isPlausibleArtistMatch, isPlausibleAlbumMatch } from "@/lib/textMatch";
 
 export const dynamic = "force-dynamic";
 
-const BATCH = 400;
+const BATCH = 1000;
 // Max records sent to Claude as a taste signal. The full artist list is always
 // sent separately for exclusion — this cap only applies to the album-level lines.
-const TASTE_SAMPLE = 600;
+const TASTE_SAMPLE = 250;
 
 // Fisher-Yates shuffle + slice — preserves genre proportions approximately.
 function sampleRecords<T>(arr: T[], max: number): T[] {
@@ -55,7 +55,10 @@ async function verifyOnDiscogs(artist: string, album: string, year?: number | nu
     url.searchParams.set("key", key);
     url.searchParams.set("secret", secret);
 
-    const res = await fetch(url.toString(), { headers: { "User-Agent": "rekodo/1.0" } });
+    const abort = new AbortController();
+    const timer = setTimeout(() => abort.abort(), 5_000);
+    const res = await fetch(url.toString(), { headers: { "User-Agent": "rekodo/1.0" }, signal: abort.signal })
+      .finally(() => clearTimeout(timer));
     if (!res.ok) return true; // rate-limited or server error — can't verify, don't drop the pick
 
     const data = await res.json() as { results?: Array<{ title: string; year?: number }> };
@@ -554,7 +557,7 @@ Rules:
 - Only recommend a record you are confident actually exists and was released under that exact artist/album name — if you are not sure, do not include it.
 - NEVER recommend a self-released, private-press, or hand-distributed record from a first-name/single-word artist that you cannot independently recall a specific label, catalogue number, or documented release context for. "Sounds like it could exist" is not sufficient — private-press hallucinations are the most common failure mode.
 ${isJa ? "- Write all reason text in Japanese (日本語).\n" : ""}
-Return ONLY a valid JSON array with exactly 10 objects — extra picks give headroom after artists already owned or already recommended get filtered out; only the first 3 surviving picks are shown. No markdown, no explanation outside the JSON.
+Return ONLY a valid JSON array with exactly 15 objects — extra picks give headroom after artists already owned or already recommended get filtered out; only the first 3 surviving picks are shown. No markdown, no explanation outside the JSON.
 
 Schema:
 ${JSON_SCHEMA}`;
@@ -642,7 +645,7 @@ Rules:
 - Only recommend a record you are confident actually exists and was released under that exact artist/album name — if you are not sure, do not include it.
 - NEVER recommend a self-released, private-press, or hand-distributed record from a first-name/single-word artist that you cannot independently recall a specific label, catalogue number, or documented release context for. "Sounds like it could exist" is not sufficient — private-press hallucinations are the most common failure mode.
 ${isJa ? "- Write all reason text in Japanese (日本語).\n" : ""}
-Return ONLY a valid JSON array with exactly 10 objects — extra picks give headroom after artists already owned or already recommended get filtered out; only the first 3 surviving picks are shown. No markdown, no explanation outside the JSON.
+Return ONLY a valid JSON array with exactly 15 objects — extra picks give headroom after artists already owned or already recommended get filtered out; only the first 3 surviving picks are shown. No markdown, no explanation outside the JSON.
 
 Schema:
 ${JSON_SCHEMA}`;
@@ -799,83 +802,6 @@ ${JSON_SCHEMA}`;
         )
       );
       recommendations = verified.filter((r): r is { artist?: string; album?: string } => r !== null);
-
-      // Hybrid fallback: fill remaining slots from rekōdo's internal library when
-      // Discogs verification or the owned-artist filter reduces Claude's picks below 3.
-      if (recommendations.length < 3) {
-        const needed = 3 - recommendations.length;
-        const ownedIdSet    = new Set(recordIds);
-        const filledArtists = new Set<string>([
-          ...allPrevArtists.map(a => a.toLowerCase().trim()),
-          ...(recommendations as Array<{ artist?: string }>).map(r => r.artist?.toLowerCase().trim() ?? ""),
-        ]);
-        const wantlistSet = new Set(wantlistAlbums.map(s => s.toLowerCase()));
-
-        type DbRec = { id: string; artist: string; album: string; year: number | null; genre: string | null; styles: string[] | null; label: string | null; format: string | null; country: string | null; producers: string[] | null };
-        let dbPool: DbRec[] = [];
-
-        if (mode === "style") {
-          // Match against the styles array (style is a Discogs sub-genre tag, not a primary genre)
-          const { data } = await (supabase as any)
-            .from("records")
-            .select("id, artist, album, year, genre, styles, label, format, country, producers")
-            .contains("styles", [style])
-            .limit(300) as { data: DbRec[] | null };
-          dbPool = data ?? [];
-        } else if (collection.length > 0) {
-          // Use the user's top genres as a taste signal
-          const genreCount = new Map<string, number>();
-          for (const r of collection) if (r.genre) genreCount.set(r.genre, (genreCount.get(r.genre) ?? 0) + 1);
-          const topGenres = [...genreCount.entries()].sort((a, b) => b[1] - a[1]).slice(0, 5).map(([g]) => g);
-          if (topGenres.length > 0) {
-            const { data } = await supabase
-              .from("records")
-              .select("id, artist, album, year, genre, styles, label, format, country, producers")
-              .in("genre", topGenres)
-              .limit(300) as { data: DbRec[] | null };
-            dbPool = data ?? [];
-          }
-        }
-
-        if (dbPool.length > 0) {
-          const eligible = sampleRecords(
-            dbPool.filter(r =>
-              r.artist && r.album &&
-              !ownedIdSet.has(r.id) &&
-              !ownedArtistSet.has(r.artist.toLowerCase().trim()) &&
-              !filledArtists.has(r.artist.toLowerCase().trim()) &&
-              !wantlistSet.has(`${r.artist} — ${r.album}`.toLowerCase())
-            ),
-            needed * 5
-          );
-
-          const pickedArtists = new Set<string>();
-          for (const r of eligible) {
-            if ((recommendations as unknown[]).length >= 3) break;
-            const artistKey = r.artist.toLowerCase().trim();
-            if (pickedArtists.has(artistKey)) continue;
-            pickedArtists.add(artistKey);
-            const q = encodeURIComponent(`${r.artist} ${r.album}`);
-            (recommendations as unknown[]).push({
-              artist:    r.artist,
-              album:     r.album,
-              year:      r.year ?? null,
-              genre:     r.genre ?? null,
-              region:    null,
-              sub_style: null,
-              reason:    "From rekōdo's library",
-              label:     r.label     ?? null,
-              format:    r.format    ?? null,
-              country:   r.country   ?? null,
-              styles:    r.styles    ?? null,
-              producers: r.producers ?? null,
-              bandcamp_search_url:    `https://bandcamp.com/search?q=${q}`,
-              spotify_search_url:     `https://open.spotify.com/search/${q}`,
-              apple_music_search_url: `https://music.apple.com/search?term=${q}`,
-            });
-          }
-        }
-      }
 
       if (recommendations.length === 0) {
         return Response.json({ error: "Invalid recommendations format" }, { status: 500 });
