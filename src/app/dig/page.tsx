@@ -21,9 +21,10 @@ export default async function DigPage() {
   const emailPrefix = (user.email ?? "").split("@")[0] || "user";
   const { data: profile } = await supabase
     .from("profiles")
-    .select("username, display_name, avatar_url")
+    .select("username, display_name, avatar_url, role")
     .eq("id", user.id)
     .maybeSingle();
+  const isAdmin = (profile as any)?.role === "admin";
   const autoGen      = `${emailPrefix}_${user.id.slice(0, 6)}`;
   const rawUsername  = profile?.username ?? null;
   const username     = (rawUsername && rawUsername !== autoGen)
@@ -88,6 +89,11 @@ export default async function DigPage() {
   }
 
   const availableStyles = [...styleSet].sort();
+
+  type AlbumPickerItem = { artist: string; album: string; year: number | null };
+  const collectionAlbums: AlbumPickerItem[] = explorePool
+    .map(r => ({ artist: r.artist, album: r.album, year: r.year ?? null }))
+    .sort((a, b) => a.artist.localeCompare(b.artist) || a.album.localeCompare(b.album));
 
   // Fetch recent explore-mode history so the first Inside Collection load
   // doesn't re-show records the user has already seen in a previous session.
@@ -180,6 +186,8 @@ export default async function DigPage() {
       availableStyles={availableStyles}
       hasQuizProfile={hasQuizProfile}
       initialExplorePicks={initialExplorePicks}
+      isAdmin={isAdmin}
+      collectionAlbums={isAdmin ? collectionAlbums : undefined}
     />
   );
 }

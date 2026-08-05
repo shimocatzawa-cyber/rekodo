@@ -31,6 +31,8 @@ type Recommendation = {
   producers?: string[] | null;
 };
 
+type AlbumPickerItem = { artist: string; album: string; year: number | null };
+
 interface Props {
   userId:               string;
   username:             string;
@@ -41,6 +43,8 @@ interface Props {
   availableStyles:      string[];
   hasQuizProfile?:      boolean;
   initialExplorePicks?: Recommendation[];
+  isAdmin?:             boolean;
+  collectionAlbums?:    AlbumPickerItem[];
 }
 
 // ─── Vinyl disc SVG ───────────────────────────────────────────────────────────
@@ -602,6 +606,7 @@ const MODE_LABEL: Record<DigMode, string> = {
   discover: "Discover",
   explore:  "Explore",
   style:    "Style Dig",
+  album:    "Album Dig",
 };
 
 function DigHistoryView({ onAddToWantlist, wantlistAdded }: {
@@ -790,15 +795,77 @@ function StylePicker({ styles, onSelect }: { styles: string[]; onSelect: (style:
   );
 }
 
+// ─── Album picker ─────────────────────────────────────────────────────────────
+
+function AlbumPicker({ albums, onSelect }: { albums: AlbumPickerItem[]; onSelect: (a: AlbumPickerItem) => void }) {
+  const [query, setQuery] = useState("");
+
+  const filtered = query.trim()
+    ? albums.filter(a =>
+        a.artist.toLowerCase().includes(query.toLowerCase()) ||
+        a.album.toLowerCase().includes(query.toLowerCase())
+      )
+    : albums;
+
+  return (
+    <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden", paddingTop: "12px" }}>
+      <div style={{ paddingBottom: "12px", marginBottom: "4px", borderBottom: "1px solid #f0f0ea", flexShrink: 0 }}>
+        <input
+          type="text"
+          placeholder="Search artist or album…"
+          value={query}
+          onChange={e => setQuery(e.target.value)}
+          autoFocus
+          style={{
+            width: "100%", boxSizing: "border-box",
+            fontFamily: MONO, fontSize: "11px", letterSpacing: "0.04em",
+            color: "#0d0d0d", background: "none",
+            border: "none", borderBottom: "1px solid #d8d8d2",
+            padding: "4px 0", outline: "none",
+          }}
+        />
+      </div>
+      <div style={{ flex: 1, overflowY: "auto", paddingBottom: "48px" }}>
+        {filtered.length === 0 ? (
+          <p style={{ fontFamily: MONO, fontSize: "11px", color: "#aaaaaa", textAlign: "center", marginTop: "32px" }}>
+            No albums match &ldquo;{query}&rdquo;
+          </p>
+        ) : filtered.map((a, i) => (
+          <button
+            key={i}
+            onClick={() => onSelect(a)}
+            style={{
+              display: "flex", flexDirection: "column", width: "100%", textAlign: "left",
+              padding: "10px 12px", background: "none",
+              border: "none", borderBottom: "1px solid #f4f4f0",
+              cursor: "pointer", transition: "background 0.1s",
+            }}
+            onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background = "#fafaf8"; }}
+            onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = "none"; }}
+          >
+            <span style={{ fontFamily: SERIF, fontSize: "13px", color: "#0d0d0d", display: "block", lineHeight: 1.3, marginBottom: "2px" }}>
+              {a.album}
+            </span>
+            <span style={{ fontFamily: MONO, fontSize: "9px", color: "#888888", letterSpacing: "0.04em" }}>
+              {a.artist}{a.year ? ` · ${a.year}` : ""}
+            </span>
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 // ─── Mode toggle ─────────────────────────────────────────────────────────────
 
-type DigMode = "discover" | "explore" | "style";
+type DigMode = "discover" | "explore" | "style" | "album";
 type DigTab  = DigMode | "history";
 
-function ModeToggle({ mode, onChange, disabled }: {
+function ModeToggle({ mode, onChange, disabled, isAdmin }: {
   mode:     DigTab;
   onChange: (m: DigTab) => void;
   disabled: boolean;
+  isAdmin?: boolean;
 }) {
   const t = useTranslations("dig");
   const item = (m: DigTab, label: string) => {
@@ -834,6 +901,7 @@ function ModeToggle({ mode, onChange, disabled }: {
       {item("explore",  t("insideCollection"))}
       {item("discover", t("outsideCollection"))}
       {item("style",    t("styleDig"))}
+      {isAdmin && item("album", "Album Dig")}
       {item("history",  t("digHistory"))}
     </div>
   );
@@ -841,8 +909,8 @@ function ModeToggle({ mode, onChange, disabled }: {
 
 // ─── Main client ──────────────────────────────────────────────────────────────
 
-export default function DigClient({ userId, username, displayLabel, avatarUrl, collectionCount, availableStyles, hasQuizProfile, initialExplorePicks }: Props) {
-  const [activeTab, setActiveTab] = useUrlTab<DigTab>("tab", ["explore", "discover", "style", "history"], "explore");
+export default function DigClient({ userId, username, displayLabel, avatarUrl, collectionCount, availableStyles, hasQuizProfile, initialExplorePicks, isAdmin, collectionAlbums }: Props) {
+  const [activeTab, setActiveTab] = useUrlTab<DigTab>("tab", ["explore", "discover", "style", "album", "history"], "explore");
 
   // Derived — the active dig mode (history tab has no mode)
   const mode: DigMode = activeTab === "history" ? "discover" : activeTab;
@@ -864,6 +932,7 @@ export default function DigClient({ userId, username, displayLabel, avatarUrl, c
   const [dailyLimitReached, setDailyLimitReached] = useState(false);
   const [idx,           setIdx]           = useState(0);
   const [selectedStyle, setSelectedStyle] = useState<string | null>(null);
+  const [selectedAlbum, setSelectedAlbum] = useState<AlbumPickerItem | null>(null);
   const [wantlistAdded, setWantlistAdded] = useState<Set<string>>(new Set());
   const [wantlistError, setWantlistError] = useState<string | null>(null);
   const [dismissed,     setDismissed]     = useState<Set<string>>(new Set());
@@ -887,7 +956,7 @@ export default function DigClient({ userId, username, displayLabel, avatarUrl, c
   // Initialise from activeTab so the first fetch matches what's displayed —
   // the old hardcoded "discover" caused Claude results to appear on the explore tab.
   const initialFetchMode: DigMode = activeTab === "history" ? "discover" : (activeTab as DigMode);
-  const [fetchKey, setFetchKey] = useState<{ mode: DigMode; n: number; style?: string }>({ mode: initialFetchMode, n: 0 });
+  const [fetchKey, setFetchKey] = useState<{ mode: DigMode; n: number; style?: string; sourceAlbum?: AlbumPickerItem }>({ mode: initialFetchMode, n: 0 });
 
   // One-time backfill: if the browser still has old localStorage dig history
   // from before server-side persistence, upload it and clear the key.
@@ -924,6 +993,7 @@ export default function DigClient({ userId, username, displayLabel, avatarUrl, c
   // in the effect body — satisfies react-hooks/set-state-in-effect.
   useEffect(() => {
     if (fetchKey.mode === "style" && !fetchKey.style) return;
+    if (fetchKey.mode === "album" && !fetchKey.sourceAlbum) return;
     // First explore load: server already computed picks — skip the API call
     if (fetchKey.mode === "explore" && initialExplorePicks && skipInitialExploreRef.current) {
       skipInitialExploreRef.current = false;
@@ -943,7 +1013,7 @@ export default function DigClient({ userId, username, displayLabel, avatarUrl, c
         const res = await fetch("/api/dig", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ mode: fetchKey.mode, style: fetchKey.style, previousArtists: shownArtists.current, previousRecommendations: shownRecs.current }),
+          body: JSON.stringify({ mode: fetchKey.mode, style: fetchKey.style, sourceAlbum: fetchKey.sourceAlbum, previousArtists: shownArtists.current, previousRecommendations: shownRecs.current }),
         });
         const data = await res.json();
         if (cancelled) return;
@@ -992,7 +1062,11 @@ export default function DigClient({ userId, username, displayLabel, avatarUrl, c
     setRecs(null);
     setDailyLimitReached(false);
     if (tab === "style" && !selectedStyle) {
-      // Wait for the user to pick a style before fetching anything
+      setLoading(false);
+      return;
+    }
+    if (tab === "album") {
+      setSelectedAlbum(null);
       setLoading(false);
       return;
     }
@@ -1013,6 +1087,23 @@ export default function DigClient({ userId, username, displayLabel, avatarUrl, c
 
   function handleChangeStyle() {
     setSelectedStyle(null);
+    setRecs(null);
+    setError(null);
+  }
+
+  function handleAlbumSelect(album: AlbumPickerItem) {
+    shownArtists.current = [];
+    shownRecs.current    = [];
+    queueRef.current     = [];
+    setSelectedAlbum(album);
+    setLoading(true);
+    setError(null);
+    setRecs(null);
+    setFetchKey({ mode: "album", n: 0, sourceAlbum: album });
+  }
+
+  function handleChangeAlbum() {
+    setSelectedAlbum(null);
     setRecs(null);
     setError(null);
   }
@@ -1291,7 +1382,7 @@ export default function DigClient({ userId, username, displayLabel, avatarUrl, c
       <main className="dig-main" style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden" }}>
         <div className="dig-main-inner" style={{ maxWidth: 1200, width: "100%", margin: "0 auto", flex: 1, display: "flex", flexDirection: "column", padding: "0 40px 72px", overflow: "hidden" }}>
 
-          <ModeToggle mode={activeTab} onChange={handleTabChange} disabled={loading} />
+          <ModeToggle mode={activeTab} onChange={handleTabChange} disabled={loading} isAdmin={isAdmin} />
 
           {collectionCount === 0 && hasQuizProfile && activeTab === "discover" && (
             <p style={{ fontFamily: MONO, fontSize: "10px", letterSpacing: "0.05em", color: "#aaaaaa", margin: "8px 0 0" }}>
@@ -1304,6 +1395,8 @@ export default function DigClient({ userId, username, displayLabel, avatarUrl, c
             <DigHistoryView onAddToWantlist={handleAddToWantlist} wantlistAdded={wantlistAdded} />
           ) : activeTab === "style" && !selectedStyle ? (
             <StylePicker styles={availableStyles} onSelect={handleStyleSelect} />
+          ) : activeTab === "album" && !selectedAlbum ? (
+            <AlbumPicker albums={collectionAlbums ?? []} onSelect={handleAlbumSelect} />
           ) : (
             <>
               {activeTab === "style" && selectedStyle && (
@@ -1313,6 +1406,19 @@ export default function DigClient({ userId, username, displayLabel, avatarUrl, c
                   </span>
                   <button
                     onClick={handleChangeStyle}
+                    style={{ fontFamily: MONO, fontSize: "10px", letterSpacing: "0.08em", textTransform: "uppercase", color: ORANGE, background: "none", border: "none", cursor: "pointer", padding: 0 }}
+                  >
+                    Change
+                  </button>
+                </div>
+              )}
+              {activeTab === "album" && selectedAlbum && (
+                <div style={{ display: "flex", alignItems: "center", gap: "10px", padding: "12px 0 4px" }}>
+                  <span style={{ fontFamily: MONO, fontSize: "10px", letterSpacing: "0.08em", textTransform: "uppercase", color: "#888888" }}>
+                    {selectedAlbum.artist} — {selectedAlbum.album}
+                  </span>
+                  <button
+                    onClick={handleChangeAlbum}
                     style={{ fontFamily: MONO, fontSize: "10px", letterSpacing: "0.08em", textTransform: "uppercase", color: ORANGE, background: "none", border: "none", cursor: "pointer", padding: 0 }}
                   >
                     Change

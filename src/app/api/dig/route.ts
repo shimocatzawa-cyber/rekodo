@@ -22,6 +22,23 @@ function sampleRecords<T>(arr: T[], max: number): T[] {
   return out.slice(0, max);
 }
 
+function stratifiedSample<T extends { genre: string | null }>(arr: T[], max: number): T[] {
+  if (arr.length <= max) return arr;
+  const byGenre = new Map<string, T[]>();
+  for (const r of arr) {
+    const g = r.genre ?? "__none__";
+    if (!byGenre.has(g)) byGenre.set(g, []);
+    byGenre.get(g)!.push(r);
+  }
+  const result: T[] = [];
+  for (const [, recs] of byGenre) {
+    const proportion = recs.length / arr.length;
+    const count = Math.max(1, Math.round(proportion * max));
+    result.push(...sampleRecords(recs, count));
+  }
+  return sampleRecords(result, Math.min(result.length, max));
+}
+
 // Discogs release search results are formatted "Artist - Title" — split on
 // the first " - " to compare each side separately rather than as one blob.
 function parseDiscogsTitle(title: string): { artist: string; album: string } {
@@ -101,12 +118,23 @@ export async function POST(request: Request) {
   const isJa = locale === "ja";
 
   const body = await request.json().catch(() => ({}));
-  const mode: "discover" | "explore" | "style" =
-    body.mode === "explore" ? "explore" : body.mode === "style" ? "style" : "discover";
+  const mode: "discover" | "explore" | "style" | "album" =
+    body.mode === "explore" ? "explore"
+    : body.mode === "style"  ? "style"
+    : body.mode === "album"  ? "album"
+    : "discover";
 
   const style: string = typeof body.style === "string" ? body.style.trim().slice(0, 80) : "";
   if (mode === "style" && !style) {
     return Response.json({ error: "Style is required for Style Dig" }, { status: 400 });
+  }
+
+  const sourceAlbum: { artist: string; album: string; year?: number | null } | null =
+    mode === "album" && typeof body.sourceAlbum?.artist === "string" && typeof body.sourceAlbum?.album === "string"
+      ? { artist: body.sourceAlbum.artist, album: body.sourceAlbum.album, year: body.sourceAlbum.year ?? null }
+      : null;
+  if (mode === "album" && !sourceAlbum) {
+    return Response.json({ error: "Source album required for Album Dig" }, { status: 400 });
   }
 
   // Artists and full recs shown in earlier digs this session — hard-exclude to prevent repetition
@@ -124,10 +152,16 @@ export async function POST(request: Request) {
   const FREE_DIG_LIMIT = 2;
   const { data: profileRow } = await (supabase as any)
     .from("profiles")
-    .select("is_supporter")
+    .select("is_supporter, role")
     .eq("id", user.id)
-    .maybeSingle() as { data: { is_supporter: boolean | null } | null };
-  const isSupporter = !!profileRow?.is_supporter;
+    .maybeSingle() as { data: { is_supporter: boolean | null; role: string | null } | null };
+  const isAdminUser = profileRow?.role === "admin";
+  const isSupporter = !!profileRow?.is_supporter || isAdminUser;
+
+  // Album Dig is admin-only — gate at API level too
+  if (mode === "album" && !isAdminUser) {
+    return Response.json({ error: "Not authorized" }, { status: 403 });
+  }
 
   if (!isSupporter && mode !== "discover") {
     const today = new Date().toISOString().slice(0, 10);
@@ -178,6 +212,13 @@ export async function POST(request: Request) {
   const collection = recordIds
     .map((id) => collectionMap.get(id))
     .filter((r): r is RecordRow => r !== undefined);
+
+  const labelCount = new Map<string, number>();
+  for (const r of collection) if (r.label) labelCount.set(r.label, (labelCount.get(r.label) ?? 0) + 1);
+  const topLabels = [...labelCount.entries()].sort((a, b) => b[1] - a[1]).slice(0, 10).map(([l]) => l);
+  const labelsBlock = topLabels.length > 0
+    ? `\nMOST COLLECTED LABELS: ${topLabels.join(" · ")} — use these as a taste signal alongside the records.\n`
+    : "";
 
   // ── Quiz fallback (no collection synced yet) ─────────────────────────────
   if (collection.length === 0 && mode === "discover") {
@@ -440,6 +481,68 @@ ${JSON_SCHEMA}`;
     ? `\nWithin "${style}", these specific corners have been shown repeatedly with no action (or were marked "not for me"): ${fatiguedSubStyles.join(", ")} — surface a genuinely different sub-style/scene within "${style}" instead.\n`
     : "";
 
+  // ── Cache check (skip Claude if unused picks remain) ─────────────────────
+  type CacheRow = {
+    id: string; artist: string; album: string; year: number | null;
+    genre: string | null; region: string | null; sub_style: string | null;
+    reason: string | null; bandcamp_search_url: string | null;
+    spotify_search_url: string | null; apple_music_search_url: string | null;
+  };
+
+  if (mode === "discover" || mode === "style" || mode === "album") {
+    const cacheCutoff = new Date(Date.now() - 14 * 86_400_000).toISOString();
+    const albumCacheKey = mode === "album" ? `${sourceAlbum!.artist} — ${sourceAlbum!.album}` : null;
+    let cacheQuery = (supabase as any)
+      .from("dig_recommendation_cache")
+      .select("id, artist, album, year, genre, region, sub_style, reason, bandcamp_search_url, spotify_search_url, apple_music_search_url")
+      .eq("user_id", user.id)
+      .eq("mode", mode)
+      .is("shown_at", null)
+      .gte("created_at", cacheCutoff);
+    cacheQuery = mode === "style" ? cacheQuery.eq("style", style)
+      : mode === "album" ? cacheQuery.eq("style", albumCacheKey)
+      : cacheQuery.is("style", null);
+    const { data: cacheRows } = await cacheQuery.order("created_at", { ascending: true }) as { data: CacheRow[] | null };
+
+    if (cacheRows && cacheRows.length > 0) {
+      const ownedArtistSetC = new Set(collection.map(r => r.artist.toLowerCase().trim()));
+      const ownedAlbumSetC  = new Set(collection.map(r => `${r.artist.toLowerCase().trim()}||${r.album.toLowerCase().trim()}`));
+      const wantSetC        = new Set(wantlistAlbums.map(s => s.toLowerCase()));
+      const prevSetC        = new Set(allPrevArtists.map(a => a.toLowerCase().trim()));
+
+      const valid = cacheRows.filter(r => {
+        const ak = r.artist.toLowerCase().trim();
+        if (ownedArtistSetC.has(ak)) return false;
+        if (ownedAlbumSetC.has(`${ak}||${r.album.toLowerCase().trim()}`)) return false;
+        if (wantSetC.has(`${r.artist} — ${r.album}`.toLowerCase())) return false;
+        if (prevSetC.has(ak)) return false;
+        return true;
+      });
+
+      if (valid.length >= 3) {
+        const toShow = valid.slice(0, 3);
+        const nowTs  = new Date().toISOString();
+        await (supabase as any).from("dig_recommendation_cache")
+          .update({ shown_at: nowTs })
+          .in("id", toShow.map(r => r.id));
+
+        const today = nowTs.slice(0, 10);
+        after(() => (supabase as any).rpc("increment_dig_count", { p_user_id: user.id, p_date: today, p_mode: mode }));
+        after(() => (supabase as any).from("dig_history").insert(
+          toShow.map(r => ({
+            user_id: user.id, artist: r.artist, album: r.album, mode,
+            genre: r.genre ?? null, region: r.region ?? null,
+            sub_style: mode === "style" ? (r.sub_style ?? null) : null,
+            style: mode === "style" ? style : null,
+            angle: null, reason: r.reason ?? null,
+          }))
+        ));
+
+        return Response.json({ recommendations: toShow });
+      }
+    }
+  }
+
   // ── Build prompt ──────────────────────────────────────────────────────────
   const listsLines = listsForPrompt.length > 0
     ? listsForPrompt
@@ -448,7 +551,7 @@ ${JSON_SCHEMA}`;
     : "(No Top 5 lists filled in yet)";
 
   const wantlistBlock = wantlistAlbums.length > 0
-    ? `\nWANTLIST — do NOT recommend any of these (already on their radar):\n${wantlistAlbums.join("\n")}\n`
+    ? `\nWANTLIST — albums this collector is actively seeking out (strong taste signal for what they want next — do NOT recommend these specific albums, but use them to understand where their taste is pointing):\n${wantlistAlbums.slice(0, 40).join("\n")}\n`
     : "";
 
   function pick<T>(arr: T[]): T { return arr[Math.floor(Math.random() * arr.length)]; }
@@ -525,7 +628,7 @@ ${JSON_SCHEMA}`;
 
     const angleBlock = `\nEXPLORATION ANGLE — you must satisfy both era constraints:\n- One pick MUST come from the ${digDecadeModern} — modern releases are just as valid on vinyl as classics\n- One pick MUST come from the ${digDecadeClassic}\n- Any picks beyond those two can come from any era\n${digRegion ? `- Geography: one pick should lean toward music originating from ${digRegion}\n` : ""}- One pick should be: ${digAngle}\n- The remaining picks do NOT need to be obscure or regional — well-known, widely loved records that genuinely fit this collector's taste are just as valid a recommendation as a deep cut. Most digs should land mostly on great, findable records; rarity is a bonus, not the goal.\n`;
 
-    const tasteSample    = sampleRecords(collection, TASTE_SAMPLE);
+    const tasteSample    = stratifiedSample(collection, TASTE_SAMPLE);
     const tasteSampleLines = tasteSample
       .map((r) => `- ${r.artist} — ${r.album}${r.year ? ` (${r.year})` : ""}${r.genre ? ` [${r.genre}]` : ""}`)
       .join("\n");
@@ -539,7 +642,7 @@ Below is a sample of a collector's vinyl collection and their curated Top 5 list
 
 COLLECTION ${collectionNote}:
 ${tasteSampleLines || "(Empty collection)"}
-
+${labelsBlock}
 TOP 5 LISTS:
 ${listsLines}
 ${artistsBlock}${prevBlock}${wantlistBlock}${prevRecsBlock}${feedbackBlock}${angleBlock}
@@ -613,7 +716,7 @@ ${JSON_SCHEMA}`;
       (r.styles ?? []).some((st) => st.toLowerCase().includes(s))
     );
     const stylePool      = styleMatching.length >= 20 ? styleMatching : collection;
-    const styleSample    = sampleRecords(stylePool, TASTE_SAMPLE);
+    const styleSample    = stratifiedSample(stylePool, TASTE_SAMPLE);
     const styleSampleLines = styleSample
       .map((r) => `- ${r.artist} — ${r.album}${r.year ? ` (${r.year})` : ""}${r.genre ? ` [${r.genre}]` : ""}`)
       .join("\n");
@@ -627,7 +730,7 @@ Below is a collector's vinyl collection and their curated Top 5 lists. Study the
 
 COLLECTION ${styleNote}:
 ${styleSampleLines || "(Empty collection)"}
-
+${labelsBlock}
 TOP 5 LISTS:
 ${listsLines}
 ${artistsBlock}${prevBlock}${wantlistBlock}${prevRecsBlock}${subStyleFeedbackBlock}${angleBlock}
@@ -646,6 +749,44 @@ Rules:
 - NEVER recommend a self-released, private-press, or hand-distributed record from a first-name/single-word artist that you cannot independently recall a specific label, catalogue number, or documented release context for. "Sounds like it could exist" is not sufficient — private-press hallucinations are the most common failure mode.
 ${isJa ? "- Write all reason text in Japanese (日本語).\n" : ""}
 Return ONLY a valid JSON array with exactly 15 objects — extra picks give headroom after artists already owned or already recommended get filtered out; only the first 3 surviving picks are shown. No markdown, no explanation outside the JSON.
+
+Schema:
+${JSON_SCHEMA}`;
+  } else if (mode === "album") {
+    const ownedArtists = [...new Set(collection.map((r) => r.artist))].sort();
+    const artistsBlock = ownedArtists.length > 0
+      ? `\nOWNED ARTISTS — do NOT recommend any of these artists:\n${ownedArtists.join(" · ")}\n`
+      : "";
+
+    const prevBlock = allPrevArtists.length > 0
+      ? `\nALREADY SHOWN THIS SESSION — do not repeat:\n${allPrevArtists.join(" · ")}\n`
+      : "";
+
+    const prevRecsBlock = allPrevRecs.length > 0
+      ? `\nALREADY RECOMMENDED (for context — do not repeat the same artist or near-identical record):\n${allPrevRecs.map(r => `- ${r.artist} — ${r.album}`).join("\n")}\n`
+      : "";
+
+    const src = sourceAlbum!;
+    prompt = `You are a crate-digging expert with encyclopaedic knowledge of recorded music across all genres, eras, and territories.
+
+A collector wants recommendations based on a specific album in their collection:
+
+SOURCE ALBUM: ${src.artist} — ${src.album}${src.year ? ` (${src.year})` : ""}
+
+Recommend exactly 15 records that share the spirit, feel, or aesthetic logic of this specific album — music a devoted fan of this record would love but may not have found yet. Think carefully about what makes this album distinctive: its texture, energy, emotional register, production approach, scene, geography, and era. Find records that operate in that same space, including from adjacent scenes and neighbouring eras — not just obvious genre matches but records that *feel* like they belong on the same shelf.
+
+${artistsBlock}${prevBlock}${wantlistBlock}${prevRecsBlock}
+Rules:
+- STRICT: Do NOT recommend any artist from the OWNED ARTISTS list, WANTLIST, or ALREADY SHOWN list.
+- Do NOT recommend other albums by the same artist (${src.artist}) — they already own this one.
+- Vary geography, era, and sub-genre across the 15 picks — do not cluster in one scene or decade.
+- Include at least one pick from a different era (pre- or post-) than the source album to show range.
+- Each reason must name the SPECIFIC quality connecting it to ${src.artist} — ${src.album}: name a texture, mood, or structural element. No generic praise. Maximum 2 sentences.
+- Prioritise records available on vinyl (original pressings, reissues, or common secondhand).
+- Only recommend records you are confident actually exist under that exact artist/album name.
+- NEVER recommend a self-released or private-press record you cannot recall a specific label or catalogue number for — hallucinations are the most common failure mode here.
+${isJa ? "- Write all reason text in Japanese (日本語).\n" : ""}
+Return ONLY a valid JSON array with exactly 15 objects — only the first 3 surviving picks are shown. No markdown, no explanation outside the JSON.
 
 Schema:
 ${JSON_SCHEMA}`;
@@ -820,7 +961,7 @@ ${JSON_SCHEMA}`;
     // Persist outside-collection picks (with genre/region/sub-style/angle tags)
     // so future digs (any session/device) don't repeat them and can learn
     // from what's accepted, dismissed, or shown repeatedly with no action.
-    if (mode === "discover" || mode === "style") {
+    if (mode === "discover" || mode === "style" || mode === "album") {
       const rows = (recommendations as Array<{ artist?: string; album?: string; genre?: string; region?: string; sub_style?: string; reason?: string }>)
         .filter((r) => r.artist && r.album)
         .slice(0, 3)
@@ -828,11 +969,33 @@ ${JSON_SCHEMA}`;
           user_id: user.id, artist: r.artist, album: r.album, mode,
           genre: r.genre ?? null, region: r.region ?? null,
           sub_style: mode === "style" ? (r.sub_style ?? null) : null,
-          style: mode === "style" ? style : null,
+          style: mode === "style" ? style : mode === "album" ? `${sourceAlbum!.artist} — ${sourceAlbum!.album}` : null,
           angle: digAngleUsed,
           reason: r.reason ?? null,
         }));
       if (rows.length > 0) after(() => (supabase as any).from("dig_history").insert(rows));
+    }
+
+    // Cache all picks for future digs — shown_at set for first 3, null for rest
+    if (mode === "discover" || mode === "style" || mode === "album") {
+      const nowTs = new Date().toISOString();
+      const cacheEntries = (recommendations as Array<Record<string, unknown>>).slice(0, 15).map((r, i) => ({
+        user_id:               user.id,
+        mode,
+        style:                 mode === "style" ? style : mode === "album" ? `${sourceAlbum!.artist} — ${sourceAlbum!.album}` : null,
+        artist:                r.artist ?? null,
+        album:                 r.album  ?? null,
+        year:                  r.year   ?? null,
+        genre:                 r.genre  ?? null,
+        region:                r.region ?? null,
+        sub_style:             r.sub_style ?? null,
+        reason:                r.reason ?? null,
+        bandcamp_search_url:   r.bandcamp_search_url    ?? null,
+        spotify_search_url:    r.spotify_search_url     ?? null,
+        apple_music_search_url: r.apple_music_search_url ?? null,
+        shown_at: i < 3 ? nowTs : null,
+      }));
+      after(() => (supabase as any).from("dig_recommendation_cache").insert(cacheEntries));
     }
 
     return Response.json({ recommendations });
