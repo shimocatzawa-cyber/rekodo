@@ -223,7 +223,7 @@ function RankingsContent({
       albums.map(async (a) => {
         try {
           const r = await fetch(
-            `/api/deep-dive/album-art?artist=${encodeURIComponent(artist)}&album=${encodeURIComponent(a.title)}`
+            `/api/deep-dive/album-art?artist=${encodeURIComponent(artist)}&album=${encodeURIComponent(a.title)}&v=2`
           );
           const d: { url?: string | null } = r.ok ? await r.json() : {};
           return [a.title, d.url ?? null] as const;
