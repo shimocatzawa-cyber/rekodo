@@ -14,7 +14,7 @@ export async function GET(req: Request) {
     return NextResponse.json({ error: "type must be artist or label" }, { status: 400 });
   }
 
-  const [currentRes, archiveRes] = await Promise.all([
+  const [currentRes, allNonDraftRes] = await Promise.all([
     (supabase as any)
       .from("spotlights")
       .select("*")
@@ -27,12 +27,12 @@ export async function GET(req: Request) {
       .from("spotlights")
       .select("id, name, month, type")
       .eq("type", type)
-      .eq("status", "archived")
+      .in("status", ["active", "archived"])
       .order("month", { ascending: false }),
   ]);
 
-  return NextResponse.json({
-    current: currentRes.data ?? null,
-    archive: archiveRes.data ?? [],
-  });
+  const current = currentRes.data ?? null;
+  const archive = (allNonDraftRes.data ?? []).filter((s: { id: string }) => s.id !== current?.id);
+
+  return NextResponse.json({ current, archive });
 }
