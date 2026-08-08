@@ -225,7 +225,8 @@ function RankingsContent({
             `/api/deep-dive/album-art?artist=${encodeURIComponent(artist)}&album=${encodeURIComponent(a.title)}`
           );
           const d = r.ok ? (await r.json() as { url?: string | null }) : {};
-          return [a.title, d.url ?? null] as const;
+          const raw = d.url ?? null;
+          return [a.title, raw ? `/api/image-proxy?url=${encodeURIComponent(raw)}` : null] as const;
         } catch {
           return [a.title, null] as const;
         }
@@ -389,7 +390,7 @@ function DiscographyContent({
           <div key={a.id} style={{ display: "flex", gap: 14, padding: "1rem 0", borderBottom: `1px solid ${RULE}`, alignItems: "flex-start" }}>
             {a.thumb
               // eslint-disable-next-line @next/next/no-img-element
-              ? <img src={a.thumb} alt="" aria-hidden style={{ width: 52, height: 52, objectFit: "cover", flexShrink: 0, display: "block" }} />
+              ? <img src={`/api/image-proxy?url=${encodeURIComponent(a.thumb)}`} alt="" aria-hidden style={{ width: 52, height: 52, objectFit: "cover", flexShrink: 0, display: "block" }} />
               : <div style={{ width: 52, height: 52, background: SUBTLE, flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: MONO, fontSize: "10px", color: "#aaa" }}>{a.title[0]}</div>
             }
             <div style={{ flex: 1, minWidth: 0 }}>
@@ -949,7 +950,7 @@ function BlindSpotContent({ data, artist }: { data: { albums?: BlindSpotAlbum[] 
       fetch(`/api/deep-dive/album-art?artist=${encodeURIComponent(artist)}&album=${encodeURIComponent(a.title)}`)
         .then((r) => (r.ok ? r.json() : null))
         .then((d: { url?: string } | null) => {
-          if (d?.url) setArtMap((prev) => ({ ...prev, [a.title]: d.url! }));
+          if (d?.url) setArtMap((prev) => ({ ...prev, [a.title]: `/api/image-proxy?url=${encodeURIComponent(d.url!)}` }));
         })
         .catch(() => {});
     }
@@ -2369,7 +2370,7 @@ export default function DeepDiveClient({
                     >
                       {r.thumb
                         // eslint-disable-next-line @next/next/no-img-element
-                        ? <img src={r.thumb} alt="" aria-hidden style={{ width: 32, height: 32, objectFit: "cover", flexShrink: 0 }} />
+                        ? <img src={`/api/image-proxy?url=${encodeURIComponent(r.thumb)}`} alt="" aria-hidden style={{ width: 32, height: 32, objectFit: "cover", flexShrink: 0 }} />
                         : <div style={{ width: 32, height: 32, background: SUBTLE, flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: MONO, fontSize: "10px", color: "#aaa" }}>{r.name[0]}</div>
                       }
                       <span style={{ fontFamily: MONO, fontSize: "0.72rem", letterSpacing: "0.04em", color: INK }}>{r.name}</span>
@@ -2509,7 +2510,7 @@ export default function DeepDiveClient({
                   >
                     {r.thumb
                       // eslint-disable-next-line @next/next/no-img-element
-                      ? <img src={r.thumb} alt="" aria-hidden style={{ width: 28, height: 28, objectFit: "cover", flexShrink: 0 }} />
+                      ? <img src={`/api/image-proxy?url=${encodeURIComponent(r.thumb)}`} alt="" aria-hidden style={{ width: 28, height: 28, objectFit: "cover", flexShrink: 0 }} />
                       : <div style={{ width: 28, height: 28, background: SUBTLE, flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: MONO, fontSize: "10px", color: "#aaa" }}>{r.name[0]}</div>
                     }
                     <span style={{ fontFamily: MONO, fontSize: "0.72rem", letterSpacing: "0.04em", color: INK }}>{r.name}</span>
