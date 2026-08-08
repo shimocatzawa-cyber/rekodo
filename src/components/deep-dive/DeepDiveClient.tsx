@@ -214,25 +214,26 @@ function RankingsContent({
 
   const albums = data.albums ?? [];
 
-  // Fetch artwork from Discogs for all albums in parallel
+  // Fetch artwork via album-art API (Last.fm → iTunes) — these CDN URLs load
+  // directly in the browser without proxying; the proxy caused 403s for them.
   useEffect(() => {
     if (albums.length === 0) return;
     let cancelled = false;
-    for (const a of albums) {
-      const q = encodeURIComponent(`${artist} ${a.title}`);
-      fetch(`/api/discogs/search?q=${q}&mode=record`)
-        .then(r => r.ok ? r.json() : null)
-        .then((d: { results?: { cover_image?: string; thumb?: string }[] } | null) => {
-          if (cancelled) return;
-          const first = d?.results?.[0];
-          if (!first) return;
-          const url =
-            (first.cover_image && !first.cover_image.includes("spacer")) ? first.cover_image :
-            (first.thumb && !first.thumb.includes("spacer")) ? first.thumb : null;
-          if (url) setArtMap(prev => ({ ...prev, [a.title]: `/api/image-proxy?url=${encodeURIComponent(url)}` }));
-        })
-        .catch(() => {});
-    }
+    Promise.all(
+      albums.map(async (a) => {
+        try {
+          const r = await fetch(
+            `/api/deep-dive/album-art?artist=${encodeURIComponent(artist)}&album=${encodeURIComponent(a.title)}`
+          );
+          const d: { url?: string | null } = r.ok ? await r.json() : {};
+          return [a.title, d.url ?? null] as const;
+        } catch {
+          return [a.title, null] as const;
+        }
+      })
+    ).then((entries) => {
+      if (!cancelled) setArtMap(Object.fromEntries(entries));
+    });
     return () => { cancelled = true; };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [artist, albums.length]);
