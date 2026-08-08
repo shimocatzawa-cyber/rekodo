@@ -411,6 +411,14 @@ function DigCompactPlayer({ previewUrl, albumUri, trackUri, artist, album, recId
   // "Connecting" = we want the SDK, the device isn't ready yet, and no error.
   const sdkConnecting = sdkWanted && !deviceId && !playError;
 
+  // Auto-reconnect when the SDK is stuck connecting — can happen on the album
+  // tab because recommendations load before the device handshake completes.
+  useEffect(() => {
+    if (!sdkConnecting) return;
+    const timer = setTimeout(() => reconnect(), 2000);
+    return () => clearTimeout(timer);
+  }, [sdkConnecting, reconnect]);
+
   const fmt = (ms: number) => {
     const s = Math.floor(ms / 1000);
     return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;

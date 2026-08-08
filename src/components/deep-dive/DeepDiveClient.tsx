@@ -214,26 +214,25 @@ function RankingsContent({
 
   const albums = data.albums ?? [];
 
-  // Fetch artwork for all albums in parallel on mount / artist change
+  // Fetch artwork from Discogs for all albums in parallel
   useEffect(() => {
     if (albums.length === 0) return;
     let cancelled = false;
-    Promise.all(
-      albums.map(async (a) => {
-        try {
-          const r = await fetch(
-            `/api/deep-dive/album-art?artist=${encodeURIComponent(artist)}&album=${encodeURIComponent(a.title)}`
-          );
-          const d = r.ok ? (await r.json() as { url?: string | null }) : {};
-          const raw = d.url ?? null;
-          return [a.title, raw ? `/api/image-proxy?url=${encodeURIComponent(raw)}` : null] as const;
-        } catch {
-          return [a.title, null] as const;
-        }
-      })
-    ).then((entries) => {
-      if (!cancelled) setArtMap(Object.fromEntries(entries));
-    });
+    for (const a of albums) {
+      const q = encodeURIComponent(`${artist} ${a.title}`);
+      fetch(`/api/discogs/search?q=${q}&mode=record`)
+        .then(r => r.ok ? r.json() : null)
+        .then((d: { results?: { cover_image?: string; thumb?: string }[] } | null) => {
+          if (cancelled) return;
+          const first = d?.results?.[0];
+          if (!first) return;
+          const url =
+            (first.cover_image && !first.cover_image.includes("spacer")) ? first.cover_image :
+            (first.thumb && !first.thumb.includes("spacer")) ? first.thumb : null;
+          if (url) setArtMap(prev => ({ ...prev, [a.title]: `/api/image-proxy?url=${encodeURIComponent(url)}` }));
+        })
+        .catch(() => {});
+    }
     return () => { cancelled = true; };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [artist, albums.length]);
@@ -947,10 +946,16 @@ function BlindSpotContent({ data, artist }: { data: { albums?: BlindSpotAlbum[] 
 
   useEffect(() => {
     for (const a of albums) {
-      fetch(`/api/deep-dive/album-art?artist=${encodeURIComponent(artist)}&album=${encodeURIComponent(a.title)}`)
-        .then((r) => (r.ok ? r.json() : null))
-        .then((d: { url?: string } | null) => {
-          if (d?.url) setArtMap((prev) => ({ ...prev, [a.title]: `/api/image-proxy?url=${encodeURIComponent(d.url!)}` }));
+      const q = encodeURIComponent(`${artist} ${a.title}`);
+      fetch(`/api/discogs/search?q=${q}&mode=record`)
+        .then(r => r.ok ? r.json() : null)
+        .then((d: { results?: { cover_image?: string; thumb?: string }[] } | null) => {
+          const first = d?.results?.[0];
+          if (!first) return;
+          const url =
+            (first.cover_image && !first.cover_image.includes("spacer")) ? first.cover_image :
+            (first.thumb && !first.thumb.includes("spacer")) ? first.thumb : null;
+          if (url) setArtMap(prev => ({ ...prev, [a.title]: `/api/image-proxy?url=${encodeURIComponent(url)}` }));
         })
         .catch(() => {});
     }
