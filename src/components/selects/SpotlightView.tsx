@@ -1,13 +1,18 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import type { Spotlight } from "@/lib/spotlights/types";
+import type { Spotlight, SpotlightRelease, SpotlightCell, SpotlightNeighbor } from "@/lib/spotlights/types";
 
 const SERIF  = "var(--font-editorial)";
 const MONO   = "var(--font-mono)";
 const ORANGE = "#CC5500";
 const INK    = "#0a0a0a";
 const RULE   = "#e0e0da";
+
+function renderText(text: string): React.ReactNode {
+  const parts = text.split(/\*([^*]+)\*/g);
+  return parts.map((part, i) => i % 2 === 1 ? <em key={i}>{part}</em> : part);
+}
 
 function SectionEyebrow({ children }: { children: React.ReactNode }) {
   return (
@@ -29,7 +34,7 @@ function SpotlightPanel({ spotlight }: { spotlight: Spotlight }) {
     setFailed(false);
 
     // Use manual image override when set in meta
-    if (spotlight.meta.image_url) {
+    if (spotlight.meta?.image_url) {
       const url = spotlight.meta.image_url;
       setImgUrl(url.startsWith("/") ? url : `/api/image-proxy?url=${encodeURIComponent(url)}`);
       return;
@@ -48,7 +53,7 @@ function SpotlightPanel({ spotlight }: { spotlight: Spotlight }) {
       })
       .catch(() => { if (!cancelled) setFailed(true); });
     return () => { cancelled = true; };
-  }, [spotlight.discogs_id, spotlight.type, spotlight.meta.image_url]);
+  }, [spotlight.discogs_id, spotlight.type, spotlight.meta?.image_url]);
 
   const { meta } = spotlight;
 
@@ -135,10 +140,10 @@ export default function SpotlightView({ spotlight }: { spotlight: Spotlight }) {
     : `If ${spotlight.name} is in your collection`;
   const ownsSubtitle  = spotlight.type === "artist" ? "You might also reach for" : "You might also explore";
 
-  const bio             = Array.isArray(spotlight.bio)             ? spotlight.bio             : [];
-  const releases        = Array.isArray(spotlight.releases)        ? spotlight.releases        : [];
-  const collector_notes = Array.isArray(spotlight.collector_notes) ? spotlight.collector_notes : [];
-  const neighbors       = Array.isArray(spotlight.neighbors)       ? spotlight.neighbors       : [];
+  const bio             = (Array.isArray(spotlight.bio)             ? spotlight.bio             : []).filter((p): p is string => typeof p === "string");
+  const releases        = (Array.isArray(spotlight.releases)        ? spotlight.releases        : []).filter((r): r is SpotlightRelease  => r != null && typeof r === "object");
+  const collector_notes = (Array.isArray(spotlight.collector_notes) ? spotlight.collector_notes : []).filter((c): c is SpotlightCell     => c != null && typeof c === "object");
+  const neighbors       = (Array.isArray(spotlight.neighbors)       ? spotlight.neighbors       : []).filter((n): n is SpotlightNeighbor => n != null && typeof n === "object");
 
   return (
     <div className="rk-spotlight-outer" style={{ display: "flex", gap: 40, alignItems: "flex-start" }}>
@@ -164,7 +169,7 @@ export default function SpotlightView({ spotlight }: { spotlight: Spotlight }) {
           <SectionEyebrow>About</SectionEyebrow>
           {bio.map((para, i) => (
             <p key={i} style={{ fontFamily: MONO, fontSize: "12px", lineHeight: 1.75, color: INK, margin: i < bio.length - 1 ? "0 0 14px" : 0, fontWeight: 400 }}>
-              {para}
+              {renderText(para)}
             </p>
           ))}
         </div>
@@ -200,7 +205,7 @@ export default function SpotlightView({ spotlight }: { spotlight: Spotlight }) {
                     {row.artist ?? row.label}
                   </p>
                   <p style={{ fontFamily: MONO, fontSize: "11px", color: INK, lineHeight: 1.6, margin: 0, fontWeight: 400 }}>
-                    {row.note}
+                    {renderText(row.note)}
                   </p>
                 </div>
                 {row.badge && (
@@ -241,7 +246,7 @@ export default function SpotlightView({ spotlight }: { spotlight: Spotlight }) {
                   {cell.title}
                 </p>
                 <p style={{ fontFamily: MONO, fontSize: "11px", fontWeight: 400, color: INK, lineHeight: 1.6, margin: 0 }}>
-                  {cell.body}
+                  {renderText(cell.body)}
                 </p>
               </div>
             ))}
@@ -278,7 +283,7 @@ export default function SpotlightView({ spotlight }: { spotlight: Spotlight }) {
                     </p>
                   )}
                   <p style={{ fontFamily: MONO, fontSize: "11px", color: INK, lineHeight: 1.6, margin: 0, fontWeight: 400 }}>
-                    {n.reason}
+                    {renderText(n.reason)}
                   </p>
                 </div>
               ))}
