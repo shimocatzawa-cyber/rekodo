@@ -1925,6 +1925,7 @@ function TracklistPanel({ tracks, loading, bandcamp, record, username, collectio
   const [lastPlayed,       setLastPlayed]       = useState<string | null>(record?.last_played_at ?? null);
   const [playCount,        setPlayCount]        = useState<number>(record?.play_count ?? 0);
   const [favouriteTracks,  setFavouriteTracks]  = useState<Set<string>>(new Set(record?.favourite_tracks ?? []));
+  const [hoveredTrackPos,  setHoveredTrackPos]  = useState<string | null>(null);
   const [playedLoading,    setPlayedLoading]    = useState(false);
 
   const [isEssential, setIsEssential] = useState<boolean>(record?.is_essential ?? false);
@@ -2338,21 +2339,26 @@ function TracklistPanel({ tracks, loading, bandcamp, record, username, collectio
                   </div>
                 );
               }
-              const isFav = favouriteTracks.has(t.position);
+              const isFav    = favouriteTracks.has(t.position);
+              const showHeart = isFav || hoveredTrackPos === t.position;
               return (
-                <div key={i} style={{ display: "flex", gap: "10px", padding: "5px 0", borderBottom: "1px solid rgba(0,0,0,0.04)", alignItems: "center" }}>
+                <div
+                  key={i}
+                  onMouseEnter={() => setHoveredTrackPos(t.position)}
+                  onMouseLeave={() => setHoveredTrackPos(null)}
+                  style={{ display: "flex", gap: "10px", padding: "5px 0", borderBottom: "1px solid rgba(0,0,0,0.04)", alignItems: "center" }}
+                >
                   <button
                     onClick={() => handleToggleFavouriteTrack(t.position)}
                     aria-label={isFav ? "Remove from favourites" : "Mark as favourite"}
                     style={{
                       background: "none", border: "none", padding: "0 2px",
                       cursor: "pointer", flexShrink: 0, lineHeight: 1,
-                      color: isFav ? "#CC5500" : "#dedede",
-                      fontSize: "11px",
-                      transition: "color 0.15s",
+                      fontSize: "11px", transition: "opacity 0.15s, color 0.15s",
+                      color: isFav ? "#CC5500" : "#bbbbbb",
+                      opacity: showHeart ? 1 : 0,
+                      pointerEvents: showHeart ? "auto" : "none",
                     }}
-                    onMouseEnter={e => { if (!isFav) (e.currentTarget as HTMLButtonElement).style.color = "#bbbbbb"; }}
-                    onMouseLeave={e => { if (!isFav) (e.currentTarget as HTMLButtonElement).style.color = "#dedede"; }}
                   >
                     ♥
                   </button>
