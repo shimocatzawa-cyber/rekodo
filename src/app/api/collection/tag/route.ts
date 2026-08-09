@@ -7,14 +7,14 @@ export async function PATCH(request: NextRequest) {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  let body: { recordId?: unknown; is_essential?: unknown; feeling?: unknown; memory_text?: unknown; tags?: unknown };
+  let body: { recordId?: unknown; is_essential?: unknown; feeling?: unknown; memory_text?: unknown; tags?: unknown; favourite_tracks?: unknown };
   try {
     body = await request.json();
   } catch {
     return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
   }
 
-  const { recordId, is_essential, feeling, memory_text, tags } = body;
+  const { recordId, is_essential, feeling, memory_text, tags, favourite_tracks } = body;
   if (typeof recordId !== "string" || !recordId) {
     return NextResponse.json({ error: "Missing recordId" }, { status: 400 });
   }
@@ -54,6 +54,13 @@ export async function PATCH(request: NextRequest) {
       return NextResponse.json({ error: "Maximum 20 tags per record" }, { status: 400 });
     }
     update.tags = tags;
+  }
+
+  if (favourite_tracks !== undefined) {
+    if (!Array.isArray(favourite_tracks) || favourite_tracks.some(t => typeof t !== "string")) {
+      return NextResponse.json({ error: "favourite_tracks must be an array of strings" }, { status: 400 });
+    }
+    update.favourite_tracks = favourite_tracks;
   }
 
   if (Object.keys(update).length === 0) {

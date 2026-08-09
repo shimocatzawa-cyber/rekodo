@@ -2143,12 +2143,11 @@ function TracklistPanel({ tracks, loading, bandcamp, record, username, collectio
     if (next.has(position)) next.delete(position);
     else next.add(position);
     setFavouriteTracks(next);
-    // RLS ensures only the authenticated user's row is updated
-    const supabase = createClient();
-    await (supabase as any)
-      .from("user_records")
-      .update({ favourite_tracks: [...next] })
-      .eq("record_id", record.id);
+    await fetch("/api/collection/tag", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ recordId: record.id, favourite_tracks: [...next] }),
+    });
   }
 
   const baseLinkStyle: React.CSSProperties = {
