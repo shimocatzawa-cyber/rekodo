@@ -72,6 +72,7 @@ export type CollectionRecord = {
   community_num_for_sale: number | null;
   last_played_at:         string | null;
   play_count:             number;
+  favourite_tracks:       string[];
   open_to_offers:         boolean | null;
   is_essential:           boolean | null;
   feeling:                string | null;
@@ -112,9 +113,10 @@ export type LinkRow = {
   price_currency:   string | null;
   media_condition:  string | null;
   sleeve_condition: string | null;
-  last_played_at:   string | null;
-  play_count:       number;
-  open_to_offers:   boolean | null;
+  last_played_at:    string | null;
+  play_count:        number;
+  favourite_tracks:  string[];
+  open_to_offers:    boolean | null;
   is_essential:     boolean | null;
   feeling:          string | null;
   memory_text:      string | null;
@@ -154,7 +156,7 @@ async function fetchCollectionRaw(userId: string): Promise<{ allLinks: LinkRow[]
   for (let from = 0; ; from += PAGE) {
     const { data, error } = await admin
       .from("user_records")
-      .select("record_id, created_at, value, price_low, price_median, price_currency, media_condition, sleeve_condition, last_played_at, play_count, open_to_offers, is_essential, feeling, memory_text, copies, tags, date_added")
+      .select("record_id, created_at, value, price_low, price_median, price_currency, media_condition, sleeve_condition, last_played_at, play_count, favourite_tracks, open_to_offers, is_essential, feeling, memory_text, copies, tags, date_added")
       .eq("user_id", userId)
       .order("created_at", { ascending: false })
       .range(from, from + PAGE - 1);
@@ -324,7 +326,8 @@ export default async function CollectionPage({
   ]));
 
   const lastPlayedMap    = new Map<string, string | null>(allLinks.map((l) => [l.record_id, l.last_played_at ?? null]));
-  const playCountMap     = new Map<string, number>(allLinks.map((l) => [l.record_id, l.play_count ?? 0]));
+  const playCountMap        = new Map<string, number>(allLinks.map((l) => [l.record_id, l.play_count ?? 0]));
+  const favouriteTracksMap  = new Map<string, string[]>(allLinks.map((l) => [l.record_id, l.favourite_tracks ?? []]));
   const openToOffersMap  = new Map<string, boolean | null>(allLinks.map((l) => [l.record_id, l.open_to_offers ?? null]));
   const isEssentialMap   = new Map<string, boolean | null>(allLinks.map((l) => [l.record_id, l.is_essential ?? null]));
   const feelingMap       = new Map<string, string | null>(allLinks.map((l) => [l.record_id, l.feeling ?? null]));
@@ -334,7 +337,7 @@ export default async function CollectionPage({
   const copiesMap    = new Map<string, number>(allLinks.map((l) => [l.record_id, l.copies ?? 1]));
   const dateAddedMap = new Map<string, string | null>(allLinks.map((l) => [l.record_id, l.date_added ?? null]));
 
-  type RecordsMapValue = Omit<CollectionRecord, "value" | "price_low" | "price_median" | "price_currency" | "media_condition" | "sleeve_condition" | "last_played_at" | "play_count" | "open_to_offers" | "is_essential" | "feeling" | "memory_text" | "tags" | "copies" | "date_added">;
+  type RecordsMapValue = Omit<CollectionRecord, "value" | "price_low" | "price_median" | "price_currency" | "media_condition" | "sleeve_condition" | "last_played_at" | "play_count" | "favourite_tracks" | "open_to_offers" | "is_essential" | "feeling" | "memory_text" | "tags" | "copies" | "date_added">;
   const recordsMap = new Map<string, RecordsMapValue>();
   for (const r of recordRows) recordsMap.set(r.id, r as unknown as RecordsMapValue);
 
@@ -354,8 +357,9 @@ export default async function CollectionPage({
         community_have:         r.community_have         ?? null,
         community_want:         r.community_want         ?? null,
         community_num_for_sale: r.community_num_for_sale ?? null,
-        last_played_at:         lastPlayedMap.get(id)    ?? null,
-        play_count:             playCountMap.get(id)     ?? 0,
+        last_played_at:         lastPlayedMap.get(id)       ?? null,
+        play_count:             playCountMap.get(id)        ?? 0,
+        favourite_tracks:       favouriteTracksMap.get(id)  ?? [],
         open_to_offers:         openToOffersMap.get(id)  ?? null,
         is_essential:           isEssentialMap.get(id)   ?? null,
         feeling:                feelingMap.get(id)       ?? null,

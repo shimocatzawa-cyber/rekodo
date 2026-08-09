@@ -372,6 +372,7 @@ export default function CollectionClient({
         date_added:       string | null;
         last_played_at:   string | null;
         play_count:       number | null;
+        favourite_tracks: string[] | null;
       };
       const allLinks: LinkRow[] = [];
       const PAGE = 1000;
@@ -379,7 +380,7 @@ export default function CollectionClient({
         const { data, error } = await supabase
           .from("user_records")
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          .select("record_id, value, price_low, price_median, price_currency, media_condition, sleeve_condition, open_to_offers, is_essential, feeling, memory_text, copies, tags, date_added, last_played_at, play_count" as any)
+          .select("record_id, value, price_low, price_median, price_currency, media_condition, sleeve_condition, open_to_offers, is_essential, feeling, memory_text, copies, tags, date_added, last_played_at, play_count, favourite_tracks" as any)
           .eq("user_id", user.id)
           .range(from, from + PAGE - 1);
         if (!data || data.length === 0) break;
@@ -401,10 +402,11 @@ export default function CollectionClient({
       const clientTagsMap      = new Map<string, string[]>(allLinks.map((l) => [l.record_id, l.tags ?? []]));
       const clientCopiesMap    = new Map<string, number>(allLinks.map((l) => [l.record_id, l.copies ?? 1]));
       const clientDateAddedMap = new Map<string, string | null>(allLinks.map((l) => [l.record_id, l.date_added ?? null]));
-      const lastPlayedClientMap = new Map<string, string | null>(allLinks.map((l) => [l.record_id, l.last_played_at ?? null]));
-      const playCountClientMap  = new Map<string, number>(allLinks.map((l) => [l.record_id, l.play_count ?? 0]));
+      const lastPlayedClientMap      = new Map<string, string | null>(allLinks.map((l) => [l.record_id, l.last_played_at ?? null]));
+      const playCountClientMap       = new Map<string, number>(allLinks.map((l) => [l.record_id, l.play_count ?? 0]));
+      const favouriteTracksClientMap = new Map<string, string[]>(allLinks.map((l) => [l.record_id, l.favourite_tracks ?? []]));
       const BATCH        = 400;
-      const recordsMap   = new Map<string, Omit<CollectionRecord, "value" | "price_low" | "price_low_usd" | "price_median" | "price_currency" | "media_condition" | "sleeve_condition" | "last_played_at" | "play_count" | "open_to_offers" | "is_essential" | "feeling" | "memory_text" | "tags" | "copies" | "date_added">>();
+      const recordsMap   = new Map<string, Omit<CollectionRecord, "value" | "price_low" | "price_low_usd" | "price_median" | "price_currency" | "media_condition" | "sleeve_condition" | "last_played_at" | "play_count" | "favourite_tracks" | "open_to_offers" | "is_essential" | "feeling" | "memory_text" | "tags" | "copies" | "date_added">>();
       for (let i = 0; i < recordIds.length; i += BATCH) {
         const { data, error } = await supabase
           .from("records")
@@ -433,8 +435,9 @@ export default function CollectionClient({
             tags:             clientTagsMap.get(id)         ?? [],
             copies:           clientCopiesMap.get(id)       ?? 1,
             date_added:       clientDateAddedMap.get(id)    ?? null,
-            last_played_at:   lastPlayedClientMap.get(id)   ?? null,
-            play_count:       playCountClientMap.get(id)    ?? 0,
+            last_played_at:   lastPlayedClientMap.get(id)        ?? null,
+            play_count:       playCountClientMap.get(id)         ?? 0,
+            favourite_tracks: favouriteTracksClientMap.get(id)   ?? [],
           };
         })
         .filter((r): r is CollectionRecord => r !== undefined);
@@ -1919,9 +1922,10 @@ function TracklistPanel({ tracks, loading, bandcamp, record, username, collectio
   const amSearch    = `https://music.apple.com/search?term=${encodeURIComponent(`${artist} ${album}`)}`;
   const tidalSearch = `https://tidal.com/search?q=${encodeURIComponent(`${artist} ${album}`)}`;
 
-  const [lastPlayed, setLastPlayed] = useState<string | null>(record?.last_played_at ?? null);
-  const [playCount,  setPlayCount]  = useState<number>(record?.play_count ?? 0);
-  const [playedLoading, setPlayedLoading] = useState(false);
+  const [lastPlayed,       setLastPlayed]       = useState<string | null>(record?.last_played_at ?? null);
+  const [playCount,        setPlayCount]        = useState<number>(record?.play_count ?? 0);
+  const [favouriteTracks,  setFavouriteTracks]  = useState<Set<string>>(new Set(record?.favourite_tracks ?? []));
+  const [playedLoading,    setPlayedLoading]    = useState(false);
 
   const [isEssential, setIsEssential] = useState<boolean>(record?.is_essential ?? false);
   const [essentialLoading, setEssentialLoading] = useState(false);
@@ -1936,7 +1940,8 @@ function TracklistPanel({ tracks, loading, bandcamp, record, username, collectio
   useEffect(() => {
     setLastPlayed(record?.last_played_at ?? null);
     setPlayCount(record?.play_count ?? 0);
-  }, [record?.id, record?.last_played_at, record?.play_count]);
+    setFavouriteTracks(new Set(record?.favourite_tracks ?? []));
+  }, [record?.id, record?.last_played_at, record?.play_count, record?.favourite_tracks]);
 
   useEffect(() => {
     setIsEssential(record?.is_essential ?? false);
@@ -2125,6 +2130,20 @@ function TracklistPanel({ tracks, loading, bandcamp, record, username, collectio
 
   function formatLastPlayed(iso: string): string {
     return new Date(iso).toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" });
+  }
+
+  async function handleToggleFavouriteTrack(position: string) {
+    if (!record?.id) return;
+    const next = new Set(favouriteTracks);
+    if (next.has(position)) next.delete(position);
+    else next.add(position);
+    setFavouriteTracks(next);
+    // RLS ensures only the authenticated user's row is updated
+    const supabase = createClient();
+    await (supabase as any)
+      .from("user_records")
+      .update({ favourite_tracks: [...next] })
+      .eq("record_id", record.id);
   }
 
   const baseLinkStyle: React.CSSProperties = {
@@ -2319,12 +2338,28 @@ function TracklistPanel({ tracks, loading, bandcamp, record, username, collectio
                   </div>
                 );
               }
+              const isFav = favouriteTracks.has(t.position);
               return (
-                <div key={i} style={{ display: "flex", gap: "14px", padding: "5px 0", borderBottom: "1px solid rgba(0,0,0,0.04)", alignItems: "baseline" }}>
-                  <span style={{ fontFamily: MONO, fontSize: "9px", color: "#cccccc", width: "26px", flexShrink: 0, textAlign: "right" }}>
+                <div key={i} style={{ display: "flex", gap: "10px", padding: "5px 0", borderBottom: "1px solid rgba(0,0,0,0.04)", alignItems: "center" }}>
+                  <button
+                    onClick={() => handleToggleFavouriteTrack(t.position)}
+                    aria-label={isFav ? "Remove from favourites" : "Mark as favourite"}
+                    style={{
+                      background: "none", border: "none", padding: "0 2px",
+                      cursor: "pointer", flexShrink: 0, lineHeight: 1,
+                      color: isFav ? "#CC5500" : "#dedede",
+                      fontSize: "11px",
+                      transition: "color 0.15s",
+                    }}
+                    onMouseEnter={e => { if (!isFav) (e.currentTarget as HTMLButtonElement).style.color = "#bbbbbb"; }}
+                    onMouseLeave={e => { if (!isFav) (e.currentTarget as HTMLButtonElement).style.color = "#dedede"; }}
+                  >
+                    ♥
+                  </button>
+                  <span style={{ fontFamily: MONO, fontSize: "9px", color: isFav ? "#CC5500" : "#cccccc", width: "26px", flexShrink: 0, textAlign: "right" }}>
                     {t.position}
                   </span>
-                  <span style={{ fontFamily: MONO, fontSize: "12px", color: "#1a1a1a", flex: 1, letterSpacing: "0.01em", lineHeight: 1.3 }}>
+                  <span style={{ fontFamily: MONO, fontSize: "12px", color: isFav ? "#0d0d0d" : "#1a1a1a", flex: 1, letterSpacing: "0.01em", lineHeight: 1.3, fontWeight: isFav ? 500 : 400 }}>
                     {t.title}
                   </span>
                   {t.duration && (
