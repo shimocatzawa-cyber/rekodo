@@ -99,6 +99,7 @@ export interface InsightsProps {
     deepDiveCount:       number;
     listsTotal:          number;
     listLikes:           number;
+    gigsLogged:          number;
     playsLast7Days:      number;
     totalPlays:          number;
     uniqueRecordsPlayed: number;

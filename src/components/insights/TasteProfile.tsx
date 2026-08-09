@@ -38,6 +38,7 @@ interface TasteProfileProps {
     deepDiveCount:       number;
     listsTotal:          number;
     listLikes:           number;
+    gigsLogged:          number;
     playsLast7Days:      number;
     totalPlays:          number;
     uniqueRecordsPlayed: number;
@@ -330,7 +331,7 @@ export default function TasteProfile({
           { hero: usageStats.digStyle.toLocaleString(),      label: "Digs · By Style" },
           { hero: usageStats.deepDiveCount.toLocaleString(), label: "Deep Dives" },
           { hero: usageStats.listsTotal.toLocaleString(),    label: "Lists Created" },
-          { hero: usageStats.listLikes.toLocaleString(),     label: "List Likes" },
+          { hero: usageStats.gigsLogged.toLocaleString(),   label: "Gigs Logged" },
         ].map((tile, i) => (
           <div key={i} style={{
             padding: "16px 18px",

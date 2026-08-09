@@ -1210,6 +1210,12 @@ export default async function InsightsPage() {
     listLikes = likesCount ?? 0;
   }
 
+  const { count: gigsLoggedRaw } = await (supabase as any)
+    .from("gigs")
+    .select("*", { count: "exact", head: true })
+    .eq("user_id", user.id) as { count: number | null };
+  const gigsLogged = gigsLoggedRaw ?? 0;
+
   const { data: archetypeCache } = await (supabase as any)
     .from("archetype_cache")
     .select("primary_archetype, shadow_archetype, primary_score, archetype_scores")
@@ -1241,6 +1247,7 @@ export default async function InsightsPage() {
     deepDiveCount,
     listsTotal,
     listLikes,
+    gigsLogged,
     playsLast7Days,
     totalPlays,
     uniqueRecordsPlayed,
