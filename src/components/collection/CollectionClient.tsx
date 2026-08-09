@@ -1930,6 +1930,7 @@ function TracklistPanel({ tracks, loading, bandcamp, record, username, collectio
   const [playCount,        setPlayCount]        = useState<number>(record?.play_count ?? 0);
   const [favouriteTracks,  setFavouriteTracks]  = useState<Set<string>>(new Set(record?.favourite_tracks ?? []));
   const [hoveredTrackPos,  setHoveredTrackPos]  = useState<string | null>(null);
+  const favouriteTogglingRef = useRef(new Set<string>());
   const [playedLoading,    setPlayedLoading]    = useState(false);
 
   const [isEssential, setIsEssential] = useState<boolean>(record?.is_essential ?? false);
@@ -2138,19 +2139,24 @@ function TracklistPanel({ tracks, loading, bandcamp, record, username, collectio
   }
 
   async function handleToggleFavouriteTrack(position: string) {
-    if (!record?.id) return;
+    if (!record?.id || favouriteTogglingRef.current.has(position)) return;
+    favouriteTogglingRef.current.add(position);
+    const wasFav = favouriteTracks.has(position);
     const next = new Set(favouriteTracks);
-    if (next.has(position)) next.delete(position);
-    else next.add(position);
+    if (wasFav) next.delete(position); else next.add(position);
     setFavouriteTracks(next);
-    const res = await fetch("/api/collection/tag", {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ recordId: record.id, favourite_tracks: [...next] }),
-    });
-    if (!res.ok) {
-      const err = await res.json().catch(() => ({}));
-      console.error("[favourite_tracks] save failed:", res.status, err);
+    try {
+      const res = await fetch("/api/collection/tag", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ recordId: record.id, favourite_tracks: [...next] }),
+      });
+      if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error ?? "save failed");
+    } catch (err) {
+      console.error("[favourite_tracks]", err);
+      setFavouriteTracks((prev) => { const r = new Set(prev); if (wasFav) r.add(position); else r.delete(position); return r; });
+    } finally {
+      favouriteTogglingRef.current.delete(position);
     }
   }
 
