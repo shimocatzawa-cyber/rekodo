@@ -36,18 +36,30 @@ export default async function DigPage() {
   // Distinct styles + explore picks — powers Style Dig tab and pre-computes
   // the first Inside Collection load so it's instant (no API call needed).
   // Also provides copies for an accurate collection total.
-  const { data: styleLinks } = await supabase
-    .from("user_records")
-    .select("record_id, copies")
-    .eq("user_id", user.id)
-    .limit(5000);
+  // Paginate to avoid the PostgREST 1000-row hard cap (max_rows = 1000).
+  const styleLinks: { record_id: string; copies: number }[] = [];
+  {
+    const PAGE = 400;
+    let page = 0;
+    while (true) {
+      const { data: batch } = await supabase
+        .from("user_records")
+        .select("record_id, copies")
+        .eq("user_id", user.id)
+        .range(page * PAGE, (page + 1) * PAGE - 1);
+      if (!batch || batch.length === 0) break;
+      styleLinks.push(...batch);
+      if (batch.length < PAGE) break;
+      page++;
+    }
+  }
 
-  const styleRecordIds = (styleLinks ?? []).map((l: { record_id: string }) => l.record_id);
-  const collectionCount = (styleLinks ?? []).reduce((s: number, l: { copies: number }) => s + (l.copies ?? 1), 0);
+  const styleRecordIds = styleLinks.map((l: { record_id: string }) => l.record_id);
+  const collectionCount = styleLinks.reduce((s: number, l: { copies: number }) => s + (l.copies ?? 1), 0);
 
   // Quiz profile (active, non-archived) — for users with no collection yet
   let hasQuizProfile = false;
-  if (styleRecordIds.length === 0) {
+  if (styleLinks.length === 0) {
     const { data: quizRow } = await (supabase as any)
       .from("user_quiz_profile")
       .select("id")
@@ -187,7 +199,7 @@ export default async function DigPage() {
       hasQuizProfile={hasQuizProfile}
       initialExplorePicks={initialExplorePicks}
       isAdmin={isAdmin}
-      collectionAlbums={isAdmin ? collectionAlbums : undefined}
+      collectionAlbums={collectionAlbums}
     />
   );
 }

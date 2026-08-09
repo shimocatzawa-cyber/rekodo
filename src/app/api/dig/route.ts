@@ -158,11 +158,6 @@ export async function POST(request: Request) {
   const isAdminUser = profileRow?.role === "admin";
   const isSupporter = !!profileRow?.is_supporter || isAdminUser;
 
-  // Album Dig is admin-only — gate at API level too
-  if (mode === "album" && !isAdminUser) {
-    return Response.json({ error: "Not authorized" }, { status: 403 });
-  }
-
   if (!isSupporter && mode !== "discover") {
     const today = new Date().toISOString().slice(0, 10);
     const { data: countRows } = await (supabase as any)
@@ -170,7 +165,7 @@ export async function POST(request: Request) {
       .select("count")
       .eq("user_id", user.id)
       .eq("date", today)
-      .in("mode", ["explore", "style"]) as { data: { count: number }[] | null };
+      .in("mode", ["explore", "style", "album"]) as { data: { count: number }[] | null };
     const used = (countRows ?? []).reduce((sum, r) => sum + (r.count ?? 0), 0);
     if (used >= FREE_DIG_LIMIT) {
       return Response.json({ error: "daily_limit_reached", used, limit: FREE_DIG_LIMIT }, { status: 429 });

@@ -909,7 +909,7 @@ function ModeToggle({ mode, onChange, disabled, isAdmin }: {
       {item("explore",  t("insideCollection"))}
       {item("discover", t("outsideCollection"))}
       {item("style",    t("styleDig"))}
-      {isAdmin && item("album", "Album Dig")}
+      {item("album", "Album Dig")}
       {item("history",  t("digHistory"))}
     </div>
   );
@@ -1449,7 +1449,7 @@ export default function DigClient({ userId, username, displayLabel, avatarUrl, c
                     2 outside digs per day
                   </p>
                   <p style={{ fontFamily: MONO, fontSize: "0.6rem", color: "#666", margin: "4px 0 16px", lineHeight: 1.7 }}>
-                    Free accounts get 2 Outside Collection &amp; Style digs per day.<br />
+                    Free accounts get 2 Outside Collection, Style &amp; Album digs per day.<br />
                     Inside Collection digs are always free.<br />
                     Support rek<span style={{ color: ORANGE }}>ō</span>do for unlimited access.
                   </p>
