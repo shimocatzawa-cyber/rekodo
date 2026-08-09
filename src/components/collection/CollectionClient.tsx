@@ -370,6 +370,8 @@ export default function CollectionClient({
         copies:           number | null;
         tags:             string[] | null;
         date_added:       string | null;
+        last_played_at:   string | null;
+        play_count:       number | null;
       };
       const allLinks: LinkRow[] = [];
       const PAGE = 1000;
@@ -377,7 +379,7 @@ export default function CollectionClient({
         const { data, error } = await supabase
           .from("user_records")
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          .select("record_id, value, price_low, price_median, price_currency, media_condition, sleeve_condition, open_to_offers, is_essential, feeling, memory_text, copies, tags, date_added" as any)
+          .select("record_id, value, price_low, price_median, price_currency, media_condition, sleeve_condition, open_to_offers, is_essential, feeling, memory_text, copies, tags, date_added, last_played_at, play_count" as any)
           .eq("user_id", user.id)
           .range(from, from + PAGE - 1);
         if (!data || data.length === 0) break;
@@ -399,8 +401,10 @@ export default function CollectionClient({
       const clientTagsMap      = new Map<string, string[]>(allLinks.map((l) => [l.record_id, l.tags ?? []]));
       const clientCopiesMap    = new Map<string, number>(allLinks.map((l) => [l.record_id, l.copies ?? 1]));
       const clientDateAddedMap = new Map<string, string | null>(allLinks.map((l) => [l.record_id, l.date_added ?? null]));
+      const lastPlayedClientMap = new Map<string, string | null>(allLinks.map((l) => [l.record_id, l.last_played_at ?? null]));
+      const playCountClientMap  = new Map<string, number>(allLinks.map((l) => [l.record_id, l.play_count ?? 0]));
       const BATCH        = 400;
-      const recordsMap   = new Map<string, Omit<CollectionRecord, "value" | "price_low" | "price_low_usd" | "price_median" | "price_currency" | "media_condition" | "sleeve_condition" | "open_to_offers" | "is_essential" | "feeling" | "memory_text" | "tags" | "copies" | "date_added">>();
+      const recordsMap   = new Map<string, Omit<CollectionRecord, "value" | "price_low" | "price_low_usd" | "price_median" | "price_currency" | "media_condition" | "sleeve_condition" | "last_played_at" | "play_count" | "open_to_offers" | "is_essential" | "feeling" | "memory_text" | "tags" | "copies" | "date_added">>();
       for (let i = 0; i < recordIds.length; i += BATCH) {
         const { data, error } = await supabase
           .from("records")
@@ -426,9 +430,11 @@ export default function CollectionClient({
             is_essential:     isEssentialMap.get(id)     ?? null,
             feeling:          feelingMap.get(id)         ?? null,
             memory_text:      memoryTextMap.get(id)      ?? null,
-            tags:             clientTagsMap.get(id)      ?? [],
-            copies:           clientCopiesMap.get(id)    ?? 1,
-            date_added:       clientDateAddedMap.get(id) ?? null,
+            tags:             clientTagsMap.get(id)         ?? [],
+            copies:           clientCopiesMap.get(id)       ?? 1,
+            date_added:       clientDateAddedMap.get(id)    ?? null,
+            last_played_at:   lastPlayedClientMap.get(id)   ?? null,
+            play_count:       playCountClientMap.get(id)    ?? 0,
           };
         })
         .filter((r): r is CollectionRecord => r !== undefined);
@@ -1914,6 +1920,7 @@ function TracklistPanel({ tracks, loading, bandcamp, record, username, collectio
   const tidalSearch = `https://tidal.com/search?q=${encodeURIComponent(`${artist} ${album}`)}`;
 
   const [lastPlayed, setLastPlayed] = useState<string | null>(record?.last_played_at ?? null);
+  const [playCount,  setPlayCount]  = useState<number>(record?.play_count ?? 0);
   const [playedLoading, setPlayedLoading] = useState(false);
 
   const [isEssential, setIsEssential] = useState<boolean>(record?.is_essential ?? false);
@@ -1928,7 +1935,8 @@ function TracklistPanel({ tracks, loading, bandcamp, record, username, collectio
   // Sync when selected record changes
   useEffect(() => {
     setLastPlayed(record?.last_played_at ?? null);
-  }, [record?.id, record?.last_played_at]);
+    setPlayCount(record?.play_count ?? 0);
+  }, [record?.id, record?.last_played_at, record?.play_count]);
 
   useEffect(() => {
     setIsEssential(record?.is_essential ?? false);
@@ -2109,6 +2117,7 @@ function TracklistPanel({ tracks, loading, bandcamp, record, username, collectio
       });
       const json = await res.json() as { last_played_at?: string };
       if (json.last_played_at) setLastPlayed(json.last_played_at);
+      setPlayCount(prev => prev + 1);
     } finally {
       setPlayedLoading(false);
     }
@@ -2271,9 +2280,11 @@ function TracklistPanel({ tracks, loading, bandcamp, record, username, collectio
             </div>
 
           </div>
-          {lastPlayed && (
+          {(lastPlayed || playCount > 0) && (
             <p style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.08em", color: "#aaaaaa", margin: "6px 0 0" }}>
-              Last played: {formatLastPlayed(lastPlayed)}
+              {lastPlayed && `Last played: ${formatLastPlayed(lastPlayed)}`}
+              {lastPlayed && playCount > 0 && " · "}
+              {playCount > 0 && `${playCount} ${playCount === 1 ? "play" : "plays"}`}
             </p>
           )}
         </div>
