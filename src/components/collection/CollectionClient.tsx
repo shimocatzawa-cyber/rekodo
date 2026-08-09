@@ -316,7 +316,12 @@ export default function CollectionClient({
   const [filterDesirability, setFilterDesirability] = useState("");
   const [filterFeeling,      setFilterFeeling]      = useState("");
   const [filterTag,          setFilterTag]          = useState("");
-  const [sortBy,             setSortBy]             = useState("artist-az");
+  const [sortBy,             setSortBy]             = useState<string>(() => {
+    try { return localStorage.getItem("collection-sort") ?? "artist-az"; } catch { return "artist-az"; }
+  });
+  useEffect(() => {
+    try { localStorage.setItem("collection-sort", sortBy); } catch { /* private browsing */ }
+  }, [sortBy]);
 
   // Deferred values: filter/sort re-renders are treated as non-urgent so the
   // input field updates instantly while the expensive re-filter runs async.
