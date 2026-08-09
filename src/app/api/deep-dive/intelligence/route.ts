@@ -110,7 +110,7 @@ function getSupabase() {
 // hallucinated "final album" claims (e.g. Kikagaku Moyo's Stone Garden ≠ their
 // final LP — Kumoyo Island (2022) is, but Claude placed Stone Garden last).
 
-type DiscogsAlbum = { title: string; year: number };
+type DiscogsAlbum = { title: string; year: number; formatVerified: boolean };
 
 async function fetchDiscogsDiscography(artistName: string): Promise<DiscogsAlbum[]> {
   try {
@@ -173,7 +173,8 @@ async function fetchDiscogsDiscography(artistName: string): Promise<DiscogsAlbum
       const norm = r.title.toLowerCase().trim();
       if (seen.has(norm)) continue;
       seen.add(norm);
-      out.push({ title: r.title, year: r.year });
+      const formatVerified = fmt ? (fmt.includes("lp") || fmt.includes("album")) : false;
+      out.push({ title: r.title, year: r.year, formatVerified });
     }
     return out;
   } catch {
@@ -714,8 +715,17 @@ async function writeCache(artist: string, section: string, data: unknown): Promi
 
 const PROMPTS: Record<string, (artist: string, ownedAlbums?: string[], discogsAlbums?: DiscogsAlbum[]) => string> = {
   rankings: (artist, ownedAlbums = [], discogsAlbums = []) => {
+    const confirmed   = discogsAlbums.filter(a => a.formatVerified);
+    const unverified  = discogsAlbums.filter(a => !a.formatVerified);
     const verifiedBlock = discogsAlbums.length > 0
-      ? `\nVERIFIED CATALOGUE from Discogs — accurate titles and release years. You MUST only rank albums present in this list:\n${discogsAlbums.map(a => `- ${a.year}: ${a.title}`).join("\n")}\n`
+      ? [
+          confirmed.length > 0
+            ? `\nCONFIRMED STUDIO ALBUMS (Discogs format verified as LP/Album) — rank ONLY from this list:\n${confirmed.map(a => `- ${a.year}: ${a.title}`).join("\n")}`
+            : "",
+          unverified.length > 0
+            ? `\nUNVERIFIED ENTRIES (no format metadata — may be singles, EPs or demos). Include ONLY if you are certain from your own knowledge this is a full-length studio LP with 7+ distinct tracks. When in doubt, EXCLUDE:\n${unverified.map(a => `- ${a.year}: ${a.title}`).join("\n")}`
+            : "",
+        ].filter(Boolean).join("\n") + "\n"
       : "";
     const ownedBlock = ownedAlbums.length > 0
       ? `\nALBUMS THIS COLLECTOR OWNS — include as many of these as possible in the ranking:\n${ownedAlbums.map(a => `- ${a}`).join("\n")}\n`
@@ -724,8 +734,9 @@ const PROMPTS: Record<string, (artist: string, ownedAlbums?: string[], discogsAl
 ${verifiedBlock}
 CRITICAL ACCURACY RULES:
 ${discogsAlbums.length > 0
-  ? `- The VERIFIED CATALOGUE above may contain singles, EPs, and individual song titles alongside full-length albums. You MUST only rank full-length studio albums (typically 8+ tracks, released as LP). Discard any entry that is a single track title, a 7" or 12" single, an EP, a compilation, a live record, or a remix album — even if it appears in the catalogue list.
-- SONG TITLE TRAP: If a catalogue entry title matches (or closely resembles) a well-known song by ${artist}, it is almost certainly a single release — not a standalone album. Exclude it. Do not write a description for it.`
+  ? `- You MUST only rank full-length studio albums (8+ tracks, released as LP). Discard any entry that is a single track, a 7" or 12" single, an EP, a compilation, a live record, or a remix album.
+- SONG TITLE TRAP: If a title matches (or closely resembles) a well-known song by ${artist}, it is almost certainly a single — not a standalone album. Exclude it.
+- UNVERIFIED ENTRIES TRAP: Treat any title in the UNVERIFIED ENTRIES list with extreme suspicion. Only include it if you can recall specific critical reviews or collector discussion that confirms it as a full studio LP. If you have any doubt at all, exclude it.`
   : `- Only include full-length studio albums you are certain exist. If unsure, omit it.`}
 - Use the year from the VERIFIED CATALOGUE exactly — do not guess or alter release years.
 - Do not confuse ${artist} with any other artist.
@@ -881,7 +892,7 @@ export async function getOrGenerateSection(
     const rankingsData = await readCache(artist, "rankings");
     if (rankingsData && typeof rankingsData === "object" && Array.isArray((rankingsData as { albums?: unknown }).albums)) {
       discogsAlbums = ((rankingsData as { albums: { title: string; year: number }[] }).albums)
-        .map(a => ({ title: a.title, year: a.year }));
+        .map(a => ({ title: a.title, year: a.year, formatVerified: true }));
     }
   }
 
