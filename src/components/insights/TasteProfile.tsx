@@ -29,7 +29,8 @@ interface TasteProfileProps {
   vinylColourBreakdown: { colour: string; count: number; pct: number }[];
   spectrum:             SpectrumData;
   topPlayedRecords:     { artist: string; album: string; coverUrl: string | null; lastPlayedAt: string; playCount: number }[];
-  playedStyleBreakdown: { style: string; count: number; pct: number }[];
+  playedStyleBreakdown:   { style: string; count: number; pct: number }[];
+  playedFeelingBreakdown: { feeling: string; count: number; pct: number }[];
   usageStats: {
     digDiscover:         number;
     digExplore:          number;
@@ -196,7 +197,7 @@ function StyleLegend({ data }: { data: { style: string; count: number; pct: numb
 
 export default function TasteProfile({
   username, styleBreakdown, hasStyles, vinylColourBreakdown, spectrum,
-  topPlayedRecords, playedStyleBreakdown, usageStats,
+  topPlayedRecords, playedStyleBreakdown, playedFeelingBreakdown, usageStats,
 }: TasteProfileProps) {
   const [showSpectrumShare, setShowSpectrumShare] = useState(false);
   const maxStylePct = styleBreakdown[0]?.pct ?? 100;
@@ -285,15 +286,27 @@ export default function TasteProfile({
               </div>
             </div>
 
-            {/* Played by Style donut */}
-            <div>
-              <SubLabel>Played by style</SubLabel>
-              {playedStyleBreakdown.length === 0 ? (
-                <p style={{ fontFamily: MONO, fontSize: "11px", letterSpacing: "0.04em", color: "#aaaaaa", margin: 0 }}>
-                  Style data will appear once your played records have been enriched.
-                </p>
-              ) : (
-                <StyleLegend data={playedStyleBreakdown} />
+            {/* Played by Style + Feeling */}
+            <div style={{ display: "flex", flexDirection: "column", gap: "32px" }}>
+              <div>
+                <SubLabel>Played by style</SubLabel>
+                {playedStyleBreakdown.length === 0 ? (
+                  <p style={{ fontFamily: MONO, fontSize: "11px", letterSpacing: "0.04em", color: "#aaaaaa", margin: 0 }}>
+                    Style data will appear once your played records have been enriched.
+                  </p>
+                ) : (
+                  <StyleLegend data={playedStyleBreakdown} />
+                )}
+              </div>
+              {playedFeelingBreakdown.length > 0 && (
+                <div>
+                  <SubLabel>Played by feeling</SubLabel>
+                  <StyleLegend data={playedFeelingBreakdown.map(d => ({
+                    style: d.feeling.charAt(0).toUpperCase() + d.feeling.slice(1),
+                    count: d.count,
+                    pct:   d.pct,
+                  }))} />
+                </div>
               )}
             </div>
 

@@ -1146,6 +1146,22 @@ export default async function InsightsPage() {
       pct: playedStyleTotal > 0 ? Math.round((count / playedStyleTotal) * 100) : 0,
     }));
 
+  const feelingByRecord = new Map<string, string | null>(allLinks.map(l => [l.record_id, l.feeling ?? null]));
+  const playedFeelingCounts = new Map<string, number>();
+  for (const pl of playedLinks) {
+    const feeling = feelingByRecord.get(pl.record_id);
+    if (!feeling) continue;
+    playedFeelingCounts.set(feeling, (playedFeelingCounts.get(feeling) ?? 0) + 1);
+  }
+  const playedFeelingTotal = [...playedFeelingCounts.values()].reduce((a, b) => a + b, 0);
+  const playedFeelingBreakdown: InsightsProps["playedFeelingBreakdown"] = [...playedFeelingCounts.entries()]
+    .sort((a, b) => b[1] - a[1])
+    .map(([feeling, count]) => ({
+      feeling,
+      count,
+      pct: playedFeelingTotal > 0 ? Math.round((count / playedFeelingTotal) * 100) : 0,
+    }));
+
   // ── Listening stats derived from play data ─────────────────────────────────
   const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
   const { count: playsLast7DaysRaw } = await (supabase as any)
@@ -1281,6 +1297,7 @@ export default async function InsightsPage() {
       spectrum={spectrum}
       topPlayedRecords={topPlayedRecords}
       playedStyleBreakdown={playedStyleBreakdown}
+      playedFeelingBreakdown={playedFeelingBreakdown}
       dailyPick={dailyPick}
       onThisDay={onThisDay}
       usageStats={usageStats}

@@ -71,7 +71,8 @@ export interface InsightsProps {
   collectionByMonth: { period: string; Added: number }[];
   spectrum:           SpectrumData;
   topPlayedRecords:   { artist: string; album: string; coverUrl: string | null; lastPlayedAt: string; playCount: number }[];
-  playedStyleBreakdown: { style: string; count: number; pct: number }[];
+  playedStyleBreakdown:   { style: string; count: number; pct: number }[];
+  playedFeelingBreakdown: { feeling: string; count: number; pct: number }[];
   avgReleaseYear:    number | null;
   topDecade:         string | null;
   collectorArchetype:  string | null;
@@ -275,7 +276,7 @@ export default function InsightsClient({
   topFormat, yearRange, mostPopularYear, vinylColourBreakdown,
   essentials, feelingBreakdown,
   collectionLifespan, collectionByMonth, spectrum,
-  topPlayedRecords, playedStyleBreakdown,
+  topPlayedRecords, playedStyleBreakdown, playedFeelingBreakdown,
   dailyPick, onThisDay, usageStats,
   avgReleaseYear, topDecade, collectorArchetype, collectorArchetypeId, collectorArchetypeShadow, collectorArchetypeScore, collectorArchetypeScores, collectorSinceYear, collectionPhotoUrl, oldestAlbum, newestAlbum, topVinylArtist, topVinylArtistCount,
   isSupporter,
@@ -1075,6 +1076,7 @@ export default function InsightsClient({
               spectrum={spectrum}
               topPlayedRecords={topPlayedRecords}
               playedStyleBreakdown={playedStyleBreakdown}
+              playedFeelingBreakdown={playedFeelingBreakdown}
               usageStats={usageStats}
             />
           </div>
