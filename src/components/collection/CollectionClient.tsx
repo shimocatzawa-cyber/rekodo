@@ -773,6 +773,8 @@ export default function CollectionClient({
         return arr.sort((a, b) => (b.date_added ?? "").localeCompare(a.date_added ?? ""));
       case "date-added-old-new":
         return arr.sort((a, b) => (a.date_added ?? "").localeCompare(b.date_added ?? ""));
+      case "last-played-new-old":
+        return arr.sort((a, b) => (b.last_played_at ?? "").localeCompare(a.last_played_at ?? ""));
       default:
         return arr;
     }
@@ -1187,13 +1189,13 @@ export default function CollectionClient({
                   </div>
                 </div>
                 <select
-                  value={["value-high-low", "value-low-high", "year-new-old", "year-old-new", "date-added-new-old", "date-added-old-new"].includes(sortBy) ? sortBy : ""}
+                  value={["value-high-low", "value-low-high", "year-new-old", "year-old-new", "date-added-new-old", "date-added-old-new", "last-played-new-old"].includes(sortBy) ? sortBy : ""}
                   onChange={e => { if (e.target.value) setSortBy(e.target.value); }}
                   style={{
                     width: "100%", fontFamily: MONO, fontSize: "12px", letterSpacing: "0.02em",
-                    color: ["value-high-low", "value-low-high", "year-new-old", "year-old-new", "date-added-new-old", "date-added-old-new"].includes(sortBy) ? ORANGE : "#888888",
+                    color: ["value-high-low", "value-low-high", "year-new-old", "year-old-new", "date-added-new-old", "date-added-old-new", "last-played-new-old"].includes(sortBy) ? ORANGE : "#888888",
                     background: "#fafafa",
-                    border: `0.5px solid ${["value-high-low", "value-low-high", "year-new-old", "year-old-new", "date-added-new-old", "date-added-old-new"].includes(sortBy) ? ORANGE : "#e8e8e8"}`,
+                    border: `0.5px solid ${["value-high-low", "value-low-high", "year-new-old", "year-old-new", "date-added-new-old", "date-added-old-new", "last-played-new-old"].includes(sortBy) ? ORANGE : "#e8e8e8"}`,
                     borderRadius: "4px",
                     cursor: "pointer", padding: "8px", outline: "none",
                   }}
@@ -1205,6 +1207,7 @@ export default function CollectionClient({
                   <option value="year-old-new">Year: Oldest First</option>
                   <option value="date-added-new-old">Date Added: Newest First</option>
                   <option value="date-added-old-new">Date Added: Oldest First</option>
+                  <option value="last-played-new-old">Last Played: Most Recent</option>
                 </select>
               </div>
             </div>
@@ -1389,13 +1392,13 @@ export default function CollectionClient({
                 </div>
               </div>
               <select
-                value={["value-high-low", "value-low-high", "year-new-old", "year-old-new", "date-added-new-old", "date-added-old-new"].includes(sortBy) ? sortBy : ""}
+                value={["value-high-low", "value-low-high", "year-new-old", "year-old-new", "date-added-new-old", "date-added-old-new", "last-played-new-old"].includes(sortBy) ? sortBy : ""}
                 onChange={e => { if (e.target.value) setSortBy(e.target.value); }}
                 style={{
                   width: "100%", fontFamily: MONO, fontSize: "10px", letterSpacing: "0.04em",
-                  color: ["value-high-low", "value-low-high", "year-new-old", "year-old-new", "date-added-new-old", "date-added-old-new"].includes(sortBy) ? ORANGE : "#888888",
+                  color: ["value-high-low", "value-low-high", "year-new-old", "year-old-new", "date-added-new-old", "date-added-old-new", "last-played-new-old"].includes(sortBy) ? ORANGE : "#888888",
                   background: "#ffffff",
-                  border: `1px solid ${["value-high-low", "value-low-high", "year-new-old", "year-old-new", "date-added-new-old", "date-added-old-new"].includes(sortBy) ? ORANGE : "rgba(0,0,0,0.13)"}`,
+                  border: `1px solid ${["value-high-low", "value-low-high", "year-new-old", "year-old-new", "date-added-new-old", "date-added-old-new", "last-played-new-old"].includes(sortBy) ? ORANGE : "rgba(0,0,0,0.13)"}`,
                   cursor: "pointer", padding: "4px 6px", outline: "none",
                   transition: "border-color 0.15s, color 0.15s",
                 }}
@@ -1407,6 +1410,7 @@ export default function CollectionClient({
                 <option value="year-old-new">Year: Oldest First</option>
                 <option value="date-added-new-old">Date Added: Newest First</option>
                 <option value="date-added-old-new">Date Added: Oldest First</option>
+                <option value="last-played-new-old">Last Played: Most Recent</option>
               </select>
             </div>
 
