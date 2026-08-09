@@ -56,11 +56,20 @@ export async function PATCH(request: NextRequest) {
     update.tags = tags;
   }
 
+  // favourite_tracks is handled via a SECURITY DEFINER RPC to avoid PostgREST
+  // schema-cache issues with the text[] column (same pattern as increment_play_count).
   if (favourite_tracks !== undefined) {
     if (!Array.isArray(favourite_tracks) || favourite_tracks.some(t => typeof t !== "string")) {
       return NextResponse.json({ error: "favourite_tracks must be an array of strings" }, { status: 400 });
     }
-    update.favourite_tracks = favourite_tracks;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { error: rpcError } = await (supabase as any).rpc("set_favourite_tracks", {
+      p_user_id:   user.id,
+      p_record_id: recordId,
+      p_tracks:    favourite_tracks,
+    });
+    if (rpcError) return NextResponse.json({ error: rpcError.message }, { status: 500 });
+    if (Object.keys(update).length === 0) return NextResponse.json({ success: true });
   }
 
   if (Object.keys(update).length === 0) {
