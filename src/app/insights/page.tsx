@@ -1091,17 +1091,34 @@ export default async function InsightsPage() {
   const playedLinks = ((playedLinksRaw ?? []) as unknown as { record_id: string; play_count: number; last_played_at: string | null }[])
     .sort((a, b) => b.play_count - a.play_count || new Date(b.last_played_at ?? 0).getTime() - new Date(a.last_played_at ?? 0).getTime());
 
-  const topPlayedRecords: InsightsProps["topPlayedRecords"] = playedLinks
-    .slice(0, 5)
-    .map((pl) => {
-      const rec = recordsMap.get(pl.record_id);
+  // Live JOIN — not cached so newly-added records appear immediately
+  // without needing a Discogs re-sync to bust the insights cache.
+  const { data: topPlayedRaw } = await (supabase as any)
+    .from("user_records")
+    .select("record_id, play_count, last_played_at, records(artist, album)")
+    .eq("user_id", user.id)
+    .gt("play_count", 0)
+    .order("play_count", { ascending: false })
+    .order("last_played_at", { ascending: false, nullsFirst: false })
+    .limit(10) as {
+      data: Array<{
+        record_id:     string;
+        play_count:    number;
+        last_played_at: string | null;
+        records:       { artist: string; album: string } | null;
+      }> | null;
+    };
+
+  const topPlayedRecords: InsightsProps["topPlayedRecords"] = (topPlayedRaw ?? [])
+    .map((row) => {
+      const rec = row.records;
       if (!rec) return null;
       return {
         artist:       rec.artist,
         album:        rec.album,
-        coverUrl:     rec.cover_url ?? null,
-        lastPlayedAt: pl.last_played_at ?? "",
-        playCount:    pl.play_count,
+        coverUrl:     null,
+        lastPlayedAt: row.last_played_at ?? "",
+        playCount:    row.play_count,
       };
     })
     .filter((r): r is NonNullable<typeof r> => r !== null);

@@ -250,32 +250,18 @@ export default function TasteProfile({
 
           <div className="rk-grid-2" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "48px" }}>
 
-            {/* Top 5 Played */}
+            {/* Top 10 Played */}
             <div>
               <SubLabel>Most played</SubLabel>
               <div style={{ borderTop: `0.5px solid ${RULE}` }}>
                 {topPlayedRecords.map((rec, i) => (
                   <div key={i} style={{
                     display: "flex", alignItems: "center", gap: "12px",
-                    padding: "10px 0", borderBottom: `0.5px solid ${RULE}`,
+                    padding: "9px 0", borderBottom: `0.5px solid ${RULE}`,
                   }}>
-                    {rec.coverUrl ? (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img
-                        src={rec.coverUrl}
-                        alt=""
-                        width={36}
-                        height={36}
-                        style={{ width: 36, height: 36, objectFit: "cover", flexShrink: 0 }}
-                      />
-                    ) : (
-                      <div style={{
-                        width: 36, height: 36, background: RULE, flexShrink: 0,
-                        display: "flex", alignItems: "center", justifyContent: "center",
-                      }}>
-                        <span style={{ fontFamily: MONO, fontSize: "8px", color: "#aaaaaa" }}>—</span>
-                      </div>
-                    )}
+                    <span style={{ fontFamily: MONO, fontSize: "9px", color: "#ccc", flexShrink: 0, width: "14px", textAlign: "right" }}>
+                      {i + 1}
+                    </span>
                     <div style={{ flex: 1, minWidth: 0 }}>
                       <div style={{
                         fontFamily: MONO, fontSize: "11px", color: INK,
@@ -292,7 +278,7 @@ export default function TasteProfile({
                       </div>
                     </div>
                     <span style={{ fontFamily: MONO, fontSize: "10px", color: ORANGE, flexShrink: 0 }}>
-                      {`×${Math.max(rec.playCount, 1)}`}
+                      {`×${rec.playCount}`}
                     </span>
                   </div>
                 ))}
