@@ -2143,11 +2143,15 @@ function TracklistPanel({ tracks, loading, bandcamp, record, username, collectio
     if (next.has(position)) next.delete(position);
     else next.add(position);
     setFavouriteTracks(next);
-    await fetch("/api/collection/tag", {
+    const res = await fetch("/api/collection/tag", {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ recordId: record.id, favourite_tracks: [...next] }),
     });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      console.error("[favourite_tracks] save failed:", res.status, err);
+    }
   }
 
   const baseLinkStyle: React.CSSProperties = {
