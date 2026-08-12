@@ -170,7 +170,7 @@ export async function GET(request: NextRequest) {
       // Bust caches BEFORE sending the complete event so that when the client
       // calls router.refresh() in response to the event, the invalidation has
       // already taken effect and the next /insights load fetches fresh data.
-      revalidateTag(`collection-${user.id}`);
+      revalidateTag(`collection-${user.id}`, {});
       void invalidateCollectionCache(user.id);
 
       send({ type: "complete", total, newAdded, updated: completedData.records_updated, priceUpdated: 0, timestamp });
