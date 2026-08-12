@@ -630,6 +630,10 @@ export default function CollectionClient({
               });
               setSyncState("complete");
               void fetch("/api/collection/quiz-archive", { method: "POST" });
+              // Bust unstable_cache in a proper request context (revalidateTag
+              // inside the SSE route's IIFE is a no-op — Next.js flushes
+              // pendingRevalidatedTags before the IIFE runs).
+              void fetch("/api/insights/revalidate", { method: "POST" });
               router.refresh();
               runPriceLoop(ev.total ?? 0);
 

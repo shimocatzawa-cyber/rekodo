@@ -1,5 +1,4 @@
 import { type NextRequest } from "next/server";
-import { revalidateTag } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { createClient as createServiceClient } from "@supabase/supabase-js";
 import { enqueueSync } from "@/lib/sync-queue";
@@ -167,10 +166,12 @@ export async function GET(request: NextRequest) {
       const newAdded  = completedData.new_added;
       const timestamp = completedData.completed_at ?? new Date().toISOString();
 
-      // Bust caches BEFORE sending the complete event so that when the client
-      // calls router.refresh() in response to the event, the invalidation has
-      // already taken effect and the next /insights load fetches fresh data.
-      revalidateTag(`collection-${user.id}`, {});
+      // Bust the KV collection cache. The unstable_cache bust (revalidateTag)
+      // is handled by the client calling POST /api/insights/revalidate after
+      // receiving this complete event — revalidateTag inside a streaming SSE
+      // route's background IIFE is a no-op because Next.js flushes
+      // pendingRevalidatedTags when the route handler returns its Response,
+      // before the IIFE has a chance to run.
       void invalidateCollectionCache(user.id);
 
       send({ type: "complete", total, newAdded, updated: completedData.records_updated, priceUpdated: 0, timestamp });
