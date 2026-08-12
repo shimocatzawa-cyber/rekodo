@@ -429,6 +429,44 @@ async function processSync(supabase: SB, jobId: string, userId: string) {
       }
     } catch { /* non-fatal — will retry on next sync */ }
 
+    // ── Phase 2d: Backfill null/zero year for existing records ────────────────
+    // The `records` table is shared across users. A record inserted by a different
+    // user (or by an older sync version) may have year = null or 0. The initial
+    // collection-listing API already includes the year; use it to patch gaps now
+    // so that Newest Album / Oldest Album stats are always accurate.
+    try {
+      const yearLookup = new Map<string, number>(
+        collectionItems
+          .filter((item) => item.year && item.year > 0)
+          .map((item) => [item.discogs_id, item.year as number])
+      );
+
+      if (yearLookup.size > 0) {
+        const allRecordIds3 = [...new Set(existingMap.values())];
+        const toUpdateYear: { id: string; year: number }[] = [];
+
+        for (let i = 0; i < allRecordIds3.length; i += BATCH) {
+          const { data } = await supabase
+            .from("records")
+            .select("id, discogs_id, year")
+            .in("id", allRecordIds3.slice(i, i + BATCH))
+            .or("year.is.null,year.eq.0");
+
+          for (const r of data ?? []) {
+            if (!r.discogs_id) continue;
+            const year = yearLookup.get(r.discogs_id as string);
+            if (year) toUpdateYear.push({ id: r.id, year });
+          }
+        }
+
+        for (let i = 0; i < toUpdateYear.length; i += BATCH) {
+          await supabase
+            .from("records")
+            .upsert(toUpdateYear.slice(i, i + BATCH), { onConflict: "id" });
+        }
+      }
+    } catch { /* non-fatal — will retry on next sync */ }
+
     // ── Phase 3: Link records to user_records ─────────────────────────────────
     await updateJob(supabase, jobId, { phase: "linking", progress_done: 0 });
 

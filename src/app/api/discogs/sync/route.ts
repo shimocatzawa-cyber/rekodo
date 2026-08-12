@@ -50,8 +50,10 @@ export async function GET(request: NextRequest) {
       // Enqueue — returns existing job ID if one is already running
       const jobId = await enqueueSync(supabase, user.id);
 
-      // Bust both caches so in-progress loads see live data
-      revalidateTag(`collection-${user.id}`, {});
+      // Invalidate the collection page's KV cache so it picks up live data
+      // during the sync — but do NOT bust the insights unstable_cache yet.
+      // Busting insights early causes partial mid-sync data to be stored in
+      // the cache; the post-sync revalidateTag below handles it correctly.
       void invalidateCollectionCache(user.id);
 
       // Fire Edge Function — intentionally no await (non-blocking)
@@ -165,11 +167,13 @@ export async function GET(request: NextRequest) {
       const newAdded  = completedData.new_added;
       const timestamp = completedData.completed_at ?? new Date().toISOString();
 
-      send({ type: "complete", total, newAdded, updated: completedData.records_updated, priceUpdated: 0, timestamp });
-
-      // Bust both caches so the next page load reflects the new collection
-      revalidateTag(`collection-${user.id}`, {});
+      // Bust caches BEFORE sending the complete event so that when the client
+      // calls router.refresh() in response to the event, the invalidation has
+      // already taken effect and the next /insights load fetches fresh data.
+      revalidateTag(`collection-${user.id}`);
       void invalidateCollectionCache(user.id);
+
+      send({ type: "complete", total, newAdded, updated: completedData.records_updated, priceUpdated: 0, timestamp });
 
       // Phase 7: Collection intelligence — recomputes on next Library tab load
       try {
