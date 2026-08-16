@@ -1451,14 +1451,26 @@ export default function DeepDiveClient({
       .map((name) => ({ name, count: 0, records: [] as ArtistData["records"], fromBandcamp: false }));
   }, [favorites, mergedArtists, query, favoritesOnly]);
 
-  // Auto-select a random artist on first load
+  // Restore last-viewed artist on mount, fall back to a random pick
   useEffect(() => {
-    if (artists.length > 0) {
-      const pick = artists[Math.floor(Math.random() * Math.min(artists.length, 20))];
-      setSelectedArtist(pick.name);
-    }
+    if (artists.length === 0) return;
+    try {
+      const saved = localStorage.getItem("dd-last-artist");
+      if (saved && artists.some(a => a.name === saved)) {
+        setSelectedArtist(saved);
+        return;
+      }
+    } catch { /* ignore — SSR or private browsing */ }
+    const pick = artists[Math.floor(Math.random() * Math.min(artists.length, 20))];
+    setSelectedArtist(pick.name);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Persist the last-viewed artist so we can restore it on next visit
+  useEffect(() => {
+    if (!selectedArtist) return;
+    try { localStorage.setItem("dd-last-artist", selectedArtist); } catch { /* ignore */ }
+  }, [selectedArtist]);
 
   // Fire all artist image fetches on mount (best-effort, progressive)
   useEffect(() => {

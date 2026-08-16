@@ -124,10 +124,10 @@ function AlbumCard({ imp }: { imp: DigitalImport }) {
             alt=""
             loading="lazy"
             decoding="async"
-            style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
+            style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover", display: "block" }}
           />
         ) : (
-          <div style={{ width: "100%", height: "100%", display: "flex", alignItems: "center", justifyContent: "center" }}>
+          <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center" }}>
             <span style={{ fontFamily: SERIF, fontSize: "28px", color: "#c8c4bb" }}>ō</span>
           </div>
         )}
