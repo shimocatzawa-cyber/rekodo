@@ -717,13 +717,20 @@ const PROMPTS: Record<string, (artist: string, ownedAlbums?: string[], discogsAl
   rankings: (artist, ownedAlbums = [], discogsAlbums = []) => {
     const confirmed   = discogsAlbums.filter(a => a.formatVerified);
     const unverified  = discogsAlbums.filter(a => !a.formatVerified);
+    // When some entries are format-verified, unverified ones are treated with
+    // extra suspicion (they could be singles slipping through). When the entire
+    // catalogue is unverified it just means Discogs hasn't populated the format
+    // field on those masters — treat them as likely albums, not suspects.
+    const allUnverified = confirmed.length === 0 && unverified.length > 0;
     const verifiedBlock = discogsAlbums.length > 0
       ? [
           confirmed.length > 0
             ? `\nCONFIRMED STUDIO ALBUMS (Discogs format verified as LP/Album) — rank ONLY from this list:\n${confirmed.map(a => `- ${a.year}: ${a.title}`).join("\n")}`
             : "",
           unverified.length > 0
-            ? `\nUNVERIFIED ENTRIES (no format metadata — may be singles, EPs or demos). Include ONLY if you are certain from your own knowledge this is a full-length studio LP with 7+ distinct tracks. When in doubt, EXCLUDE:\n${unverified.map(a => `- ${a.year}: ${a.title}`).join("\n")}`
+            ? allUnverified
+              ? `\nDISCOGS CATALOGUE (format metadata unavailable — treat these as the artist's studio albums and rank them):\n${unverified.map(a => `- ${a.year}: ${a.title}`).join("\n")}`
+              : `\nUNVERIFIED ENTRIES (no format metadata — may be singles, EPs or demos). Include ONLY if you are certain from your own knowledge this is a full-length studio LP with 7+ distinct tracks. When in doubt, EXCLUDE:\n${unverified.map(a => `- ${a.year}: ${a.title}`).join("\n")}`
             : "",
         ].filter(Boolean).join("\n") + "\n"
       : "";
@@ -735,8 +742,8 @@ ${verifiedBlock}
 CRITICAL ACCURACY RULES:
 ${discogsAlbums.length > 0
   ? `- You MUST only rank full-length studio albums (6+ tracks, released as LP). Discard any entry that is a single track, a 7" or 12" single, an EP, a compilation, a live record, or a remix album.
-- SONG TITLE TRAP: If a title matches (or closely resembles) a well-known song by ${artist}, it is almost certainly a single — not a standalone album. Exclude it.
-- UNVERIFIED ENTRIES TRAP: Treat any title in the UNVERIFIED ENTRIES list with extreme suspicion. Only include it if you can recall specific critical reviews or collector discussion that confirms it as a full studio LP. If you have any doubt at all, exclude it.`
+- SONG TITLE TRAP: If a title matches (or closely resembles) a well-known song by ${artist}, it is almost certainly a single — not a standalone album. Exclude it.${!allUnverified ? `
+- UNVERIFIED ENTRIES TRAP: Treat any title in the UNVERIFIED ENTRIES list with extreme suspicion. Only include it if you can recall specific critical reviews or collector discussion that confirms it as a full studio LP. If you have any doubt at all, exclude it.` : ""}`
   : `- Include full-length studio albums (typically 6+ tracks) that you believe exist. For artists with small catalogues, include all studio albums you know of rather than returning an empty list — it is better to include a real album than to omit the entire discography out of excessive caution.`}
 - Use the year from the VERIFIED CATALOGUE exactly — do not guess or alter release years.
 - Do not confuse ${artist} with any other artist.
