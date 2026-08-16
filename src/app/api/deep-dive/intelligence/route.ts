@@ -745,7 +745,7 @@ ${discogsAlbums.length > 0
 - Keep each review to 2 sentences.
 - DESCRIPTION STYLE: Factual only — describe what the record sounds like, its instrumentation, production approach, or how it differs from the artist's other work. No vague assertions like "essential", "landmark", "apex", "grail", "masterclass", "rewarding", "vindicating" or similar critical boilerplate. State facts, not importance.
 ${ownedBlock}
-Return ONLY valid JSON, no markdown, no backticks, no preamble:
+Return ONLY valid JSON, no markdown, no backticks, no preamble. If you cannot confidently identify any qualifying studio albums, return {"albums":[]} — never refuse or explain in plain text:
 {"albums":[{"rank":1,"title":"Album Title","year":1975,"review":"2 sentence factual description."}]}`;
   },
 
@@ -961,7 +961,13 @@ export async function getOrGenerateSection(
   if (data === null) {
     const raw = textBlocks.map(b => (b as { text?: string }).text ?? "").join("\n").slice(0, 400);
     console.error(`[deep-dive] parse error — ${artist}/${section} stop=${message.stop_reason} raw=${raw}`);
-    throw new Error("Parse error");
+    // Rankings/blindspot refusals produce plain-text explanations rather than JSON.
+    // Return a typed empty shell so the client shows "No information" instead of an error.
+    if (section === "rankings") data = { albums: [] };
+    else if (section === "blindspot") data = { albums: [] };
+    else if (section === "podcasts") data = { episodes: [] };
+    else if (section === "related") data = { artists: [] };
+    else throw new Error("Parse error");
   }
 
   if (section === "podcasts") stripUnverifiedPodcastUrls(data);
