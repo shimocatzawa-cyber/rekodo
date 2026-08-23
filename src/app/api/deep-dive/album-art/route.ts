@@ -10,7 +10,7 @@ async function fromBandcamp(itemUrl: string): Promise<string | null> {
   try {
     const res = await fetch(itemUrl, {
       headers: { "User-Agent": UA, "Accept": "text/html" },
-      signal: AbortSignal.timeout(10_000),
+      signal: AbortSignal.timeout(5_000),
     });
     if (!res.ok) return null;
     const html = await res.text();

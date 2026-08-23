@@ -32,6 +32,25 @@ function fmtYear(imp: DigitalImport): string | null {
 
 const coverCache = new Map<string, string | null>();
 
+// Limit concurrent album-art fetches so mounting a large grid doesn't fire
+// 50+ simultaneous requests — the Bandcamp fallback fetches a full HTML page
+// with a 10s timeout and most would just time out or get rate-limited.
+const ART_CONCURRENCY = 4;
+let artActive = 0;
+const artQueue: Array<() => void> = [];
+
+function artDrain() {
+  while (artActive < ART_CONCURRENCY && artQueue.length > 0) {
+    artActive++;
+    artQueue.shift()!();
+  }
+}
+
+function artEnqueue(task: () => Promise<void>) {
+  artQueue.push(() => { void task().finally(() => { artActive--; artDrain(); }); });
+  artDrain();
+}
+
 function useCoverArt(artist: string, album: string, bandcampUrl?: string | null): string | null {
   const key = bandcampUrl ? `${artist}::${album}::bc` : `${artist}::${album}`;
   const [url, setUrl] = useState<string | null>(coverCache.get(key) ?? null);
@@ -41,13 +60,15 @@ function useCoverArt(artist: string, album: string, bandcampUrl?: string | null)
     let cancelled = false;
     const params = new URLSearchParams({ artist, album });
     if (bandcampUrl) params.set("bandcampUrl", bandcampUrl);
-    fetch(`/api/deep-dive/album-art?${params}`)
-      .then(r => r.json() as Promise<{ url: string | null }>)
-      .then(({ url: u }) => {
-        if (u) coverCache.set(key, u); // only cache hits, not misses
+    artEnqueue(async () => {
+      if (cancelled) return;
+      try {
+        const r = await fetch(`/api/deep-dive/album-art?${params}`);
+        const { url: u } = await r.json() as { url: string | null };
+        if (u) coverCache.set(key, u);
         if (!cancelled) setUrl(u);
-      })
-      .catch(() => {});
+      } catch {}
+    });
     return () => { cancelled = true; };
   }, [key, artist, album, bandcampUrl]);
 
