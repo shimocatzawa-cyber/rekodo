@@ -93,7 +93,11 @@ export async function GET(request: NextRequest) {
     }
 
     return NextResponse.json({ albums, artistId } satisfies DiscographyResponse, {
-      headers: { "Cache-Control": "public, s-maxage=86400, stale-while-revalidate=3600" },
+      // Only cache non-empty results — an empty album list may be a transient
+      // Discogs failure and caching it for 24h would lock users out.
+      headers: albums.length > 0
+        ? { "Cache-Control": "public, s-maxage=86400, stale-while-revalidate=3600" }
+        : { "Cache-Control": "no-store" },
     });
   } catch {
     return NextResponse.json({ albums: [], artistId: null });
