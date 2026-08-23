@@ -29,24 +29,27 @@ export async function GET(request: NextRequest) {
   const headers: Record<string, string> = { "User-Agent": "rekodo/1.0 (shimocatzawa@gmail.com)" };
   if (key && secret) headers["Authorization"] = `Discogs key=${key}, secret=${secret}`;
 
+  const NO_STORE = { headers: { "Cache-Control": "no-store" } };
+
   try {
-    // Resolve artist ID
+    // Resolve artist ID — cache: "no-store" so a transient empty result from
+    // Discogs is never frozen in Next.js's Data Cache for 24h.
     const searchRes = await fetch(
       `https://api.discogs.com/database/search?q=${encodeURIComponent(artist)}&type=artist&per_page=5`,
-      { headers, next: { revalidate: 86400 }, signal: AbortSignal.timeout(6000) }
+      { headers, cache: "no-store", signal: AbortSignal.timeout(6000) }
     );
-    if (!searchRes.ok) return NextResponse.json({ albums: [], artistId: null });
+    if (!searchRes.ok) return NextResponse.json({ albums: [], artistId: null }, NO_STORE);
 
     const { results = [] } = await searchRes.json() as { results?: { id: number; type: string }[] };
     const artistId = results.find(r => r.type === "artist")?.id ?? null;
-    if (!artistId) return NextResponse.json({ albums: [], artistId: null });
+    if (!artistId) return NextResponse.json({ albums: [], artistId: null }, NO_STORE);
 
     // Fetch all releases (masters only, sorted chronologically)
     const relRes = await fetch(
       `https://api.discogs.com/artists/${artistId}/releases?per_page=500&sort=year&sort_order=asc&type=master`,
-      { headers, next: { revalidate: 86400 }, signal: AbortSignal.timeout(8000) }
+      { headers, cache: "no-store", signal: AbortSignal.timeout(8000) }
     );
-    if (!relRes.ok) return NextResponse.json({ albums: [], artistId });
+    if (!relRes.ok) return NextResponse.json({ albums: [], artistId }, NO_STORE);
 
     const { releases = [] } = await relRes.json() as {
       releases?: {
@@ -100,6 +103,6 @@ export async function GET(request: NextRequest) {
         : { "Cache-Control": "no-store" },
     });
   } catch {
-    return NextResponse.json({ albums: [], artistId: null });
+    return NextResponse.json({ albums: [], artistId: null }, NO_STORE);
   }
 }
