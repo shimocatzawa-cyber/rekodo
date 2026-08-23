@@ -102,7 +102,8 @@ export async function POST(request: NextRequest) {
         auth
       )
     ));
-    showEps[show] = pages.flatMap((p) => p?.items ?? []);
+    // Spotify returns null items for unavailable episodes — filter them out
+    showEps[show] = pages.flatMap((p) => p?.items ?? []).filter((item): item is EpItem => item != null);
   }));
 
   // ── Step 3: fuzzy-match each episode within its own show ─────────────────
