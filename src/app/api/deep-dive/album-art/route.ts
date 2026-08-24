@@ -44,7 +44,7 @@ async function fromLastFm(artist: string, album: string): Promise<string | null>
   if (!key) return null;
   try {
     const url = `https://ws.audioscrobbler.com/2.0/?method=album.getinfo&artist=${encodeURIComponent(artist)}&album=${encodeURIComponent(album)}&api_key=${key}&format=json&autocorrect=1`;
-    const res = await fetch(url, { next: { revalidate: 86400 } });
+    const res = await fetch(url, { cache: "no-store" });
     if (!res.ok) return null;
     const json = await res.json() as {
       album?: { image?: { "#text": string; size: string }[] };
