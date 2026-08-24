@@ -15,6 +15,23 @@ const RULE   = "#e0e0da";
 const WARM   = "#FDF6F0";
 const SUBTLE = "#f0efea";
 
+// Shared concurrency limiter for Discogs artwork searches across all tab content
+// components. Prevents simultaneous album loads from firing all fetches at once
+// and hitting the 60 req/min consumer key rate limit.
+const ART_CONCURRENCY = 3;
+let ddArtActive = 0;
+const ddArtQueue: Array<() => void> = [];
+function ddArtDrain() {
+  while (ddArtActive < ART_CONCURRENCY && ddArtQueue.length > 0) {
+    ddArtActive++;
+    ddArtQueue.shift()!();
+  }
+}
+function ddArtEnqueue(task: () => Promise<void>) {
+  ddArtQueue.push(() => { void task().finally(() => { ddArtActive--; ddArtDrain(); }); });
+  ddArtDrain();
+}
+
 type Section = "about" | "rankings" | "discography" | "podcasts" | "print" | "related" | "blindspot" | "pressings";
 
 export type ArtistData = {
@@ -220,10 +237,12 @@ function RankingsContent({
     if (albums.length === 0) return;
     let cancelled = false;
     for (const a of albums) {
-      const q = encodeURIComponent(`${artist} ${a.title}`);
-      fetch(`/api/discogs/search?q=${q}&mode=record`)
-        .then(r => r.ok ? r.json() : null)
-        .then((d: { results?: { cover_image?: string; thumb?: string }[] } | null) => {
+      ddArtEnqueue(async () => {
+        if (cancelled) return;
+        try {
+          const q = encodeURIComponent(`${artist} ${a.title}`);
+          const d = await fetch(`/api/discogs/search?q=${q}&mode=record`)
+            .then(r => r.ok ? r.json() as Promise<{ results?: { cover_image?: string; thumb?: string }[] }> : null);
           if (cancelled) return;
           const first = d?.results?.[0];
           if (!first) return;
@@ -231,8 +250,8 @@ function RankingsContent({
             (first.cover_image && !first.cover_image.includes("spacer")) ? first.cover_image :
             (first.thumb && !first.thumb.includes("spacer")) ? first.thumb : null;
           if (url) setArtMap(prev => ({ ...prev, [a.title]: `/api/image-proxy?url=${encodeURIComponent(url)}` }));
-        })
-        .catch(() => {});
+        } catch {}
+      });
     }
     return () => { cancelled = true; };
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -946,20 +965,25 @@ function BlindSpotContent({ data, artist }: { data: { albums?: BlindSpotAlbum[] 
   const [artMap, setArtMap] = useState<Record<string, string>>({});
 
   useEffect(() => {
+    let cancelled = false;
     for (const a of albums) {
-      const q = encodeURIComponent(`${artist} ${a.title}`);
-      fetch(`/api/discogs/search?q=${q}&mode=record`)
-        .then(r => r.ok ? r.json() : null)
-        .then((d: { results?: { cover_image?: string; thumb?: string }[] } | null) => {
+      ddArtEnqueue(async () => {
+        if (cancelled) return;
+        try {
+          const q = encodeURIComponent(`${artist} ${a.title}`);
+          const d = await fetch(`/api/discogs/search?q=${q}&mode=record`)
+            .then(r => r.ok ? r.json() as Promise<{ results?: { cover_image?: string; thumb?: string }[] }> : null);
+          if (cancelled) return;
           const first = d?.results?.[0];
           if (!first) return;
           const url =
             (first.cover_image && !first.cover_image.includes("spacer")) ? first.cover_image :
             (first.thumb && !first.thumb.includes("spacer")) ? first.thumb : null;
           if (url) setArtMap(prev => ({ ...prev, [a.title]: `/api/image-proxy?url=${encodeURIComponent(url)}` }));
-        })
-        .catch(() => {});
+        } catch {}
+      });
     }
+    return () => { cancelled = true; };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [artist, albums.length]);
 
