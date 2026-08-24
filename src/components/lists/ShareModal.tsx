@@ -4,6 +4,7 @@ import { useState, useRef, useEffect } from "react";
 import { toPng } from "html-to-image";
 import { trackShareCard } from "@/lib/shareCard";
 import type { ListSlot } from "@/app/lists/types";
+import { pMap } from "@/lib/pMap";
 
 // Inline font strings — NOT CSS variables — so html-to-image embeds them
 const SERIF   = '"Shippori Mincho", Georgia, serif';
@@ -45,8 +46,9 @@ async function blobToDataUrl(blob: Blob): Promise<string> {
 }
 
 async function loadCovers(slots: ListSlot[]): Promise<Covers> {
-  const entries = await Promise.all(
-    [1, 2, 3, 4, 5].map(async (pos): Promise<[number, string | null]> => {
+  const entries = await pMap(
+    [1, 2, 3, 4, 5],
+    async (pos): Promise<[number, string | null]> => {
       const url = slots.find(s => s.position === pos)?.item?.cover_url;
       if (!url) return [pos, null];
       try {
@@ -57,7 +59,8 @@ async function loadCovers(slots: ListSlot[]): Promise<Covers> {
       } catch {
         return [pos, null];
       }
-    }),
+    },
+    4,
   );
   return Object.fromEntries(entries);
 }

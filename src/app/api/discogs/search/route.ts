@@ -64,7 +64,7 @@ export async function GET(request: NextRequest) {
 
   const res = await fetch(url.toString(), {
     headers: { "User-Agent": "rekodo/1.0" },
-    next: { revalidate: 300 },
+    cache: "no-store",
   });
 
   if (!res.ok) {

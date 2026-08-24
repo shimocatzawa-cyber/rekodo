@@ -3,6 +3,7 @@
 import { useState, useRef, useEffect } from "react";
 import { toPng } from "html-to-image";
 import { trackShareCard } from "@/lib/shareCard";
+import { pMap } from "@/lib/pMap";
 
 // Inline font strings — NOT CSS variables — so html-to-image embeds them
 const SERIF   = '"Shippori Mincho", Georgia, serif';
@@ -61,8 +62,9 @@ async function blobToDataUrl(blob: Blob): Promise<string> {
 }
 
 async function loadCovers(covers: Cover[]): Promise<CoverSrcs> {
-  const entries = await Promise.all(
-    covers.map(async (c, i): Promise<[number, string | null]> => {
+  const entries = await pMap(
+    covers,
+    async (c, i): Promise<[number, string | null]> => {
       if (!c.coverUrl) return [i, null];
       try {
         const r = await fetch(`/api/image-proxy?url=${encodeURIComponent(c.coverUrl)}`);
@@ -72,7 +74,8 @@ async function loadCovers(covers: Cover[]): Promise<CoverSrcs> {
       } catch {
         return [i, null];
       }
-    }),
+    },
+    4,
   );
   return Object.fromEntries(entries);
 }

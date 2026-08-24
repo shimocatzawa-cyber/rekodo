@@ -33,10 +33,10 @@ export async function GET(request: NextRequest) {
   try {
     const res = await fetch(discogsUrl.toString(), {
       headers: { "User-Agent": UA },
-      next: { revalidate: CACHE_SECONDS },
+      cache: "no-store",
     });
 
-    if (!res.ok) return NextResponse.json({ url: null });
+    if (!res.ok) return NextResponse.json({ url: null }, { headers: { "Cache-Control": "no-store" } });
 
     const data = (await res.json()) as { images?: { uri?: string }[] };
     const uri = data.images?.[0]?.uri ?? null;
@@ -44,9 +44,11 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json(
       { url: imageUrl },
-      { headers: { "Cache-Control": `public, max-age=${CACHE_SECONDS}, stale-while-revalidate=604800` } }
+      { headers: { "Cache-Control": imageUrl
+        ? `public, max-age=${CACHE_SECONDS}, stale-while-revalidate=604800`
+        : "no-store" } }
     );
   } catch {
-    return NextResponse.json({ url: null });
+    return NextResponse.json({ url: null }, { headers: { "Cache-Control": "no-store" } });
   }
 }

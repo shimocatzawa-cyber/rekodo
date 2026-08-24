@@ -3,6 +3,7 @@
 import { useState, useRef, useEffect } from "react";
 import { toPng } from "html-to-image";
 import { trackShareCard } from "@/lib/shareCard";
+import { pMap } from "@/lib/pMap";
 
 const CARD_W  = 560;
 const SERIF   = '"Shippori Mincho", Georgia, serif';
@@ -55,8 +56,9 @@ async function blobToDataUrl(blob: Blob): Promise<string> {
 }
 
 async function loadCovers(phases: EraPhase[]): Promise<CoverSrcs> {
-  const entries = await Promise.all(
-    phases.map(async (phase): Promise<[number, string | null]> => {
+  const entries = await pMap(
+    phases,
+    async (phase): Promise<[number, string | null]> => {
       const url = phase.coverAlbum?.coverUrl;
       if (!url) return [phase.eraNum - 1, null];
       try {
@@ -67,7 +69,8 @@ async function loadCovers(phases: EraPhase[]): Promise<CoverSrcs> {
       } catch {
         return [phase.eraNum - 1, null];
       }
-    }),
+    },
+    4,
   );
   return Object.fromEntries(entries);
 }

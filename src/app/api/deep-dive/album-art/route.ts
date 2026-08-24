@@ -1,6 +1,7 @@
 import { type NextRequest, NextResponse } from "next/server";
 
-const CACHE = { headers: { "Cache-Control": "public, max-age=86400" } };
+const HIT_CACHE = { headers: { "Cache-Control": "public, max-age=86400" } };
+const NO_STORE  = { headers: { "Cache-Control": "no-store" } };
 
 const UA = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36";
 
@@ -102,5 +103,5 @@ export async function GET(request: NextRequest) {
     (await fromItunes(artist, album)) ??
     (bandcampUrl ? await fromBandcamp(bandcampUrl) : null);
 
-  return NextResponse.json({ url }, CACHE);
+  return NextResponse.json({ url }, url ? HIT_CACHE : NO_STORE);
 }
