@@ -5,6 +5,10 @@ const NO_STORE  = { headers: { "Cache-Control": "no-store" } };
 
 const UA = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36";
 
+// Last.fm returns this MD5 hash as a placeholder when it has no real artwork.
+// Treat any URL containing it as a miss.
+const LASTFM_PLACEHOLDER = "2a96cbd8b46e442fc41c2b86b821562f";
+
 // Bandcamp fallback — uses og:image (always present) then art_id from TralbumData
 async function fromBandcamp(itemUrl: string): Promise<string | null> {
   if (!itemUrl.match(/^https?:\/\/[^/]*\.?bandcamp\.com\//)) return null;
@@ -38,24 +42,27 @@ async function fromBandcamp(itemUrl: string): Promise<string | null> {
   }
 }
 
-// Last.fm album.getInfo — exact artist+album match, most reliable source
+// Last.fm album.getInfo — exact artist+album match, most reliable source.
+// Cached 24h in Next.js data cache so repeated lookups avoid hitting Last.fm.
 async function fromLastFm(artist: string, album: string): Promise<string | null> {
   const key = process.env.LASTFM_API_KEY;
   if (!key) return null;
   try {
     const url = `https://ws.audioscrobbler.com/2.0/?method=album.getinfo&artist=${encodeURIComponent(artist)}&album=${encodeURIComponent(album)}&api_key=${key}&format=json&autocorrect=1`;
-    const res = await fetch(url, { cache: "no-store" });
+    const res = await fetch(url, { next: { revalidate: 86400 } });
     if (!res.ok) return null;
     const json = await res.json() as {
       album?: { image?: { "#text": string; size: string }[] };
       error?: number;
     };
     if (json.error || !json.album?.image) return null;
-    // Prefer extralarge → large → medium
+    // Prefer extralarge → large → medium; reject the known placeholder hash
     const sizes = ["extralarge", "large", "medium"];
     for (const size of sizes) {
       const img = json.album.image.find(i => i.size === size);
-      if (img?.["#text"]) return img["#text"];
+      if (img?.["#text"] && !img["#text"].includes(LASTFM_PLACEHOLDER)) {
+        return img["#text"];
+      }
     }
     return null;
   } catch {
@@ -63,14 +70,15 @@ async function fromLastFm(artist: string, album: string): Promise<string | null>
   }
 }
 
-// iTunes fallback — fuzzy but covers gaps where Last.fm has no artwork
-// Validates that at least the artist name appears in the result to reduce false matches
+// iTunes fallback — fuzzy but covers gaps where Last.fm has no artwork.
+// Validates that at least the artist name appears in the result to reduce false matches.
+// Cached 24h in Next.js data cache.
 async function fromItunes(artist: string, album: string): Promise<string | null> {
   try {
     const term = encodeURIComponent(`${artist} ${album}`);
     const res  = await fetch(
       `https://itunes.apple.com/search?term=${term}&media=music&entity=album&limit=5`,
-      { headers: { "User-Agent": "rekodo/1.0 (rekodo.co)" } }
+      { headers: { "User-Agent": "rekodo/1.0 (rekodo.co)" }, next: { revalidate: 86400 } }
     );
     if (!res.ok) return null;
     const data = await res.json() as {
@@ -98,10 +106,21 @@ export async function GET(request: NextRequest) {
   const bandcampUrl = request.nextUrl.searchParams.get("bandcampUrl");
   if (!artist || !album) return NextResponse.json({ url: null });
 
+  // When a bandcampUrl is provided, run Bandcamp in parallel with Last.fm.
+  // Bandcamp is authoritative for Bandcamp-sourced albums — many indie artists
+  // have no Last.fm/iTunes artwork at all. Then fall back to iTunes if needed.
+  if (bandcampUrl) {
+    const [lastfm, bandcamp] = await Promise.all([
+      fromLastFm(artist, album),
+      fromBandcamp(bandcampUrl),
+    ]);
+    const url = lastfm ?? bandcamp ?? (await fromItunes(artist, album));
+    return NextResponse.json({ url }, url ? HIT_CACHE : NO_STORE);
+  }
+
   const url =
     (await fromLastFm(artist, album)) ??
-    (await fromItunes(artist, album)) ??
-    (bandcampUrl ? await fromBandcamp(bandcampUrl) : null);
+    (await fromItunes(artist, album));
 
   return NextResponse.json({ url }, url ? HIT_CACHE : NO_STORE);
 }

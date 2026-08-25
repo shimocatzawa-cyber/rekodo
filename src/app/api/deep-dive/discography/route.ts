@@ -45,11 +45,13 @@ export async function GET(request: NextRequest) {
   const NO_STORE = { headers: { "Cache-Control": "no-store" } };
 
   try {
-    // Resolve artist ID — cache: "no-store" so a transient empty result from
-    // Discogs is never frozen in Next.js's Data Cache for 24h.
+    // Resolve artist ID — revalidate every 24h so Next.js data cache persists
+    // across serverless instances. This is critical on Vercel where each instance
+    // has an empty in-memory cache on cold start; without data-cache the route
+    // hits Discogs on every cold request and quickly exhausts the 60 req/min limit.
     const searchRes = await fetch(
       `https://api.discogs.com/database/search?q=${encodeURIComponent(artist)}&type=artist&per_page=5`,
-      { headers, cache: "no-store", signal: AbortSignal.timeout(6000) }
+      { headers, next: { revalidate: 86400 }, signal: AbortSignal.timeout(6000) }
     );
     if (!searchRes.ok) {
       // On rate-limit: serve stale in-memory entry rather than returning empty
@@ -65,7 +67,7 @@ export async function GET(request: NextRequest) {
     // Fetch all releases (masters only, sorted chronologically)
     const relRes = await fetch(
       `https://api.discogs.com/artists/${artistId}/releases?per_page=500&sort=year&sort_order=asc&type=master`,
-      { headers, cache: "no-store", signal: AbortSignal.timeout(8000) }
+      { headers, next: { revalidate: 86400 }, signal: AbortSignal.timeout(8000) }
     );
     if (!relRes.ok) {
       const stale = memCache.get(artist);
