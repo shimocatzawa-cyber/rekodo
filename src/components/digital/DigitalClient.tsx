@@ -58,7 +58,7 @@ function useCoverArt(artist: string, album: string, bandcampUrl?: string | null)
   useEffect(() => {
     if (coverCache.has(key)) { setUrl(coverCache.get(key) ?? null); return; }
     let cancelled = false;
-    const params = new URLSearchParams({ artist, album, v: "2" });
+    const params = new URLSearchParams({ artist, album, v: "3" });
     if (bandcampUrl) params.set("bandcampUrl", bandcampUrl);
     artEnqueue(async () => {
       if (cancelled) return;
