@@ -20,9 +20,22 @@ const SINGLE_PAT       = /\bb\/w\b/i;
 const REMIX_PAT        = /\bremix(es)?\b|\bdub\b|\bedit\b|\breworked?\b/i;
 const FORMAT_EXCL_PAT  = /\b(7"|ep|45\s*rpm|single|dvd|vhs|blu-?ray)\b/i;
 
+// Server-side in-memory cache — survives across requests on the same instance.
+// Prevents hammering Discogs when the CDN has no entry (cold-start, v= bust).
+const memCache = new Map<string, { data: DiscographyResponse; expiresAt: number }>();
+const MEM_TTL  = 4 * 60 * 60 * 1000; // 4 hours
+
 export async function GET(request: NextRequest) {
   const artist = request.nextUrl.searchParams.get("artist")?.trim() ?? "";
   if (!artist) return NextResponse.json({ albums: [], artistId: null });
+
+  // Serve from in-memory cache if available and fresh
+  const mem = memCache.get(artist);
+  if (mem && mem.expiresAt > Date.now()) {
+    return NextResponse.json(mem.data, {
+      headers: { "Cache-Control": "public, s-maxage=86400, stale-while-revalidate=3600" },
+    });
+  }
 
   const key    = process.env.DISCOGS_CONSUMER_KEY;
   const secret = process.env.DISCOGS_CONSUMER_SECRET;
@@ -38,7 +51,12 @@ export async function GET(request: NextRequest) {
       `https://api.discogs.com/database/search?q=${encodeURIComponent(artist)}&type=artist&per_page=5`,
       { headers, cache: "no-store", signal: AbortSignal.timeout(6000) }
     );
-    if (!searchRes.ok) return NextResponse.json({ albums: [], artistId: null }, NO_STORE);
+    if (!searchRes.ok) {
+      // On rate-limit: serve stale in-memory entry rather than returning empty
+      const stale = memCache.get(artist);
+      if (stale) return NextResponse.json(stale.data, { headers: { "Cache-Control": "no-store" } });
+      return NextResponse.json({ albums: [], artistId: null }, NO_STORE);
+    }
 
     const { results = [] } = await searchRes.json() as { results?: { id: number; type: string }[] };
     const artistId = results.find(r => r.type === "artist")?.id ?? null;
@@ -49,7 +67,11 @@ export async function GET(request: NextRequest) {
       `https://api.discogs.com/artists/${artistId}/releases?per_page=500&sort=year&sort_order=asc&type=master`,
       { headers, cache: "no-store", signal: AbortSignal.timeout(8000) }
     );
-    if (!relRes.ok) return NextResponse.json({ albums: [], artistId }, NO_STORE);
+    if (!relRes.ok) {
+      const stale = memCache.get(artist);
+      if (stale) return NextResponse.json(stale.data, { headers: { "Cache-Control": "no-store" } });
+      return NextResponse.json({ albums: [], artistId }, NO_STORE);
+    }
 
     const { releases = [] } = await relRes.json() as {
       releases?: {
@@ -95,14 +117,19 @@ export async function GET(request: NextRequest) {
       });
     }
 
-    return NextResponse.json({ albums, artistId } satisfies DiscographyResponse, {
-      // Only cache non-empty results — an empty album list may be a transient
-      // Discogs failure and caching it for 24h would lock users out.
+    const result: DiscographyResponse = { albums, artistId };
+    if (albums.length > 0) {
+      memCache.set(artist, { data: result, expiresAt: Date.now() + MEM_TTL });
+    }
+
+    return NextResponse.json(result satisfies DiscographyResponse, {
       headers: albums.length > 0
         ? { "Cache-Control": "public, s-maxage=86400, stale-while-revalidate=3600" }
         : { "Cache-Control": "no-store" },
     });
   } catch {
+    const stale = memCache.get(artist);
+    if (stale) return NextResponse.json(stale.data, { headers: { "Cache-Control": "no-store" } });
     return NextResponse.json({ albums: [], artistId: null }, NO_STORE);
   }
 }

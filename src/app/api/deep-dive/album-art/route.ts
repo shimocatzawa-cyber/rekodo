@@ -11,7 +11,7 @@ async function fromBandcamp(itemUrl: string): Promise<string | null> {
   try {
     const res = await fetch(itemUrl, {
       headers: { "User-Agent": UA, "Accept": "text/html" },
-      signal: AbortSignal.timeout(5_000),
+      signal: AbortSignal.timeout(8_000),
     });
     if (!res.ok) return null;
     const html = await res.text();
@@ -19,7 +19,7 @@ async function fromBandcamp(itemUrl: string): Promise<string | null> {
     // og:image is always present and is the most reliable source
     const ogImage = html.match(/property="og:image"\s+content="([^"]+)"/i)
                  ?? html.match(/content="([^"]+)"\s+property="og:image"/i);
-    if (ogImage?.[1] && ogImage[1].includes("bcbits.com")) {
+    if (ogImage?.[1]?.startsWith("https://")) {
       // Upgrade to _10.jpg (1200×1200) — og:image is usually _5.jpg (700×700)
       return ogImage[1].replace(/_\d+\.jpg$/, "_10.jpg");
     }

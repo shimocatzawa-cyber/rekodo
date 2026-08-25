@@ -240,16 +240,11 @@ function RankingsContent({
       ddArtEnqueue(async () => {
         if (cancelled) return;
         try {
-          const q = encodeURIComponent(`${artist} ${a.title}`);
-          const d = await fetch(`/api/discogs/search?q=${q}&mode=record`)
-            .then(r => r.ok ? r.json() as Promise<{ results?: { cover_image?: string; thumb?: string }[] }> : null);
+          const params = new URLSearchParams({ artist, album: a.title, v: "2" });
+          const d = await fetch(`/api/deep-dive/album-art?${params}`)
+            .then(r => r.ok ? r.json() as Promise<{ url: string | null }> : null);
           if (cancelled) return;
-          const first = d?.results?.[0];
-          if (!first) return;
-          const url =
-            (first.cover_image && !first.cover_image.includes("spacer")) ? first.cover_image :
-            (first.thumb && !first.thumb.includes("spacer")) ? first.thumb : null;
-          if (url) setArtMap(prev => ({ ...prev, [a.title]: `/api/image-proxy?url=${encodeURIComponent(url)}` }));
+          if (d?.url) setArtMap(prev => ({ ...prev, [a.title]: d.url! }));
         } catch {}
       });
     }
@@ -970,16 +965,11 @@ function BlindSpotContent({ data, artist }: { data: { albums?: BlindSpotAlbum[] 
       ddArtEnqueue(async () => {
         if (cancelled) return;
         try {
-          const q = encodeURIComponent(`${artist} ${a.title}`);
-          const d = await fetch(`/api/discogs/search?q=${q}&mode=record`)
-            .then(r => r.ok ? r.json() as Promise<{ results?: { cover_image?: string; thumb?: string }[] }> : null);
+          const params = new URLSearchParams({ artist, album: a.title, v: "2" });
+          const d = await fetch(`/api/deep-dive/album-art?${params}`)
+            .then(r => r.ok ? r.json() as Promise<{ url: string | null }> : null);
           if (cancelled) return;
-          const first = d?.results?.[0];
-          if (!first) return;
-          const url =
-            (first.cover_image && !first.cover_image.includes("spacer")) ? first.cover_image :
-            (first.thumb && !first.thumb.includes("spacer")) ? first.thumb : null;
-          if (url) setArtMap(prev => ({ ...prev, [a.title]: `/api/image-proxy?url=${encodeURIComponent(url)}` }));
+          if (d?.url) setArtMap(prev => ({ ...prev, [a.title]: d.url! }));
         } catch {}
       });
     }
