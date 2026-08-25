@@ -22,9 +22,9 @@ export type Database = {
         Relationships: [];
       };
       digital_imports: {
-        Row: { id: string; user_id: string; source: string; artist: string; album: string; is_duplicate: boolean; matched_record_id: string | null; imported_at: string; purchased_at: string | null; item_url: string | null; release_date: string | null; label: string | null; tags: string[] | null; subsonic_id: string | null };
-        Insert: { id?: string; user_id: string; source?: string; artist: string; album: string; is_duplicate?: boolean; matched_record_id?: string | null; imported_at?: string; purchased_at?: string | null; item_url?: string | null; release_date?: string | null; label?: string | null; tags?: string[] | null; subsonic_id?: string | null };
-        Update: { source?: string; artist?: string; album?: string; is_duplicate?: boolean; matched_record_id?: string | null; imported_at?: string; purchased_at?: string | null; item_url?: string | null; release_date?: string | null; label?: string | null; tags?: string[] | null; subsonic_id?: string | null };
+        Row: { id: string; user_id: string; source: string; artist: string; album: string; is_duplicate: boolean; matched_record_id: string | null; imported_at: string; purchased_at: string | null; item_url: string | null; cover_url: string | null; release_date: string | null; label: string | null; tags: string[] | null; subsonic_id: string | null };
+        Insert: { id?: string; user_id: string; source?: string; artist: string; album: string; is_duplicate?: boolean; matched_record_id?: string | null; imported_at?: string; purchased_at?: string | null; item_url?: string | null; cover_url?: string | null; release_date?: string | null; label?: string | null; tags?: string[] | null; subsonic_id?: string | null };
+        Update: { source?: string; artist?: string; album?: string; is_duplicate?: boolean; matched_record_id?: string | null; imported_at?: string; purchased_at?: string | null; item_url?: string | null; cover_url?: string | null; release_date?: string | null; label?: string | null; tags?: string[] | null; subsonic_id?: string | null };
         Relationships: [];
       };
       collection_photos: {

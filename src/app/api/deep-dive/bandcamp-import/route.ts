@@ -184,6 +184,7 @@ type CollectionItem = {
   purchased_at: string | null;
   release_date: string | null;
   label:        string | null;
+  cover_url:    string | null;
 };
 
 async function fetchCollection(fanId: number): Promise<CollectionItem[]> {
@@ -207,6 +208,7 @@ async function fetchCollection(fanId: number): Promise<CollectionItem[]> {
     type ApiItem = {
       band_name?: string; album_title?: string; item_title?: string;
       item_url?: string; purchased?: string; release_date?: string; label_name?: string;
+      art_id?: number;
     };
     let data: { items?: ApiItem[]; more_available?: boolean; last_token?: string };
     try { data = (await res.json()) as typeof data; }
@@ -224,6 +226,9 @@ async function fetchCollection(fanId: number): Promise<CollectionItem[]> {
           ? item.purchased
           : new Date(asNum * 1000).toISOString();
       }
+      const coverUrl = item.art_id
+        ? `https://f4.bcbits.com/img/a${item.art_id}_10.jpg`
+        : null;
       items.push({
         band_name:    item.band_name,
         album_title:  title,
@@ -231,6 +236,7 @@ async function fetchCollection(fanId: number): Promise<CollectionItem[]> {
         purchased_at: purchasedAt,
         release_date: item.release_date ?? null,
         label:        item.label_name ?? null,
+        cover_url:    coverUrl,
       });
     }
 
@@ -316,6 +322,7 @@ export async function POST(request: NextRequest) {
         item_url:          item.item_url,
         release_date:      item.release_date,
         label:             item.label,
+        cover_url:         item.cover_url,
         tags:              tags && tags.length > 0 ? tags : null,
       };
     });

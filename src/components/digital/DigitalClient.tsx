@@ -51,11 +51,14 @@ function artEnqueue(task: () => Promise<void>) {
   artDrain();
 }
 
-function useCoverArt(artist: string, album: string, bandcampUrl?: string | null): string | null {
-  const key = bandcampUrl ? `${artist}::${album}::bc` : `${artist}::${album}`;
-  const [url, setUrl] = useState<string | null>(coverCache.get(key) ?? null);
+function useCoverArt(artist: string | null, album: string | null, bandcampUrl?: string | null): string | null {
+  const key = artist && album
+    ? (bandcampUrl ? `${artist}::${album}::bc` : `${artist}::${album}`)
+    : null;
+  const [url, setUrl] = useState<string | null>(key ? (coverCache.get(key) ?? null) : null);
 
   useEffect(() => {
+    if (!key || !artist || !album) return;
     if (coverCache.has(key)) { setUrl(coverCache.get(key) ?? null); return; }
     let cancelled = false;
     const params = new URLSearchParams({ artist, album, v: "3" });
@@ -84,7 +87,14 @@ const embedCache = new Map<string, EmbedInfo | "error">();
 // ── Album card ─────────────────────────────────────────────────────────────
 
 function AlbumCard({ imp }: { imp: DigitalImport }) {
-  const coverUrl = useCoverArt(imp.artist, imp.album, imp.item_url);
+  // Use the cover URL stored at import time (from Bandcamp art_id) when available.
+  // Fall back to the live-lookup hook for older imports that predate this column.
+  const fetchedCoverUrl = useCoverArt(
+    imp.cover_url ? null : imp.artist,
+    imp.cover_url ? null : imp.album,
+    imp.cover_url ? null : imp.item_url,
+  );
+  const coverUrl = imp.cover_url ?? fetchedCoverUrl;
   const year = fmtYear(imp);
 
   const [embedState, setEmbedState] = useState<"idle" | "loading" | "ready" | "error">("idle");

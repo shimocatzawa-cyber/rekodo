@@ -17,6 +17,7 @@ export type DigitalImport = {
   album: string;
   purchased_at: string | null;
   item_url: string | null;
+  cover_url: string | null;
   release_date: string | null;
   label: string | null;
   tags: string[] | null;
@@ -31,7 +32,7 @@ export default async function DigitalPage() {
   const [importsRes, navProfileRes] = await Promise.all([
     supabase
       .from("digital_imports")
-      .select("id, artist, album, purchased_at, item_url, release_date, label, tags, source")
+      .select("id, artist, album, purchased_at, item_url, cover_url, release_date, label, tags, source")
       .eq("user_id", user.id)
       .order("purchased_at", { ascending: false, nullsFirst: false })
       .order("artist", { ascending: true }),
