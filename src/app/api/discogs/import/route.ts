@@ -67,7 +67,27 @@ export async function POST() {
       }
     }
 
-    // 2. Insert only records that don't exist yet (avoids needing UPDATE permission)
+    // 2a. Patch cover_url on existing records that currently have none but we now have one.
+    //     Records are shared across all users — an earlier sync by anyone may have stored
+    //     a null cover_url, so we fill it in opportunistically.
+    const existingNeedingArt = releases.filter(
+      (r) => existingMap.has(r.discogs_id) && r.cover_url
+    );
+    for (let i = 0; i < existingNeedingArt.length; i += BATCH) {
+      const batch = existingNeedingArt.slice(i, i + BATCH);
+      for (const r of batch) {
+        const recordId = existingMap.get(r.discogs_id);
+        if (recordId) {
+          await supabase
+            .from("records")
+            .update({ cover_url: r.cover_url })
+            .eq("id", recordId)
+            .is("cover_url", null);
+        }
+      }
+    }
+
+    // 2b. Insert only records that don't exist yet (avoids needing UPDATE permission)
     const newReleases = releases.filter((r) => !existingMap.has(r.discogs_id));
     console.log(`Discogs import: ${existingMap.size} existing, ${newReleases.length} new`);
 
