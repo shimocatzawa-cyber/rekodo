@@ -62,6 +62,7 @@ export async function GET(request: NextRequest) {
 
     const { results = [] } = await searchRes.json() as { results?: { id: number; type: string }[] };
     const artistId = results.find(r => r.type === "artist")?.id ?? null;
+    console.log(`[discography] ${artist}: search returned ${results.length} results, artistId=${artistId}`);
     if (!artistId) return NextResponse.json({ albums: [], artistId: null }, NO_STORE);
 
     // Fetch all releases (masters only, sorted chronologically)
@@ -88,6 +89,8 @@ export async function GET(request: NextRequest) {
         resource_url?: string;
       }[];
     };
+
+    console.log(`[discography] ${artist}: releases endpoint returned ${releases.length} items`);
 
     const seen = new Set<string>();
     const albums: DiscographyAlbum[] = [];
@@ -118,6 +121,8 @@ export async function GET(request: NextRequest) {
         url:    r.resource_url ? `https://www.discogs.com/master/${r.id}` : null,
       });
     }
+
+    console.log(`[discography] ${artist}: ${albums.length} albums passed filtering`);
 
     const result: DiscographyResponse = { albums, artistId };
     if (albums.length > 0) {
