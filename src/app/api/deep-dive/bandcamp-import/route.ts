@@ -116,7 +116,7 @@ async function getFanId(username: string): Promise<{ fanId: number | null; error
   return { fanId: null, error: "Could not find your Bandcamp fan ID. Make sure your Bandcamp collection is set to Public in your account settings, then try again." };
 }
 
-// ── Tag extraction from album page HTML ───────────────────────────────────────
+// ── Tag + art_id extraction from album page HTML ──────────────────────────────
 
 function extractTagsFromHtml(html: string): string[] {
   const tags: string[] = [];
@@ -147,26 +147,57 @@ function extractTagsFromHtml(html: string): string[] {
   return tags;
 }
 
-async function fetchTagsForUrl(url: string): Promise<string[]> {
-  try {
-    const res = await fetch(url, { headers: { "User-Agent": UA, "Accept": "text/html" }, signal: AbortSignal.timeout(4_000) });
-    if (!res.ok) return [];
-    return extractTagsFromHtml(await res.text());
-  } catch { return []; }
+function extractArtIdFromHtml(html: string): number | null {
+  // data-tralbum attribute — parsed JSON, most reliable
+  const dataTralbum = html.match(/data-tralbum="([^"]+)"/);
+  if (dataTralbum) {
+    try {
+      const raw = dataTralbum[1]
+        .replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&amp;/g, "&");
+      const parsed = JSON.parse(raw) as { art_id?: number };
+      if (parsed.art_id) return parsed.art_id;
+    } catch { /* continue */ }
+  }
+  // Inline TralbumData — search a large window so art_id is never missed
+  const idx = html.indexOf("TralbumData");
+  if (idx !== -1) {
+    const chunk = html.slice(idx, idx + 60_000);
+    const m = chunk.match(/"art_id"\s*:\s*(\d+)/);
+    if (m) return parseInt(m[1], 10);
+  }
+  // Last resort: extract art_id from og:image URL
+  const ogImage = html.match(/property="og:image"\s+content="([^"]+)"/i)
+               ?? html.match(/content="([^"]+)"\s+property="og:image"/i);
+  if (ogImage?.[1]) {
+    const artMatch = ogImage[1].match(/\/img\/a(\d+)_\d+\.jpg/);
+    if (artMatch) return parseInt(artMatch[1], 10);
+  }
+  return null;
 }
 
-// Fetch tags for a batch of items concurrently, capped at `concurrency` at once.
+type PageData = { tags: string[]; artId: number | null };
+
+async function fetchPageDataForUrl(url: string): Promise<PageData> {
+  try {
+    const res = await fetch(url, { headers: { "User-Agent": UA, "Accept": "text/html" }, signal: AbortSignal.timeout(4_000) });
+    if (!res.ok) return { tags: [], artId: null };
+    const html = await res.text();
+    return { tags: extractTagsFromHtml(html), artId: extractArtIdFromHtml(html) };
+  } catch { return { tags: [], artId: null }; }
+}
+
+// Fetch tags + art_id for a batch of items concurrently, capped at `concurrency`.
 // Stops early if the deadline is reached so the route never times out waiting
 // for slow Bandcamp pages — albums without tags are stored, not dropped.
-async function fetchTagsBatch(urls: string[], concurrency = 8, deadlineMs = 90_000): Promise<Map<string, string[]>> {
-  const result = new Map<string, string[]>();
+async function fetchTagsBatch(urls: string[], concurrency = 8, deadlineMs = 90_000): Promise<Map<string, PageData>> {
+  const result = new Map<string, PageData>();
   const queue = [...urls];
   const deadline = Date.now() + deadlineMs;
 
   async function worker() {
     while (queue.length > 0 && Date.now() < deadline) {
       const url = queue.shift()!;
-      result.set(url, await fetchTagsForUrl(url));
+      result.set(url, await fetchPageDataForUrl(url));
       if (queue.length > 0) await new Promise(r => setTimeout(r, 50));
     }
   }
@@ -277,7 +308,7 @@ export async function POST(request: NextRequest) {
 
     // Scrape tags from album pages in parallel
     const urlsToScrape = collection.map(i => i.item_url).filter(Boolean) as string[];
-    const tagMap = urlsToScrape.length > 0 ? await fetchTagsBatch(urlsToScrape) : new Map<string, string[]>();
+    const tagMap = urlsToScrape.length > 0 ? await fetchTagsBatch(urlsToScrape) : new Map<string, PageData>();
 
     // Fetch user's physical collection for deduplication
     const { data: userRecordsData } = await supabase.from("user_records").select("record_id").eq("user_id", userId);
@@ -308,7 +339,13 @@ export async function POST(request: NextRequest) {
       }
       if (isDuplicate) duplicateCount++;
 
-      const tags = item.item_url ? (tagMap.get(item.item_url) ?? null) : null;
+      const pageData = item.item_url ? (tagMap.get(item.item_url) ?? null) : null;
+      // cover_url: prefer art_id from the API; fall back to art_id extracted from the album page HTML
+      const resolvedArtId = item.cover_url
+        ? null
+        : (pageData?.artId ?? null);
+      const coverUrl = item.cover_url
+        ?? (resolvedArtId ? `https://f4.bcbits.com/img/a${resolvedArtId}_10.jpg` : null);
 
       return {
         user_id:           userId,
@@ -322,8 +359,8 @@ export async function POST(request: NextRequest) {
         item_url:          item.item_url,
         release_date:      item.release_date,
         label:             item.label,
-        cover_url:         item.cover_url,
-        tags:              tags && tags.length > 0 ? tags : null,
+        cover_url:         coverUrl,
+        tags:              pageData?.tags?.length ? pageData.tags : null,
       };
     });
 

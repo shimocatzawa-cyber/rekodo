@@ -9,7 +9,8 @@ const UA = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (
 // Treat any URL containing it as a miss.
 const LASTFM_PLACEHOLDER = "2a96cbd8b46e442fc41c2b86b821562f";
 
-// Bandcamp fallback — uses og:image (always present) then art_id from TralbumData
+// Bandcamp fallback — extracts art_id via data-tralbum JSON, TralbumData inline,
+// then og:image URL pattern. Returns the high-res _10.jpg CDN URL.
 async function fromBandcamp(itemUrl: string): Promise<string | null> {
   if (!itemUrl.match(/^https?:\/\/[^/]*\.?bandcamp\.com\//)) return null;
   try {
@@ -20,20 +21,30 @@ async function fromBandcamp(itemUrl: string): Promise<string | null> {
     if (!res.ok) return null;
     const html = await res.text();
 
-    // og:image is always present and is the most reliable source
+    // 1. data-tralbum attribute — parsed JSON, most reliable
+    const dataTralbum = html.match(/data-tralbum="([^"]+)"/);
+    if (dataTralbum) {
+      try {
+        const raw = dataTralbum[1]
+          .replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&amp;/g, "&");
+        const parsed = JSON.parse(raw) as { art_id?: number };
+        if (parsed.art_id) return `https://f4.bcbits.com/img/a${parsed.art_id}_10.jpg`;
+      } catch { /* continue */ }
+    }
+
+    // 2. Inline TralbumData — large window to handle varying page layouts
+    const tralbumIdx = html.indexOf("TralbumData");
+    if (tralbumIdx !== -1) {
+      const chunk = html.slice(tralbumIdx, tralbumIdx + 60_000);
+      const artMatch = chunk.match(/"art_id"\s*:\s*(\d+)/);
+      if (artMatch) return `https://f4.bcbits.com/img/a${artMatch[1]}_10.jpg`;
+    }
+
+    // 3. og:image — always present; upgrade to _10.jpg for best resolution
     const ogImage = html.match(/property="og:image"\s+content="([^"]+)"/i)
                  ?? html.match(/content="([^"]+)"\s+property="og:image"/i);
     if (ogImage?.[1]?.startsWith("https://")) {
-      // Upgrade to _10.jpg (1200×1200) — og:image is usually _5.jpg (700×700)
       return ogImage[1].replace(/_\d+\.jpg$/, "_10.jpg");
-    }
-
-    // Fallback: art_id in TralbumData
-    const tralbumIdx = html.indexOf("TralbumData");
-    if (tralbumIdx !== -1) {
-      const chunk = html.slice(tralbumIdx, tralbumIdx + 1000);
-      const artMatch = chunk.match(/"art_id"\s*:\s*(\d+)/);
-      if (artMatch) return `https://f4.bcbits.com/img/a${artMatch[1]}_10.jpg`;
     }
 
     return null;
