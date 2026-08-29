@@ -1456,18 +1456,26 @@ export default function DeepDiveClient({
     try { localStorage.setItem("dd-last-artist", selectedArtist); } catch { /* ignore */ }
   }, [selectedArtist]);
 
-  // Fire all artist image fetches on mount (best-effort, progressive)
+  // Fire artist image fetches on mount — throttled to 3 concurrent so we don't
+  // exhaust the Discogs 60 req/min limit before the discography request fires.
   useEffect(() => {
-    for (const a of artists) {
-      fetch(`/api/deep-dive/artist-image?artist=${encodeURIComponent(a.name)}&v=5`)
-        .then((r) => (r.ok ? r.json() : null))
-        .then((d: { url?: string } | null) => {
-          if (d?.url) {
-            setImageMap((prev) => ({ ...prev, [a.name]: d.url! }));
-          }
-        })
-        .catch(() => {});
+    const queue = [...artists];
+    let active = 0;
+    const MAX = 3;
+    function runNext() {
+      while (active < MAX && queue.length > 0) {
+        const a = queue.shift()!;
+        active++;
+        fetch(`/api/deep-dive/artist-image?artist=${encodeURIComponent(a.name)}&v=5`)
+          .then((r) => (r.ok ? r.json() : null))
+          .then((d: { url?: string } | null) => {
+            if (d?.url) setImageMap((prev) => ({ ...prev, [a.name]: d.url! }));
+          })
+          .catch(() => {})
+          .finally(() => { active--; runNext(); });
+      }
     }
+    runNext();
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []); // artists is stable (server-provided)
 

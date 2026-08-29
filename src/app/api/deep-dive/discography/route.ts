@@ -51,7 +51,7 @@ export async function GET(request: NextRequest) {
     // hits Discogs on every cold request and quickly exhausts the 60 req/min limit.
     const searchRes = await fetch(
       `https://api.discogs.com/database/search?q=${encodeURIComponent(artist)}&type=artist&per_page=10`,
-      { headers, cache: "no-store", signal: AbortSignal.timeout(6000) }
+      { headers, next: { revalidate: 3600 }, signal: AbortSignal.timeout(6000) }
     );
     if (!searchRes.ok) {
       // On rate-limit: serve stale in-memory entry rather than returning empty
@@ -62,13 +62,12 @@ export async function GET(request: NextRequest) {
 
     const { results = [] } = await searchRes.json() as { results?: { id: number; type: string }[] };
     const artistId = results.find(r => r.type === "artist")?.id ?? null;
-    console.log(`[discography] ${artist}: search returned ${results.length} results, artistId=${artistId}`);
     if (!artistId) return NextResponse.json({ albums: [], artistId: null }, NO_STORE);
 
     // Fetch all releases (masters only, sorted chronologically)
     const relRes = await fetch(
       `https://api.discogs.com/artists/${artistId}/releases?per_page=500&sort=year&sort_order=asc&type=master`,
-      { headers, cache: "no-store", signal: AbortSignal.timeout(8000) }
+      { headers, next: { revalidate: 3600 }, signal: AbortSignal.timeout(8000) }
     );
     if (!relRes.ok) {
       const stale = memCache.get(artist);
@@ -89,8 +88,6 @@ export async function GET(request: NextRequest) {
         resource_url?: string;
       }[];
     };
-
-    console.log(`[discography] ${artist}: releases endpoint returned ${releases.length} items`);
 
     const seen = new Set<string>();
     const albums: DiscographyAlbum[] = [];
@@ -121,8 +118,6 @@ export async function GET(request: NextRequest) {
         url:    r.resource_url ? `https://www.discogs.com/master/${r.id}` : null,
       });
     }
-
-    console.log(`[discography] ${artist}: ${albums.length} albums passed filtering`);
 
     const result: DiscographyResponse = { albums, artistId };
     if (albums.length > 0) {
