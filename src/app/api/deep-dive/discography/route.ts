@@ -51,7 +51,7 @@ export async function GET(request: NextRequest) {
     // hits Discogs on every cold request and quickly exhausts the 60 req/min limit.
     const searchRes = await fetch(
       `https://api.discogs.com/database/search?q=${encodeURIComponent(artist)}&type=artist&per_page=10`,
-      { headers, next: { revalidate: 86400 }, signal: AbortSignal.timeout(6000) }
+      { headers, cache: "no-store", signal: AbortSignal.timeout(6000) }
     );
     if (!searchRes.ok) {
       // On rate-limit: serve stale in-memory entry rather than returning empty
@@ -68,7 +68,7 @@ export async function GET(request: NextRequest) {
     // Fetch all releases (masters only, sorted chronologically)
     const relRes = await fetch(
       `https://api.discogs.com/artists/${artistId}/releases?per_page=500&sort=year&sort_order=asc&type=master`,
-      { headers, next: { revalidate: 86400 }, signal: AbortSignal.timeout(8000) }
+      { headers, cache: "no-store", signal: AbortSignal.timeout(8000) }
     );
     if (!relRes.ok) {
       const stale = memCache.get(artist);

@@ -204,7 +204,7 @@ function useDiscographyArt(artist: string): Record<string, string> {
     if (!artist) return;
     let cancelled = false;
     const normalise = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, "");
-    fetch(`/api/deep-dive/discography?artist=${encodeURIComponent(artist)}&v=4`)
+    fetch(`/api/deep-dive/discography?artist=${encodeURIComponent(artist)}&v=5`)
       .then(r => r.ok ? r.json() as Promise<{ albums?: { title: string; thumb: string | null }[] }> : null)
       .then(data => {
         if (cancelled || !data?.albums) return;
@@ -1459,7 +1459,7 @@ export default function DeepDiveClient({
   // Fire all artist image fetches on mount (best-effort, progressive)
   useEffect(() => {
     for (const a of artists) {
-      fetch(`/api/deep-dive/artist-image?artist=${encodeURIComponent(a.name)}&v=4`)
+      fetch(`/api/deep-dive/artist-image?artist=${encodeURIComponent(a.name)}&v=5`)
         .then((r) => (r.ok ? r.json() : null))
         .then((d: { url?: string } | null) => {
           if (d?.url) {
@@ -1504,7 +1504,7 @@ export default function DeepDiveClient({
     if (section === "discography") {
       setLoadingTabs((prev) => ({ ...prev, [key]: true }));
       setErrorTabs((prev) => { const n = { ...prev }; delete n[key]; return n; });
-      fetch(`/api/deep-dive/discography?artist=${encodeURIComponent(artist)}&v=4`)
+      fetch(`/api/deep-dive/discography?artist=${encodeURIComponent(artist)}&v=5`)
         .then(async (r) => r.ok ? r.json() : Promise.reject())
         .then((data: unknown) => {
           setCache((prev) => ({ ...prev, [artist]: { ...(prev[artist] ?? {}), discography: data } }));
@@ -1620,7 +1620,7 @@ export default function DeepDiveClient({
     setDiscogsResults([]);
     setQuery("");
     if (!imageMap[name]) {
-      fetch(`/api/deep-dive/artist-image?artist=${encodeURIComponent(name)}&v=4`)
+      fetch(`/api/deep-dive/artist-image?artist=${encodeURIComponent(name)}&v=5`)
         .then((r) => (r.ok ? r.json() : null))
         .then((d: { url?: string } | null) => {
           if (d?.url) setImageMap((prev) => ({ ...prev, [name]: d.url! }));
@@ -1762,7 +1762,7 @@ export default function DeepDiveClient({
     }
 
     if (section === "discography") {
-      fetch(`/api/deep-dive/discography?artist=${encodeURIComponent(artist)}&v=4`)
+      fetch(`/api/deep-dive/discography?artist=${encodeURIComponent(artist)}&v=5`)
         .then(async (r) => r.ok ? r.json() : Promise.reject())
         .then((data: unknown) => { setCache((prev) => ({ ...prev, [artist]: { ...(prev[artist] ?? {}), discography: data } })); })
         .catch(() => { startedRef.current.delete(key); setErrorTabs((prev) => ({ ...prev, [key]: { kind: "error" } })); })
