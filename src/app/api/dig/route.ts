@@ -398,9 +398,11 @@ ${JSON_SCHEMA}`;
     .limit(150) as { data: HistoryRow[] | null };
   const history = historyRows ?? [];
 
-  // Artist/album hard-exclusion uses the FULL history regardless of age —
-  // a repeat is a repeat no matter how long ago it was shown.
-  const allPrevArtists = [...new Set([...previousArtists, ...history.map((h) => h.artist)])];
+  // Album-level hard-exclusion uses the FULL history — same album is never shown twice.
+  // Artist-level exclusion is capped at the most recent 40 rows (≈13 digs) so the
+  // exclusion list doesn't exhaust the recommendation space for focused-taste collectors.
+  const recentHistory40 = history.slice(0, 40);
+  const allPrevArtists = [...new Set([...previousArtists, ...recentHistory40.map((h) => h.artist)])];
   const allPrevRecsMap = new Map<string, { artist: string; album: string }>();
   for (const r of [...previousRecommendations, ...history]) {
     if (r.artist && r.album) allPrevRecsMap.set(`${r.artist} ${r.album}`, r);
@@ -655,7 +657,7 @@ Rules:
 - Only recommend a record you are confident actually exists and was released under that exact artist/album name — if you are not sure, do not include it.
 - NEVER recommend a self-released, private-press, or hand-distributed record from a first-name/single-word artist that you cannot independently recall a specific label, catalogue number, or documented release context for. "Sounds like it could exist" is not sufficient — private-press hallucinations are the most common failure mode.
 ${isJa ? "- Write all reason text in Japanese (日本語).\n" : ""}
-Return ONLY a valid JSON array with exactly 15 objects — extra picks give headroom after artists already owned or already recommended get filtered out; only the first 3 surviving picks are shown. No markdown, no explanation outside the JSON.
+Return ONLY a valid JSON array with exactly 20 objects — extra picks give headroom after artists already owned or already recommended get filtered out; only the first 3 surviving picks are shown. No markdown, no explanation outside the JSON.
 
 Schema:
 ${JSON_SCHEMA}`;
@@ -743,7 +745,7 @@ Rules:
 - Only recommend a record you are confident actually exists and was released under that exact artist/album name — if you are not sure, do not include it.
 - NEVER recommend a self-released, private-press, or hand-distributed record from a first-name/single-word artist that you cannot independently recall a specific label, catalogue number, or documented release context for. "Sounds like it could exist" is not sufficient — private-press hallucinations are the most common failure mode.
 ${isJa ? "- Write all reason text in Japanese (日本語).\n" : ""}
-Return ONLY a valid JSON array with exactly 15 objects — extra picks give headroom after artists already owned or already recommended get filtered out; only the first 3 surviving picks are shown. No markdown, no explanation outside the JSON.
+Return ONLY a valid JSON array with exactly 20 objects — extra picks give headroom after artists already owned or already recommended get filtered out; only the first 3 surviving picks are shown. No markdown, no explanation outside the JSON.
 
 Schema:
 ${JSON_SCHEMA}`;
@@ -781,7 +783,7 @@ Rules:
 - Only recommend records you are confident actually exist under that exact artist/album name.
 - NEVER recommend a self-released or private-press record you cannot recall a specific label or catalogue number for — hallucinations are the most common failure mode here.
 ${isJa ? "- Write all reason text in Japanese (日本語).\n" : ""}
-Return ONLY a valid JSON array with exactly 15 objects — only the first 3 surviving picks are shown. No markdown, no explanation outside the JSON.
+Return ONLY a valid JSON array with exactly 20 objects — only the first 3 surviving picks are shown. No markdown, no explanation outside the JSON.
 
 Schema:
 ${JSON_SCHEMA}`;
@@ -879,9 +881,9 @@ ${JSON_SCHEMA}`;
     const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
     const message = await anthropic.messages.create({
       model: "claude-sonnet-4-6",
-      // 15 candidates × ~300 tokens each ≈ 4,500 tokens output; 6,000 gives
+      // 20 candidates × ~300 tokens each ≈ 6,000 tokens output; 8,000 gives
       // enough headroom so longer reasons don't truncate mid-JSON.
-      max_tokens: 6000,
+      max_tokens: 8000,
       messages: [{ role: "user", content: prompt }],
     });
 
@@ -974,7 +976,7 @@ ${JSON_SCHEMA}`;
     // Cache all picks for future digs — shown_at set for first 3, null for rest
     if (mode === "discover" || mode === "style" || mode === "album") {
       const nowTs = new Date().toISOString();
-      const cacheEntries = (recommendations as Array<Record<string, unknown>>).slice(0, 15).map((r, i) => ({
+      const cacheEntries = (recommendations as Array<Record<string, unknown>>).slice(0, 20).map((r, i) => ({
         user_id:               user.id,
         mode,
         style:                 mode === "style" ? style : mode === "album" ? `${sourceAlbum!.artist} — ${sourceAlbum!.album}` : null,

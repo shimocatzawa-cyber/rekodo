@@ -467,6 +467,43 @@ async function processSync(supabase: SB, jobId: string, userId: string) {
       }
     } catch { /* non-fatal — will retry on next sync */ }
 
+    // ── Phase 2e: Backfill null cover_url for existing records ───────────────
+    // If a record was first inserted by any user when Discogs had no artwork (or
+    // before cover_url was stored), fill it in from the current response.
+    // Only overwrites nulls — existing artwork is never clobbered.
+    try {
+      const coverLookup = new Map<string, string>(
+        collectionItems
+          .filter((item) => item.cover_url)
+          .map((item) => [item.discogs_id, item.cover_url as string])
+      );
+
+      if (coverLookup.size > 0) {
+        const allRecordIds4 = [...new Set(existingMap.values())];
+        const toUpdateCover: { id: string; cover_url: string }[] = [];
+
+        for (let i = 0; i < allRecordIds4.length; i += BATCH) {
+          const { data } = await supabase
+            .from("records")
+            .select("id, discogs_id")
+            .in("id", allRecordIds4.slice(i, i + BATCH))
+            .is("cover_url", null);
+
+          for (const r of data ?? []) {
+            if (!r.discogs_id) continue;
+            const cover = coverLookup.get(r.discogs_id as string);
+            if (cover) toUpdateCover.push({ id: r.id, cover_url: cover });
+          }
+        }
+
+        for (let i = 0; i < toUpdateCover.length; i += BATCH) {
+          await supabase
+            .from("records")
+            .upsert(toUpdateCover.slice(i, i + BATCH), { onConflict: "id" });
+        }
+      }
+    } catch { /* non-fatal — will retry on next sync */ }
+
     // ── Phase 3: Link records to user_records ─────────────────────────────────
     await updateJob(supabase, jobId, { phase: "linking", progress_done: 0 });
 
