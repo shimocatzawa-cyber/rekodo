@@ -15,22 +15,6 @@ const RULE   = "#e0e0da";
 const WARM   = "#FDF6F0";
 const SUBTLE = "#f0efea";
 
-// Shared concurrency limiter for Discogs artwork searches across all tab content
-// components. Prevents simultaneous album loads from firing all fetches at once
-// and hitting the 60 req/min consumer key rate limit.
-const ART_CONCURRENCY = 3;
-let ddArtActive = 0;
-const ddArtQueue: Array<() => void> = [];
-function ddArtDrain() {
-  while (ddArtActive < ART_CONCURRENCY && ddArtQueue.length > 0) {
-    ddArtActive++;
-    ddArtQueue.shift()!();
-  }
-}
-function ddArtEnqueue(task: () => Promise<void>) {
-  ddArtQueue.push(() => { void task().finally(() => { ddArtActive--; ddArtDrain(); }); });
-  ddArtDrain();
-}
 
 type Section = "about" | "rankings" | "discography" | "podcasts" | "print" | "related" | "blindspot" | "pressings";
 
@@ -211,6 +195,31 @@ function AboutContent({ data }: { data: ArtistAbout }) {
 
 type Album = { rank: number; title: string; year: number; review: string };
 
+// Fetches the discography endpoint once per artist and returns a map of
+// normalised title → proxied Discogs thumbnail URL, matching the same source
+// that the Discography tab uses (always loads correctly).
+function useDiscographyArt(artist: string): Record<string, string> {
+  const [thumbMap, setThumbMap] = useState<Record<string, string>>({});
+  useEffect(() => {
+    if (!artist) return;
+    let cancelled = false;
+    const normalise = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, "");
+    fetch(`/api/deep-dive/discography?artist=${encodeURIComponent(artist)}&v=3`)
+      .then(r => r.ok ? r.json() as Promise<{ albums?: { title: string; thumb: string | null }[] }> : null)
+      .then(data => {
+        if (cancelled || !data?.albums) return;
+        const map: Record<string, string> = {};
+        for (const a of data.albums) {
+          if (a.thumb) map[normalise(a.title)] = `/api/image-proxy?url=${encodeURIComponent(a.thumb)}`;
+        }
+        setThumbMap(map);
+      })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, [artist]);
+  return thumbMap;
+}
+
 function RankingsContent({
   data,
   artist,
@@ -227,30 +236,8 @@ function RankingsContent({
   wantlistSet?: Set<string>;
 }) {
   const norm = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, "");
-  const [artMap, setArtMap] = useState<Record<string, string | null>>({});
-
+  const thumbMap = useDiscographyArt(artist);
   const albums = data.albums ?? [];
-
-  // Fetch artwork from Discogs search — same source as the Discography tab
-  // (i.discogs.com URLs), proxied through /api/image-proxy.
-  useEffect(() => {
-    if (albums.length === 0) return;
-    let cancelled = false;
-    for (const a of albums) {
-      ddArtEnqueue(async () => {
-        if (cancelled) return;
-        try {
-          const params = new URLSearchParams({ artist, album: a.title, v: "3" });
-          const d = await fetch(`/api/deep-dive/album-art?${params}`)
-            .then(r => r.ok ? r.json() as Promise<{ url: string | null }> : null);
-          if (cancelled) return;
-          if (d?.url) setArtMap(prev => ({ ...prev, [a.title]: d.url! }));
-        } catch {}
-      });
-    }
-    return () => { cancelled = true; };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [artist, albums.length]);
 
   if (albums.length === 0) {
     return (
@@ -265,7 +252,7 @@ function RankingsContent({
         const key          = norm(a.title);
         const inCollection = collectionSet?.has(key) ?? false;
         const inWantlist   = wantlistSet?.has(key) ?? wantlistAdded?.has(a.title) ?? false;
-        const artUrl       = artMap[a.title];
+        const artUrl       = thumbMap[norm(a.title)];
 
         const statusTag = inCollection
           ? <span style={{ fontFamily: MONO, fontSize: "0.65rem", letterSpacing: "0.06em", color: "#aaa", border: "1px solid #ddd", padding: "2px 7px", flexShrink: 0 }}>In Collection</span>
@@ -957,25 +944,8 @@ type BlindSpotAlbum = { title: string; year: number; why: string; tip: string };
 
 function BlindSpotContent({ data, artist }: { data: { albums?: BlindSpotAlbum[] }; artist: string }) {
   const albums = data.albums ?? [];
-  const [artMap, setArtMap] = useState<Record<string, string>>({});
-
-  useEffect(() => {
-    let cancelled = false;
-    for (const a of albums) {
-      ddArtEnqueue(async () => {
-        if (cancelled) return;
-        try {
-          const params = new URLSearchParams({ artist, album: a.title, v: "3" });
-          const d = await fetch(`/api/deep-dive/album-art?${params}`)
-            .then(r => r.ok ? r.json() as Promise<{ url: string | null }> : null);
-          if (cancelled) return;
-          if (d?.url) setArtMap(prev => ({ ...prev, [a.title]: d.url! }));
-        } catch {}
-      });
-    }
-    return () => { cancelled = true; };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [artist, albums.length]);
+  const thumbMap = useDiscographyArt(artist);
+  const norm = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, "");
 
   if (albums.length === 0) {
     return (
@@ -990,9 +960,9 @@ function BlindSpotContent({ data, artist }: { data: { albums?: BlindSpotAlbum[] 
         <div key={i} style={{ padding: "1.5rem 0", borderBottom: `1px solid ${RULE}` }}>
           {/* Title row with artwork */}
           <div style={{ display: "flex", gap: 14, alignItems: "flex-start", marginBottom: 10 }}>
-            {artMap[a.title] ? (
+            {thumbMap[norm(a.title)] ? (
               // eslint-disable-next-line @next/next/no-img-element
-              <img src={artMap[a.title]} alt="" aria-hidden style={{ width: 64, height: 64, objectFit: "cover", flexShrink: 0, display: "block" }} />
+              <img src={thumbMap[norm(a.title)]} alt="" aria-hidden style={{ width: 64, height: 64, objectFit: "cover", flexShrink: 0, display: "block" }} />
             ) : (
               <VinylFallback size={64} />
             )}
