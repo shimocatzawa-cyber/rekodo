@@ -50,7 +50,7 @@ export async function GET(request: NextRequest) {
     // has an empty in-memory cache on cold start; without data-cache the route
     // hits Discogs on every cold request and quickly exhausts the 60 req/min limit.
     const searchRes = await fetch(
-      `https://api.discogs.com/database/search?q=${encodeURIComponent(artist)}&type=artist&per_page=5`,
+      `https://api.discogs.com/database/search?q=${encodeURIComponent(artist)}&type=artist&per_page=10`,
       { headers, next: { revalidate: 86400 }, signal: AbortSignal.timeout(6000) }
     );
     if (!searchRes.ok) {
