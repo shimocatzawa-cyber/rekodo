@@ -2131,7 +2131,14 @@ function TracklistPanel({ tracks, loading, bandcamp, record, username, collectio
         body: JSON.stringify({ recordId: record.id }),
       });
       const json = await res.json() as { last_played_at?: string };
-      if (json.last_played_at) setLastPlayed(json.last_played_at);
+      if (json.last_played_at) {
+        setLastPlayed(json.last_played_at);
+        setCollection(prev => prev.map(r =>
+          r.id === record!.id
+            ? { ...r, last_played_at: json.last_played_at!, play_count: r.play_count + 1 }
+            : r
+        ));
+      }
       setPlayCount(prev => prev + 1);
     } finally {
       setPlayedLoading(false);
