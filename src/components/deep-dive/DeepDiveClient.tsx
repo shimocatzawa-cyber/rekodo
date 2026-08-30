@@ -1961,7 +1961,11 @@ export default function DeepDiveClient({
         </div>
       </>
     );
-    if (tab === "related")  return <RelatedArtistsContent data={data as { artists?: RelatedArtist[] }} onSelectArtist={selectArtist} />;
+    if (tab === "related")  return <RelatedArtistsContent data={data as { artists?: RelatedArtist[] }} onSelectArtist={(name) => {
+      const collectionMatch = mergedArtists.find(a => a.name.toLowerCase().trim() === name.toLowerCase().trim());
+      if (collectionMatch) selectArtist(collectionMatch.name);
+      else selectExternalArtist(name);
+    }} />;
     if (tab === "blindspot")  return <BlindSpotContent  data={data as { albums?: BlindSpotAlbum[] }} artist={selectedArtist} />;
     if (tab === "pressings")  return <PressingsContent  data={data as { pressings?: PressingsAlbum[] }} onRetry={() => retryFetch(selectedArtist, "pressings")} />;
     return null;
