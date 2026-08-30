@@ -1529,6 +1529,9 @@ export default function CollectionClient({
                 record={selectedRecord}
                 username={username}
                 collectionCount={totalItems}
+                onPlayed={(id, ts) => setCollection(prev => prev.map(r =>
+                  r.id === id ? { ...r, last_played_at: ts, play_count: r.play_count + 1 } : r
+                ))}
               />
             </div>
           </div>
@@ -1916,13 +1919,14 @@ function MetaRow({ label, value }: { label: string; value: string | null | undef
 
 // ─── TracklistPanel ───────────────────────────────────────────────────────────
 
-function TracklistPanel({ tracks, loading, bandcamp, record, username, collectionCount }: {
+function TracklistPanel({ tracks, loading, bandcamp, record, username, collectionCount, onPlayed }: {
   tracks:          TrackItem[] | null;
   loading:         boolean;
   bandcamp:        BandcampData | null;
   record:          CollectionRecord | null;
   username?:       string;
   collectionCount: number;
+  onPlayed?:       (id: string, last_played_at: string) => void;
 }) {
   const artist      = record?.artist ?? "";
   const album       = record?.album  ?? "";
@@ -2133,11 +2137,7 @@ function TracklistPanel({ tracks, loading, bandcamp, record, username, collectio
       const json = await res.json() as { last_played_at?: string };
       if (json.last_played_at) {
         setLastPlayed(json.last_played_at);
-        setCollection(prev => prev.map(r =>
-          r.id === record!.id
-            ? { ...r, last_played_at: json.last_played_at!, play_count: r.play_count + 1 }
-            : r
-        ));
+        if (record?.id) onPlayed?.(record.id, json.last_played_at);
       }
       setPlayCount(prev => prev + 1);
     } finally {
