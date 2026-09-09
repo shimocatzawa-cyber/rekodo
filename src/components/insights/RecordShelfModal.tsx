@@ -248,7 +248,7 @@ function ShelfCard({ username, totalRecords, styleBreakdown, genreBreakdown, des
           ) : <div style={{ fontFamily: SERIF, fontSize: 26, fontWeight: 600, color: INK }}>—</div>}
         </div>
         <div style={{ flex: 1, paddingLeft: 16, display: "flex", flexDirection: "column", justifyContent: "flex-start" }}>
-          <div style={{ fontFamily: MONO, fontSize: 8, letterSpacing: "0.12em", textTransform: "uppercase", color: MUTED, marginBottom: 8 }}>Newest Album</div>
+          <div style={{ fontFamily: MONO, fontSize: 8, letterSpacing: "0.12em", textTransform: "uppercase", color: MUTED, marginBottom: 8 }}>Latest Addition</div>
           {newestAlbum ? (
             <>
               <div style={{ fontFamily: SERIF, fontSize: 26, fontWeight: 600, color: INK, lineHeight: 1 }}>{newestAlbum.year}</div>

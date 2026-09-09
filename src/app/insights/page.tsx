@@ -970,9 +970,12 @@ export default async function InsightsPage() {
   })();
 
   const newestAlbum = (() => {
-    if (!yearRange) return null;
-    const rec = [...recordsMap.values()].find(r => r.year === yearRange.newest);
-    return rec ? { year: yearRange.newest, artist: rec.artist, album: rec.album } : null;
+    const latestLink = allLinks
+      .filter(l => l.date_added)
+      .sort((a, b) => new Date(b.date_added!).getTime() - new Date(a.date_added!).getTime())[0];
+    if (!latestLink) return null;
+    const rec = recordsMap.get(latestLink.record_id);
+    return rec ? { year: rec.year ?? 0, artist: rec.artist, album: rec.album } : null;
   })();
   const mostPopularYear = (() => {
     if (allYears.length === 0) return null;
