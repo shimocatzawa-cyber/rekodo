@@ -2369,31 +2369,29 @@ function TracklistPanel({ tracks, loading, bandcamp, record, username, collectio
               {playCount > 0 && `${playCount} ${playCount === 1 ? "play" : "plays"}`}
             </p>
           )}
+          <p style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.08em", color: "#aaaaaa", margin: "6px 0 0", display: "flex", alignItems: "center", gap: "8px" }}>
+            <span>
+              {lastCleaned
+                ? `Last cleaned: ${formatLastCleaned(lastCleaned)}`
+                : "Last cleaned: Never"}
+            </span>
+            <button
+              onClick={handleLogCleaned}
+              disabled={cleanedLoading}
+              style={{
+                fontFamily: MONO, fontSize: "9px", letterSpacing: "0.08em",
+                color: ORANGE, background: "none", border: "none", cursor: "pointer",
+                padding: "0", opacity: cleanedLoading ? 0.5 : 1,
+              }}
+            >
+              + log
+            </button>
+          </p>
         </div>
       )}
 
       {/* ── Custom Tags ── */}
       <TagsSection record={record} />
-
-      {/* ── Last Cleaned ── */}
-      <div style={{ padding: "10px 28px", borderTop: "1px solid #e0e0da", display: "flex", alignItems: "center", gap: "8px" }}>
-        <span style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.08em", color: "#aaaaaa" }}>
-          {lastCleaned
-            ? `Last cleaned: ${formatLastCleaned(lastCleaned)}`
-            : "Last cleaned: Never"}
-        </span>
-        <button
-          onClick={handleLogCleaned}
-          disabled={cleanedLoading}
-          style={{
-            fontFamily: MONO, fontSize: "9px", letterSpacing: "0.08em",
-            color: ORANGE, background: "none", border: "none", cursor: "pointer",
-            padding: "0", opacity: cleanedLoading ? 0.5 : 1,
-          }}
-        >
-          + log
-        </button>
-      </div>
 
       {/* ── Memory ── */}
       <MemorySection record={record} />
