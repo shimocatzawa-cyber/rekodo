@@ -1316,7 +1316,7 @@ export default function DeepDiveClient({
   const [favorites, setFavorites] = useState<Set<string>>(() => new Set(initialFavorites));
   const [favoritesOnly, setFavoritesOnly] = useState(false);
   const favoriteTogglingRef = useRef(new Set<string>());
-  const [activeTab, setActiveTab] = useUrlTab<Section>("tab", TAB_IDS, "about");
+  const [activeTab, setActiveTab] = useUrlTab<Section>("tab", TAB_IDS, "discography");
   const [imageMap, setImageMap] = useState<Record<string, string>>({});
   const [cache, setCache] = useState<Record<string, Record<string, unknown>>>({});
   const [loadingTabs, setLoadingTabs] = useState<Record<string, boolean>>({});
