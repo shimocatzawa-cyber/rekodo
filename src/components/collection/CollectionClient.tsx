@@ -371,6 +371,7 @@ export default function CollectionClient({
         tags:             string[] | null;
         date_added:       string | null;
         last_played_at:   string | null;
+        last_cleaned_at:  string | null;
         play_count:       number | null;
         favourite_tracks: string[] | null;
       };
@@ -380,7 +381,7 @@ export default function CollectionClient({
         const { data, error } = await supabase
           .from("user_records")
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          .select("record_id, value, price_low, price_median, price_currency, media_condition, sleeve_condition, open_to_offers, is_essential, feeling, memory_text, copies, tags, date_added, last_played_at, play_count, favourite_tracks" as any)
+          .select("record_id, value, price_low, price_median, price_currency, media_condition, sleeve_condition, open_to_offers, is_essential, feeling, memory_text, copies, tags, date_added, last_played_at, last_cleaned_at, play_count, favourite_tracks" as any)
           .eq("user_id", user.id)
           .range(from, from + PAGE - 1);
         if (!data || data.length === 0) break;
@@ -403,10 +404,11 @@ export default function CollectionClient({
       const clientCopiesMap    = new Map<string, number>(allLinks.map((l) => [l.record_id, l.copies ?? 1]));
       const clientDateAddedMap = new Map<string, string | null>(allLinks.map((l) => [l.record_id, l.date_added ?? null]));
       const lastPlayedClientMap      = new Map<string, string | null>(allLinks.map((l) => [l.record_id, l.last_played_at ?? null]));
+      const lastCleanedClientMap     = new Map<string, string | null>(allLinks.map((l) => [l.record_id, l.last_cleaned_at ?? null]));
       const playCountClientMap       = new Map<string, number>(allLinks.map((l) => [l.record_id, l.play_count ?? 0]));
       const favouriteTracksClientMap = new Map<string, string[]>(allLinks.map((l) => [l.record_id, l.favourite_tracks ?? []]));
       const BATCH        = 400;
-      const recordsMap   = new Map<string, Omit<CollectionRecord, "value" | "price_low" | "price_low_usd" | "price_median" | "price_currency" | "media_condition" | "sleeve_condition" | "last_played_at" | "play_count" | "favourite_tracks" | "open_to_offers" | "is_essential" | "feeling" | "memory_text" | "tags" | "copies" | "date_added">>();
+      const recordsMap   = new Map<string, Omit<CollectionRecord, "value" | "price_low" | "price_low_usd" | "price_median" | "price_currency" | "media_condition" | "sleeve_condition" | "last_played_at" | "last_cleaned_at" | "play_count" | "favourite_tracks" | "open_to_offers" | "is_essential" | "feeling" | "memory_text" | "tags" | "copies" | "date_added">>();
       for (let i = 0; i < recordIds.length; i += BATCH) {
         const { data, error } = await supabase
           .from("records")
@@ -436,6 +438,7 @@ export default function CollectionClient({
             copies:           clientCopiesMap.get(id)       ?? 1,
             date_added:       clientDateAddedMap.get(id)    ?? null,
             last_played_at:   lastPlayedClientMap.get(id)        ?? null,
+            last_cleaned_at:  lastCleanedClientMap.get(id)       ?? null,
             play_count:       playCountClientMap.get(id)         ?? 0,
             favourite_tracks: favouriteTracksClientMap.get(id)   ?? [],
           };
@@ -1940,6 +1943,8 @@ function TracklistPanel({ tracks, loading, bandcamp, record, username, collectio
   const [hoveredTrackPos,  setHoveredTrackPos]  = useState<string | null>(null);
   const favouriteTogglingRef = useRef(new Set<string>());
   const [playedLoading,    setPlayedLoading]    = useState(false);
+  const [lastCleaned,      setLastCleaned]      = useState<string | null>(record?.last_cleaned_at ?? null);
+  const [cleanedLoading,   setCleanedLoading]   = useState(false);
 
   const [isEssential, setIsEssential] = useState<boolean>(record?.is_essential ?? false);
   const [essentialLoading, setEssentialLoading] = useState(false);
@@ -1953,9 +1958,10 @@ function TracklistPanel({ tracks, loading, bandcamp, record, username, collectio
   // Sync when selected record changes
   useEffect(() => {
     setLastPlayed(record?.last_played_at ?? null);
+    setLastCleaned(record?.last_cleaned_at ?? null);
     setPlayCount(record?.play_count ?? 0);
     setFavouriteTracks(new Set(record?.favourite_tracks ?? []));
-  }, [record?.id, record?.last_played_at, record?.play_count, record?.favourite_tracks]);
+  }, [record?.id, record?.last_played_at, record?.last_cleaned_at, record?.play_count, record?.favourite_tracks]);
 
   useEffect(() => {
     setIsEssential(record?.is_essential ?? false);
@@ -2145,8 +2151,40 @@ function TracklistPanel({ tracks, loading, bandcamp, record, username, collectio
     }
   }
 
+  async function handleLogCleaned() {
+    if (!record?.id || cleanedLoading) return;
+    setCleanedLoading(true);
+    try {
+      const res = await fetch("/api/collection/cleaned", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ recordId: record.id }),
+      });
+      const json = await res.json() as { last_cleaned_at?: string };
+      if (json.last_cleaned_at) setLastCleaned(json.last_cleaned_at);
+    } finally {
+      setCleanedLoading(false);
+    }
+  }
+
   function formatLastPlayed(iso: string): string {
     return new Date(iso).toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" });
+  }
+
+  function formatLastCleaned(iso: string): string {
+    const date = new Date(iso);
+    const formatted = date.toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" });
+    const now = Date.now();
+    const diff = now - date.getTime();
+    const days = Math.floor(diff / 86400000);
+    let relative: string;
+    if (days === 0) relative = "today";
+    else if (days === 1) relative = "yesterday";
+    else if (days < 7) relative = `${days} days ago`;
+    else if (days < 30) { const w = Math.floor(days / 7); relative = `${w} ${w === 1 ? "week" : "weeks"} ago`; }
+    else if (days < 365) { const m = Math.floor(days / 30); relative = `${m} ${m === 1 ? "month" : "months"} ago`; }
+    else { const y = Math.floor(days / 365); relative = `${y} ${y === 1 ? "year" : "years"} ago`; }
+    return `${formatted} · ${relative}`;
   }
 
   async function handleToggleFavouriteTrack(position: string) {
@@ -2336,6 +2374,26 @@ function TracklistPanel({ tracks, loading, bandcamp, record, username, collectio
 
       {/* ── Custom Tags ── */}
       <TagsSection record={record} />
+
+      {/* ── Last Cleaned ── */}
+      <div style={{ padding: "10px 28px", borderTop: "1px solid #e0e0da", display: "flex", alignItems: "center", gap: "8px" }}>
+        <span style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.08em", color: "#aaaaaa" }}>
+          {lastCleaned
+            ? `Last cleaned: ${formatLastCleaned(lastCleaned)}`
+            : "Last cleaned: Never"}
+        </span>
+        <button
+          onClick={handleLogCleaned}
+          disabled={cleanedLoading}
+          style={{
+            fontFamily: MONO, fontSize: "9px", letterSpacing: "0.08em",
+            color: ORANGE, background: "none", border: "none", cursor: "pointer",
+            padding: "0", opacity: cleanedLoading ? 0.5 : 1,
+          }}
+        >
+          + log
+        </button>
+      </div>
 
       {/* ── Memory ── */}
       <MemorySection record={record} />
