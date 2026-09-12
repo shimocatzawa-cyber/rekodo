@@ -2591,14 +2591,14 @@ function TagsSection({ record }: { record: CollectionRecord | null }) {
 
 function MemorySection({ record }: { record: CollectionRecord | null }) {
   const [memoryText, setMemoryText] = useState<string | null>(record?.memory_text ?? null);
-  const [open,    setOpen]    = useState(true);
+  const [open,    setOpen]    = useState(false);
   const [editing, setEditing] = useState(false);
   const [draft,   setDraft]   = useState("");
   const [saving,  setSaving]  = useState(false);
 
   useEffect(() => {
     setMemoryText(record?.memory_text ?? null);
-    setOpen(true);
+    setOpen(false);
     setEditing(false);
     setDraft("");
   }, [record?.id]); // eslint-disable-line react-hooks/exhaustive-deps
