@@ -44,25 +44,32 @@ export async function GET(request: NextRequest) {
 
   const NO_STORE = { headers: { "Cache-Control": "no-store" } };
 
-  try {
-    // Resolve artist ID — revalidate every 24h so Next.js data cache persists
-    // across serverless instances. This is critical on Vercel where each instance
-    // has an empty in-memory cache on cold start; without data-cache the route
-    // hits Discogs on every cold request and quickly exhausts the 60 req/min limit.
-    const searchRes = await fetch(
-      `https://api.discogs.com/database/search?q=${encodeURIComponent(artist)}&type=artist&per_page=10`,
-      { headers, next: { revalidate: 3600 }, signal: AbortSignal.timeout(6000) }
-    );
-    if (!searchRes.ok) {
-      // On rate-limit: serve stale in-memory entry rather than returning empty
-      const stale = memCache.get(artist);
-      if (stale) return NextResponse.json(stale.data, { headers: { "Cache-Control": "no-store" } });
-      return NextResponse.json({ albums: [], artistId: null }, NO_STORE);
-    }
+  // If the caller already has the Discogs artist ID (e.g. from the search dropdown),
+  // skip the name search entirely — avoids disambiguation failures like "Artist (2)".
+  const artistIdParam = request.nextUrl.searchParams.get("artistId");
+  let artistId: number | null = artistIdParam ? parseInt(artistIdParam, 10) : null;
 
-    const { results = [] } = await searchRes.json() as { results?: { id: number; type: string }[] };
-    const artistId = results.find(r => r.type === "artist")?.id ?? null;
-    if (!artistId) return NextResponse.json({ albums: [], artistId: null }, NO_STORE);
+  try {
+    if (!artistId) {
+      // Resolve artist ID — revalidate every 24h so Next.js data cache persists
+      // across serverless instances. This is critical on Vercel where each instance
+      // has an empty in-memory cache on cold start; without data-cache the route
+      // hits Discogs on every cold request and quickly exhausts the 60 req/min limit.
+      const searchRes = await fetch(
+        `https://api.discogs.com/database/search?q=${encodeURIComponent(artist)}&type=artist&per_page=10`,
+        { headers, next: { revalidate: 3600 }, signal: AbortSignal.timeout(6000) }
+      );
+      if (!searchRes.ok) {
+        // On rate-limit: serve stale in-memory entry rather than returning empty
+        const stale = memCache.get(artist);
+        if (stale) return NextResponse.json(stale.data, { headers: { "Cache-Control": "no-store" } });
+        return NextResponse.json({ albums: [], artistId: null }, NO_STORE);
+      }
+
+      const { results = [] } = await searchRes.json() as { results?: { id: number; type: string }[] };
+      artistId = results.find(r => r.type === "artist")?.id ?? null;
+      if (!artistId) return NextResponse.json({ albums: [], artistId: null }, NO_STORE);
+    }
 
     // Fetch all releases (masters only, sorted chronologically)
     const relRes = await fetch(

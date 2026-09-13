@@ -1323,6 +1323,7 @@ export default function DeepDiveClient({
   const [errorTabs, setErrorTabs] = useState<Record<string, TabErrorKind>>({});
 
   const [isExternalArtist, setIsExternalArtist] = useState(false);
+  const externalDiscogsIdRef = useRef<number | null>(null);
   const [discogsResults, setDiscogsResults] = useState<{ id: number; name: string; thumb: string | null }[]>([]);
   const [discogsSearching, setDiscogsSearching] = useState(false);
   const discogsTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -1512,7 +1513,11 @@ export default function DeepDiveClient({
     if (section === "discography") {
       setLoadingTabs((prev) => ({ ...prev, [key]: true }));
       setErrorTabs((prev) => { const n = { ...prev }; delete n[key]; return n; });
-      fetch(`/api/deep-dive/discography?artist=${encodeURIComponent(artist)}&v=5`)
+      const discId = externalDiscogsIdRef.current;
+      const discographyUrl = discId
+        ? `/api/deep-dive/discography?artist=${encodeURIComponent(artist)}&artistId=${discId}&v=5`
+        : `/api/deep-dive/discography?artist=${encodeURIComponent(artist)}&v=5`;
+      fetch(discographyUrl)
         .then(async (r) => r.ok ? r.json() : Promise.reject())
         .then((data: unknown) => {
           setCache((prev) => ({ ...prev, [artist]: { ...(prev[artist] ?? {}), discography: data } }));
@@ -1616,15 +1621,17 @@ export default function DeepDiveClient({
   function selectArtist(name: string) {
     if (selectedArtist !== name) {
       setIsExternalArtist(false);
+      externalDiscogsIdRef.current = null;
       setSelectedArtist(name);
-      setActiveTab("about");
+      setActiveTab("discography");
     }
   }
 
-  function selectExternalArtist(name: string) {
+  function selectExternalArtist(name: string, discogsId?: number) {
     setIsExternalArtist(true);
+    externalDiscogsIdRef.current = discogsId ?? null;
     setSelectedArtist(name);
-    if (activeTab === "blindspot") setActiveTab("about");
+    setActiveTab("discography");
     setDiscogsResults([]);
     setQuery("");
     if (!imageMap[name]) {
@@ -2372,7 +2379,7 @@ export default function DeepDiveClient({
                     <button
                       key={r.id}
                       type="button"
-                      onClick={() => selectExternalArtist(r.name)}
+                      onClick={() => selectExternalArtist(r.name, r.id)}
                       style={{
                         display: "flex", alignItems: "center", gap: 10,
                         width: "100%", textAlign: "left",
@@ -2512,7 +2519,7 @@ export default function DeepDiveClient({
                   <button
                     key={r.id}
                     type="button"
-                    onClick={() => { selectExternalArtist(r.name); setQuery(""); setFavoritesOnly(false); }}
+                    onClick={() => { selectExternalArtist(r.name, r.id); setQuery(""); setFavoritesOnly(false); }}
                     style={{
                       display: "flex", alignItems: "center", gap: 10,
                       width: "100%", textAlign: "left",
