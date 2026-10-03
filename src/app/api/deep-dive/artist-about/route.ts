@@ -1,4 +1,142 @@
-import { type NextRequest, NextResponse } from "next/server";
+import { type NextRequest, NextResponse, after } from "next/server";
+import Anthropic from "@anthropic-ai/sdk";
+import { createClient } from "@supabase/supabase-js";
+
+export const maxDuration = 60;
+
+const anthropic = new Anthropic();
+
+function getSupabase() {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!url || !key) return null;
+  return createClient(url, key, { auth: { persistSession: false } });
+}
+
+const BIO_CACHE_TTL_DAYS = 90;
+
+async function readBioCache(artist: string): Promise<string | null> {
+  try {
+    const sb = getSupabase();
+    if (!sb) return null;
+    const staleAfter = new Date(Date.now() - BIO_CACHE_TTL_DAYS * 86_400_000).toISOString();
+    const { data, error } = await sb
+      .from("deep_dive_cache")
+      .select("data")
+      .eq("artist", artist)
+      .eq("section", "about")
+      .gt("refreshed_at", staleAfter)
+      .maybeSingle();
+    if (error || !data) return null;
+    return (data.data as { bio?: string } | null)?.bio ?? null;
+  } catch {
+    return null;
+  }
+}
+
+async function writeBioCache(artist: string, bio: string): Promise<void> {
+  try {
+    const sb = getSupabase();
+    if (!sb) return;
+    await sb.from("deep_dive_cache").upsert(
+      { artist, section: "about", data: { bio }, refreshed_at: new Date().toISOString() },
+      { onConflict: "artist,section" },
+    );
+  } catch { /* non-critical */ }
+}
+
+type TavilyHit = { url: string; title: string; content: string };
+
+async function searchTavilyBio(artist: string, albumHint: string): Promise<TavilyHit[]> {
+  const key = process.env.TAVILY_API_KEY;
+  if (!key) return [];
+
+  const EXCLUDE = [
+    "spotify.com", "apple.com", "youtube.com", "amazon.com", "discogs.com",
+    "facebook.com", "instagram.com", "twitter.com", "x.com", "setlist.fm",
+    "genius.com", "bandsintown.com", "songkick.com", "rateyourmusic.com",
+  ];
+
+  const q1 = albumHint ? `"${artist}" musician "${albumHint}"` : `"${artist}" musician`;
+  const q2 = `"${artist}" interview music`;
+
+  try {
+    const [r1, r2] = await Promise.all([
+      fetch("https://api.tavily.com/search", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ api_key: key, query: q1, max_results: 8, search_depth: "basic", exclude_domains: EXCLUDE }),
+        signal: AbortSignal.timeout(6000),
+      }),
+      fetch("https://api.tavily.com/search", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ api_key: key, query: q2, max_results: 8, search_depth: "basic", exclude_domains: EXCLUDE }),
+        signal: AbortSignal.timeout(6000),
+      }),
+    ]);
+
+    const seen = new Set<string>();
+    const results: TavilyHit[] = [];
+    for (const res of [r1, r2]) {
+      if (!res.ok) continue;
+      const json = await res.json() as { results?: TavilyHit[] };
+      for (const r of (json.results ?? [])) {
+        if (!seen.has(r.url) && r.content?.length > 50) {
+          seen.add(r.url);
+          results.push(r);
+        }
+      }
+    }
+    return results.slice(0, 12);
+  } catch {
+    return [];
+  }
+}
+
+async function generateClaudeBio(
+  artist: string,
+  wikiSummary: string | null,
+  tags: string[],
+  albums: { title: string; year: number }[],
+  tavilyHits: TavilyHit[],
+): Promise<string | null> {
+  const wikiBlock    = wikiSummary ? `WIKIPEDIA SUMMARY:\n${wikiSummary}\n` : "";
+  const tagsBlock    = tags.length > 0 ? `GENRES/TAGS: ${tags.join(", ")}\n` : "";
+  const discoBlock   = albums.length > 0
+    ? `DISCOGRAPHY:\n${albums.map(a => `- "${a.title}" (${a.year})`).join("\n")}\n`
+    : "";
+  const sourcesBlock = tavilyHits.length > 0
+    ? `WEB SOURCES (use these facts if clearly relevant; do not invent anything not present):\n${
+        tavilyHits.map((r, i) => `${i + 1}. ${r.title}\n${r.content}`).join("\n\n")
+      }\n`
+    : "";
+
+  const prompt = `Write a two-paragraph artist biography for ${artist} for a vinyl collector app.
+
+${wikiBlock}${tagsBlock}${discoBlock}${sourcesBlock}
+Rules — follow every one exactly:
+- Two paragraphs. No headers, no bullet points, no sub-headings.
+- Only include facts that appear in the sources above. Do not invent dates, quotes, collaborators, or recording locations.
+- Be specific: name albums, years, producers, and musical details when the sources support it.
+- Describe what the music actually sounds like. Avoid generic genre labels as the only description.
+- No em dashes (do not use — or –). Use a comma or a full stop instead.
+- Do not use any of these words or phrases: tapestry, lush, sonic landscape, journey, captivating, weaves, delves, testament, vibrant, remarkable, intricate, resonate, resonates, groundbreaking, mesmerizing, nuanced, haunting, ethereal, evocative, nestled, genre-defying, boundaries, unique voice, authentic, masterpiece, stands out, pushes boundaries, blurs the lines.
+- Write like a knowledgeable music critic, not a press release.
+- Return only the two paragraphs. No preamble, no sign-off.`;
+
+  try {
+    const msg = await anthropic.messages.create({
+      model:      "claude-haiku-4-5-20251001",
+      max_tokens: 600,
+      messages:   [{ role: "user", content: prompt }],
+    });
+    const text = msg.content.find(b => b.type === "text")?.text?.trim() ?? null;
+    return text && text.length > 100 ? text : null;
+  } catch {
+    return null;
+  }
+}
 
 export interface ArtistAbout {
   bio:       string | null;
@@ -132,26 +270,66 @@ export async function GET(request: NextRequest) {
   // Fetch Last.fm and Wikipedia in parallel
   const [lfm, wiki] = await Promise.all([fetchLastFm(artist), fetchWikipedia(artist)]);
 
-  if (!lfm && !wiki) {
+  const rawBio = wiki?.bio ?? lfm?.bio ?? null;
+  const formed = wiki?.formed ?? null;
+  const origin = wiki?.origin ?? null;
+  const source = wiki?.bio ? "wikipedia" : lfm?.bio ? "lastfm" : lfm?.tags.length ? "lastfm" : "none";
+
+  // When the bio is thin (under 400 chars), enhance it with Claude grounded on
+  // Tavily web results. Check the DB cache first so we only generate once per artist.
+  let finalBio = rawBio;
+  if (!rawBio || rawBio.length < 400) {
+    const cachedBio = await readBioCache(artist);
+    if (cachedBio) {
+      finalBio = cachedBio;
+    } else {
+      // Read albums from the rankings cache to give Claude discography context
+      // without making an extra Discogs API call.
+      let albums: { title: string; year: number }[] = [];
+      const sb = getSupabase();
+      if (sb) {
+        try {
+          const { data: rankRow } = await sb
+            .from("deep_dive_cache")
+            .select("data")
+            .eq("artist", artist)
+            .eq("section", "rankings")
+            .maybeSingle();
+          const rd = rankRow?.data as { albums?: { title: string; year: number }[] } | null;
+          if (Array.isArray(rd?.albums)) albums = rd!.albums;
+        } catch { /* non-critical */ }
+      }
+
+      const albumHint     = albums[0]?.title ?? "";
+      const tavilyHits    = await searchTavilyBio(artist, albumHint);
+      const generatedBio  = await generateClaudeBio(artist, rawBio, lfm?.tags ?? [], albums, tavilyHits);
+
+      if (generatedBio) {
+        finalBio = generatedBio;
+        after(() => writeBioCache(artist, generatedBio));
+      }
+    }
+  }
+
+  if (!finalBio && !lfm) {
     return NextResponse.json<ArtistAbout>({ bio: null, formed: null, origin: null, tags: [], listeners: null, plays: null, similar: [], source: "none" });
   }
 
-  // Prefer Wikipedia bio (editorial quality); fall back to cleaned Last.fm bio
-  // only when Wikipedia has no article (e.g. disambiguation pages, obscure artists).
-  const bio     = wiki?.bio ?? lfm?.bio ?? null;
-  const formed  = wiki?.formed  ?? null;
-  const origin  = wiki?.origin  ?? null;
-  const source  = wiki?.bio ? "wikipedia" : lfm?.bio ? "lastfm" : lfm?.tags.length ? "lastfm" : "none";
+  // Suppress "via Wikipedia/Last.fm" attribution when the bio was generated by Claude
+  // rather than taken directly from those sources.
+  const finalSource = (finalBio && finalBio !== rawBio)
+    ? "none"
+    : source as ArtistAbout["source"];
 
   const result: ArtistAbout = {
-    bio,
+    bio:       finalBio,
     formed,
     origin,
     tags:      lfm?.tags      ?? [],
     listeners: lfm?.listeners ?? null,
     plays:     lfm?.plays     ?? null,
     similar:   lfm?.similar   ?? [],
-    source:    source as ArtistAbout["source"],
+    source:    finalSource,
   };
 
   return NextResponse.json(result, {
