@@ -1223,10 +1223,10 @@ function MyRankingContent({ artist, discographyAlbums }: { artist: string; disco
           onClick={() => void save()}
           disabled={saving}
           style={{
-            fontFamily: MONO, fontSize: "0.68rem", letterSpacing: "0.08em",
-            textTransform: "uppercase", background: ORANGE, color: "#fff",
-            border: "none", padding: "8px 18px", borderRadius: 2, cursor: saving ? "default" : "pointer",
-            opacity: saving ? 0.6 : 1,
+            fontFamily: MONO, fontSize: "0.68rem", letterSpacing: "0.12em",
+            textTransform: "uppercase", background: "#fff", color: ORANGE,
+            border: `1px solid ${ORANGE}`, padding: "10px 22px", borderRadius: 24,
+            cursor: saving ? "default" : "pointer", opacity: saving ? 0.6 : 1,
           }}
         >
           {saving ? "Saving…" : "Save Rankings"}
