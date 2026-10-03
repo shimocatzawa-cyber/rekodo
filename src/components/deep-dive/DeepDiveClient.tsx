@@ -2041,7 +2041,7 @@ export default function DeepDiveClient({
       setIsExternalArtist(false);
       externalDiscogsIdRef.current = null;
       setSelectedArtist(name);
-      setActiveTab("discography");
+      setActiveTab("about");
     }
   }
 
@@ -2049,7 +2049,7 @@ export default function DeepDiveClient({
     setIsExternalArtist(true);
     externalDiscogsIdRef.current = discogsId ?? null;
     setSelectedArtist(name);
-    setActiveTab("discography");
+    setActiveTab("about");
     setDiscogsResults([]);
     setQuery("");
     if (!imageMap[name]) {
