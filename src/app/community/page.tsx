@@ -14,7 +14,7 @@ export default async function CommunityPage() {
   // Fetch auth + trending in parallel — trending is cached so near-zero cost when warm
   const [user, initialTrending] = await Promise.all([
     getUserWithTimeout(supabase),
-    getCachedTrending(),
+    getCachedTrending().catch(() => []),
   ]);
   if (!user) redirect("/login");
 

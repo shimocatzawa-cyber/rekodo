@@ -21,7 +21,8 @@ export const getCachedTrending = unstable_cache(
 
     // Fetch top 200 pressings — fast single-table scan, no joins in SQL
     const { data: trendingRows, error } = await supabase.rpc("get_trending_records", { limit_count: 200 });
-    if (error || !trendingRows || trendingRows.length === 0) return [];
+    if (error) throw new Error(`get_trending_records RPC failed: ${error.message}`);
+    if (!trendingRows || trendingRows.length === 0) return [];
 
     const rows = trendingRows as { record_id: string; collector_count: number }[];
     const topIds = rows.map(r => r.record_id);
@@ -93,6 +94,6 @@ export const getCachedTrending = unstable_cache(
       collectorCount: a.count,
     }));
   },
-  ["trending-records"],
-  { revalidate: 86400 },
+  ["trending-records-v2"],
+  { revalidate: 86400, tags: ["trending-records"] },
 );
