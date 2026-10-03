@@ -181,8 +181,10 @@ async function fetchDiscogsDiscography(artistName: string): Promise<DiscogsAlbum
 
     // Second pass: individual releases as fallback for albums not yet promoted to a
     // Discogs master (e.g. a brand-new release). Only include titles not already
-    // covered by a master above. Use negative-only format exclusions here since
-    // individual release format strings don't always contain "lp" or "album" explicitly.
+    // covered by a master above. Individual release records typically have a
+    // populated format field, so compute formatVerified properly rather than
+    // always setting false — otherwise the rankings prompt treats them as
+    // suspicious unverified entries and ranks them conservatively.
     for (const r of releases) {
       if (r.role !== "Main" || r.type === "master" || !r.year || r.year < 1900) continue;
       if (LIVE_PAT.test(r.title) || SINGLE_PAT.test(r.title) || REMIX_PAT.test(r.title) || COMPILATION_PAT.test(r.title)) continue;
@@ -191,7 +193,8 @@ async function fetchDiscogsDiscography(artistName: string): Promise<DiscogsAlbum
       const norm = r.title.toLowerCase().trim();
       if (seen.has(norm)) continue;
       seen.add(norm);
-      out.push({ title: r.title, year: r.year, formatVerified: false });
+      const formatVerified = fmt ? (fmt.includes("lp") || fmt.includes("album")) : false;
+      out.push({ title: r.title, year: r.year, formatVerified });
     }
 
     return out;
