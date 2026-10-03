@@ -173,7 +173,7 @@ async function fetchDiscogsDiscography(artistName: string): Promise<DiscogsAlbum
         // If the format field is present and reveals a non-album, always exclude.
         // "compilation" must be here explicitly — "Compilation, LP" would otherwise
         // pass the positive LP gate and slip through as a studio album.
-        if (fmt.includes("live") || fmt.includes("single") || fmt.includes("compilation") || fmt.includes("box") || FORMAT_SINGLE_PAT.test(fmt)) continue;
+        if (fmt.includes("live") || fmt.includes("single") || fmt.includes("compilation") || /\bcomp\b/.test(fmt) || fmt.includes("box") || FORMAT_SINGLE_PAT.test(fmt)) continue;
         // If the format field is present but doesn't indicate LP/Album, also exclude —
         // albums in Discogs always say "lp" or "album" when the field is populated.
         const looksLikeAlbum = fmt.includes("lp") || fmt.includes("album");
@@ -199,7 +199,7 @@ async function fetchDiscogsDiscography(artistName: string): Promise<DiscogsAlbum
       if (LIVE_PAT.test(r.title) || SINGLE_PAT.test(r.title) || REMIX_PAT.test(r.title) || COMPILATION_PAT.test(r.title)) continue;
       const fmt = (r.format ?? "").toLowerCase();
       if (fmt) {
-        if (fmt.includes("live") || fmt.includes("single") || fmt.includes("compilation") || fmt.includes("box") || FORMAT_SINGLE_PAT.test(fmt)) continue;
+        if (fmt.includes("live") || fmt.includes("single") || fmt.includes("compilation") || /\bcomp\b/.test(fmt) || fmt.includes("box") || FORMAT_SINGLE_PAT.test(fmt)) continue;
         // Same positive gate as first pass: format present but not LP/Album → exclude
         if (!fmt.includes("lp") && !fmt.includes("album")) continue;
       }
