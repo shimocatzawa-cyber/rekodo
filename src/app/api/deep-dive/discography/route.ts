@@ -73,9 +73,10 @@ export async function GET(request: NextRequest) {
       if (!artistId) return NextResponse.json({ albums: [], artistId: null }, NO_STORE);
     }
 
-    // Fetch all releases (masters only, sorted chronologically)
+    // Fetch all releases sorted chronologically — no type=master filter so that
+    // newly added albums without a master entry yet are still included.
     const relRes = await fetch(
-      `https://api.discogs.com/artists/${artistId}/releases?per_page=500&sort=year&sort_order=asc&type=master`,
+      `https://api.discogs.com/artists/${artistId}/releases?per_page=500&sort=year&sort_order=asc`,
       { headers, ...(force ? { cache: "no-store" } : { next: { revalidate: 3600 } }), signal: AbortSignal.timeout(8000) }
     );
     if (!relRes.ok) {
@@ -101,22 +102,25 @@ export async function GET(request: NextRequest) {
     const seen = new Set<string>();
     const albums: DiscographyAlbum[] = [];
 
-    for (const r of releases) {
-      if (r.role !== "Main" || r.type !== "master") continue;
-      if (!r.year || r.year < 1900) continue;
-      if (LIVE_PAT.test(r.title) || SINGLE_PAT.test(r.title) || REMIX_PAT.test(r.title)) continue;
-
+    function isAlbumRelease(r: { role: string; year: number; title: string; format?: string }): boolean {
+      if (r.role !== "Main") return false;
+      if (!r.year || r.year < 1900) return false;
+      if (LIVE_PAT.test(r.title) || SINGLE_PAT.test(r.title) || REMIX_PAT.test(r.title)) return false;
       // Exclude formats that are clearly not studio albums (7", EP, Single, etc.).
       // Don't require a positive LP/Album signal — master releases from the
       // Discogs artist endpoint often have format="Vinyl" or no format at all,
       // and the positive check was filtering out valid albums like Townes Van Zandt.
       const fmt = (r.format ?? "").toLowerCase();
-      if (fmt && (fmt.includes("live") || FORMAT_EXCL_PAT.test(fmt))) continue;
+      if (fmt && (fmt.includes("live") || FORMAT_EXCL_PAT.test(fmt))) return false;
+      return true;
+    }
 
+    // First pass: master releases — these are the canonical entries and take priority.
+    for (const r of releases) {
+      if (r.type !== "master" || !isAlbumRelease(r)) continue;
       const norm = r.title.toLowerCase().trim();
       if (seen.has(norm)) continue;
       seen.add(norm);
-
       albums.push({
         id:     r.id,
         title:  r.title,
@@ -127,6 +131,28 @@ export async function GET(request: NextRequest) {
         url:    r.resource_url ? `https://www.discogs.com/master/${r.id}` : null,
       });
     }
+
+    // Second pass: individual releases as fallback for albums not yet promoted to
+    // a master on Discogs (e.g. a newly added release). Skip any title already
+    // covered by a master above.
+    for (const r of releases) {
+      if (r.type === "master" || !isAlbumRelease(r)) continue;
+      const norm = r.title.toLowerCase().trim();
+      if (seen.has(norm)) continue;
+      seen.add(norm);
+      albums.push({
+        id:     r.id,
+        title:  r.title,
+        year:   r.year,
+        thumb:  r.thumb ?? null,
+        label:  r.label ?? null,
+        format: r.format ?? null,
+        url:    r.resource_url ? `https://www.discogs.com/release/${r.id}` : null,
+      });
+    }
+
+    // Re-sort by year ascending (two passes may have interleaved masters and releases)
+    albums.sort((a, b) => a.year - b.year);
 
     const result: DiscographyResponse = { albums, artistId };
     if (albums.length > 0) {
