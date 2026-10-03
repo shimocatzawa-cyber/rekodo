@@ -1139,7 +1139,7 @@ function MyRankingContent({ artist, discographyAlbums }: { artist: string; disco
   return (
     <div>
       <p style={{ fontFamily: MONO, fontSize: "0.65rem", letterSpacing: "0.06em", color: "#888", margin: "0 0 1.5rem", textTransform: "uppercase" }}>
-        Your top 5 albums — ordered by rank
+        {artist} Top 5 Albums
       </p>
 
       <div style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
