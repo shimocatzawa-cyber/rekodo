@@ -510,36 +510,42 @@ async function fetchPressingsData(artistName: string): Promise<{ pressings: Pres
         );
         albums.push(...batchResults.filter((m): m is { title: string; year: number; masterId: number } => m !== null));
       }
-    } else {
-      // Path B: scan first 100 artist releases, take up to 30 Main album masters
+    }
+
+    // Always supplement with a full artist release scan to catch masters that
+    // weren't in the rankings cache (e.g. Claude ranked only a subset of albums,
+    // leaving earlier records like Morning & Melancholia out of Path A entirely).
+    // Skip titles already found above so there are no duplicates.
+    {
+      const coveredTitles = new Set(albums.map(a => a.title.toLowerCase().trim()));
       const relRes = await fetch(
         `https://api.discogs.com/artists/${artistId}/releases?per_page=100&sort=year&sort_order=asc`,
         { headers, signal: AbortSignal.timeout(5000) }
       );
-      if (!relRes.ok) return { pressings: [] };
-      const { releases = [] } = await relRes.json() as {
-        releases?: { type: string; role: string; title: string; year: number; id: number; format?: string }[];
-      };
+      if (relRes.ok) {
+        const { releases = [] } = await relRes.json() as {
+          releases?: { type: string; role: string; title: string; year: number; id: number; format?: string }[];
+        };
 
-      const LIVE_PAT          = /\blive\b|\blive at\b|\bconcert\b/i;
-      const SINGLE_PAT        = /\bb\/w\b/i;
-      const REMIX_PAT         = /\bremix(es)?\b|\bdub\b|\bedit\b|\breworked?\b/i;
-      const FORMAT_SINGLE_PAT = /\b(7"|ep|45\s*rpm|single)\b/i;
-      const seen = new Set<string>();
-      for (const r of releases) {
-        if (albums.length >= 30) break;
-        if (r.role !== "Main" || r.type !== "master" || !r.year || r.year < 1900) continue;
-        if (LIVE_PAT.test(r.title) || SINGLE_PAT.test(r.title) || REMIX_PAT.test(r.title)) continue;
-        const fmt = (r.format ?? "").toLowerCase();
-        if (fmt) {
-          if (fmt.includes("live") || fmt.includes("single") || FORMAT_SINGLE_PAT.test(fmt)) continue;
-          const looksLikeAlbum = fmt.includes("lp") || fmt.includes("album");
-          if (!looksLikeAlbum) continue;
+        const LIVE_PAT          = /\blive\b|\blive at\b|\bconcert\b/i;
+        const SINGLE_PAT        = /\bb\/w\b/i;
+        const REMIX_PAT         = /\bremix(es)?\b|\bdub\b|\bedit\b|\breworked?\b/i;
+        const FORMAT_SINGLE_PAT = /\b(7"|ep|45\s*rpm|single)\b/i;
+        for (const r of releases) {
+          if (albums.length >= 30) break;
+          if (r.role !== "Main" || r.type !== "master" || !r.year || r.year < 1900) continue;
+          if (LIVE_PAT.test(r.title) || SINGLE_PAT.test(r.title) || REMIX_PAT.test(r.title)) continue;
+          const fmt = (r.format ?? "").toLowerCase();
+          if (fmt) {
+            if (fmt.includes("live") || fmt.includes("single") || FORMAT_SINGLE_PAT.test(fmt)) continue;
+            const looksLikeAlbum = fmt.includes("lp") || fmt.includes("album");
+            if (!looksLikeAlbum) continue;
+          }
+          const norm = r.title.toLowerCase().trim();
+          if (coveredTitles.has(norm)) continue;
+          coveredTitles.add(norm);
+          albums.push({ title: r.title, year: r.year, masterId: r.id });
         }
-        const norm = r.title.toLowerCase().trim();
-        if (seen.has(norm)) continue;
-        seen.add(norm);
-        albums.push({ title: r.title, year: r.year, masterId: r.id });
       }
     }
 
