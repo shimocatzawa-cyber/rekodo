@@ -1147,17 +1147,10 @@ function MyRankingContent({ artist, discographyAlbums }: { artist: string; disco
           const options = discographyAlbums.filter(a => !usedAlbums.has(a.title) || a.title === slot.album);
           return (
             <div key={i} style={{ display: "flex", gap: "0.75rem", alignItems: "flex-start" }}>
-              {/* Rank badge */}
-              <div style={{
-                flexShrink: 0, width: 28, height: 28,
-                background: slot.album ? ORANGE : SUBTLE,
-                color: slot.album ? "#fff" : "#aaa",
-                fontFamily: MONO, fontSize: "0.7rem", fontWeight: 700,
-                display: "flex", alignItems: "center", justifyContent: "center",
-                borderRadius: 2, marginTop: 2,
-              }}>
-                {i + 1}
-              </div>
+              {/* Rank number — matches Essential Albums style */}
+              <span style={{ fontFamily: MONO, fontSize: "1.4rem", fontWeight: 500, color: ORANGE, lineHeight: 1, minWidth: 36, flexShrink: 0, paddingTop: 4 }}>
+                {String(i + 1).padStart(2, "0")}
+              </span>
 
               {/* Cover thumbnail */}
               {slot.coverUrl ? (
@@ -1232,7 +1225,7 @@ function MyRankingContent({ artist, discographyAlbums }: { artist: string; disco
           {saving ? "Saving…" : "Save Rankings"}
         </button>
         {saved && (
-          <span style={{ fontFamily: MONO, fontSize: "0.65rem", letterSpacing: "0.06em", color: "#666" }}>
+          <span style={{ fontFamily: MONO, fontSize: "0.62rem", letterSpacing: "0.06em", color: "#aaa", border: "1px solid #ddd", padding: "2px 7px" }}>
             Saved
           </span>
         )}
