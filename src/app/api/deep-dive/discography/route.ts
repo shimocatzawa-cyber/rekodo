@@ -111,7 +111,7 @@ export async function GET(request: NextRequest) {
       // Discogs artist endpoint often have format="Vinyl" or no format at all,
       // and the positive check was filtering out valid albums like Townes Van Zandt.
       const fmt = (r.format ?? "").toLowerCase();
-      if (fmt && (fmt.includes("live") || FORMAT_EXCL_PAT.test(fmt))) return false;
+      if (fmt && (fmt.includes("live") || fmt.includes("compilation") || FORMAT_EXCL_PAT.test(fmt))) return false;
       return true;
     }
 

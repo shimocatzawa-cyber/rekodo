@@ -78,30 +78,49 @@ export default async function DeepDivePage() {
     (bcImports ?? []).map((r: BcImport) => r.artist.toLowerCase().trim())
   );
 
-  // Group records by artist (physical collection)
-  const artistMap = new Map<string, { count: number; records: { album: string; year: number | null; cover_url: string | null; source?: string }[] }>();
+  // Group records by artist (physical collection).
+  // Key is lowercased for case-insensitive dedup; displayName preserves the best casing
+  // (mixed-case is preferred over all-caps when both are present in the collection).
+  type ArtistEntry = { count: number; displayName: string; records: { album: string; year: number | null; cover_url: string | null; source?: string }[] };
+  const artistMap = new Map<string, ArtistEntry>();
   for (const link of allLinks) {
     const r = recordsMap.get(link.record_id);
     if (!r?.artist) continue;
-    const entry = artistMap.get(r.artist) ?? { count: 0, records: [] };
-    entry.count++;
-    entry.records.push({ album: r.album, year: r.year ?? null, cover_url: r.cover_url ?? null });
-    artistMap.set(r.artist, entry);
+    const key = r.artist.toLowerCase().trim();
+    const existing = artistMap.get(key);
+    if (!existing) {
+      artistMap.set(key, { count: 1, displayName: r.artist, records: [{ album: r.album, year: r.year ?? null, cover_url: r.cover_url ?? null }] });
+    } else {
+      existing.count++;
+      existing.records.push({ album: r.album, year: r.year ?? null, cover_url: r.cover_url ?? null });
+      // Prefer mixed-case over all-caps (e.g. "Chelsea Wolfe" over "CHELSEA WOLFE")
+      if (existing.displayName === existing.displayName.toUpperCase() && r.artist !== r.artist.toUpperCase()) {
+        existing.displayName = r.artist;
+      }
+    }
   }
 
   // Add Bandcamp-only artists (not duplicated in physical collection)
-  const bcOnlyMap = new Map<string, string[]>();
+  const bcOnlyMap = new Map<string, { displayName: string; albums: string[] }>();
   for (const bc of (bcImports ?? []) as BcImport[]) {
     if (!bc.is_duplicate) {
-      const albums = bcOnlyMap.get(bc.artist) ?? [];
-      albums.push(bc.album);
-      bcOnlyMap.set(bc.artist, albums);
+      const key = bc.artist.toLowerCase().trim();
+      const existing = bcOnlyMap.get(key);
+      if (!existing) {
+        bcOnlyMap.set(key, { displayName: bc.artist, albums: [bc.album] });
+      } else {
+        existing.albums.push(bc.album);
+        if (existing.displayName === existing.displayName.toUpperCase() && bc.artist !== bc.artist.toUpperCase()) {
+          existing.displayName = bc.artist;
+        }
+      }
     }
   }
-  for (const [artist, albums] of bcOnlyMap.entries()) {
-    if (!artistMap.has(artist)) {
-      artistMap.set(artist, {
+  for (const [key, { displayName, albums }] of bcOnlyMap.entries()) {
+    if (!artistMap.has(key)) {
+      artistMap.set(key, {
         count: albums.length,
+        displayName,
         records: albums.map(album => ({ album, year: null, cover_url: null, source: "bandcamp" as const })),
       });
     }
@@ -187,18 +206,15 @@ export default async function DeepDivePage() {
 
   // Collection artists (physical + Bandcamp)
   const collectionArtists: ArtistData[] = [...artistMap.entries()]
-    .filter(([name]) => !/^various/i.test(name.trim()))
-    .map(([name, { count, records }]) => {
-      const key = name.toLowerCase().trim();
-      return {
-        name,
-        count,
-        wantlistCount: wantlistCountMap.get(key) ?? 0,
-        wantlistRecords: wantlistRecordsMap.get(key) ?? [],
-        fromBandcamp: bcArtists.has(key),
-        records: records.sort((a, b) => (a.year ?? 9999) - (b.year ?? 9999)),
-      };
-    });
+    .filter(([key]) => !/^various/i.test(key))
+    .map(([key, { count, displayName, records }]) => ({
+      name: displayName,
+      count,
+      wantlistCount: wantlistCountMap.get(key) ?? 0,
+      wantlistRecords: wantlistRecordsMap.get(key) ?? [],
+      fromBandcamp: bcArtists.has(key),
+      records: records.sort((a, b) => (a.year ?? 9999) - (b.year ?? 9999)),
+    }));
 
   // Wantlist-only artists (not in physical or Bandcamp collection)
   const collectionNames = new Set(collectionArtists.map((a) => a.name.toLowerCase().trim()));

@@ -116,12 +116,14 @@ async function generateClaudeBio(
 
 ${wikiBlock}${tagsBlock}${discoBlock}${sourcesBlock}
 Rules — follow every one exactly:
-- Two paragraphs. No headers, no bullet points, no sub-headings.
-- Only include facts that appear in the sources above. Do not invent dates, quotes, collaborators, or recording locations.
-- Be specific: name albums, years, producers, and musical details when the sources support it.
-- Describe what the music actually sounds like. Avoid generic genre labels as the only description.
+- Exactly two paragraphs. No third paragraph, no standalone closing sentence, no headers, no bullet points.
+- Only include facts that appear in the sources above. Do not invent dates, quotes, or recording locations.
+- Proper nouns (names of producers, collaborators, record labels) must appear verbatim in the provided sources. If a name is not explicitly present in the sources, do not include it.
+- Be specific: name albums, years, instrumentation, and production details when the sources support it.
+- Describe what the music actually sounds like in terms of instrumentation, tempo, and arrangement. Do not describe the artist's qualities (skill, restraint, craft, artistry) — describe the music itself.
+- End the second paragraph on a specific musical or biographical detail. Do not end with a summary statement about the artist's overall voice, importance, or emotional power.
 - No em dashes (do not use — or –). Use a comma or a full stop instead.
-- Do not use any of these words or phrases: tapestry, lush, sonic landscape, journey, captivating, weaves, delves, testament, vibrant, remarkable, intricate, resonate, resonates, groundbreaking, mesmerizing, nuanced, haunting, ethereal, evocative, nestled, genre-defying, boundaries, unique voice, authentic, masterpiece, stands out, pushes boundaries, blurs the lines.
+- Do not use any of these words or phrases: tapestry, lush, sonic landscape, journey, captivating, weaves, delves, testament, vibrant, remarkable, intricate, resonate, resonates, groundbreaking, mesmerizing, nuanced, haunting, ethereal, evocative, nestled, genre-defying, boundaries, unique voice, authentic, masterpiece, stands out, pushes boundaries, blurs the lines, wistful, melodicism, emotional truth, considerable, skill and restraint, cuts to the heart, at its core, sonic palette, artistry, craftsmanship.
 - Write like a knowledgeable music critic, not a press release.
 - Return only the two paragraphs. No preamble, no sign-off.`;
 
