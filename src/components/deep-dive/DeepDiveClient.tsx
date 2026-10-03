@@ -1339,10 +1339,7 @@ function MyRankingContent({ artist, discographyAlbums }: { artist: string; disco
   return (
     <div>
       {/* Header */}
-      <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", marginBottom: "0.5rem" }}>
-        <p style={{ fontFamily: MONO, fontSize: "0.65rem", letterSpacing: "0.06em", color: "#888", margin: 0, textTransform: "uppercase" }}>
-          {artist} Top 5 Albums
-        </p>
+      <div style={{ display: "flex", alignItems: "baseline", justifyContent: "flex-end", marginBottom: "0.5rem" }}>
         {editing ? (
           <button
             type="button"
