@@ -190,14 +190,19 @@ async function fetchDiscogsDiscography(artistName: string): Promise<DiscogsAlbum
     // Second pass: individual releases as fallback for albums not yet promoted to a
     // Discogs master (e.g. a brand-new release). Only include titles not already
     // covered by a master above. Individual release records typically have a
-    // populated format field, so compute formatVerified properly rather than
-    // always setting false — otherwise the rankings prompt treats them as
-    // suspicious unverified entries and ranks them conservatively.
+    // populated format field, so apply the same positive LP gate as the first pass —
+    // if the format field is present and doesn't say "lp" or "album", exclude it.
+    // This stops singles and EPs (e.g. cover tracks) from slipping through when
+    // their format field is populated but doesn't say "LP".
     for (const r of releases) {
       if (r.role !== "Main" || r.type === "master" || !r.year || r.year < 1900) continue;
       if (LIVE_PAT.test(r.title) || SINGLE_PAT.test(r.title) || REMIX_PAT.test(r.title) || COMPILATION_PAT.test(r.title)) continue;
       const fmt = (r.format ?? "").toLowerCase();
-      if (fmt && (fmt.includes("live") || fmt.includes("single") || fmt.includes("compilation") || fmt.includes("box") || FORMAT_SINGLE_PAT.test(fmt))) continue;
+      if (fmt) {
+        if (fmt.includes("live") || fmt.includes("single") || fmt.includes("compilation") || fmt.includes("box") || FORMAT_SINGLE_PAT.test(fmt)) continue;
+        // Same positive gate as first pass: format present but not LP/Album → exclude
+        if (!fmt.includes("lp") && !fmt.includes("album")) continue;
+      }
       const norm = r.title.toLowerCase().trim();
       if (seen.has(norm)) continue;
       seen.add(norm);
