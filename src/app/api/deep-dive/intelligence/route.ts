@@ -110,7 +110,12 @@ function getSupabase() {
 // hallucinated "final album" claims (e.g. Kikagaku Moyo's Stone Garden ≠ their
 // final LP — Kumoyo Island (2022) is, but Claude placed Stone Garden last).
 
-type DiscogsAlbum = { title: string; year: number; formatVerified: boolean };
+type DiscogsAlbum = {
+  title:         string;
+  year:          number;
+  formatVerified: boolean;
+  rating?:       { average: number; count: number };
+};
 
 async function fetchDiscogsDiscography(artistName: string): Promise<DiscogsAlbum[]> {
   try {
@@ -138,7 +143,7 @@ async function fetchDiscogsDiscography(artistName: string): Promise<DiscogsAlbum
     );
     if (!relRes.ok) return [];
     const { releases = [] } = await relRes.json() as {
-      releases?: { type: string; role: string; title: string; year: number; format?: string }[];
+      releases?: { id: number; type: string; role: string; title: string; year: number; format?: string }[];
     };
 
     // Masters where the artist is the primary act — exclude obvious non-album entries.
@@ -156,6 +161,8 @@ async function fetchDiscogsDiscography(artistName: string): Promise<DiscogsAlbum
     const FORMAT_SINGLE_PAT = /\b(7"|ep|45\s*rpm|single)\b/i;
     const seen = new Set<string>();
     const out: DiscogsAlbum[] = [];
+    // Parallel array tracking Discogs ID + whether it's a master (for ratings fetch)
+    const outMeta: { id: number; isMaster: boolean }[] = [];
 
     // First pass: master releases — canonical, take priority.
     for (const r of releases) {
@@ -177,6 +184,7 @@ async function fetchDiscogsDiscography(artistName: string): Promise<DiscogsAlbum
       seen.add(norm);
       const formatVerified = fmt ? (fmt.includes("lp") || fmt.includes("album")) : false;
       out.push({ title: r.title, year: r.year, formatVerified });
+      outMeta.push({ id: r.id, isMaster: true });
     }
 
     // Second pass: individual releases as fallback for albums not yet promoted to a
@@ -195,6 +203,36 @@ async function fetchDiscogsDiscography(artistName: string): Promise<DiscogsAlbum
       seen.add(norm);
       const formatVerified = fmt ? (fmt.includes("lp") || fmt.includes("album")) : false;
       out.push({ title: r.title, year: r.year, formatVerified });
+      outMeta.push({ id: r.id, isMaster: false });
+    }
+
+    // Fetch Discogs community ratings for each album in parallel (cap at 10).
+    // Masters use /masters/{id}, individual releases use /releases/{id}.
+    // Require at least 5 votes to be meaningful — brand-new releases may have none.
+    const fetchLimit = Math.min(outMeta.length, 10);
+    const ratings = await Promise.all(
+      outMeta.slice(0, fetchLimit).map(async ({ id, isMaster }) => {
+        try {
+          const url = isMaster
+            ? `https://api.discogs.com/masters/${id}`
+            : `https://api.discogs.com/releases/${id}`;
+          const res = await fetch(url, { headers, signal: AbortSignal.timeout(4000) });
+          if (!res.ok) return null;
+          const json = await res.json() as {
+            community?: { rating?: { average?: number; count?: number } };
+          };
+          const avg   = json.community?.rating?.average;
+          const count = json.community?.rating?.count;
+          if (!avg || !count || count < 5) return null;
+          return { average: Math.round(avg * 100) / 100, count };
+        } catch {
+          return null;
+        }
+      })
+    );
+
+    for (let i = 0; i < fetchLimit; i++) {
+      if (ratings[i]) out[i].rating = ratings[i]!;
     }
 
     return out;
@@ -764,8 +802,14 @@ const PROMPTS: Record<string, (artist: string, ownedAlbums?: string[], discogsAl
     const ownedBlock = ownedAlbums.length > 0
       ? `\nALBUMS THIS COLLECTOR OWNS — include as many of these as possible in the ranking:\n${ownedAlbums.map(a => `- ${a}`).join("\n")}\n`
       : "";
+    const ratedAlbums = discogsAlbums.filter(a => a.rating);
+    const ratingsBlock = ratedAlbums.length > 0
+      ? `\nDISCOGS COMMUNITY RATINGS (collector votes out of 5 — treat as one signal of consensus; weight by vote count):\n${
+          ratedAlbums.map(a => `- "${a.title}" (${a.year}): ${a.rating!.average}/5 from ${a.rating!.count} ratings`).join("\n")
+        }\n`
+      : "";
     return `You are a music guide for serious vinyl collectors. Rank ${artist}'s most essential studio albums from best to worst by critical consensus and collector reputation.
-${verifiedBlock}
+${verifiedBlock}${ratingsBlock}
 CRITICAL ACCURACY RULES:
 ${discogsAlbums.length > 0
   ? `- You MUST only rank full-length studio albums (6+ tracks, released as LP). Discard any entry that is a single track, a 7" or 12" single, an EP, a compilation, a live record, or a remix album.
@@ -775,7 +819,8 @@ ${discogsAlbums.length > 0
 - Use the year from the VERIFIED CATALOGUE exactly — do not guess or alter release years.
 - Do not confuse ${artist} with any other artist.
 - Return EXACTLY 6 albums maximum — choose the most essential, even for prolific artists. Do not exceed 6.
-- Rank by genuine artistic significance and critical standing — do NOT include weaker early albums just because they came first.
+- Rank by genuine artistic significance and critical standing — do NOT include weaker early albums just because they came first.${ratingsBlock ? `
+- Discogs ratings reflect actual collector consensus. Weight them alongside critical reception — an album with 200+ ratings and a high score is a strong signal. Fewer than 20 ratings is inconclusive.` : ""}
 - Keep each review to 2 sentences.
 - DESCRIPTION STYLE: Factual only — describe what the record sounds like, its instrumentation, production approach, or how it differs from the artist's other work. No vague assertions like "essential", "landmark", "apex", "grail", "masterclass", "rewarding", "vindicating" or similar critical boilerplate. State facts, not importance.
 ${ownedBlock}
