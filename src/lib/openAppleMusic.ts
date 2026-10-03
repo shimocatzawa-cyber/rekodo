@@ -26,7 +26,14 @@ export function trackStreaming(service: StreamingService, context: StreamingCont
 // Spotify:     https://open.spotify.com/search/QUERY → spotify:search:QUERY
 // Tidal has no reliable cross-platform app scheme, so falls through to browser.
 export function getStreamAppUrl(url: string): string | null {
-  if (url.includes("music.apple.com")) return url.replace(/^https?:\/\//, "music://");
+  if (url.includes("music.apple.com")) {
+    // Only deep-link into the app for specific content pages — the app scheme does
+    // not handle search queries and just opens the app home screen instead.
+    if (/music\.apple\.com\/(?:[a-z]{2}\/)?(?:album|artist|song|playlist)\//.test(url)) {
+      return url.replace(/^https?:\/\//, "music://");
+    }
+    return null; // search URLs and others open in the browser
+  }
   if (url.includes("open.spotify.com/search/")) {
     const encoded = url.split("/search/")[1] ?? "";
     return `spotify:search:${encoded}`;
@@ -80,5 +87,5 @@ export function openStreamLink(url: string): void {
 
 // Kept for backward compatibility — existing callers pass Apple Music URLs directly.
 export function openAppleMusicLink(url: string): void {
-  tryOpenWithAppFallback(url.replace(/^https?:\/\//, "music://"), url);
+  openStreamLink(url);
 }
