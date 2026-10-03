@@ -156,6 +156,8 @@ async function fetchDiscogsDiscography(artistName: string): Promise<DiscogsAlbum
     const FORMAT_SINGLE_PAT = /\b(7"|ep|45\s*rpm|single)\b/i;
     const seen = new Set<string>();
     const out: DiscogsAlbum[] = [];
+
+    // First pass: master releases — canonical, take priority.
     for (const r of releases) {
       if (r.role !== "Main" || r.type !== "master" || !r.year || r.year < 1900) continue;
       if (LIVE_PAT.test(r.title) || SINGLE_PAT.test(r.title) || REMIX_PAT.test(r.title) || COMPILATION_PAT.test(r.title)) continue;
@@ -176,6 +178,22 @@ async function fetchDiscogsDiscography(artistName: string): Promise<DiscogsAlbum
       const formatVerified = fmt ? (fmt.includes("lp") || fmt.includes("album")) : false;
       out.push({ title: r.title, year: r.year, formatVerified });
     }
+
+    // Second pass: individual releases as fallback for albums not yet promoted to a
+    // Discogs master (e.g. a brand-new release). Only include titles not already
+    // covered by a master above. Use negative-only format exclusions here since
+    // individual release format strings don't always contain "lp" or "album" explicitly.
+    for (const r of releases) {
+      if (r.role !== "Main" || r.type === "master" || !r.year || r.year < 1900) continue;
+      if (LIVE_PAT.test(r.title) || SINGLE_PAT.test(r.title) || REMIX_PAT.test(r.title) || COMPILATION_PAT.test(r.title)) continue;
+      const fmt = (r.format ?? "").toLowerCase();
+      if (fmt && (fmt.includes("live") || fmt.includes("single") || fmt.includes("compilation") || fmt.includes("box") || FORMAT_SINGLE_PAT.test(fmt))) continue;
+      const norm = r.title.toLowerCase().trim();
+      if (seen.has(norm)) continue;
+      seen.add(norm);
+      out.push({ title: r.title, year: r.year, formatVerified: false });
+    }
+
     return out;
   } catch {
     return [];
