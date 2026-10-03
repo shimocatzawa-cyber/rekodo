@@ -195,12 +195,15 @@ function AboutContent({ data }: { data: ArtistAbout }) {
 
 type Album = { rank: number; title: string; year: number; review: string };
 
-// Fetches the discography endpoint once per artist and returns a map of
-// normalised title → proxied Discogs thumbnail URL, matching the same source
-// that the Discography tab uses (always loads correctly).
-function useDiscographyArt(artist: string): Record<string, string> {
-  const [thumbMap, setThumbMap] = useState<Record<string, string>>({});
+// Returns a normalised title → proxied thumbnail URL map for a given artist.
+// If `overrideMap` is supplied (derived from already-cached discography data in
+// the parent), it is used directly and no network request is made — avoids a
+// duplicate Discogs hit that can race, rate-limit, or return stale-empty on a
+// cold Vercel instance.
+function useDiscographyArt(artist: string, overrideMap?: Record<string, string>): Record<string, string> {
+  const [fetchedMap, setFetchedMap] = useState<Record<string, string>>({});
   useEffect(() => {
+    if (overrideMap) return; // parent already has the data
     if (!artist) return;
     let cancelled = false;
     const normalise = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, "");
@@ -212,12 +215,15 @@ function useDiscographyArt(artist: string): Record<string, string> {
         for (const a of data.albums) {
           if (a.thumb) map[normalise(a.title)] = `/api/image-proxy?url=${encodeURIComponent(a.thumb)}`;
         }
-        setThumbMap(map);
+        setFetchedMap(map);
       })
       .catch(() => {});
     return () => { cancelled = true; };
+  // overrideMap intentionally excluded — effect only needs to fire when artist
+  // changes without pre-loaded data; parent re-render supplies overrideMap directly.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [artist]);
-  return thumbMap;
+  return overrideMap ?? fetchedMap;
 }
 
 function RankingsContent({
@@ -227,6 +233,7 @@ function RankingsContent({
   wantlistAdded,
   collectionSet,
   wantlistSet,
+  thumbMap: thumbMapProp,
 }: {
   data: { albums?: Album[] };
   artist: string;
@@ -234,9 +241,10 @@ function RankingsContent({
   wantlistAdded?: Set<string>;
   collectionSet?: Set<string>;
   wantlistSet?: Set<string>;
+  thumbMap?: Record<string, string>;
 }) {
   const norm = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, "");
-  const thumbMap = useDiscographyArt(artist);
+  const thumbMap = useDiscographyArt(artist, thumbMapProp);
   const albums = data.albums ?? [];
 
   if (albums.length === 0) {
@@ -942,9 +950,9 @@ function RelatedArtistsContent({ data, onSelectArtist }: { data: { artists?: Rel
 
 type BlindSpotAlbum = { title: string; year: number; why: string; tip: string };
 
-function BlindSpotContent({ data, artist }: { data: { albums?: BlindSpotAlbum[] }; artist: string }) {
+function BlindSpotContent({ data, artist, thumbMap: thumbMapProp }: { data: { albums?: BlindSpotAlbum[] }; artist: string; thumbMap?: Record<string, string> }) {
   const albums = data.albums ?? [];
-  const thumbMap = useDiscographyArt(artist);
+  const thumbMap = useDiscographyArt(artist, thumbMapProp);
   const norm = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, "");
 
   if (albums.length === 0) {
@@ -1344,6 +1352,19 @@ export default function DeepDiveClient({
   const [liveWantlistCounts, setLiveWantlistCounts] = useState<Record<string, number> | null>(null);
   const [liveExtraArtists, setLiveExtraArtists] = useState<ArtistData[]>([]);
 
+  // Pre-build the thumbMap for the current artist from already-loaded discography data.
+  // Passed to RankingsContent / BlindSpotContent so they don't need a separate fetch.
+  const discographyThumbMap = useMemo((): Record<string, string> | undefined => {
+    const discData = (cache[selectedArtist ?? ""]?.discography) as DiscographyResponse | undefined;
+    if (!discData?.albums?.length) return undefined;
+    const normalise = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, "");
+    const map: Record<string, string> = {};
+    for (const a of discData.albums) {
+      if (a.thumb) map[normalise(a.title)] = `/api/image-proxy?url=${encodeURIComponent(a.thumb)}`;
+    }
+    return map;
+  }, [cache, selectedArtist]);
+
   // Merge server artists with live wantlist data
   const mergedArtists = useMemo((): ArtistData[] => {
     if (liveWantlistCounts === null) return artists;
@@ -1470,7 +1491,7 @@ export default function DeepDiveClient({
         fetch(`/api/deep-dive/artist-image?artist=${encodeURIComponent(a.name)}&v=5`)
           .then((r) => (r.ok ? r.json() : null))
           .then((d: { url?: string } | null) => {
-            if (d?.url) setImageMap((prev) => ({ ...prev, [a.name]: d.url! }));
+            if (d?.url) setImageMap((prev) => ({ ...prev, [a.name]: `/api/image-proxy?url=${encodeURIComponent(d.url!)}` }));
           })
           .catch(() => {})
           .finally(() => { active--; runNext(); });
@@ -1638,7 +1659,7 @@ export default function DeepDiveClient({
       fetch(`/api/deep-dive/artist-image?artist=${encodeURIComponent(name)}&v=5`)
         .then((r) => (r.ok ? r.json() : null))
         .then((d: { url?: string } | null) => {
-          if (d?.url) setImageMap((prev) => ({ ...prev, [name]: d.url! }));
+          if (d?.url) setImageMap((prev) => ({ ...prev, [name]: `/api/image-proxy?url=${encodeURIComponent(d.url!)}` }));
         })
         .catch(() => {});
     }
@@ -1912,6 +1933,7 @@ export default function DeepDiveClient({
         wantlistAdded={wantlistAdded}
         collectionSet={collectionSet}
         wantlistSet={wantlistSet}
+        thumbMap={discographyThumbMap}
       />;
     }
     if (tab === "discography") {
@@ -1973,7 +1995,7 @@ export default function DeepDiveClient({
       if (collectionMatch) selectArtist(collectionMatch.name);
       else selectExternalArtist(name);
     }} />;
-    if (tab === "blindspot")  return <BlindSpotContent  data={data as { albums?: BlindSpotAlbum[] }} artist={selectedArtist} />;
+    if (tab === "blindspot")  return <BlindSpotContent  data={data as { albums?: BlindSpotAlbum[] }} artist={selectedArtist} thumbMap={discographyThumbMap} />;
     if (tab === "pressings")  return <PressingsContent  data={data as { pressings?: PressingsAlbum[] }} onRetry={() => retryFetch(selectedArtist, "pressings")} />;
     return null;
   }
