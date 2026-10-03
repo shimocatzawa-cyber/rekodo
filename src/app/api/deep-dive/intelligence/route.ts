@@ -799,7 +799,7 @@ const PROMPTS: Record<string, (artist: string, ownedAlbums?: string[], discogsAl
             : "",
           unverified.length > 0
             ? allUnverified
-              ? `\nDISCOGS CATALOGUE (format metadata unavailable — treat these as the artist's studio albums and rank them):\n${unverified.map(a => `- ${a.year}: ${a.title}`).join("\n")}`
+              ? `\nDISCOGS CATALOGUE — rank ONLY from this list (format metadata unavailable; filter out any entries you recognise as singles or EPs, rank the rest as studio albums):\n${unverified.map(a => `- ${a.year}: ${a.title}`).join("\n")}`
               : `\nUNVERIFIED ENTRIES (no format metadata — may be singles, EPs or demos). Include ONLY if you are certain from your own knowledge this is a full-length studio LP with 7+ distinct tracks. When in doubt, EXCLUDE:\n${unverified.map(a => `- ${a.year}: ${a.title}`).join("\n")}`
             : "",
         ].filter(Boolean).join("\n") + "\n"
