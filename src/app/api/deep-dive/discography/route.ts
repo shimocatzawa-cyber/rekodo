@@ -29,9 +29,11 @@ export async function GET(request: NextRequest) {
   const artist = request.nextUrl.searchParams.get("artist")?.trim() ?? "";
   if (!artist) return NextResponse.json({ albums: [], artistId: null });
 
-  // Serve from in-memory cache if available and fresh
+  const force = request.nextUrl.searchParams.get("force") === "1";
+
+  // Serve from in-memory cache if available and fresh (skip when force=1)
   const mem = memCache.get(artist);
-  if (mem && mem.expiresAt > Date.now()) {
+  if (!force && mem && mem.expiresAt > Date.now()) {
     return NextResponse.json(mem.data, {
       headers: { "Cache-Control": "public, s-maxage=86400, stale-while-revalidate=3600" },
     });
@@ -57,7 +59,7 @@ export async function GET(request: NextRequest) {
       // hits Discogs on every cold request and quickly exhausts the 60 req/min limit.
       const searchRes = await fetch(
         `https://api.discogs.com/database/search?q=${encodeURIComponent(artist)}&type=artist&per_page=10`,
-        { headers, next: { revalidate: 3600 }, signal: AbortSignal.timeout(6000) }
+        { headers, ...(force ? { cache: "no-store" } : { next: { revalidate: 3600 } }), signal: AbortSignal.timeout(6000) }
       );
       if (!searchRes.ok) {
         // On rate-limit: serve stale in-memory entry rather than returning empty
@@ -74,7 +76,7 @@ export async function GET(request: NextRequest) {
     // Fetch all releases (masters only, sorted chronologically)
     const relRes = await fetch(
       `https://api.discogs.com/artists/${artistId}/releases?per_page=500&sort=year&sort_order=asc&type=master`,
-      { headers, next: { revalidate: 3600 }, signal: AbortSignal.timeout(8000) }
+      { headers, ...(force ? { cache: "no-store" } : { next: { revalidate: 3600 } }), signal: AbortSignal.timeout(8000) }
     );
     if (!relRes.ok) {
       const stale = memCache.get(artist);

@@ -1832,6 +1832,52 @@ export default function DeepDiveClient({
       });
   }
 
+  function handleForceRefresh(section: "discography" | "rankings") {
+    if (!selectedArtist) return;
+    const artist = selectedArtist;
+    const key = `${artist}:${section}`;
+
+    startedRef.current.delete(key);
+    setErrorTabs((prev) => { const n = { ...prev }; delete n[key]; return n; });
+    setCache((prev) => {
+      const ac = { ...(prev[artist] ?? {}) };
+      delete (ac as Record<string, unknown>)[section];
+      return { ...prev, [artist]: ac };
+    });
+    setLoadingTabs((prev) => ({ ...prev, [key]: true }));
+    startedRef.current.add(key);
+
+    if (section === "discography") {
+      const discId = externalDiscogsIdRef.current;
+      const t = Date.now();
+      const url = discId
+        ? `/api/deep-dive/discography?artist=${encodeURIComponent(artist)}&artistId=${discId}&v=5&force=1&t=${t}`
+        : `/api/deep-dive/discography?artist=${encodeURIComponent(artist)}&v=5&force=1&t=${t}`;
+      fetch(url)
+        .then(async (r) => r.ok ? r.json() : Promise.reject())
+        .then((data: unknown) => { setCache((prev) => ({ ...prev, [artist]: { ...(prev[artist] ?? {}), discography: data } })); })
+        .catch(() => { startedRef.current.delete(key); setErrorTabs((prev) => ({ ...prev, [key]: { kind: "error" } })); })
+        .finally(() => { setLoadingTabs((prev) => { const n = { ...prev }; delete n[key]; return n; }); });
+      return;
+    }
+
+    // Rankings: re-run Claude against fresh Discogs data to pick up new releases
+    const artistData = artists.find((a) => a.name === artist);
+    const ownedAlbums = artistData?.records.map((r) => r.year ? `${r.album} (${r.year})` : r.album) ?? [];
+    fetch("/api/deep-dive/intelligence", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ artist, section: "rankings", force: true, ownedAlbums }),
+    })
+      .then(async (r) => r.ok ? r.json() as Promise<{ data: unknown }> : Promise.reject(await classifyFetchError(r)))
+      .then((json) => { setCache((prev) => ({ ...prev, [artist]: { ...(prev[artist] ?? {}), rankings: json.data ?? {} } })); })
+      .catch((err: TabErrorKind | undefined) => {
+        startedRef.current.delete(key);
+        setErrorTabs((prev) => ({ ...prev, [key]: err?.kind ? err : { kind: "error" } }));
+      })
+      .finally(() => { setLoadingTabs((prev) => { const n = { ...prev }; delete n[key]; return n; }); });
+  }
+
   async function handleRegenerate(section: "podcasts" | "print") {
     if (!selectedArtist) return;
     const artist = selectedArtist;
@@ -1926,15 +1972,32 @@ export default function DeepDiveClient({
         ...(knownWantlistAlbums[selectedArtist] ?? []),
         ...[...wantlistAdded].map(norm),
       ]);
-      return <RankingsContent
-        data={data as { albums?: Album[] }}
-        artist={selectedArtist}
-        onAddToWantlist={addAlbumToWantlist}
-        wantlistAdded={wantlistAdded}
-        collectionSet={collectionSet}
-        wantlistSet={wantlistSet}
-        thumbMap={discographyThumbMap}
-      />;
+      return (
+        <>
+          <RankingsContent
+            data={data as { albums?: Album[] }}
+            artist={selectedArtist}
+            onAddToWantlist={addAlbumToWantlist}
+            wantlistAdded={wantlistAdded}
+            collectionSet={collectionSet}
+            wantlistSet={wantlistSet}
+            thumbMap={discographyThumbMap}
+          />
+          <div style={{ paddingTop: "1.5rem" }}>
+            <button
+              type="button"
+              onClick={() => handleForceRefresh("rankings")}
+              style={{
+                fontFamily: MONO, fontSize: "0.62rem", letterSpacing: "0.08em",
+                textTransform: "uppercase", color: ORANGE, background: "none",
+                border: "none", padding: 0, cursor: "pointer",
+              }}
+            >
+              ↺ Check for new releases
+            </button>
+          </div>
+        </>
+      );
     }
     if (tab === "discography") {
       const norm2 = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, "");
@@ -1945,14 +2008,31 @@ export default function DeepDiveClient({
         ...(knownWantlistAlbums[selectedArtist] ?? []),
         ...[...wantlistAdded].map(norm2),
       ]);
-      return <DiscographyContent
-        data={data as DiscographyResponse}
-        artist={selectedArtist}
-        collectionSet={collectionSet2}
-        wantlistSet={wantlistSet2}
-        onAddToWantlist={addAlbumToWantlist}
-        wantlistAdded={wantlistAdded}
-      />;
+      return (
+        <>
+          <DiscographyContent
+            data={data as DiscographyResponse}
+            artist={selectedArtist}
+            collectionSet={collectionSet2}
+            wantlistSet={wantlistSet2}
+            onAddToWantlist={addAlbumToWantlist}
+            wantlistAdded={wantlistAdded}
+          />
+          <div style={{ paddingTop: "1.5rem" }}>
+            <button
+              type="button"
+              onClick={() => handleForceRefresh("discography")}
+              style={{
+                fontFamily: MONO, fontSize: "0.62rem", letterSpacing: "0.08em",
+                textTransform: "uppercase", color: ORANGE, background: "none",
+                border: "none", padding: 0, cursor: "pointer",
+              }}
+            >
+              ↺ Check for new releases
+            </button>
+          </div>
+        </>
+      );
     }
     if (tab === "podcasts") return (
       <>

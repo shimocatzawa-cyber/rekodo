@@ -908,6 +908,15 @@ export async function getOrGenerateSection(
   if (section === "podcasts") {
     itunesEpisodes = await searchItunesPodcasts(artist);
     console.log(`[deep-dive] itunes — ${artist}: ${itunesEpisodes.length} episodes found`);
+    // Remove already-shown episodes from the pool so Claude only sees fresh options.
+    // Without this, the "only pick from this list" instruction competes with the
+    // "do not repeat" trailing note, and Claude may pick the same episodes anyway.
+    if (excludeItems?.length) {
+      const excludeSet = new Set(excludeItems.map(s => s.toLowerCase().trim()));
+      const before = itunesEpisodes.length;
+      itunesEpisodes = itunesEpisodes.filter(e => !excludeSet.has(e.trackName.toLowerCase().trim()));
+      console.log(`[deep-dive] itunes — ${artist}: ${itunesEpisodes.length} episodes after filtering ${before - itunesEpisodes.length} already-shown`);
+    }
   }
 
   // ── Open Library book search + Brave interview search ─────────────────────
@@ -920,6 +929,14 @@ export async function getOrGenerateSection(
     ]);
     console.log(`[deep-dive] openlibrary — ${artist}: ${openLibraryBooks.length} books found`);
     console.log(`[deep-dive] tavily — ${artist}: ${tavilyInterviews.length} interview URLs found`);
+    // Remove already-shown interviews from the Tavily pool for the same reason as
+    // podcasts above — present only fresh content before building the prompt.
+    if (excludeItems?.length) {
+      const excludeSet = new Set(excludeItems.map(s => s.toLowerCase().trim()));
+      const before = tavilyInterviews.length;
+      tavilyInterviews = tavilyInterviews.filter(r => !excludeSet.has(r.title.toLowerCase().trim()));
+      console.log(`[deep-dive] tavily — ${artist}: ${tavilyInterviews.length} interviews after filtering ${before - tavilyInterviews.length} already-shown`);
+    }
   }
 
   let prompt = (section === "podcasts" && itunesEpisodes.length > 0)
