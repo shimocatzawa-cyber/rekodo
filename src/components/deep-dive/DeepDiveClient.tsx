@@ -1,6 +1,22 @@
 "use client";
 
-import { useState, useEffect, useRef, useMemo } from "react";
+import { useState, useEffect, useRef, useMemo, useCallback } from "react";
+import {
+  DndContext,
+  PointerSensor,
+  TouchSensor,
+  closestCenter,
+  useSensor,
+  useSensors,
+  type DragEndEvent,
+} from "@dnd-kit/core";
+import {
+  SortableContext,
+  horizontalListSortingStrategy,
+  useSortable,
+  arrayMove,
+} from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
 import { createClient } from "@/lib/supabase/client";
 import { useTranslations } from "next-intl";
 import ArtistPlayer from "@/components/deep-dive/ArtistPlayer";
@@ -1081,6 +1097,72 @@ type MyRankSlot = { album: string; year: number | null; coverUrl: string | null;
 
 function emptyRankSlot(): MyRankSlot { return { album: "", year: null, coverUrl: null, note: "" }; }
 
+function SortableRankSlotCover({
+  slotId, coverUrl, album, artist, isActive, isSaving, onToggle, onRemove,
+}: {
+  slotId:   string;
+  coverUrl: string | null;
+  album:    string;
+  artist:   string;
+  isActive: boolean;
+  isSaving: boolean;
+  onToggle: () => void;
+  onRemove: (e: React.MouseEvent) => void;
+}) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
+    useSortable({ id: slotId, disabled: isSaving });
+
+  const pos = parseInt(slotId);
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={{ minWidth: 0, transform: CSS.Transform.toString(transform), transition, opacity: isDragging ? 0.4 : 1, zIndex: isDragging ? 10 : undefined }}
+    >
+      <div
+        {...attributes}
+        {...listeners}
+        onClick={() => { if (!isSaving && !isDragging) onToggle(); }}
+        style={{
+          position: "relative", overflow: "hidden", lineHeight: 0,
+          border: isActive ? `2px solid ${ORANGE}` : coverUrl ? "none" : `1px dashed ${RULE}`,
+          cursor: isSaving ? "wait" : isDragging ? "grabbing" : "grab",
+          transition: "border-color 0.1s",
+          touchAction: "none",
+        }}
+      >
+        {coverUrl ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={coverUrl} alt="" style={{ display: "block", width: "100%", aspectRatio: "1/1", objectFit: "cover" }} />
+        ) : (
+          <div style={{ width: "100%", aspectRatio: "1/1", background: "#f8f8f8", display: "flex", alignItems: "center", justifyContent: "center" }}>
+            <span style={{ fontFamily: MONO, fontSize: "20px", color: "#d8d8d8", lineHeight: 1 }}>+</span>
+          </div>
+        )}
+        <span style={{ position: "absolute", top: 6, left: 6, fontFamily: MONO, fontSize: "9px", letterSpacing: "0.06em", color: coverUrl ? "rgba(255,255,255,0.8)" : "#cccccc", textShadow: coverUrl ? "0 1px 3px rgba(0,0,0,0.5)" : "none", lineHeight: 1, pointerEvents: "none" }}>
+          {pos}
+        </span>
+        {isSaving && (
+          <div style={{ position: "absolute", inset: 0, background: "rgba(255,255,255,0.7)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+            <span style={{ fontFamily: MONO, fontSize: "9px", color: "#aaaaaa" }}>…</span>
+          </div>
+        )}
+      </div>
+      {album && !isSaving && (
+        <button onClick={onRemove} style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.06em", textTransform: "uppercase", color: "#cccccc", background: "none", border: "none", cursor: "pointer", padding: "4px 0 0", display: "block", width: "100%" }}>
+          Remove
+        </button>
+      )}
+      {album && !isSaving && (
+        <div style={{ marginTop: 0 }}>
+          <p style={{ fontFamily: MONO, fontSize: "8px", letterSpacing: "0.06em", textTransform: "uppercase", color: "#aaaaaa", margin: "0 0 2px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{artist}</p>
+          <p style={{ fontFamily: SERIF, fontSize: "11px", color: INK, lineHeight: 1.3, margin: 0, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical" as const, overflow: "hidden" }}>{album}</p>
+        </div>
+      )}
+    </div>
+  );
+}
+
 async function saveRankings(artist: string, slots: MyRankSlot[]) {
   await fetch("/api/deep-dive/my-rankings", {
     method: "POST",
@@ -1104,6 +1186,11 @@ function MyRankingContent({ artist, discographyAlbums }: { artist: string; disco
   const [filterQ,    setFilterQ]    = useState("");
   const filterRef = useRef<HTMLInputElement>(null);
 
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
+    useSensor(TouchSensor,   { activationConstraint: { delay: 200, tolerance: 8 } }),
+  );
+
   useEffect(() => {
     fetch(`/api/deep-dive/my-rankings?artist=${encodeURIComponent(artist)}`)
       .then(r => r.json() as Promise<{ rankings: Array<{ position: number; album: string; year: number | null; coverUrl: string | null; note: string | null }> }>)
@@ -1119,13 +1206,13 @@ function MyRankingContent({ artist, discographyAlbums }: { artist: string; disco
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [artist]);
 
-  function openSlot(pos: number) {
+  const openSlot = useCallback((pos: number) => {
     setActivePos(pos);
     setFilterQ("");
     setTimeout(() => filterRef.current?.focus(), 60);
-  }
+  }, []);
 
-  function closeSlot() { setActivePos(null); setFilterQ(""); }
+  const closeSlot = useCallback(() => { setActivePos(null); setFilterQ(""); }, []);
 
   async function pickAlbum(pos: number, album: DiscographyAlbumOption) {
     setSavingPos(pos);
@@ -1145,6 +1232,18 @@ function MyRankingContent({ artist, discographyAlbums }: { artist: string; disco
     if (activePos === pos) closeSlot();
     try { await saveRankings(artist, next); } catch { /* non-critical */ }
     setSavingPos(null);
+  }
+
+  function handleDragEnd(event: DragEndEvent) {
+    const { active, over } = event;
+    if (!over || active.id === over.id) return;
+    const oldIndex = parseInt(active.id as string) - 1;
+    const newIndex = parseInt(over.id as string) - 1;
+    if (oldIndex < 0 || newIndex < 0) return;
+    const reordered = arrayMove(slots, oldIndex, newIndex);
+    setSlots(reordered);
+    closeSlot();
+    void saveRankings(artist, reordered);
   }
 
   const usedAlbums = new Set(slots.map(s => s.album).filter(Boolean));
@@ -1225,58 +1324,32 @@ function MyRankingContent({ artist, discographyAlbums }: { artist: string; disco
       </div>
 
       <div style={{ maxWidth: 1100, margin: "0 auto", padding: "40px 32px 80px" }}>
-        {/* Slot grid */}
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(5, 1fr)", gap: "16px", marginBottom: "32px" }}>
-          {slots.map((slot, i) => {
-            const pos       = i + 1;
-            const isActive  = activePos === pos;
-            const isSaving  = savingPos === pos;
-            return (
-              <div key={pos} style={{ minWidth: 0 }}>
-                <div
-                  onClick={() => { if (!isSaving) { if (isActive) closeSlot(); else openSlot(pos); } }}
-                  style={{
-                    position: "relative", overflow: "hidden", lineHeight: 0,
-                    border: isActive ? `2px solid ${ORANGE}` : slot.coverUrl ? "none" : `1px dashed ${RULE}`,
-                    cursor: isSaving ? "wait" : "pointer",
-                    transition: "border-color 0.1s",
-                  }}
-                >
-                  {slot.coverUrl ? (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img src={slot.coverUrl} alt="" style={{ display: "block", width: "100%", aspectRatio: "1/1", objectFit: "cover" }} />
-                  ) : (
-                    <div style={{ width: "100%", aspectRatio: "1/1", background: "#f8f8f8", display: "flex", alignItems: "center", justifyContent: "center" }}>
-                      <span style={{ fontFamily: MONO, fontSize: "20px", color: "#d8d8d8", lineHeight: 1 }}>+</span>
-                    </div>
-                  )}
-                  <span style={{ position: "absolute", top: 6, left: 6, fontFamily: MONO, fontSize: "9px", letterSpacing: "0.06em", color: slot.coverUrl ? "rgba(255,255,255,0.8)" : "#cccccc", textShadow: slot.coverUrl ? "0 1px 3px rgba(0,0,0,0.5)" : "none", lineHeight: 1 }}>
-                    {pos}
-                  </span>
-                  {isSaving && (
-                    <div style={{ position: "absolute", inset: 0, background: "rgba(255,255,255,0.7)", display: "flex", alignItems: "center", justifyContent: "center" }}>
-                      <span style={{ fontFamily: MONO, fontSize: "9px", color: "#aaaaaa" }}>…</span>
-                    </div>
-                  )}
-                </div>
-                {slot.album && !isSaving && (
-                  <button
-                    onClick={e => { e.stopPropagation(); void clearSlot(pos); }}
-                    style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.06em", textTransform: "uppercase", color: "#cccccc", background: "none", border: "none", cursor: "pointer", padding: "4px 0 0", display: "block", width: "100%" }}
-                  >
-                    Remove
-                  </button>
-                )}
-                {slot.album && !isSaving && (
-                  <div style={{ marginTop: slot.album ? 0 : 6 }}>
-                    <p style={{ fontFamily: MONO, fontSize: "8px", letterSpacing: "0.06em", textTransform: "uppercase", color: "#aaaaaa", margin: "0 0 2px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{artist}</p>
-                    <p style={{ fontFamily: SERIF, fontSize: "11px", color: INK, lineHeight: 1.3, margin: 0, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical" as const, overflow: "hidden" }}>{slot.album}</p>
-                  </div>
-                )}
-              </div>
-            );
-          })}
-        </div>
+        {/* Slot grid with drag-and-drop */}
+        <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+          <SortableContext
+            items={slots.map((_, i) => String(i + 1))}
+            strategy={horizontalListSortingStrategy}
+          >
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(5, 1fr)", gap: "16px", marginBottom: "32px" }}>
+              {slots.map((slot, i) => {
+                const pos = i + 1;
+                return (
+                  <SortableRankSlotCover
+                    key={pos}
+                    slotId={String(pos)}
+                    coverUrl={slot.coverUrl}
+                    album={slot.album}
+                    artist={artist}
+                    isActive={activePos === pos}
+                    isSaving={savingPos === pos}
+                    onToggle={() => { if (activePos === pos) closeSlot(); else openSlot(pos); }}
+                    onRemove={e => { e.stopPropagation(); void clearSlot(pos); }}
+                  />
+                );
+              })}
+            </div>
+          </SortableContext>
+        </DndContext>
 
         {/* Album picker panel */}
         {activePos !== null && (

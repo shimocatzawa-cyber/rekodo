@@ -1,7 +1,23 @@
 "use client";
 
 import { useState, useRef, useTransition, useCallback } from "react";
-import { setListRecord, removeListItem, addDiscogsRecordToList, type DiscogsPayload } from "@/app/lists/actions";
+import {
+  DndContext,
+  PointerSensor,
+  TouchSensor,
+  closestCenter,
+  useSensor,
+  useSensors,
+  type DragEndEvent,
+} from "@dnd-kit/core";
+import {
+  SortableContext,
+  horizontalListSortingStrategy,
+  useSortable,
+  arrayMove,
+} from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
+import { setListRecord, removeListItem, addDiscogsRecordToList, reorderListSlots, type DiscogsPayload } from "@/app/lists/actions";
 
 const SERIF  = "var(--font-editorial)";
 const MONO   = "var(--font-mono)";
@@ -49,6 +65,98 @@ function parseTitle(title: string): { artist: string; album: string } {
   return { artist: title.slice(0, idx), album: title.slice(idx + 3) };
 }
 
+// ── Sortable slot cover ────────────────────────────────────────────────────────
+
+function SortableCover({
+  slot,
+  isActive,
+  isSaving,
+  isRemoving,
+  onToggle,
+  onRemove,
+}: {
+  slot:       EditorSlot;
+  isActive:   boolean;
+  isSaving:   boolean;
+  isRemoving: boolean;
+  onToggle:   () => void;
+  onRemove:   (e: React.MouseEvent) => void;
+}) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
+    useSortable({ id: slot.position.toString(), disabled: isSaving || isRemoving });
+
+  const busy = isSaving || isRemoving;
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={{
+        minWidth: 0,
+        transform: CSS.Transform.toString(transform),
+        transition,
+        opacity: isDragging ? 0.4 : 1,
+        zIndex: isDragging ? 10 : undefined,
+      }}
+    >
+      <div
+        {...attributes}
+        {...listeners}
+        onClick={() => { if (!busy && !isDragging) onToggle(); }}
+        style={{
+          position: "relative", overflow: "hidden", lineHeight: 0,
+          border: isActive ? `2px solid ${ORANGE}` : slot.coverUrl ? "none" : `1px dashed ${RULE}`,
+          cursor: busy ? "wait" : isDragging ? "grabbing" : "grab",
+          transition: "border-color 0.1s",
+          touchAction: "none",
+        }}
+      >
+        {slot.coverUrl ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={slot.coverUrl} alt="" style={{ display: "block", width: "100%", aspectRatio: "1/1", objectFit: "cover" }} />
+        ) : (
+          <div style={{ width: "100%", aspectRatio: "1/1", background: "#f8f8f8", display: "flex", alignItems: "center", justifyContent: "center" }}>
+            <span style={{ fontFamily: MONO, fontSize: "20px", color: "#d8d8d8", lineHeight: 1 }}>+</span>
+          </div>
+        )}
+        <span style={{
+          position: "absolute", top: "6px", left: "6px",
+          fontFamily: MONO, fontSize: "9px", letterSpacing: "0.06em",
+          color: slot.coverUrl ? "rgba(255,255,255,0.8)" : "#cccccc",
+          textShadow: slot.coverUrl ? "0 1px 3px rgba(0,0,0,0.5)" : "none", lineHeight: 1,
+          pointerEvents: "none",
+        }}>
+          {slot.position}
+        </span>
+        {busy && (
+          <div style={{ position: "absolute", inset: 0, background: "rgba(255,255,255,0.7)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+            <span style={{ fontFamily: MONO, fontSize: "9px", color: "#aaaaaa" }}>…</span>
+          </div>
+        )}
+      </div>
+
+      {slot.recordId && !busy && (
+        <button
+          onClick={onRemove}
+          style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.06em", textTransform: "uppercase", color: "#cccccc", background: "none", border: "none", cursor: "pointer", padding: "4px 0 0", display: "block", width: "100%" }}
+        >
+          Remove
+        </button>
+      )}
+
+      {slot.artist && !busy && (
+        <div style={{ marginTop: slot.recordId ? "0" : "6px" }}>
+          <p style={{ fontFamily: MONO, fontSize: "8px", letterSpacing: "0.06em", textTransform: "uppercase", color: "#aaaaaa", margin: "0 0 2px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+            {slot.artist}
+          </p>
+          <p style={{ fontFamily: SERIF, fontSize: "11px", color: INK, lineHeight: 1.3, margin: 0, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}>
+            {slot.album}
+          </p>
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ── Component ─────────────────────────────────────────────────────────────────
 
 export default function Top5Editor({ listId, listTitle, initialSlots, onClose }: Props) {
@@ -76,6 +184,11 @@ export default function Top5Editor({ listId, listTitle, initialSlots, onClose }:
   const [savingPos,    setSavingPos]    = useState<number | null>(null);
   const [removingPos,  setRemovingPos]  = useState<number | null>(null);
   const [, startSave]                   = useTransition();
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
+    useSensor(TouchSensor,   { activationConstraint: { delay: 200, tolerance: 8 } }),
+  );
 
   const searchCollection = useCallback((q: string) => {
     setColQuery(q);
@@ -174,6 +287,28 @@ export default function Top5Editor({ listId, listTitle, initialSlots, onClose }:
     });
   }
 
+  function handleDragEnd(event: DragEndEvent) {
+    const { active, over } = event;
+    if (!over || active.id === over.id) return;
+
+    const oldIndex = slots.findIndex(s => s.position.toString() === active.id);
+    const newIndex = slots.findIndex(s => s.position.toString() === over.id);
+    if (oldIndex === -1 || newIndex === -1) return;
+
+    const reordered = arrayMove(slots, oldIndex, newIndex);
+    // old positions in their new order — tells the server where each item came from
+    const oldPositions = reordered.map(s => s.position);
+
+    // Update position fields to reflect new indices
+    const withNewPositions = reordered.map((s, i) => ({ ...s, position: i + 1 }));
+    setSlots(withNewPositions); // optimistic
+    if (activePos !== null) closeSearch(); // close search panel on reorder
+
+    startSave(async () => {
+      await reorderListSlots(listId, oldPositions);
+    });
+  }
+
   return (
     <div style={{ position: "fixed", inset: 0, zIndex: 100, background: "#ffffff", overflowY: "auto" }}>
       {/* Header */}
@@ -201,71 +336,30 @@ export default function Top5Editor({ listId, listTitle, initialSlots, onClose }:
 
       <div style={{ maxWidth: "1100px", margin: "0 auto", padding: "40px 32px 80px" }}>
 
-        {/* Slot grid */}
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(5, 1fr)", gap: "16px", marginBottom: "32px" }}>
-          {slots.map(slot => {
-            const isActive   = activePos === slot.position;
-            const isSaving   = savingPos  === slot.position;
-            const isRemoving = removingPos === slot.position;
-            const busy       = isSaving || isRemoving;
-
-            return (
-              <div key={slot.position} style={{ minWidth: 0 }}>
-                <div
-                  onClick={() => { if (!busy) { if (isActive) closeSearch(); else openSlot(slot.position); } }}
-                  style={{
-                    position: "relative", overflow: "hidden", lineHeight: 0,
-                    border: isActive ? `2px solid ${ORANGE}` : slot.coverUrl ? "none" : `1px dashed ${RULE}`,
-                    cursor: busy ? "wait" : "pointer",
-                    transition: "border-color 0.1s",
+        {/* Slot grid with drag-and-drop */}
+        <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+          <SortableContext
+            items={slots.map(s => s.position.toString())}
+            strategy={horizontalListSortingStrategy}
+          >
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(5, 1fr)", gap: "16px", marginBottom: "32px" }}>
+              {slots.map(slot => (
+                <SortableCover
+                  key={slot.position}
+                  slot={slot}
+                  isActive={activePos === slot.position}
+                  isSaving={savingPos === slot.position}
+                  isRemoving={removingPos === slot.position}
+                  onToggle={() => {
+                    if (activePos === slot.position) closeSearch();
+                    else openSlot(slot.position);
                   }}
-                >
-                  {slot.coverUrl ? (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img src={slot.coverUrl} alt="" style={{ display: "block", width: "100%", aspectRatio: "1/1", objectFit: "cover" }} />
-                  ) : (
-                    <div style={{ width: "100%", aspectRatio: "1/1", background: "#f8f8f8", display: "flex", alignItems: "center", justifyContent: "center" }}>
-                      <span style={{ fontFamily: MONO, fontSize: "20px", color: "#d8d8d8", lineHeight: 1 }}>+</span>
-                    </div>
-                  )}
-                  <span style={{
-                    position: "absolute", top: "6px", left: "6px",
-                    fontFamily: MONO, fontSize: "9px", letterSpacing: "0.06em",
-                    color: slot.coverUrl ? "rgba(255,255,255,0.8)" : "#cccccc",
-                    textShadow: slot.coverUrl ? "0 1px 3px rgba(0,0,0,0.5)" : "none", lineHeight: 1,
-                  }}>
-                    {slot.position}
-                  </span>
-                  {busy && (
-                    <div style={{ position: "absolute", inset: 0, background: "rgba(255,255,255,0.7)", display: "flex", alignItems: "center", justifyContent: "center" }}>
-                      <span style={{ fontFamily: MONO, fontSize: "9px", color: "#aaaaaa" }}>…</span>
-                    </div>
-                  )}
-                </div>
-
-                {slot.recordId && !busy && (
-                  <button
-                    onClick={e => { e.stopPropagation(); handleRemove(slot.position); }}
-                    style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.06em", textTransform: "uppercase", color: "#cccccc", background: "none", border: "none", cursor: "pointer", padding: "4px 0 0", display: "block", width: "100%" }}
-                  >
-                    Remove
-                  </button>
-                )}
-
-                {slot.artist && !busy && (
-                  <div style={{ marginTop: slot.recordId ? "0" : "6px" }}>
-                    <p style={{ fontFamily: MONO, fontSize: "8px", letterSpacing: "0.06em", textTransform: "uppercase", color: "#aaaaaa", margin: "0 0 2px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                      {slot.artist}
-                    </p>
-                    <p style={{ fontFamily: SERIF, fontSize: "11px", color: INK, lineHeight: 1.3, margin: 0, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}>
-                      {slot.album}
-                    </p>
-                  </div>
-                )}
-              </div>
-            );
-          })}
-        </div>
+                  onRemove={e => { e.stopPropagation(); handleRemove(slot.position); }}
+                />
+              ))}
+            </div>
+          </SortableContext>
+        </DndContext>
 
         {/* Search panel */}
         {activePos !== null && (

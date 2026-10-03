@@ -354,6 +354,45 @@ export async function appendSongToList(listId: string, payload: SongPayload) {
   };
 }
 
+// ─── Reorder slots (drag-and-drop) ────────────────────────────────────────────
+// newOrder[i] = the old position of the item that should now be at position i+1.
+// E.g. [1,3,4,2,5] means the item formerly at pos 3 is now at pos 2, etc.
+
+export async function reorderListSlots(listId: string, newOrder: number[]) {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { error: "Not authenticated" };
+
+  if (!(await assertListOwner(supabase, listId, user.id))) return { error: "List not found" };
+
+  const { data: items } = await supabase
+    .from("list_items")
+    .select("*")
+    .eq("list_id", listId);
+
+  if (!items?.length) return { success: true };
+
+  // Build old-position → new-position map
+  const posMap = new Map(newOrder.map((oldPos, newIdx) => [oldPos, newIdx + 1]));
+
+  // Delete all, then re-insert with updated positions (avoids unique constraint collisions)
+  await supabase.from("list_items").delete().eq("list_id", listId);
+
+  const toInsert = items
+    .filter(item => posMap.has(item.position))
+    .map(({ id: _id, created_at: _ca, ...rest }) => ({
+      ...rest,
+      position: posMap.get(rest.position)!,
+    }));
+
+  if (toInsert.length > 0) {
+    await supabase.from("list_items").insert(toInsert);
+  }
+
+  revalidatePath("/lists");
+  return { success: true };
+}
+
 // ─── Remove item from list ─────────────────────────────────────────────────────
 
 export async function removeListItem(listId: string, position: number) {
