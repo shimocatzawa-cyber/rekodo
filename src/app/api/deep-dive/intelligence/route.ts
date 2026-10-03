@@ -211,11 +211,14 @@ async function fetchDiscogsDiscography(artistName: string): Promise<DiscogsAlbum
       outMeta.push({ id: r.id, isMaster: false });
     }
 
-    // Fetch Discogs community ratings for each album in parallel (cap at 10).
-    // Masters use /masters/{id}, individual releases use /releases/{id}.
-    // Require at least 5 votes to be meaningful — brand-new releases may have none.
-    const fetchLimit = Math.min(outMeta.length, 10);
-    const ratings = await Promise.all(
+    // Fetch community ratings AND tracklist length for each entry in parallel.
+    // Tracklist length disambiguates unverified masters: singles/EPs have ≤3
+    // tracks, studio albums have 7+. This prevents singles without format
+    // metadata (e.g. Julia Jacklin's "Body", "Santafel") from reaching Claude.
+    // Cap at 25 — sufficient for most catalogues while staying under Discogs's
+    // 60 req/min consumer key limit alongside the earlier search + releases calls.
+    const fetchLimit = Math.min(outMeta.length, 25);
+    const details = await Promise.all(
       outMeta.slice(0, fetchLimit).map(async ({ id, isMaster }) => {
         try {
           const url = isMaster
@@ -225,22 +228,39 @@ async function fetchDiscogsDiscography(artistName: string): Promise<DiscogsAlbum
           if (!res.ok) return null;
           const json = await res.json() as {
             community?: { rating?: { average?: number; count?: number } };
+            tracklist?: { position?: string; type_?: string }[];
           };
           const avg   = json.community?.rating?.average;
           const count = json.community?.rating?.count;
-          if (!avg || !count || count < 5) return null;
-          return { average: Math.round(avg * 100) / 100, count };
+          const rating = (avg && count && count >= 5)
+            ? { average: Math.round(avg * 100) / 100, count }
+            : null;
+          // Count only real tracks (non-empty position) — excludes side headings
+          const trackCount = Array.isArray(json.tracklist)
+            ? json.tracklist.filter(t => t.position?.trim()).length
+            : null;
+          return { rating, trackCount };
         } catch {
           return null;
         }
       })
     );
 
+    // Apply ratings, then use track counts to promote verified albums and
+    // remove definite singles (≤3 tracks) from the list entirely.
     for (let i = 0; i < fetchLimit; i++) {
-      if (ratings[i]) out[i].rating = ratings[i]!;
+      if (details[i]?.rating) out[i].rating = details[i]!.rating!;
+      const tc = details[i]?.trackCount;
+      if (tc != null && tc >= 7) out[i].formatVerified = true;
     }
+    const singlesIdx = new Set(
+      details.slice(0, fetchLimit)
+        .map((d, i) => (d?.trackCount != null && d.trackCount <= 3 ? i : -1))
+        .filter(i => i !== -1)
+    );
+    const filteredOut = out.filter((_, i) => !singlesIdx.has(i));
 
-    return out;
+    return filteredOut;
   } catch {
     return [];
   }
