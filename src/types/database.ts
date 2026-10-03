@@ -234,6 +234,8 @@ export type Database = {
           song_album: string | null;
           song_cover_url: string | null;
           song_year: number | null;
+          note: string | null;
+          priority: "must_have" | "would_love" | "someday" | null;
           created_at: string;
           source: string | null;
           discogs_release_id: number | null;
@@ -249,6 +251,8 @@ export type Database = {
           song_album?: string | null;
           song_cover_url?: string | null;
           song_year?: number | null;
+          note?: string | null;
+          priority?: "must_have" | "would_love" | "someday" | null;
           created_at?: string;
           source?: string | null;
           discogs_release_id?: number | null;
@@ -262,6 +266,8 @@ export type Database = {
           song_album?: string | null;
           song_cover_url?: string | null;
           song_year?: number | null;
+          note?: string | null;
+          priority?: "must_have" | "would_love" | "someday" | null;
           source?: string | null;
           discogs_release_id?: number | null;
         };

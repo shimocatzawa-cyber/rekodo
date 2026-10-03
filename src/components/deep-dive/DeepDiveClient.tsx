@@ -16,7 +16,7 @@ const WARM   = "#FDF6F0";
 const SUBTLE = "#f0efea";
 
 
-type Section = "about" | "rankings" | "discography" | "podcasts" | "print" | "related" | "blindspot" | "pressings";
+type Section = "about" | "rankings" | "discography" | "podcasts" | "print" | "related" | "blindspot" | "pressings" | "myranking";
 
 export type ArtistData = {
   name: string;
@@ -40,7 +40,7 @@ function BandcampIcon({ size = 13 }: { size?: number }) {
   );
 }
 
-const TAB_IDS: Section[] = ["about", "discography", "rankings", "pressings", "blindspot", "podcasts", "print", "related"];
+const TAB_IDS: Section[] = ["about", "discography", "rankings", "myranking", "pressings", "blindspot", "podcasts", "print", "related"];
 
 // ── Shared primitives ──────────────────────────────────────────────────────────
 
@@ -1073,8 +1073,182 @@ function formatPrice(value: number, currency: string): string {
   }
 }
 
+// ── My Rankings ───────────────────────────────────────────────────────────────
+
+type DiscographyAlbumOption = { title: string; year: number; thumb: string | null };
+
+type MyRankSlot = { album: string; year: number | null; coverUrl: string | null; note: string };
+
+function MyRankingContent({ artist, discographyAlbums }: { artist: string; discographyAlbums: DiscographyAlbumOption[] }) {
+  const SLOTS = 5;
+  const empty = (): MyRankSlot => ({ album: "", year: null, coverUrl: null, note: "" });
+  const [slots, setSlots] = useState<MyRankSlot[]>(() => Array.from({ length: SLOTS }, empty));
+  const [loaded, setLoaded] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [saved,  setSaved]  = useState(false);
+
+  useEffect(() => {
+    fetch(`/api/deep-dive/my-rankings?artist=${encodeURIComponent(artist)}`)
+      .then(r => r.json() as Promise<{ rankings: Array<{ position: number; album: string; year: number | null; coverUrl: string | null; note: string | null }> }>)
+      .then(data => {
+        const next = Array.from({ length: SLOTS }, (_, i) => {
+          const found = data.rankings.find(r => r.position === i + 1);
+          return found ? { album: found.album, year: found.year, coverUrl: found.coverUrl, note: found.note ?? "" } : empty();
+        });
+        setSlots(next);
+      })
+      .catch(() => {})
+      .finally(() => setLoaded(true));
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [artist]);
+
+  function setSlot(i: number, patch: Partial<MyRankSlot>) {
+    setSlots(prev => prev.map((s, idx) => idx === i ? { ...s, ...patch } : s));
+    setSaved(false);
+  }
+
+  function selectAlbum(i: number, title: string) {
+    const found = discographyAlbums.find(a => a.title === title);
+    setSlot(i, { album: title, year: found?.year ?? null, coverUrl: found?.thumb ?? null });
+  }
+
+  async function save() {
+    setSaving(true);
+    try {
+      await fetch("/api/deep-dive/my-rankings", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          artist,
+          rankings: slots
+            .map((s, i) => ({ position: i + 1, album: s.album, year: s.year, coverUrl: s.coverUrl, note: s.note }))
+            .filter(r => r.album.trim()),
+        }),
+      });
+      setSaved(true);
+    } catch { /* non-critical */ }
+    setSaving(false);
+  }
+
+  const usedAlbums = new Set(slots.map(s => s.album).filter(Boolean));
+
+  if (!loaded) {
+    return <p style={{ fontFamily: MONO, fontSize: "0.72rem", letterSpacing: "0.04em", color: INK, padding: "2rem 0" }}>Loading…</p>;
+  }
+
+  return (
+    <div>
+      <p style={{ fontFamily: MONO, fontSize: "0.65rem", letterSpacing: "0.06em", color: "#888", margin: "0 0 1.5rem", textTransform: "uppercase" }}>
+        Your top 5 albums — ordered by rank
+      </p>
+
+      <div style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
+        {slots.map((slot, i) => {
+          const options = discographyAlbums.filter(a => !usedAlbums.has(a.title) || a.title === slot.album);
+          return (
+            <div key={i} style={{ display: "flex", gap: "0.75rem", alignItems: "flex-start" }}>
+              {/* Rank badge */}
+              <div style={{
+                flexShrink: 0, width: 28, height: 28,
+                background: slot.album ? ORANGE : SUBTLE,
+                color: slot.album ? "#fff" : "#aaa",
+                fontFamily: MONO, fontSize: "0.7rem", fontWeight: 700,
+                display: "flex", alignItems: "center", justifyContent: "center",
+                borderRadius: 2, marginTop: 2,
+              }}>
+                {i + 1}
+              </div>
+
+              {/* Cover thumbnail */}
+              {slot.coverUrl ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={slot.coverUrl} alt="" aria-hidden style={{ width: 40, height: 40, objectFit: "cover", flexShrink: 0 }} />
+              ) : (
+                <div style={{ width: 40, height: 40, flexShrink: 0, background: SUBTLE }} />
+              )}
+
+              {/* Picker + note */}
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <select
+                  value={slot.album}
+                  onChange={e => selectAlbum(i, e.target.value)}
+                  style={{
+                    width: "100%", fontFamily: MONO, fontSize: "0.72rem",
+                    letterSpacing: "0.02em", color: slot.album ? INK : "#888",
+                    background: "#fff", border: `1px solid ${slot.album ? "#ccc" : SUBTLE}`,
+                    padding: "5px 8px", borderRadius: 2, marginBottom: 6, appearance: "auto",
+                  }}
+                >
+                  <option value="">— Pick an album —</option>
+                  {options.map(a => (
+                    <option key={a.title} value={a.title}>{a.title} ({a.year})</option>
+                  ))}
+                </select>
+                {slot.album && (
+                  <input
+                    type="text"
+                    placeholder="Add a note (optional)"
+                    value={slot.note}
+                    onChange={e => setSlot(i, { note: e.target.value })}
+                    maxLength={280}
+                    style={{
+                      width: "100%", fontFamily: MONO, fontSize: "0.68rem",
+                      letterSpacing: "0.02em", color: INK,
+                      background: "#fafaf8", border: `1px solid ${SUBTLE}`,
+                      padding: "5px 8px", borderRadius: 2, boxSizing: "border-box",
+                    }}
+                  />
+                )}
+              </div>
+
+              {/* Clear slot */}
+              {slot.album && (
+                <button
+                  type="button"
+                  onClick={() => setSlot(i, empty())}
+                  style={{ fontFamily: MONO, fontSize: "0.7rem", color: "#aaa", background: "none", border: "none", cursor: "pointer", padding: "4px 0", flexShrink: 0, marginTop: 2 }}
+                  aria-label="Clear"
+                >
+                  ×
+                </button>
+              )}
+            </div>
+          );
+        })}
+      </div>
+
+      <div style={{ display: "flex", alignItems: "center", gap: "1rem", marginTop: "1.5rem" }}>
+        <button
+          type="button"
+          onClick={() => void save()}
+          disabled={saving}
+          style={{
+            fontFamily: MONO, fontSize: "0.68rem", letterSpacing: "0.08em",
+            textTransform: "uppercase", background: ORANGE, color: "#fff",
+            border: "none", padding: "8px 18px", borderRadius: 2, cursor: saving ? "default" : "pointer",
+            opacity: saving ? 0.6 : 1,
+          }}
+        >
+          {saving ? "Saving…" : "Save Rankings"}
+        </button>
+        {saved && (
+          <span style={{ fontFamily: MONO, fontSize: "0.65rem", letterSpacing: "0.06em", color: "#666" }}>
+            Saved
+          </span>
+        )}
+      </div>
+
+      {discographyAlbums.length === 0 && (
+        <p style={{ fontFamily: MONO, fontSize: "0.68rem", letterSpacing: "0.04em", color: "#aaa", marginTop: "1rem" }}>
+          Load the Discography tab first to populate the album list.
+        </p>
+      )}
+    </div>
+  );
+}
+
 function PressingsContent({ data, onRetry }: { data: { pressings?: PressingsAlbum[] }; onRetry?: () => void }) {
-  const albums = (data.pressings ?? []).filter(a => a.variants.length > 0);
+  const albums = [...(data.pressings ?? [])].sort((a, b) => b.year - a.year).filter(a => a.variants.length > 0);
 
   if (albums.length === 0) {
     return (
@@ -1313,6 +1487,7 @@ export default function DeepDiveClient({
     { id: "about",        label: "About" },
     { id: "discography",  label: "Discography" },
     { id: "rankings",     label: t("essentialAlbums") },
+    { id: "myranking",   label: "My Rankings" },
     { id: "pressings",    label: t("pressings") },
     { id: "blindspot", label: t("blindSpot") },
     { id: "podcasts",  label: t("podcasts") },
@@ -1527,6 +1702,26 @@ export default function DeepDiveClient({
         .finally(() => {
           setLoadingTabs((prev) => { const n = { ...prev }; delete n[key]; return n; });
         });
+      return;
+    }
+
+    // My Rankings tab: no server fetch needed — component loads its own data.
+    // But ensure discography is loaded so the album picker is populated.
+    if (section === "myranking") {
+      const discoKey = `${artist}:discography`;
+      if (!startedRef.current.has(discoKey)) {
+        startedRef.current.add(discoKey);
+        const discId = externalDiscogsIdRef.current;
+        const discUrl = discId
+          ? `/api/deep-dive/discography?artist=${encodeURIComponent(artist)}&artistId=${discId}&v=5`
+          : `/api/deep-dive/discography?artist=${encodeURIComponent(artist)}&v=5`;
+        fetch(discUrl)
+          .then(async r => r.ok ? r.json() : Promise.reject())
+          .then((data: unknown) => {
+            setCache(prev => ({ ...prev, [artist]: { ...(prev[artist] ?? {}), discography: data } }));
+          })
+          .catch(() => { startedRef.current.delete(discoKey); });
+      }
       return;
     }
 
@@ -1930,6 +2125,13 @@ export default function DeepDiveClient({
     const key = `${selectedArtist}:${activeTab}`;
     const artist = selectedArtist;
     const tab = activeTab;
+
+    // My Rankings manages its own data fetching — bypass the cache/loading gate
+    if (tab === "myranking") {
+      const discoData = (cache[selectedArtist]?.discography ?? {}) as { albums?: Array<{ title: string; year: number; thumb: string | null }> };
+      const discoAlbums: DiscographyAlbumOption[] = (discoData.albums ?? []).map(a => ({ title: a.title, year: a.year, thumb: a.thumb }));
+      return <MyRankingContent artist={selectedArtist} discographyAlbums={discoAlbums} />;
+    }
 
     if (loadingTabs[key]) return <SkeletonRows />;
 
