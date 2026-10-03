@@ -13,6 +13,7 @@ import {
 import {
   SortableContext,
   horizontalListSortingStrategy,
+  verticalListSortingStrategy,
   useSortable,
   arrayMove,
 } from "@dnd-kit/sortable";
@@ -1097,72 +1098,6 @@ type MyRankSlot = { album: string; year: number | null; coverUrl: string | null;
 
 function emptyRankSlot(): MyRankSlot { return { album: "", year: null, coverUrl: null, note: "" }; }
 
-function SortableRankSlotCover({
-  slotId, coverUrl, album, artist, isActive, isSaving, onToggle, onRemove,
-}: {
-  slotId:   string;
-  coverUrl: string | null;
-  album:    string;
-  artist:   string;
-  isActive: boolean;
-  isSaving: boolean;
-  onToggle: () => void;
-  onRemove: (e: React.MouseEvent) => void;
-}) {
-  const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
-    useSortable({ id: slotId, disabled: isSaving });
-
-  const pos = parseInt(slotId);
-
-  return (
-    <div
-      ref={setNodeRef}
-      style={{ minWidth: 0, transform: CSS.Transform.toString(transform), transition, opacity: isDragging ? 0.4 : 1, zIndex: isDragging ? 10 : undefined }}
-    >
-      <div
-        {...attributes}
-        {...listeners}
-        onClick={() => { if (!isSaving && !isDragging) onToggle(); }}
-        style={{
-          position: "relative", overflow: "hidden", lineHeight: 0,
-          border: isActive ? `2px solid ${ORANGE}` : coverUrl ? "none" : `1px dashed ${RULE}`,
-          cursor: isSaving ? "wait" : isDragging ? "grabbing" : "grab",
-          transition: "border-color 0.1s",
-          touchAction: "none",
-        }}
-      >
-        {coverUrl ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img src={coverUrl} alt="" style={{ display: "block", width: "100%", aspectRatio: "1/1", objectFit: "cover" }} />
-        ) : (
-          <div style={{ width: "100%", aspectRatio: "1/1", background: "#f8f8f8", display: "flex", alignItems: "center", justifyContent: "center" }}>
-            <span style={{ fontFamily: MONO, fontSize: "20px", color: "#d8d8d8", lineHeight: 1 }}>+</span>
-          </div>
-        )}
-        <span style={{ position: "absolute", top: 6, left: 6, fontFamily: MONO, fontSize: "9px", letterSpacing: "0.06em", color: coverUrl ? "rgba(255,255,255,0.8)" : "#cccccc", textShadow: coverUrl ? "0 1px 3px rgba(0,0,0,0.5)" : "none", lineHeight: 1, pointerEvents: "none" }}>
-          {pos}
-        </span>
-        {isSaving && (
-          <div style={{ position: "absolute", inset: 0, background: "rgba(255,255,255,0.7)", display: "flex", alignItems: "center", justifyContent: "center" }}>
-            <span style={{ fontFamily: MONO, fontSize: "9px", color: "#aaaaaa" }}>…</span>
-          </div>
-        )}
-      </div>
-      {album && !isSaving && (
-        <button onClick={onRemove} style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.06em", textTransform: "uppercase", color: "#cccccc", background: "none", border: "none", cursor: "pointer", padding: "4px 0 0", display: "block", width: "100%" }}>
-          Remove
-        </button>
-      )}
-      {album && !isSaving && (
-        <div style={{ marginTop: 0 }}>
-          <p style={{ fontFamily: MONO, fontSize: "8px", letterSpacing: "0.06em", textTransform: "uppercase", color: "#aaaaaa", margin: "0 0 2px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{artist}</p>
-          <p style={{ fontFamily: SERIF, fontSize: "11px", color: INK, lineHeight: 1.3, margin: 0, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical" as const, overflow: "hidden" }}>{album}</p>
-        </div>
-      )}
-    </div>
-  );
-}
-
 async function saveRankings(artist: string, slots: MyRankSlot[]) {
   await fetch("/api/deep-dive/my-rankings", {
     method: "POST",
@@ -1176,14 +1111,146 @@ async function saveRankings(artist: string, slots: MyRankSlot[]) {
   });
 }
 
+// Sortable row — matches Essential Albums row layout exactly
+function SortableRankRow({
+  slot, pos, editing, isActive, isSaving,
+  onNoteChange, onNoteBlur, onTogglePicker, onClear,
+}: {
+  slot:           MyRankSlot;
+  pos:            number;
+  editing:        boolean;
+  isActive:       boolean;
+  isSaving:       boolean;
+  onNoteChange:   (val: string) => void;
+  onNoteBlur:     () => void;
+  onTogglePicker: () => void;
+  onClear:        () => void;
+}) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
+    useSortable({ id: String(pos), disabled: !editing || isSaving });
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={{ transform: CSS.Transform.toString(transform), transition, opacity: isDragging ? 0.5 : 1, zIndex: isDragging ? 10 : undefined }}
+    >
+      <div style={{ padding: "1.5rem 0", borderBottom: `1px solid ${RULE}` }}>
+        <div style={{ display: "flex", gap: 16, alignItems: "flex-start" }}>
+
+          {/* Drag handle — only in edit mode */}
+          {editing && (
+            <button
+              {...attributes}
+              {...listeners}
+              type="button"
+              aria-label="Drag to reorder"
+              style={{
+                fontFamily: MONO, fontSize: "1rem", color: "#cccccc",
+                background: "none", border: "none", padding: "2px 0 0",
+                cursor: isDragging ? "grabbing" : "grab",
+                flexShrink: 0, touchAction: "none", lineHeight: 1,
+                alignSelf: "flex-start",
+              }}
+            >
+              ⠿
+            </button>
+          )}
+
+          {/* Rank number */}
+          <span style={{ fontFamily: MONO, fontSize: "1.4rem", fontWeight: 500, color: ORANGE, lineHeight: 1, minWidth: 36, flexShrink: 0, paddingTop: 2 }}>
+            {String(pos).padStart(2, "0")}
+          </span>
+
+          {/* Cover art */}
+          {slot.coverUrl
+            // eslint-disable-next-line @next/next/no-img-element
+            ? <img src={slot.coverUrl} alt="" aria-hidden style={{ width: 64, height: 64, objectFit: "cover", flexShrink: 0, display: "block" }} />
+            : <div style={{ width: 64, height: 64, background: SUBTLE, flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center" }}>
+                {editing && <span style={{ fontFamily: MONO, fontSize: "18px", color: "#ccc" }}>+</span>}
+              </div>
+          }
+
+          {/* Content area */}
+          <div style={{ flex: 1, minWidth: 0 }}>
+            {slot.album ? (
+              <>
+                {/* Title row */}
+                <div style={{ display: "flex", gap: 12, alignItems: "baseline", flexWrap: "wrap", marginBottom: 10 }}>
+                  <span style={{ fontFamily: SERIF, fontSize: "1rem", fontWeight: 600, color: INK, letterSpacing: "-0.01em" }}>
+                    {slot.album}
+                  </span>
+                  {slot.year && (
+                    <span style={{ fontFamily: MONO, fontSize: "0.7rem", letterSpacing: "0.04em", color: INK }}>
+                      · {slot.year}
+                    </span>
+                  )}
+                  {editing && (
+                    <button
+                      type="button"
+                      onClick={onTogglePicker}
+                      style={{ fontFamily: MONO, fontSize: "0.62rem", letterSpacing: "0.06em", color: isActive ? ORANGE : "#aaa", background: "none", border: "none", padding: 0, cursor: "pointer" }}
+                    >
+                      {isActive ? "↑ Close" : "Change →"}
+                    </button>
+                  )}
+                  {editing && (
+                    <button
+                      type="button"
+                      onClick={onClear}
+                      style={{ fontFamily: MONO, fontSize: "0.62rem", letterSpacing: "0.06em", color: "#ccc", background: "none", border: "none", padding: 0, cursor: "pointer" }}
+                    >
+                      Remove
+                    </button>
+                  )}
+                </div>
+                <div style={{ borderTop: `1px solid ${RULE}`, margin: "0 0 10px" }} />
+                {/* Note */}
+                {editing ? (
+                  <textarea
+                    value={slot.note}
+                    onChange={e => onNoteChange(e.target.value)}
+                    onBlur={onNoteBlur}
+                    placeholder="Add your notes or reasoning…"
+                    rows={3}
+                    style={{
+                      width: "100%", boxSizing: "border-box",
+                      fontFamily: MONO, fontSize: "0.72rem", letterSpacing: "0.04em",
+                      color: INK, lineHeight: 1.7, background: "#fafaf8",
+                      border: `1px solid ${RULE}`, resize: "vertical",
+                      padding: "8px 10px", outline: "none",
+                    }}
+                  />
+                ) : slot.note ? (
+                  <p style={{ fontFamily: MONO, fontSize: "0.72rem", letterSpacing: "0.04em", color: INK, lineHeight: 1.7, margin: 0 }}>
+                    {slot.note}
+                  </p>
+                ) : null}
+              </>
+            ) : editing ? (
+              /* Empty slot — show add button */
+              <button
+                type="button"
+                onClick={onTogglePicker}
+                style={{ fontFamily: MONO, fontSize: "0.7rem", letterSpacing: "0.06em", color: isActive ? ORANGE : "#aaa", background: "none", border: "none", padding: 0, cursor: "pointer", paddingTop: 4 }}
+              >
+                {isActive ? "↑ Close picker" : "+ Add album"}
+              </button>
+            ) : null}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function MyRankingContent({ artist, discographyAlbums }: { artist: string; discographyAlbums: DiscographyAlbumOption[] }) {
   const SLOTS = 5;
-  const [slots,      setSlots]      = useState<MyRankSlot[]>(() => Array.from({ length: SLOTS }, emptyRankSlot));
-  const [loaded,     setLoaded]     = useState(false);
-  const [editing,    setEditing]    = useState(false);
-  const [activePos,  setActivePos]  = useState<number | null>(null);
-  const [savingPos,  setSavingPos]  = useState<number | null>(null);
-  const [filterQ,    setFilterQ]    = useState("");
+  const [slots,     setSlots]     = useState<MyRankSlot[]>(() => Array.from({ length: SLOTS }, emptyRankSlot));
+  const [loaded,    setLoaded]    = useState(false);
+  const [editing,   setEditing]   = useState(false);
+  const [activePos, setActivePos] = useState<number | null>(null);
+  const [savingPos, setSavingPos] = useState<number | null>(null);
+  const [filterQ,   setFilterQ]   = useState("");
   const filterRef = useRef<HTMLInputElement>(null);
 
   const sensors = useSensors(
@@ -1206,30 +1273,42 @@ function MyRankingContent({ artist, discographyAlbums }: { artist: string; disco
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [artist]);
 
-  const openSlot = useCallback((pos: number) => {
+  function openPicker(pos: number) {
     setActivePos(pos);
     setFilterQ("");
     setTimeout(() => filterRef.current?.focus(), 60);
-  }, []);
+  }
 
-  const closeSlot = useCallback(() => { setActivePos(null); setFilterQ(""); }, []);
+  function closePicker() { setActivePos(null); setFilterQ(""); }
+
+  function togglePicker(pos: number) {
+    if (activePos === pos) closePicker(); else openPicker(pos);
+  }
+
+  function updateNote(pos: number, val: string) {
+    setSlots(prev => prev.map((s, i) => i === pos - 1 ? { ...s, note: val } : s));
+  }
+
+  function saveNote() {
+    void saveRankings(artist, slots);
+  }
 
   async function pickAlbum(pos: number, album: DiscographyAlbumOption) {
     setSavingPos(pos);
     const next = slots.map((s, i) =>
-      i === pos - 1 ? { album: album.title, year: album.year, coverUrl: album.thumb, note: s.note } : s
+      i === pos - 1 ? { ...s, album: album.title, year: album.year, coverUrl: album.thumb } : s
     );
     setSlots(next);
-    closeSlot();
+    closePicker();
     try { await saveRankings(artist, next); } catch { /* non-critical */ }
     setSavingPos(null);
   }
 
   async function clearSlot(pos: number) {
     setSavingPos(pos);
-    const next = slots.map((s, i) => i === pos - 1 ? emptyRankSlot() : s);
+    const next = slots.map((s, i) => i === pos - 1 ? { ...emptyRankSlot(), note: s.note } : s);
     setSlots(next);
-    if (activePos === pos) closeSlot();
+    if (activePos === pos) closePicker();
     try { await saveRankings(artist, next); } catch { /* non-critical */ }
     setSavingPos(null);
   }
@@ -1242,177 +1321,133 @@ function MyRankingContent({ artist, discographyAlbums }: { artist: string; disco
     if (oldIndex < 0 || newIndex < 0) return;
     const reordered = arrayMove(slots, oldIndex, newIndex);
     setSlots(reordered);
-    closeSlot();
+    closePicker();
     void saveRankings(artist, reordered);
   }
 
   const usedAlbums = new Set(slots.map(s => s.album).filter(Boolean));
-  const filteredDisc = discographyAlbums.filter(a => {
-    if (filterQ.trim()) return a.title.toLowerCase().includes(filterQ.toLowerCase());
-    return true;
-  });
+  const filteredDisc = discographyAlbums.filter(a =>
+    !filterQ.trim() || a.title.toLowerCase().includes(filterQ.toLowerCase())
+  );
 
   if (!loaded) {
     return <p style={{ fontFamily: MONO, fontSize: "0.72rem", letterSpacing: "0.04em", color: INK, padding: "2rem 0" }}>Loading…</p>;
   }
 
-  // ── Read-only display (not editing) ───────────────────────────────────────
-  if (!editing) {
-    return (
-      <div>
-        <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", marginBottom: "1.25rem" }}>
-          <p style={{ fontFamily: MONO, fontSize: "0.65rem", letterSpacing: "0.06em", color: "#888", margin: 0, textTransform: "uppercase" }}>
-            {artist} Top 5 Albums
-          </p>
+  const hasAny = slots.some(s => s.album);
+
+  return (
+    <div>
+      {/* Header */}
+      <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", marginBottom: "0.5rem" }}>
+        <p style={{ fontFamily: MONO, fontSize: "0.65rem", letterSpacing: "0.06em", color: "#888", margin: 0, textTransform: "uppercase" }}>
+          {artist} Top 5 Albums
+        </p>
+        {editing ? (
+          <button
+            type="button"
+            onClick={() => { setEditing(false); closePicker(); }}
+            style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.1em", textTransform: "uppercase", color: "#fff", background: INK, border: "none", cursor: "pointer", padding: "4px 12px" }}
+          >
+            Done
+          </button>
+        ) : (
           <button
             type="button"
             onClick={() => setEditing(true)}
             style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.1em", textTransform: "uppercase", color: ORANGE, background: "none", border: `1px solid ${ORANGE}`, borderRadius: 3, cursor: "pointer", padding: "4px 10px", whiteSpace: "nowrap" }}
           >
-            {slots.some(s => s.album) ? "Edit →" : "+ Rank Albums"}
+            {hasAny ? "Edit →" : "+ Rank Albums"}
           </button>
-        </div>
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(5, 1fr)", gap: "10px" }}>
-          {slots.map((slot, i) => (
-            <div key={i} style={{ minWidth: 0 }}>
-              <div style={{ position: "relative", overflow: "hidden", lineHeight: 0 }}>
-                {slot.coverUrl ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img src={slot.coverUrl} alt={slot.album} style={{ display: "block", width: "100%", aspectRatio: "1/1", objectFit: "cover" }} />
-                ) : (
-                  <div style={{ width: "100%", aspectRatio: "1/1", background: "#f4f4f4", border: "1px dashed rgba(0,0,0,0.10)", display: "flex", alignItems: "center", justifyContent: "center" }}>
-                    <span style={{ fontFamily: SERIF, fontSize: "18px", color: "#d8d8d8", lineHeight: 1 }}>—</span>
-                  </div>
-                )}
-                <span style={{ position: "absolute", top: 7, left: 7, fontFamily: MONO, fontSize: "9px", letterSpacing: "0.06em", lineHeight: 1, color: slot.coverUrl ? "rgba(255,255,255,0.75)" : "#cccccc", textShadow: slot.coverUrl ? "0 1px 3px rgba(0,0,0,0.5)" : "none" }}>
-                  {i + 1}
-                </span>
-              </div>
-              {slot.album && (
-                <div style={{ marginTop: 8 }}>
-                  <p style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.06em", textTransform: "uppercase", color: "#aaaaaa", margin: "0 0 3px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{artist}</p>
-                  <p style={{ fontFamily: SERIF, fontSize: "12px", color: INK, lineHeight: 1.3, margin: 0, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical" as const, overflow: "hidden" }}>{slot.album}</p>
-                </div>
-              )}
-            </div>
-          ))}
-        </div>
-        {discographyAlbums.length === 0 && (
-          <p style={{ fontFamily: MONO, fontSize: "0.68rem", letterSpacing: "0.04em", color: "#aaa", marginTop: "1rem" }}>
-            Load the Discography tab first to populate the album list.
-          </p>
         )}
       </div>
-    );
-  }
 
-  // ── Full-screen editor overlay (matches Top5Editor UX) ────────────────────
-  return (
-    <div style={{ position: "fixed", inset: 0, zIndex: 200, background: "#ffffff", overflowY: "auto" }}>
-      {/* Sticky header */}
-      <div style={{ position: "sticky", top: 0, background: "#ffffff", borderBottom: `1px solid ${RULE}`, display: "flex", alignItems: "center", justifyContent: "space-between", padding: "16px 32px", zIndex: 1 }}>
-        <div>
-          <p style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.14em", textTransform: "uppercase", color: "#aaaaaa", margin: "0 0 4px" }}>Editing</p>
-          <p style={{ fontFamily: SERIF, fontSize: "18px", color: INK, margin: 0, lineHeight: 1.2 }}>{artist} Top 5 Albums</p>
-        </div>
-        <button
-          onClick={() => { setEditing(false); closeSlot(); }}
-          style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.1em", textTransform: "uppercase", color: "#ffffff", background: INK, border: "none", cursor: "pointer", padding: "8px 16px" }}
+      {/* Rows */}
+      <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+        <SortableContext
+          items={slots.map((_, i) => String(i + 1))}
+          strategy={verticalListSortingStrategy}
         >
-          Done
-        </button>
-      </div>
+          {slots.map((slot, i) => {
+            const pos = i + 1;
+            return (
+              <SortableRankRow
+                key={pos}
+                slot={slot}
+                pos={pos}
+                editing={editing}
+                isActive={activePos === pos}
+                isSaving={savingPos === pos}
+                onNoteChange={val => updateNote(pos, val)}
+                onNoteBlur={saveNote}
+                onTogglePicker={() => togglePicker(pos)}
+                onClear={() => void clearSlot(pos)}
+              />
+            );
+          })}
+        </SortableContext>
+      </DndContext>
 
-      <div style={{ maxWidth: 1100, margin: "0 auto", padding: "40px 32px 80px" }}>
-        {/* Slot grid with drag-and-drop */}
-        <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
-          <SortableContext
-            items={slots.map((_, i) => String(i + 1))}
-            strategy={horizontalListSortingStrategy}
-          >
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(5, 1fr)", gap: "16px", marginBottom: "32px" }}>
-              {slots.map((slot, i) => {
-                const pos = i + 1;
+      {/* Album picker — shown below all rows when a slot is active */}
+      {editing && activePos !== null && (
+        <div style={{ borderTop: `2px solid ${ORANGE}`, paddingTop: 20, marginTop: 4 }}>
+          <p style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.1em", textTransform: "uppercase", color: "#aaaaaa", marginBottom: 12 }}>
+            Slot {activePos} — {artist} discography
+          </p>
+          <input
+            ref={filterRef}
+            type="text"
+            value={filterQ}
+            onChange={e => setFilterQ(e.target.value)}
+            placeholder="Filter albums…"
+            style={{
+              width: "100%", boxSizing: "border-box",
+              fontFamily: MONO, fontSize: "13px", letterSpacing: "0.04em",
+              color: INK, background: "transparent",
+              border: "none", borderBottom: `1px solid rgba(0,0,0,0.2)`,
+              outline: "none", padding: "0 0 8px", marginBottom: 4,
+            }}
+          />
+          {filteredDisc.length > 0 ? (
+            <div style={{ display: "flex", flexDirection: "column" }}>
+              {filteredDisc.map(a => {
+                const already = usedAlbums.has(a.title) && slots[activePos - 1]?.album !== a.title;
                 return (
-                  <SortableRankSlotCover
-                    key={pos}
-                    slotId={String(pos)}
-                    coverUrl={slot.coverUrl}
-                    album={slot.album}
-                    artist={artist}
-                    isActive={activePos === pos}
-                    isSaving={savingPos === pos}
-                    onToggle={() => { if (activePos === pos) closeSlot(); else openSlot(pos); }}
-                    onRemove={e => { e.stopPropagation(); void clearSlot(pos); }}
-                  />
+                  <button
+                    key={a.title}
+                    disabled={already}
+                    onClick={() => void pickAlbum(activePos, a)}
+                    style={{
+                      display: "flex", alignItems: "center", gap: 12,
+                      padding: "10px 0", background: "none", border: "none",
+                      borderBottom: `0.5px solid ${RULE}`,
+                      cursor: already ? "default" : "pointer",
+                      textAlign: "left", width: "100%", opacity: already ? 0.35 : 1,
+                    }}
+                    onMouseEnter={e => { if (!already) (e.currentTarget as HTMLButtonElement).style.background = "#fafafa"; }}
+                    onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = "none"; }}
+                  >
+                    <div style={{ width: 40, height: 40, flexShrink: 0, background: "#f0f0f0", overflow: "hidden" }}>
+                      {a.thumb && (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img src={a.thumb} alt="" style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
+                      )}
+                    </div>
+                    <div style={{ minWidth: 0 }}>
+                      <p style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.06em", textTransform: "uppercase", color: "#aaaaaa", margin: "0 0 3px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{artist} · {a.year}</p>
+                      <p style={{ fontFamily: SERIF, fontSize: "13px", color: INK, margin: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{a.title}</p>
+                    </div>
+                  </button>
                 );
               })}
             </div>
-          </SortableContext>
-        </DndContext>
-
-        {/* Album picker panel */}
-        {activePos !== null && (
-          <div style={{ borderTop: `1px solid ${RULE}`, paddingTop: 24 }}>
-            <p style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.1em", textTransform: "uppercase", color: "#aaaaaa", marginBottom: 12 }}>
-              Slot {activePos} — {artist} discography
+          ) : (
+            <p style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.08em", color: "#aaaaaa", marginTop: 12 }}>
+              {filterQ.trim() ? "No albums match." : "No discography loaded — visit the Discography tab first."}
             </p>
-            <input
-              ref={filterRef}
-              type="text"
-              value={filterQ}
-              onChange={e => setFilterQ(e.target.value)}
-              placeholder="Filter albums…"
-              style={{
-                width: "100%", boxSizing: "border-box",
-                fontFamily: MONO, fontSize: "13px", letterSpacing: "0.04em",
-                color: INK, background: "transparent",
-                border: "none", borderBottom: `1px solid rgba(0,0,0,0.2)`,
-                outline: "none", padding: "0 0 8px",
-              }}
-            />
-            {filteredDisc.length > 0 ? (
-              <div style={{ marginTop: 12, display: "flex", flexDirection: "column" }}>
-                {filteredDisc.map(a => {
-                  const already = usedAlbums.has(a.title) && slots[activePos - 1]?.album !== a.title;
-                  return (
-                    <button
-                      key={a.title}
-                      disabled={already}
-                      onClick={() => void pickAlbum(activePos, a)}
-                      style={{
-                        display: "flex", alignItems: "center", gap: 12,
-                        padding: "10px 0", background: "none", border: "none",
-                        borderBottom: `0.5px solid ${RULE}`,
-                        cursor: already ? "default" : "pointer",
-                        textAlign: "left", width: "100%",
-                        opacity: already ? 0.35 : 1,
-                      }}
-                      onMouseEnter={e => { if (!already) (e.currentTarget as HTMLButtonElement).style.background = "#fafafa"; }}
-                      onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = "none"; }}
-                    >
-                      <div style={{ width: 40, height: 40, flexShrink: 0, background: "#f0f0f0", overflow: "hidden" }}>
-                        {a.thumb && (
-                          // eslint-disable-next-line @next/next/no-img-element
-                          <img src={a.thumb} alt="" style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
-                        )}
-                      </div>
-                      <div style={{ minWidth: 0 }}>
-                        <p style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.06em", textTransform: "uppercase", color: "#aaaaaa", margin: "0 0 3px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{artist} · {a.year}</p>
-                        <p style={{ fontFamily: SERIF, fontSize: "13px", color: INK, margin: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{a.title}</p>
-                      </div>
-                    </button>
-                  );
-                })}
-              </div>
-            ) : (
-              <p style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.08em", color: "#aaaaaa", marginTop: 12 }}>
-                {filterQ.trim() ? "No albums match." : "No discography loaded — visit the Discography tab first."}
-              </p>
-            )}
-          </div>
-        )}
-      </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }
