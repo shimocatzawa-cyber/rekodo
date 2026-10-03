@@ -29,10 +29,10 @@ async function getOrCreateList(supabase: Awaited<ReturnType<typeof createClient>
     .from("lists")
     .insert({
       user_id:   userId,
-      title:     `Deep Dive: ${artist}`,
+      title:     `Top 5 ${artist} Albums`,
       slug,
       is_public: false,
-      list_type: "personal",
+      list_type: "top5",
     })
     .select("id")
     .single();

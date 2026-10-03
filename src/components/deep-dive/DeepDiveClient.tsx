@@ -1079,13 +1079,30 @@ type DiscographyAlbumOption = { title: string; year: number; thumb: string | nul
 
 type MyRankSlot = { album: string; year: number | null; coverUrl: string | null; note: string };
 
+function emptyRankSlot(): MyRankSlot { return { album: "", year: null, coverUrl: null, note: "" }; }
+
+async function saveRankings(artist: string, slots: MyRankSlot[]) {
+  await fetch("/api/deep-dive/my-rankings", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      artist,
+      rankings: slots
+        .map((s, i) => ({ position: i + 1, album: s.album, year: s.year, coverUrl: s.coverUrl, note: s.note }))
+        .filter(r => r.album.trim()),
+    }),
+  });
+}
+
 function MyRankingContent({ artist, discographyAlbums }: { artist: string; discographyAlbums: DiscographyAlbumOption[] }) {
   const SLOTS = 5;
-  const empty = (): MyRankSlot => ({ album: "", year: null, coverUrl: null, note: "" });
-  const [slots, setSlots] = useState<MyRankSlot[]>(() => Array.from({ length: SLOTS }, empty));
-  const [loaded, setLoaded] = useState(false);
-  const [saving, setSaving] = useState(false);
-  const [saved,  setSaved]  = useState(false);
+  const [slots,      setSlots]      = useState<MyRankSlot[]>(() => Array.from({ length: SLOTS }, emptyRankSlot));
+  const [loaded,     setLoaded]     = useState(false);
+  const [editing,    setEditing]    = useState(false);
+  const [activePos,  setActivePos]  = useState<number | null>(null);
+  const [savingPos,  setSavingPos]  = useState<number | null>(null);
+  const [filterQ,    setFilterQ]    = useState("");
+  const filterRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     fetch(`/api/deep-dive/my-rankings?artist=${encodeURIComponent(artist)}`)
@@ -1093,7 +1110,7 @@ function MyRankingContent({ artist, discographyAlbums }: { artist: string; disco
       .then(data => {
         const next = Array.from({ length: SLOTS }, (_, i) => {
           const found = data.rankings.find(r => r.position === i + 1);
-          return found ? { album: found.album, year: found.year, coverUrl: found.coverUrl, note: found.note ?? "" } : empty();
+          return found ? { album: found.album, year: found.year, coverUrl: found.coverUrl, note: found.note ?? "" } : emptyRankSlot();
         });
         setSlots(next);
       })
@@ -1102,140 +1119,227 @@ function MyRankingContent({ artist, discographyAlbums }: { artist: string; disco
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [artist]);
 
-  function setSlot(i: number, patch: Partial<MyRankSlot>) {
-    setSlots(prev => prev.map((s, idx) => idx === i ? { ...s, ...patch } : s));
-    setSaved(false);
+  function openSlot(pos: number) {
+    setActivePos(pos);
+    setFilterQ("");
+    setTimeout(() => filterRef.current?.focus(), 60);
   }
 
-  function selectAlbum(i: number, title: string) {
-    const found = discographyAlbums.find(a => a.title === title);
-    setSlot(i, { album: title, year: found?.year ?? null, coverUrl: found?.thumb ?? null });
+  function closeSlot() { setActivePos(null); setFilterQ(""); }
+
+  async function pickAlbum(pos: number, album: DiscographyAlbumOption) {
+    setSavingPos(pos);
+    const next = slots.map((s, i) =>
+      i === pos - 1 ? { album: album.title, year: album.year, coverUrl: album.thumb, note: s.note } : s
+    );
+    setSlots(next);
+    closeSlot();
+    try { await saveRankings(artist, next); } catch { /* non-critical */ }
+    setSavingPos(null);
   }
 
-  async function save() {
-    setSaving(true);
-    try {
-      await fetch("/api/deep-dive/my-rankings", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          artist,
-          rankings: slots
-            .map((s, i) => ({ position: i + 1, album: s.album, year: s.year, coverUrl: s.coverUrl, note: s.note }))
-            .filter(r => r.album.trim()),
-        }),
-      });
-      setSaved(true);
-    } catch { /* non-critical */ }
-    setSaving(false);
+  async function clearSlot(pos: number) {
+    setSavingPos(pos);
+    const next = slots.map((s, i) => i === pos - 1 ? emptyRankSlot() : s);
+    setSlots(next);
+    if (activePos === pos) closeSlot();
+    try { await saveRankings(artist, next); } catch { /* non-critical */ }
+    setSavingPos(null);
   }
 
   const usedAlbums = new Set(slots.map(s => s.album).filter(Boolean));
+  const filteredDisc = discographyAlbums.filter(a => {
+    if (filterQ.trim()) return a.title.toLowerCase().includes(filterQ.toLowerCase());
+    return true;
+  });
 
   if (!loaded) {
     return <p style={{ fontFamily: MONO, fontSize: "0.72rem", letterSpacing: "0.04em", color: INK, padding: "2rem 0" }}>Loading…</p>;
   }
 
-  return (
-    <div>
-      <p style={{ fontFamily: MONO, fontSize: "0.65rem", letterSpacing: "0.06em", color: "#888", margin: "0 0 1.5rem", textTransform: "uppercase" }}>
-        {artist} Top 5 Albums
-      </p>
-
-      <div style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
-        {slots.map((slot, i) => {
-          const options = discographyAlbums.filter(a => !usedAlbums.has(a.title) || a.title === slot.album);
-          return (
-            <div key={i} style={{ display: "flex", gap: "0.75rem", alignItems: "flex-start" }}>
-              {/* Rank number — matches Essential Albums style */}
-              <span style={{ fontFamily: MONO, fontSize: "1.4rem", fontWeight: 500, color: ORANGE, lineHeight: 1, minWidth: 36, flexShrink: 0, paddingTop: 4 }}>
-                {String(i + 1).padStart(2, "0")}
-              </span>
-
-              {/* Cover thumbnail */}
-              {slot.coverUrl ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img src={slot.coverUrl} alt="" aria-hidden style={{ width: 40, height: 40, objectFit: "cover", flexShrink: 0 }} />
-              ) : (
-                <div style={{ width: 40, height: 40, flexShrink: 0, background: SUBTLE }} />
-              )}
-
-              {/* Picker + note */}
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <select
-                  value={slot.album}
-                  onChange={e => selectAlbum(i, e.target.value)}
-                  style={{
-                    width: "100%", fontFamily: MONO, fontSize: "0.72rem",
-                    letterSpacing: "0.02em", color: slot.album ? INK : "#888",
-                    background: "#fff", border: `1px solid ${slot.album ? "#ccc" : SUBTLE}`,
-                    padding: "5px 8px", borderRadius: 2, marginBottom: 6, appearance: "auto",
-                  }}
-                >
-                  <option value="">— Pick an album —</option>
-                  {options.map(a => (
-                    <option key={a.title} value={a.title}>{a.title} ({a.year})</option>
-                  ))}
-                </select>
-                {slot.album && (
-                  <input
-                    type="text"
-                    placeholder="Add a note (optional)"
-                    value={slot.note}
-                    onChange={e => setSlot(i, { note: e.target.value })}
-                    maxLength={280}
-                    style={{
-                      width: "100%", fontFamily: MONO, fontSize: "0.68rem",
-                      letterSpacing: "0.02em", color: INK,
-                      background: "#fafaf8", border: `1px solid ${SUBTLE}`,
-                      padding: "5px 8px", borderRadius: 2, boxSizing: "border-box",
-                    }}
-                  />
+  // ── Read-only display (not editing) ───────────────────────────────────────
+  if (!editing) {
+    return (
+      <div>
+        <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", marginBottom: "1.25rem" }}>
+          <p style={{ fontFamily: MONO, fontSize: "0.65rem", letterSpacing: "0.06em", color: "#888", margin: 0, textTransform: "uppercase" }}>
+            {artist} Top 5 Albums
+          </p>
+          <button
+            type="button"
+            onClick={() => setEditing(true)}
+            style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.1em", textTransform: "uppercase", color: ORANGE, background: "none", border: `1px solid ${ORANGE}`, borderRadius: 3, cursor: "pointer", padding: "4px 10px", whiteSpace: "nowrap" }}
+          >
+            {slots.some(s => s.album) ? "Edit →" : "+ Rank Albums"}
+          </button>
+        </div>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(5, 1fr)", gap: "10px" }}>
+          {slots.map((slot, i) => (
+            <div key={i} style={{ minWidth: 0 }}>
+              <div style={{ position: "relative", overflow: "hidden", lineHeight: 0 }}>
+                {slot.coverUrl ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={slot.coverUrl} alt={slot.album} style={{ display: "block", width: "100%", aspectRatio: "1/1", objectFit: "cover" }} />
+                ) : (
+                  <div style={{ width: "100%", aspectRatio: "1/1", background: "#f4f4f4", border: "1px dashed rgba(0,0,0,0.10)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                    <span style={{ fontFamily: SERIF, fontSize: "18px", color: "#d8d8d8", lineHeight: 1 }}>—</span>
+                  </div>
                 )}
+                <span style={{ position: "absolute", top: 7, left: 7, fontFamily: MONO, fontSize: "9px", letterSpacing: "0.06em", lineHeight: 1, color: slot.coverUrl ? "rgba(255,255,255,0.75)" : "#cccccc", textShadow: slot.coverUrl ? "0 1px 3px rgba(0,0,0,0.5)" : "none" }}>
+                  {i + 1}
+                </span>
               </div>
-
-              {/* Clear slot */}
               {slot.album && (
-                <button
-                  type="button"
-                  onClick={() => setSlot(i, empty())}
-                  style={{ fontFamily: MONO, fontSize: "0.7rem", color: "#aaa", background: "none", border: "none", cursor: "pointer", padding: "4px 0", flexShrink: 0, marginTop: 2 }}
-                  aria-label="Clear"
-                >
-                  ×
-                </button>
+                <div style={{ marginTop: 8 }}>
+                  <p style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.06em", textTransform: "uppercase", color: "#aaaaaa", margin: "0 0 3px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{artist}</p>
+                  <p style={{ fontFamily: SERIF, fontSize: "12px", color: INK, lineHeight: 1.3, margin: 0, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical" as const, overflow: "hidden" }}>{slot.album}</p>
+                </div>
               )}
             </div>
-          );
-        })}
-      </div>
-
-      <div style={{ display: "flex", alignItems: "center", gap: "1rem", marginTop: "1.5rem" }}>
-        <button
-          type="button"
-          onClick={() => void save()}
-          disabled={saving}
-          style={{
-            fontFamily: MONO, fontSize: "0.68rem", letterSpacing: "0.12em",
-            textTransform: "uppercase", background: "#fff", color: ORANGE,
-            border: `1px solid ${ORANGE}`, padding: "10px 22px", borderRadius: 24,
-            cursor: saving ? "default" : "pointer", opacity: saving ? 0.6 : 1,
-          }}
-        >
-          {saving ? "Saving…" : "Save Rankings"}
-        </button>
-        {saved && (
-          <span style={{ fontFamily: MONO, fontSize: "0.62rem", letterSpacing: "0.06em", color: "#aaa", border: "1px solid #ddd", padding: "2px 7px" }}>
-            Saved
-          </span>
+          ))}
+        </div>
+        {discographyAlbums.length === 0 && (
+          <p style={{ fontFamily: MONO, fontSize: "0.68rem", letterSpacing: "0.04em", color: "#aaa", marginTop: "1rem" }}>
+            Load the Discography tab first to populate the album list.
+          </p>
         )}
       </div>
+    );
+  }
 
-      {discographyAlbums.length === 0 && (
-        <p style={{ fontFamily: MONO, fontSize: "0.68rem", letterSpacing: "0.04em", color: "#aaa", marginTop: "1rem" }}>
-          Load the Discography tab first to populate the album list.
-        </p>
-      )}
+  // ── Full-screen editor overlay (matches Top5Editor UX) ────────────────────
+  return (
+    <div style={{ position: "fixed", inset: 0, zIndex: 200, background: "#ffffff", overflowY: "auto" }}>
+      {/* Sticky header */}
+      <div style={{ position: "sticky", top: 0, background: "#ffffff", borderBottom: `1px solid ${RULE}`, display: "flex", alignItems: "center", justifyContent: "space-between", padding: "16px 32px", zIndex: 1 }}>
+        <div>
+          <p style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.14em", textTransform: "uppercase", color: "#aaaaaa", margin: "0 0 4px" }}>Editing</p>
+          <p style={{ fontFamily: SERIF, fontSize: "18px", color: INK, margin: 0, lineHeight: 1.2 }}>{artist} Top 5 Albums</p>
+        </div>
+        <button
+          onClick={() => { setEditing(false); closeSlot(); }}
+          style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.1em", textTransform: "uppercase", color: "#ffffff", background: INK, border: "none", cursor: "pointer", padding: "8px 16px" }}
+        >
+          Done
+        </button>
+      </div>
+
+      <div style={{ maxWidth: 1100, margin: "0 auto", padding: "40px 32px 80px" }}>
+        {/* Slot grid */}
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(5, 1fr)", gap: "16px", marginBottom: "32px" }}>
+          {slots.map((slot, i) => {
+            const pos       = i + 1;
+            const isActive  = activePos === pos;
+            const isSaving  = savingPos === pos;
+            return (
+              <div key={pos} style={{ minWidth: 0 }}>
+                <div
+                  onClick={() => { if (!isSaving) { if (isActive) closeSlot(); else openSlot(pos); } }}
+                  style={{
+                    position: "relative", overflow: "hidden", lineHeight: 0,
+                    border: isActive ? `2px solid ${ORANGE}` : slot.coverUrl ? "none" : `1px dashed ${RULE}`,
+                    cursor: isSaving ? "wait" : "pointer",
+                    transition: "border-color 0.1s",
+                  }}
+                >
+                  {slot.coverUrl ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={slot.coverUrl} alt="" style={{ display: "block", width: "100%", aspectRatio: "1/1", objectFit: "cover" }} />
+                  ) : (
+                    <div style={{ width: "100%", aspectRatio: "1/1", background: "#f8f8f8", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                      <span style={{ fontFamily: MONO, fontSize: "20px", color: "#d8d8d8", lineHeight: 1 }}>+</span>
+                    </div>
+                  )}
+                  <span style={{ position: "absolute", top: 6, left: 6, fontFamily: MONO, fontSize: "9px", letterSpacing: "0.06em", color: slot.coverUrl ? "rgba(255,255,255,0.8)" : "#cccccc", textShadow: slot.coverUrl ? "0 1px 3px rgba(0,0,0,0.5)" : "none", lineHeight: 1 }}>
+                    {pos}
+                  </span>
+                  {isSaving && (
+                    <div style={{ position: "absolute", inset: 0, background: "rgba(255,255,255,0.7)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                      <span style={{ fontFamily: MONO, fontSize: "9px", color: "#aaaaaa" }}>…</span>
+                    </div>
+                  )}
+                </div>
+                {slot.album && !isSaving && (
+                  <button
+                    onClick={e => { e.stopPropagation(); void clearSlot(pos); }}
+                    style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.06em", textTransform: "uppercase", color: "#cccccc", background: "none", border: "none", cursor: "pointer", padding: "4px 0 0", display: "block", width: "100%" }}
+                  >
+                    Remove
+                  </button>
+                )}
+                {slot.album && !isSaving && (
+                  <div style={{ marginTop: slot.album ? 0 : 6 }}>
+                    <p style={{ fontFamily: MONO, fontSize: "8px", letterSpacing: "0.06em", textTransform: "uppercase", color: "#aaaaaa", margin: "0 0 2px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{artist}</p>
+                    <p style={{ fontFamily: SERIF, fontSize: "11px", color: INK, lineHeight: 1.3, margin: 0, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical" as const, overflow: "hidden" }}>{slot.album}</p>
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+
+        {/* Album picker panel */}
+        {activePos !== null && (
+          <div style={{ borderTop: `1px solid ${RULE}`, paddingTop: 24 }}>
+            <p style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.1em", textTransform: "uppercase", color: "#aaaaaa", marginBottom: 12 }}>
+              Slot {activePos} — {artist} discography
+            </p>
+            <input
+              ref={filterRef}
+              type="text"
+              value={filterQ}
+              onChange={e => setFilterQ(e.target.value)}
+              placeholder="Filter albums…"
+              style={{
+                width: "100%", boxSizing: "border-box",
+                fontFamily: MONO, fontSize: "13px", letterSpacing: "0.04em",
+                color: INK, background: "transparent",
+                border: "none", borderBottom: `1px solid rgba(0,0,0,0.2)`,
+                outline: "none", padding: "0 0 8px",
+              }}
+            />
+            {filteredDisc.length > 0 ? (
+              <div style={{ marginTop: 12, display: "flex", flexDirection: "column" }}>
+                {filteredDisc.map(a => {
+                  const already = usedAlbums.has(a.title) && slots[activePos - 1]?.album !== a.title;
+                  return (
+                    <button
+                      key={a.title}
+                      disabled={already}
+                      onClick={() => void pickAlbum(activePos, a)}
+                      style={{
+                        display: "flex", alignItems: "center", gap: 12,
+                        padding: "10px 0", background: "none", border: "none",
+                        borderBottom: `0.5px solid ${RULE}`,
+                        cursor: already ? "default" : "pointer",
+                        textAlign: "left", width: "100%",
+                        opacity: already ? 0.35 : 1,
+                      }}
+                      onMouseEnter={e => { if (!already) (e.currentTarget as HTMLButtonElement).style.background = "#fafafa"; }}
+                      onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = "none"; }}
+                    >
+                      <div style={{ width: 40, height: 40, flexShrink: 0, background: "#f0f0f0", overflow: "hidden" }}>
+                        {a.thumb && (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img src={a.thumb} alt="" style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
+                        )}
+                      </div>
+                      <div style={{ minWidth: 0 }}>
+                        <p style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.06em", textTransform: "uppercase", color: "#aaaaaa", margin: "0 0 3px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{artist} · {a.year}</p>
+                        <p style={{ fontFamily: SERIF, fontSize: "13px", color: INK, margin: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{a.title}</p>
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            ) : (
+              <p style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.08em", color: "#aaaaaa", marginTop: 12 }}>
+                {filterQ.trim() ? "No albums match." : "No discography loaded — visit the Discography tab first."}
+              </p>
+            )}
+          </div>
+        )}
+      </div>
     </div>
   );
 }
