@@ -56,7 +56,28 @@ async function getClientToken(): Promise<string | null> {
   return _clientTokenPromise;
 }
 
-const empty = { preview_url: null, track_uri: null, album_uri: null };
+const empty = { preview_url: null, track_uri: null, album_uri: null, apple_music_url: null };
+
+async function fetchAppleMusicUrl(artist: string, title: string): Promise<string | null> {
+  try {
+    const q = encodeURIComponent(`${artist} ${title}`);
+    const res = await fetch(
+      `https://itunes.apple.com/search?term=${q}&media=music&entity=album&limit=5&country=us`,
+      { signal: AbortSignal.timeout(4000) }
+    );
+    if (!res.ok) return null;
+    const data = await res.json() as { results?: Array<{ collectionName?: string; artistName?: string; collectionViewUrl?: string; wrapperType?: string }> };
+    for (const r of data.results ?? []) {
+      if (r.wrapperType !== "collection" || !r.collectionViewUrl) continue;
+      if (isPlausibleAlbumMatch(artist, title, [r.artistName ?? ""], r.collectionName ?? "")) {
+        return r.collectionViewUrl;
+      }
+    }
+    return null;
+  } catch {
+    return null;
+  }
+}
 
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
@@ -64,10 +85,15 @@ export async function GET(request: NextRequest) {
   const title  = searchParams.get("title")  ?? "";
   if (!artist || !title) return NextResponse.json(empty);
 
-  if (await getSpotifySearchCooldownUntil()) return NextResponse.json(empty);
+  // Apple Music lookup runs in parallel — doesn't block Spotify path
+  const appleMusicPromise = fetchAppleMusicUrl(artist, title);
+
+  if (await getSpotifySearchCooldownUntil()) {
+    return NextResponse.json({ ...empty, apple_music_url: await appleMusicPromise });
+  }
 
   const token = await getClientToken();
-  if (!token) return NextResponse.json(empty);
+  if (!token) return NextResponse.json({ ...empty, apple_music_url: await appleMusicPromise });
 
   try {
     // Quoted field-filter search first — same Tier 1/Tier 2 pattern as the
@@ -76,7 +102,7 @@ export async function GET(request: NextRequest) {
     // call site.
     const q1 = encodeURIComponent(`album:"${title}" artist:"${artist}"`);
     const r1 = await spotifyFetch(`https://api.spotify.com/v1/search?q=${q1}&type=album&limit=1`, token);
-    if (!r1?.ok) return NextResponse.json(empty); // blocked/rate-limited/transient
+    if (!r1?.ok) return NextResponse.json({ ...empty, apple_music_url: await appleMusicPromise });
 
     type SpotifyImage = { url: string; width: number; height: number };
     type AlbumSearchResponse = { albums?: { items?: Array<{ uri: string; id: string; name: string; artists: Array<{ name: string }>; images: SpotifyImage[] }> } };
@@ -93,7 +119,7 @@ export async function GET(request: NextRequest) {
     if (!album) {
       const q2 = encodeURIComponent(`${artist} ${title}`);
       const r2 = await spotifyFetch(`https://api.spotify.com/v1/search?q=${q2}&type=album&limit=1`, token);
-      if (!r2?.ok) return NextResponse.json(empty);
+      if (!r2?.ok) return NextResponse.json({ ...empty, apple_music_url: await appleMusicPromise });
       const d2 = await r2.json() as AlbumSearchResponse;
       const item2 = d2.albums?.items?.[0] ?? null;
       if (item2 && isPlausibleAlbumMatch(artist, title, item2.artists.map(a => a.name), item2.name)) {
@@ -102,13 +128,15 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    if (!album) return NextResponse.json(empty);
+    const appleMusicUrl = await appleMusicPromise;
+
+    if (!album) return NextResponse.json({ ...empty, apple_music_url: appleMusicUrl });
 
     const tracksRes = await spotifyFetch(
       `https://api.spotify.com/v1/albums/${album.id}/tracks?limit=10`,
       token
     );
-    if (!tracksRes?.ok) return NextResponse.json({ ...empty, album_uri: album.uri });
+    if (!tracksRes?.ok) return NextResponse.json({ ...empty, album_uri: album.uri, apple_music_url: appleMusicUrl });
 
     const tracksData = await tracksRes.json() as {
       items: Array<{ uri: string; preview_url: string | null }>;
@@ -118,12 +146,13 @@ export async function GET(request: NextRequest) {
     const track = items.find(t => t.preview_url) ?? items[0] ?? null;
 
     return NextResponse.json({
-      preview_url:   track?.preview_url ?? null,
-      track_uri:     track?.uri         ?? null,
-      album_uri:     album.uri,
-      album_art_url: artUrl,
+      preview_url:    track?.preview_url ?? null,
+      track_uri:      track?.uri         ?? null,
+      album_uri:      album.uri,
+      album_art_url:  artUrl,
+      apple_music_url: appleMusicUrl,
     });
   } catch {
-    return NextResponse.json(empty);
+    return NextResponse.json({ ...empty, apple_music_url: await appleMusicPromise });
   }
 }

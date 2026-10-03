@@ -129,6 +129,7 @@ function SleeveCard({ rec, mode, onAddToWantlist, wantlistAdded, onDismiss, dism
   // Component remounts on every rec change (key prop), so useState resets naturally.
   const [coverUrl, setCoverUrl]             = useState<string | null>(null);
   const [spotifyAlbumUri, setSpotifyAlbumUri] = useState<string | null>(null);
+  const [appleMusicUrl, setAppleMusicUrl]   = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -153,11 +154,12 @@ function SleeveCard({ rec, mode, onAddToWantlist, wantlistAdded, onDismiss, dism
     let cancelled = false;
     const params = new URLSearchParams({ artist: rec.artist, title: rec.album });
     fetch(`/api/spotify/preview?${params.toString()}`)
-      .then(r => r.json() as Promise<{ preview_url: string | null; track_uri: string | null; album_uri: string | null; album_art_url: string | null }>)
+      .then(r => r.json() as Promise<{ preview_url: string | null; track_uri: string | null; album_uri: string | null; album_art_url: string | null; apple_music_url: string | null }>)
       .then(data => {
         if (cancelled) return;
         if (data.album_art_url) setCoverUrl(`/api/image-proxy?url=${encodeURIComponent(data.album_art_url)}`);
         if (data.album_uri) setSpotifyAlbumUri(data.album_uri);
+        if (data.apple_music_url) setAppleMusicUrl(data.apple_music_url);
         onPreviewReady({ previewUrl: data.preview_url, trackUri: data.track_uri, albumUri: data.album_uri ?? null, artist: rec.artist, album: rec.album });
       })
       .catch(() => {});
@@ -175,7 +177,7 @@ function SleeveCard({ rec, mode, onAddToWantlist, wantlistAdded, onDismiss, dism
     : `https://open.spotify.com/search/${q}`;
 
   const STREAM = [
-    { label: t("openAppleMusic"), href: `https://music.apple.com/search?term=${q}` },
+    { label: t("openAppleMusic"), href: appleMusicUrl ?? `https://music.apple.com/search?term=${q}` },
     { label: t("openSpotify"),    href: spotifyHref },
     { label: t("openTidal"),      href: `https://tidal.com/search?q=${q}` },
     { label: t("openDeezer"),     href: `https://www.deezer.com/search/${q}` },
