@@ -1281,6 +1281,7 @@ function WantlistGridCard({ slot, fetchIndex, monthsOld, showSomedayPrompt, onRe
 
   const [hovered,  setHovered]  = useState(false);
   const [coverUrl, setCoverUrl] = useState<string | null>(item.cover_url ?? null);
+  const coverFetchDone = useRef(false);
   const [addingTag, setAddingTag] = useState(false);
   const [tagInput,  setTagInput]  = useState("");
   const tagInputRef = useRef<HTMLInputElement>(null);
@@ -1293,6 +1294,10 @@ function WantlistGridCard({ slot, fetchIndex, monthsOld, showSomedayPrompt, onRe
 
   useEffect(() => {
     if (coverUrl) return;
+    // Only attempt one fresh fetch per mount — prevents infinite retries if the
+    // fetched URL also fails (e.g. Discogs CDN rate-limit, stale token, etc.)
+    if (coverFetchDone.current) return;
+    coverFetchDone.current = true;
     let cancelled = false;
     fetch(`/api/discogs/search?q=${encodeURIComponent(`${item.artist} ${item.album}`)}&mode=record`)
       .then(r => r.ok ? r.json() : null)
@@ -1307,11 +1312,14 @@ function WantlistGridCard({ slot, fetchIndex, monthsOld, showSomedayPrompt, onRe
         setCoverUrl(url);
         if (item.item_type === "song") {
           createClient().from("list_items").update({ song_cover_url: url }).eq("id", item.id).then(() => {});
+        } else {
+          // For record-type items, update records.cover_url so it's cached next load
+          createClient().from("records").update({ cover_url: url }).eq("id", item.id).then(() => {});
         }
       })
       .catch(() => {});
     return () => { cancelled = true; };
-  }, [item.artist, item.album]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [coverUrl, item.artist, item.album, item.id, item.item_type]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Fetch Discogs release data (marketplace stats + pressing details), staggered to avoid rate limits
   useEffect(() => {
@@ -1393,7 +1401,12 @@ function WantlistGridCard({ slot, fetchIndex, monthsOld, showSomedayPrompt, onRe
       <div style={{ position: "relative", width: "100%", aspectRatio: "1 / 1", background: "#ece9e3", overflow: "hidden", flexShrink: 0 }}>
         {coverUrl ? (
           // eslint-disable-next-line @next/next/no-img-element
-          <img src={coverUrl.startsWith("http") ? `/api/image-proxy?url=${encodeURIComponent(coverUrl)}` : coverUrl} alt="" style={{ position: "absolute", top: 0, left: 0, width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
+          <img
+            src={coverUrl.startsWith("http") ? `/api/image-proxy?url=${encodeURIComponent(coverUrl)}` : coverUrl}
+            alt=""
+            onError={() => { if (!coverFetchDone.current) setCoverUrl(null); }}
+            style={{ position: "absolute", top: 0, left: 0, width: "100%", height: "100%", objectFit: "cover", display: "block" }}
+          />
         ) : (
           <div style={{ position: "absolute", top: 0, left: 0, width: "100%", height: "100%", display: "flex", alignItems: "center", justifyContent: "center" }}>
             <span style={{ fontFamily: MONO, fontSize: "0.55rem", color: "#888", letterSpacing: "0.1em" }}>NO COVER</span>
