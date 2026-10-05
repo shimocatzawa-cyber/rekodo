@@ -1,7 +1,13 @@
 import { redirect } from "next/navigation";
+import type { Metadata } from "next";
 import { createClient } from "@/lib/supabase/server";
 import OnboardingForm from "./OnboardingForm";
 import { getUserWithTimeout } from "@/lib/supabase/withTimeout";
+
+export const metadata: Metadata = {
+  title: "Welcome",
+  robots: { index: false, follow: false },
+};
 
 export default async function OnboardingPage() {
   const supabase = await createClient();

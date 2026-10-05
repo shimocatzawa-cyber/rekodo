@@ -1,7 +1,13 @@
 import { redirect } from "next/navigation";
+import type { Metadata } from "next";
 import { createClient } from "@/lib/supabase/server";
 import ListsHub from "@/components/lists/ListsHub";
 import { getUserWithTimeout } from "@/lib/supabase/withTimeout";
+
+export const metadata: Metadata = {
+  title: "Lists",
+  robots: { index: false, follow: false },
+};
 
 export const dynamic = "force-dynamic";
 

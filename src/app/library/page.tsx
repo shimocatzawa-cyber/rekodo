@@ -1,7 +1,13 @@
 import { redirect } from "next/navigation";
+import type { Metadata } from "next";
 import { createClient } from "@/lib/supabase/server";
 import LibraryClient from "@/components/library/LibraryClient";
 import { getUserWithTimeout } from "@/lib/supabase/withTimeout";
+
+export const metadata: Metadata = {
+  title: "Library",
+  robots: { index: false, follow: false },
+};
 
 export default async function LibraryPage() {
   const supabase = await createClient();
