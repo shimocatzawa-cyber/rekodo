@@ -1,8 +1,14 @@
 import { redirect } from "next/navigation";
+import type { Metadata } from "next";
 import { createClient } from "@/lib/supabase/server";
 import AppNav from "@/components/AppNav";
 import CommunityClient from "@/components/community/CommunityClient";
 import { getUserWithTimeout } from "@/lib/supabase/withTimeout";
+
+export const metadata: Metadata = {
+  title: "Community",
+  robots: { index: false, follow: false },
+};
 import { getCachedTrending } from "@/lib/trendingRecords";
 
 export const dynamic = "force-dynamic";

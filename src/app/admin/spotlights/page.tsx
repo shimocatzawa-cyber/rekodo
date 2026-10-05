@@ -1,8 +1,14 @@
 import { redirect } from "next/navigation";
+import type { Metadata } from "next";
 import { createClient } from "@/lib/supabase/server";
 import { getAdminDb } from "@/app/admin/lib";
 import SpotlightsAdminClient from "./SpotlightsAdminClient";
 import type { Spotlight } from "@/lib/spotlights/types";
+
+export const metadata: Metadata = {
+  title: "Spotlights Admin",
+  robots: { index: false, follow: false },
+};
 
 export const dynamic = "force-dynamic";
 

@@ -1,6 +1,12 @@
+import type { Metadata } from "next";
 import AdminClient from "./AdminClient";
 import { getAdminDb, enrichProfiles, PROFILE_COLUMNS, ADMIN_PAGE_SIZE } from "./lib";
 import { ARCHETYPES } from "@/lib/archetypes/archetypeConfig";
+
+export const metadata: Metadata = {
+  title: "Admin",
+  robots: { index: false, follow: false },
+};
 
 export const dynamic = "force-dynamic";
 
