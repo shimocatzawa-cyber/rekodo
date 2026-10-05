@@ -1299,27 +1299,42 @@ function WantlistGridCard({ slot, fetchIndex, monthsOld, showSomedayPrompt, onRe
     if (coverFetchDone.current) return;
     coverFetchDone.current = true;
     let cancelled = false;
-    fetch(`/api/discogs/search?q=${encodeURIComponent(`${item.artist} ${item.album}`)}&mode=record`)
-      .then(r => r.ok ? r.json() : null)
-      .then(data => {
-        if (cancelled) return;
-        const first = data?.results?.[0];
-        if (!first) return;
-        const url = (first.cover_image && !first.cover_image.includes("spacer"))
-          ? first.cover_image
-          : (first.thumb && !first.thumb.includes("spacer") ? first.thumb : null);
-        if (!url) return;
+
+    const doFetch = () => {
+      const resolveUrl = slot.discogs_release_id
+        // Prefer release-ID lookup — exact match, avoids wrong-album ambiguity
+        ? fetch(`/api/discogs/release/${slot.discogs_release_id}`)
+            .then(r => r.ok ? r.json() : null)
+            .then((data): string | null => {
+              if (!data) return null;
+              const uri = data.images?.[0]?.uri;
+              return (uri && !uri.includes("spacer")) ? uri : null;
+            })
+        // Fall back to name search when no release ID is available
+        : fetch(`/api/discogs/search?q=${encodeURIComponent(`${item.artist} ${item.album}`)}&mode=record`)
+            .then(r => r.ok ? r.json() : null)
+            .then((data): string | null => {
+              const first = data?.results?.[0];
+              if (!first) return null;
+              return (first.cover_image && !first.cover_image.includes("spacer"))
+                ? first.cover_image
+                : (first.thumb && !first.thumb.includes("spacer") ? first.thumb : null);
+            });
+
+      resolveUrl.then(url => {
+        if (cancelled || !url) return;
         setCoverUrl(url);
         if (item.item_type === "song") {
           createClient().from("list_items").update({ song_cover_url: url }).eq("id", item.id).then(() => {});
         } else {
-          // For record-type items, update records.cover_url so it's cached next load
           createClient().from("records").update({ cover_url: url }).eq("id", item.id).then(() => {});
         }
-      })
-      .catch(() => {});
-    return () => { cancelled = true; };
-  }, [coverUrl, item.artist, item.album, item.id, item.item_type]); // eslint-disable-line react-hooks/exhaustive-deps
+      }).catch(() => {});
+    };
+
+    const t = setTimeout(doFetch, fetchIndex * 100);
+    return () => { cancelled = true; clearTimeout(t); };
+  }, [coverUrl, item.artist, item.album, item.id, item.item_type, slot.discogs_release_id, fetchIndex]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Fetch Discogs release data (marketplace stats + pressing details), staggered to avoid rate limits
   useEffect(() => {
