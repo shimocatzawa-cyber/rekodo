@@ -459,7 +459,7 @@ export default function ProfileListsTab({ initialLists, username, listTypeFilter
                     <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: "12px", marginBottom: "1rem", flexWrap: "wrap" }}>
                       <div style={{ display: "flex", alignItems: "baseline", gap: "12px" }}>
                         <h1 style={{ fontFamily: SERIF, fontSize: "clamp(1.5rem, 2.8vw, 2.1rem)", fontWeight: 400, color: "#0d0d0d", margin: 0, lineHeight: 1.1 }}>
-                          Want List
+                          Wantlist
                         </h1>
                         <p style={{ fontFamily: MONO, fontSize: "0.65rem", letterSpacing: "0.05em", color: "#666", margin: 0 }}>
                           <span style={{ color: ORANGE, fontWeight: 700 }}>{selectedList.slots.filter(s => s.item).length}</span>
@@ -1393,7 +1393,7 @@ function WantlistGridCard({ slot, fetchIndex, monthsOld, showSomedayPrompt, onRe
       <div style={{ position: "relative", width: "100%", aspectRatio: "1 / 1", background: "#ece9e3", overflow: "hidden", flexShrink: 0 }}>
         {coverUrl ? (
           // eslint-disable-next-line @next/next/no-img-element
-          <img src={coverUrl} alt="" style={{ position: "absolute", top: 0, left: 0, width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
+          <img src={coverUrl.startsWith("http") ? `/api/image-proxy?url=${encodeURIComponent(coverUrl)}` : coverUrl} alt="" style={{ position: "absolute", top: 0, left: 0, width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
         ) : (
           <div style={{ position: "absolute", top: 0, left: 0, width: "100%", height: "100%", display: "flex", alignItems: "center", justifyContent: "center" }}>
             <span style={{ fontFamily: MONO, fontSize: "0.55rem", color: "#888", letterSpacing: "0.1em" }}>NO COVER</span>
