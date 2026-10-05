@@ -11,6 +11,8 @@ const ALLOWED_HOSTS = [
   "www.silentradio.co.uk",
 ];
 
+const DISCOGS_HOSTS = new Set(["i.discogs.com", "img.discogs.com", "a.discogs.com"]);
+
 export async function GET(req: NextRequest) {
   const url = req.nextUrl.searchParams.get("url");
   if (!url) return new NextResponse("Missing url", { status: 400 });
@@ -29,9 +31,16 @@ export async function GET(req: NextRequest) {
     return new NextResponse("Host not allowed", { status: 403 });
   }
 
+  const fetchHeaders: Record<string, string> = {
+    "User-Agent": "Mozilla/5.0 (compatible; rekodo/1.0)",
+  };
+  if (DISCOGS_HOSTS.has(parsed.hostname)) {
+    fetchHeaders["Referer"] = "https://www.discogs.com/";
+  }
+
   try {
     const resp = await fetch(url, {
-      headers: { "User-Agent": "Mozilla/5.0 (compatible; rekodo/1.0)" },
+      headers: fetchHeaders,
       signal: AbortSignal.timeout(8000),
     });
     if (!resp.ok) return new NextResponse("Upstream error", { status: resp.status });
