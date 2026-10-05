@@ -245,9 +245,11 @@ export default function SpotlightView({ spotlight }: { spotlight: Spotlight }) {
                 <p style={{ fontFamily: MONO, fontSize: "11px", fontWeight: 500, color: INK, margin: "0 0 8px" }}>
                   {cell.title}
                 </p>
-                <p style={{ fontFamily: MONO, fontSize: "11px", fontWeight: 400, color: INK, lineHeight: 1.6, margin: 0 }}>
-                  {renderText(cell.body)}
-                </p>
+                {cell.body.split("\n\n").map((para, j) => (
+                  <p key={j} style={{ fontFamily: MONO, fontSize: "11px", fontWeight: 400, color: INK, lineHeight: 1.6, margin: j === 0 ? 0 : "8px 0 0" }}>
+                    {renderText(para)}
+                  </p>
+                ))}
               </div>
             ))}
           </div>
@@ -282,9 +284,11 @@ export default function SpotlightView({ spotlight }: { spotlight: Spotlight }) {
                       {n.album}
                     </p>
                   )}
-                  <p style={{ fontFamily: MONO, fontSize: "11px", color: INK, lineHeight: 1.6, margin: 0, fontWeight: 400 }}>
-                    {renderText(n.reason)}
-                  </p>
+                  {n.reason.split("\n\n").map((para, j) => (
+                    <p key={j} style={{ fontFamily: MONO, fontSize: "11px", color: INK, lineHeight: 1.6, margin: j === 0 ? 0 : "8px 0 0", fontWeight: 400 }}>
+                      {renderText(para)}
+                    </p>
+                  ))}
                 </div>
               ))}
             </div>
