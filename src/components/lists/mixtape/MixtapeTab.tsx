@@ -259,18 +259,29 @@ type MixtapeFull = MixtapeSummary & {
 
 // ── Saved list column ──────────────────────────────────────────────────────────
 
-function SavedList({ mixtapes, selectedId, onSelect, onNew, onDelete }: {
+function SavedList({ mixtapes, selectedId, onSelect, onNew, onDelete, isMobile }: {
   mixtapes: MixtapeSummary[];
   selectedId: string | null;
   onSelect: (id: string) => void;
   onNew: () => void;
   onDelete: (id: string) => void;
+  isMobile: boolean;
 }) {
   const [hoveredId, setHoveredId] = useState<string | null>(null);
   return (
-    <div style={{ width: 120, flexShrink: 0, paddingTop: 4 }}>
-      <p style={{ fontFamily: MONO, fontSize: 9, letterSpacing: "0.14em", textTransform: "uppercase", color: MUTED, margin: "0 0 12px" }}>Saved</p>
-      <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+    <div style={{
+      width: isMobile ? "100%" : 120,
+      flexShrink: isMobile ? undefined : 0,
+      paddingTop: isMobile ? 0 : 4,
+      marginBottom: isMobile ? 16 : 0,
+    }}>
+      <p style={{ fontFamily: MONO, fontSize: 9, letterSpacing: "0.14em", textTransform: "uppercase", color: MUTED, margin: "0 0 8px" }}>Saved</p>
+      <div style={{
+        display: "flex",
+        flexDirection: isMobile ? "row" : "column",
+        flexWrap: isMobile ? "wrap" : undefined,
+        gap: isMobile ? "6px 12px" : 6,
+      }}>
         <button onClick={onNew} style={{ fontFamily: MONO, fontSize: 10, letterSpacing: "0.06em", background: "none", border: "none", padding: "2px 0", textAlign: "left", cursor: selectedId === null ? "default" : "pointer", color: selectedId === null ? ORANGE : INK, borderBottom: selectedId === null ? `1px solid ${ORANGE}` : "1px solid transparent", width: "fit-content" }}>
           + New
         </button>
@@ -279,7 +290,7 @@ function SavedList({ mixtapes, selectedId, onSelect, onNew, onDelete }: {
           const hovered = m.id === hoveredId;
           return (
             <div key={m.id} style={{ display: "flex", alignItems: "baseline", gap: 4 }} onMouseEnter={() => setHoveredId(m.id)} onMouseLeave={() => setHoveredId(null)}>
-              <button onClick={() => onSelect(m.id)} title={m.title || "Untitled"} style={{ fontFamily: MONO, fontSize: 10, letterSpacing: "0.06em", background: "none", border: "none", padding: "2px 0", textAlign: "left", cursor: active ? "default" : "pointer", color: active ? ORANGE : "#888888", borderBottom: active ? `1px solid ${ORANGE}` : "1px solid transparent", maxWidth: 96, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", flexShrink: 0 }}>
+              <button onClick={() => onSelect(m.id)} title={m.title || "Untitled"} style={{ fontFamily: MONO, fontSize: 10, letterSpacing: "0.06em", background: "none", border: "none", padding: "2px 0", textAlign: "left", cursor: active ? "default" : "pointer", color: active ? ORANGE : "#888888", borderBottom: active ? `1px solid ${ORANGE}` : "1px solid transparent", maxWidth: isMobile ? 140 : 96, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", flexShrink: 0 }}>
                 {m.title || "Untitled"}
               </button>
               {hovered && (
@@ -360,8 +371,16 @@ export default function MixtapeTab({ username }: { username: string }) {
   const [discogsCache,    setDiscogsCache]    = useState<Map<string, DiscogsTrack[]>>(new Map());
   const [loadingDiscogs,  setLoadingDiscogs]  = useState<string | null>(null);
   const [showShare,       setShowShare]       = useState(false);
+  const [isMobile,        setIsMobile]        = useState(false);
 
   const searchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    const check = () => setIsMobile(window.innerWidth < 768);
+    check();
+    window.addEventListener("resize", check);
+    return () => window.removeEventListener("resize", check);
+  }, []);
 
   function handleAddStamp(key: string) {
     const newStamp: Stamp = { id: `${key}-${Date.now()}`, key, x: 50, y: 55 };
@@ -508,16 +527,16 @@ export default function MixtapeTab({ username }: { username: string }) {
   const sideBFill = limit > 0 ? sideBMs / limit : 0;
 
   return (
-    <div style={{ maxWidth: 1200, margin: "0 auto", padding: "36px 40px 80px" }}>
+    <div style={{ maxWidth: 1200, margin: "0 auto", padding: isMobile ? "16px 16px 80px" : "36px 40px 80px" }}>
 
       <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 24 }}>
         <span style={{ fontFamily: MONO, fontSize: 9, letterSpacing: "0.15em", textTransform: "uppercase", color: "#fff", background: "#0d0d0d", padding: "2px 7px", borderRadius: 3 }}>Admin Preview</span>
         <span style={{ fontFamily: MONO, fontSize: 10, color: MUTED }}>Mixtape — not yet live to members</span>
       </div>
 
-      {/* Outer two-column: saved list left, editor right */}
-      <div style={{ display: "flex", gap: 48, alignItems: "flex-start" }}>
-        <SavedList mixtapes={savedMixtapes} selectedId={currentMixtapeId} onSelect={handleSelectMixtape} onNew={handleNew} onDelete={handleDelete} />
+      {/* Outer two-column: saved list left, editor right (stacks on mobile) */}
+      <div style={{ display: "flex", flexDirection: isMobile ? "column" : "row", gap: isMobile ? 0 : 48, alignItems: "flex-start" }}>
+        <SavedList mixtapes={savedMixtapes} selectedId={currentMixtapeId} onSelect={handleSelectMixtape} onNew={handleNew} onDelete={handleDelete} isMobile={isMobile} />
 
         {/* Editor column */}
         <div style={{ flex: 1, minWidth: 0 }}>
@@ -555,10 +574,10 @@ export default function MixtapeTab({ username }: { username: string }) {
             </div>
           </div>
 
-          {/* Cassette centred + stamps anchored to right column (mirrors title row layout) */}
-          <div style={{ display: "flex", gap: 24, alignItems: "flex-start", marginBottom: 10 }}>
-            {/* Cassette — centred in remaining space */}
-            <div style={{ flex: 1, display: "flex", justifyContent: "center" }}>
+          {/* Cassette + stamps: side-by-side on desktop, stacked on mobile */}
+          <div style={{ display: "flex", flexDirection: isMobile ? "column" : "row", gap: isMobile ? 16 : 24, alignItems: "flex-start", marginBottom: 10 }}>
+            {/* Cassette — centred on desktop, full-width on mobile */}
+            <div style={{ flex: isMobile ? undefined : 1, width: isMobile ? "100%" : undefined, display: "flex", justifyContent: "center" }}>
               {cardView === "front" ? (
                 <CassetteSVG
                   title={title || "My Mixtape"}
@@ -567,7 +586,7 @@ export default function MixtapeTab({ username }: { username: string }) {
                   activeSide={activeSide}
                   stamps={frontStamps}
                   onStampsChange={setFrontStamps}
-                  width={Math.min(580, typeof window !== "undefined" ? window.innerWidth - 340 : 580)}
+                  width={Math.min(580, typeof window !== "undefined" ? window.innerWidth - (isMobile ? 32 : 340) : 580)}
                 />
               ) : (
                 <CassetteBackCard
@@ -577,11 +596,11 @@ export default function MixtapeTab({ username }: { username: string }) {
                   cassetteType={cassetteType}
                   stamps={backStamps}
                   onStampsChange={setBackStamps}
-                  width={Math.min(580, typeof window !== "undefined" ? window.innerWidth - 340 : 580)}
+                  width={Math.min(580, typeof window !== "undefined" ? window.innerWidth - (isMobile ? 32 : 340) : 580)}
                 />
               )}
             </div>
-            {/* Stamps — right column, aligned under Tape Length */}
+            {/* Stamps — right of cassette on desktop, below on mobile */}
             <div style={{ flexShrink: 0 }}>
               <StampsPanel
                 cardView={cardView}
@@ -612,9 +631,9 @@ export default function MixtapeTab({ username }: { username: string }) {
           </div>
 
           {/* Side panels */}
-          <div style={{ display: "flex", gap: 32, marginBottom: 28 }}>
+          <div style={{ display: "flex", flexDirection: isMobile ? "column" : "row", gap: isMobile ? 16 : 32, marginBottom: 28 }}>
             <SidePanel side="A" tracks={sideA} limit={limit} onRemove={removeFromA} />
-            <div style={{ width: 1, background: RULE, flexShrink: 0 }} />
+            {!isMobile && <div style={{ width: 1, background: RULE, flexShrink: 0 }} />}
             <SidePanel side="B" tracks={sideB} limit={limit} onRemove={removeFromB} />
           </div>
 
