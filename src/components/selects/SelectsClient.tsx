@@ -406,17 +406,7 @@ export default function SelectsClient({ username, displayLabel, avatarUrl, isAdm
         {activeTab === "live" ? (
           <LiveSection />
         ) : activeTab === "turntable" ? (
-          <>
-            <div style={{ borderBottom: `1px solid ${RULE}`, paddingBottom: 32, marginBottom: 0 }}>
-              <h1 style={{
-                fontFamily: SERIF, fontSize: "clamp(32px, 5vw, 56px)", fontWeight: 600,
-                letterSpacing: "-0.03em", color: INK, margin: 0, lineHeight: 1.05,
-              }}>
-                Now Playing on Rek&#x14d;do&rsquo;s Turntable
-              </h1>
-            </div>
-            <TurntableView isAdmin={isAdmin} />
-          </>
+          <TurntableView isAdmin={isAdmin} />
         ) : activeTab === "artist" ? (
           <SpotlightSection state={artistState} onSelect={setArtistSelected} />
         ) : (

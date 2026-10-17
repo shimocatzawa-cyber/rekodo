@@ -1,10 +1,9 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 
 const SERIF  = "var(--font-editorial)";
 const MONO   = "var(--font-mono)";
-const ORANGE = "#CC5500";
 const INK    = "#0a0a0a";
 const RULE   = "#e0e0da";
 
@@ -25,39 +24,71 @@ function formatDate(dateStr: string): string {
   });
 }
 
-// ─── Inline new-entry form ────────────────────────────────────────────────────
+// ─── Discogs cover lookup ─────────────────────────────────────────────────────
 
-interface NewEntryFormProps {
-  onSaved: (post: TurntablePost) => void;
+function useCoverLookup(artist: string, album: string) {
+  const [url,     setUrl]     = useState<string | null>(null);
+  const [looking, setLooking] = useState(false);
+  const [tried,   setTried]   = useState(false);
+
+  const lookup = useCallback(async () => {
+    if (!artist.trim() || !album.trim()) return;
+    setLooking(true); setTried(false);
+    try {
+      const res = await fetch(
+        `/api/turntable/cover?artist=${encodeURIComponent(artist)}&album=${encodeURIComponent(album)}`
+      );
+      const data = await res.json() as { url: string | null };
+      setUrl(data.url ?? null);
+    } catch { setUrl(null); }
+    finally { setLooking(false); setTried(true); }
+  }, [artist, album]);
+
+  return { url, setUrl, looking, tried, lookup };
 }
+
+// ─── Shared form fields ───────────────────────────────────────────────────────
+
+const inputStyle: React.CSSProperties = {
+  width: "100%", fontFamily: MONO, fontSize: "12px", color: INK,
+  border: `1px solid ${RULE}`, padding: "9px 12px",
+  outline: "none", background: "#ffffff", boxSizing: "border-box",
+};
+const labelStyle: React.CSSProperties = {
+  display: "block", fontFamily: MONO, fontSize: "9px",
+  letterSpacing: "0.14em", textTransform: "uppercase",
+  color: "#aaaaaa", marginBottom: 6,
+};
+
+// ─── New-entry form ───────────────────────────────────────────────────────────
+
+interface NewEntryFormProps { onSaved: (post: TurntablePost) => void }
 
 function NewEntryForm({ onSaved }: NewEntryFormProps) {
   const [open,   setOpen]   = useState(false);
   const [saving, setSaving] = useState(false);
   const [err,    setErr]    = useState<string | null>(null);
-  const [form, setForm] = useState({
-    artist: "", album: "", cover_url: "", body: "",
-    published_at: new Date().toISOString().slice(0, 10),
-    status: "published" as "draft" | "published",
-  });
+  const [artist, setArtist] = useState("");
+  const [album,  setAlbum]  = useState("");
+  const [body,   setBody]   = useState("");
+  const [date,   setDate]   = useState(new Date().toISOString().slice(0, 10));
+  const [status, setStatus] = useState<"draft" | "published">("published");
 
-  function set(key: keyof typeof form, value: string) {
-    setForm(f => ({ ...f, [key]: value }));
-  }
+  const cover = useCoverLookup(artist, album);
 
   async function submit() {
-    setErr(null);
-    setSaving(true);
+    setErr(null); setSaving(true);
     try {
       const res = await fetch("/api/turntable", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(form),
+        body: JSON.stringify({ artist, album, cover_url: cover.url, body, published_at: date, status }),
       });
       const data = await res.json() as { post?: TurntablePost; error?: string };
       if (!res.ok || !data.post) { setErr(data.error ?? "Save failed"); return; }
       onSaved(data.post);
-      setForm({ artist: "", album: "", cover_url: "", body: "", published_at: new Date().toISOString().slice(0, 10), status: "published" });
+      setArtist(""); setAlbum(""); setBody(""); cover.setUrl(null);
+      setDate(new Date().toISOString().slice(0, 10)); setStatus("published");
       setOpen(false);
     } catch { setErr("Network error"); }
     finally { setSaving(false); }
@@ -69,8 +100,8 @@ function NewEntryForm({ onSaved }: NewEntryFormProps) {
         onClick={() => setOpen(true)}
         style={{
           fontFamily: MONO, fontSize: "10px", letterSpacing: "0.12em",
-          textTransform: "uppercase", color: ORANGE, background: "none",
-          border: `1px solid ${ORANGE}`, padding: "8px 16px",
+          textTransform: "uppercase", color: INK, background: "none",
+          border: `1px solid ${RULE}`, padding: "8px 16px",
           cursor: "pointer", marginBottom: 40,
         }}
       >
@@ -79,50 +110,64 @@ function NewEntryForm({ onSaved }: NewEntryFormProps) {
     );
   }
 
-  const inputStyle: React.CSSProperties = {
-    width: "100%", fontFamily: MONO, fontSize: "12px", color: INK,
-    border: `1px solid ${RULE}`, padding: "9px 12px",
-    outline: "none", background: "#ffffff", boxSizing: "border-box",
-  };
-  const labelStyle: React.CSSProperties = {
-    display: "block", fontFamily: MONO, fontSize: "9px",
-    letterSpacing: "0.14em", textTransform: "uppercase",
-    color: "#aaaaaa", marginBottom: 6,
-  };
-
   return (
     <div style={{ border: `1px solid ${RULE}`, padding: 28, marginBottom: 40, background: "#fafaf8" }}>
-      <p style={{ fontFamily: MONO, fontSize: "10px", letterSpacing: "0.12em", textTransform: "uppercase", color: ORANGE, margin: "0 0 24px" }}>
+      <p style={{ fontFamily: MONO, fontSize: "10px", letterSpacing: "0.12em", textTransform: "uppercase", color: INK, margin: "0 0 24px" }}>
         New Entry
       </p>
 
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginBottom: 16 }}>
         <div>
           <label style={labelStyle}>Artist</label>
-          <input value={form.artist} onChange={e => set("artist", e.target.value)} style={inputStyle} placeholder="e.g. Mulatu Astatke" />
+          <input value={artist} onChange={e => setArtist(e.target.value)} style={inputStyle} placeholder="e.g. Mulatu Astatke" />
         </div>
         <div>
           <label style={labelStyle}>Album</label>
-          <input value={form.album} onChange={e => set("album", e.target.value)} style={inputStyle} placeholder="e.g. Ethio Jazz" />
+          <input value={album} onChange={e => setAlbum(e.target.value)} style={inputStyle} placeholder="e.g. Ethio Jazz" />
         </div>
       </div>
 
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginBottom: 16 }}>
-        <div>
-          <label style={labelStyle}>Cover Image URL <span style={{ color: "#d0d0d0", textTransform: "none", letterSpacing: 0 }}>— optional</span></label>
-          <input value={form.cover_url} onChange={e => set("cover_url", e.target.value)} style={inputStyle} placeholder="https://…" />
+      {/* Cover lookup */}
+      <div style={{ marginBottom: 16, display: "flex", gap: 16, alignItems: "flex-start" }}>
+        <div style={{ flex: 1 }}>
+          <label style={labelStyle}>Cover Art</label>
+          <div style={{ display: "flex", gap: 8 }}>
+            <button
+              onClick={cover.lookup}
+              disabled={cover.looking || !artist.trim() || !album.trim()}
+              style={{
+                fontFamily: MONO, fontSize: "10px", letterSpacing: "0.1em", textTransform: "uppercase",
+                background: cover.looking || !artist.trim() || !album.trim() ? "#f0f0f0" : INK,
+                color: cover.looking || !artist.trim() || !album.trim() ? "#aaaaaa" : "#ffffff",
+                border: "none", padding: "9px 16px", cursor: cover.looking || !artist.trim() || !album.trim() ? "default" : "pointer",
+                whiteSpace: "nowrap",
+              }}
+            >
+              {cover.looking ? "Looking up…" : "Find on Discogs"}
+            </button>
+            {cover.tried && !cover.url && (
+              <span style={{ fontFamily: MONO, fontSize: "10px", color: "#aaaaaa", alignSelf: "center" }}>No cover found</span>
+            )}
+          </div>
         </div>
-        <div>
-          <label style={labelStyle}>Date</label>
-          <input type="date" value={form.published_at} onChange={e => set("published_at", e.target.value)} style={inputStyle} />
-        </div>
+        {cover.url && (
+          <div style={{ flexShrink: 0 }}>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={`/api/image-proxy?url=${encodeURIComponent(cover.url)}`} alt="cover preview"
+              style={{ width: 64, height: 64, objectFit: "cover", display: "block", border: `1px solid ${RULE}` }} />
+          </div>
+        )}
+      </div>
+
+      <div style={{ marginBottom: 16 }}>
+        <label style={labelStyle}>Date</label>
+        <input type="date" value={date} onChange={e => setDate(e.target.value)} style={{ ...inputStyle, width: "calc(50% - 8px)" }} />
       </div>
 
       <div style={{ marginBottom: 20 }}>
         <label style={labelStyle}>Entry</label>
         <textarea
-          value={form.body}
-          onChange={e => set("body", e.target.value)}
+          value={body} onChange={e => setBody(e.target.value)}
           rows={7}
           placeholder="What are you hearing? What makes this record worth writing about?"
           style={{ ...inputStyle, resize: "vertical", lineHeight: 1.75 }}
@@ -132,19 +177,19 @@ function NewEntryForm({ onSaved }: NewEntryFormProps) {
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
         <label style={{ display: "flex", alignItems: "center", gap: 10, cursor: "pointer" }}>
           <span
-            onClick={() => set("status", form.status === "published" ? "draft" : "published")}
+            onClick={() => setStatus(s => s === "published" ? "draft" : "published")}
             style={{
               width: 32, height: 18, borderRadius: 9, position: "relative", display: "inline-block",
-              background: form.status === "published" ? ORANGE : RULE, transition: "background 0.15s", cursor: "pointer",
+              background: status === "published" ? INK : RULE, transition: "background 0.15s", cursor: "pointer",
             }}
           >
             <span style={{
-              position: "absolute", top: 3, left: form.status === "published" ? 16 : 3,
+              position: "absolute", top: 3, left: status === "published" ? 16 : 3,
               width: 12, height: 12, borderRadius: "50%", background: "#fff", transition: "left 0.15s",
             }} />
           </span>
-          <span style={{ fontFamily: MONO, fontSize: "10px", letterSpacing: "0.08em", textTransform: "uppercase", color: form.status === "published" ? ORANGE : "#aaaaaa" }}>
-            {form.status === "published" ? "Published" : "Draft"}
+          <span style={{ fontFamily: MONO, fontSize: "10px", letterSpacing: "0.08em", textTransform: "uppercase", color: status === "published" ? INK : "#aaaaaa" }}>
+            {status === "published" ? "Published" : "Draft"}
           </span>
         </label>
 
@@ -157,12 +202,12 @@ function NewEntryForm({ onSaved }: NewEntryFormProps) {
           </button>
           <button
             onClick={submit}
-            disabled={saving || !form.artist.trim() || !form.album.trim()}
+            disabled={saving || !artist.trim() || !album.trim()}
             style={{
               fontFamily: MONO, fontSize: "10px", letterSpacing: "0.1em", textTransform: "uppercase",
-              background: saving || !form.artist.trim() || !form.album.trim() ? "#cccccc" : INK,
+              background: saving || !artist.trim() || !album.trim() ? "#cccccc" : INK,
               color: "#ffffff", border: "none", padding: "8px 20px",
-              cursor: saving || !form.artist.trim() || !form.album.trim() ? "default" : "pointer",
+              cursor: saving || !artist.trim() || !album.trim() ? "default" : "pointer",
             }}
           >
             {saving ? "Saving…" : "Save"}
@@ -175,7 +220,7 @@ function NewEntryForm({ onSaved }: NewEntryFormProps) {
   );
 }
 
-// ─── Individual entry with inline edit/delete for admins ─────────────────────
+// ─── Entry with inline edit ───────────────────────────────────────────────────
 
 interface TurntableEntryProps {
   post: TurntablePost;
@@ -191,21 +236,23 @@ function TurntableEntry({ post, isFirst, isAdmin, onUpdated, onDeleted }: Turnta
   const [saving,    setSaving]    = useState(false);
   const [deleting,  setDeleting]  = useState(false);
   const [err,       setErr]       = useState<string | null>(null);
-  const [form, setForm] = useState({
-    artist: post.artist, album: post.album,
-    cover_url: post.cover_url ?? "",
-    body: post.body,
-    published_at: post.published_at,
-    status: post.status,
-  });
+  const [artist, setArtist] = useState(post.artist);
+  const [album,  setAlbum]  = useState(post.album);
+  const [body,   setBody]   = useState(post.body);
+  const [date,   setDate]   = useState(post.published_at);
+  const [status, setStatus] = useState<"draft" | "published">(post.status);
 
-  const coverSrc = post.cover_url
-    ? (post.cover_url.startsWith("/") ? post.cover_url : `/api/image-proxy?url=${encodeURIComponent(post.cover_url)}`)
+  const cover = useCoverLookup(artist, album);
+
+  useEffect(() => {
+    if (editing) cover.setUrl(post.cover_url);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [editing]);
+
+  const displayCover = editing ? cover.url : post.cover_url;
+  const coverSrc = displayCover
+    ? (displayCover.startsWith("/") ? displayCover : `/api/image-proxy?url=${encodeURIComponent(displayCover)}`)
     : null;
-
-  function setField(key: keyof typeof form, value: string) {
-    setForm(f => ({ ...f, [key]: value }));
-  }
 
   async function save() {
     setErr(null); setSaving(true);
@@ -213,7 +260,7 @@ function TurntableEntry({ post, isFirst, isAdmin, onUpdated, onDeleted }: Turnta
       const res = await fetch("/api/turntable", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ id: post.id, ...form }),
+        body: JSON.stringify({ id: post.id, artist, album, cover_url: cover.url, body, published_at: date, status }),
       });
       const data = await res.json() as { post?: TurntablePost; error?: string };
       if (!res.ok || !data.post) { setErr(data.error ?? "Save failed"); return; }
@@ -228,92 +275,11 @@ function TurntableEntry({ post, isFirst, isAdmin, onUpdated, onDeleted }: Turnta
     setDeleting(true);
     try {
       await fetch("/api/turntable", {
-        method: "DELETE",
-        headers: { "Content-Type": "application/json" },
+        method: "DELETE", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ id: post.id }),
       });
       onDeleted(post.id);
     } catch { setDeleting(false); }
-  }
-
-  const inputStyle: React.CSSProperties = {
-    width: "100%", fontFamily: MONO, fontSize: "12px", color: INK,
-    border: `1px solid ${RULE}`, padding: "8px 12px",
-    outline: "none", background: "#ffffff", boxSizing: "border-box",
-  };
-  const labelStyle: React.CSSProperties = {
-    display: "block", fontFamily: MONO, fontSize: "9px",
-    letterSpacing: "0.14em", textTransform: "uppercase",
-    color: "#aaaaaa", marginBottom: 5,
-  };
-
-  if (editing) {
-    return (
-      <div style={{ padding: "40px 0", borderTop: isFirst ? "none" : `1px solid ${RULE}` }}>
-        <div style={{ border: `1px solid ${RULE}`, padding: 24, background: "#fafaf8" }}>
-          <p style={{ fontFamily: MONO, fontSize: "10px", letterSpacing: "0.12em", textTransform: "uppercase", color: ORANGE, margin: "0 0 20px" }}>
-            Editing Entry
-          </p>
-
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14, marginBottom: 14 }}>
-            <div>
-              <label style={labelStyle}>Artist</label>
-              <input value={form.artist} onChange={e => setField("artist", e.target.value)} style={inputStyle} />
-            </div>
-            <div>
-              <label style={labelStyle}>Album</label>
-              <input value={form.album} onChange={e => setField("album", e.target.value)} style={inputStyle} />
-            </div>
-          </div>
-
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14, marginBottom: 14 }}>
-            <div>
-              <label style={labelStyle}>Cover Image URL</label>
-              <input value={form.cover_url} onChange={e => setField("cover_url", e.target.value)} style={inputStyle} />
-            </div>
-            <div>
-              <label style={labelStyle}>Date</label>
-              <input type="date" value={form.published_at} onChange={e => setField("published_at", e.target.value)} style={inputStyle} />
-            </div>
-          </div>
-
-          <div style={{ marginBottom: 18 }}>
-            <label style={labelStyle}>Entry</label>
-            <textarea value={form.body} onChange={e => setField("body", e.target.value)} rows={7} style={{ ...inputStyle, resize: "vertical", lineHeight: 1.75 }} />
-          </div>
-
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-            <label style={{ display: "flex", alignItems: "center", gap: 10, cursor: "pointer" }}>
-              <span
-                onClick={() => setField("status", form.status === "published" ? "draft" : "published")}
-                style={{
-                  width: 32, height: 18, borderRadius: 9, position: "relative", display: "inline-block",
-                  background: form.status === "published" ? ORANGE : RULE, transition: "background 0.15s", cursor: "pointer",
-                }}
-              >
-                <span style={{
-                  position: "absolute", top: 3, left: form.status === "published" ? 16 : 3,
-                  width: 12, height: 12, borderRadius: "50%", background: "#fff", transition: "left 0.15s",
-                }} />
-              </span>
-              <span style={{ fontFamily: MONO, fontSize: "10px", letterSpacing: "0.08em", textTransform: "uppercase", color: form.status === "published" ? ORANGE : "#aaaaaa" }}>
-                {form.status === "published" ? "Published" : "Draft"}
-              </span>
-            </label>
-
-            <div style={{ display: "flex", gap: 12 }}>
-              <button onClick={() => { setEditing(false); setErr(null); }} style={{ fontFamily: MONO, fontSize: "10px", letterSpacing: "0.1em", textTransform: "uppercase", background: "none", border: `1px solid ${RULE}`, padding: "8px 16px", cursor: "pointer", color: "#888888" }}>
-                Cancel
-              </button>
-              <button onClick={save} disabled={saving} style={{ fontFamily: MONO, fontSize: "10px", letterSpacing: "0.1em", textTransform: "uppercase", background: saving ? "#cccccc" : INK, color: "#ffffff", border: "none", padding: "8px 20px", cursor: saving ? "default" : "pointer" }}>
-                {saving ? "Saving…" : "Save"}
-              </button>
-            </div>
-          </div>
-          {err && <p style={{ fontFamily: MONO, fontSize: "11px", color: "#cc3300", margin: "12px 0 0" }}>{err}</p>}
-        </div>
-      </div>
-    );
   }
 
   return (
@@ -334,11 +300,9 @@ function TurntableEntry({ post, isFirst, isAdmin, onUpdated, onDeleted }: Turnta
         }}>
           {coverSrc && !imgFailed ? (
             // eslint-disable-next-line @next/next/no-img-element
-            <img
-              src={coverSrc} alt={`${post.artist} — ${post.album}`}
+            <img src={coverSrc} alt={`${post.artist} — ${post.album}`}
               onError={() => setImgFailed(true)}
-              style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
-            />
+              style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
           ) : (
             <span style={{ fontFamily: MONO, fontSize: "10px", color: "#bbbbbb", textAlign: "center", padding: "0 12px" }}>
               {post.artist}
@@ -347,55 +311,133 @@ function TurntableEntry({ post, isFirst, isAdmin, onUpdated, onDeleted }: Turnta
         </div>
       </div>
 
-      {/* Text */}
+      {/* Text / edit form */}
       <div style={{ flex: 1, minWidth: 0 }}>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14 }}>
-          <p style={{ fontFamily: MONO, fontSize: "10px", letterSpacing: "0.14em", textTransform: "uppercase", color: ORANGE, margin: 0, fontWeight: 400 }}>
+          <p style={{ fontFamily: MONO, fontSize: "10px", letterSpacing: "0.14em", textTransform: "uppercase", color: INK, margin: 0, fontWeight: 400 }}>
             {formatDate(post.published_at)}
             {post.status === "draft" && (
               <span style={{ marginLeft: 10, color: "#aaaaaa" }}>· Draft</span>
             )}
           </p>
-          {isAdmin && (
+          {isAdmin && !editing && (
             <div style={{ display: "flex", gap: 12, flexShrink: 0 }}>
-              <button
-                onClick={() => setEditing(true)}
-                style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.1em", textTransform: "uppercase", background: "none", border: `1px solid ${RULE}`, padding: "4px 10px", cursor: "pointer", color: "#888888" }}
-              >
+              <button onClick={() => setEditing(true)} style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.1em", textTransform: "uppercase", background: "none", border: `1px solid ${RULE}`, padding: "4px 10px", cursor: "pointer", color: "#888888" }}>
                 Edit
               </button>
-              <button
-                onClick={del}
-                style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.1em", textTransform: "uppercase", background: "none", border: "1px solid #f0d0d0", padding: "4px 10px", cursor: "pointer", color: "#cc3300" }}
-              >
+              <button onClick={del} style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.1em", textTransform: "uppercase", background: "none", border: "1px solid #f0d0d0", padding: "4px 10px", cursor: "pointer", color: "#cc3300" }}>
                 Delete
               </button>
             </div>
           )}
         </div>
 
-        <h2 style={{ fontFamily: SERIF, fontSize: "clamp(22px, 3vw, 32px)", fontWeight: 600, color: INK, margin: "0 0 4px", lineHeight: 1.1, letterSpacing: "-0.02em" }}>
-          {post.artist}
-        </h2>
-        <p style={{ fontFamily: MONO, fontSize: "12px", color: "#888888", margin: "0 0 24px", fontWeight: 400, letterSpacing: "0.02em" }}>
-          {post.album}
-        </p>
+        {editing ? (
+          <div style={{ border: `1px solid ${RULE}`, padding: 20, background: "#fafaf8" }}>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14, marginBottom: 14 }}>
+              <div>
+                <label style={labelStyle}>Artist</label>
+                <input value={artist} onChange={e => setArtist(e.target.value)} style={inputStyle} />
+              </div>
+              <div>
+                <label style={labelStyle}>Album</label>
+                <input value={album} onChange={e => setAlbum(e.target.value)} style={inputStyle} />
+              </div>
+            </div>
 
-        <div style={{ height: 1, background: RULE, margin: "0 0 24px" }} />
+            <div style={{ marginBottom: 14, display: "flex", gap: 16, alignItems: "flex-start" }}>
+              <div style={{ flex: 1 }}>
+                <label style={labelStyle}>Cover Art</label>
+                <div style={{ display: "flex", gap: 8 }}>
+                  <button
+                    onClick={cover.lookup}
+                    disabled={cover.looking || !artist.trim() || !album.trim()}
+                    style={{
+                      fontFamily: MONO, fontSize: "10px", letterSpacing: "0.1em", textTransform: "uppercase",
+                      background: cover.looking || !artist.trim() || !album.trim() ? "#f0f0f0" : INK,
+                      color: cover.looking || !artist.trim() || !album.trim() ? "#aaaaaa" : "#ffffff",
+                      border: "none", padding: "9px 16px", cursor: cover.looking || !artist.trim() || !album.trim() ? "default" : "pointer",
+                      whiteSpace: "nowrap",
+                    }}
+                  >
+                    {cover.looking ? "Looking up…" : "Find on Discogs"}
+                  </button>
+                  {cover.tried && !cover.url && (
+                    <span style={{ fontFamily: MONO, fontSize: "10px", color: "#aaaaaa", alignSelf: "center" }}>No cover found</span>
+                  )}
+                </div>
+              </div>
+              {cover.url && (
+                <div style={{ flexShrink: 0 }}>
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={`/api/image-proxy?url=${encodeURIComponent(cover.url)}`} alt="cover preview"
+                    style={{ width: 64, height: 64, objectFit: "cover", display: "block", border: `1px solid ${RULE}` }} />
+                </div>
+              )}
+            </div>
 
-        <div>
-          {post.body.split("\n\n").map((para, i) => (
-            <p key={i} style={{ fontFamily: MONO, fontSize: "12px", lineHeight: 1.85, color: INK, margin: i > 0 ? "16px 0 0" : 0, fontWeight: 400 }}>
-              {para}
+            <div style={{ marginBottom: 14 }}>
+              <label style={labelStyle}>Date</label>
+              <input type="date" value={date} onChange={e => setDate(e.target.value)} style={{ ...inputStyle, width: "calc(50% - 8px)" }} />
+            </div>
+
+            <div style={{ marginBottom: 18 }}>
+              <label style={labelStyle}>Entry</label>
+              <textarea value={body} onChange={e => setBody(e.target.value)} rows={6} style={{ ...inputStyle, resize: "vertical", lineHeight: 1.75 }} />
+            </div>
+
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+              <label style={{ display: "flex", alignItems: "center", gap: 10, cursor: "pointer" }}>
+                <span
+                  onClick={() => setStatus(s => s === "published" ? "draft" : "published")}
+                  style={{
+                    width: 32, height: 18, borderRadius: 9, position: "relative", display: "inline-block",
+                    background: status === "published" ? INK : RULE, transition: "background 0.15s", cursor: "pointer",
+                  }}
+                >
+                  <span style={{
+                    position: "absolute", top: 3, left: status === "published" ? 16 : 3,
+                    width: 12, height: 12, borderRadius: "50%", background: "#fff", transition: "left 0.15s",
+                  }} />
+                </span>
+                <span style={{ fontFamily: MONO, fontSize: "10px", letterSpacing: "0.08em", textTransform: "uppercase", color: status === "published" ? INK : "#aaaaaa" }}>
+                  {status === "published" ? "Published" : "Draft"}
+                </span>
+              </label>
+              <div style={{ display: "flex", gap: 12 }}>
+                <button onClick={() => { setEditing(false); setErr(null); }} style={{ fontFamily: MONO, fontSize: "10px", letterSpacing: "0.1em", textTransform: "uppercase", background: "none", border: `1px solid ${RULE}`, padding: "8px 16px", cursor: "pointer", color: "#888888" }}>
+                  Cancel
+                </button>
+                <button onClick={save} disabled={saving} style={{ fontFamily: MONO, fontSize: "10px", letterSpacing: "0.1em", textTransform: "uppercase", background: saving ? "#cccccc" : INK, color: "#ffffff", border: "none", padding: "8px 20px", cursor: saving ? "default" : "pointer" }}>
+                  {saving ? "Saving…" : "Save"}
+                </button>
+              </div>
+            </div>
+            {err && <p style={{ fontFamily: MONO, fontSize: "11px", color: "#cc3300", margin: "12px 0 0" }}>{err}</p>}
+          </div>
+        ) : (
+          <>
+            <h2 style={{ fontFamily: SERIF, fontSize: "clamp(22px, 3vw, 32px)", fontWeight: 600, color: INK, margin: "0 0 4px", lineHeight: 1.1, letterSpacing: "-0.02em" }}>
+              {post.artist}
+            </h2>
+            <p style={{ fontFamily: MONO, fontSize: "12px", color: "#888888", margin: "0 0 20px", fontWeight: 400, letterSpacing: "0.02em" }}>
+              {post.album}
             </p>
-          ))}
-        </div>
+            <div>
+              {post.body.split("\n\n").map((para, i) => (
+                <p key={i} style={{ fontFamily: MONO, fontSize: "12px", lineHeight: 1.85, color: INK, margin: i > 0 ? "16px 0 0" : 0, fontWeight: 400 }}>
+                  {para}
+                </p>
+              ))}
+            </div>
+          </>
+        )}
       </div>
     </div>
   );
 }
 
-// ─── Main view ────────────────────────────────────────────────────────────────
+// ─── Main ─────────────────────────────────────────────────────────────────────
 
 interface Props { isAdmin: boolean }
 
@@ -404,8 +446,7 @@ export default function TurntableView({ isAdmin }: Props) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const url = isAdmin ? "/api/turntable?all=1" : "/api/turntable";
-    fetch(url)
+    fetch(isAdmin ? "/api/turntable?all=1" : "/api/turntable")
       .then(r => r.json())
       .then((data: { posts: TurntablePost[] }) => setPosts(data.posts ?? []))
       .catch(() => {})
@@ -432,7 +473,6 @@ export default function TurntableView({ isAdmin }: Props) {
               <div className="nr-shimmer" style={{ height: 10, background: "#f0ede8", width: 120 }} />
               <div className="nr-shimmer" style={{ height: 28, background: "#f0ede8", width: "50%" }} />
               <div className="nr-shimmer" style={{ height: 12, background: "#f0ede8", width: 180 }} />
-              <div style={{ height: 1, background: RULE }} />
               {[1, 2, 3].map(j => (
                 <div key={j} className="nr-shimmer" style={{ height: 12, background: "#f0ede8", width: j === 3 ? "60%" : "100%" }} />
               ))}
@@ -448,13 +488,11 @@ export default function TurntableView({ isAdmin }: Props) {
   return (
     <div>
       {isAdmin && <NewEntryForm onSaved={onSaved} />}
-
       {visiblePosts.length === 0 && (
         <p style={{ fontFamily: MONO, fontSize: "11px", color: "#aaaaaa", lineHeight: 1.75, letterSpacing: "0.03em", paddingTop: 8 }}>
           {isAdmin ? "No entries yet — add your first one above." : "No entries yet."}
         </p>
       )}
-
       {visiblePosts.map((post, i) => (
         <TurntableEntry
           key={post.id} post={post} isFirst={i === 0}
