@@ -162,8 +162,8 @@ function SidePanel({
 
 // ── Share card (rendered off-screen, captured by html-to-image) ───────────────
 
-const SERIF_EMBED  = '"Georgia", serif';
-const MONO_EMBED   = '"Courier New", monospace';
+const MONO_EMBED = '"Courier New", monospace';
+const HAND_EMBED = '"Bradley Hand", "Caveat", "Kalam", cursive';
 
 interface ShareCardProps {
   title: string;
@@ -174,40 +174,46 @@ interface ShareCardProps {
 }
 
 function ShareCard({ title, sideA, sideB, username, cassetteType }: ShareCardProps) {
-  const COL = "#1c1c1c";
-  const CREAM = "#f2efe7";
+  const W = 600;
+  const cassH = Math.round(W * (1024 / 1536));
+  const baseFs = W * 0.072;
+  const titleFs = title.length > 22 ? baseFs * 0.48
+               : title.length > 16 ? baseFs * 0.58
+               : title.length > 10 ? baseFs * 0.72 : baseFs;
 
   return (
-    <div style={{
-      width: 600,
-      background: "#f6f3eb",
-      fontFamily: SERIF_EMBED,
-      padding: "32px 36px",
-      boxSizing: "border-box",
-    }}>
-      {/* Header */}
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 24 }}>
-        <div>
-          <div style={{ fontSize: 28, fontWeight: 700, color: COL, lineHeight: 1.2 }}>{title || "My Mixtape"}</div>
-          <div style={{ fontFamily: MONO_EMBED, fontSize: 10, color: "#888", letterSpacing: "0.12em", marginTop: 4 }}>
-            {cassetteType} CASSETTE · @{username}
+    <div style={{ width: W, background: "#ffffff", fontFamily: MONO_EMBED, boxSizing: "border-box" }}>
+      {/* Black header bar */}
+      <div style={{
+        background: "#0d0d0d", padding: "14px 20px",
+        display: "flex", justifyContent: "space-between", alignItems: "center",
+      }}>
+        <div style={{ fontSize: 13, fontWeight: 700, color: "#ffffff", letterSpacing: "0.04em" }}>
+          rek<span style={{ color: ORANGE }}>ō</span>do
+        </div>
+        <div style={{ textAlign: "center", flex: 1, padding: "0 20px" }}>
+          <div style={{
+            fontFamily: HAND_EMBED, fontSize: 22, color: "#ffffff",
+            overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
+          }}>
+            {title || "My Mixtape"}
           </div>
         </div>
-        <div style={{ fontSize: 22, fontWeight: 700, color: COL, lineHeight: 1 }}>
-          rek<span style={{ color: ORANGE }}>ō</span>do
+        <div style={{ fontSize: 9, color: "#888", letterSpacing: "0.1em", whiteSpace: "nowrap" }}>
+          @{username}
         </div>
       </div>
 
-      {/* Cassette photo with title overlay */}
-      <div style={{ position: "relative", marginBottom: 20 }}>
+      {/* Cassette photo — full width, no padding */}
+      <div style={{ position: "relative", width: W, height: cassH, overflow: "hidden" }}>
         {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src="/cassette-tape.png" alt="Cassette tape" width={536} height={357}
-          style={{ display: "block", width: "100%", height: "auto", borderRadius: 4 }} />
+        <img src="/cassette-tape.png" alt="Cassette tape" width={W} height={cassH}
+          style={{ display: "block", width: "100%", height: "100%" }} />
         <div style={{
-          position: "absolute", top: "22%", left: "50%", transform: "translateX(-50%)",
-          width: "62%", textAlign: "center",
-          fontFamily: '"Bradley Hand", "Caveat", cursive',
-          fontSize: Math.min(42, Math.max(18, 42 - Math.max(0, title.length - 8) * 1.4)),
+          position: "absolute", top: "13%", left: "50%", transform: "translateX(-50%)",
+          width: "72%", textAlign: "center",
+          fontFamily: HAND_EMBED,
+          fontSize: Math.round(titleFs),
           color: "#0d0d0d", fontWeight: 400, letterSpacing: "0.01em",
           whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis",
           pointerEvents: "none",
@@ -216,46 +222,76 @@ function ShareCard({ title, sideA, sideB, username, cassetteType }: ShareCardPro
         </div>
       </div>
 
-      {/* Track listing - two columns */}
-      <div style={{ display: "flex", gap: 24 }}>
+      {/* Thin rule */}
+      <div style={{ height: 1, background: "#e0e0e0" }} />
+
+      {/* Track listing — two columns on white */}
+      <div style={{
+        display: "flex", position: "relative",
+        backgroundImage: "repeating-linear-gradient(to bottom, transparent, transparent 26px, #f0f0f0 26px, #f0f0f0 27px)",
+      }}>
         {([["A", sideA], ["B", sideB]] as const).map(([side, tracks]) => (
-          <div key={side} style={{ flex: 1, minWidth: 0 }}>
+          <div key={side} style={{ flex: 1, minWidth: 0, padding: "16px 18px" }}>
+            {/* Side header */}
             <div style={{
-              fontFamily: MONO_EMBED, fontSize: 9, letterSpacing: "0.2em",
-              textTransform: "uppercase", color: ORANGE, marginBottom: 8,
-              borderBottom: `1px solid ${ORANGE}`, paddingBottom: 4,
+              display: "flex", alignItems: "center", gap: 8, marginBottom: 10,
+              borderBottom: "1.5px solid #0d0d0d", paddingBottom: 6,
             }}>
-              Side {side}
+              <div style={{
+                width: 22, height: 22, borderRadius: "50%", background: "#0d0d0d",
+                display: "flex", alignItems: "center", justifyContent: "center",
+                fontSize: 12, color: "#fff", fontFamily: HAND_EMBED, fontWeight: 700, flexShrink: 0,
+              }}>
+                {side}
+              </div>
+              <span style={{ fontSize: 8, letterSpacing: "0.22em", color: "#888" }}>
+                SIDE {side}
+              </span>
             </div>
+
             {(tracks as MixtapeTrack[]).map((t, i) => (
-              <div key={t.id + i} style={{ marginBottom: 7 }}>
-                <div style={{ display: "flex", gap: 6, alignItems: "baseline" }}>
-                  <span style={{ fontFamily: MONO_EMBED, fontSize: 9, color: ORANGE, flexShrink: 0 }}>
-                    {i + 1}.
-                  </span>
-                  <div style={{ minWidth: 0 }}>
-                    <div style={{ fontSize: 11, fontWeight: 700, color: COL, lineHeight: 1.3, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                      {t.title}
-                    </div>
-                    <div style={{ fontFamily: MONO_EMBED, fontSize: 9, color: "#666", marginTop: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                      {t.artist}
-                    </div>
+              <div key={t.id + i} style={{
+                display: "flex", alignItems: "baseline", gap: 5,
+                borderBottom: "1px solid #e8e8e8", padding: "4px 0",
+              }}>
+                <span style={{ fontSize: 8, color: "#aaa", width: 14, flexShrink: 0, textAlign: "right" }}>
+                  {i + 1}
+                </span>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontSize: 10, fontWeight: 700, color: "#0d0d0d", lineHeight: 1.3, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                    {t.title}
+                  </div>
+                  <div style={{ fontSize: 8, color: "#777", marginTop: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                    {t.artist}
                   </div>
                 </div>
+                {t.duration_ms > 0 && (
+                  <span style={{ fontSize: 8, color: "#999", flexShrink: 0 }}>
+                    {formatTime(t.duration_ms)}
+                  </span>
+                )}
               </div>
             ))}
             {(tracks as MixtapeTrack[]).length === 0 && (
-              <div style={{ fontFamily: MONO_EMBED, fontSize: 9, color: "#bbb" }}>(empty)</div>
+              <div style={{ fontSize: 8, color: "#ccc", padding: "4px 0" }}>—</div>
             )}
           </div>
         ))}
+        {/* vertical divider between columns */}
+        <div style={{ position: "absolute", left: "50%", top: 0, bottom: 0, width: 1, background: "#e0e0e0", pointerEvents: "none" }} />
       </div>
 
-      {/* Footer */}
-      <div style={{ marginTop: 20, borderTop: `1px solid #ddd`, paddingTop: 10, textAlign: "center" }}>
-        <div style={{ fontFamily: MONO_EMBED, fontSize: 9, color: "#aaa", letterSpacing: "0.1em" }}>
+      {/* Black footer bar */}
+      <div style={{
+        background: "#0d0d0d", padding: "8px 20px",
+        display: "flex", justifyContent: "space-between", alignItems: "center",
+      }}>
+        <span style={{ fontSize: 8, color: "#666", letterSpacing: "0.14em" }}>
+          {cassetteType} CASSETTE
+        </span>
+        <span style={{ fontSize: 8, color: "#666", letterSpacing: "0.1em" }}>
           rekodo.co
-        </div>
+        </span>
       </div>
     </div>
   );

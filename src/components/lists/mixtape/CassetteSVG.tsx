@@ -34,14 +34,14 @@ export default function CassetteSVG({ title, activeSide, width = 520 }: Props) {
         style={{ display: "block", width: "100%", height: "100%" }}
       />
 
-      {/* Mixtape title — overlaid on the white label where "rekodo" appears */}
+      {/* Mixtape title — overlaid in the upper white label area */}
       <div
         style={{
           position: "absolute",
-          top: "22%",
+          top: "13%",
           left: "50%",
           transform: "translateX(-50%)",
-          width: "62%",
+          width: "72%",
           textAlign: "center",
           fontFamily: '"Bradley Hand", "Caveat", "Kalam", cursive',
           fontSize: Math.round(fontSize),
@@ -58,11 +58,11 @@ export default function CassetteSVG({ title, activeSide, width = 520 }: Props) {
         {title || "My Mixtape"}
       </div>
 
-      {/* Side indicator */}
+      {/* Side indicator — lower label strip below the reels */}
       <div
         style={{
           position: "absolute",
-          top: "38%",
+          top: "57%",
           left: "50%",
           transform: "translateX(-50%)",
           fontFamily: '"Courier New", monospace',

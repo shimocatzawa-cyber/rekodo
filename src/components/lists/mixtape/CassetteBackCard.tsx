@@ -1,8 +1,5 @@
 "use client";
 
-// J-card style tracklist view — rendered as a div for html-to-image compatibility.
-// Uses system cursive for the handwritten aesthetic.
-
 interface TrackItem {
   title: string;
   artist: string;
@@ -17,40 +14,65 @@ interface Props {
   width?: number;
 }
 
-const ORANGE = "#CC5500";
-const INK    = "#1a1a1a";
-const MUTED  = "#888";
-const MONO   = '"Courier New", monospace';
-const HAND   = '"Bradley Hand", "Caveat", "Kalam", cursive';
+const INK  = "#0d0d0d";
+const MONO = '"Courier New", monospace';
+const HAND = '"Bradley Hand", "Caveat", "Kalam", cursive';
 
 function fmt(ms: number): string {
   const s = Math.floor(ms / 1000);
   return `${Math.floor(s / 60)}:${(s % 60).toString().padStart(2, "0")}`;
 }
 
+function SideBadge({ letter }: { letter: string }) {
+  return (
+    <div style={{
+      width: 34, height: 34, borderRadius: "50%",
+      background: INK, color: "#fff",
+      display: "flex", alignItems: "center", justifyContent: "center",
+      fontFamily: HAND, fontSize: 20, fontWeight: 700, flexShrink: 0,
+    }}>
+      {letter}
+    </div>
+  );
+}
+
+function TrackCircle({ n }: { n: number }) {
+  return (
+    <div style={{
+      width: 18, height: 18, borderRadius: "50%",
+      border: "1.5px solid #1a1a1a",
+      display: "flex", alignItems: "center", justifyContent: "center",
+      fontFamily: MONO, fontSize: 9, color: INK, flexShrink: 0,
+    }}>
+      {n}
+    </div>
+  );
+}
+
 function SideCol({ side, tracks }: { side: "A" | "B"; tracks: TrackItem[] }) {
   return (
     <div style={{ flex: 1, minWidth: 0 }}>
-      {/* Header */}
-      <div style={{
-        fontFamily: MONO, fontSize: 8, letterSpacing: "0.22em",
-        textTransform: "uppercase", color: ORANGE,
-        borderBottom: `1.5px solid ${ORANGE}`,
-        paddingBottom: 4, marginBottom: 10,
-      }}>
-        Side {side}
+      {/* Side header */}
+      <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 12 }}>
+        <SideBadge letter={side} />
+        <div>
+          <div style={{ fontFamily: MONO, fontSize: 7, letterSpacing: "0.18em", color: "#888" }}>
+            SIDE
+          </div>
+          <div style={{ fontFamily: HAND, fontSize: 15, fontWeight: 700, color: INK, lineHeight: 1 }}>
+            {side}
+          </div>
+        </div>
       </div>
 
       {/* Tracks */}
       {tracks.map((t, i) => (
         <div key={i} style={{
-          display: "flex", gap: 6, alignItems: "baseline",
-          borderBottom: "1px solid #e8e4da",
+          display: "flex", alignItems: "center", gap: 7,
+          borderBottom: "1px solid #ddd",
           padding: "5px 0",
         }}>
-          <span style={{ fontFamily: MONO, fontSize: 8, color: ORANGE, flexShrink: 0, width: 14 }}>
-            {i + 1}.
-          </span>
+          <TrackCircle n={i + 1} />
           <div style={{ flex: 1, minWidth: 0 }}>
             <div style={{
               fontFamily: HAND, fontSize: 13, color: INK, lineHeight: 1.2,
@@ -59,20 +81,20 @@ function SideCol({ side, tracks }: { side: "A" | "B"; tracks: TrackItem[] }) {
               {t.title}
             </div>
             <div style={{
-              fontFamily: HAND, fontSize: 10, color: MUTED,
+              fontFamily: HAND, fontSize: 10, color: "#666",
               overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
             }}>
               {t.artist}
             </div>
           </div>
-          <span style={{ fontFamily: MONO, fontSize: 8, color: MUTED, flexShrink: 0 }}>
+          <span style={{ fontFamily: MONO, fontSize: 9, color: "#444", flexShrink: 0 }}>
             {t.duration_ms > 0 ? fmt(t.duration_ms) : ""}
           </span>
         </div>
       ))}
 
       {tracks.length === 0 && (
-        <div style={{ fontFamily: HAND, fontSize: 13, color: "#ccc", paddingTop: 6 }}>—</div>
+        <div style={{ fontFamily: HAND, fontSize: 13, color: "#bbb", padding: "6px 0" }}>—</div>
       )}
     </div>
   );
@@ -82,46 +104,45 @@ export default function CassetteBackCard({ title, sideA, sideB, cassetteType, wi
   return (
     <div style={{
       width,
-      background: "#f4f1e8",
+      background: "#ffffff",
       backgroundImage: `repeating-linear-gradient(
         to bottom,
         transparent,
-        transparent 25px,
-        #e5e0d4 25px,
-        #e5e0d4 26px
+        transparent 26px,
+        #e8e8e8 26px,
+        #e8e8e8 27px
       )`,
-      border: "1px solid #d8d3c8",
-      borderRadius: 4,
-      padding: "20px 24px 16px",
+      border: "1px solid #ccc",
       boxSizing: "border-box",
     }}>
-      {/* Title row */}
+      {/* Top header bar — black */}
       <div style={{
-        display: "flex", justifyContent: "space-between", alignItems: "baseline",
-        marginBottom: 16,
+        background: INK,
+        padding: "10px 18px",
+        display: "flex", justifyContent: "space-between", alignItems: "center",
       }}>
-        <div style={{ fontFamily: HAND, fontSize: 28, fontWeight: 700, color: INK, lineHeight: 1 }}>
+        <div style={{ fontFamily: HAND, fontSize: 22, color: "#fff", fontWeight: 700 }}>
           {title || "My Mixtape"}
         </div>
-        <div style={{ fontFamily: MONO, fontSize: 8, color: MUTED, letterSpacing: "0.1em" }}>
-          {cassetteType}
+        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+          <span style={{ fontFamily: MONO, fontSize: 8, color: "#aaa", letterSpacing: "0.14em" }}>
+            {cassetteType}
+          </span>
+          <span style={{ fontFamily: MONO, fontSize: 11, color: "#fff", letterSpacing: "0.06em" }}>
+            rek<span style={{ color: "#CC5500" }}>ō</span>do
+          </span>
         </div>
       </div>
 
       {/* Two-column track listing */}
-      <div style={{ display: "flex", gap: 24 }}>
-        <SideCol side="A" tracks={sideA} />
-        <div style={{ width: 1, background: "#d8d3c8", flexShrink: 0 }} />
-        <SideCol side="B" tracks={sideB} />
-      </div>
-
-      {/* Footer */}
-      <div style={{
-        marginTop: 14, borderTop: "1px solid #d8d3c8", paddingTop: 8,
-        fontFamily: MONO, fontSize: 8, color: "#b0aa9f",
-        letterSpacing: "0.12em", textAlign: "center",
-      }}>
-        rekōdo
+      <div style={{ display: "flex", gap: 0 }}>
+        <div style={{ flex: 1, minWidth: 0, padding: "14px 16px 16px" }}>
+          <SideCol side="A" tracks={sideA} />
+        </div>
+        <div style={{ width: 1, background: "#ddd", flexShrink: 0 }} />
+        <div style={{ flex: 1, minWidth: 0, padding: "14px 16px 16px" }}>
+          <SideCol side="B" tracks={sideB} />
+        </div>
       </div>
     </div>
   );
