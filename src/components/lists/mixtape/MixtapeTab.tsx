@@ -376,6 +376,101 @@ function ShareModal({
   );
 }
 
+// ── Saved mixtape types ────────────────────────────────────────────────────────
+
+type MixtapeSummary = {
+  id: string;
+  title: string;
+  cassette_type: string;
+  created_at: string;
+};
+
+type MixtapeFull = MixtapeSummary & {
+  side_a: MixtapeTrack[];
+  side_b: MixtapeTrack[];
+};
+
+// ── Saved list column ──────────────────────────────────────────────────────────
+
+function SavedList({
+  mixtapes, selectedId, onSelect, onNew, onDelete,
+}: {
+  mixtapes: MixtapeSummary[];
+  selectedId: string | null;
+  onSelect: (id: string) => void;
+  onNew: () => void;
+  onDelete: (id: string) => void;
+}) {
+  const [hoveredId, setHoveredId] = useState<string | null>(null);
+
+  return (
+    <div style={{ width: 120, flexShrink: 0, paddingTop: 4 }}>
+      <p style={{ fontFamily: MONO, fontSize: 9, letterSpacing: "0.14em", textTransform: "uppercase", color: MUTED, margin: "0 0 12px" }}>
+        Saved
+      </p>
+      <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+        {/* New button */}
+        <button
+          onClick={onNew}
+          style={{
+            fontFamily: MONO, fontSize: 10, letterSpacing: "0.06em",
+            background: "none", border: "none", padding: "2px 0",
+            textAlign: "left", cursor: selectedId === null ? "default" : "pointer",
+            color: selectedId === null ? ORANGE : INK,
+            borderBottom: selectedId === null ? `1px solid ${ORANGE}` : "1px solid transparent",
+            width: "fit-content",
+          }}
+        >
+          + New
+        </button>
+        {mixtapes.map(m => {
+          const active = m.id === selectedId;
+          const hovered = m.id === hoveredId;
+          return (
+            <div
+              key={m.id}
+              style={{ display: "flex", alignItems: "baseline", gap: 4 }}
+              onMouseEnter={() => setHoveredId(m.id)}
+              onMouseLeave={() => setHoveredId(null)}
+            >
+              <button
+                onClick={() => onSelect(m.id)}
+                style={{
+                  fontFamily: MONO, fontSize: 10, letterSpacing: "0.06em",
+                  background: "none", border: "none", padding: "2px 0",
+                  textAlign: "left", cursor: active ? "default" : "pointer",
+                  color: active ? ORANGE : "#888888",
+                  borderBottom: active ? `1px solid ${ORANGE}` : "1px solid transparent",
+                  maxWidth: 96, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
+                  flexShrink: 0,
+                }}
+                title={m.title || "Untitled"}
+              >
+                {m.title || "Untitled"}
+              </button>
+              {hovered && (
+                <button
+                  onClick={() => onDelete(m.id)}
+                  title="Delete"
+                  style={{
+                    fontFamily: MONO, fontSize: 10, background: "none", border: "none",
+                    padding: 0, cursor: "pointer", color: MUTED, lineHeight: 1, flexShrink: 0,
+                  }}
+                >
+                  ×
+                </button>
+              )}
+            </div>
+          );
+        })}
+        {mixtapes.length === 0 && (
+          <span style={{ fontFamily: MONO, fontSize: 9, color: MUTED }}>None yet</span>
+        )}
+      </div>
+    </div>
+  );
+}
+
 // ── Main export ────────────────────────────────────────────────────────────────
 
 export default function MixtapeTab({ username }: { username: string }) {
@@ -384,6 +479,10 @@ export default function MixtapeTab({ username }: { username: string }) {
   const [activeSide,   setActiveSide]   = useState<"A" | "B">("A");
   const [sideA,        setSideA]        = useState<MixtapeTrack[]>([]);
   const [sideB,        setSideB]        = useState<MixtapeTrack[]>([]);
+
+  const [savedMixtapes,    setSavedMixtapes]    = useState<MixtapeSummary[]>([]);
+  const [currentMixtapeId, setCurrentMixtapeId] = useState<string | null>(null);
+  const [saving,           setSaving]           = useState(false);
 
   const [query,            setQuery]            = useState("");
   const [albumResults,     setAlbumResults]     = useState<AlbumResult[]>([]);
@@ -395,6 +494,75 @@ export default function MixtapeTab({ username }: { username: string }) {
   const [showShare,        setShowShare]        = useState(false);
 
   const searchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Load saved mixtapes list on mount
+  useEffect(() => {
+    fetch("/api/mixtape/list")
+      .then(r => r.json())
+      .then((d: { mixtapes: MixtapeSummary[] }) => setSavedMixtapes(d.mixtapes ?? []))
+      .catch(() => {});
+  }, []);
+
+  async function handleSave() {
+    setSaving(true);
+    try {
+      const res = await fetch("/api/mixtape/save", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          id:            currentMixtapeId ?? undefined,
+          title,
+          cassette_type: cassetteType,
+          side_a:        sideA,
+          side_b:        sideB,
+        }),
+      });
+      if (!res.ok) return;
+      const { id } = await res.json() as { id: string };
+      setCurrentMixtapeId(id);
+      // Refresh list
+      const listRes = await fetch("/api/mixtape/list");
+      const listData = await listRes.json() as { mixtapes: MixtapeSummary[] };
+      setSavedMixtapes(listData.mixtapes ?? []);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function handleSelectMixtape(id: string) {
+    if (id === currentMixtapeId) return;
+    // Fetch full mixtape data from the list cache + a detail endpoint (re-use list for now)
+    // We store full side_a/b in the list endpoint? No — we need a separate fetch.
+    // Use save route: GET not supported, so fetch from a simple query via existing list data.
+    // Actually we need a detail route — but we can piggyback: re-fetch with side_a/b included.
+    const res = await fetch(`/api/mixtape/load?id=${encodeURIComponent(id)}`);
+    if (!res.ok) return;
+    const m = await res.json() as MixtapeFull;
+    setCurrentMixtapeId(m.id);
+    setTitle(m.title);
+    setCassetteType(m.cassette_type as "C60" | "C90" | "C120");
+    setSideA(m.side_a ?? []);
+    setSideB(m.side_b ?? []);
+    setQuery("");
+    setAlbumResults([]);
+  }
+
+  async function handleDelete(id: string) {
+    await fetch(`/api/mixtape/delete/${encodeURIComponent(id)}`, { method: "DELETE" });
+    setSavedMixtapes(prev => prev.filter(m => m.id !== id));
+    if (currentMixtapeId === id) handleNew();
+  }
+
+  function handleNew() {
+    setCurrentMixtapeId(null);
+    setTitle("");
+    setCassetteType("C60");
+    setActiveSide("A");
+    setSideA([]);
+    setSideB([]);
+    setQuery("");
+    setAlbumResults([]);
+  }
 
   const limit = CASSETTE_LIMITS[cassetteType];
   const sideAMs = sideA.reduce((s, t) => s + t.duration_ms, 0);
@@ -471,10 +639,10 @@ export default function MixtapeTab({ username }: { username: string }) {
   const sideBFill = limit > 0 ? sideBMs / limit : 0;
 
   return (
-    <div style={{ maxWidth: 800, margin: "0 auto", padding: "32px 24px 80px" }}>
+    <div style={{ maxWidth: 960, margin: "0 auto", padding: "32px 24px 80px" }}>
 
       {/* Admin badge */}
-      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 20 }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 24 }}>
         <span style={{
           fontFamily: MONO, fontSize: 9, letterSpacing: "0.15em",
           textTransform: "uppercase", color: "#fff", background: "#0d0d0d",
@@ -486,6 +654,19 @@ export default function MixtapeTab({ username }: { username: string }) {
           Mixtape — not yet live to members
         </span>
       </div>
+
+      {/* Two-column layout: saved list left, editor right */}
+      <div style={{ display: "flex", gap: 48, alignItems: "flex-start" }}>
+        <SavedList
+          mixtapes={savedMixtapes}
+          selectedId={currentMixtapeId}
+          onSelect={handleSelectMixtape}
+          onNew={handleNew}
+          onDelete={handleDelete}
+        />
+
+        {/* Editor — flex: 1 */}
+        <div style={{ flex: 1, minWidth: 0 }}>
 
       {/* Title + cassette type */}
       <div style={{ display: "flex", gap: 12, marginBottom: 24, alignItems: "flex-end", flexWrap: "wrap" }}>
@@ -685,6 +866,19 @@ export default function MixtapeTab({ username }: { username: string }) {
       {/* Actions */}
       <div style={{ display: "flex", gap: 12, flexWrap: "wrap", borderTop: `1px solid ${RULE}`, paddingTop: 20 }}>
         <button
+          onClick={handleSave}
+          disabled={saving || (sideA.length === 0 && sideB.length === 0)}
+          style={{
+            fontFamily: MONO, fontSize: 10, letterSpacing: "0.1em",
+            textTransform: "uppercase", padding: "10px 20px",
+            background: INK, color: "#fff", border: "none",
+            borderRadius: 4, cursor: saving ? "wait" : "pointer",
+            opacity: saving || (sideA.length === 0 && sideB.length === 0) ? 0.4 : 1,
+          }}
+        >
+          {saving ? "Saving…" : currentMixtapeId ? "Save" : "Save Mixtape"}
+        </button>
+        <button
           onClick={() => setShowShare(true)}
           disabled={sideA.length === 0 && sideB.length === 0}
           style={{
@@ -728,6 +922,9 @@ export default function MixtapeTab({ username }: { username: string }) {
           onClose={() => setShowShare(false)}
         />
       )}
+
+        </div> {/* end editor column */}
+      </div> {/* end two-column layout */}
     </div>
   );
 }
