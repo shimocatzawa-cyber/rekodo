@@ -198,34 +198,22 @@ function ShareCard({ title, sideA, sideB, username, cassetteType }: ShareCardPro
         </div>
       </div>
 
-      {/* Cassette body illustration (simplified inline) */}
-      <div style={{
-        background: COL, borderRadius: 10,
-        padding: "14px 24px", marginBottom: 24,
-        display: "flex", alignItems: "center", justifyContent: "center",
-        gap: 60,
-      }}>
-        {/* Label band */}
+      {/* Cassette photo with title overlay */}
+      <div style={{ position: "relative", marginBottom: 20 }}>
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src="/cassette-tape.png" alt="Cassette tape" width={536} height={357}
+          style={{ display: "block", width: "100%", height: "auto", borderRadius: 4 }} />
         <div style={{
-          background: CREAM, borderRadius: 4,
-          padding: "6px 24px", fontSize: 14, fontStyle: "italic", fontWeight: 700,
-          color: COL, flexShrink: 0,
+          position: "absolute", top: "22%", left: "50%", transform: "translateX(-50%)",
+          width: "62%", textAlign: "center",
+          fontFamily: '"Bradley Hand", "Caveat", cursive',
+          fontSize: Math.min(42, Math.max(18, 42 - Math.max(0, title.length - 8) * 1.4)),
+          color: "#0d0d0d", fontWeight: 400, letterSpacing: "0.01em",
+          whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis",
+          pointerEvents: "none",
         }}>
-          {title || "Mix"}
+          {title || "My Mixtape"}
         </div>
-        {/* Reels */}
-        {["A", "B"].map(s => (
-          <div key={s} style={{
-            width: 44, height: 44, borderRadius: "50%",
-            border: "2px solid #333", background: "#1e1e1e",
-            display: "flex", alignItems: "center", justifyContent: "center",
-          }}>
-            <div style={{
-              width: 22, height: 22, borderRadius: "50%",
-              background: "#dedad4",
-            }} />
-          </div>
-        ))}
       </div>
 
       {/* Track listing - two columns */}
