@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useTransition } from "react";
+import { useState, useEffect, useTransition, useRef } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { createList, deleteList, toggleListPublic } from "@/app/lists/actions";
@@ -43,6 +43,8 @@ export default function Top5Tab({ username }: { username: string }) {
   const [togglingId, setTogglingId] = useState<string | null>(null);
   const [editorModal, setEditorModal] = useState<EditorModal>(null);
   const [creatingList, startCreatingList] = useTransition();
+  const [dragOverId, setDragOverId] = useState<string | null>(null);
+  const dragId = useRef<string | null>(null);
 
   function fetchLists() {
     return fetch("/api/lists/mine")
@@ -137,6 +139,32 @@ export default function Top5Tab({ username }: { username: string }) {
     router.refresh();
   }
 
+  function handleDragStart(id: string) {
+    dragId.current = id;
+  }
+
+  function handleDragOver(e: React.DragEvent, id: string) {
+    e.preventDefault();
+    setDragOverId(id);
+  }
+
+  function handleDrop(targetId: string) {
+    const fromId = dragId.current;
+    setDragOverId(null);
+    if (!fromId || fromId === targetId) return;
+    const fromIdx = lists.findIndex(l => l.id === fromId);
+    const toIdx   = lists.findIndex(l => l.id === targetId);
+    const reordered = [...lists];
+    const [moved] = reordered.splice(fromIdx, 1);
+    reordered.splice(toIdx, 0, moved);
+    setLists(reordered);
+    fetch("/api/lists/reorder", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ ids: reordered.map(l => l.id) }),
+    });
+  }
+
   if (loading) {
     return (
       <div className="rk-top5-outer" style={{ padding: "3rem 3.5rem", maxWidth: 1100, margin: "0 auto" }}>
@@ -163,9 +191,23 @@ export default function Top5Tab({ username }: { username: string }) {
             const likes    = likeCounts[list.id] ?? 0;
             const toggling = togglingId === list.id;
             return (
-              <div key={list.id}>
+              <div
+                key={list.id}
+                draggable
+                onDragStart={() => handleDragStart(list.id)}
+                onDragOver={e => handleDragOver(e, list.id)}
+                onDrop={() => handleDrop(list.id)}
+                onDragEnd={() => setDragOverId(null)}
+                style={{ opacity: dragOverId === list.id ? 0.4 : 1, transition: "opacity 0.1s" }}
+              >
                 <div className="rk-top5-list-header" style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "16px" }}>
                   <div style={{ display: "flex", alignItems: "center", gap: "10px", minWidth: 0 }}>
+                    <span
+                      title="Drag to reorder"
+                      style={{ fontFamily: MONO, fontSize: "14px", color: "#cccccc", cursor: "grab", flexShrink: 0, lineHeight: 1, userSelect: "none" }}
+                    >
+                      ⠿
+                    </span>
                     <Link href={`/@${username}/${list.slug}`} style={{ textDecoration: "none", minWidth: 0 }}>
                       <h2 style={{ fontFamily: SERIF, fontSize: "20px", fontWeight: 400, color: INK, margin: 0, lineHeight: 1.2 }}>
                         {list.title}

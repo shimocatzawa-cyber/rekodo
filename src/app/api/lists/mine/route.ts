@@ -41,10 +41,12 @@ export async function GET() {
   // Fetch lists with list_type fallback
   let listsRaw: Array<{ id: string; title: string; slug: string; is_public: boolean; list_type?: string }> = [];
   {
-    const { data, error } = await supabase
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data, error } = await (supabase as any)
       .from("lists")
-      .select("id, title, slug, is_public, list_type")
+      .select("id, title, slug, is_public, list_type, sort_order")
       .eq("user_id", uid)
+      .order("sort_order", { ascending: true, nullsFirst: false })
       .order("created_at", { ascending: true });
     if (error?.message?.includes("list_type")) {
       const { data: fallback } = await supabase
