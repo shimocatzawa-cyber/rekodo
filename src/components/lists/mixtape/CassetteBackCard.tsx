@@ -21,8 +21,8 @@ interface Props {
 
 // Usable band inside the cassette-back.png white card area
 // White card: left≈14%, right≈95%, top≈10%, bottom≈87%
-// Tracks sit below the printed "Side A / Side B" headers (~18%)
-const TRACK_TOP    = 20;
+// "Side A / Side B" headers printed at ~14–20%; tracks start below at 26%
+const TRACK_TOP    = 26;
 const TRACK_BOTTOM = 85;
 
 const HAND = '"Bradley Hand", "Caveat", "Kalam", cursive';
