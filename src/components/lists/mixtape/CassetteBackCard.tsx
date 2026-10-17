@@ -14,135 +14,99 @@ interface Props {
   width?: number;
 }
 
-const INK  = "#0d0d0d";
-const MONO = '"Courier New", monospace';
+export const MAX_BACK_TRACKS = 7;
+
+// Y-position of each ruled line as % of image height (1536×1024 source image)
+const LINE_Y = [35.6, 43.6, 51.5, 59.4, 67.3, 75.2, 83.1];
+
 const HAND = '"Bradley Hand", "Caveat", "Kalam", cursive';
+const MONO = '"Courier New", monospace';
 
 function fmt(ms: number): string {
   const s = Math.floor(ms / 1000);
   return `${Math.floor(s / 60)}:${(s % 60).toString().padStart(2, "0")}`;
 }
 
-function SideBadge({ letter }: { letter: string }) {
+function SideLines({
+  tracks, left, right, fs, fsSmall, gap,
+}: {
+  tracks: TrackItem[];
+  left: string; right: string;
+  fs: number; fsSmall: number; gap: number;
+}) {
   return (
-    <div style={{
-      width: 34, height: 34, borderRadius: "50%",
-      background: INK, color: "#fff",
-      display: "flex", alignItems: "center", justifyContent: "center",
-      fontFamily: HAND, fontSize: 20, fontWeight: 700, flexShrink: 0,
-    }}>
-      {letter}
-    </div>
-  );
-}
-
-function TrackCircle({ n }: { n: number }) {
-  return (
-    <div style={{
-      width: 18, height: 18, borderRadius: "50%",
-      border: "1.5px solid #1a1a1a",
-      display: "flex", alignItems: "center", justifyContent: "center",
-      fontFamily: MONO, fontSize: 9, color: INK, flexShrink: 0,
-    }}>
-      {n}
-    </div>
-  );
-}
-
-function SideCol({ side, tracks }: { side: "A" | "B"; tracks: TrackItem[] }) {
-  return (
-    <div style={{ flex: 1, minWidth: 0 }}>
-      {/* Side header */}
-      <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 12 }}>
-        <SideBadge letter={side} />
-        <div>
-          <div style={{ fontFamily: MONO, fontSize: 7, letterSpacing: "0.18em", color: "#888" }}>
-            SIDE
-          </div>
-          <div style={{ fontFamily: HAND, fontSize: 15, fontWeight: 700, color: INK, lineHeight: 1 }}>
-            {side}
-          </div>
-        </div>
-      </div>
-
-      {/* Tracks */}
-      {tracks.map((t, i) => (
-        <div key={i} style={{
-          display: "flex", alignItems: "center", gap: 7,
-          borderBottom: "1px solid #ddd",
-          padding: "5px 0",
-        }}>
-          <TrackCircle n={i + 1} />
-          <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{
-              fontFamily: HAND, fontSize: 13, color: INK, lineHeight: 1.2,
-              overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
+    <>
+      {LINE_Y.map((lineY, i) => {
+        const t = tracks[i];
+        return (
+          <div
+            key={i}
+            style={{
+              position: "absolute",
+              top: `${lineY - 3.5}%`,
+              left, right,
+              display: "flex",
+              alignItems: "baseline",
+              gap,
+              overflow: "hidden",
+            }}
+          >
+            <span style={{
+              fontFamily: MONO, fontSize: fsSmall,
+              color: "#bbb", flexShrink: 0, lineHeight: 1,
             }}>
-              {t.title}
-            </div>
-            <div style={{
-              fontFamily: HAND, fontSize: 10, color: "#666",
-              overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
+              {i + 1}.
+            </span>
+            <span style={{
+              fontFamily: HAND, fontSize: fs,
+              color: t ? "#0d0d0d" : "transparent",
+              flex: 1, overflow: "hidden", whiteSpace: "nowrap",
+              textOverflow: "ellipsis", lineHeight: 1,
             }}>
-              {t.artist}
-            </div>
+              {t ? t.title : "x"}
+            </span>
+            {t && t.duration_ms > 0 && (
+              <span style={{
+                fontFamily: MONO, fontSize: fsSmall,
+                color: "#999", flexShrink: 0, lineHeight: 1,
+              }}>
+                {fmt(t.duration_ms)}
+              </span>
+            )}
           </div>
-          <span style={{ fontFamily: MONO, fontSize: 9, color: "#444", flexShrink: 0 }}>
-            {t.duration_ms > 0 ? fmt(t.duration_ms) : ""}
-          </span>
-        </div>
-      ))}
-
-      {tracks.length === 0 && (
-        <div style={{ fontFamily: HAND, fontSize: 13, color: "#bbb", padding: "6px 0" }}>—</div>
-      )}
-    </div>
+        );
+      })}
+    </>
   );
 }
 
-export default function CassetteBackCard({ title, sideA, sideB, cassetteType, width = 520 }: Props) {
-  return (
-    <div style={{
-      width,
-      background: "#ffffff",
-      backgroundImage: `repeating-linear-gradient(
-        to bottom,
-        transparent,
-        transparent 26px,
-        #e8e8e8 26px,
-        #e8e8e8 27px
-      )`,
-      border: "1px solid #ccc",
-      boxSizing: "border-box",
-    }}>
-      {/* Top header bar — black */}
-      <div style={{
-        background: INK,
-        padding: "10px 18px",
-        display: "flex", justifyContent: "space-between", alignItems: "center",
-      }}>
-        <div style={{ fontFamily: HAND, fontSize: 22, color: "#fff", fontWeight: 700 }}>
-          {title || "My Mixtape"}
-        </div>
-        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-          <span style={{ fontFamily: MONO, fontSize: 8, color: "#aaa", letterSpacing: "0.14em" }}>
-            {cassetteType}
-          </span>
-          <span style={{ fontFamily: MONO, fontSize: 11, color: "#fff", letterSpacing: "0.06em" }}>
-            rek<span style={{ color: "#CC5500" }}>ō</span>do
-          </span>
-        </div>
-      </div>
+export default function CassetteBackCard({ sideA, sideB, width = 520 }: Props) {
+  const height = Math.round(width * (1024 / 1536));
+  const fs      = Math.round(width * 0.021);
+  const fsSmall = Math.round(width * 0.015);
+  const gap     = Math.round(width * 0.007);
 
-      {/* Two-column track listing */}
-      <div style={{ display: "flex", gap: 0 }}>
-        <div style={{ flex: 1, minWidth: 0, padding: "14px 16px 16px" }}>
-          <SideCol side="A" tracks={sideA} />
-        </div>
-        <div style={{ width: 1, background: "#ddd", flexShrink: 0 }} />
-        <div style={{ flex: 1, minWidth: 0, padding: "14px 16px 16px" }}>
-          <SideCol side="B" tracks={sideB} />
-        </div>
+  return (
+    <div style={{ position: "relative", width, height, display: "inline-block", flexShrink: 0 }}>
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img
+        src="/cassette-back.png"
+        alt="Cassette back"
+        width={width}
+        height={height}
+        style={{ display: "block", width: "100%", height: "100%" }}
+      />
+      <div style={{ position: "absolute", inset: 0, pointerEvents: "none" }}>
+        <SideLines
+          tracks={sideA.slice(0, MAX_BACK_TRACKS)}
+          left="8.5%" right="54%"
+          fs={fs} fsSmall={fsSmall} gap={gap}
+        />
+        <SideLines
+          tracks={sideB.slice(0, MAX_BACK_TRACKS)}
+          left="53.5%" right="8%"
+          fs={fs} fsSmall={fsSmall} gap={gap}
+        />
       </div>
     </div>
   );

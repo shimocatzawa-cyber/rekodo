@@ -7,6 +7,8 @@ import { toPng } from "html-to-image";
 const CassetteSVG      = dynamic(() => import("./CassetteSVG"),      { ssr: false });
 const CassetteBackCard = dynamic(() => import("./CassetteBackCard"), { ssr: false });
 
+const MAX_BACK_TRACKS = 7;
+
 const MONO   = "var(--font-mono)";
 const SERIF  = "var(--font-editorial)";
 const ORANGE = "#CC5500";
@@ -140,8 +142,8 @@ function SidePanel({
         <span style={{ fontFamily: MONO, fontSize: 10, letterSpacing: "0.15em", textTransform: "uppercase", fontWeight: 600 }}>
           Side {side}
         </span>
-        <span style={{ fontFamily: MONO, fontSize: 10, color: MUTED }}>
-          {tracks.length} track{tracks.length !== 1 ? "s" : ""}
+        <span style={{ fontFamily: MONO, fontSize: 10, color: tracks.length > MAX_BACK_TRACKS ? "#cc2200" : MUTED }}>
+          {tracks.length} / {MAX_BACK_TRACKS} tracks
         </span>
       </div>
       <DurationBar used={usedMs} limit={limit} label="TAPE" />
