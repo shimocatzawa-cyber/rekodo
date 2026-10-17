@@ -148,8 +148,8 @@ export default function CassetteBackCard({
 
       {/* Track columns — pointer events disabled so stamps can be dragged */}
       <div style={{ position: "absolute", inset: 0, pointerEvents: "none" }}>
-        <TrackColumn tracks={sideA} left="13%" right="53%" fs={fs} gap={gap} />
-        <TrackColumn tracks={sideB} left="46%" right="5%" fs={fs} gap={gap} />
+        <TrackColumn tracks={sideA} left="13%" right="58%" fs={fs} gap={gap} />
+        <TrackColumn tracks={sideB} left="46%" right="8%" fs={fs} gap={gap} />
       </div>
 
       {/* Draggable stamps */}
