@@ -12,6 +12,9 @@ interface TurntablePost {
   published_at: string;
   artist: string;
   album: string;
+  year: string | null;
+  label: string | null;
+  genre: string | null;
   cover_url: string | null;
   body: string;
   status: "draft" | "published";
@@ -70,6 +73,9 @@ function NewEntryForm({ onSaved }: NewEntryFormProps) {
   const [err,    setErr]    = useState<string | null>(null);
   const [artist, setArtist] = useState("");
   const [album,  setAlbum]  = useState("");
+  const [year,   setYear]   = useState("");
+  const [label,  setLabel]  = useState("");
+  const [genre,  setGenre]  = useState("");
   const [body,   setBody]   = useState("");
   const [date,   setDate]   = useState(new Date().toISOString().slice(0, 10));
   const [status, setStatus] = useState<"draft" | "published">("published");
@@ -82,12 +88,12 @@ function NewEntryForm({ onSaved }: NewEntryFormProps) {
       const res = await fetch("/api/turntable", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ artist, album, cover_url: cover.url, body, published_at: date, status }),
+        body: JSON.stringify({ artist, album, year, label, genre, cover_url: cover.url, body, published_at: date, status }),
       });
       const data = await res.json() as { post?: TurntablePost; error?: string };
       if (!res.ok || !data.post) { setErr(data.error ?? "Save failed"); return; }
       onSaved(data.post);
-      setArtist(""); setAlbum(""); setBody(""); cover.setUrl(null);
+      setArtist(""); setAlbum(""); setYear(""); setLabel(""); setGenre(""); setBody(""); cover.setUrl(null);
       setDate(new Date().toISOString().slice(0, 10)); setStatus("published");
       setOpen(false);
     } catch { setErr("Network error"); }
@@ -124,6 +130,21 @@ function NewEntryForm({ onSaved }: NewEntryFormProps) {
         <div>
           <label style={labelStyle}>Album</label>
           <input value={album} onChange={e => setAlbum(e.target.value)} style={inputStyle} placeholder="e.g. Ethio Jazz" />
+        </div>
+      </div>
+
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 16, marginBottom: 16 }}>
+        <div>
+          <label style={labelStyle}>Year <span style={{ color: "#d0d0d0", textTransform: "none", letterSpacing: 0 }}>— optional</span></label>
+          <input value={year} onChange={e => setYear(e.target.value)} style={inputStyle} placeholder="e.g. 83" />
+        </div>
+        <div>
+          <label style={labelStyle}>Label <span style={{ color: "#d0d0d0", textTransform: "none", letterSpacing: 0 }}>— optional</span></label>
+          <input value={label} onChange={e => setLabel(e.target.value)} style={inputStyle} placeholder="e.g. Efficient Space" />
+        </div>
+        <div>
+          <label style={labelStyle}>Genre <span style={{ color: "#d0d0d0", textTransform: "none", letterSpacing: 0 }}>— optional</span></label>
+          <input value={genre} onChange={e => setGenre(e.target.value)} style={inputStyle} placeholder="e.g. Electronic" />
         </div>
       </div>
 
@@ -238,6 +259,9 @@ function TurntableEntry({ post, isFirst, isAdmin, onUpdated, onDeleted }: Turnta
   const [err,       setErr]       = useState<string | null>(null);
   const [artist, setArtist] = useState(post.artist);
   const [album,  setAlbum]  = useState(post.album);
+  const [year,   setYear]   = useState(post.year   ?? "");
+  const [label,  setLabel]  = useState(post.label  ?? "");
+  const [genre,  setGenre]  = useState(post.genre  ?? "");
   const [body,   setBody]   = useState(post.body);
   const [date,   setDate]   = useState(post.published_at);
   const [status, setStatus] = useState<"draft" | "published">(post.status);
@@ -260,7 +284,7 @@ function TurntableEntry({ post, isFirst, isAdmin, onUpdated, onDeleted }: Turnta
       const res = await fetch("/api/turntable", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ id: post.id, artist, album, cover_url: cover.url, body, published_at: date, status }),
+        body: JSON.stringify({ id: post.id, artist, album, year, label, genre, cover_url: cover.url, body, published_at: date, status }),
       });
       const data = await res.json() as { post?: TurntablePost; error?: string };
       if (!res.ok || !data.post) { setErr(data.error ?? "Save failed"); return; }
@@ -345,6 +369,21 @@ function TurntableEntry({ post, isFirst, isAdmin, onUpdated, onDeleted }: Turnta
               </div>
             </div>
 
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 14, marginBottom: 14 }}>
+              <div>
+                <label style={labelStyle}>Year</label>
+                <input value={year} onChange={e => setYear(e.target.value)} style={inputStyle} />
+              </div>
+              <div>
+                <label style={labelStyle}>Label</label>
+                <input value={label} onChange={e => setLabel(e.target.value)} style={inputStyle} />
+              </div>
+              <div>
+                <label style={labelStyle}>Genre</label>
+                <input value={genre} onChange={e => setGenre(e.target.value)} style={inputStyle} />
+              </div>
+            </div>
+
             <div style={{ marginBottom: 14, display: "flex", gap: 16, alignItems: "flex-start" }}>
               <div style={{ flex: 1 }}>
                 <label style={labelStyle}>Cover Art</label>
@@ -417,12 +456,23 @@ function TurntableEntry({ post, isFirst, isAdmin, onUpdated, onDeleted }: Turnta
           </div>
         ) : (
           <>
-            <h2 style={{ fontFamily: SERIF, fontSize: "clamp(22px, 3vw, 32px)", fontWeight: 600, color: INK, margin: "0 0 4px", lineHeight: 1.1, letterSpacing: "-0.02em" }}>
+            <h2 style={{ fontFamily: SERIF, fontSize: "clamp(22px, 3vw, 32px)", fontWeight: 600, color: INK, margin: "0 0 3px", lineHeight: 1.1, letterSpacing: "-0.02em" }}>
               {post.artist}
             </h2>
-            <p style={{ fontFamily: MONO, fontSize: "12px", color: "#888888", margin: "0 0 20px", fontWeight: 400, letterSpacing: "0.02em" }}>
-              {post.album}
+            <p style={{ fontFamily: MONO, fontSize: "12px", color: "#888888", margin: "0 0 1px", fontWeight: 400 }}>
+              {post.album}{post.year ? ` (${post.year})` : ""}
             </p>
+            {post.label && (
+              <p style={{ fontFamily: MONO, fontSize: "12px", color: "#888888", margin: "0 0 1px", fontWeight: 400 }}>
+                {post.label}
+              </p>
+            )}
+            {post.genre && (
+              <p style={{ fontFamily: MONO, fontSize: "12px", color: "#888888", margin: "0 0 20px", fontWeight: 400 }}>
+                {post.genre}
+              </p>
+            )}
+            {!post.label && !post.genre && <div style={{ marginBottom: 20 }} />}
             <div>
               {post.body.split("\n\n").map((para, i) => (
                 <p key={i} style={{ fontFamily: MONO, fontSize: "12px", lineHeight: 1.85, color: INK, margin: i > 0 ? "16px 0 0" : 0, fontWeight: 400 }}>
