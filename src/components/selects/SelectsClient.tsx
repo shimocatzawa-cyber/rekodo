@@ -410,13 +410,10 @@ export default function SelectsClient({ username, displayLabel, avatarUrl, isAdm
             <div style={{ borderBottom: `1px solid ${RULE}`, paddingBottom: 32, marginBottom: 0 }}>
               <h1 style={{
                 fontFamily: SERIF, fontSize: "clamp(32px, 5vw, 56px)", fontWeight: 600,
-                letterSpacing: "-0.03em", color: INK, margin: "0 0 12px", lineHeight: 1.05,
+                letterSpacing: "-0.03em", color: INK, margin: 0, lineHeight: 1.05,
               }}>
-                On the turntable.
+                Now Playing on Rek&#x14d;do&rsquo;s Turntable
               </h1>
-              <p style={{ fontFamily: MONO, fontSize: "12px", color: "#888888", margin: 0, fontWeight: 400 }}>
-                What&rsquo;s spinning, and why it matters.
-              </p>
             </div>
             <TurntableView />
           </>
