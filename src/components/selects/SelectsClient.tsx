@@ -336,7 +336,7 @@ export default function SelectsClient({ username, displayLabel, avatarUrl, isAdm
     { key: "artist",    label: t("artistSpotlight") },
     { key: "label",     label: t("labelSpotlight") },
     { key: "live",      label: t("live") },
-    ...(isAdmin ? [{ key: "turntable" as SelectsTab, label: "Turntable" }] : []),
+    ...(isAdmin ? [{ key: "turntable" as SelectsTab, label: "Rekōdo's Turntable" }] : []),
   ];
   const [activeTab, setActiveTab] = useUrlTab<SelectsTab>("tab", TAB_KEYS, "artist");
 
