@@ -193,7 +193,7 @@ type DiscoveryPick = { artist: string; album: string; year: number | null };
 function pick<T>(arr: T[]): T { return arr[Math.floor(Math.random() * arr.length)]; }
 
 async function discoverOutsideCollection(
-  mood: string, refinement: string, ownedArtists: string[], wantlistArtists: string[], styles: string[],
+  mood: string, refinement: string, ownedArtists: string[], wantlistArtists: string[], styles: string[], style?: string,
 ): Promise<DiscoveryPick[]> {
   const ownedBlock = ownedArtists.length > 0
     ? `\nOWNED ARTISTS — never recommend any of these:\n${ownedArtists.join(" · ")}\n`
@@ -226,11 +226,13 @@ async function discoverOutsideCollection(
   ]);
   const angleBlock = `\nEXPLORATION ANGLE — bias at least one or two picks toward: the ${angleDecade}, music originating from ${angleRegion}, and/or a pick that is ${angleVibe}. Resist defaulting to the most famous or obvious records for this mood.\n`;
 
+  const styleConstraint = style ? `\nSTYLE FILTER — picks should fit the "${style}" style. This is a hard preference.\n` : "";
+
   const userPrompt = [
     `Mood: ${mood}`,
     refinement && `Refinement: ${refinement}`,
     `Recommend up to ${DISCOVER_PICKS} real studio albums by artists this collector does not yet own and has not wishlisted, that fit the mood and are reasonably likely to be findable on Spotify.`,
-    ownedBlock, wantlistBlock, stylesBlock, angleBlock,
+    ownedBlock, wantlistBlock, stylesBlock, styleConstraint, angleBlock,
   ].filter(Boolean).join("\n");
 
   try {
@@ -359,11 +361,12 @@ export async function POST(request: NextRequest) {
   }
 
   const body = await request.json().catch(() => ({})) as {
-    mood?: string; includeOutsideCollection?: boolean; trackCount?: number; refinement?: string;
+    mood?: string; style?: string; includeOutsideCollection?: boolean; trackCount?: number; refinement?: string;
     excludeUris?: string[]; excludeArtists?: string[];
   };
 
-  const mood = (body.mood ?? "").toLowerCase().trim();
+  const mood  = (body.mood  ?? "").toLowerCase().trim();
+  const style = (body.style ?? "").trim();
   if (!MOODS.includes(mood as typeof MOODS[number])) {
     return NextResponse.json({ error: "Invalid mood" }, { status: 400 });
   }
@@ -501,7 +504,7 @@ export async function POST(request: NextRequest) {
       const discoveries = await discoverOutsideCollection(
         mood, refinement,
         [...new Set([...ownedArtistRows.map(r => r.artist), ...digitalArtists])],
-        [], ownedStyles,
+        [], ownedStyles, style || undefined,
       );
       for (const d of discoveries)
         albumPool.push({ artist: d.artist, album: d.album, year: d.year, genre: null, cover_url: null, source: "discover", confidence: "inferred" });
@@ -528,6 +531,7 @@ export async function POST(request: NextRequest) {
 
     const metaUserPrompt = [
       `Mood: ${mood}`,
+      style && `Style: ${style} — prefer albums that fit this style`,
       refinement && `Refinement: ${refinement}`,
       `Target track count: ${trackCount}`,
       metaRatioBlock,
@@ -803,7 +807,7 @@ export async function POST(request: NextRequest) {
     }
 
     const discoveries = await discoverOutsideCollection(
-      mood, refinement, ownedArtistsAll, [...wantlistArtistsAll], ownedStyles,
+      mood, refinement, ownedArtistsAll, [...wantlistArtistsAll], ownedStyles, style || undefined,
     );
 
     if (discoveries.length > 0) {
@@ -1004,6 +1008,7 @@ export async function POST(request: NextRequest) {
 
   const userPrompt = [
     `Mood: ${mood}`,
+    style && `Style: ${style} — prefer tracks that fit this style`,
     refinement && `Refinement: ${refinement}`,
     `Target track count: ${trackCount}`,
     ratioBlock,

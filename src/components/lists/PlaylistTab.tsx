@@ -4,7 +4,7 @@ import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { createList, appendSongToList } from "@/app/lists/actions";
-import PlaylistPromptPanel, { type Mood, type MatchStatus } from "@/components/lists/playlist/PlaylistPromptPanel";
+import PlaylistPromptPanel, { type Mood, type MatchStatus, type PlaylistStyle } from "@/components/lists/playlist/PlaylistPromptPanel";
 import dynamic from "next/dynamic";
 
 const PlaylistPlayer = dynamic(() => import("@/components/lists/playlist/PlaylistPlayer"), { ssr: false });
@@ -45,6 +45,7 @@ export default function PlaylistTab({ username }: { username: string }) {
   const router = useRouter();
 
   const [mood,                    setMood]                    = useState<Mood | null>(null);
+  const [style,                   setStyle]                   = useState<PlaylistStyle | null>(null);
   const [refinement,              setRefinement]              = useState("");
   const [includeOutsideCollection, setIncludeOutsideCollection] = useState(false);
   const [trackCount,              setTrackCount]              = useState(10);
@@ -233,7 +234,7 @@ export default function PlaylistTab({ username }: { username: string }) {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          mood, includeOutsideCollection, trackCount, refinement,
+          mood, style, includeOutsideCollection, trackCount, refinement,
           excludeUris: [...excludedIdsRef.current],
           excludeArtists: [...excludedArtistsRef.current],
         }),
@@ -259,7 +260,7 @@ export default function PlaylistTab({ username }: { username: string }) {
           } catch { /* ignore — localStorage unavailable or full */ }
         }
         setTracks(data.tracks);
-        setTitleDraft(`${mood[0].toUpperCase()}${mood.slice(1)} Mix`);
+        setTitleDraft(style ? `${style} — ${mood[0].toUpperCase()}${mood.slice(1)}` : `${mood[0].toUpperCase()}${mood.slice(1)} Mix`);
       }
     } catch {
       setError("Failed to generate playlist.");
@@ -339,6 +340,7 @@ export default function PlaylistTab({ username }: { username: string }) {
       <div className="rk-playlist-grid" style={{ display: "grid", gridTemplateColumns: "320px 1fr 300px", gap: "32px", alignItems: "flex-start" }}>
         <PlaylistPromptPanel
           mood={mood} setMood={setMood}
+          style={style} setStyle={setStyle}
           refinement={refinement} setRefinement={setRefinement}
           includeOutsideCollection={includeOutsideCollection} setIncludeOutsideCollection={setIncludeOutsideCollection}
           trackCount={trackCount} setTrackCount={setTrackCount}

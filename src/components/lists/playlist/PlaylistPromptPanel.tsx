@@ -1,6 +1,7 @@
 "use client";
 
-import { FEELINGS } from "@/lib/feelings";
+import { FEELINGS, PLAYLIST_STYLES } from "@/lib/feelings";
+import type { PlaylistStyle } from "@/lib/feelings";
 
 const SERIF  = "var(--font-editorial)";
 const MONO   = "var(--font-mono)";
@@ -11,12 +12,15 @@ const RULE   = "#e0e0da";
 
 export const MOODS = FEELINGS;
 export type Mood = typeof MOODS[number];
+export type { PlaylistStyle };
 
 export type MatchStatus = { total: number; matched: number; pending: number; percentComplete: number };
 
 interface Props {
   mood:            Mood | null;
   setMood:         (m: Mood) => void;
+  style:           PlaylistStyle | null;
+  setStyle:        (s: PlaylistStyle | null) => void;
   refinement:      string;
   setRefinement:   (s: string) => void;
   includeOutsideCollection: boolean;
@@ -30,7 +34,7 @@ interface Props {
 }
 
 export default function PlaylistPromptPanel({
-  mood, setMood, refinement, setRefinement, includeOutsideCollection, setIncludeOutsideCollection,
+  mood, setMood, style, setStyle, refinement, setRefinement, includeOutsideCollection, setIncludeOutsideCollection,
   trackCount, setTrackCount, onGenerate, generating, matchStatus, spotifyConnected,
 }: Props) {
   const matching = !!matchStatus && matchStatus.pending > 0;
@@ -85,6 +89,34 @@ export default function PlaylistPromptPanel({
               }}
             >
               {m}
+            </button>
+          );
+        })}
+      </div>
+
+      <p style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.12em", textTransform: "uppercase", color: MUTED, marginBottom: "10px" }}>
+        Style <span style={{ color: "#d0d0d0", textTransform: "none", letterSpacing: 0 }}>— optional</span>
+      </p>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", border: `1px solid ${RULE}`, marginBottom: "20px" }}>
+        {PLAYLIST_STYLES.map((s, i) => {
+          const selected = style === s;
+          const lastCol  = (i + 1) % 4 === 0;
+          const lastRow  = i >= PLAYLIST_STYLES.length - 4;
+          return (
+            <button
+              key={s}
+              onClick={() => setStyle(selected ? null : s)}
+              style={{
+                fontFamily: MONO, fontSize: "8.5px", letterSpacing: "0.04em", textTransform: "uppercase",
+                color: selected ? "#FDF6F0" : INK,
+                background: selected ? ORANGE : "transparent",
+                border: "none",
+                borderRight: lastCol ? "none" : `1px solid ${RULE}`,
+                borderBottom: lastRow ? "none" : `1px solid ${RULE}`,
+                padding: "9px 4px", cursor: "pointer", textAlign: "center",
+              }}
+            >
+              {s}
             </button>
           );
         })}
