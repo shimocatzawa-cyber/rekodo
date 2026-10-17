@@ -415,7 +415,7 @@ export default function SelectsClient({ username, displayLabel, avatarUrl, isAdm
                 Now Playing on Rek&#x14d;do&rsquo;s Turntable
               </h1>
             </div>
-            <TurntableView />
+            <TurntableView isAdmin={isAdmin} />
           </>
         ) : activeTab === "artist" ? (
           <SpotlightSection state={artistState} onSelect={setArtistSelected} />
