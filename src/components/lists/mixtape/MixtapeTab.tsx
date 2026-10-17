@@ -555,40 +555,42 @@ export default function MixtapeTab({ username }: { username: string }) {
             </div>
           </div>
 
-          {/* Cassette image + stamps panel side by side — directly below title row */}
-          <div style={{ display: "flex", gap: 20, alignItems: "flex-start", marginBottom: 10 }}>
-            <div style={{ flex: "0 0 auto" }}>
-            {cardView === "front" ? (
-              <CassetteSVG
-                title={title || "My Mixtape"}
-                sideAFill={sideAFill}
-                sideBFill={sideBFill}
-                activeSide={activeSide}
-                stamps={frontStamps}
-                onStampsChange={setFrontStamps}
-                width={Math.min(480, typeof window !== "undefined" ? window.innerWidth - 340 : 480)}
+          {/* Cassette centred + stamps anchored to right column (mirrors title row layout) */}
+          <div style={{ display: "flex", gap: 24, alignItems: "flex-start", marginBottom: 10 }}>
+            {/* Cassette — centred in remaining space */}
+            <div style={{ flex: 1, display: "flex", justifyContent: "center" }}>
+              {cardView === "front" ? (
+                <CassetteSVG
+                  title={title || "My Mixtape"}
+                  sideAFill={sideAFill}
+                  sideBFill={sideBFill}
+                  activeSide={activeSide}
+                  stamps={frontStamps}
+                  onStampsChange={setFrontStamps}
+                  width={Math.min(480, typeof window !== "undefined" ? window.innerWidth - 340 : 480)}
+                />
+              ) : (
+                <CassetteBackCard
+                  title={title || "My Mixtape"}
+                  sideA={sideA}
+                  sideB={sideB}
+                  cassetteType={cassetteType}
+                  stamps={backStamps}
+                  onStampsChange={setBackStamps}
+                  width={Math.min(480, typeof window !== "undefined" ? window.innerWidth - 340 : 480)}
+                />
+              )}
+            </div>
+            {/* Stamps — right column, aligned under Tape Length */}
+            <div style={{ flexShrink: 0 }}>
+              <StampsPanel
+                cardView={cardView}
+                frontStamps={frontStamps}
+                backStamps={backStamps}
+                onAdd={handleAddStamp}
+                onClear={handleClearStamps}
               />
-            ) : (
-              <CassetteBackCard
-                title={title || "My Mixtape"}
-                sideA={sideA}
-                sideB={sideB}
-                cassetteType={cassetteType}
-                stamps={backStamps}
-                onStampsChange={setBackStamps}
-                width={Math.min(480, typeof window !== "undefined" ? window.innerWidth - 340 : 480)}
-              />
-            )}
-          </div>
-
-          {/* Stamps panel — to the right of cassette */}
-          <StampsPanel
-            cardView={cardView}
-            frontStamps={frontStamps}
-            backStamps={backStamps}
-            onAdd={handleAddStamp}
-            onClear={handleClearStamps}
-          />
+            </div>
           </div>
 
           {/* Tape / Tracklist toggle */}
