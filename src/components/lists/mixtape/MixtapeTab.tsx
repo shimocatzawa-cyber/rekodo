@@ -567,7 +567,7 @@ export default function MixtapeTab({ username }: { username: string }) {
                   activeSide={activeSide}
                   stamps={frontStamps}
                   onStampsChange={setFrontStamps}
-                  width={Math.min(480, typeof window !== "undefined" ? window.innerWidth - 340 : 480)}
+                  width={Math.min(580, typeof window !== "undefined" ? window.innerWidth - 340 : 580)}
                 />
               ) : (
                 <CassetteBackCard
@@ -577,7 +577,7 @@ export default function MixtapeTab({ username }: { username: string }) {
                   cassetteType={cassetteType}
                   stamps={backStamps}
                   onStampsChange={setBackStamps}
-                  width={Math.min(480, typeof window !== "undefined" ? window.innerWidth - 340 : 480)}
+                  width={Math.min(580, typeof window !== "undefined" ? window.innerWidth - 340 : 580)}
                 />
               )}
             </div>
