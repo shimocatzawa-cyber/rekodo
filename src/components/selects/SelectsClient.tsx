@@ -336,7 +336,7 @@ export default function SelectsClient({ username, displayLabel, avatarUrl, isAdm
     { key: "artist",    label: t("artistSpotlight") },
     { key: "label",     label: t("labelSpotlight") },
     { key: "live",      label: t("live") },
-    ...(isAdmin ? [{ key: "turntable" as SelectsTab, label: "Rekōdo's Turntable" }] : []),
+    ...(isAdmin ? [{ key: "turntable" as SelectsTab, label: "Turntable" }] : []),
   ];
   const [activeTab, setActiveTab] = useUrlTab<SelectsTab>("tab", TAB_KEYS, "artist");
 
@@ -369,9 +369,11 @@ export default function SelectsClient({ username, displayLabel, avatarUrl, isAdm
           .spotlight-mobile-select { display: block !important; }
           .nr-date-picker-desktop { display: none !important; }
           .nr-mobile-date-select { display: block !important; }
-          .rk-turntable-entry { flex-direction: column !important; gap: 24px !important; }
-          .rk-turntable-art { width: 100% !important; }
-          .rk-turntable-art > div { width: 100% !important; height: auto !important; aspect-ratio: 1 / 1; max-height: 300px; }
+          .rk-turntable-hero { flex-direction: column !important; gap: 0 !important; }
+          .rk-turntable-hero-art { width: 100% !important; }
+          .rk-turntable-vinyl { display: none !important; }
+          .rk-turntable-timing { display: none !important; }
+          .rk-turntable-list-thumb { width: 72px !important; height: 72px !important; }
         }
       `}</style>
 

@@ -1,0 +1,4 @@
+ALTER TABLE turntable_posts
+  ADD COLUMN IF NOT EXISTS vinyl_color TEXT DEFAULT '#111111',
+  ADD COLUMN IF NOT EXISTS side        TEXT,
+  ADD COLUMN IF NOT EXISTS track_time  TEXT;
