@@ -121,7 +121,7 @@ type UnmatchedItem = {
 // albums from the unmatched pool's text metadata alone, before spending a
 // single Spotify call. Keeps the live-matching step that follows small.
 async function shortlistUnmatched(
-  pool: UnmatchedItem[], mood: string, refinement: string,
+  pool: UnmatchedItem[], mood: string, refinement: string, style?: string,
 ): Promise<UnmatchedItem[]> {
   const prioritized = pool
     .slice()
@@ -134,6 +134,7 @@ async function shortlistUnmatched(
 
   const userPrompt = [
     `Mood: ${mood}`,
+    style && `Style: ${style} — REQUIRED: only pick albums from this style. Exclude anything from a different genre.`,
     refinement && `Refinement: ${refinement}`,
     `Pick up to ${SHORTLIST_SIZE} albums most worth checking for this mood.`,
     "",
@@ -226,7 +227,7 @@ async function discoverOutsideCollection(
   ]);
   const angleBlock = `\nEXPLORATION ANGLE — bias at least one or two picks toward: the ${angleDecade}, music originating from ${angleRegion}, and/or a pick that is ${angleVibe}. Resist defaulting to the most famous or obvious records for this mood.\n`;
 
-  const styleConstraint = style ? `\nSTYLE FILTER — picks should fit the "${style}" style. This is a hard preference.\n` : "";
+  const styleConstraint = style ? `\nSTYLE FILTER — picks MUST fit the "${style}" style. Do not recommend any album outside this genre even if it fits the mood.\n` : "";
 
   const userPrompt = [
     `Mood: ${mood}`,
@@ -295,7 +296,7 @@ const MOOD_RELEVANCE_LIMIT     = 150;
 type OwnedAlbumMeta = { id: string; artist: string; album: string; year: number | null; genre: string | null; styles: string[] | null; feeling: string | null };
 
 async function shortlistMoodRelevantAlbums(
-  pool: OwnedAlbumMeta[], mood: string, refinement: string,
+  pool: OwnedAlbumMeta[], mood: string, refinement: string, style?: string,
 ): Promise<Set<string>> {
   const prioritized = shuffle(pool.slice()).slice(0, MAX_UNMATCHED_POOL_FOR_PROMPT);
   const allIds = new Set(pool.map(p => p.id));
@@ -306,6 +307,7 @@ async function shortlistMoodRelevantAlbums(
 
   const userPrompt = [
     `Mood: ${mood}`,
+    style && `Style: ${style} — REQUIRED: only include albums from this style. Exclude albums from other genres even if they fit the mood.`,
     refinement && `Refinement: ${refinement}`,
     `None of these albums are explicitly tagged with the "${mood}" feeling. From artist/album/year/genre/styles alone, pick up to ${MOOD_RELEVANCE_LIMIT} that genuinely plausibly fit this mood — be decisive, most albums in any collection don't fit most moods equally well. If an album is tagged with a different feeling, only include it if it's still a strong fit for this mood too.`,
     "",
@@ -436,7 +438,7 @@ export async function POST(request: NextRequest) {
         id: r.id, artist: r.artist, album: r.album, year: r.year, genre: r.genre,
         styles: r.styles, feeling: feelingByRecordId.get(r.id) ?? null,
       }));
-      const relevantIds = await shortlistMoodRelevantAlbums(pool, mood, refinement);
+      const relevantIds = await shortlistMoodRelevantAlbums(pool, mood, refinement, style || undefined);
       untaggedOwned = untaggedOwned.filter(r => relevantIds.has(r.id));
     }
 
@@ -531,7 +533,7 @@ export async function POST(request: NextRequest) {
 
     const metaUserPrompt = [
       `Mood: ${mood}`,
-      style && `Style: ${style} — prefer albums that fit this style`,
+      style && `Style: ${style} — REQUIRED: only select albums from this style. Exclude any album that doesn't fit this genre even if it matches the mood.`,
       refinement && `Refinement: ${refinement}`,
       `Target track count: ${trackCount}`,
       metaRatioBlock,
@@ -546,7 +548,7 @@ export async function POST(request: NextRequest) {
         max_tokens: 2500,
         system: [{
           type: "text",
-          text: `You are rekōdo's DJ. Given a list of albums from a vinyl collector's collection (each with an index, source, confidence, and metadata) and a target mood, select EXACTLY the requested number of tracks — no more, no fewer — and sequence them as a coherent DJ set: an opening, building section, peak, and resolution. For each chosen album, use your knowledge of the actual track listing to pick one specific track that best fits the mood — use the exact artist name and album name as given, and use the exact track title as it appears on the record. If you are unsure of a track title, pick the most well-known or longest track on the album rather than skipping it. Never select more than one track from the same artist. Prefer "tagged" albums over "inferred". Honor any refinement as a hard constraint. For each track, write one short rationale (max 20 words) for its place in the sequence. You MUST always return the full requested count — partial lists are not acceptable.`,
+          text: `You are rekōdo's DJ. Given a list of albums from a vinyl collector's collection (each with an index, source, confidence, and metadata) and a target mood, select EXACTLY the requested number of tracks — no more, no fewer — and sequence them as a coherent DJ set: an opening, building section, peak, and resolution. For each chosen album, use your knowledge of the actual track listing to pick one specific track that best fits the mood — use the exact artist name and album name as given, and use the exact track title as it appears on the record. If you are unsure of a track title, pick the most well-known or longest track on the album rather than skipping it. Never select more than one track from the same artist. Prefer "tagged" albums over "inferred". Honor any refinement as a hard constraint. If a style is specified, treat it as a hard genre filter — never select a track outside that style even if it fits the mood. For each track, write one short rationale (max 20 words) for its place in the sequence. You MUST always return the full requested count — partial lists are not acceptable.`,
           cache_control: { type: "ephemeral" },
         }],
         tools: [{
@@ -724,7 +726,7 @@ export async function POST(request: NextRequest) {
       id: r.id, artist: r.artist, album: r.album, year: r.year, genre: r.genre, styles: r.styles,
       feeling: feelingByRecordId.get(r.id) ?? null,
     }));
-    const relevantIds = await shortlistMoodRelevantAlbums(pool, mood, refinement);
+    const relevantIds = await shortlistMoodRelevantAlbums(pool, mood, refinement, style || undefined);
     moodCandidatePool = moodCandidatePool.filter(r => relevantIds.has(r.id));
   }
   let candidates: Candidate[] = flattenCandidates(moodCandidatePool, "collection", "inferred");
@@ -932,7 +934,7 @@ export async function POST(request: NextRequest) {
       && !(await getSpotifySearchCooldownUntil())
     ) {
       round++;
-      const shortlist = await shortlistUnmatched(unmatchedPool, mood, refinement);
+      const shortlist = await shortlistUnmatched(unmatchedPool, mood, refinement, style || undefined);
       if (shortlist.length === 0) break; // nothing more worth trying from what's left
       const triedRefIds = new Set<string>();
       let blocked = false;
@@ -1008,7 +1010,7 @@ export async function POST(request: NextRequest) {
 
   const userPrompt = [
     `Mood: ${mood}`,
-    style && `Style: ${style} — prefer tracks that fit this style`,
+    style && `Style: ${style} — REQUIRED: only select tracks from this style. Exclude tracks from other genres even if they fit the mood.`,
     refinement && `Refinement: ${refinement}`,
     `Target track count: ${trackCount}`,
     ratioBlock,
@@ -1023,7 +1025,7 @@ export async function POST(request: NextRequest) {
       max_tokens: 2000,
       system: [{
         type: "text",
-        text: `You are rekōdo's DJ. Given a candidate pool of tracks (each with a source — "collection" means the collector owns it, "wantlist" means they want it, "discover" means a suggestion outside their collection) and a target mood, select exactly the requested number of tracks and sequence them as a coherent DJ set: an arc with an opening, building section, peak, and resolution. Never select more than one track from the same artist — each artist may appear at most once in the playlist, even if the candidate pool is dominated by a few artists; skip an otherwise-good track rather than repeat an artist. If a minimum "collection" track count is specified, treat it as a hard floor, not a target to undercut. Honor any refinement text as a hard constraint (e.g. "skip anything too upbeat" means exclude upbeat-feeling tracks even if otherwise a good mood fit). For each track, write one short rationale (max 20 words) explaining its place in the sequence (e.g. "opens low and slow", "lifts the energy into the peak", "brings it back down to close"). You must only select spotify_uri values that appear verbatim in the candidate list — never invent a track.`,
+        text: `You are rekōdo's DJ. Given a candidate pool of tracks (each with a source — "collection" means the collector owns it, "wantlist" means they want it, "discover" means a suggestion outside their collection) and a target mood, select exactly the requested number of tracks and sequence them as a coherent DJ set: an arc with an opening, building section, peak, and resolution. Never select more than one track from the same artist — each artist may appear at most once in the playlist, even if the candidate pool is dominated by a few artists; skip an otherwise-good track rather than repeat an artist. If a minimum "collection" track count is specified, treat it as a hard floor, not a target to undercut. Honor any refinement text as a hard constraint (e.g. "skip anything too upbeat" means exclude upbeat-feeling tracks even if otherwise a good mood fit). If a style is specified, treat it as a hard genre filter — do not select any track outside that style even if it fits the mood well. For each track, write one short rationale (max 20 words) explaining its place in the sequence (e.g. "opens low and slow", "lifts the energy into the peak", "brings it back down to close"). You must only select spotify_uri values that appear verbatim in the candidate list — never invent a track.`,
         cache_control: { type: "ephemeral" },
       }],
       // Forced tool call instead of raw-JSON-in-prose — see shortlistUnmatched
@@ -1169,6 +1171,34 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({
         error: `Only ${validated.length} track${validated.length === 1 ? "" : "s"} could be matched on Spotify for "${mood}" right now — try again in a bit while matching continues in the background, pick a different mood, or enable "Include tracks outside my collection".`,
       }, { status: 422 });
+    }
+
+    // Backfill missing cover art from Spotify's tracks endpoint — wantlist records
+    // often have null cover_url because it wasn't saved when originally matched.
+    {
+      const nullCoverEntries = validated
+        .map((t, i) => ({ i, trackId: t.spotify_uri.split(":")[2] ?? "" }))
+        .filter(x => !validated[x.i].cover_url && x.trackId);
+      if (nullCoverEntries.length > 0) {
+        try {
+          const ids = nullCoverEntries.map(x => x.trackId).join(",");
+          const res = await fetch(`https://api.spotify.com/v1/tracks?ids=${encodeURIComponent(ids)}`, {
+            headers: { Authorization: `Bearer ${spotifyToken}` },
+            signal: AbortSignal.timeout(5000),
+          });
+          if (res.ok) {
+            const data = await res.json() as { tracks: Array<{ id: string; album: { images: Array<{ url: string }> } } | null> };
+            const coverByTrackId = new Map<string, string>();
+            for (const t of data.tracks ?? []) {
+              if (t?.album.images[0]?.url) coverByTrackId.set(t.id, t.album.images[0].url);
+            }
+            for (const { i, trackId } of nullCoverEntries) {
+              const cover = coverByTrackId.get(trackId);
+              if (cover) validated[i].cover_url = cover;
+            }
+          }
+        } catch { /* best-effort */ }
+      }
     }
 
     // Tracks that the top-up/ratio-swap logic above added (rather than Claude
