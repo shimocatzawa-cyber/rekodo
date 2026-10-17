@@ -696,6 +696,7 @@ async function processSync(supabase: SB, jobId: string, userId: string) {
               extraartists?: Array<{ name: string; role: string }>;
               identifiers?:  Array<{ type?: string; value?: string }>;
               notes?:        string;
+              tracklist?:    Array<{ position?: string; title?: string; duration?: string; type_?: string }>;
             };
             // Only write a field when this fetch found a value — never overwrite
             // good data with null/empty from a partial response.
@@ -715,6 +716,12 @@ async function processSync(supabase: SB, jobId: string, userId: string) {
             patch.matrix = extractMatrix(rd.identifiers);
             const editionSize = extractEditionSize(rd.formats, rd.notes);
             if (editionSize !== null) patch.edition_size = editionSize;
+            // Store full tracklist — available for free since we already fetched this release.
+            if (rd.tracklist?.length) {
+              patch.discogs_tracks = rd.tracklist
+                .filter(t => t.type_ !== "heading")
+                .map(t => ({ position: t.position ?? "", title: t.title ?? "", duration: t.duration ?? "", type_: t.type_ ?? "track" }));
+            }
 
             await supabase.from("records").update(patch).eq("id", record.id);
           }

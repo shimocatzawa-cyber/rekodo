@@ -22,7 +22,7 @@ const CASSETTE_LIMITS: Record<string, number> = {
 
 export type MixtapeTrack = {
   id: string;
-  spotify_uri: string;
+  spotify_uri?: string | null;
   artist: string;
   title: string;
   album: string;
@@ -30,6 +30,33 @@ export type MixtapeTrack = {
   cover_url: string | null;
   duration_ms: number;
 };
+
+type AlbumResult = {
+  id: string;
+  artist: string;
+  album: string;
+  year: number | null;
+  cover_url: string | null;
+  discogs_id: string | null;
+  discogs_tracks: DiscogsTrack[] | null;
+};
+
+type DiscogsTrack = {
+  position: string;
+  title: string;
+  duration: string;
+  type_: string;
+};
+
+// Parse Discogs "3:45" duration string to milliseconds
+function parseDuration(str: string): number {
+  if (!str?.trim()) return 0;
+  const parts = str.trim().split(":").map(s => parseInt(s, 10));
+  if (parts.some(isNaN)) return 0;
+  if (parts.length === 2) return (parts[0] * 60 + parts[1]) * 1000;
+  if (parts.length === 3) return (parts[0] * 3600 + parts[1] * 60 + parts[2]) * 1000;
+  return 0;
+}
 
 function formatTime(ms: number): string {
   const total = Math.floor(ms / 1000);
@@ -358,10 +385,14 @@ export default function MixtapeTab({ username }: { username: string }) {
   const [sideA,        setSideA]        = useState<MixtapeTrack[]>([]);
   const [sideB,        setSideB]        = useState<MixtapeTrack[]>([]);
 
-  const [query,        setQuery]        = useState("");
-  const [results,      setResults]      = useState<MixtapeTrack[]>([]);
-  const [searching,    setSearching]    = useState(false);
-  const [showShare,    setShowShare]    = useState(false);
+  const [query,            setQuery]            = useState("");
+  const [albumResults,     setAlbumResults]     = useState<AlbumResult[]>([]);
+  const [searching,        setSearching]        = useState(false);
+  const [expandedAlbumId,  setExpandedAlbumId]  = useState<string | null>(null);
+  // discogs_id → fetched tracklist (cached so we don't refetch on re-expand)
+  const [discogsCache,     setDiscogsCache]     = useState<Map<string, DiscogsTrack[]>>(new Map());
+  const [loadingDiscogs,   setLoadingDiscogs]   = useState<string | null>(null);
+  const [showShare,        setShowShare]        = useState(false);
 
   const searchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -371,15 +402,16 @@ export default function MixtapeTab({ username }: { username: string }) {
 
   useEffect(() => {
     if (searchTimer.current) clearTimeout(searchTimer.current);
-    if (query.trim().length < 2) { setResults([]); return; }
+    if (query.trim().length < 2) { setAlbumResults([]); setExpandedAlbumId(null); return; }
     searchTimer.current = setTimeout(async () => {
       setSearching(true);
       try {
         const res = await fetch(`/api/mixtape/search?q=${encodeURIComponent(query.trim())}`);
-        const data = await res.json() as { tracks: MixtapeTrack[] };
-        setResults(data.tracks ?? []);
+        const data = await res.json() as { albums: AlbumResult[] };
+        setAlbumResults(data.albums ?? []);
+        setExpandedAlbumId(null);
       } catch {
-        setResults([]);
+        setAlbumResults([]);
       } finally {
         setSearching(false);
       }
@@ -387,11 +419,34 @@ export default function MixtapeTab({ username }: { username: string }) {
     return () => { if (searchTimer.current) clearTimeout(searchTimer.current); };
   }, [query]);
 
+  async function toggleAlbum(result: AlbumResult) {
+    if (expandedAlbumId === result.id) { setExpandedAlbumId(null); return; }
+    setExpandedAlbumId(result.id);
+    // If already stored in DB or already in session cache, nothing to do
+    if (result.discogs_tracks?.length || !result.discogs_id) return;
+    if (discogsCache.has(result.discogs_id)) return;
+    // Fetch from Discogs and persist to DB for future loads
+    setLoadingDiscogs(result.id);
+    try {
+      const res = await fetch("/api/mixtape/cache-tracklist", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ discogs_id: result.discogs_id, record_id: result.id }),
+      });
+      if (res.ok) {
+        const data = await res.json() as { tracks: DiscogsTrack[] };
+        setDiscogsCache(prev => new Map(prev).set(result.discogs_id!, data.tracks ?? []));
+      }
+    } catch { /* best-effort */ }
+    finally { setLoadingDiscogs(null); }
+  }
+
   function addTrack(track: MixtapeTrack) {
     const usedMs = activeSide === "A" ? sideAMs : sideBMs;
-    if (usedMs + track.duration_ms > limit + 60_000) return; // allow 1 min overflow buffer
-    if (activeSide === "A") setSideA(prev => [...prev, { ...track, id: track.spotify_uri + prev.length }]);
-    else setSideB(prev => [...prev, { ...track, id: track.spotify_uri + prev.length }]);
+    if (usedMs + track.duration_ms > limit + 60_000) return;
+    const uniqueId = `${track.artist}||${track.title}||${track.album}||${Date.now()}`;
+    if (activeSide === "A") setSideA(prev => [...prev, { ...track, id: uniqueId }]);
+    else setSideB(prev => [...prev, { ...track, id: uniqueId }]);
   }
 
   function removeFromA(id: string) { setSideA(prev => prev.filter(t => t.id !== id)); }
@@ -530,16 +585,14 @@ export default function MixtapeTab({ username }: { username: string }) {
       </div>
 
       {/* Track search */}
-      <div style={{
-        borderTop: `1.5px solid ${INK}`, paddingTop: 20, marginBottom: 28,
-      }}>
+      <div style={{ borderTop: `1.5px solid ${INK}`, paddingTop: 20, marginBottom: 28 }}>
         <label style={{ fontFamily: MONO, fontSize: 9, letterSpacing: "0.12em", textTransform: "uppercase", color: MUTED, display: "block", marginBottom: 8 }}>
-          Search your collection — adding to Side {activeSide}
+          Search your collection — click an album to pick a track
         </label>
         <input
           value={query}
           onChange={e => setQuery(e.target.value)}
-          placeholder="Track, artist, or album…"
+          placeholder="Artist or album…"
           style={{
             fontFamily: MONO, fontSize: 12, width: "100%",
             padding: "9px 12px", border: `1px solid ${RULE}`,
@@ -550,44 +603,79 @@ export default function MixtapeTab({ username }: { username: string }) {
         {searching && (
           <p style={{ fontFamily: MONO, fontSize: 10, color: MUTED }}>Searching…</p>
         )}
-        {!searching && results.length === 0 && query.trim().length >= 2 && (
+        {!searching && albumResults.length === 0 && query.trim().length >= 2 && (
           <p style={{ fontFamily: MONO, fontSize: 10, color: MUTED }}>
-            No Spotify-matched tracks found. Try a different term, or make sure records are matched.
+            No records found. Try artist name or album title.
           </p>
         )}
+
         <div>
-          {results.map(track => {
+          {albumResults.map(result => {
+            const isExpanded = expandedAlbumId === result.id;
+            const isLoadingThis = loadingDiscogs === result.id;
+            // Prefer DB-stored tracks; fall back to session cache from lazy fetch
+            const tracks: DiscogsTrack[] | null =
+              result.discogs_tracks?.length
+                ? result.discogs_tracks
+                : (result.discogs_id ? (discogsCache.get(result.discogs_id) ?? null) : null);
             const currentMs = activeSide === "A" ? sideAMs : sideBMs;
-            const wouldExceed = currentMs + track.duration_ms > limit + 60_000;
+
             return (
-              <div
-                key={track.id}
-                style={{
-                  display: "flex", alignItems: "center", gap: 10,
-                  padding: "8px 0", borderBottom: `1px solid ${RULE}`,
-                  cursor: wouldExceed ? "not-allowed" : "pointer",
-                  opacity: wouldExceed ? 0.4 : 1,
-                }}
-                onClick={() => !wouldExceed && addTrack(track)}
-                title={wouldExceed ? "Would exceed tape length" : `Add to Side ${activeSide}`}
-              >
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontFamily: SERIF, fontSize: 13, fontWeight: 600, color: INK, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                    {track.title}
+              <div key={result.id} style={{ borderBottom: `1px solid ${RULE}` }}>
+                {/* Album row */}
+                <div
+                  onClick={() => toggleAlbum(result)}
+                  style={{ display: "flex", alignItems: "center", gap: 10, padding: "9px 0", cursor: "pointer" }}
+                >
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontFamily: SERIF, fontSize: 13, fontWeight: 600, color: INK, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                      {result.artist}
+                    </div>
+                    <div style={{ fontFamily: MONO, fontSize: 10, color: MUTED, marginTop: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                      {result.album}{result.year ? ` (${result.year})` : ""}
+                    </div>
                   </div>
-                  <div style={{ fontFamily: MONO, fontSize: 10, color: MUTED, marginTop: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                    {track.artist} — {track.album}
-                  </div>
+                  <span style={{ fontFamily: MONO, fontSize: 10, color: MUTED, flexShrink: 0 }}>
+                    {isExpanded ? "▲" : "▼"}
+                  </span>
                 </div>
-                <span style={{ fontFamily: MONO, fontSize: 10, color: MUTED, flexShrink: 0 }}>
-                  {formatTime(track.duration_ms)}
-                </span>
-                <span style={{
-                  fontFamily: MONO, fontSize: 9, letterSpacing: "0.1em",
-                  textTransform: "uppercase", color: ORANGE, flexShrink: 0,
-                }}>
-                  + {activeSide}
-                </span>
+
+                {/* Tracklist — shown when expanded */}
+                {isExpanded && (
+                  <div style={{ paddingLeft: 12, paddingBottom: 8 }}>
+                    {isLoadingThis && (
+                      <p style={{ fontFamily: MONO, fontSize: 10, color: MUTED, padding: "6px 0" }}>Loading tracklist…</p>
+                    )}
+                    {!isLoadingThis && !tracks && (
+                      <p style={{ fontFamily: MONO, fontSize: 10, color: MUTED, padding: "6px 0" }}>
+                        {result.discogs_id ? "Tracklist unavailable." : "No tracklist — record has no Discogs ID."}
+                      </p>
+                    )}
+                    {!isLoadingThis && tracks && tracks.map((t, i) => {
+                      const durationMs = parseDuration(t.duration);
+                      const track: MixtapeTrack = {
+                        id: `${result.id}||${t.position}||${t.title}`,
+                        artist: result.artist, title: t.title, album: result.album,
+                        year: result.year, cover_url: result.cover_url, duration_ms: durationMs,
+                      };
+                      const wouldExceed = durationMs > 0 && currentMs + durationMs > limit + 60_000;
+                      return (
+                        <div key={i} style={{ display: "flex", alignItems: "center", gap: 8, padding: "5px 0", borderTop: `1px solid ${RULE}`, opacity: wouldExceed ? 0.35 : 1 }}>
+                          <span style={{ fontFamily: MONO, fontSize: 9, color: ORANGE, width: 24, flexShrink: 0 }}>{t.position}</span>
+                          <div style={{ flex: 1, minWidth: 0, fontFamily: SERIF, fontSize: 12, color: INK, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{t.title}</div>
+                          <span style={{ fontFamily: MONO, fontSize: 9, color: MUTED, flexShrink: 0 }}>{t.duration || "—"}</span>
+                          <button
+                            onClick={() => !wouldExceed && addTrack(track)}
+                            disabled={wouldExceed}
+                            style={{ fontFamily: MONO, fontSize: 9, letterSpacing: "0.1em", padding: "3px 8px", background: "none", border: `1px solid ${wouldExceed ? RULE : ORANGE}`, color: wouldExceed ? RULE : ORANGE, borderRadius: 3, cursor: wouldExceed ? "not-allowed" : "pointer", flexShrink: 0 }}
+                          >
+                            + {activeSide}
+                          </button>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
               </div>
             );
           })}
