@@ -212,7 +212,7 @@ function ShareCard({ title, sideA, sideB, username, cassetteType }: ShareCardPro
         <img src="/cassette-tape.png" alt="Cassette tape" width={W} height={cassH}
           style={{ display: "block", width: "100%", height: "100%" }} />
         <div style={{
-          position: "absolute", top: "17%", left: "50%", transform: "translateX(-50%)",
+          position: "absolute", top: "20%", left: "50%", transform: "translateX(-50%)",
           width: "72%", textAlign: "center",
           fontFamily: HAND_EMBED,
           fontSize: Math.round(titleFs),
