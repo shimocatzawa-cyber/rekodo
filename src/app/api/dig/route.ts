@@ -881,9 +881,10 @@ ${JSON_SCHEMA}`;
     const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
     const message = await anthropic.messages.create({
       model: "claude-sonnet-4-6",
-      // 20 candidates × ~300 tokens each ≈ 6,000 tokens output; 8,000 gives
-      // enough headroom so longer reasons don't truncate mid-JSON.
-      max_tokens: 8000,
+      // 20 candidates × ~450 tokens each (reason + 3 search URLs) ≈ 9,000
+      // tokens; 16,000 gives real headroom so verbose reasons never truncate
+      // mid-JSON (the old 8,000 limit caused "Unterminated string" errors).
+      max_tokens: 16000,
       messages: [{ role: "user", content: prompt }],
     });
 
