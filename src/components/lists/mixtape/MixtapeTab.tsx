@@ -7,7 +7,7 @@ import { toPng } from "html-to-image";
 const CassetteSVG      = dynamic(() => import("./CassetteSVG"),      { ssr: false });
 const CassetteBackCard = dynamic(() => import("./CassetteBackCard"), { ssr: false });
 
-const MAX_BACK_TRACKS = 7;
+const EMOJIS = ["❤️", "⭐", "🎵", "🔥", "✨", "🌙", "🎶", "💫", "🌸", "🌊"];
 
 const MONO   = "var(--font-mono)";
 const SERIF  = "var(--font-editorial)";
@@ -142,8 +142,8 @@ function SidePanel({
         <span style={{ fontFamily: MONO, fontSize: 10, letterSpacing: "0.15em", textTransform: "uppercase", fontWeight: 600 }}>
           Side {side}
         </span>
-        <span style={{ fontFamily: MONO, fontSize: 10, color: tracks.length > MAX_BACK_TRACKS ? "#cc2200" : MUTED }}>
-          {tracks.length} / {MAX_BACK_TRACKS} tracks
+        <span style={{ fontFamily: MONO, fontSize: 10, color: MUTED }}>
+          {tracks.length} track{tracks.length !== 1 ? "s" : ""}
         </span>
       </div>
       <DurationBar used={usedMs} limit={limit} label="TAPE" />
@@ -522,6 +522,20 @@ export default function MixtapeTab({ username }: { username: string }) {
   const [showShare,        setShowShare]        = useState(false);
 
   const searchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const titleRef    = useRef<HTMLInputElement>(null);
+
+  function insertEmoji(emoji: string) {
+    const input = titleRef.current;
+    if (!input) { setTitle(prev => prev + emoji); return; }
+    const start = input.selectionStart ?? title.length;
+    const end   = input.selectionEnd   ?? title.length;
+    const next  = title.slice(0, start) + emoji + title.slice(end);
+    setTitle(next);
+    requestAnimationFrame(() => {
+      input.setSelectionRange(start + emoji.length, start + emoji.length);
+      input.focus();
+    });
+  }
 
   // Load saved mixtapes list on mount
   useEffect(() => {
@@ -703,10 +717,11 @@ export default function MixtapeTab({ username }: { username: string }) {
             Mixtape title
           </label>
           <input
+            ref={titleRef}
             value={title}
             onChange={e => setTitle(e.target.value)}
             placeholder="Summer 2026 Mix"
-            maxLength={40}
+            maxLength={44}
             style={{
               fontFamily: SERIF, fontSize: 15, width: "100%",
               padding: "8px 10px", border: `1px solid ${RULE}`,
@@ -714,6 +729,23 @@ export default function MixtapeTab({ username }: { username: string }) {
               boxSizing: "border-box",
             }}
           />
+          {/* Emoji palette */}
+          <div style={{ display: "flex", gap: 4, marginTop: 6, flexWrap: "wrap" }}>
+            {EMOJIS.map(e => (
+              <button
+                key={e}
+                onClick={() => insertEmoji(e)}
+                title={`Add ${e}`}
+                style={{
+                  fontSize: 16, lineHeight: 1, padding: "2px 4px",
+                  background: "none", border: `1px solid ${RULE}`,
+                  borderRadius: 4, cursor: "pointer",
+                }}
+              >
+                {e}
+              </button>
+            ))}
+          </div>
         </div>
         <div>
           <label style={{ fontFamily: MONO, fontSize: 9, letterSpacing: "0.12em", textTransform: "uppercase", color: MUTED, display: "block", marginBottom: 5 }}>
