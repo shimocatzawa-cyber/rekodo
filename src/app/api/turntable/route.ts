@@ -52,7 +52,7 @@ export async function POST(request: NextRequest) {
 
   const body = await request.json().catch(() => ({})) as {
     artist?: string; album?: string; year?: string; label?: string; genre?: string;
-    cover_url?: string; body?: string; published_at?: string; status?: string;
+    bandcamp_url?: string; cover_url?: string; body?: string; published_at?: string; status?: string;
   };
 
   const artist       = (body.artist       ?? "").trim();
@@ -61,17 +61,18 @@ export async function POST(request: NextRequest) {
   const postBody     = (body.body         ?? "").trim();
   const published_at = (body.published_at ?? new Date().toISOString().slice(0, 10));
   const status       = body.status === "published" ? "published" : "draft";
-  const year         = (body.year  ?? "").trim() || null;
-  const label        = (body.label ?? "").trim() || null;
-  const genre        = (body.genre ?? "").trim() || null;
+  const year         = (body.year         ?? "").trim() || null;
+  const label        = (body.label        ?? "").trim() || null;
+  const genre        = (body.genre        ?? "").trim() || null;
+  const bandcamp_url = (body.bandcamp_url ?? "").trim() || null;
 
   if (!artist || !album) return NextResponse.json({ error: "Artist and album are required" }, { status: 400 });
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data, error } = await (getAdminDb() as any)
     .from("turntable_posts")
-    .insert({ artist, album, year, label, genre, cover_url, body: postBody, published_at, status })
-    .select("id, published_at, artist, album, cover_url, body, status")
+    .insert({ artist, album, year, label, genre, bandcamp_url, cover_url, body: postBody, published_at, status })
+    .select("id, published_at, artist, album, year, label, genre, bandcamp_url, cover_url, body, status")
     .single();
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
@@ -85,7 +86,7 @@ export async function PATCH(request: NextRequest) {
 
   const body = await request.json().catch(() => ({})) as {
     id?: string; artist?: string; album?: string; year?: string; label?: string; genre?: string;
-    cover_url?: string; body?: string; published_at?: string; status?: string;
+    bandcamp_url?: string; cover_url?: string; body?: string; published_at?: string; status?: string;
   };
 
   const id = (body.id ?? "").trim();
@@ -97,6 +98,7 @@ export async function PATCH(request: NextRequest) {
   if (body.year         !== undefined) update.year         = body.year?.trim() || null;
   if (body.label        !== undefined) update.label        = body.label?.trim() || null;
   if (body.genre        !== undefined) update.genre        = body.genre?.trim() || null;
+  if (body.bandcamp_url !== undefined) update.bandcamp_url = body.bandcamp_url?.trim() || null;
   if (body.cover_url    !== undefined) update.cover_url    = body.cover_url?.trim() || null;
   if (body.body         !== undefined) update.body         = body.body.trim();
   if (body.published_at !== undefined) update.published_at = body.published_at;
@@ -107,7 +109,7 @@ export async function PATCH(request: NextRequest) {
     .from("turntable_posts")
     .update(update)
     .eq("id", id)
-    .select("id, published_at, artist, album, cover_url, body, status")
+    .select("id, published_at, artist, album, year, label, genre, bandcamp_url, cover_url, body, status")
     .single();
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });

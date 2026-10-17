@@ -15,6 +15,7 @@ interface TurntablePost {
   year: string | null;
   label: string | null;
   genre: string | null;
+  bandcamp_url: string | null;
   cover_url: string | null;
   body: string;
   status: "draft" | "published";
@@ -73,12 +74,13 @@ function NewEntryForm({ onSaved }: NewEntryFormProps) {
   const [err,    setErr]    = useState<string | null>(null);
   const [artist, setArtist] = useState("");
   const [album,  setAlbum]  = useState("");
-  const [year,   setYear]   = useState("");
-  const [label,  setLabel]  = useState("");
-  const [genre,  setGenre]  = useState("");
-  const [body,   setBody]   = useState("");
-  const [date,   setDate]   = useState(new Date().toISOString().slice(0, 10));
-  const [status, setStatus] = useState<"draft" | "published">("published");
+  const [year,        setYear]        = useState("");
+  const [label,       setLabel]       = useState("");
+  const [genre,       setGenre]       = useState("");
+  const [bandcampUrl, setBandcampUrl] = useState("");
+  const [body,        setBody]        = useState("");
+  const [date,        setDate]        = useState(new Date().toISOString().slice(0, 10));
+  const [status,      setStatus]      = useState<"draft" | "published">("published");
 
   const cover = useCoverLookup(artist, album);
 
@@ -88,12 +90,12 @@ function NewEntryForm({ onSaved }: NewEntryFormProps) {
       const res = await fetch("/api/turntable", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ artist, album, year, label, genre, cover_url: cover.url, body, published_at: date, status }),
+        body: JSON.stringify({ artist, album, year, label, genre, bandcamp_url: bandcampUrl, cover_url: cover.url, body, published_at: date, status }),
       });
       const data = await res.json() as { post?: TurntablePost; error?: string };
       if (!res.ok || !data.post) { setErr(data.error ?? "Save failed"); return; }
       onSaved(data.post);
-      setArtist(""); setAlbum(""); setYear(""); setLabel(""); setGenre(""); setBody(""); cover.setUrl(null);
+      setArtist(""); setAlbum(""); setYear(""); setLabel(""); setGenre(""); setBandcampUrl(""); setBody(""); cover.setUrl(null);
       setDate(new Date().toISOString().slice(0, 10)); setStatus("published");
       setOpen(false);
     } catch { setErr("Network error"); }
@@ -146,6 +148,11 @@ function NewEntryForm({ onSaved }: NewEntryFormProps) {
           <label style={labelStyle}>Genre <span style={{ color: "#d0d0d0", textTransform: "none", letterSpacing: 0 }}>— optional</span></label>
           <input value={genre} onChange={e => setGenre(e.target.value)} style={inputStyle} placeholder="e.g. Electronic" />
         </div>
+      </div>
+
+      <div style={{ marginBottom: 16 }}>
+        <label style={labelStyle}>Bandcamp URL <span style={{ color: "#d0d0d0", textTransform: "none", letterSpacing: 0 }}>— optional</span></label>
+        <input value={bandcampUrl} onChange={e => setBandcampUrl(e.target.value)} style={inputStyle} placeholder="https://artist.bandcamp.com/album/..." />
       </div>
 
       {/* Cover lookup */}
@@ -259,9 +266,10 @@ function TurntableEntry({ post, isFirst, isAdmin, onUpdated, onDeleted }: Turnta
   const [err,       setErr]       = useState<string | null>(null);
   const [artist, setArtist] = useState(post.artist);
   const [album,  setAlbum]  = useState(post.album);
-  const [year,   setYear]   = useState(post.year   ?? "");
-  const [label,  setLabel]  = useState(post.label  ?? "");
-  const [genre,  setGenre]  = useState(post.genre  ?? "");
+  const [year,        setYear]        = useState(post.year         ?? "");
+  const [label,       setLabel]       = useState(post.label        ?? "");
+  const [genre,       setGenre]       = useState(post.genre        ?? "");
+  const [bandcampUrl, setBandcampUrl] = useState(post.bandcamp_url ?? "");
   const [body,   setBody]   = useState(post.body);
   const [date,   setDate]   = useState(post.published_at);
   const [status, setStatus] = useState<"draft" | "published">(post.status);
@@ -284,7 +292,7 @@ function TurntableEntry({ post, isFirst, isAdmin, onUpdated, onDeleted }: Turnta
       const res = await fetch("/api/turntable", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ id: post.id, artist, album, year, label, genre, cover_url: cover.url, body, published_at: date, status }),
+        body: JSON.stringify({ id: post.id, artist, album, year, label, genre, bandcamp_url: bandcampUrl, cover_url: cover.url, body, published_at: date, status }),
       });
       const data = await res.json() as { post?: TurntablePost; error?: string };
       if (!res.ok || !data.post) { setErr(data.error ?? "Save failed"); return; }
@@ -384,6 +392,11 @@ function TurntableEntry({ post, isFirst, isAdmin, onUpdated, onDeleted }: Turnta
               </div>
             </div>
 
+            <div style={{ marginBottom: 14 }}>
+              <label style={labelStyle}>Bandcamp URL</label>
+              <input value={bandcampUrl} onChange={e => setBandcampUrl(e.target.value)} style={inputStyle} />
+            </div>
+
             <div style={{ marginBottom: 14, display: "flex", gap: 16, alignItems: "flex-start" }}>
               <div style={{ flex: 1 }}>
                 <label style={labelStyle}>Cover Art</label>
@@ -468,11 +481,21 @@ function TurntableEntry({ post, isFirst, isAdmin, onUpdated, onDeleted }: Turnta
               </p>
             )}
             {post.genre && (
-              <p style={{ fontFamily: MONO, fontSize: "12px", color: "#888888", margin: "0 0 20px", fontWeight: 400 }}>
+              <p style={{ fontFamily: MONO, fontSize: "12px", color: "#888888", margin: "0 0 1px", fontWeight: 400 }}>
                 {post.genre}
               </p>
             )}
-            {!post.label && !post.genre && <div style={{ marginBottom: 20 }} />}
+            {post.bandcamp_url && (
+              <a
+                href={post.bandcamp_url}
+                target="_blank"
+                rel="noopener noreferrer"
+                style={{ fontFamily: MONO, fontSize: "11px", color: INK, fontWeight: 400, textDecoration: "none", borderBottom: `1px solid ${INK}`, paddingBottom: 1, display: "inline-block", marginBottom: 1 }}
+              >
+                Bandcamp ↗
+              </a>
+            )}
+            <div style={{ marginBottom: 20 }} />
             <div>
               {post.body.split("\n\n").map((para, i) => (
                 <p key={i} style={{ fontFamily: MONO, fontSize: "12px", lineHeight: 1.85, color: INK, margin: i > 0 ? "16px 0 0" : 0, fontWeight: 400 }}>
