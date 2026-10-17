@@ -7,6 +7,7 @@ import AppNav from "@/components/AppNav";
 import { useUrlTab } from "@/lib/useUrlTab";
 import SpotlightView from "./SpotlightView";
 import SpotlightArchivePicker from "./SpotlightArchivePicker";
+import TurntableView from "./TurntableView";
 import type { Spotlight, SpotlightSummary } from "@/lib/spotlights/types";
 
 const SERIF  = "var(--font-editorial)";
@@ -17,9 +18,9 @@ const RULE   = "#e0e0da";
 
 // ─── Selects tabs ─────────────────────────────────────────────────────────────
 
-type SelectsTab = "artist" | "label" | "live";
+type SelectsTab = "artist" | "label" | "live" | "turntable";
 
-const TAB_KEYS: SelectsTab[] = ["artist", "label", "live"];
+const TAB_KEYS: SelectsTab[] = ["artist", "label", "live", "turntable"];
 
 // ─── Live / Gigs section ─────────────────────────────────────────────────────
 
@@ -281,6 +282,7 @@ interface Props {
   username:     string;
   displayLabel: string;
   avatarUrl:    string | null;
+  isAdmin:      boolean;
 }
 
 // ─── Main component ───────────────────────────────────────────────────────────
@@ -328,12 +330,13 @@ function useSpotlight(type: "artist" | "label", active: boolean) {
   return [state, (s: Spotlight) => setState(prev => ({ ...prev, selected: s }))] as const;
 }
 
-export default function SelectsClient({ username, displayLabel, avatarUrl }: Props) {
+export default function SelectsClient({ username, displayLabel, avatarUrl, isAdmin }: Props) {
   const t = useTranslations("selects");
   const TABS: { key: SelectsTab; label: string }[] = [
-    { key: "artist", label: t("artistSpotlight") },
-    { key: "label",  label: t("labelSpotlight") },
-    { key: "live",   label: t("live") },
+    { key: "artist",    label: t("artistSpotlight") },
+    { key: "label",     label: t("labelSpotlight") },
+    { key: "live",      label: t("live") },
+    ...(isAdmin ? [{ key: "turntable" as SelectsTab, label: "Turntable" }] : []),
   ];
   const [activeTab, setActiveTab] = useUrlTab<SelectsTab>("tab", TAB_KEYS, "artist");
 
@@ -366,6 +369,9 @@ export default function SelectsClient({ username, displayLabel, avatarUrl }: Pro
           .spotlight-mobile-select { display: block !important; }
           .nr-date-picker-desktop { display: none !important; }
           .nr-mobile-date-select { display: block !important; }
+          .rk-turntable-entry { flex-direction: column !important; gap: 24px !important; }
+          .rk-turntable-art { width: 100% !important; }
+          .rk-turntable-art > div { width: 100% !important; height: auto !important; aspect-ratio: 1 / 1; max-height: 300px; }
         }
       `}</style>
 
@@ -399,6 +405,21 @@ export default function SelectsClient({ username, displayLabel, avatarUrl }: Pro
       <main className="rk-selects-main" style={{ padding: "36px 40px 80px", maxWidth: 1200, margin: "0 auto" }}>
         {activeTab === "live" ? (
           <LiveSection />
+        ) : activeTab === "turntable" ? (
+          <>
+            <div style={{ borderBottom: `1px solid ${RULE}`, paddingBottom: 32, marginBottom: 0 }}>
+              <h1 style={{
+                fontFamily: SERIF, fontSize: "clamp(32px, 5vw, 56px)", fontWeight: 600,
+                letterSpacing: "-0.03em", color: INK, margin: "0 0 12px", lineHeight: 1.05,
+              }}>
+                On the turntable.
+              </h1>
+              <p style={{ fontFamily: MONO, fontSize: "12px", color: "#888888", margin: 0, fontWeight: 400 }}>
+                What&rsquo;s spinning, and why it matters.
+              </p>
+            </div>
+            <TurntableView />
+          </>
         ) : activeTab === "artist" ? (
           <SpotlightSection state={artistState} onSelect={setArtistSelected} />
         ) : (
