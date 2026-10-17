@@ -12,7 +12,7 @@ interface Props {
   width?: number;
 }
 
-export default function CassetteSVG({ title, activeSide, width = 520 }: Props) {
+export default function CassetteSVG({ title, width = 520 }: Props) {
   // Image is 1536 × 1024 — maintain aspect ratio
   const height = Math.round(width * (1024 / 1536));
 
@@ -58,22 +58,6 @@ export default function CassetteSVG({ title, activeSide, width = 520 }: Props) {
         {title || "My Mixtape"}
       </div>
 
-      {/* Side indicator — small label, upper-left corner of white area */}
-      <div
-        style={{
-          position: "absolute",
-          top: "10%",
-          left: "11%",
-          fontFamily: '"Courier New", monospace',
-          fontSize: Math.round(width * 0.013),
-          color: "#bbb",
-          letterSpacing: "0.18em",
-          pointerEvents: "none",
-          whiteSpace: "nowrap",
-        }}
-      >
-        {`SIDE ${activeSide}`}
-      </div>
     </div>
   );
 }
