@@ -14,7 +14,7 @@ export async function GET(request: NextRequest) {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data, error } = await (supabase as any)
     .from("mixtapes")
-    .select("id, title, cassette_type, side_a, side_b, created_at")
+    .select("id, title, cassette_type, side_a, side_b, stamps, created_at")
     .eq("id", id)
     .eq("user_id", user.id)
     .maybeSingle();

@@ -1,48 +1,12 @@
 "use client";
 
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import dynamic from "next/dynamic";
 import { toPng } from "html-to-image";
+import { SYMBOLS, SYMBOL_MAP, Stamp } from "./mixtapeSymbols";
 
 const CassetteSVG      = dynamic(() => import("./CassetteSVG"),      { ssr: false });
 const CassetteBackCard = dynamic(() => import("./CassetteBackCard"), { ssr: false });
-
-// Each symbol: SVG path shown in the picker + Unicode char inserted into the title
-type SymbolDef = { key: string; insert: string; filled: boolean; d: string };
-const SYMBOLS: SymbolDef[] = [
-  {
-    key: "heart", insert: "♥", filled: true,
-    d: "M12 20C12 20 3 14.5 3 8.5C3 5.5 5.5 3 8.5 3C10.2 3 11.8 4 12 5.5C12.2 4 13.8 3 15.5 3C18.5 3 21 5.5 21 8.5C21 14.5 12 20 12 20Z",
-  },
-  {
-    key: "star", insert: "★", filled: true,
-    d: "M12 2L14.5 9.2L22 9.2L16.3 13.7L18.3 21L12 17L5.7 21L7.7 13.7L2 9.2L9.5 9.2Z",
-  },
-  {
-    key: "note", insert: "♪", filled: true,
-    d: "M16 3.5L16 15C16 17.2 14.2 18.5 12 18.5C9.8 18.5 8 17.2 8 15C8 12.8 9.8 11.5 12 11.5C13.2 11.5 14.2 12 15 12.8L15 6.5Z",
-  },
-  {
-    key: "moon", insert: "☾", filled: true,
-    d: "M17.5 12C17.5 16.1 14.1 19.5 10 19.5C9.5 19.5 9 19.4 8.5 19.3C11 18.5 12.5 15.4 12.5 12C12.5 8.6 11 5.5 8.5 4.7C9 4.6 9.5 4.5 10 4.5C14.1 4.5 17.5 7.9 17.5 12Z",
-  },
-  {
-    key: "sparkle", insert: "✦", filled: true,
-    d: "M12 2L13.3 10.7L22 12L13.3 13.3L12 22L10.7 13.3L2 12L10.7 10.7Z",
-  },
-  {
-    key: "wave", insert: "〜", filled: false,
-    d: "M2 13C5 9 7 9 10 13C13 17 15 17 18 13C19.5 11 21 11 22 13",
-  },
-  {
-    key: "arrow", insert: "→", filled: false,
-    d: "M3 12H20M14 7L20 12L14 17",
-  },
-  {
-    key: "sun", insert: "☀", filled: false,
-    d: "M12 4V2M12 22V20M4 12H2M22 12H20M6.34 6.34L4.93 4.93M19.07 19.07L17.66 17.66M17.66 6.34L19.07 4.93M4.93 19.07L6.34 17.66M16 12A4 4 0 1 1 8 12A4 4 0 0 1 16 12Z",
-  },
-];
 
 const MONO   = "var(--font-mono)";
 const SERIF  = "var(--font-editorial)";
@@ -51,7 +15,6 @@ const MUTED  = "#aaaaaa";
 const RULE   = "#e0e0da";
 const INK    = "#0d0d0d";
 
-// Cassette duration limits in milliseconds per side
 const CASSETTE_LIMITS: Record<string, number> = {
   C60:  30 * 60 * 1000,
   C90:  45 * 60 * 1000,
@@ -86,7 +49,6 @@ type DiscogsTrack = {
   type_: string;
 };
 
-// Parse Discogs "3:45" duration string to milliseconds
 function parseDuration(str: string): number {
   if (!str?.trim()) return 0;
   const parts = str.trim().split(":").map(s => parseInt(s, 10));
@@ -103,10 +65,8 @@ function formatTime(ms: number): string {
   return `${m}:${s.toString().padStart(2, "0")}`;
 }
 
-function DurationBar({
-  used, limit, label,
-}: { used: number; limit: number; label: string }) {
-  const pct = Math.min(100, (used / limit) * 100);
+function DurationBar({ used, limit, label }: { used: number; limit: number; label: string }) {
+  const pct  = Math.min(100, (used / limit) * 100);
   const over = used > limit;
   return (
     <div style={{ marginBottom: 8 }}>
@@ -119,26 +79,15 @@ function DurationBar({
         </span>
       </div>
       <div style={{ height: 3, background: RULE, borderRadius: 2, overflow: "hidden" }}>
-        <div style={{
-          height: "100%",
-          width: `${pct}%`,
-          background: over ? "#cc2200" : ORANGE,
-          borderRadius: 2,
-          transition: "width 0.2s ease",
-        }} />
+        <div style={{ height: "100%", width: `${pct}%`, background: over ? "#cc2200" : ORANGE, borderRadius: 2, transition: "width 0.2s ease" }} />
       </div>
     </div>
   );
 }
 
-function TrackRow({
-  track, index, onRemove,
-}: { track: MixtapeTrack; index: number; onRemove: () => void }) {
+function TrackRow({ track, index, onRemove }: { track: MixtapeTrack; index: number; onRemove: () => void }) {
   return (
-    <div style={{
-      display: "flex", alignItems: "center", gap: 10,
-      padding: "7px 0", borderBottom: `1px solid ${RULE}`,
-    }}>
+    <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "7px 0", borderBottom: `1px solid ${RULE}` }}>
       <span style={{ fontFamily: MONO, fontSize: 10, color: ORANGE, width: 20, flexShrink: 0, textAlign: "right" }}>
         {index + 1}
       </span>
@@ -164,40 +113,27 @@ function TrackRow({
   );
 }
 
-function SidePanel({
-  side, tracks, limit, onRemove,
-}: { side: "A" | "B"; tracks: MixtapeTrack[]; limit: number; onRemove: (id: string) => void }) {
+function SidePanel({ side, tracks, limit, onRemove }: { side: "A" | "B"; tracks: MixtapeTrack[]; limit: number; onRemove: (id: string) => void }) {
   const usedMs = tracks.reduce((sum, t) => sum + t.duration_ms, 0);
   return (
     <div style={{ flex: 1, minWidth: 0 }}>
-      <div style={{
-        display: "flex", alignItems: "center", justifyContent: "space-between",
-        borderBottom: `1.5px solid ${INK}`, paddingBottom: 6, marginBottom: 10,
-      }}>
-        <span style={{ fontFamily: MONO, fontSize: 10, letterSpacing: "0.15em", textTransform: "uppercase", fontWeight: 600 }}>
-          Side {side}
-        </span>
-        <span style={{ fontFamily: MONO, fontSize: 10, color: MUTED }}>
-          {tracks.length} track{tracks.length !== 1 ? "s" : ""}
-        </span>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", borderBottom: `1.5px solid ${INK}`, paddingBottom: 6, marginBottom: 10 }}>
+        <span style={{ fontFamily: MONO, fontSize: 10, letterSpacing: "0.15em", textTransform: "uppercase", fontWeight: 600 }}>Side {side}</span>
+        <span style={{ fontFamily: MONO, fontSize: 10, color: MUTED }}>{tracks.length} track{tracks.length !== 1 ? "s" : ""}</span>
       </div>
       <DurationBar used={usedMs} limit={limit} label="TAPE" />
       <div style={{ minHeight: 60 }}>
         {tracks.length === 0 ? (
-          <p style={{ fontFamily: MONO, fontSize: 10, color: MUTED, paddingTop: 8 }}>
-            No tracks yet — search below and add.
-          </p>
+          <p style={{ fontFamily: MONO, fontSize: 10, color: MUTED, paddingTop: 8 }}>No tracks yet — search below and add.</p>
         ) : (
-          tracks.map((t, i) => (
-            <TrackRow key={t.id + i} track={t} index={i} onRemove={() => onRemove(t.id)} />
-          ))
+          tracks.map((t, i) => <TrackRow key={t.id + i} track={t} index={i} onRemove={() => onRemove(t.id)} />)
         )}
       </div>
     </div>
   );
 }
 
-// ── Share card (rendered off-screen, captured by html-to-image) ───────────────
+// ── Share card ─────────────────────────────────────────────────────────────────
 
 const MONO_EMBED = '"Courier New", monospace';
 const HAND_EMBED = '"Bradley Hand", "Caveat", "Kalam", cursive';
@@ -208,127 +144,90 @@ interface ShareCardProps {
   sideB: MixtapeTrack[];
   username: string;
   cassetteType: string;
+  stamps: Stamp[];
 }
 
-function ShareCard({ title, sideA, sideB, username, cassetteType }: ShareCardProps) {
-  const W = 600;
+function ShareCard({ title, sideA, sideB, username, cassetteType, stamps }: ShareCardProps) {
+  const W     = 600;
   const cassH = Math.round(W * (1024 / 1536));
-  const baseFs = W * 0.072;
+  const baseFs  = W * 0.072;
   const titleFs = title.length > 22 ? baseFs * 0.48
                : title.length > 16 ? baseFs * 0.58
                : title.length > 10 ? baseFs * 0.72 : baseFs;
+  const stampSize = Math.round(W * 0.058);
 
   return (
     <div style={{ width: W, background: "#ffffff", fontFamily: MONO_EMBED, boxSizing: "border-box" }}>
-      {/* Black header bar */}
-      <div style={{
-        background: "#0d0d0d", padding: "14px 20px",
-        display: "flex", justifyContent: "space-between", alignItems: "center",
-      }}>
+      <div style={{ background: "#0d0d0d", padding: "14px 20px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
         <div style={{ fontSize: 13, fontWeight: 700, color: "#ffffff", letterSpacing: "0.04em" }}>
           rek<span style={{ color: ORANGE }}>ō</span>do
         </div>
         <div style={{ textAlign: "center", flex: 1, padding: "0 20px" }}>
-          <div style={{
-            fontFamily: HAND_EMBED, fontSize: 22, color: "#ffffff",
-            overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
-          }}>
+          <div style={{ fontFamily: HAND_EMBED, fontSize: 22, color: "#ffffff", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
             {title || "My Mixtape"}
           </div>
         </div>
-        <div style={{ fontSize: 9, color: "#888", letterSpacing: "0.1em", whiteSpace: "nowrap" }}>
-          @{username}
-        </div>
+        <div style={{ fontSize: 9, color: "#888", letterSpacing: "0.1em", whiteSpace: "nowrap" }}>@{username}</div>
       </div>
 
-      {/* Cassette photo — full width, no padding */}
+      {/* Cassette photo with stamp overlays */}
       <div style={{ position: "relative", width: W, height: cassH, overflow: "hidden" }}>
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img src="/cassette-tape.png" alt="Cassette tape" width={W} height={cassH}
           style={{ display: "block", width: "100%", height: "100%" }} />
         <div style={{
           position: "absolute", top: "20%", left: "50%", transform: "translateX(-50%)",
-          width: "72%", textAlign: "center",
-          fontFamily: HAND_EMBED,
-          fontSize: Math.round(titleFs),
-          color: "#0d0d0d", fontWeight: 400, letterSpacing: "0.01em",
-          whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis",
-          pointerEvents: "none",
+          width: "72%", textAlign: "center", fontFamily: HAND_EMBED,
+          fontSize: Math.round(titleFs), color: "#0d0d0d", fontWeight: 400, letterSpacing: "0.01em",
+          whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", pointerEvents: "none",
         }}>
           {title || "My Mixtape"}
         </div>
+        {stamps.map(stamp => {
+          const sym = SYMBOL_MAP[stamp.key];
+          if (!sym) return null;
+          return (
+            <div key={stamp.id} style={{ position: "absolute", left: `${stamp.x}%`, top: `${stamp.y}%`, transform: "translate(-50%, -50%)", width: stampSize, height: stampSize, pointerEvents: "none" }}>
+              <svg viewBox="0 0 24 24" width={stampSize} height={stampSize}
+                fill={sym.filled ? "#0d0d0d" : "none"} stroke={sym.filled ? "none" : "#0d0d0d"}
+                strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                <path d={sym.d} />
+              </svg>
+            </div>
+          );
+        })}
       </div>
 
-      {/* Thin rule */}
       <div style={{ height: 1, background: "#e0e0e0" }} />
 
-      {/* Track listing — two columns on white */}
-      <div style={{
-        display: "flex", position: "relative",
-        backgroundImage: "repeating-linear-gradient(to bottom, transparent, transparent 26px, #f0f0f0 26px, #f0f0f0 27px)",
-      }}>
+      <div style={{ display: "flex", position: "relative", backgroundImage: "repeating-linear-gradient(to bottom, transparent, transparent 26px, #f0f0f0 26px, #f0f0f0 27px)" }}>
         {([["A", sideA], ["B", sideB]] as const).map(([side, tracks]) => (
           <div key={side} style={{ flex: 1, minWidth: 0, padding: "16px 18px" }}>
-            {/* Side header */}
-            <div style={{
-              display: "flex", alignItems: "center", gap: 8, marginBottom: 10,
-              borderBottom: "1.5px solid #0d0d0d", paddingBottom: 6,
-            }}>
-              <div style={{
-                width: 22, height: 22, borderRadius: "50%", background: "#0d0d0d",
-                display: "flex", alignItems: "center", justifyContent: "center",
-                fontSize: 12, color: "#fff", fontFamily: HAND_EMBED, fontWeight: 700, flexShrink: 0,
-              }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10, borderBottom: "1.5px solid #0d0d0d", paddingBottom: 6 }}>
+              <div style={{ width: 22, height: 22, borderRadius: "50%", background: "#0d0d0d", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12, color: "#fff", fontFamily: HAND_EMBED, fontWeight: 700, flexShrink: 0 }}>
                 {side}
               </div>
-              <span style={{ fontSize: 8, letterSpacing: "0.22em", color: "#888" }}>
-                SIDE {side}
-              </span>
+              <span style={{ fontSize: 8, letterSpacing: "0.22em", color: "#888" }}>SIDE {side}</span>
             </div>
-
             {(tracks as MixtapeTrack[]).map((t, i) => (
-              <div key={t.id + i} style={{
-                display: "flex", alignItems: "baseline", gap: 5,
-                borderBottom: "1px solid #e8e8e8", padding: "4px 0",
-              }}>
-                <span style={{ fontSize: 8, color: "#aaa", width: 14, flexShrink: 0, textAlign: "right" }}>
-                  {i + 1}
-                </span>
+              <div key={t.id + i} style={{ display: "flex", alignItems: "baseline", gap: 5, borderBottom: "1px solid #e8e8e8", padding: "4px 0" }}>
+                <span style={{ fontSize: 8, color: "#aaa", width: 14, flexShrink: 0, textAlign: "right" }}>{i + 1}</span>
                 <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontSize: 10, fontWeight: 700, color: "#0d0d0d", lineHeight: 1.3, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                    {t.title}
-                  </div>
-                  <div style={{ fontSize: 8, color: "#777", marginTop: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                    {t.artist}
-                  </div>
+                  <div style={{ fontSize: 10, fontWeight: 700, color: "#0d0d0d", lineHeight: 1.3, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{t.title}</div>
+                  <div style={{ fontSize: 8, color: "#777", marginTop: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{t.artist}</div>
                 </div>
-                {t.duration_ms > 0 && (
-                  <span style={{ fontSize: 8, color: "#999", flexShrink: 0 }}>
-                    {formatTime(t.duration_ms)}
-                  </span>
-                )}
+                {t.duration_ms > 0 && <span style={{ fontSize: 8, color: "#999", flexShrink: 0 }}>{formatTime(t.duration_ms)}</span>}
               </div>
             ))}
-            {(tracks as MixtapeTrack[]).length === 0 && (
-              <div style={{ fontSize: 8, color: "#ccc", padding: "4px 0" }}>—</div>
-            )}
+            {(tracks as MixtapeTrack[]).length === 0 && <div style={{ fontSize: 8, color: "#ccc", padding: "4px 0" }}>—</div>}
           </div>
         ))}
-        {/* vertical divider between columns */}
         <div style={{ position: "absolute", left: "50%", top: 0, bottom: 0, width: 1, background: "#e0e0e0", pointerEvents: "none" }} />
       </div>
 
-      {/* Black footer bar */}
-      <div style={{
-        background: "#0d0d0d", padding: "8px 20px",
-        display: "flex", justifyContent: "space-between", alignItems: "center",
-      }}>
-        <span style={{ fontSize: 8, color: "#666", letterSpacing: "0.14em" }}>
-          {cassetteType} CASSETTE
-        </span>
-        <span style={{ fontSize: 8, color: "#666", letterSpacing: "0.1em" }}>
-          rekodo.co
-        </span>
+      <div style={{ background: "#0d0d0d", padding: "8px 20px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+        <span style={{ fontSize: 8, color: "#666", letterSpacing: "0.14em" }}>{cassetteType} CASSETTE</span>
+        <span style={{ fontSize: 8, color: "#666", letterSpacing: "0.1em" }}>rekodo.co</span>
       </div>
     </div>
   );
@@ -336,9 +235,7 @@ function ShareCard({ title, sideA, sideB, username, cassetteType }: ShareCardPro
 
 // ── Share modal ────────────────────────────────────────────────────────────────
 
-function ShareModal({
-  title, sideA, sideB, username, cassetteType, onClose,
-}: ShareCardProps & { onClose: () => void }) {
+function ShareModal({ title, sideA, sideB, username, cassetteType, stamps, onClose }: ShareCardProps & { onClose: () => void }) {
   const cardRef = useRef<HTMLDivElement>(null);
   const [downloading, setDownloading] = useState(false);
   const [copied, setCopied] = useState(false);
@@ -352,11 +249,8 @@ function ShareModal({
       a.href = dataUrl;
       a.download = `${(title || "mixtape").replace(/\s+/g, "-").toLowerCase()}.png`;
       a.click();
-    } catch (e) {
-      console.error("Export failed", e);
-    } finally {
-      setDownloading(false);
-    }
+    } catch (e) { console.error("Export failed", e); }
+    finally { setDownloading(false); }
   }, [title]);
 
   const handleCopy = useCallback(async () => {
@@ -367,69 +261,23 @@ function ShareModal({
       await navigator.clipboard.write([new ClipboardItem({ "image/png": blob })]);
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
-    } catch (e) {
-      console.error("Copy failed", e);
-    }
+    } catch (e) { console.error("Copy failed", e); }
   }, []);
 
   return (
-    <div
-      onClick={onClose}
-      style={{
-        position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", zIndex: 9999,
-        display: "flex", alignItems: "center", justifyContent: "center", padding: 24,
-      }}
-    >
-      <div
-        onClick={e => e.stopPropagation()}
-        style={{
-          background: "#fff", borderRadius: 8, overflow: "hidden",
-          maxWidth: 680, width: "100%", maxHeight: "90vh", overflowY: "auto",
-        }}
-      >
-        {/* Preview */}
+    <div onClick={onClose} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", zIndex: 9999, display: "flex", alignItems: "center", justifyContent: "center", padding: 24 }}>
+      <div onClick={e => e.stopPropagation()} style={{ background: "#fff", borderRadius: 8, overflow: "hidden", maxWidth: 680, width: "100%", maxHeight: "90vh", overflowY: "auto" }}>
         <div ref={cardRef} style={{ display: "inline-block" }}>
-          <ShareCard title={title} sideA={sideA} sideB={sideB} username={username} cassetteType={cassetteType} />
+          <ShareCard title={title} sideA={sideA} sideB={sideB} username={username} cassetteType={cassetteType} stamps={stamps} />
         </div>
-
-        {/* Actions */}
-        <div style={{
-          padding: "16px 24px", borderTop: `1px solid ${RULE}`,
-          display: "flex", gap: 12, flexWrap: "wrap",
-        }}>
-          <button
-            onClick={handleDownload}
-            disabled={downloading}
-            style={{
-              fontFamily: MONO, fontSize: 10, letterSpacing: "0.1em",
-              textTransform: "uppercase", padding: "8px 16px",
-              background: ORANGE, color: "#fff", border: "none",
-              borderRadius: 4, cursor: downloading ? "wait" : "pointer",
-              opacity: downloading ? 0.7 : 1,
-            }}
-          >
+        <div style={{ padding: "16px 24px", borderTop: `1px solid ${RULE}`, display: "flex", gap: 12, flexWrap: "wrap" }}>
+          <button onClick={handleDownload} disabled={downloading} style={{ fontFamily: MONO, fontSize: 10, letterSpacing: "0.1em", textTransform: "uppercase", padding: "8px 16px", background: ORANGE, color: "#fff", border: "none", borderRadius: 4, cursor: downloading ? "wait" : "pointer", opacity: downloading ? 0.7 : 1 }}>
             {downloading ? "Saving…" : "Download PNG"}
           </button>
-          <button
-            onClick={handleCopy}
-            style={{
-              fontFamily: MONO, fontSize: 10, letterSpacing: "0.1em",
-              textTransform: "uppercase", padding: "8px 16px",
-              background: "none", color: INK, border: `1px solid ${RULE}`,
-              borderRadius: 4, cursor: "pointer",
-            }}
-          >
+          <button onClick={handleCopy} style={{ fontFamily: MONO, fontSize: 10, letterSpacing: "0.1em", textTransform: "uppercase", padding: "8px 16px", background: "none", color: INK, border: `1px solid ${RULE}`, borderRadius: 4, cursor: "pointer" }}>
             {copied ? "Copied!" : "Copy Image"}
           </button>
-          <button
-            onClick={onClose}
-            style={{
-              fontFamily: MONO, fontSize: 10, letterSpacing: "0.1em",
-              textTransform: "uppercase", padding: "8px 16px",
-              background: "none", color: MUTED, border: "none",
-              cursor: "pointer", marginLeft: "auto",
-            }}
-          >
+          <button onClick={onClose} style={{ fontFamily: MONO, fontSize: 10, letterSpacing: "0.1em", textTransform: "uppercase", padding: "8px 16px", background: "none", color: MUTED, border: "none", cursor: "pointer", marginLeft: "auto" }}>
             Close
           </button>
         </div>
@@ -450,13 +298,12 @@ type MixtapeSummary = {
 type MixtapeFull = MixtapeSummary & {
   side_a: MixtapeTrack[];
   side_b: MixtapeTrack[];
+  stamps: Stamp[];
 };
 
 // ── Saved list column ──────────────────────────────────────────────────────────
 
-function SavedList({
-  mixtapes, selectedId, onSelect, onNew, onDelete,
-}: {
+function SavedList({ mixtapes, selectedId, onSelect, onNew, onDelete }: {
   mixtapes: MixtapeSummary[];
   selectedId: string | null;
   onSelect: (id: string) => void;
@@ -464,70 +311,28 @@ function SavedList({
   onDelete: (id: string) => void;
 }) {
   const [hoveredId, setHoveredId] = useState<string | null>(null);
-
   return (
     <div style={{ width: 120, flexShrink: 0, paddingTop: 4 }}>
-      <p style={{ fontFamily: MONO, fontSize: 9, letterSpacing: "0.14em", textTransform: "uppercase", color: MUTED, margin: "0 0 12px" }}>
-        Saved
-      </p>
+      <p style={{ fontFamily: MONO, fontSize: 9, letterSpacing: "0.14em", textTransform: "uppercase", color: MUTED, margin: "0 0 12px" }}>Saved</p>
       <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-        {/* New button */}
-        <button
-          onClick={onNew}
-          style={{
-            fontFamily: MONO, fontSize: 10, letterSpacing: "0.06em",
-            background: "none", border: "none", padding: "2px 0",
-            textAlign: "left", cursor: selectedId === null ? "default" : "pointer",
-            color: selectedId === null ? ORANGE : INK,
-            borderBottom: selectedId === null ? `1px solid ${ORANGE}` : "1px solid transparent",
-            width: "fit-content",
-          }}
-        >
+        <button onClick={onNew} style={{ fontFamily: MONO, fontSize: 10, letterSpacing: "0.06em", background: "none", border: "none", padding: "2px 0", textAlign: "left", cursor: selectedId === null ? "default" : "pointer", color: selectedId === null ? ORANGE : INK, borderBottom: selectedId === null ? `1px solid ${ORANGE}` : "1px solid transparent", width: "fit-content" }}>
           + New
         </button>
         {mixtapes.map(m => {
-          const active = m.id === selectedId;
+          const active  = m.id === selectedId;
           const hovered = m.id === hoveredId;
           return (
-            <div
-              key={m.id}
-              style={{ display: "flex", alignItems: "baseline", gap: 4 }}
-              onMouseEnter={() => setHoveredId(m.id)}
-              onMouseLeave={() => setHoveredId(null)}
-            >
-              <button
-                onClick={() => onSelect(m.id)}
-                style={{
-                  fontFamily: MONO, fontSize: 10, letterSpacing: "0.06em",
-                  background: "none", border: "none", padding: "2px 0",
-                  textAlign: "left", cursor: active ? "default" : "pointer",
-                  color: active ? ORANGE : "#888888",
-                  borderBottom: active ? `1px solid ${ORANGE}` : "1px solid transparent",
-                  maxWidth: 96, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
-                  flexShrink: 0,
-                }}
-                title={m.title || "Untitled"}
-              >
+            <div key={m.id} style={{ display: "flex", alignItems: "baseline", gap: 4 }} onMouseEnter={() => setHoveredId(m.id)} onMouseLeave={() => setHoveredId(null)}>
+              <button onClick={() => onSelect(m.id)} title={m.title || "Untitled"} style={{ fontFamily: MONO, fontSize: 10, letterSpacing: "0.06em", background: "none", border: "none", padding: "2px 0", textAlign: "left", cursor: active ? "default" : "pointer", color: active ? ORANGE : "#888888", borderBottom: active ? `1px solid ${ORANGE}` : "1px solid transparent", maxWidth: 96, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", flexShrink: 0 }}>
                 {m.title || "Untitled"}
               </button>
               {hovered && (
-                <button
-                  onClick={() => onDelete(m.id)}
-                  title="Delete"
-                  style={{
-                    fontFamily: MONO, fontSize: 10, background: "none", border: "none",
-                    padding: 0, cursor: "pointer", color: MUTED, lineHeight: 1, flexShrink: 0,
-                  }}
-                >
-                  ×
-                </button>
+                <button onClick={() => onDelete(m.id)} title="Delete" style={{ fontFamily: MONO, fontSize: 10, background: "none", border: "none", padding: 0, cursor: "pointer", color: MUTED, lineHeight: 1, flexShrink: 0 }}>×</button>
               )}
             </div>
           );
         })}
-        {mixtapes.length === 0 && (
-          <span style={{ fontFamily: MONO, fontSize: 9, color: MUTED }}>None yet</span>
-        )}
+        {mixtapes.length === 0 && <span style={{ fontFamily: MONO, fontSize: 9, color: MUTED }}>None yet</span>}
       </div>
     </div>
   );
@@ -541,38 +346,27 @@ export default function MixtapeTab({ username }: { username: string }) {
   const [activeSide,   setActiveSide]   = useState<"A" | "B">("A");
   const [sideA,        setSideA]        = useState<MixtapeTrack[]>([]);
   const [sideB,        setSideB]        = useState<MixtapeTrack[]>([]);
+  const [stamps,       setStamps]       = useState<Stamp[]>([]);
 
   const [cardView,         setCardView]         = useState<"front" | "back">("front");
   const [savedMixtapes,    setSavedMixtapes]    = useState<MixtapeSummary[]>([]);
   const [currentMixtapeId, setCurrentMixtapeId] = useState<string | null>(null);
   const [saving,           setSaving]           = useState(false);
 
-  const [query,            setQuery]            = useState("");
-  const [albumResults,     setAlbumResults]     = useState<AlbumResult[]>([]);
-  const [searching,        setSearching]        = useState(false);
-  const [expandedAlbumId,  setExpandedAlbumId]  = useState<string | null>(null);
-  // discogs_id → fetched tracklist (cached so we don't refetch on re-expand)
-  const [discogsCache,     setDiscogsCache]     = useState<Map<string, DiscogsTrack[]>>(new Map());
-  const [loadingDiscogs,   setLoadingDiscogs]   = useState<string | null>(null);
-  const [showShare,        setShowShare]        = useState(false);
+  const [query,           setQuery]           = useState("");
+  const [albumResults,    setAlbumResults]    = useState<AlbumResult[]>([]);
+  const [searching,       setSearching]       = useState(false);
+  const [expandedAlbumId, setExpandedAlbumId] = useState<string | null>(null);
+  const [discogsCache,    setDiscogsCache]    = useState<Map<string, DiscogsTrack[]>>(new Map());
+  const [loadingDiscogs,  setLoadingDiscogs]  = useState<string | null>(null);
+  const [showShare,       setShowShare]       = useState(false);
 
   const searchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const titleRef    = useRef<HTMLInputElement>(null);
 
-  function insertEmoji(emoji: string) {
-    const input = titleRef.current;
-    if (!input) { setTitle(prev => prev + emoji); return; }
-    const start = input.selectionStart ?? title.length;
-    const end   = input.selectionEnd   ?? title.length;
-    const next  = title.slice(0, start) + emoji + title.slice(end);
-    setTitle(next);
-    requestAnimationFrame(() => {
-      input.setSelectionRange(start + emoji.length, start + emoji.length);
-      input.focus();
-    });
+  function handleAddStamp(key: string) {
+    setStamps(prev => [...prev, { id: `${key}-${Date.now()}`, key, x: 50, y: 60 }]);
   }
 
-  // Load saved mixtapes list on mount
   useEffect(() => {
     fetch("/api/mixtape/list")
       .then(r => r.json())
@@ -586,32 +380,19 @@ export default function MixtapeTab({ username }: { username: string }) {
       const res = await fetch("/api/mixtape/save", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          id:            currentMixtapeId ?? undefined,
-          title,
-          cassette_type: cassetteType,
-          side_a:        sideA,
-          side_b:        sideB,
-        }),
+        body: JSON.stringify({ id: currentMixtapeId ?? undefined, title, cassette_type: cassetteType, side_a: sideA, side_b: sideB, stamps }),
       });
       if (!res.ok) return;
       const { id } = await res.json() as { id: string };
       setCurrentMixtapeId(id);
-      // Refresh list
       const listRes = await fetch("/api/mixtape/list");
       const listData = await listRes.json() as { mixtapes: MixtapeSummary[] };
       setSavedMixtapes(listData.mixtapes ?? []);
-    } finally {
-      setSaving(false);
-    }
+    } finally { setSaving(false); }
   }
 
   async function handleSelectMixtape(id: string) {
     if (id === currentMixtapeId) return;
-    // Fetch full mixtape data from the list cache + a detail endpoint (re-use list for now)
-    // We store full side_a/b in the list endpoint? No — we need a separate fetch.
-    // Use save route: GET not supported, so fetch from a simple query via existing list data.
-    // Actually we need a detail route — but we can piggyback: re-fetch with side_a/b included.
     const res = await fetch(`/api/mixtape/load?id=${encodeURIComponent(id)}`);
     if (!res.ok) return;
     const m = await res.json() as MixtapeFull;
@@ -620,6 +401,7 @@ export default function MixtapeTab({ username }: { username: string }) {
     setCassetteType(m.cassette_type as "C60" | "C90" | "C120");
     setSideA(m.side_a ?? []);
     setSideB(m.side_b ?? []);
+    setStamps(m.stamps ?? []);
     setQuery("");
     setAlbumResults([]);
   }
@@ -637,11 +419,12 @@ export default function MixtapeTab({ username }: { username: string }) {
     setActiveSide("A");
     setSideA([]);
     setSideB([]);
+    setStamps([]);
     setQuery("");
     setAlbumResults([]);
   }
 
-  const limit = CASSETTE_LIMITS[cassetteType];
+  const limit   = CASSETTE_LIMITS[cassetteType];
   const sideAMs = sideA.reduce((s, t) => s + t.duration_ms, 0);
   const sideBMs = sideB.reduce((s, t) => s + t.duration_ms, 0);
 
@@ -655,11 +438,8 @@ export default function MixtapeTab({ username }: { username: string }) {
         const data = await res.json() as { albums: AlbumResult[] };
         setAlbumResults(data.albums ?? []);
         setExpandedAlbumId(null);
-      } catch {
-        setAlbumResults([]);
-      } finally {
-        setSearching(false);
-      }
+      } catch { setAlbumResults([]); }
+      finally { setSearching(false); }
     }, 300);
     return () => { if (searchTimer.current) clearTimeout(searchTimer.current); };
   }, [query]);
@@ -667,10 +447,8 @@ export default function MixtapeTab({ username }: { username: string }) {
   async function toggleAlbum(result: AlbumResult) {
     if (expandedAlbumId === result.id) { setExpandedAlbumId(null); return; }
     setExpandedAlbumId(result.id);
-    // If already stored in DB or already in session cache, nothing to do
     if (result.discogs_tracks?.length || !result.discogs_id) return;
     if (discogsCache.has(result.discogs_id)) return;
-    // Fetch from Discogs and persist to DB for future loads
     setLoadingDiscogs(result.id);
     try {
       const res = await fetch("/api/mixtape/cache-tracklist", {
@@ -706,7 +484,7 @@ export default function MixtapeTab({ username }: { username: string }) {
     const blob = new Blob([rows], { type: "text/csv;charset=utf-8;" });
     const url  = URL.createObjectURL(blob);
     const a    = document.createElement("a");
-    a.href     = url;
+    a.href = url;
     a.download = `${(title || "mixtape").replace(/\s+/g, "-").toLowerCase()}-soundiiz.csv`;
     a.click();
     URL.revokeObjectURL(url);
@@ -718,346 +496,222 @@ export default function MixtapeTab({ username }: { username: string }) {
   return (
     <div style={{ maxWidth: 1200, margin: "0 auto", padding: "36px 40px 80px" }}>
 
-      {/* Admin badge */}
       <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 24 }}>
-        <span style={{
-          fontFamily: MONO, fontSize: 9, letterSpacing: "0.15em",
-          textTransform: "uppercase", color: "#fff", background: "#0d0d0d",
-          padding: "2px 7px", borderRadius: 3,
-        }}>
+        <span style={{ fontFamily: MONO, fontSize: 9, letterSpacing: "0.15em", textTransform: "uppercase", color: "#fff", background: "#0d0d0d", padding: "2px 7px", borderRadius: 3 }}>
           Admin Preview
         </span>
-        <span style={{ fontFamily: MONO, fontSize: 10, color: MUTED }}>
-          Mixtape — not yet live to members
-        </span>
+        <span style={{ fontFamily: MONO, fontSize: 10, color: MUTED }}>Mixtape — not yet live to members</span>
       </div>
 
       {/* Two-column layout: saved list left, editor right */}
       <div style={{ display: "flex", gap: 48, alignItems: "flex-start" }}>
-        <SavedList
-          mixtapes={savedMixtapes}
-          selectedId={currentMixtapeId}
-          onSelect={handleSelectMixtape}
-          onNew={handleNew}
-          onDelete={handleDelete}
-        />
+        <SavedList mixtapes={savedMixtapes} selectedId={currentMixtapeId} onSelect={handleSelectMixtape} onNew={handleNew} onDelete={handleDelete} />
 
-        {/* Editor — flex: 1 */}
+        {/* Editor */}
         <div style={{ flex: 1, minWidth: 0 }}>
 
-      {/* Title + cassette type */}
-      <div style={{ display: "flex", gap: 12, marginBottom: 24, alignItems: "flex-end", flexWrap: "wrap" }}>
-        <div style={{ flex: 1, minWidth: 200 }}>
-          <label style={{ fontFamily: MONO, fontSize: 9, letterSpacing: "0.12em", textTransform: "uppercase", color: MUTED, display: "block", marginBottom: 5 }}>
-            Mixtape title
-          </label>
-          <input
-            ref={titleRef}
-            value={title}
-            onChange={e => setTitle(e.target.value)}
-            placeholder="Summer 2026 Mix"
-            maxLength={44}
-            style={{
-              fontFamily: SERIF, fontSize: 15, width: "100%",
-              padding: "8px 10px", border: `1px solid ${RULE}`,
-              borderRadius: 4, outline: "none", background: "#fff",
-              boxSizing: "border-box",
-            }}
-          />
-          {/* Symbol palette — B&W SVG stamps */}
-          <div style={{ display: "flex", gap: 4, marginTop: 6, flexWrap: "wrap" }}>
-            {SYMBOLS.map(sym => (
-              <button
-                key={sym.key}
-                onClick={() => insertEmoji(sym.insert)}
-                title={`Add ${sym.key}`}
-                style={{
-                  width: 32, height: 32, padding: 5,
-                  background: "none", border: `1px solid ${RULE}`,
-                  borderRadius: 4, cursor: "pointer", display: "flex",
-                  alignItems: "center", justifyContent: "center",
-                }}
-              >
-                <svg viewBox="0 0 24 24" width="20" height="20"
-                  fill={sym.filled ? "#0d0d0d" : "none"}
-                  stroke={sym.filled ? "none" : "#0d0d0d"}
-                  strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"
-                >
-                  <path d={sym.d} />
-                </svg>
-              </button>
-            ))}
-          </div>
-        </div>
-        <div>
-          <label style={{ fontFamily: MONO, fontSize: 9, letterSpacing: "0.12em", textTransform: "uppercase", color: MUTED, display: "block", marginBottom: 5 }}>
-            Tape length
-          </label>
-          <div style={{ display: "flex", gap: 1 }}>
-            {(["C60", "C90", "C120"] as const).map(t => (
-              <button
-                key={t}
-                onClick={() => setCassetteType(t)}
-                style={{
-                  fontFamily: MONO, fontSize: 10, letterSpacing: "0.08em",
-                  padding: "7px 12px",
-                  background: cassetteType === t ? INK : "#fff",
-                  color: cassetteType === t ? "#fff" : MUTED,
-                  border: `1px solid ${cassetteType === t ? INK : RULE}`,
-                  cursor: "pointer",
-                  borderRadius: t === "C60" ? "4px 0 0 4px" : t === "C120" ? "0 4px 4px 0" : "0",
-                }}
-              >
-                {t}
-              </button>
-            ))}
-          </div>
-          <div style={{ fontFamily: MONO, fontSize: 9, color: MUTED, marginTop: 3 }}>
-            {formatTime(limit)} per side
-          </div>
-        </div>
-      </div>
-
-      {/* Cassette / Tracklist visual */}
-      <div style={{ display: "flex", justifyContent: "center", marginBottom: 10 }}>
-        {cardView === "front" ? (
-          <CassetteSVG
-            title={title || "My Mixtape"}
-            sideAFill={sideAFill}
-            sideBFill={sideBFill}
-            activeSide={activeSide}
-            width={Math.min(520, typeof window !== "undefined" ? window.innerWidth - 200 : 520)}
-          />
-        ) : (
-          <CassetteBackCard
-            title={title || "My Mixtape"}
-            sideA={sideA}
-            sideB={sideB}
-            cassetteType={cassetteType}
-            width={Math.min(520, typeof window !== "undefined" ? window.innerWidth - 200 : 520)}
-          />
-        )}
-      </div>
-
-      {/* Front / back toggle */}
-      <div style={{ display: "flex", justifyContent: "center", gap: 1, marginBottom: 24 }}>
-        {(["front", "back"] as const).map((view, i) => (
-          <button
-            key={view}
-            onClick={() => setCardView(view)}
-            style={{
-              fontFamily: MONO, fontSize: 9, letterSpacing: "0.12em",
-              textTransform: "uppercase", padding: "5px 18px",
-              background: cardView === view ? "#0d0d0d" : "#fff",
-              color: cardView === view ? "#fff" : MUTED,
-              border: `1px solid ${cardView === view ? "#0d0d0d" : RULE}`,
-              borderRadius: i === 0 ? "4px 0 0 4px" : "0 4px 4px 0",
-              cursor: "pointer",
-            }}
-          >
-            {view === "front" ? "Tape" : "Tracklist"}
-          </button>
-        ))}
-      </div>
-
-      {/* Side switcher */}
-      <div style={{ display: "flex", justifyContent: "center", gap: 0, marginBottom: 24 }}>
-        {(["A", "B"] as const).map(side => (
-          <button
-            key={side}
-            onClick={() => setActiveSide(side)}
-            style={{
-              fontFamily: MONO, fontSize: 10, letterSpacing: "0.15em",
-              textTransform: "uppercase", padding: "8px 32px",
-              background: activeSide === side ? INK : "#fff",
-              color: activeSide === side ? "#fff" : MUTED,
-              border: `1px solid ${activeSide === side ? INK : RULE}`,
-              borderRadius: side === "A" ? "4px 0 0 4px" : "0 4px 4px 0",
-              cursor: "pointer",
-            }}
-          >
-            Side {side} — {formatTime(side === "A" ? sideAMs : sideBMs)}
-          </button>
-        ))}
-      </div>
-
-      {/* Side panels — side by side on desktop */}
-      <div style={{ display: "flex", gap: 32, marginBottom: 28 }}>
-        <SidePanel
-          side="A"
-          tracks={sideA}
-          limit={limit}
-          onRemove={removeFromA}
-        />
-        <div style={{ width: 1, background: RULE, flexShrink: 0 }} />
-        <SidePanel
-          side="B"
-          tracks={sideB}
-          limit={limit}
-          onRemove={removeFromB}
-        />
-      </div>
-
-      {/* Track search */}
-      <div style={{ borderTop: `1.5px solid ${INK}`, paddingTop: 20, marginBottom: 28 }}>
-        <label style={{ fontFamily: MONO, fontSize: 9, letterSpacing: "0.12em", textTransform: "uppercase", color: MUTED, display: "block", marginBottom: 8 }}>
-          Search your collection — click an album to pick a track
-        </label>
-        <input
-          value={query}
-          onChange={e => setQuery(e.target.value)}
-          placeholder="Artist or album…"
-          style={{
-            fontFamily: MONO, fontSize: 12, width: "100%",
-            padding: "9px 12px", border: `1px solid ${RULE}`,
-            borderRadius: 4, outline: "none", background: "#fff",
-            boxSizing: "border-box", marginBottom: 8,
-          }}
-        />
-        {searching && (
-          <p style={{ fontFamily: MONO, fontSize: 10, color: MUTED }}>Searching…</p>
-        )}
-        {!searching && albumResults.length === 0 && query.trim().length >= 2 && (
-          <p style={{ fontFamily: MONO, fontSize: 10, color: MUTED }}>
-            No records found. Try artist name or album title.
-          </p>
-        )}
-
-        <div>
-          {albumResults.map(result => {
-            const isExpanded = expandedAlbumId === result.id;
-            const isLoadingThis = loadingDiscogs === result.id;
-            // Prefer DB-stored tracks; fall back to session cache from lazy fetch
-            const tracks: DiscogsTrack[] | null =
-              result.discogs_tracks?.length
-                ? result.discogs_tracks
-                : (result.discogs_id ? (discogsCache.get(result.discogs_id) ?? null) : null);
-            const currentMs = activeSide === "A" ? sideAMs : sideBMs;
-
-            return (
-              <div key={result.id} style={{ borderBottom: `1px solid ${RULE}` }}>
-                {/* Album row */}
-                <div
-                  onClick={() => toggleAlbum(result)}
-                  style={{ display: "flex", alignItems: "center", gap: 10, padding: "9px 0", cursor: "pointer" }}
-                >
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontFamily: SERIF, fontSize: 13, fontWeight: 600, color: INK, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                      {result.artist}
-                    </div>
-                    <div style={{ fontFamily: MONO, fontSize: 10, color: MUTED, marginTop: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                      {result.album}{result.year ? ` (${result.year})` : ""}
-                    </div>
-                  </div>
-                  <span style={{ fontFamily: MONO, fontSize: 10, color: MUTED, flexShrink: 0 }}>
-                    {isExpanded ? "▲" : "▼"}
-                  </span>
-                </div>
-
-                {/* Tracklist — shown when expanded */}
-                {isExpanded && (
-                  <div style={{ paddingLeft: 12, paddingBottom: 8 }}>
-                    {isLoadingThis && (
-                      <p style={{ fontFamily: MONO, fontSize: 10, color: MUTED, padding: "6px 0" }}>Loading tracklist…</p>
-                    )}
-                    {!isLoadingThis && !tracks && (
-                      <p style={{ fontFamily: MONO, fontSize: 10, color: MUTED, padding: "6px 0" }}>
-                        {result.discogs_id ? "Tracklist unavailable." : "No tracklist — record has no Discogs ID."}
-                      </p>
-                    )}
-                    {!isLoadingThis && tracks && tracks.map((t, i) => {
-                      const durationMs = parseDuration(t.duration);
-                      const track: MixtapeTrack = {
-                        id: `${result.id}||${t.position}||${t.title}`,
-                        artist: result.artist, title: t.title, album: result.album,
-                        year: result.year, cover_url: result.cover_url, duration_ms: durationMs,
-                      };
-                      const wouldExceed = durationMs > 0 && currentMs + durationMs > limit + 60_000;
-                      return (
-                        <div key={i} style={{ display: "flex", alignItems: "center", gap: 8, padding: "5px 0", borderTop: `1px solid ${RULE}`, opacity: wouldExceed ? 0.35 : 1 }}>
-                          <span style={{ fontFamily: MONO, fontSize: 9, color: ORANGE, width: 24, flexShrink: 0 }}>{t.position}</span>
-                          <div style={{ flex: 1, minWidth: 0, fontFamily: SERIF, fontSize: 12, color: INK, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{t.title}</div>
-                          <span style={{ fontFamily: MONO, fontSize: 9, color: MUTED, flexShrink: 0 }}>{t.duration || "—"}</span>
-                          <button
-                            onClick={() => !wouldExceed && addTrack(track)}
-                            disabled={wouldExceed}
-                            style={{ fontFamily: MONO, fontSize: 9, letterSpacing: "0.1em", padding: "3px 8px", background: "none", border: `1px solid ${wouldExceed ? RULE : ORANGE}`, color: wouldExceed ? RULE : ORANGE, borderRadius: 3, cursor: wouldExceed ? "not-allowed" : "pointer", flexShrink: 0 }}
-                          >
-                            + {activeSide}
-                          </button>
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
+          {/* Title + tape length */}
+          <div style={{ display: "flex", gap: 12, marginBottom: 24, alignItems: "flex-end", flexWrap: "wrap" }}>
+            <div style={{ flex: 1, minWidth: 200 }}>
+              <label style={{ fontFamily: MONO, fontSize: 9, letterSpacing: "0.12em", textTransform: "uppercase", color: MUTED, display: "block", marginBottom: 5 }}>
+                Mixtape title
+              </label>
+              <input
+                value={title}
+                onChange={e => setTitle(e.target.value)}
+                placeholder="Summer 2026 Mix"
+                maxLength={44}
+                style={{ fontFamily: SERIF, fontSize: 15, width: "100%", padding: "8px 10px", border: `1px solid ${RULE}`, borderRadius: 4, outline: "none", background: "#fff", boxSizing: "border-box" }}
+              />
+            </div>
+            <div>
+              <label style={{ fontFamily: MONO, fontSize: 9, letterSpacing: "0.12em", textTransform: "uppercase", color: MUTED, display: "block", marginBottom: 5 }}>
+                Tape length
+              </label>
+              <div style={{ display: "flex", gap: 1 }}>
+                {(["C60", "C90", "C120"] as const).map(t => (
+                  <button key={t} onClick={() => setCassetteType(t)} style={{ fontFamily: MONO, fontSize: 10, letterSpacing: "0.08em", padding: "7px 12px", background: cassetteType === t ? INK : "#fff", color: cassetteType === t ? "#fff" : MUTED, border: `1px solid ${cassetteType === t ? INK : RULE}`, cursor: "pointer", borderRadius: t === "C60" ? "4px 0 0 4px" : t === "C120" ? "0 4px 4px 0" : "0" }}>
+                    {t}
+                  </button>
+                ))}
               </div>
-            );
-          })}
+              <div style={{ fontFamily: MONO, fontSize: 9, color: MUTED, marginTop: 3 }}>{formatTime(limit)} per side</div>
+            </div>
+          </div>
+
+          {/* Cassette image + stamps panel side by side */}
+          <div style={{ display: "flex", gap: 20, alignItems: "flex-start", marginBottom: 10 }}>
+            <div style={{ flex: "0 0 auto" }}>
+              {cardView === "front" ? (
+                <CassetteSVG
+                  title={title || "My Mixtape"}
+                  sideAFill={sideAFill}
+                  sideBFill={sideBFill}
+                  activeSide={activeSide}
+                  stamps={stamps}
+                  onStampsChange={setStamps}
+                  width={Math.min(480, typeof window !== "undefined" ? window.innerWidth - 320 : 480)}
+                />
+              ) : (
+                <CassetteBackCard
+                  title={title || "My Mixtape"}
+                  sideA={sideA}
+                  sideB={sideB}
+                  cassetteType={cassetteType}
+                  width={Math.min(480, typeof window !== "undefined" ? window.innerWidth - 320 : 480)}
+                />
+              )}
+            </div>
+
+            {/* Stamps panel — only relevant for front view */}
+            <div style={{ width: 130, flexShrink: 0 }}>
+              <p style={{ fontFamily: MONO, fontSize: 9, letterSpacing: "0.14em", textTransform: "uppercase", color: MUTED, margin: "0 0 10px" }}>
+                Stamps
+              </p>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 5 }}>
+                {SYMBOLS.map(sym => (
+                  <button
+                    key={sym.key}
+                    onClick={() => { setCardView("front"); handleAddStamp(sym.key); }}
+                    title={`Add ${sym.key}`}
+                    style={{ width: 36, height: 36, padding: 6, background: "none", border: `1px solid ${RULE}`, borderRadius: 4, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}
+                  >
+                    <svg viewBox="0 0 24 24" width="20" height="20"
+                      fill={sym.filled ? "#0d0d0d" : "none"}
+                      stroke={sym.filled ? "none" : "#0d0d0d"}
+                      strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                      <path d={sym.d} />
+                    </svg>
+                  </button>
+                ))}
+              </div>
+              {stamps.length > 0 && (
+                <button
+                  onClick={() => setStamps([])}
+                  style={{ fontFamily: MONO, fontSize: 9, letterSpacing: "0.08em", textTransform: "uppercase", color: MUTED, background: "none", border: "none", cursor: "pointer", padding: "10px 0 0", display: "block" }}
+                >
+                  Clear all
+                </button>
+              )}
+              {cardView === "back" && stamps.length === 0 && (
+                <p style={{ fontFamily: MONO, fontSize: 9, color: MUTED, marginTop: 6, lineHeight: 1.5 }}>
+                  Click a stamp, then drag it on the tape front.
+                </p>
+              )}
+            </div>
+          </div>
+
+          {/* Front / back toggle */}
+          <div style={{ display: "flex", justifyContent: "flex-start", gap: 1, marginBottom: 24 }}>
+            {(["front", "back"] as const).map((view, i) => (
+              <button key={view} onClick={() => setCardView(view)} style={{ fontFamily: MONO, fontSize: 9, letterSpacing: "0.12em", textTransform: "uppercase", padding: "5px 18px", background: cardView === view ? "#0d0d0d" : "#fff", color: cardView === view ? "#fff" : MUTED, border: `1px solid ${cardView === view ? "#0d0d0d" : RULE}`, borderRadius: i === 0 ? "4px 0 0 4px" : "0 4px 4px 0", cursor: "pointer" }}>
+                {view === "front" ? "Tape" : "Tracklist"}
+              </button>
+            ))}
+          </div>
+
+          {/* Side switcher */}
+          <div style={{ display: "flex", gap: 0, marginBottom: 24 }}>
+            {(["A", "B"] as const).map(side => (
+              <button key={side} onClick={() => setActiveSide(side)} style={{ fontFamily: MONO, fontSize: 10, letterSpacing: "0.15em", textTransform: "uppercase", padding: "8px 32px", background: activeSide === side ? INK : "#fff", color: activeSide === side ? "#fff" : MUTED, border: `1px solid ${activeSide === side ? INK : RULE}`, borderRadius: side === "A" ? "4px 0 0 4px" : "0 4px 4px 0", cursor: "pointer" }}>
+                Side {side} — {formatTime(side === "A" ? sideAMs : sideBMs)}
+              </button>
+            ))}
+          </div>
+
+          {/* Side panels */}
+          <div style={{ display: "flex", gap: 32, marginBottom: 28 }}>
+            <SidePanel side="A" tracks={sideA} limit={limit} onRemove={removeFromA} />
+            <div style={{ width: 1, background: RULE, flexShrink: 0 }} />
+            <SidePanel side="B" tracks={sideB} limit={limit} onRemove={removeFromB} />
+          </div>
+
+          {/* Track search */}
+          <div style={{ borderTop: `1.5px solid ${INK}`, paddingTop: 20, marginBottom: 28 }}>
+            <label style={{ fontFamily: MONO, fontSize: 9, letterSpacing: "0.12em", textTransform: "uppercase", color: MUTED, display: "block", marginBottom: 8 }}>
+              Search your collection — click an album to pick a track
+            </label>
+            <input
+              value={query}
+              onChange={e => setQuery(e.target.value)}
+              placeholder="Artist or album…"
+              style={{ fontFamily: MONO, fontSize: 12, width: "100%", padding: "9px 12px", border: `1px solid ${RULE}`, borderRadius: 4, outline: "none", background: "#fff", boxSizing: "border-box", marginBottom: 8 }}
+            />
+            {searching && <p style={{ fontFamily: MONO, fontSize: 10, color: MUTED }}>Searching…</p>}
+            {!searching && albumResults.length === 0 && query.trim().length >= 2 && (
+              <p style={{ fontFamily: MONO, fontSize: 10, color: MUTED }}>No records found. Try artist name or album title.</p>
+            )}
+            <div>
+              {albumResults.map(result => {
+                const isExpanded   = expandedAlbumId === result.id;
+                const isLoadingThis = loadingDiscogs === result.id;
+                const tracks: DiscogsTrack[] | null =
+                  result.discogs_tracks?.length
+                    ? result.discogs_tracks
+                    : (result.discogs_id ? (discogsCache.get(result.discogs_id) ?? null) : null);
+                const currentMs = activeSide === "A" ? sideAMs : sideBMs;
+                return (
+                  <div key={result.id} style={{ borderBottom: `1px solid ${RULE}` }}>
+                    <div onClick={() => toggleAlbum(result)} style={{ display: "flex", alignItems: "center", gap: 10, padding: "9px 0", cursor: "pointer" }}>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ fontFamily: SERIF, fontSize: 13, fontWeight: 600, color: INK, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{result.artist}</div>
+                        <div style={{ fontFamily: MONO, fontSize: 10, color: MUTED, marginTop: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{result.album}{result.year ? ` (${result.year})` : ""}</div>
+                      </div>
+                      <span style={{ fontFamily: MONO, fontSize: 10, color: MUTED, flexShrink: 0 }}>{isExpanded ? "▲" : "▼"}</span>
+                    </div>
+                    {isExpanded && (
+                      <div style={{ paddingLeft: 12, paddingBottom: 8 }}>
+                        {isLoadingThis && <p style={{ fontFamily: MONO, fontSize: 10, color: MUTED, padding: "6px 0" }}>Loading tracklist…</p>}
+                        {!isLoadingThis && !tracks && (
+                          <p style={{ fontFamily: MONO, fontSize: 10, color: MUTED, padding: "6px 0" }}>
+                            {result.discogs_id ? "Tracklist unavailable." : "No tracklist — record has no Discogs ID."}
+                          </p>
+                        )}
+                        {!isLoadingThis && tracks && tracks.map((t, i) => {
+                          const durationMs = parseDuration(t.duration);
+                          const track: MixtapeTrack = { id: `${result.id}||${t.position}||${t.title}`, artist: result.artist, title: t.title, album: result.album, year: result.year, cover_url: result.cover_url, duration_ms: durationMs };
+                          const wouldExceed = durationMs > 0 && currentMs + durationMs > limit + 60_000;
+                          return (
+                            <div key={i} style={{ display: "flex", alignItems: "center", gap: 8, padding: "5px 0", borderTop: `1px solid ${RULE}`, opacity: wouldExceed ? 0.35 : 1 }}>
+                              <span style={{ fontFamily: MONO, fontSize: 9, color: ORANGE, width: 24, flexShrink: 0 }}>{t.position}</span>
+                              <div style={{ flex: 1, minWidth: 0, fontFamily: SERIF, fontSize: 12, color: INK, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{t.title}</div>
+                              <span style={{ fontFamily: MONO, fontSize: 9, color: MUTED, flexShrink: 0 }}>{t.duration || "—"}</span>
+                              <button onClick={() => !wouldExceed && addTrack(track)} disabled={wouldExceed} style={{ fontFamily: MONO, fontSize: 9, letterSpacing: "0.1em", padding: "3px 8px", background: "none", border: `1px solid ${wouldExceed ? RULE : ORANGE}`, color: wouldExceed ? RULE : ORANGE, borderRadius: 3, cursor: wouldExceed ? "not-allowed" : "pointer", flexShrink: 0 }}>
+                                + {activeSide}
+                              </button>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Actions */}
+          <div style={{ display: "flex", gap: 12, flexWrap: "wrap", borderTop: `1px solid ${RULE}`, paddingTop: 20 }}>
+            <button onClick={handleSave} disabled={saving || (sideA.length === 0 && sideB.length === 0)} style={{ fontFamily: MONO, fontSize: 10, letterSpacing: "0.1em", textTransform: "uppercase", padding: "10px 20px", background: INK, color: "#fff", border: "none", borderRadius: 4, cursor: saving ? "wait" : "pointer", opacity: saving || (sideA.length === 0 && sideB.length === 0) ? 0.4 : 1 }}>
+              {saving ? "Saving…" : currentMixtapeId ? "Save" : "Save Mixtape"}
+            </button>
+            <button onClick={() => setShowShare(true)} disabled={sideA.length === 0 && sideB.length === 0} style={{ fontFamily: MONO, fontSize: 10, letterSpacing: "0.1em", textTransform: "uppercase", padding: "10px 20px", background: ORANGE, color: "#fff", border: "none", borderRadius: 4, cursor: "pointer", opacity: sideA.length === 0 && sideB.length === 0 ? 0.4 : 1 }}>
+              Share / Download
+            </button>
+            <button onClick={exportSoundiiz} disabled={sideA.length === 0 && sideB.length === 0} style={{ fontFamily: MONO, fontSize: 10, letterSpacing: "0.1em", textTransform: "uppercase", padding: "10px 20px", background: "#fff", color: INK, border: `1px solid ${RULE}`, borderRadius: 4, cursor: "pointer", opacity: sideA.length === 0 && sideB.length === 0 ? 0.4 : 1 }}>
+              Export to Soundiiz
+            </button>
+            <div style={{ flex: 1, display: "flex", alignItems: "center" }}>
+              <span style={{ fontFamily: MONO, fontSize: 9, color: MUTED }}>Soundiiz CSV — import via soundiiz.com → Import → From file</span>
+            </div>
+          </div>
+
+          {showShare && (
+            <ShareModal title={title} sideA={sideA} sideB={sideB} username={username} cassetteType={cassetteType} stamps={stamps} onClose={() => setShowShare(false)} />
+          )}
+
         </div>
       </div>
-
-      {/* Actions */}
-      <div style={{ display: "flex", gap: 12, flexWrap: "wrap", borderTop: `1px solid ${RULE}`, paddingTop: 20 }}>
-        <button
-          onClick={handleSave}
-          disabled={saving || (sideA.length === 0 && sideB.length === 0)}
-          style={{
-            fontFamily: MONO, fontSize: 10, letterSpacing: "0.1em",
-            textTransform: "uppercase", padding: "10px 20px",
-            background: INK, color: "#fff", border: "none",
-            borderRadius: 4, cursor: saving ? "wait" : "pointer",
-            opacity: saving || (sideA.length === 0 && sideB.length === 0) ? 0.4 : 1,
-          }}
-        >
-          {saving ? "Saving…" : currentMixtapeId ? "Save" : "Save Mixtape"}
-        </button>
-        <button
-          onClick={() => setShowShare(true)}
-          disabled={sideA.length === 0 && sideB.length === 0}
-          style={{
-            fontFamily: MONO, fontSize: 10, letterSpacing: "0.1em",
-            textTransform: "uppercase", padding: "10px 20px",
-            background: ORANGE, color: "#fff", border: "none",
-            borderRadius: 4, cursor: "pointer",
-            opacity: sideA.length === 0 && sideB.length === 0 ? 0.4 : 1,
-          }}
-        >
-          Share / Download
-        </button>
-        <button
-          onClick={exportSoundiiz}
-          disabled={sideA.length === 0 && sideB.length === 0}
-          style={{
-            fontFamily: MONO, fontSize: 10, letterSpacing: "0.1em",
-            textTransform: "uppercase", padding: "10px 20px",
-            background: "#fff", color: INK, border: `1px solid ${RULE}`,
-            borderRadius: 4, cursor: "pointer",
-            opacity: sideA.length === 0 && sideB.length === 0 ? 0.4 : 1,
-          }}
-        >
-          Export to Soundiiz
-        </button>
-        <div style={{ flex: 1, display: "flex", alignItems: "center" }}>
-          <span style={{ fontFamily: MONO, fontSize: 9, color: MUTED }}>
-            Soundiiz CSV — import via soundiiz.com → Import → From file
-          </span>
-        </div>
-      </div>
-
-      {/* Share modal */}
-      {showShare && (
-        <ShareModal
-          title={title}
-          sideA={sideA}
-          sideB={sideB}
-          username={username}
-          cassetteType={cassetteType}
-          onClose={() => setShowShare(false)}
-        />
-      )}
-
-        </div> {/* end editor column */}
-      </div> {/* end two-column layout */}
     </div>
   );
 }

@@ -14,6 +14,7 @@ export async function POST(request: NextRequest) {
     cassette_type: string;
     side_a: unknown[];
     side_b: unknown[];
+    stamps: unknown[];
   };
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -28,6 +29,7 @@ export async function POST(request: NextRequest) {
         cassette_type: body.cassette_type,
         side_a:        body.side_a,
         side_b:        body.side_b,
+        stamps:        body.stamps ?? [],
         updated_at:    new Date().toISOString(),
       })
       .eq("id", body.id)
@@ -46,6 +48,7 @@ export async function POST(request: NextRequest) {
       cassette_type: body.cassette_type,
       side_a:        body.side_a,
       side_b:        body.side_b,
+      stamps:        body.stamps ?? [],
     })
     .select("id")
     .single();

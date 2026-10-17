@@ -14,12 +14,11 @@ interface Props {
   width?: number;
 }
 
-// Usable content band inside the j-card image (% of image height, 1536×1024 source)
+// Usable band inside the j-card image (% of 1024px image height)
 const TRACK_TOP    = 22;
 const TRACK_BOTTOM = 86;
 
 const HAND = '"Bradley Hand", "Caveat", "Kalam", cursive';
-const MONO = '"Courier New", monospace';
 
 function fmt(ms: number): string {
   const s = Math.floor(ms / 1000);
@@ -27,76 +26,59 @@ function fmt(ms: number): string {
 }
 
 function TrackColumn({
-  tracks, left, right, n, slotPx, width,
+  tracks, left, right, fs,
 }: {
   tracks: TrackItem[];
   left: string; right: string;
-  n: number; slotPx: number; width: number;
+  fs: number;
 }) {
-  const slotPct  = (TRACK_BOTTOM - TRACK_TOP) / n;
-  // Title font scales with row height; cap at a comfortable max
-  const fsTitle  = Math.max(6,  Math.min(Math.round(slotPx * 0.36), Math.round(width * 0.022)));
-  const fsArtist = Math.max(5,  Math.round(fsTitle * 0.75));
-  const fsNum    = Math.max(5,  Math.round(fsTitle * 0.65));
-  const gap      = Math.max(2,  Math.round(fsTitle * 0.3));
-  const lineGap  = Math.max(1,  Math.round(fsTitle * 0.12));
-  const indent   = Math.round(fsNum * 1.5 + gap);
+  if (tracks.length === 0) return null;
+  const fsDur = Math.round(fs * 0.85);
 
   return (
-    <>
-      {tracks.map((t, i) => (
-        <div
-          key={i}
-          style={{
-            position: "absolute",
-            top: `${TRACK_TOP + i * slotPct}%`,
-            height: `${slotPct * 0.88}%`,
-            left, right,
-            display: "flex",
-            flexDirection: "column",
-            justifyContent: "center",
-            overflow: "hidden",
-          }}
-        >
-          {/* Track number + title + duration */}
-          <div style={{ display: "flex", alignItems: "baseline", gap, overflow: "hidden" }}>
-            <span style={{ fontFamily: MONO, fontSize: fsNum, color: "#c0c0c0", flexShrink: 0, lineHeight: 1 }}>
-              {i + 1}.
-            </span>
+    <div style={{
+      position: "absolute",
+      top: `${TRACK_TOP}%`,
+      bottom: `${100 - TRACK_BOTTOM}%`,
+      left, right,
+      display: "flex",
+      flexDirection: "column",
+      justifyContent: "space-evenly",
+      overflow: "hidden",
+    }}>
+      {tracks.map((t, i) => {
+        const label = `${i + 1}. ${t.title}${t.artist ? ` — ${t.artist}` : ""}`;
+        const duration = t.duration_ms > 0 ? fmt(t.duration_ms) : "";
+
+        return (
+          <div
+            key={i}
+            style={{ display: "flex", alignItems: "flex-start", gap: Math.round(fs * 0.3), flexShrink: 0 }}
+          >
             <span style={{
-              fontFamily: HAND, fontSize: fsTitle, color: "#0d0d0d",
-              flex: 1, overflow: "hidden", whiteSpace: "nowrap", textOverflow: "ellipsis", lineHeight: 1,
+              fontFamily: HAND, fontSize: fs, color: "#0d0d0d", lineHeight: 1.35, flex: 1,
+              overflow: "hidden", whiteSpace: "nowrap", textOverflow: "ellipsis",
             }}>
-              {t.title}
+              {label}
             </span>
-            {t.duration_ms > 0 && (
-              <span style={{ fontFamily: MONO, fontSize: fsNum, color: "#aaa", flexShrink: 0, lineHeight: 1 }}>
-                {fmt(t.duration_ms)}
+            {duration && (
+              <span style={{ fontFamily: HAND, fontSize: fsDur, color: "#555", lineHeight: 1.35, flexShrink: 0 }}>
+                {duration}
               </span>
             )}
           </div>
-
-          {/* Artist name — indented under the title */}
-          {t.artist && (
-            <div style={{ paddingLeft: indent, marginTop: lineGap, overflow: "hidden" }}>
-              <span style={{
-                fontFamily: HAND, fontSize: fsArtist, color: "#888",
-                whiteSpace: "nowrap",
-              }}>
-                {t.artist}
-              </span>
-            </div>
-          )}
-        </div>
-      ))}
-    </>
+        );
+      })}
+    </div>
   );
 }
 
 export default function CassetteBackCard({ sideA, sideB, width = 520 }: Props) {
-  const height  = Math.round(width * (1024 / 1536));
-  const n       = Math.max(sideA.length, sideB.length, 1);
-  const slotPx  = height * (TRACK_BOTTOM - TRACK_TOP) / 100 / n;
+  const height     = Math.round(width * (1024 / 1536));
+  const n          = Math.max(sideA.length, sideB.length, 1);
+  const containerH = height * (TRACK_BOTTOM - TRACK_TOP) / 100;
+  // Each track gets ~38% of its slot for text height; cap at comfortable max
+  const fs = Math.max(7, Math.min(Math.round(containerH / n * 0.38), Math.round(width * 0.022)));
 
   return (
     <div style={{ position: "relative", width, height, display: "inline-block", flexShrink: 0 }}>
@@ -109,16 +91,8 @@ export default function CassetteBackCard({ sideA, sideB, width = 520 }: Props) {
         style={{ display: "block", width: "100%", height: "100%" }}
       />
       <div style={{ position: "absolute", inset: 0, pointerEvents: "none" }}>
-        <TrackColumn
-          tracks={sideA}
-          left="8%" right="54%"
-          n={n} slotPx={slotPx} width={width}
-        />
-        <TrackColumn
-          tracks={sideB}
-          left="44%" right="7%"
-          n={n} slotPx={slotPx} width={width}
-        />
+        <TrackColumn tracks={sideA} left="8%" right="54%" fs={fs} />
+        <TrackColumn tracks={sideB} left="44%" right="7%" fs={fs} />
       </div>
     </div>
   );
