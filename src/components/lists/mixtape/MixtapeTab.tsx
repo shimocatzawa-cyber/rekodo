@@ -306,7 +306,7 @@ function StampsPanel({ cardView, frontStamps, backStamps, onAdd, onClear }: {
   const activeStamps = cardView === "front" ? frontStamps : backStamps;
   return (
     <div>
-      <div style={{ borderTop: `1px solid ${RULE}`, marginTop: 14, paddingTop: 12 }}>
+      <div style={{ paddingTop: 4 }}>
         <p style={{ fontFamily: MONO, fontSize: 9, letterSpacing: "0.14em", textTransform: "uppercase", color: MUTED, margin: "0 0 8px" }}>Stamps</p>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 36px)", gap: 4 }}>
           {SYMBOLS.map(sym => (
@@ -552,20 +552,12 @@ export default function MixtapeTab({ username }: { username: string }) {
                 ))}
               </div>
               <div style={{ fontFamily: MONO, fontSize: 9, color: MUTED, marginTop: 3 }}>{formatTime(limit)} per side</div>
-
-              {/* Stamps — same right column, below tape length */}
-              <StampsPanel
-                cardView={cardView}
-                frontStamps={frontStamps}
-                backStamps={backStamps}
-                onAdd={key => { handleAddStamp(key); }}
-                onClear={handleClearStamps}
-              />
             </div>
           </div>
 
-          {/* Cassette image — centered */}
-          <div style={{ display: "flex", justifyContent: "center", marginBottom: 10 }}>
+          {/* Cassette image + stamps panel side by side — directly below title row */}
+          <div style={{ display: "flex", gap: 20, alignItems: "flex-start", marginBottom: 10 }}>
+            <div style={{ flex: "0 0 auto" }}>
             {cardView === "front" ? (
               <CassetteSVG
                 title={title || "My Mixtape"}
@@ -587,6 +579,16 @@ export default function MixtapeTab({ username }: { username: string }) {
                 width={Math.min(480, typeof window !== "undefined" ? window.innerWidth - 340 : 480)}
               />
             )}
+          </div>
+
+          {/* Stamps panel — to the right of cassette */}
+          <StampsPanel
+            cardView={cardView}
+            frontStamps={frontStamps}
+            backStamps={backStamps}
+            onAdd={handleAddStamp}
+            onClear={handleClearStamps}
+          />
           </div>
 
           {/* Tape / Tracklist toggle */}
