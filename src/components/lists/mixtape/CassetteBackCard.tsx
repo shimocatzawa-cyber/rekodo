@@ -19,9 +19,11 @@ interface Props {
   width?: number;
 }
 
-// Usable band inside the j-card image (% of 1024px image height)
-const TRACK_TOP    = 23;
-const TRACK_BOTTOM = 86;
+// Usable band inside the cassette-back.png white card area
+// White card: left≈14%, right≈95%, top≈10%, bottom≈87%
+// Tracks sit below the printed "Side A / Side B" headers (~18%)
+const TRACK_TOP    = 20;
+const TRACK_BOTTOM = 85;
 
 const HAND = '"Bradley Hand", "Caveat", "Kalam", cursive';
 
@@ -146,8 +148,8 @@ export default function CassetteBackCard({
 
       {/* Track columns — pointer events disabled so stamps can be dragged */}
       <div style={{ position: "absolute", inset: 0, pointerEvents: "none" }}>
-        <TrackColumn tracks={sideA} left="8%" right="54%" fs={fs} gap={gap} />
-        <TrackColumn tracks={sideB} left="44%" right="7%" fs={fs} gap={gap} />
+        <TrackColumn tracks={sideA} left="15%" right="54%" fs={fs} gap={gap} />
+        <TrackColumn tracks={sideB} left="46%" right="6%" fs={fs} gap={gap} />
       </div>
 
       {/* Draggable stamps */}
