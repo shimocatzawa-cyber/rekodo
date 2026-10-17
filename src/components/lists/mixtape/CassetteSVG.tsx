@@ -2,11 +2,8 @@
 
 interface Props {
   title: string;
-  /** 0–1: how full side A is (left reel = take-up, right = supply) */
-  sideAFill: number;
-  /** 0–1: how full side B is */
+  sideAFill: number;  // 0–1
   sideBFill: number;
-  /** Which side is currently being edited */
   activeSide: "A" | "B";
   width?: number;
 }
@@ -14,89 +11,73 @@ interface Props {
 function clamp01(v: number) { return Math.max(0, Math.min(1, v)); }
 function lerp(a: number, b: number, t: number) { return a + (b - a) * clamp01(t); }
 
-function Reel({
-  cx, cy,
-  takeFill,
-}: { cx: number; cy: number; supplyFill: number; takeFill: number }) {
-  const OUTER_R = 47;
+// Realistic cassette reel hub with 5 gear-teeth
+function Reel({ cx, cy, fill }: { cx: number; cy: number; fill: number }) {
+  const OUTER_R = 46;
   const HUB_R   = 22;
-  const HOLE_R  = 10;
-
-  // Tape radius grows as this reel fills with tape
-  const tapeR = lerp(HUB_R + 2, OUTER_R - 6, takeFill);
+  const TAPE_R  = lerp(HUB_R + 3, OUTER_R - 5, fill);
+  const TOOTH_R = 8; // radius of each bump on the hub edge
 
   return (
     <g>
-      {/* Outer plastic ring */}
-      <circle cx={cx} cy={cy} r={OUTER_R} fill="#1e1e1e" />
-      {/* Wound tape ring */}
-      <circle cx={cx} cy={cy} r={tapeR} fill="#2a1a08" />
-      {/* Spokes — 6, every 60° */}
-      {[0, 60, 120, 180, 240, 300].map((angle) => (
-        <rect
-          key={angle}
-          x={cx - 3}
-          y={cy - OUTER_R + 6}
-          width={6}
-          height={OUTER_R - HUB_R - 4}
-          rx={2}
-          fill="#3a3a3a"
-          transform={`rotate(${angle} ${cx} ${cy})`}
-        />
-      ))}
-      {/* Hub */}
-      <circle cx={cx} cy={cy} r={HUB_R} fill="#dedad4" />
-      {/* Hub gear dots */}
-      {[0, 120, 240].map((angle) => {
+      {/* Outer dark ring */}
+      <circle cx={cx} cy={cy} r={OUTER_R} fill="#1a1a1a" />
+      {/* Wound tape */}
+      <circle cx={cx} cy={cy} r={TAPE_R} fill="#1c0d00" />
+      {/* Hub base */}
+      <circle cx={cx} cy={cy} r={HUB_R} fill="#c8c8c6" />
+      {/* Hub teeth — 5 bumps at 72° */}
+      {[54, 126, 198, 270, 342].map(angle => {
         const rad = (angle * Math.PI) / 180;
         return (
           <circle
             key={angle}
-            cx={cx + Math.cos(rad) * 15}
-            cy={cy + Math.sin(rad) * 15}
-            r={3}
-            fill="#c4c0b8"
+            cx={cx + Math.cos(rad) * (HUB_R - 2)}
+            cy={cy + Math.sin(rad) * (HUB_R - 2)}
+            r={TOOTH_R}
+            fill="#d8d8d6"
           />
         );
       })}
-      {/* Center hole */}
-      <circle cx={cx} cy={cy} r={HOLE_R} fill="#111111" />
+      {/* Hub highlight ring */}
+      <circle cx={cx} cy={cy} r={HUB_R} fill="none" stroke="#e4e4e2" strokeWidth={1} />
+      {/* Centre dark area */}
+      <circle cx={cx} cy={cy} r={10} fill="#1a1a1a" />
+      {/* Three spindle slots */}
+      {[90, 210, 330].map(angle => {
+        const rad = (angle * Math.PI) / 180;
+        return (
+          <rect
+            key={angle}
+            x={cx - 2}
+            y={cy - 9}
+            width={4}
+            height={6}
+            rx={1}
+            fill="#c8c8c6"
+            transform={`rotate(${angle} ${cx} ${cy})`}
+          />
+        );
+      })}
     </g>
   );
 }
 
-function ScrewCorner({ cx, cy }: { cx: number; cy: number }) {
-  return (
-    <g>
-      <circle cx={cx} cy={cy} r={9} fill="#282828" />
-      <line x1={cx - 5} y1={cy} x2={cx + 5} y2={cy} stroke="#111" strokeWidth="1.5" />
-      <line x1={cx} y1={cy - 5} x2={cx} y2={cy + 5} stroke="#111" strokeWidth="1.5" />
-    </g>
-  );
-}
-
-export default function CassetteSVG({
-  title,
-  sideAFill,
-  sideBFill,
-  activeSide,
-  width = 520,
-}: Props) {
-  const VW = 520;
-  const VH = 310;
+export default function CassetteSVG({ title, sideAFill, sideBFill, activeSide, width = 520 }: Props) {
+  const VW = 600;
+  const VH = 375;
   const SCALE = width / VW;
 
-  // Reel fill logic: Side A → left reel takes up tape; Side B → reversed
   const leftFill  = activeSide === "A" ? sideAFill  : 1 - sideBFill;
   const rightFill = activeSide === "A" ? 1 - sideAFill : sideBFill;
 
-  const LEFT_REEL  = { cx: 148, cy: 172 };
-  const RIGHT_REEL = { cx: 372, cy: 172 };
+  // Tape bridge — between the two reels
+  const BRIDGE_X = 248;
+  const BRIDGE_W = 104;
+  const BRIDGE_Y = 199;
+  const BRIDGE_H = 50;
 
-  // Tape top path — arc between the top edges of the two reels
-  const tapeY  = 128;
-  const tapeX1 = LEFT_REEL.cx + 12;
-  const tapeX2 = RIGHT_REEL.cx - 12;
+  const fontSize = title.length > 22 ? 22 : title.length > 14 ? 28 : title.length > 8 ? 34 : 40;
 
   return (
     <svg
@@ -107,42 +88,65 @@ export default function CassetteSVG({
       xmlns="http://www.w3.org/2000/svg"
       style={{ display: "block" }}
     >
-      {/* ── Outer casing ── */}
-      <rect x="0" y="0" width={VW} height="276" rx="14" fill="#1c1c1c" />
+      <defs>
+        <radialGradient id="bodyShade" cx="50%" cy="20%" r="80%">
+          <stop offset="0%"   stopColor="#2e2e2e" />
+          <stop offset="100%" stopColor="#141414" />
+        </radialGradient>
+        <radialGradient id="mechVignette" cx="50%" cy="50%" r="50%">
+          <stop offset="65%"  stopColor="transparent" />
+          <stop offset="100%" stopColor="rgba(0,0,0,0.55)" />
+        </radialGradient>
+        <filter id="tabShadow" x="-5%" y="-10%" width="110%" height="130%">
+          <feDropShadow dx="0" dy="3" stdDeviation="4" floodColor="#000" floodOpacity="0.35" />
+        </filter>
+      </defs>
 
-      {/* Bottom connector tab */}
-      <rect x="148" y="261" width="224" height="49" rx="8" fill="#1a1a1a" />
+      {/* Soft drop shadow under cassette */}
+      <ellipse cx={300} cy={302} rx={282} ry={12} fill="rgba(0,0,0,0.18)" />
 
-      {/* Bottom connector holes */}
-      <rect x="170" y="274" width="18" height="12" rx="3" fill="#111" />
-      <rect x="206" y="270" width="12" height="12" rx="3" fill="#111" />
-      <rect x="256" y="274" width="8"  height="8"  rx="2" fill="#111" />
-      <rect x="302" y="270" width="12" height="12" rx="3" fill="#111" />
-      <rect x="332" y="274" width="18" height="12" rx="3" fill="#111" />
+      {/* ── Main body ─────────────────────────────────────────────────────── */}
+      <rect x={0} y={0} width={VW} height={290} rx={14} fill="url(#bodyShade)" />
 
-      {/* Corner screws */}
-      <ScrewCorner cx={26}  cy={26}  />
-      <ScrewCorner cx={494} cy={26}  />
-      <ScrewCorner cx={26}  cy={250} />
-      <ScrewCorner cx={494} cy={250} />
+      {/* ── Bottom tab ────────────────────────────────────────────────────── */}
+      <rect x={164} y={278} width={272} height={50} rx={8} fill="#181818" filter="url(#tabShadow)" />
 
-      {/* ── Label ── */}
-      <rect x="30" y="18" width="460" height="222" rx="6" fill="#f2efe7" />
+      {/* Centre screw on tab */}
+      <circle cx={300} cy={307} r={7}   fill="#111" />
+      <circle cx={300} cy={307} r={4.5} fill="#1e1e1e" />
 
-      {/* Subtle label texture lines */}
-      <line x1="30" y1="60"  x2="490" y2="60"  stroke="#e8e4dc" strokeWidth="0.5" />
-      <line x1="30" y1="80"  x2="490" y2="80"  stroke="#e8e4dc" strokeWidth="0.5" />
-      <line x1="30" y1="100" x2="490" y2="100" stroke="#e8e4dc" strokeWidth="0.5" />
+      {/* Bottom tab holes */}
+      <rect x={188} y={288} width={17} height={12} rx={2.5} fill="#111" />
+      <rect x={224} y={284} width={12} height={12} rx={2.5} fill="#111" />
+      <rect x={265} y={288} width={9}  height={9}  rx={2}   fill="#111" />
+      <rect x={319} y={284} width={12} height={12} rx={2.5} fill="#111" />
+      <rect x={355} y={288} width={17} height={12} rx={2.5} fill="#111" />
 
-      {/* Title on label */}
+      {/* ── Corner screws (4) ─────────────────────────────────────────────── */}
+      {([[15, 15], [585, 15], [15, 275], [585, 275]] as [number,number][]).map(([x, y], i) => (
+        <g key={i}>
+          <circle cx={x} cy={y} r={10} fill="#111" />
+          <circle cx={x} cy={y} r={6.5} fill="#1e1e1e" />
+          <circle cx={x} cy={y} r={3} fill="#141414" />
+        </g>
+      ))}
+
+      {/* ── White label (upper portion) ────────────────────────────────────── */}
+      <rect x={26} y={15} width={548} height={158} rx={6} fill="#f6f5f2" />
+
+      {/* Subtle ruled lines on label */}
+      {[52, 74, 96, 118, 140].map(y => (
+        <line key={y} x1={26} y1={y} x2={574} y2={y} stroke="#e9e6e0" strokeWidth={0.6} />
+      ))}
+
+      {/* Mixtape title */}
       <text
-        x="260"
-        y="72"
+        x={300} y={82}
         textAnchor="middle"
-        fontFamily='"Georgia", serif'
-        fontSize={title.length > 20 ? 22 : title.length > 12 ? 28 : 34}
+        fontFamily='"Georgia", "Times New Roman", serif'
+        fontSize={fontSize}
         fontStyle="italic"
-        fontWeight="600"
+        fontWeight="700"
         fill="#1a1a1a"
         letterSpacing="-0.5"
       >
@@ -151,63 +155,41 @@ export default function CassetteSVG({
 
       {/* Side indicator */}
       <text
-        x="260"
-        y="94"
+        x={300} y={108}
         textAnchor="middle"
         fontFamily='"Courier New", monospace'
-        fontSize="10"
-        letterSpacing="0.15em"
-        fill="#888"
+        fontSize={10}
+        letterSpacing="0.2em"
+        fill="#aaa"
       >
         {`SIDE ${activeSide}`}
       </text>
 
-      {/* ── Mechanism window ── */}
-      <rect x="60" y="110" width="400" height="122" rx="10" fill="#111111" />
-
-      {/* Tape path across the window top */}
-      <path
-        d={`M ${tapeX1} ${tapeY} Q 260 ${tapeY - 6} ${tapeX2} ${tapeY}`}
-        stroke="#1a0e00"
-        strokeWidth="5"
-        strokeLinecap="round"
-        fill="none"
-      />
-      <path
-        d={`M ${tapeX1 - 4} ${tapeY + 5} Q 260 ${tapeY - 2} ${tapeX2 + 4} ${tapeY + 5}`}
-        stroke="#241405"
-        strokeWidth="3"
-        strokeLinecap="round"
-        fill="none"
-      />
-
-      {/* Guide posts */}
-      <rect x="92"  y="120" width="8" height="22" rx="4" fill="#363636" />
-      <rect x="420" y="120" width="8" height="22" rx="4" fill="#363636" />
+      {/* ── Mechanism window (dark, below label) ──────────────────────────── */}
+      <rect x={82} y={166} width={436} height={116} rx={12} fill="#0d0d0d" />
 
       {/* Reels */}
-      <Reel
-        cx={LEFT_REEL.cx}
-        cy={LEFT_REEL.cy}
-        takeFill={leftFill}
-        supplyFill={1 - leftFill}
-      />
-      <Reel
-        cx={RIGHT_REEL.cx}
-        cy={RIGHT_REEL.cy}
-        takeFill={rightFill}
-        supplyFill={1 - rightFill}
-      />
+      <Reel cx={196} cy={226} fill={leftFill} />
+      <Reel cx={404} cy={226} fill={rightFill} />
 
-      {/* Window edge vignette */}
-      <rect x="60" y="110" width="400" height="122" rx="10" fill="url(#vinyet)" stroke="#222" strokeWidth="1" />
+      {/* Tape bridge enclosure */}
+      <rect x={BRIDGE_X} y={BRIDGE_Y} width={BRIDGE_W} height={BRIDGE_H} rx={5} fill="#131313" />
 
-      <defs>
-        <radialGradient id="vinyet" cx="50%" cy="50%" r="50%">
-          <stop offset="60%" stopColor="transparent" />
-          <stop offset="100%" stopColor="rgba(0,0,0,0.45)" />
-        </radialGradient>
-      </defs>
+      {/* Magnetic tape strip */}
+      <rect x={BRIDGE_X + 14} y={BRIDGE_Y + 14} width={BRIDGE_W - 28} height={11} rx={3} fill="#1e0e00" />
+      {/* Tape sheen */}
+      <rect x={BRIDGE_X + 14} y={BRIDGE_Y + 14} width={BRIDGE_W - 28} height={4}  rx={2} fill="#2a1400" opacity={0.7} />
+
+      {/* Left guide roller */}
+      <circle cx={BRIDGE_X + 11} cy={BRIDGE_Y + 20} r={9}   fill="#c4c4c2" />
+      <circle cx={BRIDGE_X + 11} cy={BRIDGE_Y + 20} r={4.5} fill="#1a1a1a" />
+
+      {/* Right guide roller */}
+      <circle cx={BRIDGE_X + BRIDGE_W - 11} cy={BRIDGE_Y + 20} r={9}   fill="#c4c4c2" />
+      <circle cx={BRIDGE_X + BRIDGE_W - 11} cy={BRIDGE_Y + 20} r={4.5} fill="#1a1a1a" />
+
+      {/* Mechanism vignette overlay */}
+      <rect x={82} y={166} width={436} height={116} rx={12} fill="url(#mechVignette)" stroke="#222" strokeWidth={1} />
     </svg>
   );
 }

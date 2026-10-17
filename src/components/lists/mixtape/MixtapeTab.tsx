@@ -4,7 +4,8 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import dynamic from "next/dynamic";
 import { toPng } from "html-to-image";
 
-const CassetteSVG = dynamic(() => import("./CassetteSVG"), { ssr: false });
+const CassetteSVG      = dynamic(() => import("./CassetteSVG"),      { ssr: false });
+const CassetteBackCard = dynamic(() => import("./CassetteBackCard"), { ssr: false });
 
 const MONO   = "var(--font-mono)";
 const SERIF  = "var(--font-editorial)";
@@ -480,6 +481,7 @@ export default function MixtapeTab({ username }: { username: string }) {
   const [sideA,        setSideA]        = useState<MixtapeTrack[]>([]);
   const [sideB,        setSideB]        = useState<MixtapeTrack[]>([]);
 
+  const [cardView,         setCardView]         = useState<"front" | "back">("front");
   const [savedMixtapes,    setSavedMixtapes]    = useState<MixtapeSummary[]>([]);
   const [currentMixtapeId, setCurrentMixtapeId] = useState<string | null>(null);
   const [saving,           setSaving]           = useState(false);
@@ -716,15 +718,46 @@ export default function MixtapeTab({ username }: { username: string }) {
         </div>
       </div>
 
-      {/* Cassette visual */}
-      <div style={{ display: "flex", justifyContent: "center", marginBottom: 28 }}>
-        <CassetteSVG
-          title={title || "My Mixtape"}
-          sideAFill={sideAFill}
-          sideBFill={sideBFill}
-          activeSide={activeSide}
-          width={Math.min(520, typeof window !== "undefined" ? window.innerWidth - 48 : 520)}
-        />
+      {/* Cassette / Tracklist visual */}
+      <div style={{ display: "flex", justifyContent: "center", marginBottom: 10 }}>
+        {cardView === "front" ? (
+          <CassetteSVG
+            title={title || "My Mixtape"}
+            sideAFill={sideAFill}
+            sideBFill={sideBFill}
+            activeSide={activeSide}
+            width={Math.min(520, typeof window !== "undefined" ? window.innerWidth - 200 : 520)}
+          />
+        ) : (
+          <CassetteBackCard
+            title={title || "My Mixtape"}
+            sideA={sideA}
+            sideB={sideB}
+            cassetteType={cassetteType}
+            width={Math.min(520, typeof window !== "undefined" ? window.innerWidth - 200 : 520)}
+          />
+        )}
+      </div>
+
+      {/* Front / back toggle */}
+      <div style={{ display: "flex", justifyContent: "center", gap: 1, marginBottom: 24 }}>
+        {(["front", "back"] as const).map((view, i) => (
+          <button
+            key={view}
+            onClick={() => setCardView(view)}
+            style={{
+              fontFamily: MONO, fontSize: 9, letterSpacing: "0.12em",
+              textTransform: "uppercase", padding: "5px 18px",
+              background: cardView === view ? "#0d0d0d" : "#fff",
+              color: cardView === view ? "#fff" : MUTED,
+              border: `1px solid ${cardView === view ? "#0d0d0d" : RULE}`,
+              borderRadius: i === 0 ? "4px 0 0 4px" : "0 4px 4px 0",
+              cursor: "pointer",
+            }}
+          >
+            {view === "front" ? "Tape" : "Tracklist"}
+          </button>
+        ))}
       </div>
 
       {/* Side switcher */}
