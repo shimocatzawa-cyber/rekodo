@@ -34,17 +34,17 @@ export default function CassetteSVG({ title, activeSide, width = 520 }: Props) {
         style={{ display: "block", width: "100%", height: "100%" }}
       />
 
-      {/* Mixtape title — lower white strip below the reel window */}
+      {/* Mixtape title — upper white label area, above the reels */}
       <div
         style={{
           position: "absolute",
-          top: "62%",
+          top: "17%",
           left: "50%",
           transform: "translateX(-50%)",
-          width: "68%",
+          width: "72%",
           textAlign: "center",
           fontFamily: '"Bradley Hand", "Caveat", "Kalam", cursive',
-          fontSize: Math.round(fontSize * 0.9),
+          fontSize: Math.round(fontSize),
           color: "#0d0d0d",
           fontWeight: 400,
           lineHeight: 1.1,
@@ -58,16 +58,17 @@ export default function CassetteSVG({ title, activeSide, width = 520 }: Props) {
         {title || "My Mixtape"}
       </div>
 
-      {/* Side indicator — small, upper label above the reels */}
+      {/* Side indicator — lower white strip below the reels */}
       <div
         style={{
           position: "absolute",
-          top: "10%",
-          right: "18%",
+          top: "55%",
+          left: "50%",
+          transform: "translateX(-50%)",
           fontFamily: '"Courier New", monospace',
-          fontSize: Math.round(width * 0.014),
-          color: "#aaa",
-          letterSpacing: "0.2em",
+          fontSize: Math.round(width * 0.016),
+          color: "#999",
+          letterSpacing: "0.22em",
           pointerEvents: "none",
           whiteSpace: "nowrap",
         }}
