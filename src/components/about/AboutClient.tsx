@@ -12,10 +12,12 @@ const ORANGE = "#CC5500";
 const INK    = "#0a0a0a";
 
 const BODY_PARAGRAPHS = [
-  "The idea for rekōdo started after twenty-odd years of collecting and many trips to Tokyo digging in crates at Disk Unions. I wanted to create something that gives your collection the love it deserves and celebrates the passion of collecting records (rekōdo life).",
-  "rekōdo reads your collection the way a friend who's been digging for decades would: not as a spreadsheet, but as a set of decisions you've made over years. It finds the records you should own but don't. It tells you your collector archetype. It builds out artist deep dives so a name in your collection becomes a rabbit hole.",
-  "rekōdo is for people who want to know more about the records they already love.",
-  "If rekōdo has given you something, a recommendation that changed your week, a list that made you think, a Dig that found the record you didn't know you needed, consider supporting us or buying us one back.",
+  "Rekōdo started after twenty-odd years of collecting records, and a lot of time spent digging through crates in Disk Unions across Tokyo.",
+  "I wanted to make something that treated a record collection as more than a list of things you own. Because after a while, a collection starts to tell a story. The records you bought, the ones you chased for years, the strange purchases that somehow became favourites. The things you missed along the way.",
+  "Rekōdo looks at your collection with that in mind. It finds connections, forgotten records, artists worth digging deeper into, and the records that feel like they might belong in your collection — even if you haven't found them yet.",
+  "There are rabbit holes to go down, collector archetypes to discover, and plenty of things you probably didn't know you were looking for.",
+  "Rekōdo is for people who want to know more about the records they already love.",
+  "And if Rekōdo has given you something along the way, a recommendation that changed your week, a list that sent you digging, or a Dig that found the record you didn't know you needed, consider supporting us, or buying us one back.",
 ];
 
 type SupportTab = "support" | "faqs" | "contact";
