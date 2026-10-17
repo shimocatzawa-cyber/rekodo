@@ -9,10 +9,11 @@ import SellListClient from "@/components/profile/SellListClient";
 import PlaylistTab from "@/components/lists/PlaylistTab";
 import dynamic from "next/dynamic";
 const GigJournalTab = dynamic(() => import("@/components/lists/GigJournalTab"), { ssr: false, loading: () => null });
+const MixtapeTab    = dynamic(() => import("@/components/lists/mixtape/MixtapeTab"),    { ssr: false, loading: () => null });
 const MONO   = "var(--font-mono)";
 const ORANGE = "#CC5500";
 
-type SubTab = "top5" | "wantlist" | "selllist" | "playlist" | "gigs";
+type SubTab = "top5" | "wantlist" | "selllist" | "playlist" | "gigs" | "mixtape";
 
 interface Props {
   profileId:    string;
@@ -31,6 +32,7 @@ export default function ListsHub({ profileId, username, displayLabel, avatarUrl,
     { key: "wantlist",  label: t("wantList") },
     { key: "selllist",  label: t("sellList") },
     { key: "playlist",  label: t("playlist") },
+    ...(isAdmin ? [{ key: "mixtape" as SubTab, label: "Mixtape ✦" }] : []),
   ];
   const TABS = baseTabs;
   const [activeTab, setActiveTab] = useUrlTab<SubTab>("tab", TABS.map(t => t.key), "top5");
@@ -90,6 +92,8 @@ export default function ListsHub({ profileId, username, displayLabel, avatarUrl,
         </div>
 
         {activeTab === "gigs" && <GigJournalTab />}
+
+        {activeTab === "mixtape" && isAdmin && <MixtapeTab username={username} />}
 
       </div>
     </div>
