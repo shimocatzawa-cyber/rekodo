@@ -66,10 +66,9 @@ const labelStyle: React.CSSProperties = {
 
 // ─── New-entry form ───────────────────────────────────────────────────────────
 
-interface NewEntryFormProps { onSaved: (post: TurntablePost) => void }
+interface NewEntryFormProps { open: boolean; onClose: () => void; onSaved: (post: TurntablePost) => void }
 
-function NewEntryForm({ onSaved }: NewEntryFormProps) {
-  const [open,   setOpen]   = useState(false);
+function NewEntryForm({ open, onClose, onSaved }: NewEntryFormProps) {
   const [saving, setSaving] = useState(false);
   const [err,    setErr]    = useState<string | null>(null);
   const [artist, setArtist] = useState("");
@@ -97,26 +96,12 @@ function NewEntryForm({ onSaved }: NewEntryFormProps) {
       onSaved(data.post);
       setArtist(""); setAlbum(""); setYear(""); setLabel(""); setGenre(""); setBandcampUrl(""); setBody(""); cover.setUrl(null);
       setDate(new Date().toISOString().slice(0, 10)); setStatus("published");
-      setOpen(false);
+      onClose();
     } catch { setErr("Network error"); }
     finally { setSaving(false); }
   }
 
-  if (!open) {
-    return (
-      <button
-        onClick={() => setOpen(true)}
-        style={{
-          fontFamily: MONO, fontSize: "10px", letterSpacing: "0.12em",
-          textTransform: "uppercase", color: INK, background: "none",
-          border: `1px solid ${RULE}`, padding: "8px 16px",
-          cursor: "pointer", marginBottom: 40,
-        }}
-      >
-        + New Entry
-      </button>
-    );
-  }
+  if (!open) return null;
 
   return (
     <div style={{ border: `1px solid ${RULE}`, padding: 28, marginBottom: 40, background: "#fafaf8" }}>
@@ -223,7 +208,7 @@ function NewEntryForm({ onSaved }: NewEntryFormProps) {
 
         <div style={{ display: "flex", gap: 12 }}>
           <button
-            onClick={() => { setOpen(false); setErr(null); }}
+            onClick={() => { onClose(); setErr(null); }}
             style={{ fontFamily: MONO, fontSize: "10px", letterSpacing: "0.1em", textTransform: "uppercase", background: "none", border: `1px solid ${RULE}`, padding: "8px 16px", cursor: "pointer", color: "#888888" }}
           >
             Cancel
@@ -515,8 +500,9 @@ function TurntableEntry({ post, isFirst, isAdmin, onUpdated, onDeleted }: Turnta
 interface Props { isAdmin: boolean }
 
 export default function TurntableView({ isAdmin }: Props) {
-  const [posts,   setPosts]   = useState<TurntablePost[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [posts,     setPosts]     = useState<TurntablePost[]>([]);
+  const [loading,   setLoading]   = useState(true);
+  const [formOpen,  setFormOpen]  = useState(false);
 
   useEffect(() => {
     fetch(isAdmin ? "/api/turntable?all=1" : "/api/turntable")
@@ -560,7 +546,27 @@ export default function TurntableView({ isAdmin }: Props) {
 
   return (
     <div>
-      {isAdmin && <NewEntryForm onSaved={onSaved} />}
+      {/* Header row — subheading left, new entry button right */}
+      <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", marginBottom: 40, gap: 24 }}>
+        <p style={{ fontFamily: SERIF, fontSize: "15px", color: "#888888", margin: 0, fontStyle: "italic", lineHeight: 1.5 }}>
+          A list of what&rsquo;s currently spinning on Rek&#x14d;do&rsquo;s turntables.
+        </p>
+        {isAdmin && !formOpen && (
+          <button
+            onClick={() => setFormOpen(true)}
+            style={{
+              fontFamily: MONO, fontSize: "10px", letterSpacing: "0.12em",
+              textTransform: "uppercase", color: INK, background: "none",
+              border: `1px solid ${RULE}`, padding: "8px 16px",
+              cursor: "pointer", flexShrink: 0,
+            }}
+          >
+            + New Entry
+          </button>
+        )}
+      </div>
+
+      {isAdmin && <NewEntryForm open={formOpen} onClose={() => setFormOpen(false)} onSaved={onSaved} />}
       {visiblePosts.length === 0 && (
         <p style={{ fontFamily: MONO, fontSize: "11px", color: "#aaaaaa", lineHeight: 1.75, letterSpacing: "0.03em", paddingTop: 8 }}>
           {isAdmin ? "No entries yet — add your first one above." : "No entries yet."}
