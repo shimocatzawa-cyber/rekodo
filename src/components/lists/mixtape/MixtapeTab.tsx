@@ -641,7 +641,7 @@ export default function MixtapeTab({ username }: { username: string }) {
   const sideBFill = limit > 0 ? sideBMs / limit : 0;
 
   return (
-    <div style={{ maxWidth: 960, margin: "0 auto", padding: "32px 24px 80px" }}>
+    <div style={{ maxWidth: 1200, margin: "0 auto", padding: "36px 40px 80px" }}>
 
       {/* Admin badge */}
       <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 24 }}>

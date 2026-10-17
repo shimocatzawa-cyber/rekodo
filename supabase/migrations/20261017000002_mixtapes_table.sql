@@ -18,3 +18,5 @@ create policy "mixtapes_owner_all"
   with check (auth.uid() = user_id);
 
 create index if not exists idx_mixtapes_user_created on mixtapes (user_id, created_at desc);
+
+grant select, insert, update, delete on mixtapes to authenticated;
