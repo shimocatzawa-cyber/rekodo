@@ -501,7 +501,35 @@ function HeroEntry({ post, isAdmin, onUpdated, onDeleted }: EntryProps) {
           </a>
         )}
 
-        {/* Listening note — inline in right column */}
+        {/* Vinyl photo + side/time */}
+        {(post.vinyl_photo_url || post.side || post.track_time) && (
+          <>
+            <div style={{ height: 1, background: RULE, margin: "24px 0 20px" }} />
+            <div style={{ display: "flex", alignItems: "center", gap: 20 }}>
+              {post.vinyl_photo_url && (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={post.vinyl_photo_url} alt="vinyl"
+                  style={{ width: 88, height: 88, borderRadius: "50%", objectFit: "cover", flexShrink: 0 }} />
+              )}
+              {(post.side || post.track_time) && (
+                <div>
+                  {post.side && (
+                    <p style={{ fontFamily: MONO, fontSize: "10px", letterSpacing: "0.12em", textTransform: "uppercase", color: INK, margin: "0 0 6px" }}>
+                      {post.side}
+                    </p>
+                  )}
+                  {post.track_time && (
+                    <p style={{ fontFamily: MONO, fontSize: "12px", color: "#888888", margin: 0 }}>
+                      {post.track_time}
+                    </p>
+                  )}
+                </div>
+              )}
+            </div>
+          </>
+        )}
+
+        {/* Listening note */}
         {post.body && (
           <>
             <div style={{ height: 1, background: RULE, margin: "24px 0 20px" }} />
