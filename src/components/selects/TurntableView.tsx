@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 
 const SERIF  = "var(--font-editorial)";
 const MONO   = "var(--font-mono)";
@@ -14,15 +14,6 @@ function formatDate(dateStr: string): string {
   return `${d} ${MONTHS[m - 1]} ${y}`;
 }
 
-const VINYL_PRESETS = [
-  { label: "Black",  color: "#111111" },
-  { label: "White",  color: "#e8e4dc" },
-  { label: "Clear",  color: "#9a9990" },
-  { label: "Red",    color: "#6b1a1a" },
-  { label: "Blue",   color: "#1a2b5a" },
-  { label: "Green",  color: "#1a3a1a" },
-];
-
 interface TurntablePost {
   id: string;
   published_at: string;
@@ -33,62 +24,12 @@ interface TurntablePost {
   genre: string | null;
   bandcamp_url: string | null;
   cover_url: string | null;
+  vinyl_photo_url: string | null;
   body: string;
   status: "draft" | "published";
   vinyl_color: string | null;
   side: string | null;
   track_time: string | null;
-}
-
-// ─── Vinyl SVG graphics ───────────────────────────────────────────────────────
-
-function parseProgress(trackTime?: string | null): number {
-  if (!trackTime) return 0.28;
-  const match = trackTime.match(/(\d+):(\d+)\s*\/\s*(\d+):(\d+)/);
-  if (!match) return 0.28;
-  const [, m1, s1, m2, s2] = match.map(Number);
-  const total = m2 * 60 + s2;
-  if (!total) return 0.28;
-  return Math.min((m1 * 60 + s1) / total, 0.97);
-}
-
-function arcEndpoint(cx: number, cy: number, r: number, progress: number) {
-  const angle = progress * Math.PI * 2 - Math.PI / 2;
-  return { x: cx + r * Math.cos(angle), y: cy + r * Math.sin(angle) };
-}
-
-function VinylHero({ trackTime }: { trackTime?: string | null }) {
-  const progress = parseProgress(trackTime);
-  const cx = 45, cy = 45, r = 40;
-  const { x: ex, y: ey } = arcEndpoint(cx, cy, r, progress);
-  const largeArc = progress > 0.5 ? 1 : 0;
-  return (
-    <svg width="90" height="90" viewBox="0 0 90 90" fill="none" aria-hidden="true">
-      {[40, 35, 30, 25, 20, 14].map(radius => (
-        <circle key={radius} cx={cx} cy={cy} r={radius} stroke="#d0cdc8" strokeWidth="0.7" />
-      ))}
-      <path
-        d={`M ${cx},${cy - r} A ${r},${r} 0 ${largeArc},1 ${ex.toFixed(2)},${ey.toFixed(2)}`}
-        stroke={ORANGE} strokeWidth="1.6" strokeLinecap="round"
-      />
-      <circle cx={cx} cy={cy} r="3.5" fill={INK} />
-    </svg>
-  );
-}
-
-function VinylDisc({ color = "#111111", size = 64 }: { color?: string; size?: number }) {
-  const cx = size / 2, cy = size / 2, r = size / 2 - 1;
-  return (
-    <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} fill="none" aria-hidden="true">
-      <circle cx={cx} cy={cy} r={r} fill={color} />
-      <circle cx={cx} cy={cy} r={r * 0.76} stroke="rgba(255,255,255,0.05)" strokeWidth="0.5" />
-      <circle cx={cx} cy={cy} r={r * 0.6}  stroke="rgba(255,255,255,0.05)" strokeWidth="0.5" />
-      {/* Label area */}
-      <circle cx={cx} cy={cy} r={r * 0.38} fill="rgba(255,255,255,0.11)" />
-      {/* Center hole */}
-      <circle cx={cx} cy={cy} r={r * 0.08} fill={INK} />
-    </svg>
-  );
 }
 
 // ─── Shared form helpers ──────────────────────────────────────────────────────
@@ -104,97 +45,91 @@ const labelStyle: React.CSSProperties = {
   color: "#aaaaaa", marginBottom: 6,
 };
 
-function VinylColorPicker({ value, onChange }: { value: string; onChange: (c: string) => void }) {
+// ─── Photo uploader ───────────────────────────────────────────────────────────
+
+function PhotoUploader({
+  label,
+  hint,
+  type,
+  currentUrl,
+  onUploaded,
+  square = false,
+}: {
+  label: string;
+  hint?: string;
+  type: "artwork" | "vinyl";
+  currentUrl: string | null;
+  onUploaded: (url: string) => void;
+  square?: boolean;
+}) {
+  const [uploading, setUploading] = useState(false);
+  const [preview,   setPreview]   = useState<string | null>(currentUrl);
+  const [err,       setErr]       = useState<string | null>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  async function handleFile(file: File) {
+    setErr(null); setUploading(true);
+    const fd = new FormData();
+    fd.append("file", file);
+    fd.append("type", type);
+    try {
+      const res  = await fetch("/api/turntable/photo", { method: "POST", body: fd });
+      const data = await res.json() as { url?: string; error?: string };
+      if (!res.ok || !data.url) { setErr(data.error ?? "Upload failed"); return; }
+      setPreview(data.url);
+      onUploaded(data.url);
+    } catch { setErr("Upload failed"); }
+    finally { setUploading(false); }
+  }
+
   return (
     <div>
-      <label style={labelStyle}>Vinyl Colour</label>
-      <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
-        {VINYL_PRESETS.map(p => (
-          <button
-            key={p.color}
-            title={p.label}
-            onClick={() => onChange(p.color)}
+      <label style={labelStyle}>
+        {label}
+        {hint && <span style={{ color: "#d0d0d0", textTransform: "none", letterSpacing: 0 }}> — {hint}</span>}
+      </label>
+      <div style={{ display: "flex", gap: 12, alignItems: "flex-start" }}>
+        {/* Preview */}
+        {preview && (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={preview}
+            alt={label}
             style={{
-              width: 28, height: 28, borderRadius: "50%", background: p.color,
-              border: value === p.color ? `2.5px solid ${INK}` : `1px solid ${RULE}`,
-              cursor: "pointer", flexShrink: 0,
+              width: square ? 80 : 64,
+              height: square ? 80 : 64,
+              objectFit: "cover",
+              display: "block",
+              border: `1px solid ${RULE}`,
+              borderRadius: type === "vinyl" ? "50%" : 0,
+              flexShrink: 0,
             }}
           />
-        ))}
-        <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-          <input
-            type="color"
-            value={value}
-            onChange={e => onChange(e.target.value)}
-            style={{ width: 28, height: 28, border: `1px solid ${RULE}`, padding: 2, cursor: "pointer", borderRadius: "50%", background: "none" }}
-            title="Custom colour"
-          />
-          <span style={{ fontFamily: MONO, fontSize: "9px", color: "#aaaaaa", letterSpacing: "0.1em" }}>Custom</span>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-// ─── Discogs cover lookup ─────────────────────────────────────────────────────
-
-function useCoverLookup(artist: string, album: string) {
-  const [url,     setUrl]     = useState<string | null>(null);
-  const [looking, setLooking] = useState(false);
-  const [tried,   setTried]   = useState(false);
-
-  const lookup = useCallback(async () => {
-    if (!artist.trim() || !album.trim()) return;
-    setLooking(true); setTried(false);
-    try {
-      const res = await fetch(
-        `/api/turntable/cover?artist=${encodeURIComponent(artist)}&album=${encodeURIComponent(album)}`
-      );
-      const data = await res.json() as { url: string | null };
-      setUrl(data.url ?? null);
-    } catch { setUrl(null); }
-    finally { setLooking(false); setTried(true); }
-  }, [artist, album]);
-
-  return { url, setUrl, looking, tried, lookup };
-}
-
-// ─── Cover lookup row (shared between forms) ──────────────────────────────────
-
-function CoverLookupRow({ cover }: { cover: ReturnType<typeof useCoverLookup> }) {
-  return (
-    <div style={{ display: "flex", gap: 16, alignItems: "flex-start" }}>
-      <div style={{ flex: 1 }}>
-        <label style={labelStyle}>Cover Art</label>
-        <div style={{ display: "flex", gap: 8 }}>
+        )}
+        <div>
           <button
-            onClick={cover.lookup}
-            disabled={cover.looking}
+            onClick={() => inputRef.current?.click()}
+            disabled={uploading}
             style={{
               fontFamily: MONO, fontSize: "10px", letterSpacing: "0.1em", textTransform: "uppercase",
-              background: cover.looking ? "#f0f0f0" : INK,
-              color: cover.looking ? "#aaaaaa" : "#ffffff",
-              border: "none", padding: "9px 16px", cursor: cover.looking ? "default" : "pointer",
+              background: uploading ? "#f0f0f0" : INK,
+              color: uploading ? "#aaaaaa" : "#ffffff",
+              border: "none", padding: "9px 16px", cursor: uploading ? "default" : "pointer",
               whiteSpace: "nowrap",
             }}
           >
-            {cover.looking ? "Looking up…" : "Find on Discogs"}
+            {uploading ? "Uploading…" : preview ? "Replace Photo" : "Upload Photo"}
           </button>
-          {cover.tried && !cover.url && (
-            <span style={{ fontFamily: MONO, fontSize: "10px", color: "#aaaaaa", alignSelf: "center" }}>No cover found</span>
-          )}
+          <input
+            ref={inputRef}
+            type="file"
+            accept="image/jpeg,image/png,image/webp"
+            style={{ display: "none" }}
+            onChange={e => { const f = e.target.files?.[0]; if (f) handleFile(f); }}
+          />
+          {err && <p style={{ fontFamily: MONO, fontSize: "10px", color: "#cc3300", margin: "6px 0 0" }}>{err}</p>}
         </div>
       </div>
-      {cover.url && (
-        <div style={{ flexShrink: 0 }}>
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src={cover.url.startsWith("/") ? cover.url : `/api/image-proxy?url=${encodeURIComponent(cover.url)}`}
-            alt="cover preview"
-            style={{ width: 64, height: 64, objectFit: "cover", display: "block", border: `1px solid ${RULE}` }}
-          />
-        </div>
-      )}
     </div>
   );
 }
@@ -204,15 +139,9 @@ function StatusToggle({ status, onChange }: { status: "draft" | "published"; onC
     <label style={{ display: "flex", alignItems: "center", gap: 10, cursor: "pointer" }}>
       <span
         onClick={() => onChange(status === "published" ? "draft" : "published")}
-        style={{
-          width: 32, height: 18, borderRadius: 9, position: "relative", display: "inline-block",
-          background: status === "published" ? INK : RULE, transition: "background 0.15s", cursor: "pointer",
-        }}
+        style={{ width: 32, height: 18, borderRadius: 9, position: "relative", display: "inline-block", background: status === "published" ? INK : RULE, transition: "background 0.15s", cursor: "pointer" }}
       >
-        <span style={{
-          position: "absolute", top: 3, left: status === "published" ? 16 : 3,
-          width: 12, height: 12, borderRadius: "50%", background: "#fff", transition: "left 0.15s",
-        }} />
+        <span style={{ position: "absolute", top: 3, left: status === "published" ? 16 : 3, width: 12, height: 12, borderRadius: "50%", background: "#fff", transition: "left 0.15s" }} />
       </span>
       <span style={{ fontFamily: MONO, fontSize: "10px", letterSpacing: "0.08em", textTransform: "uppercase", color: status === "published" ? INK : "#aaaaaa" }}>
         {status === "published" ? "Published" : "Draft"}
@@ -221,13 +150,74 @@ function StatusToggle({ status, onChange }: { status: "draft" | "published"; onC
   );
 }
 
+// ─── Shared text field grid ───────────────────────────────────────────────────
+
+function CoreFields({
+  artist, setArtist, album, setAlbum,
+  year, setYear, label, setLabel, genre, setGenre,
+  side, setSide, trackTime, setTrackTime,
+  bandcampUrl, setBandcampUrl,
+}: {
+  artist: string; setArtist: (v: string) => void;
+  album: string; setAlbum: (v: string) => void;
+  year: string; setYear: (v: string) => void;
+  label: string; setLabel: (v: string) => void;
+  genre: string; setGenre: (v: string) => void;
+  side: string; setSide: (v: string) => void;
+  trackTime: string; setTrackTime: (v: string) => void;
+  bandcampUrl: string; setBandcampUrl: (v: string) => void;
+}) {
+  return (
+    <>
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginBottom: 16 }}>
+        <div>
+          <label style={labelStyle}>Artist</label>
+          <input value={artist} onChange={e => setArtist(e.target.value)} style={inputStyle} placeholder="e.g. Mulatu Astatke" />
+        </div>
+        <div>
+          <label style={labelStyle}>Album</label>
+          <input value={album} onChange={e => setAlbum(e.target.value)} style={inputStyle} placeholder="e.g. Ethio Jazz" />
+        </div>
+      </div>
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 16, marginBottom: 16 }}>
+        <div>
+          <label style={labelStyle}>Year <span style={{ color: "#d0d0d0", textTransform: "none", letterSpacing: 0 }}>— optional</span></label>
+          <input value={year} onChange={e => setYear(e.target.value)} style={inputStyle} placeholder="e.g. 1983" />
+        </div>
+        <div>
+          <label style={labelStyle}>Label <span style={{ color: "#d0d0d0", textTransform: "none", letterSpacing: 0 }}>— optional</span></label>
+          <input value={label} onChange={e => setLabel(e.target.value)} style={inputStyle} placeholder="e.g. Efficient Space" />
+        </div>
+        <div>
+          <label style={labelStyle}>Genre <span style={{ color: "#d0d0d0", textTransform: "none", letterSpacing: 0 }}>— optional</span></label>
+          <input value={genre} onChange={e => setGenre(e.target.value)} style={inputStyle} placeholder="e.g. Electronic" />
+        </div>
+      </div>
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginBottom: 16 }}>
+        <div>
+          <label style={labelStyle}>Side <span style={{ color: "#d0d0d0", textTransform: "none", letterSpacing: 0 }}>— optional</span></label>
+          <input value={side} onChange={e => setSide(e.target.value)} style={inputStyle} placeholder="e.g. SIDE A / 01" />
+        </div>
+        <div>
+          <label style={labelStyle}>Track Time <span style={{ color: "#d0d0d0", textTransform: "none", letterSpacing: 0 }}>— optional</span></label>
+          <input value={trackTime} onChange={e => setTrackTime(e.target.value)} style={inputStyle} placeholder="e.g. 1:24 / 3:56" />
+        </div>
+      </div>
+      <div style={{ marginBottom: 16 }}>
+        <label style={labelStyle}>Bandcamp URL <span style={{ color: "#d0d0d0", textTransform: "none", letterSpacing: 0 }}>— optional</span></label>
+        <input value={bandcampUrl} onChange={e => setBandcampUrl(e.target.value)} style={inputStyle} placeholder="https://artist.bandcamp.com/album/..." />
+      </div>
+    </>
+  );
+}
+
 // ─── New entry form ───────────────────────────────────────────────────────────
 
 interface NewEntryFormProps { open: boolean; onClose: () => void; onSaved: (post: TurntablePost) => void }
 
 function NewEntryForm({ open, onClose, onSaved }: NewEntryFormProps) {
-  const [saving, setSaving] = useState(false);
-  const [err,    setErr]    = useState<string | null>(null);
+  const [saving,      setSaving]      = useState(false);
+  const [err,         setErr]         = useState<string | null>(null);
   const [artist,      setArtist]      = useState("");
   const [album,       setAlbum]       = useState("");
   const [year,        setYear]        = useState("");
@@ -237,11 +227,17 @@ function NewEntryForm({ open, onClose, onSaved }: NewEntryFormProps) {
   const [body,        setBody]        = useState("");
   const [date,        setDate]        = useState(new Date().toISOString().slice(0, 10));
   const [status,      setStatus]      = useState<"draft" | "published">("published");
-  const [vinylColor,  setVinylColor]  = useState("#111111");
   const [side,        setSide]        = useState("");
   const [trackTime,   setTrackTime]   = useState("");
+  const [coverUrl,    setCoverUrl]    = useState<string | null>(null);
+  const [vinylUrl,    setVinylUrl]    = useState<string | null>(null);
 
-  const cover = useCoverLookup(artist, album);
+  function reset() {
+    setArtist(""); setAlbum(""); setYear(""); setLabel(""); setGenre("");
+    setBandcampUrl(""); setBody(""); setSide(""); setTrackTime("");
+    setDate(new Date().toISOString().slice(0, 10)); setStatus("published");
+    setCoverUrl(null); setVinylUrl(null);
+  }
 
   async function submit() {
     setErr(null); setSaving(true);
@@ -251,16 +247,14 @@ function NewEntryForm({ open, onClose, onSaved }: NewEntryFormProps) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           artist, album, year, label, genre, bandcamp_url: bandcampUrl,
-          cover_url: cover.url, body, published_at: date, status,
-          vinyl_color: vinylColor, side, track_time: trackTime,
+          cover_url: coverUrl, vinyl_photo_url: vinylUrl, body,
+          published_at: date, status, side, track_time: trackTime,
         }),
       });
       const data = await res.json() as { post?: TurntablePost; error?: string };
       if (!res.ok || !data.post) { setErr(data.error ?? "Save failed"); return; }
       onSaved(data.post);
-      setArtist(""); setAlbum(""); setYear(""); setLabel(""); setGenre("");
-      setBandcampUrl(""); setBody(""); cover.setUrl(null); setSide(""); setTrackTime("");
-      setDate(new Date().toISOString().slice(0, 10)); setStatus("published"); setVinylColor("#111111");
+      reset();
       onClose();
     } catch { setErr("Network error"); }
     finally { setSaving(false); }
@@ -276,52 +270,20 @@ function NewEntryForm({ open, onClose, onSaved }: NewEntryFormProps) {
         New Entry
       </p>
 
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginBottom: 16 }}>
-        <div>
-          <label style={labelStyle}>Artist</label>
-          <input value={artist} onChange={e => setArtist(e.target.value)} style={inputStyle} placeholder="e.g. Mulatu Astatke" />
-        </div>
-        <div>
-          <label style={labelStyle}>Album</label>
-          <input value={album} onChange={e => setAlbum(e.target.value)} style={inputStyle} placeholder="e.g. Ethio Jazz" />
-        </div>
-      </div>
+      <CoreFields
+        artist={artist} setArtist={setArtist}
+        album={album} setAlbum={setAlbum}
+        year={year} setYear={setYear}
+        label={label} setLabel={setLabel}
+        genre={genre} setGenre={setGenre}
+        side={side} setSide={setSide}
+        trackTime={trackTime} setTrackTime={setTrackTime}
+        bandcampUrl={bandcampUrl} setBandcampUrl={setBandcampUrl}
+      />
 
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 16, marginBottom: 16 }}>
-        <div>
-          <label style={labelStyle}>Year <span style={{ color: "#d0d0d0", textTransform: "none", letterSpacing: 0 }}>— optional</span></label>
-          <input value={year} onChange={e => setYear(e.target.value)} style={inputStyle} placeholder="e.g. 1983" />
-        </div>
-        <div>
-          <label style={labelStyle}>Label <span style={{ color: "#d0d0d0", textTransform: "none", letterSpacing: 0 }}>— optional</span></label>
-          <input value={label} onChange={e => setLabel(e.target.value)} style={inputStyle} placeholder="e.g. Efficient Space" />
-        </div>
-        <div>
-          <label style={labelStyle}>Genre <span style={{ color: "#d0d0d0", textTransform: "none", letterSpacing: 0 }}>— optional</span></label>
-          <input value={genre} onChange={e => setGenre(e.target.value)} style={inputStyle} placeholder="e.g. Electronic" />
-        </div>
-      </div>
-
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginBottom: 16 }}>
-        <div>
-          <label style={labelStyle}>Side <span style={{ color: "#d0d0d0", textTransform: "none", letterSpacing: 0 }}>— optional</span></label>
-          <input value={side} onChange={e => setSide(e.target.value)} style={inputStyle} placeholder="e.g. SIDE A / 01" />
-        </div>
-        <div>
-          <label style={labelStyle}>Track Time <span style={{ color: "#d0d0d0", textTransform: "none", letterSpacing: 0 }}>— optional</span></label>
-          <input value={trackTime} onChange={e => setTrackTime(e.target.value)} style={inputStyle} placeholder="e.g. 1:24 / 3:56" />
-        </div>
-      </div>
-
-      <div style={{ marginBottom: 16 }}>
-        <label style={labelStyle}>Bandcamp URL <span style={{ color: "#d0d0d0", textTransform: "none", letterSpacing: 0 }}>— optional</span></label>
-        <input value={bandcampUrl} onChange={e => setBandcampUrl(e.target.value)} style={inputStyle} placeholder="https://artist.bandcamp.com/album/..." />
-      </div>
-
-      <div style={{ marginBottom: 16 }}><CoverLookupRow cover={cover} /></div>
-
-      <div style={{ marginBottom: 16 }}>
-        <VinylColorPicker value={vinylColor} onChange={setVinylColor} />
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 24, marginBottom: 16 }}>
+        <PhotoUploader label="Artwork Photo" hint="your shot of the cover" type="artwork" currentUrl={coverUrl} onUploaded={setCoverUrl} square />
+        <PhotoUploader label="Vinyl Photo" hint="your shot of the record" type="vinyl" currentUrl={vinylUrl} onUploaded={setVinylUrl} />
       </div>
 
       <div style={{ marginBottom: 16 }}>
@@ -341,7 +303,7 @@ function NewEntryForm({ open, onClose, onSaved }: NewEntryFormProps) {
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
         <StatusToggle status={status} onChange={setStatus} />
         <div style={{ display: "flex", gap: 12 }}>
-          <button onClick={() => { onClose(); setErr(null); }} style={{ fontFamily: MONO, fontSize: "10px", letterSpacing: "0.1em", textTransform: "uppercase", background: "none", border: `1px solid ${RULE}`, padding: "8px 16px", cursor: "pointer", color: "#888888" }}>
+          <button onClick={() => { onClose(); setErr(null); reset(); }} style={{ fontFamily: MONO, fontSize: "10px", letterSpacing: "0.1em", textTransform: "uppercase", background: "none", border: `1px solid ${RULE}`, padding: "8px 16px", cursor: "pointer", color: "#888888" }}>
             Cancel
           </button>
           <button onClick={submit} disabled={!canSave} style={{ fontFamily: MONO, fontSize: "10px", letterSpacing: "0.1em", textTransform: "uppercase", background: canSave ? INK : "#cccccc", color: "#ffffff", border: "none", padding: "8px 20px", cursor: canSave ? "pointer" : "default" }}>
@@ -355,7 +317,7 @@ function NewEntryForm({ open, onClose, onSaved }: NewEntryFormProps) {
   );
 }
 
-// ─── Inline edit form (shared by hero + list entries) ─────────────────────────
+// ─── Inline edit form ─────────────────────────────────────────────────────────
 
 interface InlineEditFormProps {
   post: TurntablePost;
@@ -365,9 +327,9 @@ interface InlineEditFormProps {
 }
 
 function InlineEditForm({ post, onSave, onCancel, onDeleted }: InlineEditFormProps) {
-  const [saving,   setSaving]   = useState(false);
-  const [deleting, setDeleting] = useState(false);
-  const [err,      setErr]      = useState<string | null>(null);
+  const [saving,      setSaving]      = useState(false);
+  const [deleting,    setDeleting]    = useState(false);
+  const [err,         setErr]         = useState<string | null>(null);
   const [artist,      setArtist]      = useState(post.artist);
   const [album,       setAlbum]       = useState(post.album);
   const [year,        setYear]        = useState(post.year         ?? "");
@@ -377,13 +339,10 @@ function InlineEditForm({ post, onSave, onCancel, onDeleted }: InlineEditFormPro
   const [body,        setBody]        = useState(post.body);
   const [date,        setDate]        = useState(post.published_at);
   const [status,      setStatus]      = useState<"draft" | "published">(post.status);
-  const [vinylColor,  setVinylColor]  = useState(post.vinyl_color ?? "#111111");
   const [side,        setSide]        = useState(post.side         ?? "");
   const [trackTime,   setTrackTime]   = useState(post.track_time   ?? "");
-
-  const cover = useCoverLookup(artist, album);
-  // initialise cover url from saved value
-  useEffect(() => { cover.setUrl(post.cover_url); }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  const [coverUrl,    setCoverUrl]    = useState<string | null>(post.cover_url);
+  const [vinylUrl,    setVinylUrl]    = useState<string | null>(post.vinyl_photo_url);
 
   async function save() {
     setErr(null); setSaving(true);
@@ -393,8 +352,8 @@ function InlineEditForm({ post, onSave, onCancel, onDeleted }: InlineEditFormPro
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           id: post.id, artist, album, year, label, genre, bandcamp_url: bandcampUrl,
-          cover_url: cover.url, body, published_at: date, status,
-          vinyl_color: vinylColor, side, track_time: trackTime,
+          cover_url: coverUrl, vinyl_photo_url: vinylUrl, body,
+          published_at: date, status, side, track_time: trackTime,
         }),
       });
       const data = await res.json() as { post?: TurntablePost; error?: string };
@@ -418,48 +377,22 @@ function InlineEditForm({ post, onSave, onCancel, onDeleted }: InlineEditFormPro
 
   return (
     <div style={{ border: `1px solid ${RULE}`, padding: 20, background: "#fafaf8", opacity: deleting ? 0.4 : 1 }}>
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14, marginBottom: 14 }}>
-        <div>
-          <label style={labelStyle}>Artist</label>
-          <input value={artist} onChange={e => setArtist(e.target.value)} style={inputStyle} />
-        </div>
-        <div>
-          <label style={labelStyle}>Album</label>
-          <input value={album} onChange={e => setAlbum(e.target.value)} style={inputStyle} />
-        </div>
+      <CoreFields
+        artist={artist} setArtist={setArtist}
+        album={album} setAlbum={setAlbum}
+        year={year} setYear={setYear}
+        label={label} setLabel={setLabel}
+        genre={genre} setGenre={setGenre}
+        side={side} setSide={setSide}
+        trackTime={trackTime} setTrackTime={setTrackTime}
+        bandcampUrl={bandcampUrl} setBandcampUrl={setBandcampUrl}
+      />
+
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 24, marginBottom: 16 }}>
+        <PhotoUploader label="Artwork Photo" type="artwork" currentUrl={coverUrl} onUploaded={setCoverUrl} square />
+        <PhotoUploader label="Vinyl Photo" type="vinyl" currentUrl={vinylUrl} onUploaded={setVinylUrl} />
       </div>
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 14, marginBottom: 14 }}>
-        <div>
-          <label style={labelStyle}>Year</label>
-          <input value={year} onChange={e => setYear(e.target.value)} style={inputStyle} />
-        </div>
-        <div>
-          <label style={labelStyle}>Label</label>
-          <input value={label} onChange={e => setLabel(e.target.value)} style={inputStyle} />
-        </div>
-        <div>
-          <label style={labelStyle}>Genre</label>
-          <input value={genre} onChange={e => setGenre(e.target.value)} style={inputStyle} />
-        </div>
-      </div>
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14, marginBottom: 14 }}>
-        <div>
-          <label style={labelStyle}>Side</label>
-          <input value={side} onChange={e => setSide(e.target.value)} style={inputStyle} placeholder="e.g. SIDE A / 01" />
-        </div>
-        <div>
-          <label style={labelStyle}>Track Time</label>
-          <input value={trackTime} onChange={e => setTrackTime(e.target.value)} style={inputStyle} placeholder="e.g. 1:24 / 3:56" />
-        </div>
-      </div>
-      <div style={{ marginBottom: 14 }}>
-        <label style={labelStyle}>Bandcamp URL</label>
-        <input value={bandcampUrl} onChange={e => setBandcampUrl(e.target.value)} style={inputStyle} />
-      </div>
-      <div style={{ marginBottom: 14 }}><CoverLookupRow cover={cover} /></div>
-      <div style={{ marginBottom: 14 }}>
-        <VinylColorPicker value={vinylColor} onChange={setVinylColor} />
-      </div>
+
       <div style={{ marginBottom: 14 }}>
         <label style={labelStyle}>Date</label>
         <input type="date" value={date} onChange={e => setDate(e.target.value)} style={{ ...inputStyle, width: "calc(50% - 8px)" }} />
@@ -497,13 +430,10 @@ interface EntryProps {
 }
 
 function HeroEntry({ post, isAdmin, onUpdated, onDeleted }: EntryProps) {
-  const [imgFailed, setImgFailed] = useState(false);
-  const [editing,   setEditing]   = useState(false);
+  const [artFailed,   setArtFailed]   = useState(false);
+  const [editing,     setEditing]     = useState(false);
 
-  const coverSrc = post.cover_url
-    ? (post.cover_url.startsWith("/") ? post.cover_url : `/api/image-proxy?url=${encodeURIComponent(post.cover_url)}`)
-    : null;
-
+  const coverSrc = post.cover_url ?? null;
   const metaParts = [post.label, post.year, post.genre].filter(Boolean).join(" · ");
 
   if (editing) {
@@ -518,119 +448,88 @@ function HeroEntry({ post, isAdmin, onUpdated, onDeleted }: EntryProps) {
   }
 
   return (
-    <>
-      <div className="rk-turntable-hero" style={{ display: "flex", gap: 40, alignItems: "flex-start" }}>
-        {/* Left — large album art */}
-        <div className="rk-turntable-hero-art" style={{ width: 400, flexShrink: 0 }}>
-          <div style={{ width: "100%", aspectRatio: "1 / 1", background: "#f0ede8", overflow: "hidden", display: "flex", alignItems: "center", justifyContent: "center" }}>
-            {coverSrc && !imgFailed ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img src={coverSrc} alt={`${post.artist} — ${post.album}`} onError={() => setImgFailed(true)}
-                style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
-            ) : (
-              <span style={{ fontFamily: MONO, fontSize: "11px", color: "#bbbbbb", textAlign: "center", padding: "0 16px" }}>
-                {post.artist}
-              </span>
-            )}
-          </div>
-        </div>
-
-        {/* Right — content */}
-        <div style={{ flex: 1, minWidth: 0, paddingTop: 4 }}>
-          {isAdmin && (
-            <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 16 }}>
-              <button onClick={() => setEditing(true)} style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.1em", textTransform: "uppercase", background: "none", border: `1px solid ${RULE}`, padding: "4px 10px", cursor: "pointer", color: "#888888" }}>
-                Edit
-              </button>
-            </div>
+    <div className="rk-turntable-hero" style={{ display: "flex", gap: 40, alignItems: "flex-start" }}>
+      {/* Left — artwork photo */}
+      <div className="rk-turntable-hero-art" style={{ width: 400, flexShrink: 0 }}>
+        <div style={{ width: "100%", aspectRatio: "1 / 1", background: "#f0ede8", overflow: "hidden", display: "flex", alignItems: "center", justifyContent: "center" }}>
+          {coverSrc && !artFailed ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={coverSrc} alt={`${post.artist} — ${post.album}`} onError={() => setArtFailed(true)}
+              style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
+          ) : (
+            <span style={{ fontFamily: MONO, fontSize: "11px", color: "#bbbbbb", textAlign: "center", padding: "0 16px" }}>
+              {post.artist}
+            </span>
           )}
-
-          {/* Side label */}
-          {post.side && (
-            <p style={{ fontFamily: MONO, fontSize: "10px", letterSpacing: "0.14em", textTransform: "uppercase", color: "#aaaaaa", margin: "0 0 12px" }}>
-              {post.side}
-            </p>
-          )}
-
-          {/* Artist */}
-          <h2 style={{ fontFamily: SERIF, fontSize: "clamp(36px, 4vw, 54px)", fontWeight: 600, color: INK, margin: "0 0 6px", lineHeight: 1.05, letterSpacing: "-0.02em" }}>
-            {post.artist}
-          </h2>
-
-          {/* Album */}
-          <p style={{ fontFamily: SERIF, fontSize: "clamp(20px, 2.5vw, 28px)", fontStyle: "italic", color: INK, margin: "0 0 14px", lineHeight: 1.2, letterSpacing: "-0.01em" }}>
-            {post.album}
-          </p>
-
-          {/* Metadata */}
-          {metaParts && (
-            <p style={{ fontFamily: MONO, fontSize: "10px", letterSpacing: "0.14em", textTransform: "uppercase", color: "#888888", margin: 0 }}>
-              {metaParts}
-            </p>
-          )}
-
-          {post.bandcamp_url && (
-            <a href={post.bandcamp_url} target="_blank" rel="noopener noreferrer"
-              style={{ fontFamily: MONO, fontSize: "10px", letterSpacing: "0.1em", textTransform: "uppercase", color: INK, textDecoration: "none", borderBottom: `1px solid ${INK}`, paddingBottom: 1, display: "inline-block", marginTop: 10 }}>
-              Bandcamp ↗
-            </a>
-          )}
-
-          {/* Separator */}
-          <div style={{ height: 1, background: RULE, margin: "20px 0" }} />
-
-          {/* Vinyl + Now Playing */}
-          <div style={{ display: "flex", alignItems: "center", gap: 20 }}>
-            <VinylHero trackTime={post.track_time} />
-            <div style={{ width: 1, height: 56, background: RULE, flexShrink: 0 }} />
-            <div>
-              <p style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.16em", textTransform: "uppercase", color: "#aaaaaa", margin: "0 0 5px" }}>
-                Now Playing
-              </p>
-              {post.side && (
-                <p style={{ fontFamily: MONO, fontSize: "10px", letterSpacing: "0.12em", textTransform: "uppercase", color: INK, margin: "0 0 8px" }}>
-                  {post.side}
-                </p>
-              )}
-              <div style={{ width: 24, height: 1.5, background: ORANGE, margin: "0 0 8px" }} />
-              {post.track_time && (
-                <p style={{ fontFamily: MONO, fontSize: "12px", color: INK, margin: 0 }}>
-                  {post.track_time}
-                </p>
-              )}
-            </div>
-          </div>
         </div>
       </div>
 
-      {/* Listening note — full width */}
-      {post.body && (
-        <div style={{ marginTop: 36, maxWidth: 640 }}>
-          <p style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.18em", textTransform: "uppercase", color: "#aaaaaa", margin: "0 0 14px" }}>
-            Listening Note
+      {/* Right — content */}
+      <div style={{ flex: 1, minWidth: 0, paddingTop: 4 }}>
+        {isAdmin && (
+          <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 16 }}>
+            <button onClick={() => setEditing(true)} style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.1em", textTransform: "uppercase", background: "none", border: `1px solid ${RULE}`, padding: "4px 10px", cursor: "pointer", color: "#888888" }}>
+              Edit
+            </button>
+          </div>
+        )}
+
+        {post.side && (
+          <p style={{ fontFamily: MONO, fontSize: "10px", letterSpacing: "0.14em", textTransform: "uppercase", color: "#aaaaaa", margin: "0 0 12px" }}>
+            {post.side}
           </p>
-          {post.body.split("\n\n").map((para, i) => (
-            <p key={i} style={{ fontFamily: SERIF, fontSize: "clamp(17px, 1.8vw, 20px)", fontStyle: "italic", lineHeight: 1.65, color: INK, margin: i > 0 ? "16px 0 0" : 0 }}>
-              {para}
+        )}
+
+        <h2 style={{ fontFamily: SERIF, fontSize: "clamp(36px, 4vw, 54px)", fontWeight: 600, color: INK, margin: "0 0 6px", lineHeight: 1.05, letterSpacing: "-0.02em" }}>
+          {post.artist}
+        </h2>
+
+        <p style={{ fontFamily: SERIF, fontSize: "clamp(20px, 2.5vw, 28px)", fontStyle: "italic", color: INK, margin: "0 0 14px", lineHeight: 1.2, letterSpacing: "-0.01em" }}>
+          {post.album}
+        </p>
+
+        {metaParts && (
+          <p style={{ fontFamily: MONO, fontSize: "10px", letterSpacing: "0.14em", textTransform: "uppercase", color: "#888888", margin: 0 }}>
+            {metaParts}
+          </p>
+        )}
+
+        {post.bandcamp_url && (
+          <a href={post.bandcamp_url} target="_blank" rel="noopener noreferrer"
+            style={{ fontFamily: MONO, fontSize: "10px", letterSpacing: "0.1em", textTransform: "uppercase", color: INK, textDecoration: "none", borderBottom: `1px solid ${INK}`, paddingBottom: 1, display: "inline-block", marginTop: 10 }}>
+            Bandcamp ↗
+          </a>
+        )}
+
+        {/* Listening note — inline in right column */}
+        {post.body && (
+          <>
+            <div style={{ height: 1, background: RULE, margin: "24px 0 20px" }} />
+            <p style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.18em", textTransform: "uppercase", color: "#aaaaaa", margin: "0 0 14px" }}>
+              Listening Note
             </p>
-          ))}
-        </div>
-      )}
-    </>
+            {post.body.split("\n\n").map((para, i) => (
+              <p key={i} style={{ fontFamily: SERIF, fontSize: "clamp(16px, 1.7vw, 19px)", fontStyle: "italic", lineHeight: 1.7, color: INK, margin: i > 0 ? "14px 0 0" : 0 }}>
+                {para}
+              </p>
+            ))}
+          </>
+        )}
+      </div>
+    </div>
   );
 }
 
 // ─── History list entry ───────────────────────────────────────────────────────
 
 function ListEntry({ post, isAdmin, onUpdated, onDeleted }: EntryProps) {
-  const [imgFailed, setImgFailed] = useState(false);
-  const [editing,   setEditing]   = useState(false);
-
-  const coverSrc = post.cover_url
-    ? (post.cover_url.startsWith("/") ? post.cover_url : `/api/image-proxy?url=${encodeURIComponent(post.cover_url)}`)
-    : null;
+  const [artFailed,   setArtFailed]   = useState(false);
+  const [vinylFailed, setVinylFailed] = useState(false);
+  const [editing,     setEditing]     = useState(false);
 
   const metaParts = [post.label, post.year, post.genre].filter(Boolean).join(" · ");
+  const coverSrc  = post.cover_url ?? null;
+  const vinylSrc  = post.vinyl_photo_url ?? null;
 
   if (editing) {
     return (
@@ -647,11 +546,11 @@ function ListEntry({ post, isAdmin, onUpdated, onDeleted }: EntryProps) {
 
   return (
     <div className="rk-turntable-list-row" style={{ display: "flex", alignItems: "center", gap: 20, padding: "22px 0", borderTop: `1px solid ${RULE}` }}>
-      {/* Thumbnail */}
+      {/* Artwork thumbnail */}
       <div className="rk-turntable-list-thumb" style={{ width: 100, height: 100, flexShrink: 0, background: "#f0ede8", overflow: "hidden" }}>
-        {coverSrc && !imgFailed ? (
+        {coverSrc && !artFailed ? (
           // eslint-disable-next-line @next/next/no-img-element
-          <img src={coverSrc} alt={`${post.artist} — ${post.album}`} onError={() => setImgFailed(true)}
+          <img src={coverSrc} alt={`${post.artist} — ${post.album}`} onError={() => setArtFailed(true)}
             style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
         ) : (
           <div style={{ width: "100%", height: "100%", display: "flex", alignItems: "center", justifyContent: "center" }}>
@@ -681,9 +580,20 @@ function ListEntry({ post, isAdmin, onUpdated, onDeleted }: EntryProps) {
         )}
       </div>
 
-      {/* Vinyl disc */}
-      <div className="rk-turntable-vinyl" style={{ flexShrink: 0 }}>
-        <VinylDisc color={post.vinyl_color ?? "#111111"} size={64} />
+      {/* Vinyl photo (circular crop) */}
+      <div className="rk-turntable-vinyl" style={{ flexShrink: 0, width: 64, height: 64 }}>
+        {vinylSrc && !vinylFailed ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={vinylSrc} alt="vinyl" onError={() => setVinylFailed(true)}
+            style={{ width: 64, height: 64, borderRadius: "50%", objectFit: "cover", display: "block" }} />
+        ) : (
+          // SVG fallback disc
+          <svg width="64" height="64" viewBox="0 0 64 64" fill="none" aria-hidden="true">
+            <circle cx="32" cy="32" r="31" fill={post.vinyl_color ?? "#111111"} />
+            <circle cx="32" cy="32" r="12" fill="rgba(255,255,255,0.11)" />
+            <circle cx="32" cy="32" r="2.5" fill={INK} />
+          </svg>
+        )}
       </div>
 
       {/* Side + time */}
@@ -702,7 +612,7 @@ function ListEntry({ post, isAdmin, onUpdated, onDeleted }: EntryProps) {
 
       {/* Play button (decorative) + admin edit */}
       <div style={{ display: "flex", alignItems: "center", gap: 10, flexShrink: 0 }}>
-        <div style={{ width: 36, height: 36, borderRadius: "50%", border: `1px solid ${RULE}`, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+        <div style={{ width: 36, height: 36, borderRadius: "50%", border: `1px solid ${RULE}`, display: "flex", alignItems: "center", justifyContent: "center" }}>
           <svg width="9" height="11" viewBox="0 0 9 11" fill="none" aria-hidden="true">
             <path d="M0.5 0.5L8.5 5.5L0.5 10.5V0.5Z" fill={INK} />
           </svg>
@@ -802,10 +712,8 @@ export default function TurntableView({ isAdmin }: Props) {
         </div>
       </div>
 
-      {/* ── New entry form ── */}
       {isAdmin && <NewEntryForm open={formOpen} onClose={() => setFormOpen(false)} onSaved={onSaved} />}
 
-      {/* ── Hero entry ── */}
       {heroPost ? (
         <HeroEntry post={heroPost} isAdmin={isAdmin} onUpdated={onUpdated} onDeleted={onDeleted} />
       ) : (
@@ -814,7 +722,6 @@ export default function TurntableView({ isAdmin }: Props) {
         </p>
       )}
 
-      {/* ── PREVIOUSLY ON THE TURNTABLE ── */}
       {historyPosts.length > 0 && (
         <div style={{ marginTop: 52 }}>
           <div style={{ height: 1, background: RULE, marginBottom: 52 }} />
