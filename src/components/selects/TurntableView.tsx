@@ -513,7 +513,7 @@ function HeroEntry({ post, isAdmin, onUpdated, onDeleted }: EntryProps) {
                   src={post.vinyl_photo_url}
                   alt="vinyl"
                   onClick={() => setLightbox(true)}
-                  style={{ width: 200, height: 200, objectFit: "cover", display: "block", cursor: "zoom-in" }}
+                  style={{ width: 120, height: 120, objectFit: "cover", display: "block", cursor: "zoom-in" }}
                 />
                 {(post.side || post.track_time) && (
                   <div style={{ marginTop: 8 }}>
