@@ -431,11 +431,22 @@ interface EntryProps {
 
 function HeroEntry({ post, isAdmin, onUpdated, onDeleted }: EntryProps) {
   const [artFailed,   setArtFailed]   = useState(false);
+  const [vinylFailed, setVinylFailed] = useState(false);
   const [editing,     setEditing]     = useState(false);
-  const [lightbox,    setLightbox]    = useState(false);
+  const [swapped,     setSwapped]     = useState(false); // false = artwork large, true = vinyl large
 
   const coverSrc = post.cover_url ?? null;
+  const vinylSrc = post.vinyl_photo_url ?? null;
+  const canSwap  = !!coverSrc && !!vinylSrc;
   const metaParts = [post.label, post.year, post.genre].filter(Boolean).join(" · ");
+
+  // Which image is currently large vs thumbnail
+  const largeSrc    = swapped ? vinylSrc  : (coverSrc ?? vinylSrc);
+  const thumbSrc    = canSwap ? (swapped ? coverSrc : vinylSrc) : null;
+  const largeAlt    = swapped ? "vinyl"   : `${post.artist} — ${post.album}`;
+  const thumbAlt    = swapped ? `${post.artist} — ${post.album}` : "vinyl";
+  const largeFailed = swapped ? vinylFailed : artFailed;
+  const onLargeErr  = swapped ? () => setVinylFailed(true) : () => setArtFailed(true);
 
   if (editing) {
     return (
@@ -449,14 +460,13 @@ function HeroEntry({ post, isAdmin, onUpdated, onDeleted }: EntryProps) {
   }
 
   return (
-    <>
     <div className="rk-turntable-hero" style={{ display: "flex", gap: 40, alignItems: "flex-start" }}>
-      {/* Left — artwork photo */}
+      {/* Left — large photo (swappable) */}
       <div className="rk-turntable-hero-art" style={{ width: 400, flexShrink: 0 }}>
         <div style={{ width: "100%", aspectRatio: "1 / 1", background: "#f0ede8", overflow: "hidden", display: "flex", alignItems: "center", justifyContent: "center" }}>
-          {coverSrc && !artFailed ? (
+          {largeSrc && !largeFailed ? (
             // eslint-disable-next-line @next/next/no-img-element
-            <img src={coverSrc} alt={`${post.artist} — ${post.album}`} onError={() => setArtFailed(true)}
+            <img src={largeSrc} alt={largeAlt} onError={onLargeErr}
               style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
           ) : (
             <span style={{ fontFamily: MONO, fontSize: "11px", color: "#bbbbbb", textAlign: "center", padding: "0 16px" }}>
@@ -503,30 +513,24 @@ function HeroEntry({ post, isAdmin, onUpdated, onDeleted }: EntryProps) {
           </a>
         )}
 
-        {/* Vinyl photo + listening note — side by side */}
-        {(post.vinyl_photo_url || post.body) && (
-          <div style={{ display: "flex", gap: 28, alignItems: "flex-start", marginTop: 24 }}>
-            {post.vinyl_photo_url && (
+        {/* Thumbnail + listening note */}
+        {(thumbSrc || post.body) && (
+          <div style={{ display: "flex", gap: 24, alignItems: "flex-start", marginTop: 24 }}>
+            {thumbSrc && (
               <div style={{ flexShrink: 0 }}>
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
-                  src={post.vinyl_photo_url}
-                  alt="vinyl"
-                  onClick={() => setLightbox(true)}
-                  style={{ width: 120, height: 120, objectFit: "cover", display: "block", cursor: "zoom-in" }}
+                  src={thumbSrc}
+                  alt={thumbAlt}
+                  onClick={() => setSwapped(s => !s)}
+                  style={{ width: 100, height: 100, objectFit: "cover", display: "block", cursor: "pointer", opacity: 0.75, transition: "opacity 0.15s" }}
+                  onMouseEnter={e => { e.currentTarget.style.opacity = "1"; }}
+                  onMouseLeave={e => { e.currentTarget.style.opacity = "0.75"; }}
                 />
-                {(post.side || post.track_time) && (
-                  <div style={{ marginTop: 8 }}>
-                    {post.side && (
-                      <p style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.12em", textTransform: "uppercase", color: INK, margin: "0 0 3px" }}>
-                        {post.side}
-                      </p>
-                    )}
-                    {post.track_time && (
-                      <p style={{ fontFamily: MONO, fontSize: "11px", color: "#888888", margin: 0 }}>
-                        {post.track_time}
-                      </p>
-                    )}
+                {!swapped && (post.side || post.track_time) && (
+                  <div style={{ marginTop: 6 }}>
+                    {post.side && <p style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.12em", textTransform: "uppercase", color: INK, margin: "0 0 2px" }}>{post.side}</p>}
+                    {post.track_time && <p style={{ fontFamily: MONO, fontSize: "10px", color: "#888888", margin: 0 }}>{post.track_time}</p>}
                   </div>
                 )}
               </div>
@@ -548,18 +552,6 @@ function HeroEntry({ post, isAdmin, onUpdated, onDeleted }: EntryProps) {
         )}
       </div>
     </div>
-
-    {/* Lightbox */}
-    {lightbox && post.vinyl_photo_url && (
-      <div
-        onClick={() => setLightbox(false)}
-        style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.92)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000, cursor: "zoom-out" }}
-      >
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src={post.vinyl_photo_url} alt="vinyl" style={{ maxWidth: "90vw", maxHeight: "90vh", objectFit: "contain", display: "block" }} />
-      </div>
-    )}
-    </>
   );
 }
 
