@@ -35,7 +35,7 @@ export async function GET(request: NextRequest) {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   let q = (supabase as any)
     .from("turntable_posts")
-    .select("id, published_at, artist, album, year, label, genre, bandcamp_url, cover_url, vinyl_photo_url, body, status, vinyl_color, side, track_time")
+    .select("id, published_at, artist, album, year, label, genre, bandcamp_url, cover_url, vinyl_photo_url, body, status, vinyl_color, side, track_time, favourite_track")
     .order("published_at", { ascending: false });
 
   if (!all) q = q.eq("status", "published");
@@ -53,7 +53,7 @@ export async function POST(request: NextRequest) {
   const body = await request.json().catch(() => ({})) as {
     artist?: string; album?: string; year?: string; label?: string; genre?: string;
     bandcamp_url?: string; cover_url?: string; vinyl_photo_url?: string; body?: string; published_at?: string; status?: string;
-    vinyl_color?: string; side?: string; track_time?: string;
+    vinyl_color?: string; side?: string; track_time?: string; favourite_track?: string;
   };
 
   const artist          = (body.artist          ?? "").trim();
@@ -70,14 +70,15 @@ export async function POST(request: NextRequest) {
   const vinyl_color     = (body.vinyl_color     ?? "").trim() || "#111111";
   const side            = (body.side            ?? "").trim() || null;
   const track_time      = (body.track_time      ?? "").trim() || null;
+  const favourite_track = (body.favourite_track ?? "").trim() || null;
 
   if (!artist || !album) return NextResponse.json({ error: "Artist and album are required" }, { status: 400 });
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data, error } = await (getAdminDb() as any)
     .from("turntable_posts")
-    .insert({ artist, album, year, label, genre, bandcamp_url, cover_url, vinyl_photo_url, body: postBody, published_at, status, vinyl_color, side, track_time })
-    .select("id, published_at, artist, album, year, label, genre, bandcamp_url, cover_url, vinyl_photo_url, body, status, vinyl_color, side, track_time")
+    .insert({ artist, album, year, label, genre, bandcamp_url, cover_url, vinyl_photo_url, body: postBody, published_at, status, vinyl_color, side, track_time, favourite_track })
+    .select("id, published_at, artist, album, year, label, genre, bandcamp_url, cover_url, vinyl_photo_url, body, status, vinyl_color, side, track_time, favourite_track")
     .single();
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
@@ -92,7 +93,7 @@ export async function PATCH(request: NextRequest) {
   const body = await request.json().catch(() => ({})) as {
     id?: string; artist?: string; album?: string; year?: string; label?: string; genre?: string;
     bandcamp_url?: string; cover_url?: string; vinyl_photo_url?: string; body?: string; published_at?: string; status?: string;
-    vinyl_color?: string; side?: string; track_time?: string;
+    vinyl_color?: string; side?: string; track_time?: string; favourite_track?: string;
   };
 
   const id = (body.id ?? "").trim();
@@ -113,13 +114,14 @@ export async function PATCH(request: NextRequest) {
   if (body.vinyl_color      !== undefined) update.vinyl_color      = body.vinyl_color?.trim() || "#111111";
   if (body.side             !== undefined) update.side             = body.side?.trim() || null;
   if (body.track_time       !== undefined) update.track_time       = body.track_time?.trim() || null;
+  if (body.favourite_track  !== undefined) update.favourite_track  = body.favourite_track?.trim() || null;
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data, error } = await (getAdminDb() as any)
     .from("turntable_posts")
     .update(update)
     .eq("id", id)
-    .select("id, published_at, artist, album, year, label, genre, bandcamp_url, cover_url, vinyl_photo_url, body, status, vinyl_color, side, track_time")
+    .select("id, published_at, artist, album, year, label, genre, bandcamp_url, cover_url, vinyl_photo_url, body, status, vinyl_color, side, track_time, favourite_track")
     .single();
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });

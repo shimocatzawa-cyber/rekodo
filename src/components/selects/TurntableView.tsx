@@ -30,6 +30,7 @@ interface TurntablePost {
   vinyl_color: string | null;
   side: string | null;
   track_time: string | null;
+  favourite_track: string | null;
 }
 
 // ─── Shared form helpers ──────────────────────────────────────────────────────
@@ -229,12 +230,13 @@ function NewEntryForm({ open, onClose, onSaved }: NewEntryFormProps) {
   const [status,      setStatus]      = useState<"draft" | "published">("published");
   const [side,        setSide]        = useState("");
   const [trackTime,   setTrackTime]   = useState("");
-  const [coverUrl,    setCoverUrl]    = useState<string | null>(null);
-  const [vinylUrl,    setVinylUrl]    = useState<string | null>(null);
+  const [coverUrl,       setCoverUrl]       = useState<string | null>(null);
+  const [vinylUrl,       setVinylUrl]       = useState<string | null>(null);
+  const [favouriteTrack, setFavouriteTrack] = useState("");
 
   function reset() {
     setArtist(""); setAlbum(""); setYear(""); setLabel(""); setGenre("");
-    setBandcampUrl(""); setBody(""); setSide(""); setTrackTime("");
+    setBandcampUrl(""); setBody(""); setSide(""); setTrackTime(""); setFavouriteTrack("");
     setDate(new Date().toISOString().slice(0, 10)); setStatus("published");
     setCoverUrl(null); setVinylUrl(null);
   }
@@ -249,6 +251,7 @@ function NewEntryForm({ open, onClose, onSaved }: NewEntryFormProps) {
           artist, album, year, label, genre, bandcamp_url: bandcampUrl,
           cover_url: coverUrl, vinyl_photo_url: vinylUrl, body,
           published_at: date, status, side, track_time: trackTime,
+          favourite_track: favouriteTrack,
         }),
       });
       const data = await res.json() as { post?: TurntablePost; error?: string };
@@ -289,6 +292,11 @@ function NewEntryForm({ open, onClose, onSaved }: NewEntryFormProps) {
       <div style={{ marginBottom: 16 }}>
         <label style={labelStyle}>Date</label>
         <input type="date" value={date} onChange={e => setDate(e.target.value)} style={{ ...inputStyle, width: "calc(50% - 8px)" }} />
+      </div>
+
+      <div style={{ marginBottom: 16 }}>
+        <label style={labelStyle}>Favourite Track <span style={{ color: "#d0d0d0", textTransform: "none", letterSpacing: 0 }}>— optional</span></label>
+        <input value={favouriteTrack} onChange={e => setFavouriteTrack(e.target.value)} style={inputStyle} placeholder="e.g. God in California" />
       </div>
 
       <div style={{ marginBottom: 20 }}>
@@ -341,8 +349,9 @@ function InlineEditForm({ post, onSave, onCancel, onDeleted }: InlineEditFormPro
   const [status,      setStatus]      = useState<"draft" | "published">(post.status);
   const [side,        setSide]        = useState(post.side         ?? "");
   const [trackTime,   setTrackTime]   = useState(post.track_time   ?? "");
-  const [coverUrl,    setCoverUrl]    = useState<string | null>(post.cover_url);
-  const [vinylUrl,    setVinylUrl]    = useState<string | null>(post.vinyl_photo_url);
+  const [coverUrl,       setCoverUrl]       = useState<string | null>(post.cover_url);
+  const [vinylUrl,       setVinylUrl]       = useState<string | null>(post.vinyl_photo_url);
+  const [favouriteTrack, setFavouriteTrack] = useState(post.favourite_track ?? "");
 
   async function save() {
     setErr(null); setSaving(true);
@@ -354,6 +363,7 @@ function InlineEditForm({ post, onSave, onCancel, onDeleted }: InlineEditFormPro
           id: post.id, artist, album, year, label, genre, bandcamp_url: bandcampUrl,
           cover_url: coverUrl, vinyl_photo_url: vinylUrl, body,
           published_at: date, status, side, track_time: trackTime,
+          favourite_track: favouriteTrack,
         }),
       });
       const data = await res.json() as { post?: TurntablePost; error?: string };
@@ -397,6 +407,11 @@ function InlineEditForm({ post, onSave, onCancel, onDeleted }: InlineEditFormPro
         <label style={labelStyle}>Date</label>
         <input type="date" value={date} onChange={e => setDate(e.target.value)} style={{ ...inputStyle, width: "calc(50% - 8px)" }} />
       </div>
+      <div style={{ marginBottom: 14 }}>
+        <label style={labelStyle}>Favourite Track <span style={{ color: "#d0d0d0", textTransform: "none", letterSpacing: 0 }}>— optional</span></label>
+        <input value={favouriteTrack} onChange={e => setFavouriteTrack(e.target.value)} style={inputStyle} placeholder="e.g. God in California" />
+      </div>
+
       <div style={{ marginBottom: 18 }}>
         <label style={labelStyle}>Listening Note</label>
         <textarea value={body} onChange={e => setBody(e.target.value)} rows={5} style={{ ...inputStyle, resize: "vertical", lineHeight: 1.75 }} />
@@ -536,16 +551,30 @@ function HeroEntry({ post, isAdmin, onUpdated, onDeleted }: EntryProps) {
               </div>
             )}
 
-            {post.body && (
+            {(post.favourite_track || post.body) && (
               <div style={{ flex: 1, minWidth: 0 }}>
-                <p style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.18em", textTransform: "uppercase", color: "#aaaaaa", margin: "0 0 14px" }}>
-                  Listening Note
-                </p>
-                {post.body.split("\n\n").map((para, i) => (
-                  <p key={i} style={{ fontFamily: SERIF, fontSize: "clamp(16px, 1.7vw, 19px)", fontStyle: "italic", lineHeight: 1.7, color: INK, margin: i > 0 ? "14px 0 0" : 0 }}>
-                    {para}
-                  </p>
-                ))}
+                {post.favourite_track && (
+                  <>
+                    <p style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.18em", textTransform: "uppercase", color: "#aaaaaa", margin: "0 0 8px" }}>
+                      Favourite Track
+                    </p>
+                    <p style={{ fontFamily: SERIF, fontSize: "clamp(15px, 1.6vw, 18px)", color: INK, margin: "0 0 20px", lineHeight: 1.3 }}>
+                      {post.favourite_track}
+                    </p>
+                  </>
+                )}
+                {post.body && (
+                  <>
+                    <p style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.18em", textTransform: "uppercase", color: "#aaaaaa", margin: "0 0 14px" }}>
+                      Listening Note
+                    </p>
+                    {post.body.split("\n\n").map((para, i) => (
+                      <p key={i} style={{ fontFamily: SERIF, fontSize: "clamp(16px, 1.7vw, 19px)", fontStyle: "italic", lineHeight: 1.7, color: INK, margin: i > 0 ? "14px 0 0" : 0 }}>
+                        {para}
+                      </p>
+                    ))}
+                  </>
+                )}
               </div>
             )}
           </div>
