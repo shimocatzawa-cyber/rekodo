@@ -432,6 +432,7 @@ interface EntryProps {
 function HeroEntry({ post, isAdmin, onUpdated, onDeleted }: EntryProps) {
   const [artFailed,   setArtFailed]   = useState(false);
   const [editing,     setEditing]     = useState(false);
+  const [lightbox,    setLightbox]    = useState(false);
 
   const coverSrc = post.cover_url ?? null;
   const metaParts = [post.label, post.year, post.genre].filter(Boolean).join(" · ");
@@ -448,6 +449,7 @@ function HeroEntry({ post, isAdmin, onUpdated, onDeleted }: EntryProps) {
   }
 
   return (
+    <>
     <div className="rk-turntable-hero" style={{ display: "flex", gap: 40, alignItems: "flex-start" }}>
       {/* Left — artwork photo */}
       <div className="rk-turntable-hero-art" style={{ width: 400, flexShrink: 0 }}>
@@ -501,50 +503,63 @@ function HeroEntry({ post, isAdmin, onUpdated, onDeleted }: EntryProps) {
           </a>
         )}
 
-        {/* Vinyl photo + side/time */}
-        {(post.vinyl_photo_url || post.side || post.track_time) && (
-          <>
-            <div style={{ height: 1, background: RULE, margin: "24px 0 20px" }} />
-            <div style={{ display: "flex", alignItems: "center", gap: 20 }}>
-              {post.vinyl_photo_url && (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img src={post.vinyl_photo_url} alt="vinyl"
-                  style={{ width: 88, height: 88, borderRadius: "50%", objectFit: "cover", flexShrink: 0 }} />
-              )}
-              {(post.side || post.track_time) && (
-                <div>
-                  {post.side && (
-                    <p style={{ fontFamily: MONO, fontSize: "10px", letterSpacing: "0.12em", textTransform: "uppercase", color: INK, margin: "0 0 6px" }}>
-                      {post.side}
-                    </p>
-                  )}
-                  {post.track_time && (
-                    <p style={{ fontFamily: MONO, fontSize: "12px", color: "#888888", margin: 0 }}>
-                      {post.track_time}
-                    </p>
-                  )}
-                </div>
-              )}
-            </div>
-          </>
-        )}
+        {/* Vinyl photo + listening note — side by side */}
+        {(post.vinyl_photo_url || post.body) && (
+          <div style={{ display: "flex", gap: 28, alignItems: "flex-start", marginTop: 24 }}>
+            {post.vinyl_photo_url && (
+              <div style={{ flexShrink: 0 }}>
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={post.vinyl_photo_url}
+                  alt="vinyl"
+                  onClick={() => setLightbox(true)}
+                  style={{ width: 200, height: 200, objectFit: "cover", display: "block", cursor: "zoom-in" }}
+                />
+                {(post.side || post.track_time) && (
+                  <div style={{ marginTop: 8 }}>
+                    {post.side && (
+                      <p style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.12em", textTransform: "uppercase", color: INK, margin: "0 0 3px" }}>
+                        {post.side}
+                      </p>
+                    )}
+                    {post.track_time && (
+                      <p style={{ fontFamily: MONO, fontSize: "11px", color: "#888888", margin: 0 }}>
+                        {post.track_time}
+                      </p>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
 
-        {/* Listening note */}
-        {post.body && (
-          <>
-            <div style={{ height: 1, background: RULE, margin: "24px 0 20px" }} />
-            <p style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.18em", textTransform: "uppercase", color: "#aaaaaa", margin: "0 0 14px" }}>
-              Listening Note
-            </p>
-            {post.body.split("\n\n").map((para, i) => (
-              <p key={i} style={{ fontFamily: SERIF, fontSize: "clamp(16px, 1.7vw, 19px)", fontStyle: "italic", lineHeight: 1.7, color: INK, margin: i > 0 ? "14px 0 0" : 0 }}>
-                {para}
-              </p>
-            ))}
-          </>
+            {post.body && (
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <p style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.18em", textTransform: "uppercase", color: "#aaaaaa", margin: "0 0 14px" }}>
+                  Listening Note
+                </p>
+                {post.body.split("\n\n").map((para, i) => (
+                  <p key={i} style={{ fontFamily: SERIF, fontSize: "clamp(16px, 1.7vw, 19px)", fontStyle: "italic", lineHeight: 1.7, color: INK, margin: i > 0 ? "14px 0 0" : 0 }}>
+                    {para}
+                  </p>
+                ))}
+              </div>
+            )}
+          </div>
         )}
       </div>
     </div>
+
+    {/* Lightbox */}
+    {lightbox && post.vinyl_photo_url && (
+      <div
+        onClick={() => setLightbox(false)}
+        style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.92)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000, cursor: "zoom-out" }}
+      >
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src={post.vinyl_photo_url} alt="vinyl" style={{ maxWidth: "90vw", maxHeight: "90vh", objectFit: "contain", display: "block" }} />
+      </div>
+    )}
+    </>
   );
 }
 
