@@ -622,15 +622,26 @@ function ListEntry({ post, isAdmin, onUpdated, onDeleted }: EntryProps) {
           {formatDate(post.published_at)}
           {post.status === "draft" && <span style={{ marginLeft: 8, color: "#cccccc" }}>· Draft</span>}
         </p>
-        <p style={{ fontFamily: SERIF, fontSize: "clamp(18px, 2vw, 22px)", fontWeight: 600, color: INK, margin: "0 0 2px", lineHeight: 1.15, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+        <p style={{ fontFamily: SERIF, fontSize: "clamp(16px, 1.8vw, 20px)", fontWeight: 600, color: INK, margin: "0 0 2px", lineHeight: 1.15, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
           {post.artist}
         </p>
-        <p style={{ fontFamily: SERIF, fontSize: "clamp(13px, 1.4vw, 15px)", fontStyle: "italic", color: INK, margin: "0 0 5px", lineHeight: 1.2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+        <p style={{ fontFamily: SERIF, fontSize: "clamp(12px, 1.3vw, 14px)", fontStyle: "italic", color: INK, margin: "0 0 5px", lineHeight: 1.2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
           {post.album}
         </p>
         {metaParts && (
-          <p style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.1em", textTransform: "uppercase", color: "#888888", margin: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+          <p style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.1em", textTransform: "uppercase", color: "#888888", margin: "0 0 8px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
             {metaParts}
+          </p>
+        )}
+        {post.favourite_track && (
+          <p style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.1em", color: INK, margin: "0 0 4px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+            <span style={{ color: "#aaaaaa", textTransform: "uppercase", letterSpacing: "0.14em", marginRight: 6 }}>Fav</span>
+            {post.favourite_track}
+          </p>
+        )}
+        {post.body && (
+          <p style={{ fontFamily: SERIF, fontSize: "clamp(10px, 1vw, 12px)", fontStyle: "italic", color: "#666666", margin: 0, lineHeight: 1.5, overflow: "hidden", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical" }}>
+            {post.body.split("\n\n")[0]}
           </p>
         )}
       </div>
