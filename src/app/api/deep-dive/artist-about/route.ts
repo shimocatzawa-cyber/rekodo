@@ -333,14 +333,16 @@ export async function GET(request: NextRequest) {
   const cachedBio = await readBioCache(artist);
   let finalBio: string | null = cachedBio;
   let discogs: DiscogsArtistDetails | null = null;
+  let lfm: LastFmMeta | null = null;
 
   if (!finalBio) {
     // Only fetch Discogs details when we actually need to generate a bio
-    const [discogsResult, _lfmEarly] = await Promise.all([
+    const [discogsResult, lfmResult] = await Promise.all([
       fetchDiscogsArtistDetails(artist),
-      Promise.resolve(null), // placeholder — lfm fetched below
+      fetchLastFmMeta(artist),
     ]);
     discogs = discogsResult;
+    lfm = lfmResult;
 
     // Read albums from rankings cache for discography context
     let albums: { title: string; year: number }[] = [];
