@@ -37,28 +37,24 @@ export async function POST(request: NextRequest) {
     console.error("[waitlist] Supabase error:", err);
   }
 
-  // Add to Brevo with WAITLIST_DATE attribute so these contacts are clearly
-  // distinguished from full signups (which carry SIGNUP_DATE instead).
+  // Add to Resend audience so waitlist contacts can receive the invite email.
   try {
-    const brevoKey = process.env.BREVO_API_KEY;
-    if (brevoKey) {
-      const today = new Date().toISOString().slice(0, 10);
+    const resendKey  = process.env.RESEND_API_KEY;
+    const audienceId = process.env.RESEND_AUDIENCE_ID;
+    if (resendKey && audienceId) {
       const ac = new AbortController();
       const timer = setTimeout(() => ac.abort(), 5000);
-      await fetch("https://api.brevo.com/v3/contacts", {
+      const payload: Record<string, unknown> = { email, unsubscribed: false };
+      if (name) payload.first_name = name;
+      await fetch(`https://api.resend.com/audiences/${audienceId}/contacts`, {
         method: "POST",
-        headers: { "api-key": brevoKey, "Content-Type": "application/json" },
-        body: JSON.stringify({
-          email,
-          attributes: { WAITLIST_DATE: today, ...(name ? { FIRSTNAME: name } : {}) },
-          listIds: [8],
-          updateEnabled: true,
-        }),
+        headers: { Authorization: `Bearer ${resendKey}`, "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
         signal: ac.signal,
       }).finally(() => clearTimeout(timer));
     }
   } catch (err) {
-    console.error("[brevo] waitlist contact creation failed:", err);
+    console.error("[resend] waitlist contact creation failed:", err);
   }
 
   // Non-blocking — email failure must not break the user-facing response

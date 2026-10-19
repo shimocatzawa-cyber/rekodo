@@ -5,8 +5,6 @@ import { Resend } from "resend";
 import { sendNewSupporterAlert } from "@/lib/email";
 import Stripe from "stripe";
 
-const BREVO_SUPPORTER_TEMPLATE_ID = 19;
-
 export const dynamic = "force-dynamic";
 
 export async function POST(request: NextRequest) {
@@ -66,34 +64,74 @@ export async function POST(request: NextRequest) {
           : Promise.resolve(),
       ]);
 
-      // Update Brevo contact + send supporter welcome email — non-blocking, fail-silent.
+      // Update Resend audience + send supporter welcome email — non-blocking, fail-silent.
       if (customerEmail) {
-        try {
-          const brevoKey = process.env.BREVO_API_KEY;
-          if (brevoKey) {
-            await Promise.all([
-              fetch("https://api.brevo.com/v3/contacts", {
-                method: "POST",
-                headers: { "api-key": brevoKey, "Content-Type": "application/json" },
-                body: JSON.stringify({
-                  email: customerEmail,
-                  attributes: { IS_SUPPORTER: true },
-                  updateEnabled: true,
-                }),
-              }),
-              fetch("https://api.brevo.com/v3/smtp/email", {
-                method: "POST",
-                headers: { "api-key": brevoKey, "Content-Type": "application/json" },
-                body: JSON.stringify({
-                  to: [{ email: customerEmail }],
-                  templateId: BREVO_SUPPORTER_TEMPLATE_ID,
-                }),
-              }),
-            ]);
-          }
-        } catch (err) {
-          console.error("[brevo] supporter update/email failed:", err);
+        const resendKey  = process.env.RESEND_API_KEY;
+        const audienceId = process.env.RESEND_AUDIENCE_ID;
+
+        // Upsert contact in audience
+        if (resendKey && audienceId) {
+          fetch(`https://api.resend.com/audiences/${audienceId}/contacts`, {
+            method:  "POST",
+            headers: { Authorization: `Bearer ${resendKey}`, "Content-Type": "application/json" },
+            body:    JSON.stringify({ email: customerEmail, unsubscribed: false }),
+          }).catch(err => console.error("[resend] supporter audience upsert failed:", err));
         }
+
+        // Supporter welcome email
+        resend.emails.send({
+          from:    "rekōdo <hello@rekodo.co>",
+          to:      customerEmail,
+          subject: "Welcome to rekōdo — you're now a supporter",
+          html: `<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="utf-8" /></head>
+<body style="margin:0;padding:0;background:#ffffff;font-family:'Courier New',monospace;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background:#ffffff;padding:48px 24px;">
+    <tr>
+      <td align="center">
+        <table width="100%" cellpadding="0" cellspacing="0" style="max-width:480px;">
+          <tr>
+            <td style="padding-bottom:32px;">
+              <p style="margin:0;font-family:Georgia,serif;font-weight:700;font-size:28px;color:#CC5500;line-height:1;">ō</p>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding-bottom:24px;">
+              <p style="margin:0;font-family:Georgia,serif;font-size:28px;color:#0d0d0d;line-height:1.2;">Thank you.</p>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding-bottom:32px;">
+              <p style="margin:0;font-family:'Courier New',monospace;font-size:12px;color:#555555;line-height:1.7;letter-spacing:0.04em;">
+                Your support keeps rekōdo going.<br /><br />
+                rekōdo is a one-person project built out of a genuine love for records and
+                the people who collect them. Every supporter makes it possible to keep building.<br /><br />
+                Your account is now marked as a supporter — thank you for being part of this.
+              </p>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding-bottom:40px;">
+              <a href="https://rekodo.co" style="display:inline-block;background:#0d0d0d;color:#ffffff;font-family:'Courier New',monospace;font-size:11px;letter-spacing:0.12em;text-transform:uppercase;text-decoration:none;padding:15px 32px;">
+                Go to rekōdo →
+              </a>
+            </td>
+          </tr>
+          <tr>
+            <td>
+              <p style="margin:0;font-family:'Courier New',monospace;font-size:10px;color:#aaaaaa;letter-spacing:0.06em;line-height:1.6;">
+                <a href="https://rekodo.co" style="color:#CC5500;text-decoration:none;">rekodo.co</a>
+              </p>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>`,
+        }).catch(err => console.error("[resend] supporter welcome email failed:", err));
 
         // Internal alert to admin — non-blocking, fail-silent.
         sendNewSupporterAlert({

@@ -1,29 +1,26 @@
-const SENDER = { name: "rekōdo", email: "hello@rekodo.co" };
+import { Resend } from "resend";
+
+const SENDER = "rekōdo <hello@rekodo.co>";
 const ADMIN  = "hello@rekodo.co";
 
-async function sendViaBrevo(subject: string, html: string, to?: string): Promise<void> {
-  const key = process.env.BREVO_API_KEY;
-  if (!key) throw new Error("BREVO_API_KEY not set");
+function resend() {
+  const key = process.env.RESEND_API_KEY;
+  if (!key) throw new Error("RESEND_API_KEY not set");
+  return new Resend(key);
+}
 
-  const res = await fetch("https://api.brevo.com/v3/smtp/email", {
-    method:  "POST",
-    headers: { "api-key": key, "Content-Type": "application/json" },
-    body: JSON.stringify({
-      sender:      SENDER,
-      to:          [{ email: to ?? ADMIN }],
-      subject,
-      htmlContent: html,
-    }),
+async function sendEmail(subject: string, html: string, to?: string): Promise<void> {
+  const { error } = await resend().emails.send({
+    from:    SENDER,
+    to:      to ?? ADMIN,
+    subject,
+    html,
   });
-
-  if (!res.ok) {
-    const body = await res.text().catch(() => "");
-    throw new Error(`Brevo ${res.status}: ${body.slice(0, 200)}`);
-  }
+  if (error) throw new Error(`Resend error: ${error.message}`);
 }
 
 export async function sendSignupNotification(email: string, username: string, referralSource?: string | null) {
-  await sendViaBrevo(`new signup — ${username}`, `<!DOCTYPE html>
+  await sendEmail(`new signup — ${username}`, `<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="utf-8" />
@@ -86,7 +83,7 @@ export async function sendNewSupporterAlert(opts: {
   const { email, amountCents, currency } = opts;
   const sym    = currency === "gbp" ? "£" : currency === "eur" ? "€" : currency === "aud" ? "A$" : "$";
   const amount = `${sym}${(amountCents / 100).toFixed(2)}`;
-  await sendViaBrevo(`new supporter — ${email}`, `<!DOCTYPE html>
+  await sendEmail(`new supporter — ${email}`, `<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="utf-8" />
@@ -132,7 +129,7 @@ export async function sendNewSupporterAlert(opts: {
 }
 
 export async function sendWaitlistNotification(email: string, name?: string) {
-  await sendViaBrevo(`new waitlist signup — ${email}`, `<!DOCTYPE html>
+  await sendEmail(`new waitlist signup — ${email}`, `<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="utf-8" />
@@ -188,7 +185,7 @@ export async function sendAccountDeletionAlert(opts: {
   note?: string;
 }) {
   const { userId, email, username, displayName, subscriptionTier, createdAt, reason, note } = opts;
-  await sendViaBrevo(`account deleted — @${username}`, `<!DOCTYPE html>
+  await sendEmail(`account deleted — @${username}`, `<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="utf-8" />
@@ -285,7 +282,7 @@ export async function sendAccountDeletionAlert(opts: {
 
 export async function sendWaitlistInvite(email: string, name?: string | null) {
   const greeting = name ? `Hi ${name},` : "Hi,";
-  await sendViaBrevo("rekōdo is now open", `<!DOCTYPE html>
+  await sendEmail("rekōdo is now open", `<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="utf-8" />

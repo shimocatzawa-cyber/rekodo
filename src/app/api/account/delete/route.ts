@@ -86,24 +86,28 @@ export async function POST(request: NextRequest) {
     console.error("[account/delete] Deletion alert email failed:", err);
   }
 
-  // Remove from Brevo so they stop receiving automations.
+  // Mark contact as unsubscribed in Resend so they stop receiving automations.
+  // Resend has no delete-by-email endpoint; unsubscribed: true stops all sends.
   if (user.email) {
     try {
-      const brevoKey = process.env.BREVO_API_KEY;
-      if (brevoKey) {
+      const resendKey  = process.env.RESEND_API_KEY;
+      const audienceId = process.env.RESEND_AUDIENCE_ID;
+      if (resendKey && audienceId) {
         const ac = new AbortController();
         const timer = setTimeout(() => ac.abort(), 5000);
-        const res = await fetch(
-          `https://api.brevo.com/v3/contacts/${encodeURIComponent(user.email)}`,
-          { method: "DELETE", headers: { "api-key": brevoKey }, signal: ac.signal }
-        ).finally(() => clearTimeout(timer));
-        if (!res.ok && res.status !== 404) {
+        const res = await fetch(`https://api.resend.com/audiences/${audienceId}/contacts`, {
+          method:  "POST",
+          headers: { Authorization: `Bearer ${resendKey}`, "Content-Type": "application/json" },
+          body:    JSON.stringify({ email: user.email, unsubscribed: true }),
+          signal:  ac.signal,
+        }).finally(() => clearTimeout(timer));
+        if (!res.ok) {
           const body = await res.text().catch(() => "");
-          console.error(`[account/delete] Brevo contact removal returned ${res.status}:`, body);
+          console.error(`[account/delete] Resend contact unsubscribe returned ${res.status}:`, body);
         }
       }
     } catch (err) {
-      console.error("[account/delete] Brevo contact removal failed:", err);
+      console.error("[account/delete] Resend contact unsubscribe failed:", err);
     }
   }
 

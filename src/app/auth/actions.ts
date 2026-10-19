@@ -49,33 +49,27 @@ export async function signup(
       .eq("id", data.user.id);
     await sendSignupNotification(email, username, referralSource);
 
-    // Add to Brevo list 5 so the onboarding automation fires.
-    // Non-blocking — a Brevo outage must never break signup.
+    // Add to Resend audience so onboarding automations can fire.
+    // Non-blocking — an outage must never break signup.
     try {
-      const brevoKey = process.env.BREVO_API_KEY;
-      console.log("[brevo] key present:", !!brevoKey);
-      if (brevoKey) {
-        const today = new Date().toISOString().slice(0, 10);
+      const resendKey  = process.env.RESEND_API_KEY;
+      const audienceId = process.env.RESEND_AUDIENCE_ID;
+      if (resendKey && audienceId) {
         const ac = new AbortController();
         const timer = setTimeout(() => ac.abort(), 5000);
-        const res = await fetch("https://api.brevo.com/v3/contacts", {
+        const res = await fetch(`https://api.resend.com/audiences/${audienceId}/contacts`, {
           method: "POST",
-          headers: { "api-key": brevoKey, "Content-Type": "application/json" },
-          body: JSON.stringify({
-            email,
-            attributes: { SIGNUP_DATE: today },
-            listIds: [5],
-            updateEnabled: true,
-          }),
+          headers: { Authorization: `Bearer ${resendKey}`, "Content-Type": "application/json" },
+          body: JSON.stringify({ email, unsubscribed: false }),
           signal: ac.signal,
         }).finally(() => clearTimeout(timer));
         if (!res.ok) {
           const body = await res.text().catch(() => "");
-          console.error(`[brevo] signup contact creation returned ${res.status}:`, body);
+          console.error(`[resend] signup contact creation returned ${res.status}:`, body);
         }
       }
     } catch (err) {
-      console.error("[brevo] signup contact creation failed:", err);
+      console.error("[resend] signup contact creation failed:", err);
     }
 
     redirect("/onboarding");
