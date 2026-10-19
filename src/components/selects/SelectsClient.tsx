@@ -372,7 +372,6 @@ export default function SelectsClient({ username, displayLabel, avatarUrl, isAdm
           .rk-turntable-hero { flex-direction: column !important; gap: 0 !important; }
           .rk-turntable-hero-art { width: 100% !important; }
           .rk-turntable-vinyl { display: none !important; }
-          .rk-turntable-timing { display: none !important; }
           .rk-turntable-list-thumb { width: 72px !important; height: 72px !important; }
         }
       `}</style>

@@ -662,27 +662,22 @@ function ListEntry({ post, isAdmin, onUpdated, onDeleted }: EntryProps) {
         )}
       </div>
 
-      {/* Side + time */}
-      <div className="rk-turntable-timing" style={{ flexShrink: 0, minWidth: 88 }}>
-        {post.side && (
-          <p style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.1em", textTransform: "uppercase", color: INK, margin: "0 0 4px" }}>
-            {post.side}
-          </p>
-        )}
-        {post.track_time && (
-          <p style={{ fontFamily: MONO, fontSize: "11px", color: "#888888", margin: 0 }}>
-            {post.track_time}
-          </p>
-        )}
-      </div>
-
-      {/* Play button (decorative) + admin edit */}
+      {/* Play button → Bandcamp link + admin edit */}
       <div style={{ display: "flex", alignItems: "center", gap: 10, flexShrink: 0 }}>
-        <div style={{ width: 36, height: 36, borderRadius: "50%", border: `1px solid ${RULE}`, display: "flex", alignItems: "center", justifyContent: "center" }}>
-          <svg width="9" height="11" viewBox="0 0 9 11" fill="none" aria-hidden="true">
-            <path d="M0.5 0.5L8.5 5.5L0.5 10.5V0.5Z" fill={INK} />
-          </svg>
-        </div>
+        {post.bandcamp_url ? (
+          <a href={post.bandcamp_url} target="_blank" rel="noopener noreferrer"
+            style={{ width: 36, height: 36, borderRadius: "50%", border: `1px solid ${RULE}`, display: "flex", alignItems: "center", justifyContent: "center", textDecoration: "none", flexShrink: 0 }}>
+            <svg width="9" height="11" viewBox="0 0 9 11" fill="none" aria-hidden="true">
+              <path d="M0.5 0.5L8.5 5.5L0.5 10.5V0.5Z" fill={INK} />
+            </svg>
+          </a>
+        ) : (
+          <div style={{ width: 36, height: 36, borderRadius: "50%", border: `1px solid ${RULE}`, display: "flex", alignItems: "center", justifyContent: "center", opacity: 0.3 }}>
+            <svg width="9" height="11" viewBox="0 0 9 11" fill="none" aria-hidden="true">
+              <path d="M0.5 0.5L8.5 5.5L0.5 10.5V0.5Z" fill={INK} />
+            </svg>
+          </div>
+        )}
         {isAdmin && (
           <button onClick={() => setEditing(true)} style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.1em", textTransform: "uppercase", background: "none", border: `1px solid ${RULE}`, padding: "4px 8px", cursor: "pointer", color: "#888888" }}>
             Edit
