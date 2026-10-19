@@ -50,22 +50,18 @@ export async function signup(
       .eq("id", data.user.id);
     await sendSignupNotification(email, username, referralSource);
 
-    // Add to Resend contacts (users segment) so onboarding automations can fire.
-    // Non-blocking — an outage must never break signup.
-    try {
-      const resendKey    = process.env.RESEND_API_KEY;
-      const usersSegId   = process.env.RESEND_SEGMENT_USERS_ID;
+    // Add to Resend contacts (users segment) — fire-and-forget, never blocks signup.
+    // unsubscribed is intentionally omitted: contacts.create upserts by email, so
+    // omitting it preserves an existing contact's opt-out status unchanged.
+    {
+      const resendKey  = process.env.RESEND_API_KEY;
+      const usersSegId = process.env.RESEND_SEGMENT_USERS_ID;
       if (resendKey) {
-        const r = new Resend(resendKey);
-        const { error } = await r.contacts.create({
+        new Resend(resendKey).contacts.create({
           email,
-          unsubscribed: false,
           ...(usersSegId ? { segments: [{ id: usersSegId }] } : {}),
-        });
-        if (error) console.error("[resend] signup contact creation failed:", error.message);
+        }).catch(err => console.error("[resend] signup contact failed:", err));
       }
-    } catch (err) {
-      console.error("[resend] signup contact creation failed:", err);
     }
 
     redirect("/onboarding");

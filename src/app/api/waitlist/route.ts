@@ -38,24 +38,20 @@ export async function POST(request: NextRequest) {
     console.error("[waitlist] Supabase error:", err);
   }
 
-  // Add to Resend contacts (waitlist segment) so invite emails can be sent.
-  try {
-    const resendKey      = process.env.RESEND_API_KEY;
-    const waitlistSegId  = process.env.RESEND_SEGMENT_WAITLIST_ID;
+  // Add to Resend contacts (waitlist segment) — fire-and-forget, never blocks response.
+  // unsubscribed intentionally omitted so an existing contact's opt-out status is preserved.
+  {
+    const resendKey     = process.env.RESEND_API_KEY;
+    const waitlistSegId = process.env.RESEND_SEGMENT_WAITLIST_ID;
     if (resendKey) {
       const today = new Date().toISOString().slice(0, 10);
-      const r = new Resend(resendKey);
-      const { error } = await r.contacts.create({
+      new Resend(resendKey).contacts.create({
         email,
-        unsubscribed: false,
         ...(name ? { firstName: name } : {}),
         properties: { waitlist_date: today },
         ...(waitlistSegId ? { segments: [{ id: waitlistSegId }] } : {}),
-      });
-      if (error) console.error("[resend] waitlist contact creation failed:", error.message);
+      }).catch(err => console.error("[resend] waitlist contact failed:", err));
     }
-  } catch (err) {
-    console.error("[resend] waitlist contact creation failed:", err);
   }
 
   // Non-blocking — email failure must not break the user-facing response

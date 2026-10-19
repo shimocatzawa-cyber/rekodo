@@ -68,13 +68,42 @@ export async function POST(request: NextRequest) {
       if (customerEmail) {
         const supportersSegId = process.env.RESEND_SEGMENT_SUPPORTERS_ID;
 
-        // Set supporter=1 property and add to supporters segment
-        Promise.all([
-          resend.contacts.update({ email: customerEmail, properties: { supporter: 1 } }),
-          supportersSegId
-            ? resend.contacts.segments.add({ email: customerEmail, segmentId: supportersSegId })
-            : Promise.resolve(),
-        ]).catch(err => console.error("[resend] supporter contact update failed:", err));
+        // Update supporter property and add to supporters segment — fire-and-forget.
+        // supporter is written as number (1) — matches CreateContactPropertiesOptions / UpdateContactPropertiesOptions
+        // which type properties as { [key: string]: string | number | null }.
+        // unsubscribed intentionally omitted in all paths to preserve the contact's opt-out status.
+        void (async () => {
+          try {
+            const { error: updateErr } = await resend.contacts.update({
+              email: customerEmail,
+              properties: { supporter: 1 },
+            });
+
+            if (updateErr?.name === "not_found") {
+              // Contact doesn't exist yet — create it (segment assigned at creation)
+              const { error: createErr } = await resend.contacts.create({
+                email: customerEmail,
+                properties: { supporter: 1 },
+                ...(supportersSegId ? { segments: [{ id: supportersSegId }] } : {}),
+              });
+              if (createErr) console.error("[resend] supporter contact create failed:", createErr.message);
+            } else if (updateErr) {
+              console.error("[resend] supporter contact update failed:", updateErr.message);
+            } else if (supportersSegId) {
+              // Contact existed and was updated — add to segment separately.
+              // Ignore validation_error in case they're already in the segment.
+              const { error: segErr } = await resend.contacts.segments.add({
+                email: customerEmail,
+                segmentId: supportersSegId,
+              });
+              if (segErr && segErr.name !== "validation_error") {
+                console.error("[resend] supporter segment add failed:", segErr.message);
+              }
+            }
+          } catch (err) {
+            console.error("[resend] supporter contact failed:", err);
+          }
+        })();
 
         // Supporter welcome email
         resend.emails.send({
