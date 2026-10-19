@@ -212,9 +212,16 @@ async function generateClaudeBio(
   const hasAnySources = discogsBlock || discoBlock || sourcesBlock;
   if (!hasAnySources) return null;
 
+  // Identity anchor — established from the Discogs profile so Claude can reject
+  // web sources about other artists who share a similar name (e.g. "Maybel" vs
+  // "Mother Maybelle Carter" or "Mabel McVey").
+  const identityAnchor = discogs?.profile
+    ? `ARTIST IDENTITY (authoritative — from Discogs): ${artist} is described as: "${discogs.profile}". Any web source that discusses a different person (different era, different genre, different country) must be IGNORED entirely. Only use web sources that clearly match this identity.\n\n`
+    : "";
+
   const prompt = `Write a two-paragraph artist biography for ${artist} for a vinyl collector app.
 
-${discogsBlock}${membersBlock}${discoBlock}${sourcesBlock}
+${identityAnchor}${discogsBlock}${membersBlock}${discoBlock}${sourcesBlock}
 Rules — follow every one exactly:
 - Exactly two paragraphs. No third paragraph, no standalone closing sentence, no headers, no bullet points.
 - Only include facts that appear in the sources above. Do not invent dates, quotes, or recording locations.

@@ -2052,14 +2052,16 @@ export default function DeepDiveClient({
     setActiveTab("about");
     setDiscogsResults([]);
     setQuery("");
-    if (!imageMap[name]) {
-      fetch(`/api/deep-dive/artist-image?artist=${encodeURIComponent(name)}&v=6`)
-        .then((r) => (r.ok ? r.json() : null))
-        .then((d: { url?: string } | null) => {
-          if (d?.url) setImageMap((prev) => ({ ...prev, [name]: `/api/image-proxy?url=${encodeURIComponent(d.url!)}` }));
-        })
-        .catch(() => {});
-    }
+    // Always re-fetch for external artists — clears stale wrong images from state
+    fetch(`/api/deep-dive/artist-image?artist=${encodeURIComponent(name)}&v=6`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d: { url?: string } | null) => {
+        setImageMap((prev) => ({
+          ...prev,
+          [name]: d?.url ? `/api/image-proxy?url=${encodeURIComponent(d.url!)}` : "",
+        }));
+      })
+      .catch(() => {});
   }
 
   function handleQueryChange(val: string) {
