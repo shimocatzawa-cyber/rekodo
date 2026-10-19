@@ -3,7 +3,7 @@ import { type NextRequest, NextResponse } from "next/server";
 const UA = "rekodo/1.0 (rekodo.co)";
 
 type DiscogsSearchResult = {
-  results?: { cover_image?: string; thumb?: string; title?: string }[];
+  results?: { cover_image?: string; thumb?: string; title?: string; id?: number }[];
 };
 
 type WPSummary = {
@@ -31,7 +31,7 @@ export async function GET(request: NextRequest) {
         const discogsUrl = new URL("https://api.discogs.com/database/search");
         discogsUrl.searchParams.set("q", artist);
         discogsUrl.searchParams.set("type", "artist");
-        discogsUrl.searchParams.set("per_page", "3");
+        discogsUrl.searchParams.set("per_page", "5");
         discogsUrl.searchParams.set("key", key);
         discogsUrl.searchParams.set("secret", secret);
 
@@ -41,7 +41,11 @@ export async function GET(request: NextRequest) {
 
         if (res.ok) {
           const data = (await res.json()) as DiscogsSearchResult;
-          const result = data.results?.[0];
+          const results = data.results ?? [];
+          // Prefer an exact name match so "Maybel" doesn't resolve to "Mabel McVey" or "Mother Maybelle"
+          const norm = artist.toLowerCase().trim();
+          const exact = results.find(r => r.title?.toLowerCase().trim() === norm);
+          const result = exact ?? results[0];
           const candidate = result?.cover_image ?? result?.thumb ?? null;
           if (candidate && !isPlaceholder(candidate)) {
             imageUrl = candidate;

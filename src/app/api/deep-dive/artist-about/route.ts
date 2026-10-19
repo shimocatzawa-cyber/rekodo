@@ -190,7 +190,7 @@ async function fetchLastFm(artist: string): Promise<ArtistAbout | null> {
   const key = process.env.LASTFM_API_KEY;
   if (!key) return null;
 
-  const url = `https://ws.audioscrobbler.com/2.0/?method=artist.getinfo&artist=${encodeURIComponent(artist)}&api_key=${key}&format=json&autocorrect=1`;
+  const url = `https://ws.audioscrobbler.com/2.0/?method=artist.getinfo&artist=${encodeURIComponent(artist)}&api_key=${key}&format=json&autocorrect=0`;
   const res = await fetch(url, { next: { revalidate: 86400 } }); // cache 24h
   if (!res.ok) return null;
 
