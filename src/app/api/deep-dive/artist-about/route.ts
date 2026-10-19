@@ -125,7 +125,8 @@ Rules — follow every one exactly:
 - No em dashes (do not use — or –). Use a comma or a full stop instead.
 - Do not use any of these words or phrases: tapestry, lush, sonic landscape, journey, captivating, weaves, delves, testament, vibrant, remarkable, intricate, resonate, resonates, groundbreaking, mesmerizing, nuanced, haunting, ethereal, evocative, nestled, genre-defying, boundaries, unique voice, authentic, masterpiece, stands out, pushes boundaries, blurs the lines, wistful, melodicism, emotional truth, considerable, skill and restraint, cuts to the heart, at its core, sonic palette, artistry, craftsmanship.
 - Write like a knowledgeable music critic, not a press release.
-- Return only the two paragraphs. No preamble, no sign-off.`;
+- CRITICAL: If the sources above do not contain enough verified information to write a factual two-paragraph biography, output exactly the word NO_BIO and nothing else. Do not explain why. Do not ask for more sources. Do not write a partial bio. Just: NO_BIO
+- Return only the two paragraphs (or NO_BIO). No preamble, no sign-off, no meta-commentary.`;
 
   try {
     const msg = await anthropic.messages.create({
@@ -134,7 +135,17 @@ Rules — follow every one exactly:
       messages:   [{ role: "user", content: prompt }],
     });
     const text = msg.content.find(b => b.type === "text")?.text?.trim() ?? null;
-    return text && text.length > 100 ? text : null;
+    if (!text || text.length < 100) return null;
+    // Reject the sentinel and any meta-commentary that leaked through
+    if (
+      text.startsWith("NO_BIO") ||
+      /^I need to clarify/i.test(text) ||
+      /^I cannot/i.test(text) ||
+      /^I don't have/i.test(text) ||
+      /^Without reliable source/i.test(text) ||
+      /\bCould you provide sources\b/i.test(text)
+    ) return null;
+    return text;
   } catch {
     return null;
   }
