@@ -322,17 +322,19 @@ export async function GET(request: NextRequest) {
     );
   }
 
-  // Fetch Discogs details + Last.fm metadata in parallel
-  const [discogs, lfm] = await Promise.all([
-    fetchDiscogsArtistDetails(artist),
-    fetchLastFmMeta(artist),
-  ]);
-
-  // Check bio cache — only skip if we have a fresh cached bio
+  // Check bio cache FIRST — skip all Discogs/Tavily calls when we already have a bio
   const cachedBio = await readBioCache(artist);
   let finalBio: string | null = cachedBio;
+  let discogs: DiscogsArtistDetails | null = null;
 
   if (!finalBio) {
+    // Only fetch Discogs details when we actually need to generate a bio
+    const [discogsResult, _lfmEarly] = await Promise.all([
+      fetchDiscogsArtistDetails(artist),
+      Promise.resolve(null), // placeholder — lfm fetched below
+    ]);
+    discogs = discogsResult;
+
     // Read albums from rankings cache for discography context
     let albums: { title: string; year: number }[] = [];
     const sb = getSupabase();
