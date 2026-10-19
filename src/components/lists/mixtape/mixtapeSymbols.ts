@@ -33,6 +33,30 @@ export const SYMBOLS: SymbolDef[] = [
     key: "sun", insert: "☀", filled: false,
     d: "M12 4V2M12 22V20M4 12H2M22 12H20M6.34 6.34L4.93 4.93M19.07 19.07L17.66 17.66M17.66 6.34L19.07 4.93M4.93 19.07L6.34 17.66M16 12A4 4 0 1 1 8 12A4 4 0 0 1 16 12Z",
   },
+  {
+    key: "flame", insert: "♨", filled: true,
+    d: "M12 2C9.5 7 7 11 7 14.5C7 17.5 9.2 20 12 20C14.8 20 17 17.5 17 14.5C17 11 14.5 7 12 2Z",
+  },
+  {
+    key: "diamond", insert: "◆", filled: true,
+    d: "M12 2L22 12L12 22L2 12Z",
+  },
+  {
+    key: "lightning", insert: "⚡", filled: true,
+    d: "M13 2L3 14H11L11 22L21 10H13Z",
+  },
+  {
+    key: "infinity", insert: "∞", filled: false,
+    d: "M5 12C5 9.8 6.8 8 9 8C11.2 8 12 10 13 12C14 14 14.8 16 17 16C19.2 16 21 14.2 21 12C21 9.8 19.2 8 17 8C14.8 8 14 10 13 12C12 14 11.2 16 9 16C6.8 16 5 14.2 5 12Z",
+  },
+  {
+    key: "crown", insert: "♛", filled: true,
+    d: "M3 18L6 8L10.5 13.5L12 6L13.5 13.5L18 8L21 18H3Z",
+  },
+  {
+    key: "snowflake", insert: "❄", filled: false,
+    d: "M12 2V22M2 12H22M5.6 5.6L18.4 18.4M18.4 5.6L5.6 18.4M12 6L9 9M12 6L15 9M12 18L9 15M12 18L15 15M6 12L9 9M6 12L9 15M18 12L15 9M18 12L15 15",
+  },
 ];
 
 export const SYMBOL_MAP: Record<string, SymbolDef> = Object.fromEntries(

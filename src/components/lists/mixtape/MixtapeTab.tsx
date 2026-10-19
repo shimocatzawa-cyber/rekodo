@@ -552,7 +552,7 @@ export default function MixtapeTab({ username }: { username: string }) {
               <input
                 value={title}
                 onChange={e => setTitle(e.target.value)}
-                placeholder="Summer 2026 Mix"
+                placeholder="My Mixtape"
                 maxLength={44}
                 style={{ fontFamily: SERIF, fontSize: 15, width: "100%", padding: "8px 10px", border: `1px solid ${RULE}`, borderRadius: 4, outline: "none", background: "#fff", boxSizing: "border-box" }}
               />
