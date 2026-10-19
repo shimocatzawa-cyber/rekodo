@@ -45,9 +45,82 @@ async function writeBioCache(artist: string, bio: string): Promise<void> {
   } catch { /* non-critical */ }
 }
 
+// ── Discogs artist details ────────────────────────────────────────────────────
+// Primary source for artist identification, profile text, and image.
+// Prefers exact name match to avoid resolving "Maybel" → "Mabel McVey" etc.
+
+type DiscogsArtistDetails = {
+  id:      number;
+  profile: string | null;
+  imageUrl: string | null;
+  urls:    string[];
+  members: string[];
+};
+
+async function fetchDiscogsArtistDetails(artistName: string): Promise<DiscogsArtistDetails | null> {
+  const key    = process.env.DISCOGS_CONSUMER_KEY;
+  const secret = process.env.DISCOGS_CONSUMER_SECRET;
+  const headers: Record<string, string> = { "User-Agent": "rekodo/1.0 (shimocatzawa@gmail.com)" };
+  if (key && secret) headers["Authorization"] = `Discogs key=${key}, secret=${secret}`;
+
+  try {
+    const searchRes = await fetch(
+      `https://api.discogs.com/database/search?q=${encodeURIComponent(artistName)}&type=artist&per_page=5`,
+      { headers, signal: AbortSignal.timeout(5000) }
+    );
+    if (!searchRes.ok) return null;
+
+    const { results = [] } = await searchRes.json() as {
+      results?: { id: number; type: string; title?: string; cover_image?: string; thumb?: string }[];
+    };
+    const norm = artistName.toLowerCase().trim();
+    const hit =
+      results.find(r => r.type === "artist" && r.title?.toLowerCase().trim() === norm) ??
+      results.find(r => r.type === "artist");
+    if (!hit) return null;
+
+    const detailRes = await fetch(
+      `https://api.discogs.com/artists/${hit.id}`,
+      { headers, signal: AbortSignal.timeout(5000) }
+    );
+    if (!detailRes.ok) return null;
+
+    const detail = await detailRes.json() as {
+      profile?: string;
+      images?:  { type: string; uri: string; uri150: string }[];
+      urls?:    string[];
+      members?: { name: string; active?: boolean }[];
+    };
+
+    // Use uri150 thumbnail (small, fast) — fall back to search thumb
+    const imageUrl =
+      detail.images?.find(i => i.type === "primary")?.uri150 ??
+      detail.images?.[0]?.uri150 ??
+      hit.cover_image ??
+      hit.thumb ??
+      null;
+
+    // Skip Discogs placeholder grey image
+    const cleanImage = imageUrl && !imageUrl.includes("spacer") && imageUrl.length > 30
+      ? imageUrl : null;
+
+    return {
+      id:       hit.id,
+      profile:  detail.profile?.trim() || null,
+      imageUrl: cleanImage,
+      urls:     detail.urls ?? [],
+      members:  (detail.members ?? []).map(m => m.name),
+    };
+  } catch {
+    return null;
+  }
+}
+
+// ── Tavily web search ─────────────────────────────────────────────────────────
+
 type TavilyHit = { url: string; title: string; content: string };
 
-async function searchTavilyBio(artist: string, albumHint: string): Promise<TavilyHit[]> {
+async function searchTavilyBio(artist: string, albumHint: string, extraUrls: string[]): Promise<TavilyHit[]> {
   const key = process.env.TAVILY_API_KEY;
   if (!key) return [];
 
@@ -76,34 +149,58 @@ async function searchTavilyBio(artist: string, albumHint: string): Promise<Tavil
       }),
     ]);
 
-    const seen = new Set<string>();
+    const seen = new Set<string>(extraUrls);
     const results: TavilyHit[] = [];
+
+    // Include any artist URLs (Bandcamp etc) as direct fetches
+    for (const url of extraUrls) {
+      if (url.includes("bandcamp.com") || url.includes("soundcloud.com")) {
+        try {
+          const fr = await fetch("https://api.tavily.com/search", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ api_key: key, query: `site:${url} ${artist}`, max_results: 3, search_depth: "basic" }),
+            signal: AbortSignal.timeout(5000),
+          });
+          if (fr.ok) {
+            const fj = await fr.json() as { results?: TavilyHit[] };
+            for (const r of fj.results ?? []) {
+              if (!seen.has(r.url) && r.content?.length > 50) { seen.add(r.url); results.push(r); }
+            }
+          }
+        } catch { /* non-fatal */ }
+      }
+    }
+
     for (const res of [r1, r2]) {
       if (!res.ok) continue;
       const json = await res.json() as { results?: TavilyHit[] };
       for (const r of (json.results ?? [])) {
-        if (!seen.has(r.url) && r.content?.length > 50) {
-          seen.add(r.url);
-          results.push(r);
-        }
+        if (!seen.has(r.url) && r.content?.length > 50) { seen.add(r.url); results.push(r); }
       }
     }
-    return results.slice(0, 12);
+
+    return results.slice(0, 14);
   } catch {
     return [];
   }
 }
 
+// ── Claude bio generation ─────────────────────────────────────────────────────
+
 async function generateClaudeBio(
   artist: string,
-  wikiSummary: string | null,
-  tags: string[],
+  discogs: DiscogsArtistDetails | null,
   albums: { title: string; year: number }[],
   tavilyHits: TavilyHit[],
 ): Promise<string | null> {
-  const wikiBlock    = wikiSummary ? `WIKIPEDIA SUMMARY:\n${wikiSummary}\n` : "";
-  const tagsBlock    = tags.length > 0 ? `GENRES/TAGS: ${tags.join(", ")}\n` : "";
-  const discoBlock   = albums.length > 0
+  const discogsBlock = discogs?.profile
+    ? `DISCOGS PROFILE:\n${discogs.profile}\n`
+    : "";
+  const membersBlock = discogs?.members?.length
+    ? `MEMBERS: ${discogs.members.join(", ")}\n`
+    : "";
+  const discoBlock = albums.length > 0
     ? `DISCOGRAPHY:\n${albums.map(a => `- "${a.title}" (${a.year})`).join("\n")}\n`
     : "";
   const sourcesBlock = tavilyHits.length > 0
@@ -112,9 +209,12 @@ async function generateClaudeBio(
       }\n`
     : "";
 
+  const hasAnySources = discogsBlock || discoBlock || sourcesBlock;
+  if (!hasAnySources) return null;
+
   const prompt = `Write a two-paragraph artist biography for ${artist} for a vinyl collector app.
 
-${wikiBlock}${tagsBlock}${discoBlock}${sourcesBlock}
+${discogsBlock}${membersBlock}${discoBlock}${sourcesBlock}
 Rules — follow every one exactly:
 - Exactly two paragraphs. No third paragraph, no standalone closing sentence, no headers, no bullet points.
 - Only include facts that appear in the sources above. Do not invent dates, quotes, or recording locations.
@@ -136,7 +236,6 @@ Rules — follow every one exactly:
     });
     const text = msg.content.find(b => b.type === "text")?.text?.trim() ?? null;
     if (!text || text.length < 100) return null;
-    // Reject the sentinel and any meta-commentary that leaked through
     if (
       text.startsWith("NO_BIO") ||
       /^I need to clarify/i.test(text) ||
@@ -151,6 +250,54 @@ Rules — follow every one exactly:
   }
 }
 
+// ── Last.fm — metadata only (tags, listeners, similar) ────────────────────────
+// No longer used for bio text; Discogs is the primary source.
+
+type LastFmMeta = {
+  tags:      string[];
+  listeners: number | null;
+  plays:     number | null;
+  similar:   string[];
+};
+
+async function fetchLastFmMeta(artist: string): Promise<LastFmMeta | null> {
+  const key = process.env.LASTFM_API_KEY;
+  if (!key) return null;
+  try {
+    // autocorrect=0 — don't silently redirect to a different artist
+    const url = `https://ws.audioscrobbler.com/2.0/?method=artist.getinfo&artist=${encodeURIComponent(artist)}&api_key=${key}&format=json&autocorrect=0`;
+    const res = await fetch(url, { next: { revalidate: 86400 }, signal: AbortSignal.timeout(5000) });
+    if (!res.ok) return null;
+    const json = await res.json() as {
+      artist?: {
+        tags?:    { tag?: { name: string }[] };
+        stats?:   { listeners?: string; playcount?: string };
+        similar?: { artist?: { name: string }[] };
+      };
+      error?: number;
+    };
+    if (json.error || !json.artist) return null;
+    const a = json.artist;
+    return {
+      tags:      (a.tags?.tag ?? []).map(t => t.name).filter(Boolean).slice(0, 5),
+      listeners: a.stats?.listeners ? parseInt(a.stats.listeners, 10) : null,
+      plays:     a.stats?.playcount ? parseInt(a.stats.playcount, 10) : null,
+      similar:   (a.similar?.artist ?? []).map(s => s.name).filter(Boolean).slice(0, 5),
+    };
+  } catch {
+    return null;
+  }
+}
+
+// Curated bios that override everything else for specific artists.
+const ARTIST_BIO_OVERRIDES: Record<string, string> = {
+  "Julie Byrne": `Julie Byrne grew up in Buffalo listening to her father play fingerstyle guitar and began playing his instrument herself at seventeen. His influence remains central to a style shaped by intricate picking, open tunings and an instinctive use of silence. Across three albums released between 2014 and 2023, Byrne has built a small but remarkably coherent catalogue: intimate without sounding narrowly diaristic, technically assured without calling attention to its difficulty, and patient enough to let a held note or the space around a phrase carry as much weight as the lyric.
+
+Not Even Happiness brought Byrne to a wider audience in 2017. Although voice and fingerpicked guitar remain at its centre, the album is less bare than its reputation suggests, with strings, flute, synthesizer and environmental textures quietly expanding its arrangements. Songs such as "Follow My Voice" and "Natural Blue" move through gradual changes in atmosphere rather than conventional dramatic peaks, turning landscape, solitude and memory into something almost physical.
+
+Six years later, The Greater Wings widened that musical language with piano, harp, synthesizers and orchestral strings. Recording began with Eric Littmann, Byrne's longtime collaborator and the producer of Not Even Happiness, before his death in 2021; Byrne later completed the record with Alex Somers and returning collaborators including Jake Falby. Grief runs through the album, but Byrne has described it more broadly as a love letter to her chosen family and a commitment to their shared future. It is her most expansive record without being her loudest, showing how restraint can hold devotion, loss, renewal and an enormous amount of life.`,
+};
+
 export interface ArtistAbout {
   bio:       string | null;
   formed:    string | null;
@@ -162,116 +309,11 @@ export interface ArtistAbout {
   source:    "lastfm" | "wikipedia" | "none";
 }
 
-// Strip Last.fm bio noise and truncate at disambiguation sections
-function cleanLastFmBio(raw: string): string {
-  // Strip HTML and links first
-  let text = raw
-    .replace(/<a[^>]*>.*?<\/a>/gi, "")
-    .replace(/<[^>]+>/g, "")
-    .replace(/https?:\/\/\S+/gi, "")
-    .replace(/www\.\S+/gi, "");
-
-  // Truncate at common Last.fm disambiguation/boilerplate markers
-  const cutoffs = [
-    /\bThere (?:are|is|was) (?:also|at least|\d)/i,
-    /\bThis (?:tag|artist) may also/i,
-    /\bUser-contributed text/i,
-    /\bRead more (?:about .+? )?on Last\.fm/i,
-  ];
-  for (const pat of cutoffs) {
-    const idx = text.search(pat);
-    if (idx > 0) text = text.slice(0, idx); // cut as long as any content precedes the boilerplate
-  }
-
-  return text.replace(/\s{2,}/g, " ").trim();
-}
-
-async function fetchLastFm(artist: string): Promise<ArtistAbout | null> {
-  const key = process.env.LASTFM_API_KEY;
-  if (!key) return null;
-
-  const url = `https://ws.audioscrobbler.com/2.0/?method=artist.getinfo&artist=${encodeURIComponent(artist)}&api_key=${key}&format=json&autocorrect=0`;
-  const res = await fetch(url, { next: { revalidate: 86400 } }); // cache 24h
-  if (!res.ok) return null;
-
-  const json = await res.json() as {
-    artist?: {
-      bio?: { summary?: string; content?: string };
-      tags?: { tag?: { name: string }[] };
-      stats?: { listeners?: string; playcount?: string };
-      similar?: { artist?: { name: string }[] };
-    };
-    error?: number;
-  };
-
-  if (json.error || !json.artist) return null;
-
-  const a = json.artist;
-
-  // Prefer the full content bio over the summary
-  const rawBio = a.bio?.content ?? a.bio?.summary ?? "";
-  const bio    = cleanLastFmBio(rawBio);
-
-  // Skip placeholder bios Last.fm uses when there's no real content
-  const realBio = bio.length > 80 && !bio.startsWith("There are") ? bio : null;
-
-  const tags = (a.tags?.tag ?? []).map(t => t.name).filter(Boolean).slice(0, 5);
-  const similar = (a.similar?.artist ?? []).map(s => s.name).filter(Boolean).slice(0, 5);
-  const listeners = a.stats?.listeners ? parseInt(a.stats.listeners, 10) : null;
-  const plays     = a.stats?.playcount ? parseInt(a.stats.playcount, 10) : null;
-
-  if (!realBio && tags.length === 0 && listeners === null) return null;
-
-  return { bio: realBio, formed: null, origin: null, tags, listeners, plays, similar, source: "lastfm" };
-}
-
-async function fetchWikipedia(artist: string): Promise<{ bio: string; formed: string | null; origin: string | null } | null> {
-  const url = `https://en.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(artist)}`;
-  const res = await fetch(url, {
-    headers: { "User-Agent": "rekodo/1.0 (https://rekodo.co)" },
-    next:    { revalidate: 86400 },
-  });
-  if (!res.ok) return null;
-
-  const json = await res.json() as {
-    type?:    string;
-    extract?: string;
-    description?: string;
-  };
-
-  // Reject disambiguation pages and non-articles
-  if (json.type === "disambiguation" || !json.extract) return null;
-
-  // Only use if it looks like a musician/band article
-  const desc = json.description?.toLowerCase() ?? "";
-  const extract = json.extract ?? "";
-  const musicKeywords = ["band", "musician", "singer", "rapper", "producer", "dj", "artist", "vocalist", "group", "duo", "trio"];
-  if (!musicKeywords.some(k => desc.includes(k) || extract.toLowerCase().includes(k))) return null;
-
-  // Extract formed year and origin from the extract heuristically
-  const formedMatch = extract.match(/\bformed\b.*?(\b(19|20)\d{2}\b)/i);
-  const originMatch = extract.match(/\bfrom\s+([A-Z][A-Za-z\s,]+?)(?:,\s*(?:who|they|is|are|\w{1,4}\s+(?:is|are))|\.|$)/);
-
-  return {
-    bio:    extract,
-    formed: formedMatch?.[1] ?? null,
-    origin: originMatch?.[1]?.trim() ?? null,
-  };
-}
-
-// Curated bios that override both Last.fm and Wikipedia for specific artists.
-const ARTIST_BIO_OVERRIDES: Record<string, string> = {
-  "Julie Byrne": `Julie Byrne grew up in Buffalo listening to her father play fingerstyle guitar and began playing his instrument herself at seventeen. His influence remains central to a style shaped by intricate picking, open tunings and an instinctive use of silence. Across three albums released between 2014 and 2023, Byrne has built a small but remarkably coherent catalogue: intimate without sounding narrowly diaristic, technically assured without calling attention to its difficulty, and patient enough to let a held note or the space around a phrase carry as much weight as the lyric.
-
-Not Even Happiness brought Byrne to a wider audience in 2017. Although voice and fingerpicked guitar remain at its centre, the album is less bare than its reputation suggests, with strings, flute, synthesizer and environmental textures quietly expanding its arrangements. Songs such as "Follow My Voice" and "Natural Blue" move through gradual changes in atmosphere rather than conventional dramatic peaks, turning landscape, solitude and memory into something almost physical.
-
-Six years later, The Greater Wings widened that musical language with piano, harp, synthesizers and orchestral strings. Recording began with Eric Littmann, Byrne's longtime collaborator and the producer of Not Even Happiness, before his death in 2021; Byrne later completed the record with Alex Somers and returning collaborators including Jake Falby. Grief runs through the album, but Byrne has described it more broadly as a love letter to her chosen family and a commitment to their shared future. It is her most expansive record without being her loudest, showing how restraint can hold devotion, loss, renewal and an enormous amount of life.`,
-};
-
 export async function GET(request: NextRequest) {
   const artist = request.nextUrl.searchParams.get("artist")?.trim() ?? "";
   if (!artist) return NextResponse.json({ error: "artist required" }, { status: 400 });
 
+  // Curated override — highest priority
   const overrideBio = ARTIST_BIO_OVERRIDES[artist];
   if (overrideBio) {
     return NextResponse.json<ArtistAbout>(
@@ -280,69 +322,52 @@ export async function GET(request: NextRequest) {
     );
   }
 
-  // Fetch Last.fm and Wikipedia in parallel
-  const [lfm, wiki] = await Promise.all([fetchLastFm(artist), fetchWikipedia(artist)]);
+  // Fetch Discogs details + Last.fm metadata in parallel
+  const [discogs, lfm] = await Promise.all([
+    fetchDiscogsArtistDetails(artist),
+    fetchLastFmMeta(artist),
+  ]);
 
-  const rawBio = wiki?.bio ?? lfm?.bio ?? null;
-  const formed = wiki?.formed ?? null;
-  const origin = wiki?.origin ?? null;
-  const source = wiki?.bio ? "wikipedia" : lfm?.bio ? "lastfm" : lfm?.tags.length ? "lastfm" : "none";
+  // Check bio cache — only skip if we have a fresh cached bio
+  const cachedBio = await readBioCache(artist);
+  let finalBio: string | null = cachedBio;
 
-  // When the bio is thin (under 400 chars), enhance it with Claude grounded on
-  // Tavily web results. Check the DB cache first so we only generate once per artist.
-  let finalBio = rawBio;
-  if (!rawBio || rawBio.length < 400) {
-    const cachedBio = await readBioCache(artist);
-    if (cachedBio) {
-      finalBio = cachedBio;
-    } else {
-      // Read albums from the rankings cache to give Claude discography context
-      // without making an extra Discogs API call.
-      let albums: { title: string; year: number }[] = [];
-      const sb = getSupabase();
-      if (sb) {
-        try {
-          const { data: rankRow } = await sb
-            .from("deep_dive_cache")
-            .select("data")
-            .eq("artist", artist)
-            .eq("section", "rankings")
-            .maybeSingle();
-          const rd = rankRow?.data as { albums?: { title: string; year: number }[] } | null;
-          if (Array.isArray(rd?.albums)) albums = rd!.albums;
-        } catch { /* non-critical */ }
-      }
+  if (!finalBio) {
+    // Read albums from rankings cache for discography context
+    let albums: { title: string; year: number }[] = [];
+    const sb = getSupabase();
+    if (sb) {
+      try {
+        const { data: rankRow } = await sb
+          .from("deep_dive_cache")
+          .select("data")
+          .eq("artist", artist)
+          .eq("section", "rankings")
+          .maybeSingle();
+        const rd = rankRow?.data as { albums?: { title: string; year: number }[] } | null;
+        if (Array.isArray(rd?.albums)) albums = rd!.albums;
+      } catch { /* non-critical */ }
+    }
 
-      const albumHint     = albums[0]?.title ?? "";
-      const tavilyHits    = await searchTavilyBio(artist, albumHint);
-      const generatedBio  = await generateClaudeBio(artist, rawBio, lfm?.tags ?? [], albums, tavilyHits);
+    const albumHint  = albums[0]?.title ?? "";
+    const tavilyHits = await searchTavilyBio(artist, albumHint, discogs?.urls ?? []);
+    const generated  = await generateClaudeBio(artist, discogs, albums, tavilyHits);
 
-      if (generatedBio) {
-        finalBio = generatedBio;
-        after(() => writeBioCache(artist, generatedBio));
-      }
+    if (generated) {
+      finalBio = generated;
+      after(() => writeBioCache(artist, generated));
     }
   }
 
-  if (!finalBio && !lfm) {
-    return NextResponse.json<ArtistAbout>({ bio: null, formed: null, origin: null, tags: [], listeners: null, plays: null, similar: [], source: "none" });
-  }
-
-  // Suppress "via Wikipedia/Last.fm" attribution when the bio was generated by Claude
-  // rather than taken directly from those sources.
-  const finalSource = (finalBio && finalBio !== rawBio)
-    ? "none"
-    : source as ArtistAbout["source"];
-
   const result: ArtistAbout = {
     bio:       finalBio,
-    formed,
-    origin,
+    formed:    null,
+    origin:    null,
     tags:      lfm?.tags      ?? [],
     listeners: lfm?.listeners ?? null,
     plays:     lfm?.plays     ?? null,
     similar:   lfm?.similar   ?? [],
-    source:    finalSource,
+    source:    "none",
   };
 
   return NextResponse.json(result, {

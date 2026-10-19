@@ -1,16 +1,7 @@
 import { type NextRequest, NextResponse } from "next/server";
 
-const UA = "rekodo/1.0 (rekodo.co)";
+const UA = "rekodo/1.0 (shimocatzawa@gmail.com)";
 
-type DiscogsSearchResult = {
-  results?: { cover_image?: string; thumb?: string; title?: string; id?: number }[];
-};
-
-type WPSummary = {
-  thumbnail?: { source?: string };
-};
-
-// Discogs serves a placeholder grey image for missing artist photos — skip it.
 function isPlaceholder(url: string): boolean {
   return url.includes("spacer.gif") || url.includes("image/spacer") || url.length < 30;
 }
@@ -21,55 +12,64 @@ export async function GET(request: NextRequest) {
 
   const key    = process.env.DISCOGS_CONSUMER_KEY;
   const secret = process.env.DISCOGS_CONSUMER_SECRET;
+  const headers: Record<string, string> = { "User-Agent": UA };
+  if (key && secret) headers["Authorization"] = `Discogs key=${key}, secret=${secret}`;
 
   try {
-    let imageUrl: string | null = null;
+    // Step 1: search Discogs for exact artist name match
+    const searchRes = await fetch(
+      `https://api.discogs.com/database/search?q=${encodeURIComponent(artist)}&type=artist&per_page=5`,
+      { headers, signal: AbortSignal.timeout(5000) }
+    );
 
-    // ── Step 1: Discogs artist search ────────────────────────────────────────
-    if (key && secret) {
-      try {
-        const discogsUrl = new URL("https://api.discogs.com/database/search");
-        discogsUrl.searchParams.set("q", artist);
-        discogsUrl.searchParams.set("type", "artist");
-        discogsUrl.searchParams.set("per_page", "5");
-        discogsUrl.searchParams.set("key", key);
-        discogsUrl.searchParams.set("secret", secret);
+    if (searchRes.ok) {
+      const { results = [] } = await searchRes.json() as {
+        results?: { id: number; type: string; title?: string; cover_image?: string; thumb?: string }[];
+      };
 
-        const res = await fetch(discogsUrl.toString(), {
-          headers: { "User-Agent": UA },
-        });
+      const norm = artist.toLowerCase().trim();
+      const hit =
+        results.find(r => r.type === "artist" && r.title?.toLowerCase().trim() === norm) ??
+        results.find(r => r.type === "artist");
 
-        if (res.ok) {
-          const data = (await res.json()) as DiscogsSearchResult;
-          const results = data.results ?? [];
-          // Prefer an exact name match so "Maybel" doesn't resolve to "Mabel McVey" or "Mother Maybelle"
-          const norm = artist.toLowerCase().trim();
-          const exact = results.find(r => r.title?.toLowerCase().trim() === norm);
-          const result = exact ?? results[0];
-          const candidate = result?.cover_image ?? result?.thumb ?? null;
-          if (candidate && !isPlaceholder(candidate)) {
-            imageUrl = candidate;
+      if (hit) {
+        // Step 2: fetch full artist record for images array (higher quality + correct artist)
+        try {
+          const detailRes = await fetch(
+            `https://api.discogs.com/artists/${hit.id}`,
+            { headers, signal: AbortSignal.timeout(5000) }
+          );
+          if (detailRes.ok) {
+            const detail = await detailRes.json() as {
+              images?: { type: string; uri: string; uri150: string }[];
+            };
+            const img =
+              detail.images?.find(i => i.type === "primary")?.uri150 ??
+              detail.images?.[0]?.uri150 ??
+              null;
+            if (img && !isPlaceholder(img)) {
+              return NextResponse.json(
+                { url: img },
+                { headers: { "Cache-Control": "public, max-age=86400" } }
+              );
+            }
           }
-        }
-      } catch { /* non-fatal */ }
-    }
+        } catch { /* fall through to search thumb */ }
 
-    // ── Step 2: Wikipedia fallback ────────────────────────────────────────────
-    if (!imageUrl) {
-      const wpRes = await fetch(
-        `https://en.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(artist)}`,
-        { headers: { "User-Agent": UA } }
-      );
-      if (wpRes.ok) {
-        const wpData = (await wpRes.json()) as WPSummary;
-        imageUrl = wpData.thumbnail?.source ?? null;
+        // Fall back to search result thumbnail if artist detail has no image
+        const thumb = hit.cover_image ?? hit.thumb ?? null;
+        if (thumb && !isPlaceholder(thumb)) {
+          return NextResponse.json(
+            { url: thumb },
+            { headers: { "Cache-Control": "public, max-age=86400" } }
+          );
+        }
       }
     }
 
-    return NextResponse.json(
-      { url: imageUrl },
-      { headers: { "Cache-Control": imageUrl ? "public, max-age=86400" : "no-store" } }
-    );
+    // No image found — return null rather than falling back to Wikipedia
+    // (Wikipedia often returns a photo of a different artist with the same name)
+    return NextResponse.json({ url: null }, { headers: { "Cache-Control": "no-store" } });
   } catch {
     return NextResponse.json({ url: null }, { headers: { "Cache-Control": "no-store" } });
   }
