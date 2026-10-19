@@ -1,6 +1,7 @@
 import { type NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { sendWaitlistNotification } from "@/lib/email";
+import { Resend } from "resend";
 
 function serviceClient() {
   return createClient(
@@ -37,21 +38,21 @@ export async function POST(request: NextRequest) {
     console.error("[waitlist] Supabase error:", err);
   }
 
-  // Add to Resend audience so waitlist contacts can receive the invite email.
+  // Add to Resend contacts (waitlist segment) so invite emails can be sent.
   try {
-    const resendKey  = process.env.RESEND_API_KEY;
-    const audienceId = process.env.RESEND_AUDIENCE_ID;
-    if (resendKey && audienceId) {
-      const ac = new AbortController();
-      const timer = setTimeout(() => ac.abort(), 5000);
-      const payload: Record<string, unknown> = { email, unsubscribed: false };
-      if (name) payload.first_name = name;
-      await fetch(`https://api.resend.com/audiences/${audienceId}/contacts`, {
-        method: "POST",
-        headers: { Authorization: `Bearer ${resendKey}`, "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-        signal: ac.signal,
-      }).finally(() => clearTimeout(timer));
+    const resendKey      = process.env.RESEND_API_KEY;
+    const waitlistSegId  = process.env.RESEND_SEGMENT_WAITLIST_ID;
+    if (resendKey) {
+      const today = new Date().toISOString().slice(0, 10);
+      const r = new Resend(resendKey);
+      const { error } = await r.contacts.create({
+        email,
+        unsubscribed: false,
+        ...(name ? { firstName: name } : {}),
+        properties: { waitlist_date: today },
+        ...(waitlistSegId ? { segments: [{ id: waitlistSegId }] } : {}),
+      });
+      if (error) console.error("[resend] waitlist contact creation failed:", error.message);
     }
   } catch (err) {
     console.error("[resend] waitlist contact creation failed:", err);

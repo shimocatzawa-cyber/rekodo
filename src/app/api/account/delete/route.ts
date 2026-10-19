@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { createClient as createServiceClient } from "@supabase/supabase-js";
 import { stripe } from "@/lib/stripe";
 import { sendAccountDeletionAlert } from "@/lib/email";
+import { Resend } from "resend";
 
 export const dynamic = "force-dynamic";
 
@@ -86,28 +87,17 @@ export async function POST(request: NextRequest) {
     console.error("[account/delete] Deletion alert email failed:", err);
   }
 
-  // Mark contact as unsubscribed in Resend so they stop receiving automations.
-  // Resend has no delete-by-email endpoint; unsubscribed: true stops all sends.
+  // Remove from Resend so they stop receiving all emails.
   if (user.email) {
     try {
-      const resendKey  = process.env.RESEND_API_KEY;
-      const audienceId = process.env.RESEND_AUDIENCE_ID;
-      if (resendKey && audienceId) {
-        const ac = new AbortController();
-        const timer = setTimeout(() => ac.abort(), 5000);
-        const res = await fetch(`https://api.resend.com/audiences/${audienceId}/contacts`, {
-          method:  "POST",
-          headers: { Authorization: `Bearer ${resendKey}`, "Content-Type": "application/json" },
-          body:    JSON.stringify({ email: user.email, unsubscribed: true }),
-          signal:  ac.signal,
-        }).finally(() => clearTimeout(timer));
-        if (!res.ok) {
-          const body = await res.text().catch(() => "");
-          console.error(`[account/delete] Resend contact unsubscribe returned ${res.status}:`, body);
-        }
+      const resendKey = process.env.RESEND_API_KEY;
+      if (resendKey) {
+        const r = new Resend(resendKey);
+        const { error } = await r.contacts.remove({ email: user.email });
+        if (error) console.error("[account/delete] Resend contact removal failed:", error.message);
       }
     } catch (err) {
-      console.error("[account/delete] Resend contact unsubscribe failed:", err);
+      console.error("[account/delete] Resend contact removal failed:", err);
     }
   }
 

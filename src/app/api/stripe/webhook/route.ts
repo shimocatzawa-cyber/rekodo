@@ -64,19 +64,17 @@ export async function POST(request: NextRequest) {
           : Promise.resolve(),
       ]);
 
-      // Update Resend audience + send supporter welcome email — non-blocking, fail-silent.
+      // Update Resend contact (supporter property + segment) + send welcome email — non-blocking, fail-silent.
       if (customerEmail) {
-        const resendKey  = process.env.RESEND_API_KEY;
-        const audienceId = process.env.RESEND_AUDIENCE_ID;
+        const supportersSegId = process.env.RESEND_SEGMENT_SUPPORTERS_ID;
 
-        // Upsert contact in audience
-        if (resendKey && audienceId) {
-          fetch(`https://api.resend.com/audiences/${audienceId}/contacts`, {
-            method:  "POST",
-            headers: { Authorization: `Bearer ${resendKey}`, "Content-Type": "application/json" },
-            body:    JSON.stringify({ email: customerEmail, unsubscribed: false }),
-          }).catch(err => console.error("[resend] supporter audience upsert failed:", err));
-        }
+        // Set supporter=1 property and add to supporters segment
+        Promise.all([
+          resend.contacts.update({ email: customerEmail, properties: { supporter: 1 } }),
+          supportersSegId
+            ? resend.contacts.segments.add({ email: customerEmail, segmentId: supportersSegId })
+            : Promise.resolve(),
+        ]).catch(err => console.error("[resend] supporter contact update failed:", err));
 
         // Supporter welcome email
         resend.emails.send({

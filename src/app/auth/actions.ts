@@ -3,6 +3,7 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { sendSignupNotification } from "@/lib/email";
+import { Resend } from "resend";
 
 export type AuthState =
   | { error?: string; message?: string }
@@ -49,24 +50,19 @@ export async function signup(
       .eq("id", data.user.id);
     await sendSignupNotification(email, username, referralSource);
 
-    // Add to Resend audience so onboarding automations can fire.
+    // Add to Resend contacts (users segment) so onboarding automations can fire.
     // Non-blocking — an outage must never break signup.
     try {
-      const resendKey  = process.env.RESEND_API_KEY;
-      const audienceId = process.env.RESEND_AUDIENCE_ID;
-      if (resendKey && audienceId) {
-        const ac = new AbortController();
-        const timer = setTimeout(() => ac.abort(), 5000);
-        const res = await fetch(`https://api.resend.com/audiences/${audienceId}/contacts`, {
-          method: "POST",
-          headers: { Authorization: `Bearer ${resendKey}`, "Content-Type": "application/json" },
-          body: JSON.stringify({ email, unsubscribed: false }),
-          signal: ac.signal,
-        }).finally(() => clearTimeout(timer));
-        if (!res.ok) {
-          const body = await res.text().catch(() => "");
-          console.error(`[resend] signup contact creation returned ${res.status}:`, body);
-        }
+      const resendKey    = process.env.RESEND_API_KEY;
+      const usersSegId   = process.env.RESEND_SEGMENT_USERS_ID;
+      if (resendKey) {
+        const r = new Resend(resendKey);
+        const { error } = await r.contacts.create({
+          email,
+          unsubscribed: false,
+          ...(usersSegId ? { segments: [{ id: usersSegId }] } : {}),
+        });
+        if (error) console.error("[resend] signup contact creation failed:", error.message);
       }
     } catch (err) {
       console.error("[resend] signup contact creation failed:", err);
