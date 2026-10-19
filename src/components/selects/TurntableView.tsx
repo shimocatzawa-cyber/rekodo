@@ -475,7 +475,7 @@ function HeroEntry({ post, isAdmin, onUpdated, onDeleted }: EntryProps) {
   }
 
   return (
-    <div className="rk-turntable-hero" style={{ display: "flex", gap: 40, alignItems: "flex-start" }}>
+    <div className="rk-turntable-hero" style={{ display: "flex", gap: 40, alignItems: "stretch" }}>
       {/* Left — large photo (swappable) */}
       <div className="rk-turntable-hero-art" style={{ width: 400, flexShrink: 0 }}>
         <div style={{ width: "100%", aspectRatio: "1 / 1", background: "#f0ede8", overflow: "hidden", display: "flex", alignItems: "center", justifyContent: "center" }}>
@@ -491,46 +491,49 @@ function HeroEntry({ post, isAdmin, onUpdated, onDeleted }: EntryProps) {
         </div>
       </div>
 
-      {/* Right — content */}
-      <div style={{ flex: 1, minWidth: 0, paddingTop: 4 }}>
+      {/* Right — full-height flex column, top content at top, vinyl+notes at bottom */}
+      <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", position: "relative" }}>
+
+        {/* Edit button — absolutely positioned, doesn't push artist name down */}
         {isAdmin && (
-          <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 16 }}>
-            <button onClick={() => setEditing(true)} style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.1em", textTransform: "uppercase", background: "none", border: `1px solid ${RULE}`, padding: "4px 10px", cursor: "pointer", color: "#888888" }}>
-              Edit
-            </button>
-          </div>
+          <button onClick={() => setEditing(true)} style={{ position: "absolute", top: 0, right: 0, fontFamily: MONO, fontSize: "9px", letterSpacing: "0.1em", textTransform: "uppercase", background: "none", border: `1px solid ${RULE}`, padding: "4px 10px", cursor: "pointer", color: "#888888", zIndex: 1 }}>
+            Edit
+          </button>
         )}
 
-        {post.side && (
-          <p style={{ fontFamily: MONO, fontSize: "10px", letterSpacing: "0.14em", textTransform: "uppercase", color: "#aaaaaa", margin: "0 0 12px" }}>
-            {post.side}
+        {/* Top section */}
+        <div>
+          {post.side && (
+            <p style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.14em", textTransform: "uppercase", color: "#aaaaaa", margin: "0 0 10px" }}>
+              {post.side}
+            </p>
+          )}
+
+          <h2 style={{ fontFamily: SERIF, fontSize: "clamp(28px, 3.2vw, 44px)", fontWeight: 600, color: INK, margin: "0 0 4px", lineHeight: 1.05, letterSpacing: "-0.02em" }}>
+            {post.artist}
+          </h2>
+
+          <p style={{ fontFamily: SERIF, fontSize: "clamp(17px, 2vw, 24px)", fontStyle: "italic", color: INK, margin: "0 0 12px", lineHeight: 1.2, letterSpacing: "-0.01em" }}>
+            {post.album}
           </p>
-        )}
 
-        <h2 style={{ fontFamily: SERIF, fontSize: "clamp(36px, 4vw, 54px)", fontWeight: 600, color: INK, margin: "0 0 6px", lineHeight: 1.05, letterSpacing: "-0.02em" }}>
-          {post.artist}
-        </h2>
+          {metaParts && (
+            <p style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.14em", textTransform: "uppercase", color: "#888888", margin: 0 }}>
+              {metaParts}
+            </p>
+          )}
 
-        <p style={{ fontFamily: SERIF, fontSize: "clamp(20px, 2.5vw, 28px)", fontStyle: "italic", color: INK, margin: "0 0 14px", lineHeight: 1.2, letterSpacing: "-0.01em" }}>
-          {post.album}
-        </p>
+          {post.bandcamp_url && (
+            <a href={post.bandcamp_url} target="_blank" rel="noopener noreferrer"
+              style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.1em", textTransform: "uppercase", color: INK, textDecoration: "none", borderBottom: `1px solid ${INK}`, paddingBottom: 1, display: "inline-block", marginTop: 8 }}>
+              Bandcamp ↗
+            </a>
+          )}
+        </div>
 
-        {metaParts && (
-          <p style={{ fontFamily: MONO, fontSize: "10px", letterSpacing: "0.14em", textTransform: "uppercase", color: "#888888", margin: 0 }}>
-            {metaParts}
-          </p>
-        )}
-
-        {post.bandcamp_url && (
-          <a href={post.bandcamp_url} target="_blank" rel="noopener noreferrer"
-            style={{ fontFamily: MONO, fontSize: "10px", letterSpacing: "0.1em", textTransform: "uppercase", color: INK, textDecoration: "none", borderBottom: `1px solid ${INK}`, paddingBottom: 1, display: "inline-block", marginTop: 10 }}>
-            Bandcamp ↗
-          </a>
-        )}
-
-        {/* Thumbnail + listening note */}
-        {(thumbSrc || post.body) && (
-          <div style={{ display: "flex", gap: 24, alignItems: "flex-start", marginTop: 24 }}>
+        {/* Bottom section — vinyl thumbnail + notes, pinned to bottom */}
+        {(thumbSrc || post.favourite_track || post.body) && (
+          <div style={{ display: "flex", gap: 20, alignItems: "flex-end", marginTop: "auto", paddingTop: 24 }}>
             {thumbSrc && (
               <div style={{ flexShrink: 0 }}>
                 {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -542,12 +545,6 @@ function HeroEntry({ post, isAdmin, onUpdated, onDeleted }: EntryProps) {
                   onMouseEnter={e => { e.currentTarget.style.opacity = "1"; }}
                   onMouseLeave={e => { e.currentTarget.style.opacity = "0.75"; }}
                 />
-                {!swapped && (post.side || post.track_time) && (
-                  <div style={{ marginTop: 6 }}>
-                    {post.side && <p style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.12em", textTransform: "uppercase", color: INK, margin: "0 0 2px" }}>{post.side}</p>}
-                    {post.track_time && <p style={{ fontFamily: MONO, fontSize: "10px", color: "#888888", margin: 0 }}>{post.track_time}</p>}
-                  </div>
-                )}
               </div>
             )}
 
@@ -555,21 +552,21 @@ function HeroEntry({ post, isAdmin, onUpdated, onDeleted }: EntryProps) {
               <div style={{ flex: 1, minWidth: 0 }}>
                 {post.favourite_track && (
                   <>
-                    <p style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.18em", textTransform: "uppercase", color: "#aaaaaa", margin: "0 0 8px" }}>
+                    <p style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.18em", textTransform: "uppercase", color: "#aaaaaa", margin: "0 0 6px" }}>
                       Favourite Track
                     </p>
-                    <p style={{ fontFamily: SERIF, fontSize: "clamp(15px, 1.6vw, 18px)", color: INK, margin: "0 0 20px", lineHeight: 1.3 }}>
+                    <p style={{ fontFamily: SERIF, fontSize: "clamp(12px, 1.2vw, 14px)", color: INK, margin: "0 0 14px", lineHeight: 1.3 }}>
                       {post.favourite_track}
                     </p>
                   </>
                 )}
                 {post.body && (
                   <>
-                    <p style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.18em", textTransform: "uppercase", color: "#aaaaaa", margin: "0 0 14px" }}>
+                    <p style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.18em", textTransform: "uppercase", color: "#aaaaaa", margin: "0 0 10px" }}>
                       Listening Note
                     </p>
                     {post.body.split("\n\n").map((para, i) => (
-                      <p key={i} style={{ fontFamily: SERIF, fontSize: "clamp(16px, 1.7vw, 19px)", fontStyle: "italic", lineHeight: 1.7, color: INK, margin: i > 0 ? "14px 0 0" : 0 }}>
+                      <p key={i} style={{ fontFamily: SERIF, fontSize: "clamp(11px, 1.1vw, 13px)", fontStyle: "italic", lineHeight: 1.65, color: INK, margin: i > 0 ? "8px 0 0" : 0 }}>
                         {para}
                       </p>
                     ))}
