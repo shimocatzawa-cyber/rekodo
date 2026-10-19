@@ -1865,7 +1865,7 @@ export default function DeepDiveClient({
       while (active < MAX && queue.length > 0) {
         const a = queue.shift()!;
         active++;
-        fetch(`/api/deep-dive/artist-image?artist=${encodeURIComponent(a.name)}&v=6`)
+        fetch(`/api/deep-dive/artist-image?artist=${encodeURIComponent(a.name)}&v=7`)
           .then((r) => (r.ok ? r.json() : null))
           .then((d: { url?: string } | null) => {
             if (d?.url) setImageMap((prev) => ({ ...prev, [a.name]: `/api/image-proxy?url=${encodeURIComponent(d.url!)}` }));
@@ -2053,7 +2053,7 @@ export default function DeepDiveClient({
     setDiscogsResults([]);
     setQuery("");
     // Always re-fetch for external artists — clears stale wrong images from state
-    fetch(`/api/deep-dive/artist-image?artist=${encodeURIComponent(name)}&v=6`)
+    fetch(`/api/deep-dive/artist-image?artist=${encodeURIComponent(name)}&v=7`)
       .then((r) => (r.ok ? r.json() : null))
       .then((d: { url?: string } | null) => {
         setImageMap((prev) => ({
