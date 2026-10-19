@@ -333,10 +333,10 @@ function useSpotlight(type: "artist" | "label", active: boolean) {
 export default function SelectsClient({ username, displayLabel, avatarUrl, isAdmin }: Props) {
   const t = useTranslations("selects");
   const TABS: { key: SelectsTab; label: string }[] = [
+    { key: "turntable", label: "Turntable" },
     { key: "artist",    label: t("artistSpotlight") },
     { key: "label",     label: t("labelSpotlight") },
     { key: "live",      label: t("live") },
-    ...(isAdmin ? [{ key: "turntable" as SelectsTab, label: "Turntable" }] : []),
   ];
   const [activeTab, setActiveTab] = useUrlTab<SelectsTab>("tab", TAB_KEYS, "artist");
 

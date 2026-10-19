@@ -529,51 +529,45 @@ function HeroEntry({ post, isAdmin, onUpdated, onDeleted }: EntryProps) {
               Bandcamp ↗
             </a>
           )}
+
+          {/* Favourite track + listening note flow naturally after Bandcamp */}
+          {post.favourite_track && (
+            <div style={{ marginTop: 20 }}>
+              <p style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.18em", textTransform: "uppercase", color: "#aaaaaa", margin: "0 0 6px" }}>
+                Favourite Track
+              </p>
+              <p style={{ fontFamily: SERIF, fontSize: "clamp(12px, 1.2vw, 14px)", color: INK, margin: 0, lineHeight: 1.3 }}>
+                {post.favourite_track}
+              </p>
+            </div>
+          )}
+
+          {post.body && (
+            <div style={{ marginTop: post.favourite_track ? 16 : 20 }}>
+              <p style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.18em", textTransform: "uppercase", color: "#aaaaaa", margin: "0 0 8px" }}>
+                Listening Note
+              </p>
+              {post.body.split("\n\n").map((para, i) => (
+                <p key={i} style={{ fontFamily: SERIF, fontSize: "clamp(11px, 1.1vw, 13px)", fontStyle: "italic", lineHeight: 1.65, color: INK, margin: i > 0 ? "8px 0 0" : 0 }}>
+                  {para}
+                </p>
+              ))}
+            </div>
+          )}
         </div>
 
-        {/* Bottom section — vinyl thumbnail + notes, pinned to bottom */}
-        {(thumbSrc || post.favourite_track || post.body) && (
-          <div style={{ display: "flex", gap: 20, alignItems: "flex-end", marginTop: "auto", paddingTop: 24 }}>
-            {thumbSrc && (
-              <div style={{ flexShrink: 0 }}>
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
-                  src={thumbSrc}
-                  alt={thumbAlt}
-                  onClick={() => setSwapped(s => !s)}
-                  style={{ width: 100, height: 100, objectFit: "cover", display: "block", cursor: "pointer", opacity: 0.75, transition: "opacity 0.15s" }}
-                  onMouseEnter={e => { e.currentTarget.style.opacity = "1"; }}
-                  onMouseLeave={e => { e.currentTarget.style.opacity = "0.75"; }}
-                />
-              </div>
-            )}
-
-            {(post.favourite_track || post.body) && (
-              <div style={{ flex: 1, minWidth: 0 }}>
-                {post.favourite_track && (
-                  <>
-                    <p style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.18em", textTransform: "uppercase", color: "#aaaaaa", margin: "0 0 6px" }}>
-                      Favourite Track
-                    </p>
-                    <p style={{ fontFamily: SERIF, fontSize: "clamp(12px, 1.2vw, 14px)", color: INK, margin: "0 0 14px", lineHeight: 1.3 }}>
-                      {post.favourite_track}
-                    </p>
-                  </>
-                )}
-                {post.body && (
-                  <>
-                    <p style={{ fontFamily: MONO, fontSize: "9px", letterSpacing: "0.18em", textTransform: "uppercase", color: "#aaaaaa", margin: "0 0 10px" }}>
-                      Listening Note
-                    </p>
-                    {post.body.split("\n\n").map((para, i) => (
-                      <p key={i} style={{ fontFamily: SERIF, fontSize: "clamp(11px, 1.1vw, 13px)", fontStyle: "italic", lineHeight: 1.65, color: INK, margin: i > 0 ? "8px 0 0" : 0 }}>
-                        {para}
-                      </p>
-                    ))}
-                  </>
-                )}
-              </div>
-            )}
+        {/* Vinyl thumbnail alone — pinned to bottom-left of frame */}
+        {thumbSrc && (
+          <div style={{ marginTop: "auto", paddingTop: 16 }}>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={thumbSrc}
+              alt={thumbAlt}
+              onClick={() => setSwapped(s => !s)}
+              style={{ width: 88, height: 88, objectFit: "cover", display: "block", cursor: "pointer", opacity: 0.75, transition: "opacity 0.15s" }}
+              onMouseEnter={e => { e.currentTarget.style.opacity = "1"; }}
+              onMouseLeave={e => { e.currentTarget.style.opacity = "0.75"; }}
+            />
           </div>
         )}
       </div>
