@@ -180,7 +180,7 @@ function cleanLastFmBio(raw: string): string {
   ];
   for (const pat of cutoffs) {
     const idx = text.search(pat);
-    if (idx > 80) text = text.slice(0, idx); // only cut if there's real content before it
+    if (idx > 0) text = text.slice(0, idx); // cut as long as any content precedes the boilerplate
   }
 
   return text.replace(/\s{2,}/g, " ").trim();

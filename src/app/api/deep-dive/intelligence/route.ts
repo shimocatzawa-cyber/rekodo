@@ -124,14 +124,18 @@ async function fetchDiscogsDiscography(artistName: string): Promise<DiscogsAlbum
     const headers: Record<string, string> = { "User-Agent": "rekodo/1.0 (shimocatzawa@gmail.com)" };
     if (key && secret) headers["Authorization"] = `Discogs key=${key}, secret=${secret}`;
 
-    // Find the artist ID — take the first "artist" type result
+    // Find the artist ID — prefer exact name match to avoid resolving "Maybel" to "Mabel McVey"
     const searchRes = await fetch(
       `https://api.discogs.com/database/search?q=${encodeURIComponent(artistName)}&type=artist&per_page=5`,
       { headers, signal: AbortSignal.timeout(5000) }
     );
     if (!searchRes.ok) return [];
-    const { results = [] } = await searchRes.json() as { results?: { id: number; type: string }[] };
-    const artistId = results.find(r => r.type === "artist")?.id;
+    const { results = [] } = await searchRes.json() as { results?: { id: number; type: string; title?: string }[] };
+    const norm = artistName.toLowerCase().trim();
+    const artistResult =
+      results.find(r => r.type === "artist" && r.title?.toLowerCase().trim() === norm) ??
+      results.find(r => r.type === "artist");
+    const artistId = artistResult?.id;
     if (!artistId) return [];
 
     // Fetch releases sorted chronologically. per_page=500 ensures prolific artists
@@ -512,14 +516,18 @@ async function fetchPressingsData(artistName: string): Promise<{ pressings: Pres
     const headers: Record<string, string> = { "User-Agent": "rekodo/1.0 (shimocatzawa@gmail.com)" };
     if (key && secret) headers["Authorization"] = `Discogs key=${key}, secret=${secret}`;
 
-    // Artist search
+    // Artist search — prefer exact name match to avoid resolving "Maybel" to "Mabel McVey"
     const searchRes = await fetch(
       `https://api.discogs.com/database/search?q=${encodeURIComponent(artistName)}&type=artist&per_page=5`,
       { headers, signal: AbortSignal.timeout(5000) }
     );
     if (!searchRes.ok) return { pressings: [] };
-    const { results = [] } = await searchRes.json() as { results?: { id: number; type: string }[] };
-    const artistId = results.find(r => r.type === "artist")?.id;
+    const { results = [] } = await searchRes.json() as { results?: { id: number; type: string; title?: string }[] };
+    const normP = artistName.toLowerCase().trim();
+    const artistResultP =
+      results.find(r => r.type === "artist" && r.title?.toLowerCase().trim() === normP) ??
+      results.find(r => r.type === "artist");
+    const artistId = artistResultP?.id;
     if (!artistId) return { pressings: [] };
 
     // ── Build album list ─────────────────────────────────────────────────────
