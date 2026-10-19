@@ -1,6 +1,7 @@
 "use server";
 
 import { redirect } from "next/navigation";
+import { after } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { sendSignupNotification } from "@/lib/email";
 import { Resend } from "resend";
@@ -50,19 +51,23 @@ export async function signup(
       .eq("id", data.user.id);
     await sendSignupNotification(email, username, referralSource);
 
-    // Add to Resend contacts (users segment) — fire-and-forget, never blocks signup.
-    // unsubscribed is intentionally omitted: contacts.create upserts by email, so
+    // Add to Resend contacts (users segment) after the response — never blocks signup.
+    // unsubscribed intentionally omitted: contacts.create upserts by email, so
     // omitting it preserves an existing contact's opt-out status unchanged.
-    {
-      const resendKey  = process.env.RESEND_API_KEY;
-      const usersSegId = process.env.RESEND_SEGMENT_USERS_ID;
-      if (resendKey) {
-        new Resend(resendKey).contacts.create({
+    after(async () => {
+      try {
+        const resendKey  = process.env.RESEND_API_KEY;
+        const usersSegId = process.env.RESEND_SEGMENT_USERS_ID;
+        if (!resendKey) return;
+        const { error } = await new Resend(resendKey).contacts.create({
           email,
           ...(usersSegId ? { segments: [{ id: usersSegId }] } : {}),
-        }).catch(err => console.error("[resend] signup contact failed:", err));
+        });
+        if (error) console.error("[resend] signup contact failed:", error.message);
+      } catch (err) {
+        console.error("[resend] signup contact failed:", err);
       }
-    }
+    });
 
     redirect("/onboarding");
   }

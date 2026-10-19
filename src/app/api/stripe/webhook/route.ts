@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest, NextResponse, after } from "next/server";
 import { stripe } from "@/lib/stripe";
 import { createClient } from "@supabase/supabase-js";
 import { Resend } from "resend";
@@ -68,11 +68,10 @@ export async function POST(request: NextRequest) {
       if (customerEmail) {
         const supportersSegId = process.env.RESEND_SEGMENT_SUPPORTERS_ID;
 
-        // Update supporter property and add to supporters segment — fire-and-forget.
-        // supporter is written as number (1) — matches CreateContactPropertiesOptions / UpdateContactPropertiesOptions
-        // which type properties as { [key: string]: string | number | null }.
+        // Update supporter property and add to supporters segment after the response.
+        // supporter: 1 (number) satisfies { [key: string]: string | number | null }.
         // unsubscribed intentionally omitted in all paths to preserve the contact's opt-out status.
-        void (async () => {
+        after(async () => {
           try {
             const { error: updateErr } = await resend.contacts.update({
               email: customerEmail,
@@ -80,7 +79,7 @@ export async function POST(request: NextRequest) {
             });
 
             if (updateErr?.name === "not_found") {
-              // Contact doesn't exist yet — create it (segment assigned at creation)
+              // Contact doesn't exist yet — create it with segment in one call
               const { error: createErr } = await resend.contacts.create({
                 email: customerEmail,
                 properties: { supporter: 1 },
@@ -90,20 +89,25 @@ export async function POST(request: NextRequest) {
             } else if (updateErr) {
               console.error("[resend] supporter contact update failed:", updateErr.message);
             } else if (supportersSegId) {
-              // Contact existed and was updated — add to segment separately.
-              // Ignore validation_error in case they're already in the segment.
+              // Contact existed and was updated — add to segment separately
               const { error: segErr } = await resend.contacts.segments.add({
                 email: customerEmail,
                 segmentId: supportersSegId,
               });
-              if (segErr && segErr.name !== "validation_error") {
-                console.error("[resend] supporter segment add failed:", segErr.message);
+              if (segErr) {
+                // Ignore only the specific "already a member" validation error; log everything else
+                const alreadyMember =
+                  segErr.name === "validation_error" &&
+                  segErr.message.toLowerCase().includes("already");
+                if (!alreadyMember) {
+                  console.error("[resend] supporter segment add failed:", segErr.message);
+                }
               }
             }
           } catch (err) {
             console.error("[resend] supporter contact failed:", err);
           }
-        })();
+        });
 
         // Supporter welcome email
         resend.emails.send({
