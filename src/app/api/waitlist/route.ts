@@ -39,20 +39,43 @@ export async function POST(request: NextRequest) {
   }
 
   // Add to Resend contacts (waitlist segment) after the response — never blocks the reply.
-  // unsubscribed intentionally omitted so an existing contact's opt-out status is preserved.
+  // contacts.create resets unsubscribed to false when the field is omitted, so we
+  // use update → create-if-not-found to avoid re-subscribing opted-out contacts.
   after(async () => {
     try {
       const resendKey     = process.env.RESEND_API_KEY;
       const waitlistSegId = process.env.RESEND_SEGMENT_WAITLIST_ID;
       if (!resendKey) return;
       const today = new Date().toISOString().slice(0, 10);
-      const { error } = await new Resend(resendKey).contacts.create({
+      const r = new Resend(resendKey);
+
+      const updatePayload = {
         email,
         ...(name ? { firstName: name } : {}),
         properties: { waitlist_date: today },
-        ...(waitlistSegId ? { segments: [{ id: waitlistSegId }] } : {}),
-      });
-      if (error) console.error("[resend] waitlist contact failed:", error.message);
+      };
+      const { error: updateErr } = await r.contacts.update(updatePayload);
+
+      if (updateErr?.name === "not_found") {
+        // New contact — safe to set unsubscribed: false
+        const { error: createErr } = await r.contacts.create({
+          email,
+          unsubscribed: false,
+          ...(name ? { firstName: name } : {}),
+          properties: { waitlist_date: today },
+          ...(waitlistSegId ? { segments: [{ id: waitlistSegId }] } : {}),
+        });
+        if (createErr) console.error("[resend] waitlist contact create failed:", createErr.message);
+      } else if (updateErr) {
+        console.error("[resend] waitlist contact update failed:", updateErr.message);
+      } else if (waitlistSegId) {
+        // Existing contact — add to segment without touching unsubscribed
+        const { error: segErr } = await r.contacts.segments.add({ email, segmentId: waitlistSegId });
+        if (segErr) {
+          const alreadyMember = segErr.name === "validation_error" && segErr.message.toLowerCase().includes("already");
+          if (!alreadyMember) console.error("[resend] waitlist segment add failed:", segErr.message);
+        }
+      }
     } catch (err) {
       console.error("[resend] waitlist contact failed:", err);
     }

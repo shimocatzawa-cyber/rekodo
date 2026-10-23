@@ -52,18 +52,35 @@ export async function signup(
     await sendSignupNotification(email, username, referralSource);
 
     // Add to Resend contacts (users segment) after the response — never blocks signup.
-    // unsubscribed intentionally omitted: contacts.create upserts by email, so
-    // omitting it preserves an existing contact's opt-out status unchanged.
+    // contacts.create resets unsubscribed to false when the field is omitted, so we
+    // use update → create-if-not-found to avoid re-subscribing deleted/opted-out users.
     after(async () => {
       try {
         const resendKey  = process.env.RESEND_API_KEY;
         const usersSegId = process.env.RESEND_SEGMENT_USERS_ID;
         if (!resendKey) return;
-        const { error } = await new Resend(resendKey).contacts.create({
-          email,
-          ...(usersSegId ? { segments: [{ id: usersSegId }] } : {}),
-        });
-        if (error) console.error("[resend] signup contact failed:", error.message);
+        const r = new Resend(resendKey);
+
+        const { error: updateErr } = await r.contacts.update({ email });
+
+        if (updateErr?.name === "not_found") {
+          // New contact — safe to set unsubscribed: false
+          const { error: createErr } = await r.contacts.create({
+            email,
+            unsubscribed: false,
+            ...(usersSegId ? { segments: [{ id: usersSegId }] } : {}),
+          });
+          if (createErr) console.error("[resend] signup contact create failed:", createErr.message);
+        } else if (updateErr) {
+          console.error("[resend] signup contact update failed:", updateErr.message);
+        } else if (usersSegId) {
+          // Existing contact — add to segment without touching unsubscribed
+          const { error: segErr } = await r.contacts.segments.add({ email, segmentId: usersSegId });
+          if (segErr) {
+            const alreadyMember = segErr.name === "validation_error" && segErr.message.toLowerCase().includes("already");
+            if (!alreadyMember) console.error("[resend] signup segment add failed:", segErr.message);
+          }
+        }
       } catch (err) {
         console.error("[resend] signup contact failed:", err);
       }
