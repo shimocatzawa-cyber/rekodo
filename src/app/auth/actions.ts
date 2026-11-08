@@ -81,6 +81,18 @@ export async function signup(
             if (!alreadyMember) console.error("[resend] signup segment add failed:", segErr.message);
           }
         }
+
+        // Send welcome email via Resend template
+        const { error: emailErr } = await r.emails.send({
+          from: "rekōdo <hello@rekodo.co>",
+          to: email,
+          subject: "Welcome to rekōdo",
+          template: {
+            id: "b1649150-b3d3-45fb-98d1-72426c984824",
+            variables: { FIRST_NAME: username },
+          },
+        });
+        if (emailErr) console.error("[resend] welcome email failed:", emailErr.message);
       } catch (err) {
         console.error("[resend] signup contact failed:", err);
       }

@@ -18,7 +18,7 @@ export async function GET(request: NextRequest) {
   try {
     const searchRes = await fetch(
       `https://api.discogs.com/database/search?q=${encodeURIComponent(artist)}&type=artist&per_page=5`,
-      { headers, signal: AbortSignal.timeout(5000) }
+      { headers, next: { revalidate: 86400 }, signal: AbortSignal.timeout(5000) }
     );
 
     if (searchRes.ok) {

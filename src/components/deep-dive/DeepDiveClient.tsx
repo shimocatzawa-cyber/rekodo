@@ -1739,7 +1739,9 @@ export default function DeepDiveClient({
     for (const a of discData.albums) {
       if (a.thumb) map[normalise(a.title)] = `/api/image-proxy?url=${encodeURIComponent(a.thumb)}`;
     }
-    return map;
+    // Return undefined when no thumbs found so useDiscographyArt falls back
+    // to its own fetch rather than receiving a truthy-but-empty override map.
+    return Object.keys(map).length > 0 ? map : undefined;
   }, [cache, selectedArtist]);
 
   // Merge server artists with live wantlist data
@@ -1857,8 +1859,11 @@ export default function DeepDiveClient({
 
   // Fire artist image fetches on mount — throttled to 3 concurrent so we don't
   // exhaust the Discogs 60 req/min limit before the discography request fires.
+  // Cap at 100 artists: the sidebar shows the highest-count artists first,
+  // so this covers the ones the user is most likely to interact with without
+  // issuing 600+ Discogs requests and hitting the 60 req/min rate limit.
   useEffect(() => {
-    const queue = [...artists];
+    const queue = [...artists].slice(0, 100);
     let active = 0;
     const MAX = 3;
     function runNext() {
@@ -2048,6 +2053,10 @@ export default function DeepDiveClient({
   function selectExternalArtist(name: string, discogsId?: number) {
     setIsExternalArtist(true);
     externalDiscogsIdRef.current = discogsId ?? null;
+    // Clear discography from startedRef so the tab re-fetches with the
+    // correct artistId (bypassing any stale entry left from a collection-based
+    // selection of the same artist name without an explicit Discogs ID).
+    startedRef.current.delete(`${name}:discography`);
     setSelectedArtist(name);
     setActiveTab("about");
     setDiscogsResults([]);
