@@ -30,6 +30,7 @@ export interface SpotlightMeta {
   // shared
   location?: string;
   image_url?: string;
+  image_position?: string;
 }
 
 export interface Spotlight {
