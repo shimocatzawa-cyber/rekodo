@@ -640,7 +640,7 @@ function ListEntry({ post, isAdmin, onUpdated, onDeleted }: EntryProps) {
           </p>
         )}
         {post.body && (
-          <p style={{ fontFamily: SERIF, fontSize: "clamp(10px, 1vw, 12px)", fontStyle: "italic", color: "#666666", margin: 0, lineHeight: 1.5, overflow: "hidden", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical" }}>
+          <p style={{ fontFamily: SERIF, fontSize: "clamp(10px, 1vw, 12px)", fontStyle: "italic", color: "#666666", margin: 0, lineHeight: 1.5 }}>
             {post.body.split("\n\n")[0]}
           </p>
         )}
@@ -651,7 +651,7 @@ function ListEntry({ post, isAdmin, onUpdated, onDeleted }: EntryProps) {
         {vinylSrc && !vinylFailed ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img src={vinylSrc} alt="vinyl" onError={() => setVinylFailed(true)}
-            style={{ width: 64, height: 64, borderRadius: "50%", objectFit: "cover", display: "block" }} />
+            style={{ width: 64, height: 64, objectFit: "cover", display: "block" }} />
         ) : (
           // SVG fallback disc
           <svg width="64" height="64" viewBox="0 0 64 64" fill="none" aria-hidden="true">
